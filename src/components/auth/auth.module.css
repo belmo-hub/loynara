@@ -16,11 +16,8 @@
 .alert { display: flex; gap: var(--space-3); align-items: flex-start; margin: 0; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-danger); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-danger) 7%, var(--color-raised)); color: var(--color-ink); font-size: var(--text-14); line-height: 1.45; }
 .alert svg { flex: none; margin-top: 1px; color: var(--color-danger); }
 
-/* Sign-in (ENG-122h, screen 34): the question one step larger on phones too, the legal links centred under the form. */
+/* Sign-in (ENG-122h, screen 34): the question one step larger on phones too. */
 .signin h1 { font-size: var(--display-36); line-height: 1.1; }
-.legal { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-5); }
-.legal a { display: inline-flex; align-items: center; min-height: var(--target); color: var(--color-action); font-size: var(--text-14); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius-sm); }
-.legal a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 .note { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.5; text-wrap: pretty; }
 .link { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius-sm); }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
+import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
 import { consentLines } from "./card-wallet-messages";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
@@ -94,5 +94,19 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
   });
   it("re-reads consent and wallet status when the page becomes visible again", () => {
     for (const file of ["src/components/card-client.tsx", "src/components/card-wallet-messages.tsx"]) expect(readFileSync(file, "utf8")).toMatch(/addEventListener\("visibilitychange", visible\)/);
+  });
+});
+
+describe("activity dates on the card (G-M3)", () => {
+  const now = new Date("2026-10-31T12:00:00Z");
+  it("says Heute and Gestern, then the weekday within the week, then the date, with the year only when it is not this one", () => {
+    expect(activityDay("2026-10-31T07:00:00Z", "de-DE", now)).toBe("Heute");
+    expect(activityDay("2026-10-30T09:00:00Z", "de-DE", now)).toBe("Gestern");
+    expect(activityDay("2026-10-28T09:00:00Z", "de-DE", now)).toBe("Mi");
+    expect(activityDay("2026-10-20T09:00:00Z", "de-DE", now)).toBe("20. Okt.");
+    expect(activityDay("2025-12-24T09:00:00Z", "de-DE", now)).toBe("24. Dez. 2025");
+  });
+  it("gives French cards the plain date, with no new French words", () => {
+    expect(activityDay("2026-10-31T07:00:00Z", "fr-FR", now)).toBe(new Date("2026-10-31T07:00:00Z").toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }));
   });
 });

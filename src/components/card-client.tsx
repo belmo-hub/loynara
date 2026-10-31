@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { CreditCard } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
 import { CustomerCard } from "./customer/customer-card";
@@ -9,7 +11,7 @@ import { CardContact } from "./card-contact";
 import { CardReferral } from "./card-referral";
 import { CardBirthday } from "./card-birthday";
 import { CardWalletMessages } from "./card-wallet-messages";
-import { Button } from "./ui/button";
+import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
 import { markWalletStep, readWalletStep } from "./wallet-step";
@@ -204,12 +206,14 @@ export function CardClient({ token }: { token: string }) {
     } finally { setCloseBusy(false); }
   }
 
-  if (closed) return <CardState title="Karte geschlossen." message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
+  if (closed) return <CardState title="Karte geschlossen" message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
   if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
-  if (!card) return <CardState title="Karte nicht erreichbar." message={error} tone="error" />;
+  if (!card) return <CardState title="Karte nicht erreichbar" message={error} tone="error" icon={<CreditCard size={24} />}>
+    <Link className={buttonClassName({ block: true })} href="/recover">Karte wiederfinden</Link>
+  </CardState>;
   const french = card.locale === "fr";
   const expiry = card.programType === "points" && Boolean(card.pointsExpiry || card.pendingExpiry);
-  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Besuch erfasst" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: new Date(entry.createdAt).toLocaleDateString(french ? "fr-FR" : "de-DE", { day: "2-digit", month: "short", year: "numeric" }), change: entry.delta }));
+  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Gesammelt" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: activityDay(entry.createdAt, french ? "fr-FR" : "de-DE"), change: entry.delta }));
   const notices = <>
     {authenticationRequired && <section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section>}
     {switchRequired && <section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section>}
@@ -220,7 +224,19 @@ export function CardClient({ token }: { token: string }) {
   return <CustomerCard changes={cardChanges({ programType: card.programType === "points" ? "points" : "stamp", rewards: card.rewards, pending: card.pending, pendingExpiry: card.pendingExpiry })} notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={card.balance} landed={landed} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} walletSaved={savedLine && !french} appleSaved={wallet?.appleSaved === true} contactPanel={<>{!(savedView && consentUp) && <CardContact token={token} locale={french ? "fr" : "de"} />}{!savedView && <CardWalletMessages token={token} expiry={expiry} />}<CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
-function CardState({ title, message, tone = "info" }: { title: string; message: string; tone?: "info" | "error" }) {
+function CardState({ title, message, tone = "info", icon, children }: { title: string; message: string; tone?: "info" | "error"; icon?: ReactNode; children?: ReactNode }) {
   // The page turns into this state after the card was shown, so focus the title to announce it.
-  return <CustomerState title={title} message={message} tone={tone} focusTitle />;
+  return <CustomerState title={title} message={message} tone={tone} icon={icon} focusTitle>{children}</CustomerState>;
+}
+
+/** Activity dates (G-M3), by calendar day: „Heute“, „Gestern“, the weekday within the week, then „30. Okt.“, the year only
+ *  when it is not this one. French cards keep the plain date (no new French copy for now). */
+export function activityDay(iso: string, locale: string, now = new Date()) {
+  const date = new Date(iso);
+  if (locale.startsWith("fr")) return date.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
+  const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days === 0) return "Heute";
+  if (days === 1) return "Gestern";
+  if (days > 1 && days < 7) return date.toLocaleDateString(locale, { weekday: "short" });
+  return date.toLocaleDateString(locale, { day: "numeric", month: "short", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
 }

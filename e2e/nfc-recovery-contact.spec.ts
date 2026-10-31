@@ -58,13 +58,13 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await verificationPage.goto(verification);
     expect((await sql("SELECT email_verified FROM membership_contacts WHERE membership_id=$1", [original.id]))[0].email_verified).toBe(false);
     await verificationPage.getByRole("button", { name: "E-Mail-Adresse bestätigen", exact: true }).click();
-    await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt." })).toBeVisible();
+    await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt" })).toBeVisible();
     const verifyToken = new URLSearchParams(new URL(verification).hash.slice(1)).get("token");
     expect((await verifier.request.post("/api/contact/verify", { headers: origin, data: { token: verifyToken } })).status()).toBe(400);
     const pending = await pendingOf(a.cashier);
     expect(pending).toHaveLength(1);
     expect((await a.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
     const before = await (await customer.request.get(`/api/card/${original.card_token}`)).json();
     const passId = randomUUID(), passObject = `passfast:synthetic_recovery_${passId}`;
     await sql("INSERT INTO wallet_passes (id,tenant_id,membership_id,provider,provider_object_id,status,credential_hash) VALUES ($1,$2,$3,'apple',$4,'active',$5)", [passId,a.me.tenantId,original.id,passObject,createHash("sha256").update(original.scan_code).digest("hex")]);
@@ -104,7 +104,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await expect(secondSetup.getByText(/Bestätigungslink angefordert/)).toBeVisible();
     await verificationPage.goto(await deliveredLink(email,"/verify-email"));
     await verificationPage.getByRole("button", { name:"E-Mail-Adresse bestätigen",exact:true }).click();
-    await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt." })).toBeVisible();
+    await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();
     const fresh = await newDevice.newPage();
     await fresh.goto("/recover");
     await fresh.getByRole("textbox", { name:"Bestätigte E-Mail-Adresse" }).fill(email);
@@ -128,7 +128,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const returning=await pendingOf(a.cashier);
     const approvals=await Promise.all([a.cashier.post(`/api/cashier/tap/${returning[0].id}/confirm`),a.owner.post(`/api/cashier/tap/${returning[0].id}/confirm`)]);
     expect(approvals.every(r=>r.status()===200)).toBe(true);
-    await expect(fresh.locator(".customer-balance-line strong")).toHaveText(/^2\s*Stempel$/);
+    await expect(fresh.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
     expect(await sql("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award' ORDER BY created_at",[original.id])).toEqual([{delta:1},{delta:1}]);
     expect(await sql("SELECT id,provider_object_id,revoked_at FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked_at:null}]);
     expect((await sql("SELECT count(*)::int AS n FROM memberships WHERE program_id=ANY($1::uuid[])",[[a.me.programId,b.me.programId]]))[0].n).toBe(2);
