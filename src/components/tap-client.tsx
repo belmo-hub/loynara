@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
@@ -158,7 +158,7 @@ export function TapClient({ refId }: { refId: string }) {
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
   // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
   useEffect(() => {
-    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
     let active = true;
     void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
       if (!active) return;
@@ -167,9 +167,22 @@ export function TapClient({ refId }: { refId: string }) {
       if (step.show) setWalletProgram(value);
     }).catch(() => {});
     return () => { active = false; };
-  }, [preview, recoveryCard, done]);
+  }, [preview, recoveryCard, done, waiting]);
 
   const celebrate = moment && done;
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Apple's sheet opened from the band (ENG-160): the band, not this page, then follows the stamp to the card.
+  const [walletAdding, setWalletAdding] = useState(false);
+  // A new state lands above a customer who scrolled down to the band: back to the top, as the page arrives (Design,
+  // 31 Oct). The stamp only when the card is out of view and Apple's sheet did not open (the card page takes over then);
+  // a request that ended (expired, rejected, failed) always, since those stay on this page.
+  const ended = state === "expired" || state === "cancelled" || state === "error";
+  useEffect(() => {
+    const card = cardRef.current;
+    const stampAbove = celebrate && !walletAdding && card !== null && card.getBoundingClientRect().top < 0;
+    if (!stampAbove && !(ended && window.scrollY > 0)) return;
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [celebrate, walletAdding, ended]);
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
@@ -180,7 +193,7 @@ export function TapClient({ refId }: { refId: string }) {
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
     {done && points && result?.credited ? <p className={styles.credited}><span>+{result.credited}</span> {result.credited === 1 ? "Punkt" : "Punkte"}</p> : null}
-    {done && card && typeof result?.balance === "number" && <div className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
+    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
     {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
       <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>
@@ -197,7 +210,7 @@ export function TapClient({ refId }: { refId: string }) {
     </div>}
     {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
-    {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
+    {walletProgram && recoveryCard && <WalletStep band stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerState>;
 }

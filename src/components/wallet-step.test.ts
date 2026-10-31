@@ -45,10 +45,15 @@ describe("after a successful join (ENG-130 03)", () => {
 
 describe("the Wallet band on the tap page (ENG-130 03)", () => {
   it("asks the location only after a booked stamp, for a handed-over card, on iOS", () => {
-    expect(tapAsksForWalletStep({ done: true, ios: true, mark: "pending" })).toBe(true);
-    expect(tapAsksForWalletStep({ done: false, ios: true, mark: "pending" })).toBe(false);
-    expect(tapAsksForWalletStep({ done: true, ios: false, mark: "pending" })).toBe(false);
-    for (const mark of [null, "shown", "saved"] as const) expect(tapAsksForWalletStep({ done: true, ios: true, mark })).toBe(false);
+    expect(tapAsksForWalletStep({ done: true, waiting: false, ios: true, mark: "pending" })).toBe(true);
+    // ENG-160: already while the customer waits for the team.
+    expect(tapAsksForWalletStep({ done: false, waiting: true, ios: true, mark: "pending" })).toBe(true);
+    expect(tapAsksForWalletStep({ done: false, waiting: false, ios: true, mark: "pending" })).toBe(false);
+    expect(tapAsksForWalletStep({ done: false, waiting: true, ios: false, mark: "pending" })).toBe(false);
+    for (const mark of [null, "shown", "saved"] as const) {
+      expect(tapAsksForWalletStep({ done: true, waiting: false, ios: true, mark })).toBe(false);
+      expect(tapAsksForWalletStep({ done: false, waiting: true, ios: true, mark })).toBe(false);
+    }
   });
   it("ends the hand-over with „shown“ either way, and shows only for a German shop with Apple Wallet", () => {
     expect(tapWalletStep({ appleWallet: true, locale: "de" })).toEqual({ show: true, mark: "shown" });
