@@ -109,7 +109,7 @@ test("a returning guest is offered the saved card instead of a silent second car
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
     await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
     await page.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByText("die nicht mehr gilt", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
 
@@ -118,7 +118,7 @@ test("a returning guest is offered the saved card instead of a silent second car
     try {
       const fresh = await privateWindow.newPage();
       await fresh.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-      await expect(fresh.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+      await expect(fresh.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
       await expect(fresh.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
     } finally { await privateWindow.close(); }
   } finally { await phone.close(); await shop.owner.dispose(); }
@@ -158,7 +158,7 @@ test("a card from one programme is never offered on another programme's join pag
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await page.goto(`/join/${encodeURIComponent(barber.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toHaveCount(0);
     await page.goto(`/join/${encodeURIComponent(pizza.programSlug)}`);
     await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toBeVisible();

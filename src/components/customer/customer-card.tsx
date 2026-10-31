@@ -125,15 +125,16 @@ export function CustomerCard(props: CustomerCardProps) {
             {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{readyCount > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
           </section>
         </CardFace>
+        {/* The band sits right under the card, before the refresh row (mock 24). */}
+        {readyCount > 0 ? <p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
         {props.onRefresh ? <div className={styles.refresh}>
-          <Button variant="quiet" size="sm" icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
+          <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
         </div> : null}
       </div>
 
       {notices}
 
-      {readyCount > 0 ? <p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
     </div>
 
     <div className={styles.rest}>
@@ -182,7 +183,7 @@ export function CustomerCard(props: CustomerCardProps) {
           {props.walletError && sheet !== "wallet" ? <p className={`wallet-error ${styles.alert}`} role="alert">{props.walletError}</p> : null}
           {hasRules ? <Signpost icon={Megaphone} title={t.rules} onOpen={() => setSheet("rules")} /> : null}
           <Signpost icon={Link2} title={t.save} onOpen={() => setSheet("return")} />
-          {exportUrl ? <div className={`${styles.row} ${styles.export}`}><span className={styles.rowIcon}><Download size={22} aria-hidden="true" /></span><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink></div> : null}
+          {exportUrl ? <div className={`${styles.row} ${styles.export}`}><span className={styles.rowIcon}><Download size={22} aria-hidden="true" /></span><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink><ArrowRight className={styles.rowArrow} size={22} aria-hidden="true" /></div> : null}
         </div>
       </Section>
       {wallets.length ? <Wallet {...props} t={t} buttons={wallets} open={sheet === "wallet"} onClose={closeSheet} /> : null}

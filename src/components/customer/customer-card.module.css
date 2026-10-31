@@ -37,15 +37,16 @@
 .balanceLine strong { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Points: the balance leads the card (mock 24). */
 .pointsLead { margin: 0; line-height: 1; }
-.pointsLead strong { font-family: var(--font-display); font-size: var(--display-tile); font-weight: var(--weight-heavy); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pointsLead strong { font-family: var(--font-display); font-size: var(--display-num); font-weight: var(--weight-heavy); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .pointsLead em { margin-left: var(--space-1); font-style: normal; font-family: var(--font-sans); font-size: var(--text-18); font-weight: var(--weight-strong); letter-spacing: 0; }
 .levelTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--merchant-ink), transparent 82%); font-size: var(--text-14); font-weight: var(--weight-heavy); }
 .remaining { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.4; }
 
 /* The code: inset in the card on white, in both themes, for the counter's camera. */
 /* The QR and the number side by side (mock 23), so the card stays short. */
-.ticket { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: var(--space-3); margin-top: var(--space-1); padding: var(--space-3); border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
-.qr { width: 128px; aspect-ratio: 1; }
+.ticket { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; gap: var(--space-3); margin-top: var(--space-1); padding: var(--space-3); border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
+/* 140 px keeps a module about 4.4 px for the counter camera (jsQR on 640 px frames); never below 128 (Design, 31 Oct). */
+.qr { width: 140px; aspect-ratio: 1; }
 .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .missingQr { margin: 0; font-size: var(--text-14); }
 .locator { display: grid; gap: var(--space-1); min-width: 0; margin: 0; container-type: inline-size; }
@@ -53,11 +54,15 @@
 /* Read aloud at the counter, so it stays on one line (G-05); a step smaller on narrow phones. */
 .locator strong { font-size: clamp(var(--text-16), 14cqi, var(--text-28)); font-weight: var(--weight-heavy); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .locator small { font-size: var(--text-14); line-height: 1.4; color: #58645C; text-wrap: pretty; }
-@media (max-width: 359px) { .ticket { grid-template-columns: 112px minmax(0, 1fr); } .qr { width: 112px; } }
+/* Below 360 the number goes under a 128 px QR: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
+@media (max-width: 359px) { .ticket { grid-template-columns: minmax(0, 1fr); justify-items: start; } .qr { width: 128px; } }
 
 .cardGroup { display: grid; gap: var(--space-3); }
 .alert { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .refresh { display: grid; justify-items: center; gap: var(--space-1); }
+/* Not green: the one next step is the band (Design, 31 Oct). */
+.refresh .refreshButton { color: var(--color-ink-muted); }
+@media (hover: hover) { .refresh .refreshButton:hover { background: var(--color-fill); color: var(--color-ink); } }
 
 /* Phone: one column in source order. From 960 px the shell runs two columns and these become them (G-34). */
 .lead, .rest { display: contents; }
@@ -119,7 +124,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 
 .activity { display: grid; margin: 0; padding: 0; list-style: none; }
 /* The day first as a muted column, the label, the value in ink (G-21: no green here). */
-.activity li { display: grid; grid-template-columns: 4rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
+.activity li { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
 .activity li:first-child { border-top: 0; }
 .activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
 .activity strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -130,7 +135,8 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin: 0; }
 .links a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
 /* The export as a „Deine Karte“ row; its own button and error line keep their behaviour. */
-.export :global(.terms-link) { flex: 1; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1.35 var(--font-sans); text-align: start; text-decoration: none; cursor: pointer; }
+.export :global(.customer-export) { flex: 1; min-width: 0; }
+.export :global(.terms-link) { display: flex; align-items: center; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1.35 var(--font-sans); text-align: start; text-decoration: none; cursor: pointer; }
 .export :global(.auth-error) { flex-basis: 100%; margin: 0; padding-left: 52px; font-size: var(--text-14); color: var(--color-danger); }
 
 /* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */

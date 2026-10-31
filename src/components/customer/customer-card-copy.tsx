@@ -19,7 +19,7 @@ const de = {
   cardNumber: "Kartennummer", cardNumberHint: "An der Kasse nennen, falls der Code nicht scannt.",
   showToRedeem: "Zum Einlösen an der Kasse zeigen.",
   walletTitle: "In Wallet speichern",
-  walletIntro: "Deine Karte liegt dann bei deinen anderen Karten auf dem Handy. Stempel und Prämien aktualisieren sich dort automatisch; gebucht wird weiterhin an der Kasse.",
+  walletIntro: "Deine Karte liegt dann bei deinen anderen Karten auf dem Handy. Stempel und Prämien aktualisieren sich dort automatisch; bestätigt wird weiterhin an der Kasse.",
   // ENG-148, cards 23–26: copy-rest R20, Marketing FINAL 28 Oct. The ready band says rewardReady in two lines.
   goodToKnow: "Gut zu wissen", yourCardHead: "Deine Karte", walletRow: "Stand aktualisiert sich automatisch",
   readyTitle: "Prämie verfügbar.", readyText: "Lass sie an der Kasse einlösen.",
@@ -33,7 +33,7 @@ const de = {
   stepNumber: (locator: string) => <>Notiere dir deine Kartennummer <strong>{locator}</strong>. Damit findet das Geschäft deine Karte und kann dir nach einer Prüfung einen neuen Kartenlink geben.</>,
   linkWarning: "Wer den Kartenlink hat, kann die Karte öffnen. Gib ihn nicht weiter.",
   copyLink: "Kartenlink kopieren", copied: "Kartenlink kopiert.", copyFailed: "Kopieren nicht möglich. Speichere diese Seite über deinen Browser.",
-  activity: "Letzte Aktivität", activityEmpty: "Noch keine Buchungen. Sie erscheinen hier, sobald die Kasse bestätigt.",
+  activity: "Letzte Aktivität", activityEmpty: "Noch nichts gesammelt. Hier erscheint alles, was die Kasse auf deiner Karte bestätigt.",
   endsOn: (date: string) => `Diese Karte endet am ${date}.`,
   endsWindow: (points: boolean) => `Bis dahin kannst du weiter ${points ? "Punkte" : "Stempel"} sammeln und Prämien einlösen.`,
   // Level and challenge (the level names and the challenge sentence come from the server).

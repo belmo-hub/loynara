@@ -99,8 +99,10 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
 
 describe("activity dates on the card (G-M3)", () => {
   const now = new Date("2026-10-31T12:00:00Z");
-  it("names the weekday within the last week, then the date, with the year only when it is not this one", () => {
-    expect(activityDay("2026-10-30T09:00:00Z", "de-DE", now)).toBe("Fr");
+  it("says Heute and Gestern, then the weekday within the week, then the date, with the year only when it is not this one", () => {
+    expect(activityDay("2026-10-31T07:00:00Z", "de-DE", now)).toBe("Heute");
+    expect(activityDay("2026-10-30T09:00:00Z", "de-DE", now)).toBe("Gestern");
+    expect(activityDay("2026-10-28T09:00:00Z", "de-DE", now)).toBe("Mi");
     expect(activityDay("2026-10-20T09:00:00Z", "de-DE", now)).toBe("20. Okt.");
     expect(activityDay("2025-12-24T09:00:00Z", "de-DE", now)).toBe("24. Dez. 2025");
   });

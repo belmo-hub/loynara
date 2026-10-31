@@ -149,6 +149,11 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     expect(out).toMatch(/customer-balance-line[^"]*"><strong><span[^>]*>112<\/span> <em>Punkte<\/em><\/strong>/);
     expect(out).toMatch(/>100<\/small><small[^>]*>Bartöl<\/small>/);
   });
+  it("aligns an early reward's labels to the ladder's start and the last one's to its end (Design FIX 4)", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 0, rewards: [{ id: "a", title: "Ein sehr langer Prämienname", cost: 20 }, { id: "b", title: "Haarschnitt", cost: 250 }] }));
+    expect(out).toMatch(/data-start="true"[^>]*><span[^>]*><\/span><small[^>]*>20<\/small><small[^>]*>Ein sehr langer Prämienname/);
+    expect(out).toMatch(/data-end="true"[^>]*><span[^>]*><\/span><small[^>]*>250<\/small>/);
+  });
   it("puts the goal slot with the gift on the stamp grid", () => {
     expect(renderToStaticMarkup(h(CustomerCard, base))).toContain("data-reward=\"true\"");
   });
