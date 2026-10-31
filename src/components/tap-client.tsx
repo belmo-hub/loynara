@@ -175,6 +175,8 @@ export function TapClient({ refId }: { refId: string }) {
   return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live
     icon={state === "error" ? <TriangleAlert size={24} /> : undefined}
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
+    {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
+    {done && points && result?.credited ? <p className={styles.credited}><span>+{result.credited}</span> {result.credited === 1 ? "Punkt" : "Punkte"}</p> : null}
     {done && card && typeof result?.balance === "number" && <div className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
     {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
