@@ -81,3 +81,20 @@ test("an Apple add after the stamp has landed goes to the card, as on the join's
     await cashier.close();
   } finally { await customer.close(); await m.close(); }
 });
+
+test("a failed Apple add keeps the band and its error on the tap page when the stamp lands", async ({ baseURL, browser }) => {
+  const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    await customer.unroute("**/api/wallet/apple");
+    await customer.route("**/api/wallet/apple", route => route.fulfill({ status: 503, json: { code: "WALLET_UNAVAILABLE" } }));
+    await addToWallet(page);
+    const error = page.getByRole("alert").filter({ hasText: "Wallet ist gerade nicht verfügbar" });
+    await expect(error).toBeVisible();
+    const cashier = await confirm();
+    await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(1_000);
+    expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+    await expect(error).toBeVisible();
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
