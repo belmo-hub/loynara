@@ -93,3 +93,25 @@ describe("switching Apple Wallet from PassFast to native issuance", () => {
     } finally { apple.cleanup(); }
   });
 });
+
+describe("Apple Wallet saved on a device (ENG-130 08)", () => {
+  it("reports appleSaved only once a device registered the card's live pass", async () => {
+    const { merchant, member } = await memberFixture();
+    const apple = appleFixture();
+    const saved = async () => (await (await walletStatus(post("/api/wallet/status", member.cardToken))).json()).appleSaved;
+    try {
+      await withEnv({ ...apple.env, PUBLIC_BASE_URL: origin }, async () => {
+        expect(await saved()).toBe(false);
+        expect((await appleIssue(post("/api/wallet/apple", member.cardToken))).status).toBe(200);
+        // Issued and downloaded, but Apple's sheet was cancelled: nothing registered.
+        expect(await saved()).toBe(false);
+        const [pass] = await rows(member.id);
+        await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('device-eng-130', $1)", ["a".repeat(64)]);
+        await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ('device-eng-130', $1, $2, $3, $4)", [merchant.tenantId, member.id, apple.config.passTypeId, pass.id]);
+        expect(await saved()).toBe(true);
+        await pool.query("UPDATE wallet_passes SET revoked_at = now(), revoke_reason = 'superseded', status = 'revoked' WHERE id = $1", [pass.id]);
+        expect(await saved()).toBe(false);
+      });
+    } finally { apple.cleanup(); }
+  });
+});

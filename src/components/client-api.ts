@@ -172,6 +172,9 @@ export type PublicProgram = {
   brandColor?: string;
   active?: boolean;
   referral?: { enabled: boolean; referrerBonus: number; referredBonus: number };
+  /** ENG-130: Apple Wallet can issue a pass for this location, and the walletMessages surface is on (the server decides both). */
+  appleWallet?: boolean;
+  walletMessages?: boolean;
   /** ENG-100 D7: the newest rule and reward versions shown, sent back with the join. */
   ruleVersionId?: string;
   rewardVersionIds?: string[];

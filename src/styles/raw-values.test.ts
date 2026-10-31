@@ -25,6 +25,8 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/customer/customer-card.module.css", kind: "font size", selectors: [".goalLine"], value: "clamp(1.5rem, 6.6vw, var(--text-28))", reason: "the goal line shrinks on narrow phones so merchant, balance and QR fit 360 × 800" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small", ".ticketNote"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
+  { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
+  { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".apple"], reason: "Add to Wallet buttons follow Apple's button artwork (black with white)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },

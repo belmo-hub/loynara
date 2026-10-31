@@ -18,6 +18,8 @@ import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { germanDate } from "./programme-end-date";
 import { birthdayRule, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh, scheduleWalletProgramRefresh } from "./wallet/enqueue";
+import { walletAvailability } from "./wallet/capability";
+import { passFastEnv } from "./wallet/template-bindings";
 import { liveReward, noticeEnd, notSuperseded, savedAt } from "./reward-versions";
 import { expiryWaits, programInForce, ruleVersions } from "./rule-versions";
 import { cardExpiry } from "./points-expiry";
@@ -719,8 +721,10 @@ export async function getPublicProgram(slug: string) {
   const [reward] = rewardList;
   // The day a change saved now would take effect (ENG-100, four weeks on, the shop's calendar), for the owner's screens before saving.
   const noticeOn = new Intl.DateTimeFormat("en-CA", { timeZone: row.location.timezone }).format(new Date(Date.now() + 28 * 86_400_000));
+  // ENG-130: the join page has no card yet, so Apple Wallet is asked of the location (the same check a card's wallet status makes).
+  const appleWallet = walletAvailability(await passFastEnv(row.tenant.id, row.location.id), row.tenant.id, row.location.id, row.program.id).apple === "available";
   // The join sends back the newest rule and reward versions it showed (D7); owner screens read pending ?? in force.
-  return { noticeOn, businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { noticeOn, appleWallet, walletMessages: !surfaceHidden("walletMessages"), businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

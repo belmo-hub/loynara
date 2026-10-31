@@ -14,6 +14,8 @@ import { Checkbox } from "./ui/checkbox";
 import { CustomerShell } from "./ui/customer-shell";
 import { PointsLadder } from "./ui/points-ladder";
 import { StampGrid } from "./ui/stamp-grid";
+import { walletPlatform } from "./wallet-preparation";
+import { afterJoin, iphoneJoin, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
 
 const copy = {
@@ -33,6 +35,8 @@ function subscribeToLocation(notify: () => void) {
 }
 function currentReferralCode() { return new URLSearchParams(window.location.search).get("ref"); }
 function serverReferralCode() { return null; }
+const noSubscription = () => () => {};
+const serverPlatform = () => "other" as const;
 
 type Returning = { state: "checking" | "none" | "stale" | "unknown" } | { state: "existing"; cardLocator: string };
 
@@ -69,6 +73,9 @@ export function JoinClient({ slug }: { slug: string }) {
   // ENG-100: the full new rule opens in place, above the checkbox (W58); a stale join marks the rules it reloaded.
   const [showRule, setShowRule] = useState(false), [stale, setStale] = useState(false);
   const referralCode = useSyncExternalStore(subscribeToLocation, currentReferralCode, serverReferralCode);
+  const platform = useSyncExternalStore(noSubscription, walletPlatform, serverPlatform);
+  // ENG-130: the card made here, while the Wallet step shows instead of the join form.
+  const [walletStep, setWalletStep] = useState<string | null>(null);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
@@ -109,7 +116,10 @@ export function JoinClient({ slug }: { slug: string }) {
       if (!result) return;
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
-      if (continuation && /^\/tap\/[A-Za-z0-9_-]{24}\?e=[a-fA-F0-9]{32}&c=[a-fA-F0-9]{16}$/.test(continuation)) router.push(continuation);
+      const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
+      if (next.mark) markWalletStep(result.cardToken, next.mark);
+      if (next.go === "tap") router.push(continuation!);
+      else if (next.go === "step") setWalletStep(result.cardToken);
       else router.push(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.code === "CARD_EXISTS") {
@@ -135,6 +145,10 @@ export function JoinClient({ slug }: { slug: string }) {
 
   if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
+  if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
+    <WalletStep token={walletStep} program={program} />
+  </CustomerShell>;
+  const iphone = iphoneJoin(platform, program);
 
   const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
     <p className={styles.welcome}>{t.welcome}</p>
@@ -165,6 +179,12 @@ export function JoinClient({ slug }: { slug: string }) {
         <h2 className={styles.title}>{t.anotherTitle}</h2>
         <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à ${withUnit(0, program.programType, locale)}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei ${withUnit(0, program.programType, locale, "dat")}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>
         <a className={buttonClassName({ variant: "secondary", block: true })} href={openHref}>{t.backToCard}</a>
+      </> : iphone ? <>
+        <h2 className={styles.headline}>Deine {program.programType === "points" ? "Punktekarte" : "Stempelkarte"}, direkt auf dem iPhone.</h2>
+        <ol className={styles.steps}>
+          <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
+          <li><span aria-hidden="true">2</span><p><strong>In Apple Wallet legen</strong>Dann ist sie bei deinen Karten</p></li>
+        </ol>
       </> : <>
         <h2 className={styles.headline}>{t.headline}</h2>
         <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>
