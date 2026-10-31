@@ -51,8 +51,9 @@ export async function checkedLogoUpload(value: string): Promise<string> {
 }
 
 /**
- * whiteCanvas: an opaque upload lost a white margin, so it is a logo on a white canvas (a JPG wordmark, typically). The
- * result keeps a 1 px white edge then, so the stored PNG still says so when a pass is built from it.
+ * whiteCanvas: an opaque upload lost a white margin on at least three sides, so it is a logo on a white canvas (a JPG
+ * wordmark, typically), not a photo with a light sky or a box with a light export line. The result keeps a 1 px white
+ * edge then, so the stored PNG still says so when a pass is built from it.
  */
 async function trimmedLogo(bytes: Buffer): Promise<{ png: Buffer; whiteCanvas: boolean }> {
   const { width = 0, height = 0 } = await sharp(bytes, { limitInputPixels: MAX_LOGO_PIXELS }).metadata();
@@ -64,10 +65,21 @@ async function trimmedLogo(bytes: Buffer): Promise<{ png: Buffer; whiteCanvas: b
   // Transparent margins go; on an opaque image only a white canvas does, so a logo's own coloured box stays whole.
   const trimmed = isOpaque ? await input().trim({ background: WHITE, threshold: 15 }).png().toBuffer({ resolveWithObject: true })
     : await input().extract(await visibleBox(input())).png().toBuffer({ resolveWithObject: true });
-  const whiteCanvas = isOpaque && (trimmed.info.width < info.width || trimmed.info.height < info.height);
-  const stored = sharp(trimmed.data).resize(STORED_MAX, STORED_MAX, { fit: "inside", withoutEnlargement: true });
-  return { png: await (whiteCanvas ? sharp(await stored.png().toBuffer()).extend({ top: 1, bottom: 1, left: 1, right: 1, background: WHITE }) : stored)
-    .png({ compressionLevel: 9 }).toBuffer(), whiteCanvas };
+  const [left, top] = [-(trimmed.info.trimOffsetLeft ?? 0), -(trimmed.info.trimOffsetTop ?? 0)];
+  const sides = [left, top, info.width - left - trimmed.info.width, info.height - top - trimmed.info.height].filter(cut => cut > 0).length;
+  const whiteCanvas = isOpaque && sides >= 3;
+  const encode = async (max: number, palette = false) => {
+    const resized = await sharp(trimmed.data).resize(max, max, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+    return (whiteCanvas ? sharp(resized).extend({ top: 1, bottom: 1, left: 1, right: 1, background: WHITE }) : sharp(resized))
+      .png({ compressionLevel: 9, palette }).toBuffer();
+  };
+  // Every read refuses more than MAX_LOGO_BYTES, so the stored PNG must fit: a photo-like logo steps down in size, and
+  // in the end to 256 colours at 640 px, rather than being saved and then silently left off every pass.
+  for (const max of [STORED_MAX, 960, 640]) {
+    const png = await encode(max);
+    if (png.length <= MAX_LOGO_BYTES) return { png, whiteCanvas };
+  }
+  return { png: await encode(640, true), whiteCanvas };
 }
 
 /** The bounding box of the visible pixels; sharp's own trim compares colour too, and transparent pixels carry any colour. */

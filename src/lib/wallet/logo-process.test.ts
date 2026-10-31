@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { checkedLogoUpload, logoBytes, processMerchantLogo } from "./logo-process";
+import { checkedLogoUpload, logoBytes, MAX_LOGO_BYTES, processMerchantLogo } from "./logo-process";
 
 const TAPPI_RED = "#B3261E";
 const WALDGRUEN = "#1F4D3A";
@@ -169,6 +169,18 @@ describe("processMerchantLogo: Google gets each logo in its own shape (ENG-153)"
     expect((await pixel(framed.wallet.png3x, 18, 75))[1]).toBeGreaterThan(220);
   });
 
+  it("counts a white canvas only when white was trimmed on three sides: not an overcast sky, not a light export line", async () => {
+    const overcast = await svg(600, 300, `<rect width="600" height="300" fill="#3C8D2F"/><rect width="600" height="120" fill="#7EC8F0"/><rect width="600" height="80" fill="#F7F8FA"/>`).jpeg({ quality: 95 }).toBuffer();
+    const navy = await svg(600, 200, `<rect width="600" height="200" fill="#1B2A4A"/><rect width="600" height="2" fill="#F5F5F5"/><rect x="200" y="80" width="200" height="40" fill="#fff"/>`).jpeg({ quality: 95 }).toBuffer();
+    for (const upload of [overcast, navy]) {
+      const logo = await processMerchantLogo(logoBytes(await checkedLogoUpload(dataUrl("image/jpeg", upload)))!, TAPPI_RED);
+      expect(logo.meta.box).not.toBe("#ffffff");
+      // A white pad would whiten the whole left edge; the logo's own content must reach it.
+      const [, height] = await size(logo.wallet.png3x);
+      for (const edge of [await pixel(logo.wallet.png3x, 0, Math.round(height! / 2)), await pixel(wide(logo)!, 0, 200)]) expect(edge.slice(0, 3).every(c => c > 230)).toBe(false);
+    }
+  });
+
   it("gives a real black wordmark JPG on white its white box and margin, even where the K reaches the trimmed corner", async () => {
     // As in production: the save stores the trimmed PNG, and every pass is built from that.
     const stored = await checkedLogoUpload(dataUrl("image/jpeg", readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg"))));
@@ -209,6 +221,15 @@ describe("checkedLogoUpload: one check for both save paths", () => {
     expect(bytes.length).toBeLessThan(100_000);
     await expect(processMerchantLogo(bytes, TAPPI_RED)).rejects.toThrow(/pixel limit/i);
     await expect(checkedLogoUpload(dataUrl("image/png", bytes))).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  }, 30_000);
+
+  it("stores a photo-like JPG under 2 MB so every pass can still read it (ENG-158)", async () => {
+    const photo = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 50 } } }).blur(1.2).jpeg({ quality: 60 }).toBuffer();
+    expect(photo.length).toBeLessThan(MAX_LOGO_BYTES); // a lossless 1280 px PNG of it is about 2.7 MB
+    const stored = logoBytes(await checkedLogoUpload(dataUrl("image/jpeg", photo)));
+    expect(stored).not.toBeNull();
+    expect(stored!.length).toBeLessThanOrEqual(MAX_LOGO_BYTES);
+    expect((await processMerchantLogo(stored!, TAPPI_RED)).wallet.png3x.length).toBeGreaterThan(0);
   }, 30_000);
 
   it("rejects a renamed JPEG, an oversized file, a tiny image and garbage with INVALID_LOGO in German", async () => {
