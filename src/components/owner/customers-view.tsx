@@ -132,7 +132,7 @@ function GroupsScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   return (
     <div className="ow-page">
       <PageHead title="Kundenkarten" actions={me.role === "owner" && isLocalOrigin(me.publicBaseUrl) ? <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link> : undefined} />
-      <form className="ow-search" role="search" onSubmit={submit}>
+      <form className="ow-search" role="search" onSubmit={submit} noValidate>
         <label htmlFor="cu-q" className="ow-sr">Kartennummer suchen</label>
         <Search size={20} aria-hidden="true" />
         <input id="cu-q" className="ow-input" type="search" enterKeyHint="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Kartennummer suchen" autoComplete="off" aria-describedby={short ? "cu-q-hint" : undefined} />

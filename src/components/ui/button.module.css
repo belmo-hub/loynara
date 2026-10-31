@@ -6,7 +6,7 @@
   transition: background-color var(--dur-press) ease, border-color var(--dur-press) ease, color var(--dur-press) ease, transform var(--dur-press) var(--ease-out);
 }
 .button:active:not(:disabled) { transform: scale(.97); }
-.button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .button:disabled { cursor: not-allowed; }
 .icon { display: inline-grid; place-items: center; }
 .label { overflow: hidden; text-overflow: ellipsis; }
@@ -14,14 +14,15 @@
 .primary { background: var(--color-action); color: var(--color-on-action); }
 .secondary { background: transparent; border-color: var(--color-line-strong); color: var(--color-ink); }
 .quiet { background: transparent; color: var(--color-action); padding-inline: var(--space-3); }
-.danger { background: var(--color-danger); color: var(--color-raised); }
+.danger { background: var(--color-danger); color: var(--color-on-danger); }
 .go { background: var(--color-success); color: var(--color-raised); border-radius: var(--radius-lg); }
 @media (hover: hover) and (pointer: fine) {
   .primary:hover:not(:disabled) { background: var(--color-action-hover); }
   .secondary:hover:not(:disabled) { border-color: var(--color-ink); }
   .quiet:hover:not(:disabled) { background: var(--color-action-soft); }
 }
-.primary:disabled, .danger:disabled, .go:disabled { background: var(--color-action-soft); color: var(--color-ink-muted); }
+/* Disabled is the neutral fill with faint text, never a pale green (Design, 30 Oct). */
+.primary:disabled, .danger:disabled, .go:disabled { background: var(--color-fill); border-color: transparent; color: var(--color-ink-faint); }
 .secondary:disabled, .quiet:disabled { color: var(--color-ink-muted); border-color: var(--color-line); }
 
 .sm { min-height: var(--target); padding-inline: var(--space-4); font-size: var(--text-14); }

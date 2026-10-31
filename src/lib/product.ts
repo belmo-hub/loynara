@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
-import { birthdayState, DomainError, winbackState } from "./loyalty";
+import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
@@ -25,6 +25,7 @@ import { expiryWaits, programInForce, ruleVersions } from "./rule-versions";
 import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
+import { checkedLogoUpload } from "./wallet/logo-process";
 
 const shortText = z.string().trim().min(2).max(180);
 const merchantInput = z.object({
@@ -55,18 +56,6 @@ function randomCode(bytes: number) { return randomBytes(bytes).toString("base64u
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
-function checkedLogo(value?: string) {
-  if (!value) return null;
-  const match = /^data:(image\/png|image\/jpeg|image\/webp);base64,([A-Za-z0-9+/=]+)$/.exec(value);
-  if (!match) throw new DomainError("INVALID_LOGO", "Logo must be PNG, JPEG or WebP");
-  const bytes = Buffer.from(match[2], "base64");
-  if (bytes.length < 16 || bytes.length > 2_000_000) throw new DomainError("INVALID_LOGO", "Logo must be at most 2 MB");
-  const magic = bytes.subarray(0, 12).toString("hex");
-  const valid = match[1] === "image/png" ? magic.startsWith("89504e470d0a1a0a") : match[1] === "image/jpeg" ? magic.startsWith("ffd8ff") : bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
-  if (!valid) throw new DomainError("INVALID_LOGO", "Logo format does not match its contents");
-  return value;
-}
-
 export async function createMerchant(raw: z.input<typeof merchantInput>) {
   const input = merchantInput.parse(raw);
   const earningMode = input.earningMode ?? "manual";
@@ -75,7 +64,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
-  const logoData = checkedLogo(input.logoData);
+  const logoData = input.logoData ? await checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
     // Serialize retries for this authenticated identity, including the first
     // request before a staff row exists. No provisioning happens in auth hooks.
@@ -715,7 +704,10 @@ export async function lookupCard(input: { userId: string; locationId: string; sc
   const { member, tenant, by } = card;
   // The counter keeps the rule in force until a waiting change's date (ENG-100): no pending data here.
   const program = await programInForce(db, card.program);
-  return { stage: "open" as const, membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: program.ruleVersionId, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, new Date())) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, new Date())) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
+  const now = new Date();
+  // Bonuses the next award books on top, so the button can say so before the tap (ENG-133). Happy hour doubles purchase points only.
+  const [location] = program.happyHourEnabled && program.earningMode === "purchase" ? await db.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.id, program.locationId), eq(locations.tenantId, program.tenantId))) : [];
+  return { stage: "open" as const, welcomeBonus: await welcomeBonusDue(db, program, { tenantId: member.tenantId, membershipId: member.id }), happyHour: Boolean(location && activeHappyHour(program.happyHourWindows, now, location.timezone)), membershipId: member.id, cardLocator: formatCardLocator(member.cardLocator), matchedBy: by, balance: member.balance, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: tenant.currency, ruleVersionId: program.ruleVersionId, rewards: await currentRewards(member.tenantId, program.id), winbackBonus: program.winbackBonus > 0 && (await winbackState(db, member.id, now)) ? program.winbackBonus : 0, birthdayBonus: program.birthdayBonus > 0 && (await birthdayState(db, member.id, now)) ? program.birthdayBonus : 0, level: await cardLevel(db, member, program) };
 }
 
 export async function getPublicProgram(slug: string) {

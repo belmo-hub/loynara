@@ -27,7 +27,7 @@ export default function MerchantAdviserPage() {
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Die Hinweise folgen festen Regeln und beruhen nur auf deinen bestätigten Buchungen.</span></div>
+        <Notice><div><strong>Nach festen Regeln</strong><p>Die Hinweise folgen festen Regeln und beruhen nur auf deinen bestätigten Buchungen.</p></div></Notice>
         <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
           <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Buchungen" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
         </dl>

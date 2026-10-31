@@ -9,6 +9,7 @@ import { AuthShell } from "./ui/auth-shell";
 import { Button, buttonClassName } from "./ui/button";
 import { PageHeader } from "./ui/page-header";
 import { TextField } from "./ui/field";
+import { useFormCheck } from "./ui/form-check";
 import styles from "./auth/auth.module.css";
 import { CONNECTION_LOST, inviteAcceptMessage, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "./auth/auth-errors";
 
@@ -22,6 +23,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const fields = useFormCheck();
   const [mismatch, setMismatch] = useState(false);
   // Until the page is interactive, a tap would submit the bare form natively and reload it, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
@@ -39,7 +41,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   // Invite-gated sign-up: the account is created for the invited address only; the server checks the token again.
   async function createAndAccept(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!invite || busy) return;
+    if (!invite || busy || !fields.check(event.currentTarget)) return;
     // Uncontrolled fields: values typed or autofilled before hydration finished are read here, not lost.
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim(), password = String(form.get("password") ?? ""), confirmation = String(form.get("confirmation") ?? "");
@@ -84,13 +86,13 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
           <div><dt>Deine Rolle</dt><dd>{roleLabel}</dd></div>
         </dl>
         <div className={styles.sheet}>
-          <form className={`auth-form ${styles.form}`} onSubmit={createAndAccept}>
+          <form className={`auth-form ${styles.form}`} onSubmit={createAndAccept} onInput={fields.onInput} noValidate>
             {/* Read-only, but marked "username" so the password manager files the new password under the invited address. */}
             <TextField label="E-Mail-Adresse" type="email" value={invite.email} readOnly aria-readonly="true" autoComplete="username" hint="Die Einladung gilt nur für diese Adresse." />
-            <TextField label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
-            <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
-            <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
-              error={mismatch ? "Die Passwörter stimmen nicht überein." : undefined} />
+            <TextField id="iv-name" error={fields.error("iv-name")} label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
+            <TextField id="iv-password" error={fields.error("iv-password")} label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
+            <TextField id="iv-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
+              error={fields.error("iv-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
             {error ? <Alert>{error}</Alert> : null}
             <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
           </form>

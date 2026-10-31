@@ -11,10 +11,10 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 a { color: inherit; text-decoration: none; }
 /* Fallback ring for anything without its own focus style (components define theirs). */
-a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* The canvas behind the page (status bar, overscroll, Safari's toolbar tint) follows the screen's theme container;
    the value is the dark --color-bg from tokens.css. */
 :root:has(.ly-theme-dark) body { background-color: #0F1713; }
 @media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) body { background-color: #0F1713; } }
-::selection { background: color-mix(in oklab, var(--color-stamp), transparent 55%); color: var(--color-ink); }
+::selection { background: color-mix(in oklab, var(--color-ink) 18%, transparent); color: var(--color-ink); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
