@@ -51,10 +51,10 @@ for (const [action, width] of [["newer", 375], ["remove", 1280], ["discard", 375
     await input.setInputFiles({ name: action === "error" ? "older-error.png" : "older.png", mimeType: "image/png", buffer: bytes("older") }); await page.waitForFunction(() => typeof (window as typeof window & { __heldLogoRead?: () => void }).__heldLogoRead === "function"); expect(writes).toBe(0); expect((await persisted(owner.tenant))[0].logo_data).toBe(stored.initial);
     if (action === "newer") { await input.setInputFiles({ name: "newer.png", mimeType: "image/png", buffer: bytes("newer") }); await expect(image).toHaveAttribute("src", data("newer")); }
     else if (action === "remove") { await page.getByRole("button", { name: "Logo entfernen", exact: true }).click(); await expect(image).toHaveCount(0); }
-    else if (action === "error") { await input.setInputFiles({ name: "rejected.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") }); await expect(page.locator(".ow-error[role=alert]")).toHaveText("Bitte ein PNG-, JPG- oder WebP-Bild wählen."); }
+    else if (action === "error") { await input.setInputFiles({ name: "rejected.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") }); await expect(page.locator(".ow-error[role=alert]")).toHaveText("Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB."); }
     else { await page.getByLabel("Geschäftsname", { exact: true }).fill("Unsaved synthetic draft"); await page.getByRole("button", { name: "Verwerfen", exact: true }).click(); await expect(page.getByLabel("Geschäftsname", { exact: true })).toHaveValue(owner.name); }
     await page.evaluate(() => (window as typeof window & { __heldLogoRead?: () => void }).__heldLogoRead?.());
-    if (action === "error") await expect(page.locator(".ow-error[role=alert]")).toHaveText("Bitte ein PNG-, JPG- oder WebP-Bild wählen.");
+    if (action === "error") await expect(page.locator(".ow-error[role=alert]")).toHaveText("Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.");
     const shown = action === "newer" ? data("newer") : action === "remove" ? null : stored.initial;
     if (shown) await expect.soft(image).toHaveAttribute("src", shown); else await expect.soft(image).toHaveCount(0);
     const expected = action === "newer" ? stored.newer : shown;

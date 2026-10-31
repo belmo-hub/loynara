@@ -12,6 +12,7 @@ import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
 import { cx } from "@/components/ui/cx";
 import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
+import { useFormCheck } from "@/components/ui/form-check";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
@@ -133,6 +134,7 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
 
 export function CashierView({ locationName, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
+  const fields = useFormCheck();
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
   const [purchaseAmount, setPurchaseAmount] = useState("");
@@ -167,7 +169,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   }
   const amountLabel = locale === "fr" ? `Montant de l’achat (${card?.currency ?? "EUR"})` : `Kaufbetrag (${card?.currency ?? "EUR"})`;
   // A handheld scanner types the QR content into the field; do not leave that code on screen after submitting it.
-  function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
+  function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!fields.check(event.currentTarget)) return; const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
   // One stamp is booked with one tap: the scan identified the card and this button is the deliberate decision. More
   // than one, or a choice between online and offline booking, still goes through the confirmation dialog. Points are
   // booked from the amount sheet, whose „Buchen“ is that decision, after the preview of points and new balance.
@@ -293,8 +295,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
     </section> : !card ? <section className={styles.ready} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
-      <form className={styles.stack} onSubmit={lookup}>
-        <TextField id="cashier-code" label={t.manual} hint={t.codeHint}
+      <form className={styles.stack} onSubmit={lookup} onInput={fields.onInput} noValidate>
+        <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
           autoFocus={focusCodeInput} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           placeholder={locale === "fr" ? "p. ex. K-7QX2MA" : "z. B. K-7QX2MA"} required />
         <Button type="submit" variant={camera || onStartCamera ? "secondary" : "primary"} size="lg" block disabled={busy}>{t.check}</Button>

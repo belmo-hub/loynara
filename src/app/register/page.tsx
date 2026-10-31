@@ -8,6 +8,7 @@ import { AuthShell } from "@/components/ui/auth-shell";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
+import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
 import styles from "@/components/auth/auth.module.css";
 import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
@@ -19,10 +20,11 @@ export default function RegisterPage() {
   const [mismatch, setMismatch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const fields = useFormCheck();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || !fields.check(event.currentTarget)) return;
     // Uncontrolled fields: values typed or autofilled before hydration finished are read here, not lost.
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim(), email = String(form.get("email") ?? "").trim();
@@ -44,12 +46,12 @@ export default function RegisterPage() {
     <div className={styles.page}>
       <PageHeader title="Leg los mit Loynara." description="Erstelle dein Konto. Danach richtest du dein erstes Treueprogramm ein." />
       <div className={styles.sheet}>
-        <form className={`auth-form ${styles.form}`} onSubmit={submit}>
-          <TextField label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
-          <TextField label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" name="email" required maxLength={254} placeholder="du@geschaeft.de" />
-          <TextField label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
-          <TextField label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
-            error={mismatch ? "Die Passwörter stimmen nicht überein." : undefined} />
+        <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
+          <TextField id="rg-name" error={fields.error("rg-name")} label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
+          <TextField id="rg-email" error={fields.error("rg-email")} label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" name="email" required maxLength={254} placeholder="du@geschaeft.de" />
+          <TextField id="rg-password" error={fields.error("rg-password")} label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
+          <TextField id="rg-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
+            error={fields.error("rg-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
           <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
           <p className={styles.note}>Es wird keine Zahlung ausgelöst. Die öffentliche Registrierung bleibt bis zur Freigabe durch Loynara gesperrt.</p>

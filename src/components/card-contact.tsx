@@ -6,6 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
+import { useFormCheck } from "./ui/form-check";
 import styles from "./customer/panels.module.css";
 import { CardStatusLine, useCardStatus } from "./customer/card-status";
 
@@ -14,6 +15,7 @@ type ContactStatus = { available: boolean; marketingAvailable: boolean; marketin
 export function CardContact({ token, locale, recoveryOnly = false }: { token: string; locale: "de" | "fr"; recoveryOnly?: boolean }) {
   const [status, setStatus] = useState<ContactStatus | null>(null);
   const [email, setEmail] = useState("");
+  const fields = useFormCheck();
   const [busy, setBusy] = useState(false);
   // Which action is running, so only its own button shows progress.
   const [action, setAction] = useState<"request" | "preference" | null>(null);
@@ -33,7 +35,9 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
   }, [token]);
 
   async function request(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setAction("request"); setError(""); setMessage("");
+    event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
+    setBusy(true); setAction("request"); setError(""); setMessage("");
     try {
       const result = await postJson<{ status: "queued" | "verified" }>(`/api/card/${encodeURIComponent(token)}/contact`, { email });
       setStatus(await apiJson<ContactStatus>(`/api/card/${encodeURIComponent(token)}/contact`));
@@ -77,8 +81,8 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
     {status.available && (!recoveryOnly || !status.emailVerified) && <>
       <p className={styles.muted}>{french ? "Avec une adresse vérifiée, vous retrouvez votre carte si vous perdez ce lien. Sans publicité : aucun consentement marketing n’est ajouté." : "Mit einer bestätigten E-Mail-Adresse findest du deine Karte wieder, falls du diesen Link verlierst. Werbung abonnierst du damit nicht."}</p>
       <p className={styles.muted}>{withoutRecovery}</p>
-      <form onSubmit={request} className={styles.form}>
-        <TextField label={french ? "Adresse e-mail" : "E-Mail-Adresse"} type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="gast@example.com" maxLength={320} required />
+      <form onSubmit={request} onInput={fields.onInput} className={styles.form} noValidate>
+        <TextField id="contact-email" error={fields.error("contact-email")} label={french ? "Adresse e-mail" : "E-Mail-Adresse"} type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="gast@example.com" maxLength={320} required />
         <Button type="submit" variant="secondary" loading={action === "request"} disabled={busy && action !== "request"}>{french ? "Envoyer le lien de vérification" : "Bestätigungslink senden"}</Button>
       </form>
       {recoveryOnly && <Button variant="quiet" size="sm" disabled={busy} onClick={() => setDeferred(true)}>{french ? "Plus tard" : "Später"}</Button>}

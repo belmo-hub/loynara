@@ -8,9 +8,10 @@ import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { inviteCreateMessage } from "@/components/owner/owner-errors";
 import { PageTitle } from "@/components/owner/owner-rows";
 import { ErrorNotice, Notice } from "@/components/owner/owner-ui";
-import { Choices } from "@/components/owner/question-form";
+import { Choices, FieldError } from "@/components/owner/question-form";
 import { cashierHint, ROLE_HINT } from "@/components/owner/staff-data";
 import { useLoad } from "@/components/owner/use-load";
+import { useFormCheck } from "@/components/ui/form-check";
 
 type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
 const BACK = { href: "/merchant/staff", label: "Team" };
@@ -28,6 +29,7 @@ export default function InvitePage() {
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const fields = useFormCheck({ "st-email": "Bitte gib die E-Mail-Adresse der Person ein." });
   const { copied, copy: copyLink } = useCopy();
   useDirtyGuard("staff-invite", email.trim().length > 0);
   if (!me) return null;
@@ -54,8 +56,8 @@ export default function InvitePage() {
   return (
     <div className="ow-page ow-qpage">
       {head}
-      <form className="ow-q" onSubmit={event => { event.preventDefault(); void create(); }}>
-        <div className="ow-qpanel ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" className="ow-input" type="email" value={email} onChange={event => { draftRevision.current++; setEmail(event.target.value); }} autoComplete="email" required placeholder="team@geschaeft.de" /></div>
+      <form className="ow-q" noValidate onInput={fields.onInput} onSubmit={event => { event.preventDefault(); if (fields.check(event.currentTarget)) void create(); }}>
+        <div className="ow-qpanel ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" {...fields.aria("st-email")} className="ow-input" type="email" value={email} onChange={event => { draftRevision.current++; setEmail(event.target.value); }} autoComplete="email" required placeholder="team@geschaeft.de" /><FieldError id="st-email-error">{fields.error("st-email") ?? ""}</FieldError></div>
         <h2 className="ow-qlabel">Rolle</h2>
         <Choices name="st-role" label="Rolle" options={roles} value={role} saved={role} onChange={value => { draftRevision.current++; setRole(value as "manager" | "cashier"); }} />
         <p className="ow-hint ow-qnote">Der Link wird nicht versendet. Du gibst ihn der Person selbst.</p>

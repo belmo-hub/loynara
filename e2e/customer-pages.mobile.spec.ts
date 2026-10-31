@@ -33,7 +33,7 @@ test.describe("guest pages on phones", () => {
     expect((await enrolled).status()).toBe(500);
     // The alert carries the server's message, so it came from this failed request and not from client-side validation.
     await expect(page.locator("form").getByRole("alert")).toHaveCount(1);
-    await expect(page.locator("form").getByRole("alert")).toContainText("Synthetischer Fehler");
+    await expect(page.locator("form").getByRole("alert")).toContainText("Die Karte konnte nicht erstellt werden.");
     await expect(page.getByRole("checkbox").first()).toBeChecked();
   });
 
