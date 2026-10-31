@@ -168,6 +168,8 @@ export function TapClient({ refId }: { refId: string }) {
 
   const celebrate = moment && done;
   const announcement = stampAnnouncement(state, result?.balance, points);
+  // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
+  const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
   const number = result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) ? result.cardLocator : null;
   // Mock 27–29 (G-07): the tap states on the guest state screen; an error carries the danger tile.
   return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live
@@ -189,7 +191,7 @@ export function TapClient({ refId }: { refId: string }) {
       <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </div>}
     {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
-    {(waiting || state === "expired" || state === "cancelled") && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
+    {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     {walletProgram && recoveryCard && <WalletStep band token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerState>;

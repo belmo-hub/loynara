@@ -42,7 +42,7 @@ export default function VerifyEmailPage() {
     finally { if (generation.current === submitted) token.current = ""; }
   }
 
-  const title = state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt" : state === "invalid" ? "Bestätigungs\u00ADlink ungültig" : "E-Mail-Adresse bestätigen";
+  const title = state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt" : state === "invalid" ? "Bestätigungslink ungültig" : "E-Mail-Adresse bestätigen";
   const message = state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen." : state === "verified" ? "Deine E-Mail-Adresse ist jetzt als Wiederherstellungsmethode bestätigt. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst." : state === "invalid" ? "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an." : "Bestätige diese Adresse nur, wenn du sie selbst als Wiederherstellungsmethode für deine Loynara-Karte angefordert hast.";
   const invalid = state === "invalid";
   return <CustomerState icon={invalid ? <CircleAlert size={24} /> : <MailCheck size={22} />} title={title} message={message} tone={invalid ? "error" : "info"} focusTitle={attempted && (state === "verified" || invalid)}>
