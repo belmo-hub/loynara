@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { KeyRound } from "lucide-react";
+import { CircleAlert, KeyRound } from "lucide-react";
 import { CustomerState } from "@/components/customer/customer-state";
 import styles from "@/components/customer/states.module.css";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { postJson } from "@/components/client-api";
 import { recoveryConfirmationFeedback } from "@/components/recovery-confirm-feedback";
 
@@ -17,6 +17,8 @@ export default function RecoverConfirmPage() {
   const [cards, setCards] = useState<Option[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // G-10: a link opened without its token can only fail, so it gets the invalid state instead of the button.
+  const [missing, setMissing] = useState(false);
   // Scrubbing must survive strict effects and allow a later email link in the same tab.
   useEffect(() => {
     function capture() {
@@ -26,7 +28,7 @@ export default function RecoverConfirmPage() {
       token.current = next;
       generation.current += 1;
       window.history.replaceState(null, "", window.location.pathname);
-      setCards(null); setBusy(false); setError("");
+      setCards(null); setBusy(false); setError(""); setMissing(!next);
     }
     capture();
     window.addEventListener("hashchange", capture);
@@ -53,6 +55,9 @@ export default function RecoverConfirmPage() {
       window.location.replace(`/card/${encodeURIComponent(result.cardToken)}`);
     } catch (cause) { if (generation.current === submitted) { setError(recoveryConfirmationFeedback(cause, "rotate")); setBusy(false); } }
   }
+  if (missing) return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Wiederherstellungslink ungültig." message="Der Link ist unvollständig. Fordere einen neuen Link an und öffne ihn direkt aus der E-Mail.">
+    <Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Neuen Link anfordern</Link>
+  </CustomerState>;
   return <CustomerState icon={<KeyRound size={22} />} title="Karte wiederherstellen" message="Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.">
     {cards === null ? <Button block loading={busy} onClick={() => void showCards()}>Meine Karten anzeigen</Button>
       : <div className={`recovery-options ${styles.options}`}>{cards.map(card => <div key={card.membershipId}><div className={styles.optionText}><strong>{card.merchantName}</strong><span>{card.programmeName}</span></div><Button size="sm" disabled={busy} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</Button></div>)}</div>}

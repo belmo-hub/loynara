@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { Nfc } from "lucide-react";
-import { AuthShell } from "@/components/ui/auth-shell";
-import { SystemState } from "@/components/ui/system-state";
+import { CreditCard, Nfc } from "lucide-react";
+import { CustomerState, StateLink } from "@/components/customer/customer-state";
 import { ProgrammeEnded } from "@/components/customer/programme-ended";
 import { plateJoinPath } from "@/lib/plates";
 import { programmeEnded } from "@/lib/programme-end";
@@ -15,9 +14,7 @@ export default async function PlatePage({ params }: { params: Promise<{ plate: s
   const path = await plateJoinPath(plate);
   if (path) redirect(path);
   if (await programmeEnded({ plateLabel: plate.trim().toUpperCase() })) return <ProgrammeEnded />;
-  return <AuthShell>
-    <SystemState icon={<Nfc size={26} />} title="Dieses Schild ist gerade keinem Geschäft zugeordnet.">
-      Hier wird nichts gutgeschrieben. Bitte frag das Team an der Kasse.
-    </SystemState>
-  </AuthShell>;
+  return <CustomerState tone="error" icon={<Nfc size={24} />} title="Dieses Schild ist gerade keinem Geschäft zugeordnet." message="Hier wird nichts gutgeschrieben. Bitte frag das Team an der Kasse.">
+    <StateLink href="/recover" icon={<CreditCard size={22} />}>Karte wiederfinden</StateLink>
+  </CustomerState>;
 }

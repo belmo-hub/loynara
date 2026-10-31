@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
-import { MailCheck } from "lucide-react";
+import Link from "next/link";
+import { CircleAlert, MailCheck } from "lucide-react";
 import { CustomerState } from "@/components/customer/customer-state";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 
 export default function VerifyEmailPage() {
   const [state, setState] = useState<"ready" | "checking" | "verified" | "invalid">("ready");
@@ -44,7 +45,9 @@ export default function VerifyEmailPage() {
 
   const title = state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt." : state === "invalid" ? "Bestätigungslink ungültig." : "E-Mail-Adresse bestätigen";
   const message = state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen." : state === "verified" ? "Deine E-Mail-Adresse ist jetzt als Wiederherstellungsmethode bestätigt. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst." : state === "invalid" ? "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an." : "Bestätige diese Adresse nur, wenn du sie selbst als Wiederherstellungsmethode für deine Loynara-Karte angefordert hast.";
-  return <CustomerState icon={<MailCheck size={22} />} title={title} message={message} tone={state === "invalid" && attempted ? "error" : "info"} focusTitle={attempted && (state === "verified" || state === "invalid")}>
+  const invalid = state === "invalid";
+  return <CustomerState icon={invalid ? <CircleAlert size={24} /> : <MailCheck size={22} />} title={title} message={message} tone={invalid ? "error" : "info"} focusTitle={attempted && (state === "verified" || invalid)}>
     {state === "ready" || state === "checking" ? <Button block loading={state === "checking"} onClick={() => void confirm()}>E-Mail-Adresse bestätigen</Button> : null}
+    {invalid ? <Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link> : null}
   </CustomerState>;
 }
