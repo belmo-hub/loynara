@@ -19,8 +19,8 @@ type Props = { title: ReactNode; message?: ReactNode; tone?: "info" | "error"; i
 
 /**
  * One guest state screen (mock 29, G-07): the shop's header (or the Loynara mark), the heading on the grey, a muted
- * line, then the actions. An error carries a danger icon tile above the heading. Titles take no trailing full stop
- * (PR-CHECKLIST §4, mock 29).
+ * line, then the actions. An error carries a danger icon tile above the heading. Titles follow Marketing's rule
+ * (PR-CHECKLIST §4): a state or result takes no full stop („Abgemeldet“), a headline written as a sentence keeps it.
  */
 export function CustomerState({ title, message, tone = "info", icon, locale = "de", brandColor, merchant, live = false, children, focusTitle = false }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
