@@ -45,7 +45,8 @@ export const tapAsksForWalletStep = ({ done, waiting, ios, mark }: { done: boole
 export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "locale">) => ({ show: iphoneJoin("ios", program), mark: "shown" as const });
 
 type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean;
-  /** As a band on the tap page while the team has not confirmed yet: stay there after Apple's sheet (ENG-160). */
+  /** As a band on the tap page until the stamp is booked: stay there after Apple's sheet, so a rejected or expired
+   *  request still shows its state (ENG-160). */
   stay?: boolean;
   /** Told once Apple's sheet opens, so the tap page leaves the stamp's scroll to the sheet's return. */
   onAdd?: () => void };
@@ -71,7 +72,8 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   async function add() {
     if (operation.current) return;
     const controller = new AbortController(); operation.current = controller;
-    setBusy(true); setError("");
+    // A second add starts afresh: an earlier return from the sheet must not send this one to the card early.
+    setBusy(true); setError(""); setBack(false);
     try {
       const url = await prepareAppleWallet(token, controller.signal);
       if (controller.signal.aborted) return;

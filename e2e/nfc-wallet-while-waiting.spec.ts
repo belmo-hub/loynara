@@ -31,6 +31,13 @@ async function waitingGuest(browser: Browser, url: string) {
   await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
   await expect(page.getByRole("heading", { name: BAND })).toBeVisible({ timeout: 15_000 });
   expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+  const reject = async () => {
+    const cashier = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState() });
+    const counter = await cashier.newPage();
+    await counter.goto("/cashier");
+    await counter.getByRole("button", { name: "Ablehnen", exact: true }).click({ timeout: 15_000 });
+    return cashier;
+  };
   const confirm = async () => {
     const cashier = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState() });
     const counter = await cashier.newPage();
@@ -38,7 +45,7 @@ async function waitingGuest(browser: Browser, url: string) {
     await counter.getByRole("button", { name: "Stempel bestätigen", exact: true }).click({ timeout: 15_000 });
     return cashier;
   };
-  return { m, customer, page, confirm };
+  return { m, customer, page, confirm, reject };
 }
 const addToWallet = (page: Page) => page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" }).click();
 /** Tap add and wait until the pass itself is requested, as Apple's sheet would be opened. */
@@ -102,6 +109,19 @@ test("a failed Apple add keeps the band and its error on the tap page when the s
     await page.waitForTimeout(1_000);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
     await expect(error).toBeVisible();
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
+
+test("an Apple add while waiting, then a rejected request, stays on the tap page and says so", async ({ baseURL, browser }) => {
+  const { m, customer, page, reject } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    await addAndOpenSheet(page);
+    await page.waitForTimeout(4_500);
+    const cashier = await reject();
+    await expect(page.getByRole("heading", { name: "Nicht bestätigt" })).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(1_000);
+    expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
     await cashier.close();
   } finally { await customer.close(); await m.close(); }
 });
