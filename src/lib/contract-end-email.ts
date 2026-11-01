@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { operatorIdentity } from "./billing-stripe";
 import { contractBasis, contractFacts, customerText, factsLines } from "./contract-end";
+import { operatorIdentity } from "./operator-identity";
 import { surfaceHidden } from "./pilot-surfaces";
-import { stripeEnabled, vatMode } from "./stripe-config";
+import { vatMode } from "./stripe-config";
 import { emailTransportMode, sendTransactional, type TransactionalEmailProvider } from "./transactional-email";
 
 type Query = { execute: typeof db.execute };
@@ -38,9 +38,9 @@ export async function deliverContractEndEmail(job: { id: string; tenantId: strin
   if (emailTransportMode() === "disabled") return { status: "blocked" as const, reason: "Transactional email unavailable" };
   const parsed = payload.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked" as const, reason: "Invalid contract-end email job" };
-  // The footer names the operator as the invoices do (Legal, Q-93); without Stripe's public details nothing is sent.
-  const operator = stripeEnabled() ? await operatorIdentity() : null;
-  if (!operator) return { status: "blocked" as const, reason: "Operator name or address unavailable" };
+  // The footer names the operator (Legal, Q-93), from the operator's own settings, so it never waits on live billing (CTO).
+  const operator = operatorIdentity();
+  if (!operator) return { status: "blocked" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)" };
   const { rows } = await db.execute(sql`SELECT u.email, t.name AS shop, (SELECT p.type FROM programs p WHERE p.tenant_id = t.id ORDER BY p.created_at LIMIT 1) AS type
     FROM staff_roles o JOIN "user" u ON u.id = o.user_id JOIN tenants t ON t.id = o.tenant_id
     WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active ORDER BY o.created_at LIMIT 1`);
