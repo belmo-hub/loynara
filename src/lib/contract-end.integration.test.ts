@@ -6,7 +6,7 @@ import { outboxJobs, subscriptions } from "@/db/schema";
 import { setStripeClient } from "./billing-stripe";
 import { contractFacts, factsLines } from "./contract-end";
 import { contractEndEmailText, deliverContractEndEmail } from "./contract-end-email";
-import { ownerContractView } from "./contract-end-view";
+import { operatorCancellations, ownerContractView } from "./contract-end-view";
 import { createAdditionalLocation } from "./locations";
 import { createMerchant } from "./product";
 import { requestCancellation } from "./programme-end";
@@ -191,5 +191,36 @@ describe("the owner's „Programm beenden“ view (ENG-167 b)", () => {
     const s = await shop("2026-08-28", "2026-09-28");
     const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1", [s.tenantId])).rows;
     await expect(ownerContractView({ actorUserId: randomUUID(), programSlug: slug })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("the operator's „Kündigungen“ (ENG-167 b)", () => {
+  const cancel = async (s: { ownerId: string; tenantId: string }, now: string) => {
+    const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1 ORDER BY created_at LIMIT 1", [s.tenantId])).rows;
+    await requestCancellation({ actorUserId: s.ownerId, programSlug: slug, now: at(now) });
+  };
+  const plainAll = (value: unknown) => JSON.parse(plain(JSON.stringify(value)));
+
+  it("one row per business: facts line, badges, the binding date first and later ends only with consent (C24–C42)", async () => {
+    const s = await shop("2026-08-28", "2026-09-28", { second: true });
+    await cancel(s, "2026-11-01T10:00:00Z");
+    const [entry] = plainAll(await operatorCancellations(at("2026-11-03T10:00:00Z"), {}));
+    expect(entry).toMatchObject({ tenant: "Café Lindenblatt", locations: ["Kassel Mitte", "Kassel Nord"], badge: "gekündigt zum 27.11.2026", deadline: "bestätigen bis 26.11.2026", acknowledged: false,
+      factsLine: "vor 2 Tagen angefragt · Abrechnung am 28. · keine weitere Rechnung · Export bis 27.12.2026" });
+    expect(entry.choices.map((choice: { label: string; consent: boolean }) => [choice.label, choice.consent])).toEqual([
+      ["27.11.2026 · Wie gekündigt · keine weitere Rechnung", false],
+      ["27.12.2026 · Eine Rechnung mehr: 28.11.2026, 98 €", true],
+      ["27.01.2027 · Zwei Rechnungen mehr: 28.11.2026 und 28.12.2026, je 98 €", true],
+      ["27.02.2027 · 3 Rechnungen mehr: 28.11.2026 und 28.12.2026 und 28.01.2027, je 98 €", true],
+    ]);
+    expect(entry.withdrawal).toBe("Das Programm von Café Lindenblatt läuft dann ohne Enddatum weiter. Die Abrechnung bleibt: nächste Rechnung am 28.11.2026, 98 €. Das Geschäft bekommt eine E-Mail.");
+  });
+
+  it("in the free month: the one binding date, „Stripe-Abo beendet“, no deadline badge (Legal, C31, C41)", async () => {
+    const s = await shop("2026-10-20", "2026-11-20", { name: "Barbier Nord" });
+    await cancel(s, "2026-11-12T10:00:00Z");
+    const [entry] = plainAll(await operatorCancellations(at("2026-11-12T12:00:00Z"), {}));
+    expect(entry).toMatchObject({ freeMonth: true, deadline: null, badge: "gekündigt zum 26.11.2026", factsLine: "heute angefragt · kostenloser Monat · keine Rechnung · Stripe-Abo beendet · Export bis 26.12.2026" });
+    expect(entry.choices.map((choice: { label: string }) => choice.label)).toEqual(["26.11.2026 · Ende des kostenlosen Monats · keine Rechnung"]);
   });
 });

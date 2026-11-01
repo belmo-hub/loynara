@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import QRCode from "qrcode";
-import { ScanLine } from "lucide-react";
+import { AlertCircle, ScanLine } from "lucide-react";
 import { QrScanner } from "@/components/qr-scanner";
 import { ClientApiError, postJson } from "@/components/client-api";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,18 @@ type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | n
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
+type Fact = { label: string; value: string; sub: string };
+type Choice = { endDate: string; label: string; consent: boolean; facts: { lastDay: Fact; lastInvoice: Fact; exportUntil: Fact } };
+/** ENG-167 (b): one business's cancellation, from lib/contract-end-view (operatorCancellations). */
+type Cancellation = { tenantId: string; tenant: string; locations: string[]; programId: string; endDate: string; endText: string; acknowledged: boolean; freeMonth: boolean; factsLine: string; badge: string; deadline: string | null; requestedOn: string | null; anchorDay: number; choices: Choice[]; withdrawal: string };
+// #207's guard names days as 2026-12-01; the console shows 01.12.2026.
+const readable = (message: string) => message.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3.$2.$1");
+/** A datetime-local value read as Berlin time (Legal: an e-mailed cancellation counts from the moment it arrived). */
+function berlinIso(local: string) {
+  const guess = new Date(`${local}:00Z`);
+  const shown = Date.parse(`${guess.toLocaleString("sv-SE", { timeZone: "Europe/Berlin" }).replace(" ", "T")}Z`);
+  return new Date(guess.getTime() - (shown - guess.getTime())).toISOString();
+}
 type Preview = { result: string; plateLabel: string; from: Shop; to: Shop };
 type TemplatePreview = { result: string; from: string | null; to: string; ready: boolean };
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
@@ -47,7 +59,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[] }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, cancellations }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; cancellations: Cancellation[] }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -107,8 +119,37 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
   const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setError(""); };
   const closeEnd = () => { setProg(null); setEndPreview(null); setError(""); };
-  // Unconfirmed first (a request nobody has answered), then by end date.
-  const cancellations = rows.filter(r => r.status === "active" && r.endDate).sort((a, b) => Number(a.confirmed) - Number(b.confirmed) || a.endDate!.localeCompare(b.endDate!));
+  // ENG-167 (b): the end-date sheet (keep, or later with consent; never earlier), the withdrawal on the shop's wish, and the
+  // entry of a cancellation that came by e-mail. These sheets keep their own error, so it never shows twice on the page.
+  const [ending, setEnding] = useState<Cancellation | null>(null);
+  const [choice, setChoice] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [checked, setChecked] = useState<Choice | null>(null);
+  const [withdrawing, setWithdrawing] = useState<Cancellation | null>(null);
+  const [entry, setEntry] = useState<Row | null>(null);
+  const [receivedAt, setReceivedAt] = useState("");
+  const [entryEnd, setEntryEnd] = useState<string | null>(null);
+  const [sheetError, setSheetError] = useState("");
+  const picked = ending?.choices.find(c => c.endDate === choice) ?? null;
+  const openEnding = (c: Cancellation) => { setEnding(c); setChoice(c.endDate); setConsent(false); setChecked(null); setSheetError(""); };
+  const closeSheets = () => { setEnding(null); setChecked(null); setWithdrawing(null); setEntry(null); setEntryEnd(null); setSheetError(""); };
+  async function operate(body: Record<string, unknown>, after: () => void) {
+    setBusy(true); setSheetError("");
+    try { await postJson("/api/operator/programme", body); after(); }
+    catch (cause) { setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
+    finally { setBusy(false); }
+  }
+  const checkEnd = () => operate({ programId: ending!.programId, endDate: choice, consent: picked?.consent === true, execute: false }, () => setChecked(picked));
+  const confirmEnd = () => operate({ programId: ending!.programId, endDate: choice, consent: picked?.consent === true, execute: true }, () => { closeSheets(); router.refresh(); });
+  const withdraw = () => operate({ programId: withdrawing!.programId, command: "withdraw", execute: true }, () => { closeSheets(); router.refresh(); });
+  async function checkEntry(execute: boolean) {
+    setBusy(true); setSheetError("");
+    try {
+      const result = await postJson<{ endDate?: string | null }>("/api/operator/programme", { programId: entry!.programId, command: "request", receivedAt: berlinIso(receivedAt), execute });
+      if (execute) { closeSheets(); router.refresh(); } else setEntryEnd(result.endDate ?? null);
+    } catch (cause) { setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
+    finally { setBusy(false); }
+  }
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
@@ -121,14 +162,6 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function startBilling(tenantId: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
-    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
-    finally { setBusy(false); }
-  }
-  // § 2 (3): an owner who cancels in the free month owes nothing; the subscription must end before its first invoice.
-  const [endFor, setEndFor] = useState<string | null>(null);
-  async function endFreeMonth(tenantId: string) {
-    setBusy(true); setError("");
-    try { await postJson("/api/operator/billing-free-month-end", { tenantId }); setEndFor(null); router.refresh(); }
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
@@ -199,12 +232,16 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card>
 
     {cancellations.length ? <Card as="section" aria-labelledby="op-cancel">
-      <CardHeader id="op-cancel" title="Kündigungen" description="Vorläufige Termine zuerst. Ohne Bestätigung endet nichts." />
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {cancellations.map(r => <li key={r.programId} style={{ display: "grid", gap: 4 }}>
-          <span><strong>{r.tenant}</strong> · {r.location} · {r.programme}</span>
-          <span className="ow-muted">{origin(r)} · <Badge tone={r.confirmed ? "success" : "warning"}>{endText(r)}</Badge></span>
-          <Button variant={r.confirmed ? "secondary" : "primary"} onClick={() => openEnd(r)}>{r.confirmed ? "Datum ändern" : "Datum bestätigen"}</Button>
+      <CardHeader id="op-cancel" title="Kündigungen" description="Offene zuerst. Eine Kündigung gilt ab Eingang. Bestätigen heißt: Datum behalten oder mit Zustimmung des Geschäfts nach hinten verschieben." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>
+        {cancellations.map(c => <li key={c.tenantId} style={{ display: "grid", gap: 4 }}>
+          <span><strong>{c.tenant}</strong> · {c.locations.join(", ")}</span>
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <Badge tone={c.acknowledged ? "success" : "warning"}>{c.badge}</Badge>
+            {c.deadline ? <Badge tone="danger"><AlertCircle size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />{c.deadline}</Badge> : null}
+          </span>
+          <span className="ow-muted" style={{ fontVariantNumeric: "tabular-nums" }}>{c.factsLine}</span>
+          <Button variant={c.acknowledged ? "secondary" : "primary"} onClick={() => openEnding(c)}>{c.acknowledged ? "Datum ändern" : "Datum bestätigen"}</Button>
         </li>)}
       </ul>
     </Card> : null}
@@ -225,10 +262,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             <option value="">Noch nicht gewählt</option>
             {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
           </Select>
-          {b.lastFreeDay ? <div style={{ display: "grid", gap: 4 }}><span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
-            {b.status === "active" && !b.cancelling ? (endFor === b.tenantId
-              ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="danger" loading={busy} onClick={() => void endFreeMonth(b.tenantId)}>Vertrag zum {b.lastFreeDay} beenden, ohne Rechnung</Button><Button variant="quiet" onClick={() => setEndFor(null)}>Zurück</Button></div>
-              : <div><Button variant="quiet" onClick={() => setEndFor(b.tenantId)}>Gekündigt im kostenlosen Monat</Button></div>) : null}</div>
+          {/* ENG-167 (P4): a free-month cancellation is entered and confirmed in „Kündigungen“, like every other end. */}
+          {b.lastFreeDay ? <span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
             : b.started ? null
               : startFor === b.tenantId
                 ? <form style={{ display: "grid", gap: 8 }} onInput={fields.onInput} noValidate onSubmit={event => { event.preventDefault(); if (fields.check(event.currentTarget)) void startBilling(b.tenantId); }}>
@@ -287,7 +322,10 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
-          {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
+          {r.status === "active" && !r.endDate ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Button variant="quiet" onClick={() => { setEntry(r); setReceivedAt(""); setEntryEnd(null); setSheetError(""); }}>Kündigung per E-Mail eintragen</Button>
+            <Button variant="quiet" onClick={() => openEnd(r)}>Enddatum setzen</Button>
+          </div> : null}
         </li>)}
       </ul>
     </Card>
@@ -326,6 +364,55 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         {error ? <p role="alert">{error}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>
           : <Button loading={busy} disabled={!endDate} onClick={() => sendEnd(false)}>Prüfen</Button>}
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!ending} onClose={closeSheets} title={ending?.acknowledged ? "Enddatum ändern" : "Enddatum"}>
+      {ending ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{ending.tenant}</strong> · {ending.locations.join(", ")}</p>
+        <p className="ow-muted">Jetzt: {ending.badge}{ending.requestedOn ? ` · angefragt am ${ending.requestedOn}` : ""} · Abrechnung am {ending.anchorDay}.</p>
+        <fieldset style={{ display: "grid", gap: 8, border: 0, margin: 0, padding: 0 }}>
+          <legend className="ow-muted">Letzter Tag</legend>
+          {ending.choices.filter(c => !c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}>
+            <input type="radio" name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
+          </label>)}
+          {ending.choices.some(c => c.consent) ? <details open={picked?.consent === true}>
+            <summary style={{ minHeight: 44, display: "flex", alignItems: "center" }}>Späteres Ende (nur wenn das Geschäft zustimmt)</summary>
+            {ending.choices.filter(c => c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}>
+              <input type="radio" name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
+            </label>)}
+          </details> : null}
+        </fieldset>
+        {checked ? <div role="status" style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--color-line, currentColor)", borderRadius: 12 }}>
+          <p>Von <strong>{ending.badge}</strong> zu <strong>bestätigt bis {checked.facts.lastDay.value}</strong></p>
+          <p>Letzte Rechnung: {checked.facts.lastInvoice.value}</p>
+          <p>Export bis {checked.facts.exportUntil.value}</p>
+          {checked.endDate !== ending.endDate ? <p>Das Geschäft bekommt die Änderung per E-Mail.</p> : null}
+          {checked.consent ? <label style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</label> : null}
+        </div> : null}
+        {sheetError ? <p role="alert">{sheetError}</p> : null}
+        {checked ? <Button loading={busy} disabled={checked.consent && !consent} onClick={() => void confirmEnd()}>Bestätigen</Button>
+          : <Button loading={busy} disabled={!choice} onClick={() => void checkEnd()}>Prüfen</Button>}
+        <div><Button variant="quiet" onClick={() => { setWithdrawing(ending); setEnding(null); setSheetError(""); }}>Kündigung zurücknehmen (auf Wunsch des Geschäfts)</Button></div>
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!withdrawing} onClose={closeSheets} title="Kündigung zurücknehmen?">
+      {withdrawing ? <div style={{ display: "grid", gap: 12 }}>
+        <p>{withdrawing.withdrawal}</p>
+        {sheetError ? <p role="alert">{sheetError}</p> : null}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="secondary" onClick={closeSheets}>Abbrechen</Button><Button loading={busy} onClick={() => void withdraw()}>Zurücknehmen</Button></div>
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!entry} onClose={closeSheets} title="Kündigung per E-Mail eintragen">
+      {entry ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{entry.tenant}</strong> · {entry.location}</p>
+        <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); }} />
+        {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
+        {sheetError ? <p role="alert">{sheetError}</p> : null}
+        {entryEnd ? <Button loading={busy} onClick={() => void checkEntry(true)}>Eintragen</Button>
+          : <Button loading={busy} disabled={!receivedAt} onClick={() => void checkEntry(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 
