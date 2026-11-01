@@ -22,12 +22,28 @@ export function consentText(shop: string, location: string) {
 
 export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
 
-// A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in plain German.
-const rules: Array<[RegExp, string]> = [
-  [/tabak|zigarette|e-?zigarette|vape|vaping|snus|liquid/i, "Werbung für Tabak und E-Zigaretten ist nicht erlaubt."],
-  [/heil(?:t|ung|end|mittel|versprechen)|therap|medizinisch|krebs|diabetes|gesundheitsfördernd|senkt den blutdruck/i, "Gesundheits- und Heilversprechen sind nicht erlaubt."],
-  [/(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)[^]*(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)|(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)[^]*(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)/i, "Alkohol-Werbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
+// A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in
+// plain German. Narrow on purpose (Legal, 1 Nov): a legally required exclusion, a crayfish salad or a double espresso shot
+// must never be refused, so each rule looks for an advertising claim, not a bare word.
+const TOBACCO = /\btabak|\b(?:e-?)?zigarett|\bvap(?:e|es|ing)\b|\bsnus\b|\be-?liquids?\b/i;
+// „Nicht auf Tabak und Zeitschriften“, „außer Tabak“: an exclusion names tobacco without advertising it.
+// It ends at the sentence's end or a colon, so „Außer sonntags: Zigaretten 10 % günstiger“ still names its offer (Reviewer N-1).
+const EXCLUSION = /\b(?:nicht\s+(?:auf|für)|außer|ausgenommen|ausgeschlossen)\b[^.!?;:]*/gi;
+const HEALTH = /\bheil(?:t|en|ung|end|mittel|versprechen)|\b(?:gegen|vor|bei)\s+(?:krebs|diabetes)\b|\b(?:krebs|diabetes)\s+(?:vorbeug|vermeid|verhinder|heil|bekämpf|linder)|gesundheitsfördernd|senkt\s+den\s+blutdruck/i;
+const ALCOHOL = /\balkohol|\bbier|bier\b|\b(?:glüh)?wein|\bsekt\b|\bschn(?:a|ä)ps|\bwhisk(?:e)?y\b|\b(?:w|v)odka\b|\blikör|\bcocktails?\b|(?<!espresso-?\s?)\bshots?\b/i;
+const MINORS = /\bjugendlich|\bminderjährig|\bteenager|\bschüler|\bunter\s*18\b/i;
+const rules: Array<[(text: string) => boolean, string]> = [
+  [text => TOBACCO.test(text.replace(EXCLUSION, " ")), "Werbung für Tabak und E-Zigaretten ist nicht erlaubt."],
+  [text => HEALTH.test(text), "Gesundheits- und Heilversprechen sind nicht erlaubt."],
+  // Within one sentence: „Glühwein für die Großen, Kinderpunsch für die Kleinen“ names both but targets no minor.
+  [text => text.split(/[.!?;\n]/).some(sentence => ALCOHOL.test(sentence) && MINORS.test(sentence)), "Alkoholwerbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
 ];
+
+/** The content rules alone, for text of any length: Wallet messages and email campaigns and automations (ENG-163, Legal). */
+export function contentRefusal(text: string): string | null {
+  for (const [refuses, error] of rules) if (refuses(text)) return error;
+  return null;
+}
 
 /** Trimmed single-line text, or a German refusal. Plain text only: no links, no control characters, at most 140 characters. */
 export function checkMessageText(raw: unknown): { ok: true; text: string } | { ok: false; error: string } {
@@ -36,8 +52,8 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
   if (Array.from(text).length > MESSAGE_MAX) return { ok: false, error: `Die Nachricht ist zu lang: höchstens ${MESSAGE_MAX} Zeichen.` };
   if (/\p{Cc}/u.test(text)) return { ok: false, error: "Die Nachricht darf nur aus einfachem Text bestehen." };
   if (/https?:|www\.|@|\b[a-z0-9-]+\.(?:de|com|net|org|eu|io|app|shop|link|ly)\b/i.test(text)) return { ok: false, error: "Links und Adressen sind in Nachrichten nicht erlaubt. Kunden können nichts anklicken." };
-  for (const [pattern, error] of rules) if (pattern.test(text)) return { ok: false, error };
-  return { ok: true, text };
+  const refused = contentRefusal(text);
+  return refused ? { ok: false, error: refused } : { ok: true, text };
 }
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */
