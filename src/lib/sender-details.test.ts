@@ -70,6 +70,8 @@ describe("the screens' rules, the same on the server", () => {
   });
   it("normalises register and VAT IDs quietly, and names the wrong ones", () => {
     expect(normalizeRegisterNumber("hrb12345")).toBe("HRB 12345");
+    expect(normalizeRegisterNumber("HRB  12345")).toBe("HRB 12345");
+    expect(normalizeRegisterNumber("HRA \t7  b")).toBe("HRA 7 B");
     expect(normalizeRegisterNumber(" gnr 7 b ")).toBe("GnR 7 B");
     expect(normalizeVatId(" de 298 417 365 ")).toBe("DE298417365");
     const empty = { legalForm: "", registerCourt: "", registerNumber: "", vatId: "" };

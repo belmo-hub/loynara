@@ -382,6 +382,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-reward-head { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; flex: 1 1 260px; }
 .ow-reward-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1; }
 .ow-reward-main > strong { font-size: var(--text-16); }
+/* Campaign rows: the text takes a line of its own on a phone instead of a narrow column beside the actions. */
+.ow-campaign-main { flex: 1 1 260px; }
 .ow-reward-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 /* Move arrows sit beside the name they move: quiet, borderless, and a disabled one only fades (no fill, no ring). */
 .ow-reward-move { display: flex; flex: none; }

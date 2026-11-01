@@ -70,7 +70,7 @@ const REGISTERS = ["HRA", "HRB", "GnR", "GsR", "PR", "VR"];
 export const normalizeText = (value: string) => value.trim();
 /** „hrb12345“ → „HRB 12345“; anything that is no register number comes back trimmed, for the check to name. */
 export function normalizeRegisterNumber(value: string) {
-  const match = /^(hra|hrb|gnr|gsr|pr|vr) ?(\d{1,6})(?: ?([a-z]{1,2}))?$/i.exec(value.trim());
+  const match = /^(hra|hrb|gnr|gsr|pr|vr)\s*(\d{1,6})(?:\s*([a-z]{1,2}))?$/i.exec(value.trim());
   if (!match) return value.trim();
   const register = REGISTERS.find(name => name.toLowerCase() === match[1].toLowerCase())!;
   return `${register} ${match[2]}${match[3] ? ` ${match[3].toUpperCase()}` : ""}`;

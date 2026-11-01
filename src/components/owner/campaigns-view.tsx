@@ -16,7 +16,7 @@ type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
 type Mode = "disabled" | "mailpit" | "mailgun_eu";
 type Status = "draft" | "scheduled" | "paused" | "dispatching" | "complete" | "blocked" | "cancelled";
-type Campaign = { id: string; title: string; subject: string; status: Status; scheduledAt: string | null; audienceCount: number; queuedCount: number; createdAt: string; audienceDefinition?: AudienceDefinition };
+type Campaign = { id: string; title: string; subject: string; status: Status; scheduledAt: string | null; audienceCount: number; queuedCount: number; createdAt: string; audienceDefinition?: AudienceDefinition; blockedReason?: string };
 type CampaignList = { campaigns: Campaign[]; deliveryMode: Mode };
 type Detail = { campaign: Campaign & { body: string; audienceDefinition: AudienceDefinition }; summary: { queued: number; sent: number; delivered: number; providerFailed: number; suppressed: number; failed: number }; attempts: Array<{ recipientId: string; status: string; reason: string | null; createdAt: string; providerStatus: string | null }>; outcome?: { sent: number; returnedAfterSend: number } };
 type Preview = { total: number; eligibleCount: number; excludedCountsByReason: Record<"unverified" | "noConsent" | "unsubscribed" | "suppressed" | "frequency" | "closed" | "nonSynthetic" | "quota", number>; asOf: string; countingRule: string; deliveryMode: Mode; dailyQuota: number; monthlyLocationQuota: number; quotaRemaining: number };
@@ -32,6 +32,8 @@ const GOALS: Record<string, { label: string; text: (o: GoalOptions) => string; m
 };
 const KINDS: Array<[Kind, string]> = [["all", "Alle aktiven Karten"], ["inactive", "Länger nicht da"], ["recently_active", "Kürzlich aktiv"], ["new", "Neu angemeldet"], ["frequent_visitors", "Häufige Buchungen"], ["close_to_reward", "Kurz vor Prämie"]];
 const EXCLUSION: Array<[keyof Preview["excludedCountsByReason"], string]> = [["unverified", "Keine bestätigte E-Mail-Adresse"], ["noConsent", "Keine Werbeeinwilligung"], ["unsubscribed", "Abgemeldet"], ["suppressed", "Gesperrt wegen Zustellproblemen"], ["frequency", "Zu häufig kontaktiert"], ["closed", "Karte geschlossen"], ["nonSynthetic", "Keine Testadresse (lokaler Testkanal)"], ["quota", "Versandgrenze erreicht"]];
+/** Why a campaign was not sent, and what to do next (Design, ENG-163). */
+const blockedLine = (reason: string) => `Nicht versendet: ${reason} Wähle oben ein Ziel für einen neuen Entwurf und lass diese Aussage weg.`;
 const STATUS: Record<Status, [string, string]> = { draft: ["Entwurf", ""], scheduled: ["Geplant", "ow-chip--info"], paused: ["Pausiert", "ow-chip--warn"], dispatching: ["In Bearbeitung", "ow-chip--info"], complete: ["Abgeschlossen", "ow-chip--ok"], blocked: ["Blockiert", "ow-chip--danger"], cancelled: ["Abgebrochen", ""] };
 const STEPS = ["Zielgruppe", "Nachricht", "Prüfen & speichern"];
 const SUBJECT_MAX = 120;
@@ -212,11 +214,12 @@ export function CampaignsView() {
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
           {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
-          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähl oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
+          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähle oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (
             <ul className="ow-rewards">{list.data.campaigns.map(campaign => (
               <li key={campaign.id} className="ow-reward" style={{ alignItems: "flex-start" }}>
-                <div className="ow-reward-main"><strong>{campaign.title}</strong><span className="ow-muted">{campaign.subject}</span>{campaign.audienceDefinition && <span className="ow-hint">{audienceSentence(editorFrom({ ...campaign, body: "", audienceDefinition: campaign.audienceDefinition }), unit)}</span>}<span className="ow-hint">{campaign.status === "draft" ? "Noch nicht geplant, nichts versendet." : <>Zielgruppe bei Planung: {campaign.audienceCount}</>}{campaign.status !== "draft" && <> · eingereiht: {campaign.queuedCount} · Termin: {campaign.scheduledAt ? germanDate(campaign.scheduledAt, true) : "nicht geplant"}</>}</span>
+                <div className="ow-reward-main ow-campaign-main"><strong>{campaign.title}</strong><span className="ow-muted">{campaign.subject}</span>{campaign.audienceDefinition && <span className="ow-hint">{audienceSentence(editorFrom({ ...campaign, body: "", audienceDefinition: campaign.audienceDefinition }), unit)}</span>}<span className="ow-hint">{campaign.status === "draft" ? "Noch nicht geplant, nichts versendet." : <>Zielgruppe bei Planung: {campaign.audienceCount}</>}{campaign.status !== "draft" && <> · eingereiht: {campaign.queuedCount} · Termin: {campaign.scheduledAt ? germanDate(campaign.scheduledAt, true) : "nicht geplant"}</>}</span>
+                  {campaign.blockedReason && <span className="ow-error">{blockedLine(campaign.blockedReason)}</span>}
                   {campaign.status === "paused" && mode !== "disabled" && <div className="ow-row ow-mt-2"><label className="ow-sr" htmlFor={`w-${campaign.id}`}>Neuer Termin</label><input id={`w-${campaign.id}`} className="ow-input" style={{ maxWidth: 240 }} type="datetime-local" value={when[campaign.id] ?? ""} onChange={event => setWhen(current => ({ ...current, [campaign.id]: event.target.value }))} /><button type="button" className="ow-btn ow-btn--primary ow-btn--sm" disabled={busy || senderMissing || !when[campaign.id]} onClick={() => void act(campaign.id, "schedule")}>Erneut planen</button></div>}
                 </div>
                 <div className="ow-reward-actions"><span className={`ow-chip ${STATUS[campaign.status][1]}`}>{STATUS[campaign.status][0]}</span>
@@ -325,6 +328,7 @@ function DetailPanel({ detail, onClose }: { detail: Detail; onClose: () => void 
   return (
     <section className="ow-card ow-stack" aria-labelledby="det-h">
       <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="det-h">{detail.campaign.title}</h2><p>Tatsächliche Vorgänge</p></div><button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={onClose}>Schließen</button></div>
+      {detail.campaign.blockedReason && <p className="ow-error">{blockedLine(detail.campaign.blockedReason)}</p>}
       <dl className="ow-dl"><dt>Wartend</dt><dd>{s.queued}</dd><dt>Vom Versand angenommen</dt><dd>{s.sent}</dd><dt>Zugestellt laut Anbieter</dt><dd>{s.delivered}</dd><dt>Anbieterfehler</dt><dd>{s.providerFailed}</dd><dt>Unterdrückt</dt><dd>{s.suppressed}</dd><dt>Fehlgeschlagen</dt><dd>{s.failed}</dd></dl>
       <p className="ow-hint">„Angenommen“ heißt nicht „zugestellt“. Erst die Rückmeldung des Anbieters zählt als Zustellung.</p>
       {detail.outcome && detail.outcome.sent > 0 && <div className="ow-readonly"><strong>Danach wieder an der Kasse:</strong> <span className="ow-num">{detail.outcome.returnedAfterSend} von {detail.outcome.sent}</span> angeschriebenen Karten hatten nach dem Versand eine bestätigte Buchung.<p className="ow-hint ow-mt-1">Das ist eine Beobachtung, kein Beweis, dass die Nachricht der Grund war.</p></div>}

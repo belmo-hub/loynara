@@ -50,6 +50,8 @@ export type WalletPassData = WalletBrand & {
   message?: string;
   /** The day that message was sent, „28.10.“ in the shop's timezone. */
   messageDay?: string;
+  /** Without message consent the field is the expiry-only one (ENG-162, Legal): its own key and wording, expiry notices only. */
+  messageKey?: "expiry";
   /** ENG-100: a waiting rule or expiry change (YYYY-MM-DD, location time), data only until the pass back shows them. */
   pending?: RulePending | null;
   pendingExpiry?: { effectiveOn: string; months: number; before: number | null } | null;

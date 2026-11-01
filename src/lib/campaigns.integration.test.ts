@@ -224,6 +224,20 @@ describe("local campaign core", () => {
     expect([first.id, second.id].sort()).toEqual((await db.select().from(campaignRecipients)).map(row => row.membershipId).sort());
   });
 
+  it("blocks at dispatch a campaign whose sender became incomplete after scheduling: no quota, nothing queued (Reviewer N-1)", async () => {
+    const f = await fixture();
+    await member(f.merchant.programSlug, "late@example.test", true, true);
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    await db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId));
+    const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Sender details missing" });
+    expect((await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, campaign.id)))[0].status).toBe("blocked");
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+    expect(await db.select().from(campaignDailyUsage)).toHaveLength(0);
+  });
+
   it("refuses to schedule while a required sender field is missing, naming it, and suppresses what was queued before", async () => {
     const where = (f: Awaited<ReturnType<typeof fixture>>) => eq(locations.id, f.merchant.locationId);
     const drops: Array<[string, (f: Awaited<ReturnType<typeof fixture>>) => Promise<unknown>]> = [
@@ -621,4 +635,33 @@ it("rechecks a real opt-out on the second audience page after preview and before
   expect(await db.select().from(campaignRecipients)).toEqual([expect.objectContaining({tenantId:f.merchant.tenantId,membershipId:boundary[1].id})]);
   expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind,"email.campaign"))).toHaveLength(1);
   expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(1);
+});
+
+describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
+  it("refuses tobacco in the subject or body on save and edit, and blocks a scheduled campaign whose text breaks the rules", async () => {
+    const f = await fixture();
+    const base = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields };
+    await expect(createDraftCampaign({ ...base, subject: "Neu: E-Zigaretten" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    await expect(createDraftCampaign({ ...base, body: "Diese Woche Tabak zum Sonderpreis an der Kasse." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    const draft = await createDraftCampaign(base);
+    const { programSlug: _slug, ...edit } = base; void _slug;
+    await expect(editDraftCampaign({ ...edit, campaignId: draft.id, body: "Jetzt mit Vapes im Sortiment." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    // A text saved before the rule (or changed outside the app) is caught when the campaign goes out.
+    await member(f.merchant.programSlug, "rules@example.test", true, true);
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: when });
+    await db.update(campaigns).set({ body: "Ab heute Zigaretten an der Kasse." }).where(eq(campaigns.id, draft.id));
+    const dispatch = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"))).at(-1)!;
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Campaign text breaks the content rules" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+    expect((await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, draft.id)))[0].status).toBe("blocked");
+    // The owner's list says it was blocked and why.
+    const listed = await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
+    expect(listed.find(campaign => campaign.id === draft.id)).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: draft.id })).campaign).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    // A blocked campaign stays blocked: it can be neither scheduled again nor edited (Reviewer N-2).
+    await expect(scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: new Date(Date.now() + 60_000) })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
+    await expect(editDraftCampaign({ ...edit, campaignId: draft.id })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+  });
 });

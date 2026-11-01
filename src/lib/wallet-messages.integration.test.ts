@@ -1,12 +1,13 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
-import { createMerchant, enroll } from "./product";
+import { createMerchant, enroll, updateProgramExtras } from "./product";
 import { credentialHash } from "./wallet/data";
 import { passFastData } from "./wallet/passfast";
 import { walletCardSnapshot } from "./wallet/data";
 import { consentText, CONSENT_TEXT_VERSION } from "./wallet-message-rules";
 import { POST } from "@/app/api/wallet/passfast-events/route";
+import { POST as consentPost } from "@/app/api/card/[token]/wallet-messages/route";
 import { recordPassFastEvent } from "./wallet-pass-events";
 import { applePassJson, applePassToken } from "./wallet/apple";
 import { unregisterAppleDevice } from "./wallet/apple-service";
@@ -221,7 +222,7 @@ describe("quiet hours 21:00 to 08:00 Berlin, including the DST change of 25 Oct 
 });
 
 describe("content rules", () => {
-  it.each(["Heute Tabak zum Sonderpreis", "Neue Liquids da", "Vape-Aktion", "Snus 2 für 1", "Das hilft: heilt Rückenschmerzen", "Bier und Wein für Jugendliche heute günstig", "Mehr unter www.beispiel.de", "Alles auf https://x.test"])("refuses %s", async text => {
+  it.each(["Heute Tabak zum Sonderpreis", "Neue E-Liquids da", "Vape-Aktion", "Snus 2 für 1", "Das hilft: heilt Rückenschmerzen", "Bier und Wein für Jugendliche heute günstig", "Mehr unter www.beispiel.de", "Alles auf https://x.test"])("refuses %s", async text => {
     const s = await shop(); await customer(s);
     await expect(go(s, NOON, text)).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
   });
@@ -679,7 +680,9 @@ describe("native Apple passes (ENG-127)", () => {
 
   it("a send queues exactly one refresh per consenting, registered pass and never calls PassFast", async () => {
     const s = await shop(); const a = await nativeCustomer(s); const b = await nativeCustomer(s);
-    await nativeCustomer(s, { consent: false }); await nativeCustomer(s, { device: false });
+    await nativeCustomer(s, { consent: false });
+    // Consented, then its only device let go: not reachable any more (consent needs a reachable pass since ENG-162).
+    const gone = await nativeCustomer(s); await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [gone.passId]);
     await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1", [s.tenantId]); // the consent refreshes already ran
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(2);
     const { id, audience } = await go(s);
@@ -713,6 +716,105 @@ describe("native Apple passes (ENG-127)", () => {
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(0);
     await expect(go(s)).rejects.toMatchObject({ code: "NO_REACH" });
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = ANY($1)", [[de.id, fr.id]])).rows[0].n).toBe(0);
+  });
+
+  it("without consent a native pass in an expiry programme carries only the expiry field, and its first notice alerts (ENG-162, Legal)", async () => {
+    const s = await shop(); const quiet = await nativeCustomer(s, { consent: false }); const allowed = await nativeCustomer(s);
+    // Points without an expiry rule: no field, whose placeholder would suggest the points expire (Marketing).
+    await pool.query("UPDATE programs SET type = 'points' WHERE id = $1", [s.programId]);
+    const before = await walletCardSnapshot(quiet.id);
+    expect(before.open && before.pass.message).toBeUndefined();
+    await pool.query("UPDATE programs SET points_expiry_months = 24, points_expiry_since = now() WHERE id = $1", [s.programId]);
+    const back = async (c: { id: string; passId: string }) => {
+      const snapshot = await walletCardSnapshot(c.id);
+      if (!snapshot.open) throw new Error("open");
+      return applePassJson(snapshot.pass, c.passId, apple).storeCard.backFields;
+    };
+    // No consent: the expiry-only field under its own key, worded only about points; no shop message field.
+    const quietBack = await back(quiet);
+    expect(quietBack.find(field => field.key === "message")).toBeUndefined();
+    expect(quietBack.find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis vor dem Punkteverfall", value: "Bevor Punkte verfallen, erscheint hier ein Hinweis.", changeMessage: "%@" });
+    // Consent: the shop's message field as before, and no expiry field.
+    const allowedBack = await back(allowed);
+    expect(allowedBack.find(field => field.key === "expiry")).toBeUndefined();
+    expect(allowedBack.find(field => field.key === "message")).toMatchObject({ label: "Nachricht von Synthetic Café", value: "Noch keine Nachricht." });
+    // The first notice changes the value under the key the pass already had: Wallet shows the banner.
+    const notice = "Deine 40 Punkte verfallen am 05.08.2027.";
+    const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'expiry',$3,'complete',now()) RETURNING id", [s.tenantId, s.programId, notice]);
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, quiet.passId, s.tenantId, quiet.id]);
+    expect((await back(quiet)).find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis vor dem Punkteverfall", value: notice, changeMessage: "%@" });
+    // The consenting card gets the same notice under the shop's message key, and still no expiry field (Reviewer N-1).
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, allowed.passId, s.tenantId, allowed.id]);
+    const allowedAfter = await back(allowed);
+    expect(allowedAfter.find(field => field.key === "message")).toMatchObject({ value: notice, changeMessage: "%@" });
+    expect(allowedAfter.find(field => field.key === "expiry")).toBeUndefined();
+  });
+
+  it("a points programme whose expiry rule only waits (dated switch-on) carries the expiry field too (Reviewer N-2)", async () => {
+    const owner = await user();
+    const m = await createMerchant({ userId: owner, businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Pizzakarte", programType: "points", earningMode: "manual", rulesText: "10 Punkte pro Pizza.", rewardTitle: "Pizza", rewardCost: 100 });
+    const { rows: [t] } = await pool.query("SELECT tenant_id AS id FROM programs WHERE id = $1", [m.programId]);
+    const s = { owner, slug: m.programSlug, programId: m.programId, tenantId: t.id as string };
+    const quiet = await nativeCustomer(s, { consent: false });
+    // With a card already enrolled, switching expiry on is dated four weeks ahead: pending, nothing in force yet.
+    await updateProgramExtras({ actorUserId: owner, programId: m.programId, pointsExpiryMonths: 36 });
+    const snapshot = await walletCardSnapshot(quiet.id);
+    if (!snapshot.open) throw new Error("open");
+    expect(snapshot.pass.pendingExpiry).toMatchObject({ months: 36 });
+    expect(applePassJson(snapshot.pass, quiet.passId, apple).storeCard.backFields.find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis vor dem Punkteverfall", value: "Bevor Punkte verfallen, erscheint hier ein Hinweis." });
+  });
+
+  it("with messages switched off on production, no pass gets an empty field; a text once sent stays (ENG-162, Design)", async () => {
+    const s = await shop(); const quiet = await nativeCustomer(s, { consent: false }); const allowed = await nativeCustomer(s); const sent = await nativeCustomer(s);
+    const notified = await nativeCustomer(s, { consent: false });
+    await priorMessage(s, sent.id, sent.passId, T("2026-10-20T10:00:00Z"));
+    await pool.query("UPDATE programs SET type = 'points', points_expiry_months = 24, points_expiry_since = now() WHERE id = $1", [s.programId]);
+    const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'expiry','Deine 40 Punkte verfallen am 05.08.2027.','complete',now()) RETURNING id", [s.tenantId, s.programId]);
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, notified.passId, s.tenantId, notified.id]);
+    vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
+    try {
+      for (const c of [quiet, allowed]) {
+        const snapshot = await walletCardSnapshot(c.id);
+        expect(snapshot.open && snapshot.pass.message).toBeUndefined();
+      }
+      const kept = await walletCardSnapshot(sent.id);
+      expect(kept.open && kept.pass.message).toBe("Früher");
+      // A delivered expiry notice stays in its field too.
+      const notice = await walletCardSnapshot(notified.id);
+      if (!notice.open) throw new Error("open");
+      expect(applePassJson(notice.pass, notified.passId, apple).storeCard.backFields.find(field => field.key === "expiry")).toMatchObject({ value: "Deine 40 Punkte verfallen am 05.08.2027." });
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it("a granted card whose last device let go can still switch off; the panel is then not offered again (ENG-162, Design P3)", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [c.passId]);
+    expect(await getWalletConsent(c.cardToken)).toMatchObject({ available: true, granted: true });
+    expect(await setWalletConsent(c.cardToken, false)).toEqual({ granted: false });
+    expect((await pool.query("SELECT withdrawn_at IS NOT NULL AS withdrawn FROM wallet_message_consents WHERE membership_id = $1", [c.id])).rows).toEqual([{ withdrawn: true }]);
+    expect(await getWalletConsent(c.cardToken)).toMatchObject({ available: false, granted: false });
+  });
+
+  it("without consent a shop message never shows on the pass, only expiry notices do (ENG-162, Legal)", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    await priorMessage(s, c.id, c.passId, T("2026-10-20T10:00:00Z"));
+    await setWalletConsent(c.cardToken, false);
+    const snapshot = await walletCardSnapshot(c.id);
+    if (!snapshot.open) throw new Error("open");
+    const fields = applePassJson(snapshot.pass, c.passId, apple).storeCard.backFields;
+    expect(fields.find(field => field.key === "message" || field.key === "expiry")).toBeUndefined();
+  });
+
+  it("the consent panel is offered only where delivery could reach the pass: not after its last device unregistered (ENG-162)", async () => {
+    const s = await shop(); const reached = await nativeCustomer(s, { consent: false }); const gone = await nativeCustomer(s, { consent: false });
+    await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [gone.passId]);
+    expect(await getWalletConsent(reached.cardToken)).toMatchObject({ available: true });
+    expect(await getWalletConsent(gone.cardToken)).toMatchObject({ available: false });
+    // Granting is refused too, through the card's own endpoint, and no consent row is written; the reachable card still can.
+    const grant = (token: string) => consentPost(new Request(`http://localhost:3000/api/card/${token}/wallet-messages`, { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ granted: true }) }), { params: Promise.resolve({ token }) });
+    expect((await grant(gone.cardToken)).status).toBe(404);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_consents WHERE membership_id = $1", [gone.id])).rows[0].n).toBe(0);
+    expect((await grant(reached.cardToken)).status).toBe(200);
   });
 
   it("only the last device letting go counts as a removal", async () => {
