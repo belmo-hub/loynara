@@ -309,6 +309,13 @@
       "when": 1793353501977,
       "tag": "0043_dated_reward_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793517215783,
+      "tag": "0048_shop_unsubscribes",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, emailUnsubscribes, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
 import { cancelCampaign, createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
@@ -614,4 +614,13 @@ describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
     await expect(editDraftCampaign({ ...edit, campaignId: draft.id })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
   });
+});
+
+it("an unsubscribe from one shop's mail leaves the same address eligible for another shop (ENG-170)", async () => {
+  const a = await fixture(); const b = await fixture();
+  for (const f of [a, b]) await member(f.merchant.programSlug, "shared@example.test", true, true);
+  await db.insert(emailUnsubscribes).values({ tenantId: a.merchant.tenantId, recipientHash: recipientHash("shared@example.test") });
+  const preview = (f: Awaited<ReturnType<typeof fixture>>) => previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: { kind: "all" } });
+  expect(await preview(a)).toMatchObject({ eligibleCount: 0, excludedCountsByReason: { unsubscribed: 1 } });
+  expect(await preview(b)).toMatchObject({ eligibleCount: 1 });
 });

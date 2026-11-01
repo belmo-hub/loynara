@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { automationRules, automationRuns, consentEvents, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { automationRules, automationRuns, consentEvents, emailSuppressions, emailUnsubscribes, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
 import { formatCardLocator } from "./card-locator";
@@ -99,8 +99,11 @@ async function eligibleContact(tx: Transaction, rule: Rule, membershipId: string
   if (!contact?.email || !contact.emailVerified) return { reason: "Contact unavailable or unverified" };
   if (promotionalEmailMode() === "mailpit" && !syntheticAddress(contact.email)) return { reason: "Recipient is not synthetic" };
   if (!await latestConsent(tx, rule.tenantId, member.id)) return { reason: "Marketing consent absent or withdrawn" };
-  const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(eq(emailSuppressions.recipientHash, recipientHash(contact.email))).limit(1);
-  if (suppression) return { reason: suppression.reason === "unsubscribed" ? "Unsubscribed" : "Address suppressed by provider" };
+  const hash = recipientHash(contact.email);
+  const [unsubscribed] = await tx.select({ hash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, rule.tenantId), eq(emailUnsubscribes.recipientHash, hash))).limit(1);
+  if (unsubscribed) return { reason: "Unsubscribed" };
+  const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash)).limit(1);
+  if (suppression) return { reason: "Address suppressed by provider" };
   return { email: contact.email };
 }
 

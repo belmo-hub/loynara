@@ -27,6 +27,7 @@ let programmesEndedAt = 0;
 let winbackCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
+let suppressionsPrunedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -348,6 +349,18 @@ async function main() {
           const { runPointsExpiry } = await import("../src/lib/points-expiry");
           await runPointsExpiry();
           pointsExpiredAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - suppressionsPrunedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent: permanent failures and complaints are kept 24 months after their last event (Legal, ENG-170).
+          const { pruneEmailSuppressions } = await import("../src/lib/transactional-email");
+          const removed = await pruneEmailSuppressions();
+          if (removed) console.log(`Email suppressions: ${removed} expired after 24 months`);
+          suppressionsPrunedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;

@@ -1,8 +1,8 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
+import { emailDeliveries, emailProviderEvents, emailSuppressions, emailUnsubscribes, outboxJobs } from "@/db/schema";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalMessage } from "./email";
 import { mailgunConfig } from "./email-configuration";
 
@@ -98,9 +98,9 @@ function sendManaged(message: TransactionalMessage, provider: TransactionalEmail
 async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional"): Promise<PromotionalResult> {
   if (!provider) return { status: "blocked" as const, reason: "Email provider unavailable" };
   const hash = recipientHash(message.to);
+  // Only permanent failures and complaints are global; a shop's unsubscribe is checked by its campaigns and automations.
   const [suppression] = await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash));
-  // Promotional unsubscribe is not a withdrawal of requested recovery mail.
-  if (suppression && (purpose === "promotional" || suppression.reason !== "unsubscribed")) return { status: "suppressed" as const, reason: "Recipient suppressed" };
+  if (suppression) return { status: "suppressed" as const, reason: "Recipient suppressed" };
   const reservation = db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" });
   const sameRejectedDelivery = and(eq(emailDeliveries.jobId, message.jobId), eq(emailDeliveries.provider, provider.name),
     eq(emailDeliveries.recipientHash, hash), eq(emailDeliveries.status, "rate_limited"), isNull(emailDeliveries.providerMessageId));
@@ -210,15 +210,23 @@ export async function recordMailgunWebhook(input: unknown) {
     if (shouldAdvance) {
       await tx.update(emailDeliveries).set({ status: mapped, retryAt: null, updatedAt: new Date() }).where(eq(emailDeliveries.jobId, delivery.jobId));
     }
-    if (["permanent_fail", "complained", "unsubscribed"].includes(event.event) && event.recipient && recipientHash(event.recipient) === delivery.recipientHash) {
-      // A marketing unsubscribe must not downgrade a complaint/permanent
-      // failure and thereby re-enable transactional recovery mail. PostgreSQL
-      // rechecks the guard under the conflicting recipient row lock.
-      await tx.insert(emailSuppressions).values({ recipientHash: recipientHash(event.recipient), reason: event.event }).onConflictDoUpdate({
-        target: emailSuppressions.recipientHash, set: { reason: event.event },
-        setWhere: eq(emailSuppressions.reason, "unsubscribed"),
-      });
+    if (event.recipient && recipientHash(event.recipient) === delivery.recipientHash) {
+      if (event.event === "unsubscribed") {
+        // The shop is the one whose job sent this mail, from our own record, never from the provider's payload.
+        const [job] = await tx.select({ tenantId: outboxJobs.tenantId }).from(outboxJobs).where(eq(outboxJobs.id, delivery.jobId));
+        if (job) await tx.insert(emailUnsubscribes).values({ tenantId: job.tenantId, recipientHash: delivery.recipientHash }).onConflictDoNothing();
+      } else if (["permanent_fail", "complained"].includes(event.event)) {
+        await tx.insert(emailSuppressions).values({ recipientHash: delivery.recipientHash, reason: event.event }).onConflictDoUpdate({
+          target: emailSuppressions.recipientHash, set: { reason: event.event, lastEventAt: sql`now()` },
+        });
+      }
     }
   });
   return { accepted: true as const };
+}
+
+/** Daily: a permanent failure or complaint is forgotten 24 months after its last event (Legal, ENG-170). */
+export async function pruneEmailSuppressions(now = new Date()) {
+  const removed = await db.delete(emailSuppressions).where(lt(emailSuppressions.lastEventAt, sql`${now}::timestamptz - interval '24 months'`)).returning({ hash: emailSuppressions.recipientHash });
+  return removed.length;
 }
