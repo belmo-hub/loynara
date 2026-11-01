@@ -113,6 +113,7 @@ async function processJob(job: Job, claimedAt: number) {
     try {
       const { deliverContractEndEmail } = await import("../src/lib/contract-end-email");
       const result = await deliverContractEndEmail(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
       return await mark(job, result.status, "reason" in result ? result.reason : undefined);
     } catch (error) {
       // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
