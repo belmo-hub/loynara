@@ -5,7 +5,6 @@ import { APPLE_CREDENTIAL_VALUES, type AppleCredentialValue, inspectAppleCredent
 import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 import { stripeConfigIssues } from "../src/lib/stripe-config";
-import { operatorIdentityIssues } from "../src/lib/operator-identity";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -100,7 +99,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   issues.push(...stripeConfigIssues(env, true));
   // ENG-167: owner emails (the cancellation's text-form confirmation) carry the operator's name and address. The cancellation
   // page is withheld on production (pilot-surfaces), but the operator enters e-mailed cancellations, so the email lane decides.
-  if (externalEmailRequested) issues.push(...operatorIdentityIssues(env));
+  if (externalEmailRequested && !(env.OPERATOR_NAME?.trim() && env.OPERATOR_ADDRESS?.trim())) issues.push("OPERATOR_NAME and OPERATOR_ADDRESS (the operator's name and postal address for owner emails) must both be set");
   if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
