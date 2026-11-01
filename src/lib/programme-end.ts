@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { EXPORT_DAYS_AFTER_END, germanDate } from "./programme-end-date";
+import { addDays, EXPORT_DAYS_AFTER_END, germanDate, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { contractBasis, noticeEnd } from "./contract-end";
 import { queueContractEndEmail } from "./contract-end-email";
 import { assertBillingMonthEnd, syncShopEnd } from "./billing-stripe";
@@ -132,7 +132,7 @@ const realDay = (day?: string): day is string => !!day && isoDay.test(day) && !N
  * us), keep or move the end later (`schedule`; later only with the shop's consent in text form), withdraw it on the shop's
  * wish, or end a programme at once. One date for the whole business. Dry run unless `execute`.
  */
-export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end" | "request" | "withdraw"; endDate?: string; receivedAt?: string; consent?: boolean; acceptPastEnd?: boolean; execute: boolean; now?: Date }) {
+export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end" | "request" | "withdraw"; endDate?: string; receivedAt?: string; consent?: boolean; acceptLateEntry?: boolean; execute: boolean; now?: Date }) {
   if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const now = input.now ?? new Date();
   if (input.command === "schedule") {
@@ -147,13 +147,11 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     if (!receivedAt || Number.isNaN(receivedAt.getTime()) || receivedAt > now) throw new DomainError("INVALID_RECEIVED_AT", "Bitte den Eingang der E-Mail mit Datum, Uhrzeit und Zeitzone angeben, z. B. 2026-11-12T09:30+01:00, nicht in der Zukunft.");
   }
   const [shop] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, input.programId));
-  // Review N-1: an e-mail entered weeks late could end every location at the next end-job tick. Its end must not have passed,
-  // unless the operator says, after speaking with the shop, that it should be entered all the same.
-  if (input.command === "request" && shop && !input.acceptPastEnd) {
-    const basis = await contractBasis(shop.tenantId);
+  // Review N-1 (CTO): an e-mail entered weeks late gives an end that has passed, and the end job would end every location
+  // within a minute. One older than the 14-day notice window is entered only on an explicit flag, after speaking with the shop.
+  if (input.command === "request" && !input.acceptLateEntry) {
     const berlin = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at);
-    const end = basis ? noticeEnd({ requestDay: berlin(receivedAt!), anchorDay: basis.anchorDay, lastFreeDay: basis.lastFreeDay }).endDate : null;
-    if (end && end < berlin(now)) throw new DomainError("END_IN_PAST", `Mit diesem Eingang wäre das Vertragsende der ${germanDate(end)}, also schon vorbei. Nur nach Rücksprache mit dem Geschäft eintragen (--accept-past-end).`);
+    if (berlin(receivedAt!) < addDays(berlin(now), -MIN_NOTICE_DAYS)) throw new DomainError("LATE_ENTRY", `Diese E-Mail kam vor mehr als ${MIN_NOTICE_DAYS} Tagen an, ihr Vertragsende kann schon vorbei sein. Nur nach Rücksprache mit dem Geschäft eintragen.`);
   }
   // G-1 (Legal): only the last day of a billing month, or a free-month cancellation's notice end, can drive Stripe (read once, outside the lock).
   if (input.command === "schedule" && shop) await assertBillingMonthEnd(shop.tenantId, input.endDate!);
