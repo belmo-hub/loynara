@@ -127,3 +127,39 @@ test("an Apple add while waiting, then a rejected request, stays on the tap page
     await cashier.close();
   } finally { await customer.close(); await m.close(); }
 });
+
+test("an Apple add on an already ended request keeps the customer where they are", async ({ baseURL, browser }) => {
+  const { m, customer, page, reject } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    const cashier = await reject();
+    await expect(page.getByRole("heading", { name: "Nicht bestätigt" })).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    // Down to the band, then add: the ended scroll ran once and must not run again behind Apple's sheet (Design P3).
+    await page.setViewportSize({ width: 390, height: 560 });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    const scrolled = await page.evaluate(() => window.scrollY);
+    await addAndOpenSheet(page);
+    await page.waitForTimeout(1_000);
+    // Not sent back up (WebKit may settle a little lower as the page finishes laying out).
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThanOrEqual(scrolled);
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
+
+test("a stamp landing while the pass is being prepared still opens Apple's sheet, then the card", async ({ baseURL, browser }) => {
+  const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    // Apple's prepare is slow this time, and the team confirms meanwhile.
+    await customer.unroute("**/api/wallet/apple");
+    await customer.route("**/api/wallet/apple", async route => { await new Promise(resolve => setTimeout(resolve, 8_000)); await route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
+    const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
+    await addToWallet(page);
+    await expect(page.getByRole("button", { name: "Wird vorbereitet …" })).toBeVisible();
+    const cashier = await confirm();
+    await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
+    await pass;
+    await expect(page).toHaveURL(/\/card\/card_/, { timeout: 10_000 });
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
