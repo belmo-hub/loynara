@@ -713,6 +713,16 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     expect(await sub(broken.tenantId)).toMatchObject({ billingEndsAt: null });
   });
 
+  it("sends the ends first, so a quantity or credit failure for another shop can't let a held end renew (review N-1b)", async () => {
+    const broken = await subscribed();
+    await db.update(subscriptions).set({ activeLocationCount: 2 }).where(eq(subscriptions.tenantId, broken.tenantId));
+    stripe.failing.add(`/subscription_items/si_${broken.subscriptionId}`);
+    const ending = await subscribed();
+    await db.update(programs).set({ cancellationEndDate: "2026-12-01", cancellationConfirmedAt: NOW }).where(eq(programs.id, ending.programId));
+    await expect(runBillingJob()).rejects.toMatchObject({ code: "PROVIDER_ERROR" });
+    expect(ending.fake().cancel_at_period_end).toBe(true);
+  });
+
   it("waits until every running location has a confirmed end, then ends with the month of the latest one", async () => {
     const s = await subscribed();
     const second = await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });

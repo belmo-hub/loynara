@@ -538,6 +538,16 @@ export async function creditOwedGuarantees(tenantId?: string) {
  */
 export async function runBillingJob(env: Env = process.env) {
   if (!stripeEnabled(env)) return { quantities: 0, credited: 0, ends: 0 };
+  // ENG-125, first (review N-1b): sends an end whose billing month has begun, and is the only retry for a failed Stripe call
+  // at confirmation, withdrawal or renewal; the credits and quantities below can still throw for one shop. Caught per shop,
+  // so it never holds them up.
+  let ends = 0;
+  const live = await db.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
+    .where(and(eq(subscriptions.provider, "stripe"), inArray(subscriptions.status, RUNNING), isNotNull(subscriptions.providerSubscriptionId)));
+  for (const shop of live) {
+    try { if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1; }
+    catch (error) { console.error(`Billing: Stripe end not synced for tenant ${shop.tenantId} (${error instanceof Error && "code" in error ? String(error.code) : "error"}); retried tomorrow`); }
+  }
   const credited = await creditOwedGuarantees();
   let quantities = 0;
   const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount,
@@ -554,15 +564,6 @@ export async function runBillingJob(env: Env = process.env) {
       ? { quantity: String(shop.locations), proration_behavior: "create_prorations", proration_date: String(since) }
       : { quantity: String(shop.locations), proration_behavior: "none" });
     quantities += 1;
-  }
-  // ENG-125, last (review N-1): sends an end whose billing month has begun, and is the backstop for a failed Stripe call at
-  // confirmation or withdrawal. One shop's Stripe error doesn't hold up the others.
-  let ends = 0;
-  const live = await db.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
-    .where(and(eq(subscriptions.provider, "stripe"), inArray(subscriptions.status, RUNNING), isNotNull(subscriptions.providerSubscriptionId)));
-  for (const shop of live) {
-    try { if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1; }
-    catch (error) { console.error(`Billing: Stripe end not synced for tenant ${shop.tenantId} (${error instanceof Error && "code" in error ? String(error.code) : "error"}); retried tomorrow`); }
   }
   return { quantities, credited, ends };
 }
