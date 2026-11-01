@@ -132,7 +132,7 @@ const realDay = (day?: string): day is string => !!day && isoDay.test(day) && !N
  * us), keep or move the end later (`schedule`; later only with the shop's consent in text form), withdraw it on the shop's
  * wish, or end a programme at once. One date for the whole business. Dry run unless `execute`.
  */
-export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end" | "request" | "withdraw"; endDate?: string; receivedAt?: string; consent?: boolean; execute: boolean; now?: Date }) {
+export async function operatorProgramme(input: { actorUserId: string; env: Env; programId: string; command: "status" | "schedule" | "end" | "request" | "withdraw"; endDate?: string; receivedAt?: string; consent?: boolean; acceptPastEnd?: boolean; execute: boolean; now?: Date }) {
   if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   const now = input.now ?? new Date();
   if (input.command === "schedule") {
@@ -147,6 +147,14 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     if (!receivedAt || Number.isNaN(receivedAt.getTime()) || receivedAt > now) throw new DomainError("INVALID_RECEIVED_AT", "Bitte den Eingang der E-Mail mit Datum, Uhrzeit und Zeitzone angeben, z. B. 2026-11-12T09:30+01:00, nicht in der Zukunft.");
   }
   const [shop] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, input.programId));
+  // Review N-1: an e-mail entered weeks late could end every location at the next end-job tick. Its end must not have passed,
+  // unless the operator says, after speaking with the shop, that it should be entered all the same.
+  if (input.command === "request" && shop && !input.acceptPastEnd) {
+    const basis = await contractBasis(shop.tenantId);
+    const berlin = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at);
+    const end = basis ? noticeEnd({ requestDay: berlin(receivedAt!), anchorDay: basis.anchorDay, lastFreeDay: basis.lastFreeDay }).endDate : null;
+    if (end && end < berlin(now)) throw new DomainError("END_IN_PAST", `Mit diesem Eingang wäre das Vertragsende der ${germanDate(end)}, also schon vorbei. Nur nach Rücksprache mit dem Geschäft eintragen (--accept-past-end).`);
+  }
   // G-1 (Legal): only the last day of a billing month, or a free-month cancellation's notice end, can drive Stripe (read once, outside the lock).
   if (input.command === "schedule" && shop) await assertBillingMonthEnd(shop.tenantId, input.endDate!);
   const programme = await db.transaction(async tx => {

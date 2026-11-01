@@ -130,6 +130,16 @@ describe("owner request and withdrawal", () => {
     expect(mail.payload).toMatchObject({ event: "received", receivedAt: "2026-10-17T07:30:00.000Z", requestDay: "2026-10-17", endDate: "2026-10-31" });
   });
 
+  it("refuses an e-mail entered so late that its end has passed, unless the operator says so after speaking with the shop (review N-1)", async () => {
+    const f = await shop();
+    const request = (acceptPastEnd?: boolean) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "request", receivedAt: "2026-10-17T09:30:00+02:00", acceptPastEnd, execute: true, now: at("2026-11-03T10:00:00Z") });
+    expect(await code(() => request())).toBe("END_IN_PAST");
+    expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
+    expect((await pool.query("SELECT 1 FROM outbox_jobs WHERE kind = 'email.contract_end'")).rowCount).toBe(0);
+    // The end is still the one the arrival time gives; the next end job ends the programme.
+    expect(await request(true)).toMatchObject({ result: "request", endDate: "2026-10-31" });
+  });
+
   it("sets one date for every location of the business, and a withdrawal clears them all", async () => {
     const f = await shop();
     const [location] = await db.insert(locations).values({ tenantId: f.tenant.id, name: "Second counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
