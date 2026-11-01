@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { addressProblems, contactProblems, LOCATION_PARTS, missingParts, missingSentence, MISSING_TITLE, normalizeRegisterNumber, normalizeVatId, registerProblems,
+import { addressProblems, contactProblems, LOCATION_PARTS, missingParts, missingSentence, MISSING_TITLE, LEGAL_FORMS, normalizeRegisterNumber, normalizeVatId, registeredForm, registerProblems,
   representativeProblems, senderFooter, type SenderDetails, type SenderPart } from "@/lib/sender-details";
 import { useOwner, type OwnerLocation } from "./owner-context";
 import type { MeResponse } from "@/components/client-api";
@@ -175,10 +175,14 @@ function RepresentativeQuestion({ location, home }: QuestionProps) {
 function RegisterQuestion({ me, location, home }: QuestionProps) {
   const initial = { legalForm: location.legalForm ?? "", registerCourt: location.registerCourt ?? "", registerNumber: location.registerNumber ?? "", vatId: location.vatId ?? "" };
   const [draft, setDraft] = useState(initial);
+  // A stored form that is not one of the choices is „Andere …“ with its own text (A08).
+  const [other, setOther] = useState(() => Boolean(initial.legalForm) && !LEGAL_FORMS.some(form => form.value === initial.legalForm));
   const problems = registerProblems(draft);
   const ids = { "sd-legal-form": problems.legalForm, "sd-court": problems.registerCourt, "sd-number": problems.registerNumber, "sd-vat": problems.vatId };
   const q = useQuestion("sender-register", JSON.stringify(draft) !== JSON.stringify(initial), ids, home);
   const set = (patch: Partial<typeof draft>) => setDraft(current => ({ ...current, ...patch }));
+  // Court and number say „(optional)“ unless the chosen form is a registered one (E52); the VAT ID always does (E53).
+  const optional = registeredForm(draft.legalForm) ? "" : " (optional)";
   // The preview shows what would print, normalised as the owner types; a line whose field is wrong is left out (A09).
   const registerOk = !problems.registerCourt && !problems.registerNumber;
   const preview: SenderDetails = { ...senderOf(me, location),
@@ -194,10 +198,22 @@ function RegisterQuestion({ me, location, home }: QuestionProps) {
     <QuestionForm title="Rechtsform, Register und USt-IdNr." lead="Bei GmbH, UG, AG, KG, OHG, e.K., eG und PartG sind Registergericht und Registernummer Pflicht. Alles andere nur, wenn vorhanden. Leere Felder erscheinen nicht in der E-Mail." home={home}
       aside={<FooterPreview sender={preview} title="So steht es in der E-Mail" marks />} busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save("/api/merchant/sender", { part: "register", ...draft })}>
-      {field("sd-legal-form", "Rechtsform", "legalForm", "z. B. GmbH, UG (haftungsbeschränkt), e.K.")}
-      {field("sd-court", "Registergericht", "registerCourt", "z. B. Amtsgericht Kassel")}
-      {field("sd-number", "Registernummer", "registerNumber", "z. B. HRB 12345")}
-      {field("sd-vat", "USt-IdNr.", "vatId", "z. B. DE123456789", { autoCapitalize: "characters" })}
+      <div className="ow-qpanel ow-field"><label htmlFor="sd-form">Rechtsform</label>
+        <select id="sd-form" className="ow-select" value={other ? "other" : draft.legalForm} onChange={event => {
+          const value = event.target.value;
+          setOther(value === "other");
+          set({ legalForm: value === "other" ? "" : value });
+        }}>
+          {LEGAL_FORMS.map(form => <option key={form.value} value={form.value}>{form.label}</option>)}
+          <option value="other">Andere …</option>
+        </select>
+        {other && <div className="ow-field ow-mt-3"><label htmlFor="sd-legal-form">Deine Rechtsform</label>
+          <input id="sd-legal-form" className="ow-input" value={draft.legalForm} {...aria("sd-legal-form", q.error("sd-legal-form"))} onChange={event => set({ legalForm: event.target.value })} />
+          <FieldError id="sd-legal-form-error">{q.error("sd-legal-form")}</FieldError></div>}
+      </div>
+      {field("sd-court", `Registergericht${optional}`, "registerCourt", "z. B. Amtsgericht Kassel")}
+      {field("sd-number", `Registernummer${optional}`, "registerNumber", "z. B. HRB 12345")}
+      {field("sd-vat", "USt-IdNr. (optional)", "vatId", "z. B. DE123456789", { autoCapitalize: "characters" })}
     </QuestionForm>
   );
 }

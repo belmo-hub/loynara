@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressProblems, contactProblems, footerText, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
+import { addressProblems, contactProblems, footerText, LEGAL_FORMS, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
 
 const complete: SenderDetails = {
   shopName: "Café Lindenblatt", street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Mara Lind",
@@ -50,6 +50,9 @@ describe("the screens' rules, the same on the server", () => {
     // Other forms keep the pair rule (E21) and stay optional.
     for (const legalForm of ["", "Einzelunternehmen", "GbR", "Freiberufler"]) expect(registerProblems({ ...empty, legalForm }), legalForm).toMatchObject({ registerCourt: "", registerNumber: "" });
     expect(registerProblems({ ...empty, legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 1" })).toMatchObject({ registerCourt: "", registerNumber: "" });
+    // A registered form says „Pflicht“ even when the other half is filled (A09b); the pair rule is for the other forms.
+    expect(registerProblems({ ...empty, legalForm: "e.K.", registerCourt: "Amtsgericht Kassel" }).registerNumber).toBe("Bitte gib die Registernummer ein, z. B. HRB 12345. Für deine Rechtsform ist sie Pflicht.");
+    expect(registerProblems({ ...empty, legalForm: "GbR", registerCourt: "Amtsgericht Kassel" }).registerNumber).toBe("Zum Registergericht gehört die Nummer, z. B. HRB 12345.");
     expect(registerProblems({ ...empty, legalForm: "Einzelunternehmen" })).toMatchObject({ registerCourt: "", registerNumber: "" });
     expect(missingParts({ ...complete, legalForm: "UG (haftungsbeschränkt)", registerCourt: null, registerNumber: null })).toEqual(["registerCourt", "registerNumber"]);
     expect(missingParts({ ...complete, legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: null })).toEqual(["registerNumber"]);
@@ -78,6 +81,20 @@ describe("the screens' rules, the same on the server", () => {
     expect(registerProblems({ ...empty, vatId: "DE1234567890" }).vatId).toBe("Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.");
     expect(registerProblems({ ...empty, vatId: "ATU12345678" }).vatId).toBe("");
     expect(registerProblems({ ...empty, vatId: "123456789" }).vatId).toBe("Bitte prüfe die USt-IdNr.");
+  });
+});
+
+describe("the Rechtsform choices (Design, Marketing and Legal, 1 Nov)", () => {
+  it("are the agreed list, and exactly the registered ones need court and number", () => {
+    expect(LEGAL_FORMS.map(form => form.label)).toEqual(["Keine Angabe", "Einzelunternehmen (ohne Handelsregister)", "GbR", "eGbR", "e.K.", "GmbH", "UG (haftungsbeschränkt)",
+      "GmbH & Co. KG", "KG", "KGaA", "OHG", "AG", "eG", "PartG", "PartG mbB"]);
+    const registered = LEGAL_FORMS.filter(form => registeredForm(form.value)).map(form => form.value);
+    expect(registered).toEqual(["eGbR", "e.K.", "GmbH", "UG (haftungsbeschränkt)", "GmbH & Co. KG", "KG", "KGaA", "OHG", "AG", "eG", "PartG", "PartG mbB"]);
+  });
+  it("prints no legal form for „Keine Angabe“ or „Einzelunternehmen“, and every other one after the name (A08b)", () => {
+    expect(senderFooter({ ...complete, legalForm: null, registerCourt: null, registerNumber: null })!.identity).toMatch(/^Diese E-Mail kommt von Café Lindenblatt, vertreten durch/);
+    expect(senderFooter({ ...complete, legalForm: "Einzelunternehmen", registerCourt: null, registerNumber: null })!.identity).toMatch(/^Diese E-Mail kommt von Café Lindenblatt, vertreten durch/);
+    expect(senderFooter({ ...complete, legalForm: "GbR", registerCourt: null, registerNumber: null })!.identity).toMatch(/^Diese E-Mail kommt von Café Lindenblatt, GbR, vertreten durch/);
   });
 });
 

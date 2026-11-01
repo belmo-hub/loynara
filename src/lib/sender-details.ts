@@ -19,6 +19,17 @@ const PART_NAME: Record<SenderPart, string> = { address: "Anschrift", contact: "
  * GmbH, UG, AG, KG, OHG, e.K., eG, PartG, matched loosely („UG (haftungsbeschränkt)“, „GmbH & Co. KG“, „e. K.“, „e.Kfm.“,
  * „eingetragener Kaufmann“, „PartG mbB“), and KGaA and eGbR (registered since MoPeG); a plain GbR is not (Legal, 1 Nov).
  */
+/**
+ * The Rechtsform choices (Design and Marketing, 1 Nov; eGbR and KGaA per Legal). The stored value is the form itself, so the
+ * Pflicht rule below holds for a choice and for „Andere …“'s free text alike; "" is „Keine Angabe“ and stores nothing.
+ */
+export const LEGAL_FORMS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "", label: "Keine Angabe" }, { value: "Einzelunternehmen", label: "Einzelunternehmen (ohne Handelsregister)" },
+  ...["GbR", "eGbR", "e.K.", "GmbH", "UG (haftungsbeschränkt)", "GmbH & Co. KG", "KG", "KGaA", "OHG", "AG", "eG", "PartG", "PartG mbB"].map(form => ({ value: form, label: form })),
+];
+/** „Keine Angabe“ and „Einzelunternehmen“ print no legal form in the footer (A08b). */
+const printedForm = (legalForm: string | null) => legalForm && !/^einzelunternehm/i.test(legalForm.trim()) ? legalForm : null;
+
 export const registeredForm = (legalForm: string | null) =>
   /(^|[^a-zäöüß])(gmbh|ug|ag|kgaa|kg|ohg|e\.?\s?k(fm|ffr)?|e\.?\s?g(br)?|partg)(?![a-zäöüß])|eingetragene[rn]?\s+kauf(mann|frau)/i.test(legalForm ?? "");
 
@@ -101,10 +112,10 @@ export function registerProblems(draft: RegisterDraft) {
   const registered = registeredForm(draft.legalForm);
   return {
     legalForm: optionalLine(draft.legalForm, 40),
-    registerCourt: !court && number ? "Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel."
-      : !court && registered ? "Bitte gib das Registergericht ein, z. B. Amtsgericht Kassel. Für deine Rechtsform ist es Pflicht." : optionalLine(court, 120),
-    registerNumber: court && !number ? "Zum Registergericht gehört die Nummer, z. B. HRB 12345."
-      : !number && registered ? "Bitte gib die Registernummer ein, z. B. HRB 12345. Für deine Rechtsform ist sie Pflicht."
+    registerCourt: !court && registered ? "Bitte gib das Registergericht ein, z. B. Amtsgericht Kassel. Für deine Rechtsform ist es Pflicht."
+      : !court && number ? "Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel." : optionalLine(court, 120),
+    registerNumber: !number && registered ? "Bitte gib die Registernummer ein, z. B. HRB 12345. Für deine Rechtsform ist sie Pflicht."
+      : court && !number ? "Zum Registergericht gehört die Nummer, z. B. HRB 12345."
       : number && !/^(HRA|HRB|GnR|GsR|PR|VR) \d{1,6}( [A-Z]{1,2})?$/.test(number) ? "Bitte gib die Registernummer so an, wie sie im Register steht, z. B. HRB 12345." : "",
     // German IDs are DE and 9 digits (Design, 1 Nov); other EU prefixes keep the general form.
     vatId: !vat ? "" : vat.startsWith("DE") ? (/^DE\d{9}$/.test(vat) ? "" : "Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.")
@@ -122,7 +133,7 @@ export const firstProblem = (problems: Record<string, string>) => Object.values(
  */
 export function senderFooter(sender: SenderDetails) {
   if (missingParts(sender).length) return null;
-  const legalForm = sender.legalForm ? `, ${sender.legalForm}` : "";
+  const legalForm = printedForm(sender.legalForm) ? `, ${sender.legalForm}` : "";
   const contact = [sender.contactEmail, sender.contactPhone].filter(Boolean).join(", ");
   return {
     fromName: `${sender.shopName} via Loynara`,
