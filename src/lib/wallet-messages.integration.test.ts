@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
-import { createMerchant, enroll } from "./product";
+import { createMerchant, enroll, updateProgramExtras } from "./product";
 import { credentialHash } from "./wallet/data";
 import { passFastData } from "./wallet/passfast";
 import { walletCardSnapshot } from "./wallet/data";
@@ -743,6 +743,25 @@ describe("native Apple passes (ENG-127)", () => {
     const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'expiry',$3,'complete',now()) RETURNING id", [s.tenantId, s.programId, notice]);
     await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, quiet.passId, s.tenantId, quiet.id]);
     expect((await back(quiet)).find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis vor dem Punkteverfall", value: notice, changeMessage: "%@" });
+    // The consenting card gets the same notice under the shop's message key, and still no expiry field (Reviewer N-1).
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, allowed.passId, s.tenantId, allowed.id]);
+    const allowedAfter = await back(allowed);
+    expect(allowedAfter.find(field => field.key === "message")).toMatchObject({ value: notice, changeMessage: "%@" });
+    expect(allowedAfter.find(field => field.key === "expiry")).toBeUndefined();
+  });
+
+  it("a points programme whose expiry rule only waits (dated switch-on) carries the expiry field too (Reviewer N-2)", async () => {
+    const owner = await user();
+    const m = await createMerchant({ userId: owner, businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Pizzakarte", programType: "points", earningMode: "manual", rulesText: "10 Punkte pro Pizza.", rewardTitle: "Pizza", rewardCost: 100 });
+    const { rows: [t] } = await pool.query("SELECT tenant_id AS id FROM programs WHERE id = $1", [m.programId]);
+    const s = { owner, slug: m.programSlug, programId: m.programId, tenantId: t.id as string };
+    const quiet = await nativeCustomer(s, { consent: false });
+    // With a card already enrolled, switching expiry on is dated four weeks ahead: pending, nothing in force yet.
+    await updateProgramExtras({ actorUserId: owner, programId: m.programId, pointsExpiryMonths: 36 });
+    const snapshot = await walletCardSnapshot(quiet.id);
+    if (!snapshot.open) throw new Error("open");
+    expect(snapshot.pass.pendingExpiry).toMatchObject({ months: 36 });
+    expect(applePassJson(snapshot.pass, quiet.passId, apple).storeCard.backFields.find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis vor dem Punkteverfall", value: "Bevor Punkte verfallen, erscheint hier ein Hinweis." });
   });
 
   it("with messages switched off on production, no pass gets an empty field; a text once sent stays (ENG-162, Design)", async () => {
