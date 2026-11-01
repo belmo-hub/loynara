@@ -10,6 +10,7 @@ import { currentRewards, publicRules } from "@/lib/product";
 import { programInForce } from "@/lib/rule-versions";
 import type { WalletBrand, WalletPassData } from "./types";
 import { appleLogoFromData, merchantGoogleLogoUrls } from "./logo";
+import { surfaceHidden } from "@/lib/pilot-surfaces";
 
 /**
  * Binds an issued pass to the card credential it was issued for. A staff reissue or closure replaces the scan code, so
@@ -60,16 +61,21 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
   const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
+  const [consent] = await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
+    .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
   const [lastMessage] = await reader.select({ text: walletMessages.text, sentAt: walletMessages.createdAt }).from(walletMessageRecipients)
     .innerJoin(walletMessages, and(eq(walletMessages.id, walletMessageRecipients.messageId), eq(walletMessages.tenantId, walletMessageRecipients.tenantId)))
     // Every row that may have reached the device, so a refresh never puts an older text back (with a banner):
     // sent, in flight, queued for a retry after a try that may have been applied, or failed with an unknown outcome.
-    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id),
+    // Without consent only the expiry notices (ENG-162, Legal): a shop message never shows on such a pass.
+    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id), consent ? undefined : eq(walletMessages.kind, "expiry"),
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
-  // A card that allowed messages carries the (empty) field before the first one, because Wallet alerts only when an existing key changes.
-  const [consent] = lastMessage ? [] : await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
-    .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
+  // The field is there before its first text, because Wallet alerts only when an existing key changes: with consent the
+  // shop's message field; without it, where an expiry rule is in force or waiting (points only, a database check), the expiry-only field (ENG-162).
+  // An empty field only while messages are switched on (Design): off, nothing can fill it. A text once sent always stays.
+  const live = !surfaceHidden("walletMessages");
+  const expiryNotice = !consent && (lastMessage !== undefined || (live && Boolean(program.pointsExpiryMonths || program.pendingExpiry)));
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
@@ -85,7 +91,8 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       rules: [...waitingLines(changeLines({ programType: program.type === "points" ? "points" : "stamp", rewards: rewardList, pending: program.pending, pendingExpiry: program.pendingExpiry }, true)), ...signUpRules(publicRules(program, row.tenant))],
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
-      ...(lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : consent ? { message: "" } : {}),
+      ...(expiryNotice ? { message: lastMessage?.text ?? "", messageKey: "expiry" as const }
+        : consent ? (lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : live ? { message: "" } : {}) : {}),
       pending: program.pending, pendingExpiry: program.pendingExpiry,
     },
   };
