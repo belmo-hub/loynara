@@ -40,7 +40,7 @@ describe("the screens' rules, the same on the server", () => {
     expect(missingParts({ ...complete, contactEmail: null })).toEqual(["contact"]);
   });
   it("needs the register entry exactly when the legal form is a registered one (Legal, 1 Nov)", () => {
-    for (const form of ["GmbH", "GmbH & Co. KG", "UG (haftungsbeschränkt)", "e. K.", "e.K.", "eK", "OHG", "PartG mbB", "eG", "AG", "KG", "e.Kfm.", "eingetragener Kaufmann", "Eingetragene Kauffrau"])
+    for (const form of ["GmbH", "GmbH & Co. KG", "UG (haftungsbeschränkt)", "e. K.", "e.K.", "eK", "OHG", "PartG mbB", "eG", "AG", "KG", "e.Kfm.", "eingetragener Kaufmann", "Eingetragene Kauffrau", "eGbR", "KGaA", "GmbH & Co. KGaA"])
       expect(registeredForm(form), form).toBe(true);
     for (const form of ["", "Einzelunternehmen", "GbR", "Freiberufler", "Tagescafé", "Bäckerei Krug"]) expect(registeredForm(form), form).toBe(false);
     const empty = { legalForm: "", registerCourt: "", registerNumber: "", vatId: "" };

@@ -17,10 +17,10 @@ const PART_NAME: Record<SenderPart, string> = { address: "Anschrift", contact: "
 
 /**
  * GmbH, UG, AG, KG, OHG, e.K., eG, PartG, matched loosely („UG (haftungsbeschränkt)“, „GmbH & Co. KG“, „e. K.“, „e.Kfm.“,
- * „eingetragener Kaufmann“, „PartG mbB“): these are in a register.
+ * „eingetragener Kaufmann“, „PartG mbB“), and KGaA and eGbR (registered since MoPeG); a plain GbR is not (Legal, 1 Nov).
  */
 export const registeredForm = (legalForm: string | null) =>
-  /(^|[^a-zäöüß])(gmbh|ug|ag|kg|ohg|e\.?\s?k(fm|ffr)?|e\.?\s?g|partg)(?![a-zäöüß])|eingetragene[rn]?\s+kauf(mann|frau)/i.test(legalForm ?? "");
+  /(^|[^a-zäöüß])(gmbh|ug|ag|kgaa|kg|ohg|e\.?\s?k(fm|ffr)?|e\.?\s?g(br)?|partg)(?![a-zäöüß])|eingetragene[rn]?\s+kauf(mann|frau)/i.test(legalForm ?? "");
 
 export function missingParts(sender: SenderDetails): SenderPart[] {
   const parts: SenderPart[] = [];
