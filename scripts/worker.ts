@@ -355,11 +355,12 @@ async function main() {
       }
       if (Date.now() - billingCheckedAt >= 24 * 60 * 60_000) {
         try {
-          // Daily and idempotent (owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
+          // Daily and idempotent (Stripe end = confirmed shop end, owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
           const { runBillingJob } = await import("../src/lib/billing-stripe");
           const result = await runBillingJob();
           if (result.quantities) console.log(`Billing: location quantity updated for ${result.quantities} subscription(s)`);
           if (result.credited) console.log(`Billing: ${result.credited} owed start-guarantee credit(s) issued`);
+          if (result.ends) console.log(`Billing: Stripe end updated for ${result.ends} shop(s) after a programme end`);
           billingCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;

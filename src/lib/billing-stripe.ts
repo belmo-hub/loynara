@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, subscriptions, tenants } from "@/db/schema";
@@ -340,6 +340,49 @@ export async function endInFreeMonth(input: { actorUserId: string; env: Env; ten
   });
 }
 
+/**
+ * ENG-125 (gate before live billing): the shop's Stripe subscription ends when the operator ends the shop through the #84
+ * flow. The subscription is per business and programmes are per location, so it ends once no running programme is left
+ * without a confirmed end date, on the latest confirmed end day. Stripe stops at the end of that Berlin day less 3 hours
+ * (still that day in summer and winter); inside the free month, #160's rule (free_until − 3 h), so no first invoice. A time
+ * already past cancels at once, with no final invoice. No proration either way. The moment set is recorded in
+ * billing_ends_at: a retry, the daily sweep or a repeated confirmation finds it equal and calls Stripe no second time. If the
+ * owner withdraws and no confirmed end is left, the cancellation is cleared again.
+ */
+export async function syncShopEnd(tenantId: string, now = new Date()) {
+  if (!stripeEnabled()) return { action: "disabled" as const };
+  return db.transaction(async tx => {
+    const sub = await lockedSubscription(tx, tenantId);
+    if (sub.provider !== "stripe" || !sub.providerSubscriptionId || !RUNNING.includes(sub.status)) return { action: "none" as const };
+    const [row] = await tx.select({
+      open: sql<number>`(count(*) filter (where ${programs.status} = 'active' and (${programs.cancellationConfirmedAt} is null or ${programs.cancellationEndDate} is null)))::int`,
+      lastDay: sql<string | null>`(max(${programs.cancellationEndDate}) filter (where ${programs.status} = 'ended' or ${programs.cancellationConfirmedAt} is not null))::text`,
+      // The end of that Berlin day (midnight after it), computed by Postgres so DST is right.
+      dayEnds: sql<Date | null>`(((max(${programs.cancellationEndDate}) filter (where ${programs.status} = 'ended' or ${programs.cancellationConfirmedAt} is not null)) + 1)::timestamp AT TIME ZONE 'Europe/Berlin')`,
+    }).from(programs).where(eq(programs.tenantId, tenantId));
+    const margin = 3 * 3600_000;
+    const target = row.open > 0 || !row.lastDay || !row.dayEnds ? null
+      : sub.freeUntil && row.lastDay <= lastFreeDay(sub.freeUntil) ? new Date(sub.freeUntil.getTime() - margin)
+        : new Date(new Date(row.dayEnds).getTime() - margin);
+    if ((target?.getTime() ?? null) === (sub.billingEndsAt?.getTime() ?? null)) return { action: "unchanged" as const, endsAt: target };
+    // „Gekündigt im kostenlosen Monat“ (endInFreeMonth) already told Stripe exactly this; the operator then confirms the proposed
+    // last free day. Record it without a second call (in the last hours a second DELETE would hit an ended subscription).
+    if (target && sub.cancelAtPeriodEnd && !sub.billingEndsAt && sub.freeUntil && target.getTime() === sub.freeUntil.getTime() - margin) {
+      await tx.update(subscriptions).set({ billingEndsAt: target, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
+      return { action: "unchanged" as const, endsAt: target };
+    }
+    const id = sub.providerSubscriptionId;
+    const at = (value: Date | null) => value ? String(Math.floor(value.getTime() / 1000)) : "";
+    // One key per transition: a retry of this one replays it, a later end, withdrawal and the same end again gets its own.
+    const key = `shop-end-${id}-${at(sub.billingEndsAt) || "none"}-${target && target <= now ? "now" : at(target) || "none"}-${sub.updatedAt.getTime()}`;
+    if (!target) await client("POST", `/subscriptions/${id}`, { cancel_at: "" }, key);
+    else if (target <= now) await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
+    else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
+    await tx.update(subscriptions).set({ billingEndsAt: target, cancelAtPeriodEnd: target !== null, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
+    return { action: !target ? "cleared" as const : target <= now ? "ended" as const : "scheduled" as const, endsAt: target };
+  });
+}
+
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
 export async function setTenantPlan(input: { actorUserId: string; env: Env; tenantId: string; planCode: unknown }) {
   if (!isPlanCode(input.planCode) || !z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Bitte wähle einen gültigen Tarif.");
@@ -453,7 +496,12 @@ export async function creditOwedGuarantees(tenantId?: string) {
  * location pro rata from its start day, see below).
  */
 export async function runBillingJob(env: Env = process.env) {
-  if (!stripeEnabled(env)) return { quantities: 0, credited: 0 };
+  if (!stripeEnabled(env)) return { quantities: 0, credited: 0, ends: 0 };
+  // ENG-125: the backstop for a shop end whose Stripe call failed at confirmation or withdrawal.
+  let ends = 0;
+  const live = await db.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
+    .where(and(eq(subscriptions.provider, "stripe"), inArray(subscriptions.status, RUNNING), isNotNull(subscriptions.providerSubscriptionId)));
+  for (const shop of live) if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1;
   const credited = await creditOwedGuarantees();
   let quantities = 0;
   const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount,
@@ -471,5 +519,5 @@ export async function runBillingJob(env: Env = process.env) {
       : { quantity: String(shop.locations), proration_behavior: "none" });
     quantities += 1;
   }
-  return { quantities, credited };
+  return { quantities, credited, ends };
 }
