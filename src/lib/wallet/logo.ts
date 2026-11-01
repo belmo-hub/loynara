@@ -6,11 +6,14 @@ import type { AppleLogo } from "./types";
 
 const programIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Processing is deterministic, so each process keeps the last 64 results instead of redoing them for every pass download. */
-function remembered<T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> {
+/**
+ * Processing is deterministic, so each process keeps the last 64 results instead of redoing them for every pass download.
+ * onMiss runs before any work on a result that is not remembered; it may refuse by throwing (the public routes' rate limit).
+ */
+function remembered<T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>, onMiss?: () => Promise<void>): Promise<T> {
   let result = cache.get(key);
   if (!result) {
-    result = make();
+    result = onMiss ? onMiss().then(make) : make();
     cache.set(key, result);
     // A failure is not remembered: the next request tries again.
     result.catch(() => { if (cache.get(key) === result) cache.delete(key); });
@@ -22,10 +25,10 @@ function remembered<T>(cache: Map<string, Promise<T>>, key: string, make: () => 
 const processed = new Map<string, Promise<ProcessedLogo | null>>();
 const initials = new Map<string, Promise<Buffer>>();
 
-function processedLogo(logoData: string | null | undefined, brandColor: string): Promise<ProcessedLogo | null> {
+function processedLogo(logoData: string | null | undefined, brandColor: string, onMiss?: () => Promise<void>): Promise<ProcessedLogo | null> {
   const bytes = logoBytes(logoData);
   if (!bytes) return Promise.resolve(null);
-  return remembered(processed, `${createHash("sha256").update(bytes).digest("hex")}:${brandColor.toLowerCase()}`, () => processMerchantLogo(bytes, brandColor).catch(() => null));
+  return remembered(processed, `${createHash("sha256").update(bytes).digest("hex")}:${brandColor.toLowerCase()}`, () => processMerchantLogo(bytes, brandColor).catch(() => null), onMiss);
 }
 
 const faint = (logo: ProcessedLogo) => !logo.meta.boxed && logo.meta.contrast < 3;
@@ -60,13 +63,13 @@ export function approvedGoogleAssetOrigin(env: Record<string, string | undefined
  * with no logo, or a faint one), so a wordmark is never squeezed into it; none when the name has nothing to draw. Wide: the
  * wide logo, only for a logo wider than 1.25.
  */
-export async function googleLogoAsset(kind: "square" | "wide", logoData: string | null | undefined, brandColor: string, merchantName: string): Promise<Buffer | undefined> {
-  const logo = await processedLogo(logoData, brandColor);
+export async function googleLogoAsset(kind: "square" | "wide", logoData: string | null | undefined, brandColor: string, merchantName: string, onMiss?: () => Promise<void>): Promise<Buffer | undefined> {
+  const logo = await processedLogo(logoData, brandColor, onMiss);
   const shown = logo && !faint(logo) ? logo.google : undefined;
   if (kind === "wide") return shown && "wide" in shown ? shown.wide : undefined;
   if (shown && "square660" in shown) return shown.square660;
   const initial = initialOf(merchantName);
-  return initial ? remembered(initials, `${initial}:${brandColor.toLowerCase()}`, () => initialLogo(initial, brandColor)) : undefined;
+  return initial ? remembered(initials, `${initial}:${brandColor.toLowerCase()}`, () => initialLogo(initial, brandColor), onMiss) : undefined;
 }
 
 /** Versioned asset URLs for the Google class, each with a hash of its own PNG; none without an approved HTTPS asset origin. */
