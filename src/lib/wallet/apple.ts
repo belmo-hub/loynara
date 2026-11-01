@@ -166,7 +166,9 @@ export function applePassJson(pass: WalletPassData, serial: string, config: Appl
         // In full: the name carries the reward's limits (ENG-115), and Wallet may cut it on the front.
         ...(reward ? [{ key: "rewardTitle", label: rewardLabel, value: reward.title, dataDetectorTypes: [] }] : []),
         // Owner message (ENG-127), after the rules and the reward (Design): ENG-100's dated lines lead the back. Owner-written: no detected links or numbers.
-        ...(t.message && pass.message !== undefined ? [{ key: "message", label: t.message(pass.merchantName, pass.messageDay), value: pass.message || t.noMessage, changeMessage: "%@", dataDetectorTypes: [] }] : []),
+        ...(t.message && pass.message !== undefined && !pass.messageKey ? [{ key: "message", label: t.message(pass.merchantName, pass.messageDay), value: pass.message || t.noMessage, changeMessage: "%@", dataDetectorTypes: [] }] : []),
+        // Without consent a separate key (ENG-162): relabelling "message" would change its placeholder value, and with it raise a banner.
+        ...(t.expiryNote && pass.message !== undefined && pass.messageKey === "expiry" ? [{ key: "expiry", label: t.expiryNote, value: pass.message || t.noExpiryNote, changeMessage: "%@", dataDetectorTypes: [] }] : []),
         // What each reward costs, in the merchant's order (ENG-116): „100 Punkte – Gratiskaffee“.
         ...(t.rewardList && pass.rewards?.length ? [{ key: "rewards", label: t.rewardList, value: pass.rewards.map(item => `${withUnit(item.cost, pass.programType, pass.locale)} – ${item.title}`).join("\n"), dataDetectorTypes: [] }] : []),
         { key: "programme", label: t.programme, value: pass.programName },

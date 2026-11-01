@@ -717,16 +717,39 @@ describe("native Apple passes (ENG-127)", () => {
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = ANY($1)", [[de.id, fr.id]])).rows[0].n).toBe(0);
   });
 
-  it("a programme with points expiry gives every native pass the empty field, so the first expiry notice alerts (ENG-162)", async () => {
-    const s = await shop(); const quiet = await nativeCustomer(s, { consent: false });
+  it("without consent a native pass in an expiry programme carries only the expiry field, and its first notice alerts (ENG-162, Legal)", async () => {
+    const s = await shop(); const quiet = await nativeCustomer(s, { consent: false }); const allowed = await nativeCustomer(s);
     const before = await walletCardSnapshot(quiet.id);
     expect(before.open && before.pass.message).toBeUndefined();
     await pool.query("UPDATE programs SET type = 'points', points_expiry_months = 24, points_expiry_since = now() WHERE id = $1", [s.programId]);
-    const snapshot = await walletCardSnapshot(quiet.id);
+    const back = async (c: { id: string; passId: string }) => {
+      const snapshot = await walletCardSnapshot(c.id);
+      if (!snapshot.open) throw new Error("open");
+      return applePassJson(snapshot.pass, c.passId, apple).storeCard.backFields;
+    };
+    // No consent: the expiry-only field under its own key, worded only about points; no shop message field.
+    const quietBack = await back(quiet);
+    expect(quietBack.find(field => field.key === "message")).toBeUndefined();
+    expect(quietBack.find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis zu deinen Punkten", value: "Bevor Punkte verfallen, steht der Hinweis hier.", changeMessage: "%@" });
+    // Consent: the shop's message field as before, and no expiry field.
+    const allowedBack = await back(allowed);
+    expect(allowedBack.find(field => field.key === "expiry")).toBeUndefined();
+    expect(allowedBack.find(field => field.key === "message")).toMatchObject({ label: "Nachricht von Synthetic Café", value: "Noch keine Nachricht." });
+    // The first notice changes the value under the key the pass already had: Wallet shows the banner.
+    const notice = "Deine 40 Punkte verfallen am 05.08.2027.";
+    const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'expiry',$3,'complete',now()) RETURNING id", [s.tenantId, s.programId, notice]);
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, quiet.passId, s.tenantId, quiet.id]);
+    expect((await back(quiet)).find(field => field.key === "expiry")).toMatchObject({ label: "Hinweis zu deinen Punkten", value: notice, changeMessage: "%@" });
+  });
+
+  it("without consent a shop message never shows on the pass, only expiry notices do (ENG-162, Legal)", async () => {
+    const s = await shop(); const c = await nativeCustomer(s);
+    await priorMessage(s, c.id, c.passId, T("2026-10-20T10:00:00Z"));
+    await setWalletConsent(c.cardToken, false);
+    const snapshot = await walletCardSnapshot(c.id);
     if (!snapshot.open) throw new Error("open");
-    expect(snapshot.pass.message).toBe("");
-    // The rendered pass carries the key the expiry notice then changes, with its banner.
-    expect(applePassJson(snapshot.pass, quiet.passId, apple).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ value: "Noch keine Nachricht.", changeMessage: "%@" });
+    const fields = applePassJson(snapshot.pass, c.passId, apple).storeCard.backFields;
+    expect(fields.find(field => field.key === "message" || field.key === "expiry")).toBeUndefined();
   });
 
   it("the consent panel is offered only where delivery could reach the pass: not after its last device unregistered (ENG-162)", async () => {
