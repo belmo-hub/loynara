@@ -155,7 +155,7 @@ test("a stamp landing while the pass is being prepared still opens Apple's sheet
     await customer.route("**/api/wallet/apple", async route => { await new Promise(resolve => setTimeout(resolve, 8_000)); await route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
     const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
     await addToWallet(page);
-    await expect(page.getByRole("button", { name: "Wird vorbereitet …" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Wird vorbereitet …" })).toBeVisible();
     const cashier = await confirm();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
     await pass;
