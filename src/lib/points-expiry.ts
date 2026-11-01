@@ -77,7 +77,9 @@ export async function runPointsExpiry(now = new Date()) {
 /**
  * One Wallet banner per card and 30 days, covering what expires in the next 30 days. Service information, not marketing
  * (Product/Legal 22 Oct): every pass that can carry a message gets it, with or without marketing consent; never an email.
- * It is the same pass rule that shows the card's consent panel, whose line promises this notice.
+ * It is the same pass rule that shows the card's consent panel, whose line promises this notice: PassFast ('created'),
+ * native ('registered', ENG-128) and Google with its message switch. queueCardWalletMessage applies the rest (registered
+ * device, cap, French shops).
  */
 export async function queueExpiryReminders(now = new Date()) {
   let queued = 0;
