@@ -6,9 +6,14 @@ import Link from "next/link";
 import { CircleAlert, MailCheck } from "lucide-react";
 import { CustomerState } from "@/components/customer/customer-state";
 import { Button, buttonClassName } from "@/components/ui/button";
+import styles from "./page.module.css";
+
+type Verified = { verified: true; marketingAvailable: boolean } & ({ marketing: false } | { marketing: true; shopName: string; brandColor: string });
 
 export default function VerifyEmailPage() {
   const [state, setState] = useState<"ready" | "checking" | "verified" | "invalid">("ready");
+  // What the click confirmed: the marketing consent names the shop (K04); recovery only reads E47 while marketing mail is off (K16b).
+  const [result, setResult] = useState<Verified | null>(null);
   const [attempted, setAttempted] = useState(false);
   const token = useRef("");
   const captured = useRef(false);
@@ -36,17 +41,24 @@ export default function VerifyEmailPage() {
     setAttempted(true);
     setState("checking");
     try {
-      await postJson<{ verified: true }>("/api/contact/verify", { token: proof });
-      if (generation.current === submitted) setState("verified");
+      const verified = await postJson<Verified>("/api/contact/verify", { token: proof });
+      if (generation.current === submitted) { setResult(verified); setState("verified"); }
     } catch { if (generation.current === submitted) setState("invalid"); }
     finally { if (generation.current === submitted) token.current = ""; }
   }
 
-  const title = state === "checking" ? "E-Mail wird bestätigt …" : state === "verified" ? "E-Mail bestätigt" : state === "invalid" ? "Bestätigungslink ungültig" : "E-Mail-Adresse bestätigen";
-  const message = state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen." : state === "verified" ? "Deine E-Mail-Adresse ist jetzt als Wiederherstellungsmethode bestätigt. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst." : state === "invalid" ? "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an." : "Bestätige diese Adresse nur, wenn du sie selbst als Wiederherstellungsmethode für deine Loynara-Karte angefordert hast.";
   const invalid = state === "invalid";
-  return <CustomerState icon={invalid ? <CircleAlert size={24} /> : <MailCheck size={22} />} title={title} message={message} tone={invalid ? "error" : "info"} focusTitle={attempted && (state === "verified" || invalid)}>
-    {state === "ready" || state === "checking" ? <Button block loading={state === "checking"} onClick={() => void confirm()}>E-Mail-Adresse bestätigen</Button> : null}
+  if (state === "verified" && result?.marketing) return <CustomerState merchant={result.shopName} brandColor={result.brandColor} title="Du bist dabei!" focusTitle
+    message={`Ab jetzt bekommst du von ${result.shopName} Angebote, Neuigkeiten und Erinnerungen per E-Mail. Abbestellen kannst du jederzeit auf deiner Karte oder mit einem Klick in jeder E-Mail.`}>
+    <p className={styles.tip}>Tipp: Speicher dir deine Karte als Lesezeichen oder in deiner Wallet, dann hast du sie beim nächsten Besuch sofort griffbereit.</p>
+  </CustomerState>;
+  const title = state === "verified" ? "E-Mail bestätigt" : invalid ? "Dieser Link gilt nicht mehr" : "E-Mail-Adresse bestätigen";
+  const message = state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen."
+    : state === "verified" ? result?.marketingAvailable === false ? "Mit dieser Adresse kannst du deine Karte wiederfinden, falls du den Link verlierst." : "Deine E-Mail-Adresse ist jetzt als Wiederherstellungsmethode bestätigt. Marketing-E-Mails bleiben aus, bis du sie auf deiner Karte ausdrücklich aktivierst."
+    : invalid ? "Der Link ist abgelaufen, wurde bereits genutzt oder gehört nicht mehr zur aktuellen Adresse. Öffne deine Karte und fordere bei Bedarf einen neuen Link an."
+    : "Bestätige diese Adresse nur, wenn du sie selbst auf deiner Loynara-Karte eingetragen hast.";
+  return <CustomerState icon={invalid ? <CircleAlert size={24} /> : <MailCheck size={22} />} title={title} message={message} tone={invalid ? "error" : "info"} live={state === "checking"} focusTitle={attempted && (state === "verified" || invalid)}>
+    {state === "ready" || state === "checking" ? <Button block loading={state === "checking"} onClick={() => void confirm()}>{state === "checking" ? "E-Mail wird bestätigt …" : "E-Mail-Adresse bestätigen"}</Button> : null}
     {invalid ? <Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link> : null}
   </CustomerState>;
 }

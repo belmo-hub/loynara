@@ -36,8 +36,13 @@ export type ContactStatus = {
   available: boolean; marketingAvailable: boolean; marketingExternal: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean;
   /** The stored address masked ("y•••@gmail.com"), never in full. */
   maskedEmail: string | null;
-  /** An unclicked confirmation link and whether it also confirms the marketing consent. */
+  /** An unclicked confirmation link and whether it also confirms the marketing consent; `linkExpired` once its 30 minutes passed. */
   pending: "recovery" | "marketing" | null;
+  linkExpired: boolean;
+  /** When the messages were switched on (the latest granted consent), for „An · seit …“. */
+  marketingSince: string | null;
+  /** The recovery page on this app's host, shown as text („app.example.de/recover“); never hard-coded (E38/E39). */
+  recoverUrl: string;
   /** Show the e-mail offer under the card: stamped at least once, no address and no e-mail choice ever made ("Nein, danke" is one). */
   offer: boolean;
 };
@@ -52,14 +57,21 @@ export async function contactStatus(cardToken: string): Promise<ContactStatus> {
   const marketingMode = promotionalEmailMode();
   const available = emailTransportMode() !== "disabled";
   const facts = (await db.execute(sql`SELECT
-      (SELECT c.marketing FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid ORDER BY c.created_at DESC LIMIT 1) AS "pendingMarketing",
+      (SELECT c.marketing FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "pendingMarketing",
+      (SELECT c.expires_at <= now() FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "expired",
+      (SELECT CASE WHEN e.granted THEN e.created_at END FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing' ORDER BY e.created_at DESC, e.id DESC LIMIT 1) AS "since",
       EXISTS (SELECT 1 FROM ledger_entries e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.kind = 'award') AS "stamped",
-      EXISTS (SELECT 1 FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing') AS "chosen"`)).rows[0] as { pendingMarketing: boolean | null; stamped: boolean; chosen: boolean };
+      EXISTS (SELECT 1 FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing') AS "chosen"`)).rows[0] as { pendingMarketing: boolean | null; expired: boolean | null; since: Date | string | null; stamped: boolean; chosen: boolean };
+  const marketingEmail = verified && await latestMarketingConsent(member.tenantId, member.id);
+  const recover = new URL("/recover", process.env.PUBLIC_BASE_URL ?? "http://localhost:3000");
   return {
     available, marketingAvailable: marketingMode !== "disabled", marketingExternal: marketingMode === "mailgun_eu", contactPresent: Boolean(contact?.email), emailVerified: verified,
     maskedEmail: contact?.email ? maskEmail(contact.email) : null,
-    marketingEmail: verified && await latestMarketingConsent(member.tenantId, member.id),
+    marketingEmail,
     pending: facts.pendingMarketing === null ? null : facts.pendingMarketing ? "marketing" : "recovery",
+    linkExpired: facts.expired === true,
+    marketingSince: marketingEmail && facts.since ? new Date(facts.since).toISOString() : null,
+    recoverUrl: `${recover.host}${recover.pathname}`,
     offer: available && marketingMode !== "disabled" && !contact?.email && facts.stamped && !facts.chosen,
   };
 }

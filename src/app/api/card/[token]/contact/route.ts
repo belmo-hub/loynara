@@ -27,7 +27,11 @@ export async function POST(request: Request, context: Context) {
     const normalized = email === undefined ? undefined : z.email().max(320).parse(email.trim().normalize("NFC").toLowerCase());
     // Every mail counts against its recipient: a resend goes to the stored address and is limited like a typed one.
     const destination = normalized ?? await storedContactEmail(token);
-    if (destination) await enforceRateLimit({ scope: "card_contact_destination", identity: destination, max: 4, windowSeconds: 60 * 60 });
+    if (destination) {
+      await enforceRateLimit({ scope: "card_contact_destination", identity: destination, max: 4, windowSeconds: 60 * 60 });
+      // A card link can ask again after a withdrawal: a day cap keeps an address from being worn down with confirmation mails.
+      await enforceRateLimit({ scope: "card_contact_destination_day", identity: destination, max: 8, windowSeconds: 24 * 60 * 60 });
+    }
     return Response.json(await requestContactVerification(token, normalized, marketing), { headers });
   } catch (error) { return respondError(error); }
 }

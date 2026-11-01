@@ -1,0 +1,2 @@
+/* K04's tip panel: the card's notice surface, no border. */
+.tip { margin: 0; padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-bg); font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }

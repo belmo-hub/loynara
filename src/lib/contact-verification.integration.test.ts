@@ -57,7 +57,7 @@ const marketingEvents = async () => (await db.select().from(consentEvents)).map(
 describe("local contact ownership and separate marketing preference", () => {
   it("queues only a challenge reference, verifies once, then takes the marketing consent only through a second confirmed link", async () => {
     const { member } = await card();
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: false, emailVerified: false, maskedEmail: null, marketingEmail: false, pending: null, offer: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: false, emailVerified: false, maskedEmail: null, marketingEmail: false, pending: null, offer: false, linkExpired: false, marketingSince: null, recoverUrl: expect.stringMatching(/\/recover$/) });
     await expect(requestContactVerification(member.cardToken, undefined, true)).rejects.toMatchObject({ code: "INVALID_INPUT" });
     expect(await requestContactVerification(member.cardToken, "Recipient@Example.Test")).toEqual({ status: "queued" });
     const [challenge] = await db.select().from(contactVerificationChallenges);
@@ -67,12 +67,16 @@ describe("local contact ownership and separate marketing preference", () => {
     expect(job.payload).toEqual({ membershipId: member.id, challengeId: challenge.id });
     expect(JSON.stringify(job.payload)).not.toContain("recipient@example.test");
     expect(JSON.stringify(job.payload)).not.toContain(verificationTokenForChallenge(challenge.id));
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: false, maskedEmail: "r•••@example.test", marketingEmail: false, pending: "recovery", offer: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: false, maskedEmail: "r•••@example.test", marketingEmail: false, pending: "recovery", offer: false, linkExpired: false, marketingSince: null, recoverUrl: expect.stringMatching(/\/recover$/) });
+    // After its 30 minutes the open link reads „Link abgelaufen“ on the card (K09c).
+    await db.update(contactVerificationChallenges).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(contactVerificationChallenges.id, challenge.id));
+    expect(await contactStatus(member.cardToken)).toMatchObject({ pending: "recovery", linkExpired: true });
+    await db.update(contactVerificationChallenges).set({ expiresAt: new Date(Date.now() + 30 * 60_000) }).where(eq(contactVerificationChallenges.id, challenge.id));
 
     const token = verificationTokenForChallenge(challenge.id);
     expect(await consumeContactVerification(token)).toEqual({ verified: true, marketing: false });
     await expect(consumeContactVerification(token)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
-    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: true, maskedEmail: "r•••@example.test", marketingEmail: false, pending: null, offer: false });
+    expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: true, maskedEmail: "r•••@example.test", marketingEmail: false, pending: null, offer: false, linkExpired: false, marketingSince: null, recoverUrl: expect.stringMatching(/\/recover$/) });
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     // A verified address adds the consent later: same mail, same click rule, the address stays as it is.
     expect(await requestContactVerification(member.cardToken, undefined, true)).toEqual({ status: "queued" });
@@ -159,7 +163,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(await consumeContactVerification(token)).toEqual({ verified: true, marketing: true, shopName: "Synthetic Contact Café", brandColor: "#264C45" });
     const [event] = await db.select().from(consentEvents);
     expect(event).toMatchObject({ granted: true, source: "double_opt_in", noticeVersion: "2026-10-19", channel: "email", purpose: "marketing" });
-    expect(await contactStatus(member.cardToken)).toMatchObject({ emailVerified: true, marketingEmail: true, pending: null });
+    expect(await contactStatus(member.cardToken)).toMatchObject({ emailVerified: true, marketingEmail: true, pending: null, marketingSince: expect.any(String) });
     // The card link is a bearer link: the card's reads carry the address masked only, never in full.
     const reads = JSON.stringify([await contactStatus(member.cardToken), await getCard(member.cardToken)]);
     expect(reads).toContain("g•••@example.test");
