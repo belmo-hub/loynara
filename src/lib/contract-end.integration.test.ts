@@ -63,6 +63,8 @@ describe("the three facts (ENG-167, one function for screens and emails)", () =>
     const two = await shop("2026-08-28", "2026-09-28", { name: "Café Zwei", second: true });
     expect((await lines(two.tenantId, "2026-11-27", "2026-11-01T10:00:00Z")).text.invoiceSub).toBe("Die letzte kam am 28.10.2026: 98 € (2 Standorte) für 28.10.–27.11.2026.");
     expect((await contractFacts(two.tenantId, "2026-11-27", at("2026-11-01T10:00:00Z")))!.locations).toEqual(["Kassel Mitte", "Kassel Nord"]);
+    // C2/C5 show the plain total; the location count belongs to C4 only.
+    expect((await lines(two.tenantId, "2026-12-27", "2026-11-18T10:00:00Z")).text).toMatchObject({ invoice: "28.11.2026 · 98 €", invoiceSub: "Für 28.11.–27.12.2026. Das ist die letzte Rechnung." });
   });
 
   it("the free month costs nothing (C7), and the days after it up to request + 14 neither (C38)", async () => {

@@ -143,8 +143,9 @@ export function factsLines(facts: ContractFacts, vat: "none" | "kleinunternehmer
   const invoice = facts.invoice;
   const last = invoice.kind === "free" ? { value: "Keine Rechnung", sub: facts.freeMonth && facts.lastDay > lastFreeOf(facts) ? `Dein erster Monat ist kostenlos, die Tage danach bis einschließlich ${day(facts.lastDay)} auch.` : "Dein erster Monat ist kostenlos. Hörst du im ersten Monat auf, kostet es nichts." }
     : invoice.kind === "none" ? { value: "Keine weitere Rechnung", sub: invoice.previous ? `Die letzte kam am ${day(invoice.previous.date)}: ${withCount(invoice.previous.amountMinor)} für ${period(invoice.previous.from, invoice.previous.to)}.` : "" }
-      : invoice.invoices.length === 1 ? { value: `${day(invoice.invoices[0].date)} · ${withCount(invoice.invoices[0].amountMinor)}`, sub: `Für ${period(invoice.invoices[0].from, invoice.invoices[0].to)}. Das ist die letzte Rechnung.` }
-        : { value: `${day(invoice.invoices.at(-1)!.date)} · ${withCount(invoice.invoices.at(-1)!.amountMinor)}`, sub: `Noch ${invoice.invoices.length} Rechnungen: ${dayList(invoice.invoices.map(i => i.date))}, je ${withCount(invoice.invoices[0].amountMinor)}. Die am ${shortDay(invoice.invoices.at(-1)!.date)} ist die letzte.` };
+      // C2/C5/C6 show the plain total; only C4 (the last one already came) names the location count.
+      : invoice.invoices.length === 1 ? { value: `${day(invoice.invoices[0].date)} · ${amount(invoice.invoices[0].amountMinor)}`, sub: `Für ${period(invoice.invoices[0].from, invoice.invoices[0].to)}. Das ist die letzte Rechnung.` }
+        : { value: `${day(invoice.invoices.at(-1)!.date)} · ${amount(invoice.invoices.at(-1)!.amountMinor)}`, sub: `Noch ${invoice.invoices.length} Rechnungen: ${dayList(invoice.invoices.map(i => i.date))}, je ${amount(invoice.invoices[0].amountMinor)}. Die am ${shortDay(invoice.invoices.at(-1)!.date)} ist die letzte.` };
   const ds05 = env.SHOP_ERASURE_DELAY_DAYS && /^\d{1,4}$/.test(env.SHOP_ERASURE_DELAY_DAYS) && Number(env.SHOP_ERASURE_DELAY_DAYS) >= 7 ? ` innerhalb von ${Number(env.SHOP_ERASURE_DELAY_DAYS)} Tagen` : "";
   return {
     lastDay: { label: "Letzter Tag", value: day(facts.lastDay), sub: "Bis dahin läuft alles normal: Deine Kunden sammeln weiter und lösen Prämien ein." },
