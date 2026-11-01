@@ -7,6 +7,7 @@ import { passFastData } from "./wallet/passfast";
 import { walletCardSnapshot } from "./wallet/data";
 import { consentText, CONSENT_TEXT_VERSION } from "./wallet-message-rules";
 import { POST } from "@/app/api/wallet/passfast-events/route";
+import { POST as consentPost } from "@/app/api/card/[token]/wallet-messages/route";
 import { recordPassFastEvent } from "./wallet-pass-events";
 import { applePassJson, applePassToken } from "./wallet/apple";
 import { unregisterAppleDevice } from "./wallet/apple-service";
@@ -757,6 +758,11 @@ describe("native Apple passes (ENG-127)", () => {
     await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [gone.passId]);
     expect(await getWalletConsent(reached.cardToken)).toMatchObject({ available: true });
     expect(await getWalletConsent(gone.cardToken)).toMatchObject({ available: false });
+    // Granting is refused too, through the card's own endpoint, and no consent row is written; the reachable card still can.
+    const grant = (token: string) => consentPost(new Request(`http://localhost:3000/api/card/${token}/wallet-messages`, { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ granted: true }) }), { params: Promise.resolve({ token }) });
+    expect((await grant(gone.cardToken)).status).toBe(404);
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_consents WHERE membership_id = $1", [gone.id])).rows[0].n).toBe(0);
+    expect((await grant(reached.cardToken)).status).toBe(200);
   });
 
   it("only the last device letting go counts as a removal", async () => {
