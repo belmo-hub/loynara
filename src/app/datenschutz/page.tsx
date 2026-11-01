@@ -22,7 +22,7 @@ export default function DatenschutzPage() {
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Datenschutzhinweise</h1>
-    <p>Stand: 31. Oktober 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
+    <p>Stand: 1. November 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
     <LegalContents sections={SECTIONS} />
     <h2 id="wer-ist-verantwortlich">Wer ist verantwortlich?</h2>
     <p>Für deine Karte ist das Geschäft verantwortlich, bei dem du sie nutzt. Name und Standort stehen auf deiner Karte. Die technische Plattform betreibt Loynara im Auftrag dieses Geschäfts:</p>
@@ -38,7 +38,7 @@ export default function DatenschutzPage() {
     <p>Angebote des Geschäfts per E-Mail erhältst du nur, wenn du das auf deiner Karte ausdrücklich und getrennt von der Wiederherstellungsadresse aktivierst. Diese Einwilligung ist freiwillig, kann jederzeit mit Wirkung für die Zukunft widerrufen werden (auf deiner Karte oder über den Abmeldelink in jeder E-Mail) und wird mit Zeitpunkt und Textversion protokolliert. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO). Wenn ein Geschäft diese Funktion noch nicht nutzt, werden keine Angebote versendet.</p>
     <h2 id="nachrichten-auf-deiner-wallet-karte">Nachrichten auf deiner Wallet-Karte</h2>
     <p>Wenn du es auf deiner Karte ausdrücklich erlaubst, kann dir das Geschäft kurze Nachrichten mit Angeboten, Neuigkeiten und Erinnerungen auf deiner Wallet-Karte schicken, höchstens zwei pro Woche und nicht nachts. Dazu kann eine automatische Erinnerung gehören, wenn du länger nicht da warst. Diese Einwilligung ist freiwillig und getrennt von der Einwilligung in E-Mails. Sie wird mit Zeitpunkt und Textversion protokolliert, und du kannst sie jederzeit auf deiner Karte widerrufen, ohne die Karte aus deiner Wallet zu löschen. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO). Zugestellt werden die Nachrichten bei Apple Wallet über Apple, bei Google Wallet über Google.</p>
-    <p>Läuft auf deiner Punktekarte ein Teil deiner Punkte bald ab, schickt dir das Geschäft vorher einen Hinweis auf deine Karte in Apple Wallet. Dafür musst du nichts erlauben; der Hinweis zählt zu den höchstens zwei Nachrichten pro Woche. Rechtsgrundlage ist die Durchführung des Kundenkartenprogramms (Art. 6 Abs. 1 Buchst. b DSGVO).</p>
+    <p>Läuft auf deiner Punktekarte ein Teil deiner Punkte bald ab, schickt dir das Geschäft vorher einen Hinweis auf deine Karte in Apple Wallet oder Google Wallet. Dafür musst du nichts erlauben; der Hinweis zählt zu den höchstens zwei Nachrichten pro Woche. Rechtsgrundlage ist die Durchführung des Kundenkartenprogramms (Art. 6 Abs. 1 Buchst. b DSGVO).</p>
     <h2 id="geburtstag">Geburtstag</h2>
     <p>Freiwillig kannst du auf deiner Karte Tag und Monat deines Geburtstags hinterlegen, ohne Jahr. Das Geschäft nutzt ihn nur für eine Geburtstagsprämie und, wenn du Nachrichten auf deiner Wallet-Karte erlaubt hast, für eine Erinnerung in deiner Geburtstagswoche. Du kannst ihn jederzeit auf deiner Karte löschen. Rechtsgrundlage ist die Durchführung des Kundenkartenprogramms (Art. 6 Abs. 1 Buchst. b DSGVO).</p>
     <h2 id="nfc-schild-und-wallet-karte">NFC-Schild und Wallet-Karte</h2>
