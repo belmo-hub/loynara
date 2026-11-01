@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { createAdditionalLocation } from "./locations";
@@ -136,5 +136,38 @@ describe("merchant brand editor", () => {
       if (previousOrigin === undefined) delete process.env.GOOGLE_WALLET_ASSET_ORIGIN;
       else process.env.GOOGLE_WALLET_ASSET_ORIGIN = previousOrigin;
     }
+  });
+
+  it("limits each address to 120 units of logo work in 15 minutes across both public Google routes; remembered logos stay free (ENG-161)", async () => {
+    // Local ingress: every request is the one "untrusted-peer" address, as the limiter keys it.
+    const key = createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("wallet_google_logo_peer").update("\0").update("untrusted-peer").digest("hex");
+    const clear = () => pool.query("delete from rate_limits where key_hash = $1", [key]);
+    // A colour no other test uses, so this logo is not yet remembered by the process.
+    const uniqueLogo = async () => `data:image/png;base64,${(await sharp({ create: { width: 64, height: 64, channels: 4, background: `#${randomUUID().slice(0, 6)}` } }).png().toBuffer()).toString("base64")}`;
+    // Saved through the studio, the logo is processed (and remembered) at save time; written straight to the row, it is not.
+    const saved = async (through: "studio" | "row") => {
+      const { ownerId, merchant } = await fixture();
+      if (through === "studio") await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#2f6b58", logoData: await uniqueLogo() });
+      else await db.update(locations).set({ logoData: await uniqueLogo() }).where(eq(locations.id, merchant.locationId));
+      return merchant.programId;
+    };
+    const known = await saved("studio");
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ENABLED", "true");
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ORIGIN", "https://assets.example.test");
+    await clear();
+    try {
+      const get = (route: typeof getGoogleLogo, programId: string = randomUUID()) => route(new Request("https://assets.example.test/logo.png"), { params: Promise.resolve({ programId: `${programId}.png` }) });
+      for (let i = 0; i < 120; i++) expect((await get(i % 2 ? getGoogleWideLogo : getGoogleLogo)).status).toBe(404); // unknown ids: 1 unit each
+      // Budget spent. Google re-reading the remembered logo is still served...
+      for (let i = 0; i < 3; i++) expect((await get(getGoogleLogo, known)).status).toBe(200);
+      // ...while cycling ids and a logo not processed yet are refused, on both routes.
+      for (const route of [getGoogleLogo, getGoogleWideLogo]) {
+        const limited = await get(route);
+        expect(limited.status).toBe(429);
+        expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+      }
+      const fresh = await saved("row");
+      expect((await get(getGoogleLogo, fresh)).status).toBe(429);
+    } finally { await clear(); vi.unstubAllEnvs(); }
   });
 });

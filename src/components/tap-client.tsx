@@ -69,6 +69,8 @@ export function stampAnnouncement(state: TapState | "loading" | "error", balance
 /** „Aktueller Stand: 1 Punkt“, „… 2 Punkte“; stamps read the same in both numbers. */
 export const currentBalance = (balance: number, points: boolean) => `Aktueller Stand: ${balance} ${points ? (balance === 1 ? "Punkt" : "Punkte") : "Stempel"}`;
 
+const scrollToTop = () => window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+
 /** The guest's card with the booked balance; during the stamp moment its new stamp lands. */
 export function TapCardFace({ card, balance, moment }: { card: CardResponse; balance: number; moment: boolean }) {
   const rewards = card.rewards.map(({ id, title, cost }) => ({ id, title, cost }));
@@ -179,10 +181,10 @@ export function TapClient({ refId }: { refId: string }) {
   const ended = state === "expired" || state === "cancelled" || state === "error";
   useEffect(() => {
     const card = cardRef.current;
-    const stampAbove = celebrate && !walletAdding && card !== null && card.getBoundingClientRect().top < 0;
-    if (!stampAbove && !(ended && window.scrollY > 0)) return;
-    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }, [celebrate, walletAdding, ended]);
+    if (celebrate && !walletAdding && card !== null && card.getBoundingClientRect().top < 0) scrollToTop();
+  }, [celebrate, walletAdding]);
+  // Its own effect, so an add on an already ended page does not scroll again behind Apple's sheet.
+  useEffect(() => { if (ended && window.scrollY > 0) scrollToTop(); }, [ended]);
   const announcement = stampAnnouncement(state, result?.balance, points, result?.credited);
   // The 404 already says to use the QR code; every other error keeps the one path that still works (Design, 31 Oct).
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";

@@ -81,11 +81,23 @@ describe("Wallet step screen (ENG-130 03/04)", () => {
   it("keeps the Apple button, the skip link to the card and the programme's note", () => {
     const html = render(false);
     expect(html).toContain("Deine Karte ist fertig. Leg sie in Apple Wallet.");
-    expect(html).toContain("Zu Apple Wallet hinzufügen");
+    expect(html).toContain('alt="Hinzufügen zu Apple Wallet"');
+    expect(html).toContain('src="/wallet/apple-add-de.svg"');
     expect(html).toContain('href="/card/card_x"');
     expect(html).toContain("Später, zuerst meine Karte ansehen");
     expect(html).toContain("Stempel sammelst du auch ohne Wallet. Speichern kannst du die Karte später unter „In Wallet speichern“.");
     expect(render(false, "points")).toContain("Punkte sammelst du auch ohne Wallet.");
+  });
+  it("names the button as Apple's badge reads, keeps the status line mounted and never dims the badge (ENG-132)", async () => {
+    for (const band of [false, true]) {
+      const html = render(false, "stamp", band);
+      expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>).)*alt="Hinzufügen zu Apple Wallet"/);
+      expect(html).not.toMatch(/<button[^>]*aria-label/);
+      expect(html).toMatch(/<p class="[^"]*" role="status"><\/p>/);
+    }
+    const css = (await import("node:fs")).readFileSync("src/components/customer/wallet-step.module.css", "utf8");
+    expect(css).toContain(".apple:disabled { cursor: progress; }");
+    expect(css).not.toMatch(/\.apple[^{]*\{[^}]*opacity/);
   });
 });
 

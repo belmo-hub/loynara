@@ -39,7 +39,7 @@ const native = sql`(p.provider = 'apple' AND p.provider_object_id NOT LIKE 'pass
  * A live pass that can carry a message: an Apple pass through PassFast, a native Apple pass a device registered for
  * updates (ENG-127; not for a French shop, whose native pass has no message field yet), and with the Google flag a Google Direct pass.
  */
-const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR ${googleOn() ? sql`(p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%')` : sql`false`}) AND p.status = 'created'
+export const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR ${googleOn() ? sql`(p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%')` : sql`false`}) AND p.status = 'created'
   OR ${native} AND p.status = 'registered' AND NOT EXISTS (SELECT 1 FROM tenants t WHERE t.id = p.tenant_id AND t.locale = 'fr'))`;
 
 // ---- Consent (customer side, card-token scoped like the other card endpoints) -------------------------------------
@@ -49,7 +49,7 @@ async function cardOf(cardToken: string) {
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
       EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
-        AND p.revoked_at IS NULL) AS "walletPass",
+        AND p.revoked_at IS NULL AND ${reachable}) AS "walletPass",
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS granted
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = m.tenant_id

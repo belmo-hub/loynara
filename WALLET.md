@@ -179,7 +179,7 @@ and credential contents.
 ### Apple / iPhone
 
 1. Open an approved synthetic Loynara card on the iPhone in Safari. Expect "In Wallet speichern" with one Apple button.
-2. Tap "Zu Apple Wallet hinzufügen". Expect the system Add Pass sheet within a few seconds.
+2. Tap "Hinzufügen zu Apple Wallet". Expect the system Add Pass sheet within a few seconds.
 3. Add. Expect the merchant logo or name, brand colour with readable text, `STEMPEL 0 / n`, next reward, K-number.
 4. Confirm the device registered (operator: `apple_registrations` row for the serial; no customer data needed).
 5. With pass notifications and automatic updates enabled, book one test stamp at the counter. Expect a lock-screen notice
@@ -196,7 +196,7 @@ and credential contents.
 
 1. Open a fresh approved synthetic card on the designated Android tester account in Chrome. Expect one Google button and,
    in Demo Mode, the test note. Confirm an account not designated as a tester cannot save in Demo Mode.
-2. Tap "Zu Google Wallet hinzufügen". Expect Google's save screen; save.
+2. Tap "Hinzufügen zu Google Wallet". Expect Google's save screen; save.
 3. Expect merchant name/logo, programme, `0 / n`, K-number, reward module.
 4.–8. Award, reach the reward, redeem, correct, and scan as Apple 5–8. Record each committed balance and the corresponding
    displayed balance; Google display updates may be delayed. A loyalty lock-screen notification is not required by this plan.
@@ -306,6 +306,31 @@ Wallet on the iPhone calls `/api/apple/v1/…` without an Access session. Every 
 
 A message is the PassFast `message` field of one Apple pass (Back of Pass, label „Nachricht vom Geschäft“, lock-screen notification `%@`), sent by the outbox job `wallet.message`. Because PassFast's documentation disagrees on merge versus replace for PATCH, the send re-sends the complete data contract with current values and only `message` new; a refresh re-sends the last sent message unchanged, so it neither clears the field nor raises a banner. Opt-in is logged per card (`wallet_message_consents`, append-only); caps: 2 per programme and 2 per customer in any rolling 7 days, none from 21:00 to 08:00 local time. The surface `walletMessages` is hidden on real production until `WALLET_MESSAGES_ENABLED=true`.
 
-Native Apple passes (ENG-127): the message is the back field „Nachricht von {Geschäft} vom {Tag}“ after „Programmregeln“ and the reward with changeMessage `%@` and no data detectors. The send queues the card's ordinary coalesced `wallet.refresh`; the APNs push makes the device fetch the pass with the newest message. Wallet alerts only when an existing key changes, so a card that allowed messages carries the field with „Noch keine Nachricht.“ from its consent on (the consent change queues a refresh). A native pass can get messages while a device is registered for its updates; when its last device unregisters, the pass web service records `device.unregistered` for the removal report. With PassFast off, `WALLET_MESSAGES_ENABLED=true` needs `APPLE_WALLET_ENABLED=true` and no webhook secret. French passes get no field (no approved label yet).
+Native Apple passes (ENG-127): the message is the back field „Nachricht von {Geschäft} vom {Tag}“ after „Programmregeln“ and the reward with changeMessage `%@` and no data detectors. The send queues the card's ordinary coalesced `wallet.refresh`; the APNs push makes the device fetch the pass with the newest message. Wallet alerts only when an existing key changes, so a card that allowed messages carries the field with „Noch keine Nachricht.“ from its consent on (the consent change queues a refresh), while the `walletMessages` surface is on. A card without consent never gets this key: in a programme with points expiry it gets the separate `expiry` key instead (ENG-162, below), and only expiry notices land there. A native pass can get messages while a device is registered for its updates; when its last device unregisters, the pass web service records `device.unregistered` for the removal report. With PassFast off, `WALLET_MESSAGES_ENABLED=true` needs `APPLE_WALLET_ENABLED=true` and no webhook secret. French passes get no field (no approved label yet).
+
+Expiry field (ENG-162): a native pass whose customer has not allowed messages carries its own back field „Hinweis vor dem Punkteverfall“ (key `expiry`, placeholder „Bevor Punkte verfallen, erscheint hier ein Hinweis.“), only where a points-expiry rule is in force or waiting; it only ever shows expiry notices. A customer who allows messages gets the `message` field instead. Two keys, because a relabelled `message` would change its placeholder value on consent and raise a banner. Empty fields exist only while the `walletMessages` surface is on; a text once sent stays.
+
+Switching `WALLET_MESSAGES_ENABLED` on, one step more: a pass gets its empty field only on its next refresh, and the first notice's own refresh would add the key already filled, without a banner. Right after the switch, before the next expiry run, count the German programmes with an expiry rule and queue one coalesced refresh per card holding a pass in them (the same rows `enqueueWalletProgramRefresh` writes):
+
+```sql
+SELECT p.id, t.name, count(DISTINCT m.id) AS cards
+FROM programs p JOIN tenants t ON t.id = p.tenant_id
+  JOIN memberships m ON m.program_id = p.id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
+  JOIN wallet_passes wp ON wp.membership_id = m.id AND wp.tenant_id = m.tenant_id AND wp.status <> 'revoked' AND wp.revoked_at IS NULL
+WHERE p.status = 'active' AND t.locale = 'de' AND p.points_expiry_months IS NOT NULL
+GROUP BY p.id, t.name;
+
+INSERT INTO outbox_jobs (tenant_id, kind, payload)
+SELECT DISTINCT m.tenant_id, 'wallet.refresh', jsonb_build_object('membershipId', m.id::text, 'coalescingVersion', '1')
+FROM programs p JOIN tenants t ON t.id = p.tenant_id
+  JOIN memberships m ON m.program_id = p.id AND m.tenant_id = p.tenant_id AND m.closed_at IS NULL
+  JOIN wallet_passes wp ON wp.membership_id = m.id AND wp.tenant_id = m.tenant_id AND wp.status <> 'revoked' AND wp.revoked_at IS NULL
+WHERE p.status = 'active' AND t.locale = 'de' AND p.points_expiry_months IS NOT NULL
+ON CONFLICT (tenant_id, (payload ->> 'membershipId'))
+  WHERE kind = 'wallet.refresh' AND status = 'pending' AND payload ->> 'coalescingVersion' = '1'
+DO NOTHING;
+```
+
+A programme that switches expiry on later needs nothing: its programme refresh at the effective date adds the field.
 
 PassFast event webhook: `POST /api/wallet/passfast-events` (HMAC-SHA256 hex of the raw body in `X-Webhook-Signature`, secret `PASSFAST_WEBHOOK_SECRET`, timestamps within 10 minutes). Only `device.registered` / `device.unregistered` are kept, with pass and time and nothing else. An unregistration makes the pass unreachable for messages and is counted in the removal report (48 hours after each send).

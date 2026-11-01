@@ -9,7 +9,7 @@ describe("message text rules", () => {
     expect(checkMessageText("ä".repeat(141)).ok).toBe(false);
     expect(checkMessageText("😀".repeat(140)).ok).toBe(true);
   });
-  it.each(["Tabak", "Zigaretten im Angebot", "E-Zigarette 2 für 1", "VAPE", "Snus", "Liquid Aktion"])("blocks tobacco and e-cigarette term %s", text => {
+  it.each(["Tabak", "Zigaretten im Angebot", "E-Zigarette 2 für 1", "VAPE", "Snus", "E-Liquid Aktion"])("blocks tobacco and e-cigarette term %s", text => {
     expect(checkMessageText(text)).toMatchObject({ ok: false, error: expect.stringContaining("Tabak") });
   });
   it("blocks health claims and alcohol aimed at minors, but not plain alcohol or a time like 'ab 17 Uhr'", () => {
@@ -87,5 +87,41 @@ describe("birthdayWeek (ENG-049)", () => {
     expect(birthdayWeek(29, 2, "2028-02-29")).toEqual({ start: "2028-02-28", end: "2028-03-05" });
     expect(birthdayWeek(31, 12, "2027-01-02")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
     expect(birthdayWeek(1, 1, "2026-12-29")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
+  });
+});
+
+describe("contentRefusal, shared with email campaigns and automations (ENG-163, Legal 1 Nov)", () => {
+  it.each([
+    ["Neu bei uns: E-Zigaretten und Liquids zum Probierpreis.", "Tabak"],
+    ["Neue Tabaksorten sind da.", "Tabak"],
+    ["Vapes 2 für 1", "Tabak"],
+    ["Unser Tee heilt Erkältungen.", "Heilversprechen"],
+    ["hilft gegen Krebs", "Heilversprechen"],
+    ["senkt den Blutdruck", "Heilversprechen"],
+    ["Für Schüler: Cocktails zum halben Preis.", "Jugendliche"],
+    ["Abi-Party: Shots für alle unter 18", "Jugendliche"],
+    // An exclusion ends at a colon: what follows it is the offer (Reviewer N-1).
+    ["Außer sonntags: Zigaretten 10 % günstiger", "Tabak"],
+    ["Für alle außer Kinder: neue E-Liquids", "Tabak"],
+  ])("refuses %s", async (text, reason) => {
+    const { contentRefusal } = await import("./wallet-message-rules");
+    expect(contentRefusal(text)).toContain(reason);
+  });
+  it.each([
+    "10 % auf alles, nicht auf Tabak und Zeitschriften.",
+    "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.",
+    "Glühwein für die Großen, Kinderpunsch für die Kleinen.",
+    "Frischer Flusskrebs-Salat",
+    "Sternzeichen Krebs? Alles Gute!",
+    "Unser neues Styling-Liquid",
+    "Doppelter Espresso-Shot",
+    "Insektenschutz",
+  ])("lets %s through", async text => {
+    const { contentRefusal } = await import("./wallet-message-rules");
+    expect(contentRefusal(text)).toBeNull();
+  });
+  it("applies only the content rules to email: long text with a link passes", async () => {
+    const { contentRefusal } = await import("./wallet-message-rules");
+    expect(contentRefusal(`Herbstkarte ab Montag, alle Details auf https://example.test. ${"Kaffee und Kuchen. ".repeat(20)}`)).toBeNull();
   });
 });

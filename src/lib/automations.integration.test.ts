@@ -194,3 +194,23 @@ describe("bounded local automations", () => {
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"))).toHaveLength(0);
   });
 });
+
+describe("content rules for automation text (ENG-163, Legal 1 Nov)", () => {
+  it("refuses tobacco in the subject or body on save, and suppresses a run whose rule text breaks the rules", async () => {
+    const f = await fixture();
+    const base = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule };
+    await expect(upsertAutomationRule({ ...base, subject: "Willkommen, neue E-Liquids sind da" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    await expect(upsertAutomationRule({ ...base, body: "Danke! Beim nächsten Besuch gibt es Snus gratis." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    const card = await member(f.merchant.programSlug);
+    const rule = await upsertAutomationRule(base);
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+    await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
+    // A rule text saved before the rule (or changed outside the app) is caught before the mail goes out.
+    await db.update(automationRules).set({ body: "Neu: E-Zigaretten an der Kasse." }).where(eq(automationRules.id, rule.id));
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send)).toMatchObject({ status: "suppressed", reason: "Rule text breaks the content rules" });
+    expect(send).not.toHaveBeenCalled();
+  });
+});
