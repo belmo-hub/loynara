@@ -87,13 +87,42 @@ async function busyShop(label: string, plate: string) {
   const handoff = (await pool.query("INSERT INTO billing_handoffs (tenant_id, provider, status, currency, amount_minor, provider_ref) VALUES ($1, 'stripe', 'complete', 'EUR', 4900, $2) RETURNING id", [shop.tenantId, `cs_test_${randomUUID().slice(0, 8)}`])).rows[0].id as string;
   await pool.query("INSERT INTO billing_invoices (tenant_id, handoff_id, provider_invoice_id, status, currency, amount_minor, period_end) VALUES ($1, $2, $3, 'fixture_paid', 'EUR', 4900, now())", [shop.tenantId, handoff, `in_test_${randomUUID().slice(0, 8)}`]);
   await pool.query("INSERT INTO billing_webhook_events (event_id, tenant_id, event_type, payload_hash) VALUES ($1, $2, 'invoice.paid', 'synthetic')", [`evt_${randomUUID().replaceAll("-", "")}`, shop.tenantId]);
-  await pool.query('INSERT INTO session (id, "expiresAt", token, "createdAt", "updatedAt", "userId") VALUES ($1, now() + interval \'1 day\', $2, now(), now(), $3)', [randomUUID(), randomUUID(), ownerId]);
+  const sessionId = randomUUID();
+  await pool.query('INSERT INTO session (id, "expiresAt", token, "createdAt", "updatedAt", "userId") VALUES ($1, now() + interval \'1 day\', $2, now(), now(), $3)', [sessionId, randomUUID(), ownerId]);
   await pool.query("UPDATE locations SET contact_email = $1, latitude = 51.3, longitude = 9.5 WHERE tenant_id = $2", [`laden-${label}@example.test`, shop.tenantId]);
-  await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'google', $3, 'created')", [shop.tenantId, card.id, `synthetic.loynara_${randomUUID()}`]);
+  const googlePass = (await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'google', $3, 'created') RETURNING id", [shop.tenantId, card.id, `synthetic.loynara_${randomUUID()}`])).rows[0].id as string;
+  await seedEveryTable({ tenantId: shop.tenantId, programId: shop.programId, locationId: shop.locationId, cardId: card.id, ownerId, sessionId, tagId: tag, passId: googlePass, job });
   const device = `synthetic-device-${randomUUID()}`;
   await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token, updated_at) VALUES ($1, 'synthetic-push-token', now())", [device]);
   await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1, $2, $3, 'pass.synthetic.test', $4)", [device, shop.tenantId, card.id, randomUUID()]);
   return { ...shop, ownerId, cashierId, secondProgramId: second.programId, email, plate, device, cardId: card.id };
+}
+
+/**
+ * Review N-1: one row in each tenant table the product flows above don't reach, so every table is erased in the foreign-key
+ * order and the key test has no empty column. Synthetic values only.
+ */
+async function seedEveryTable(ids: { tenantId: string; programId: string; locationId: string; cardId: string; ownerId: string; sessionId: string; tagId: string; passId: string; job: string }) {
+  const q = (text: string, values: unknown[]) => pool.query(text, values);
+  const rule = (await q("INSERT INTO automation_rules (tenant_id, program_id, created_by_user_id, trigger_kind, subject, body) VALUES ($1, $2, $3, 'first_checkout', 'Synthetisch', 'Synthetischer Text') RETURNING id", [ids.tenantId, ids.programId, ids.ownerId])).rows[0].id;
+  await q("INSERT INTO automation_runs (tenant_id, rule_id, membership_id, rule_revision, trigger_key) VALUES ($1, $2, $3, 1, $4)", [ids.tenantId, rule, ids.cardId, `t-${randomUUID().slice(0, 8)}`]);
+  const [campaign] = (await q("SELECT id FROM campaigns WHERE tenant_id = $1 LIMIT 1", [ids.tenantId])).rows;
+  const recipient = (await q("INSERT INTO campaign_recipients (tenant_id, campaign_id, membership_id) VALUES ($1, $2, $3) RETURNING id", [ids.tenantId, campaign.id, ids.cardId])).rows[0].id;
+  await q("INSERT INTO campaign_attempts (tenant_id, recipient_id, outbox_job_id, attempt, status) VALUES ($1, $2, $3, 1, 'complete')", [ids.tenantId, recipient, ids.job]);
+  await q("INSERT INTO campaign_daily_usage (tenant_id, day) VALUES ($1, '2026-11-02')", [ids.tenantId]);
+  await q("INSERT INTO card_birthdays (membership_id, tenant_id, day, month) VALUES ($1, $2, 14, 3)", [ids.cardId, ids.tenantId]);
+  await q("INSERT INTO consent_events (tenant_id, membership_id, channel, purpose, granted, notice_version, source) VALUES ($1, $2, 'email', 'marketing', true, 'synthetic-v1', 'card')", [ids.tenantId, ids.cardId]);
+  await q("INSERT INTO contact_verification_challenges (tenant_id, membership_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4, now() + interval '1 day')", [ids.tenantId, ids.cardId, `pending-${randomUUID()}@example.test`, `synthetic-${randomUUID()}`]);
+  await q("INSERT INTO free_month_reminders (tenant_id, free_until) VALUES ($1, '2026-12-10T00:00:00Z')", [ids.tenantId]);
+  const lease = (await q("INSERT INTO offline_award_leases (tenant_id, location_id, membership_id, actor_user_id, device_hash, expires_at) VALUES ($1, $2, $3, $4, 'synthetic-device-hash', now() + interval '1 day') RETURNING id", [ids.tenantId, ids.locationId, ids.cardId, ids.ownerId])).rows[0].id;
+  await q("INSERT INTO offline_award_events (id, lease_id, tenant_id, location_id, membership_id, actor_user_id, award_payload, event_at, status) VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, now(), 'rejected')", [randomUUID(), lease, ids.tenantId, ids.locationId, ids.cardId, ids.ownerId]);
+  await q("INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4, $5, 'synthetic-p256dh', 'synthetic-auth')", [ids.tenantId, ids.locationId, ids.ownerId, ids.sessionId, `https://push.example.test/${randomUUID()}`]);
+  await q("INSERT INTO tap_requests (tag_id, counter, tenant_id, location_id, program_id, status, expires_at) VALUES ($1, 7, $2, $3, $4, 'expired', now())", [ids.tagId, ids.tenantId, ids.locationId, ids.programId]);
+  await q("INSERT INTO wallet_message_owner_confirmations (tenant_id, version, confirmed_by_user_id) VALUES ($1, 'synthetic-v1', $2)", [ids.tenantId, ids.ownerId]);
+  const message = (await q("INSERT INTO wallet_messages (tenant_id, program_id, text) VALUES ($1, $2, 'Synthetische Nachricht') RETURNING id", [ids.tenantId, ids.programId])).rows[0].id;
+  await q("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id) VALUES ($1, $2, $3, $4)", [message, ids.passId, ids.tenantId, ids.cardId]);
+  await q("INSERT INTO wallet_template_bindings (tenant_id, location_id, template_id, created_by_user_id, changed_by_user_id) VALUES ($1, $2, $3, $4, $4)", [ids.tenantId, ids.locationId, randomUUID(), ids.ownerId]);
+  await q("INSERT INTO weekly_owner_reports (tenant_id, week_start) VALUES ($1, '2026-11-02')", [ids.tenantId]);
 }
 
 /** Ends every programme of the shop now (operator `end`); the export window then counts from today (Berlin). */
@@ -151,12 +180,8 @@ describe("shop erasure (ENG-166, DS-05)", () => {
       "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id"]));
 
     // Review N-1: every column the fixture doesn't fill is pinned here, so a new table fails this test until it is seeded or listed.
-    // shortcut: these 18 are emptied by the same generic step as the seeded ones but not yet seeded here; seed them (review N-1 follow-up) and shrink this list.
-    expect(Object.keys(before).filter(name => before[name] === 0).sort()).toEqual([
-      "automation_rules.tenant_id", "automation_runs.tenant_id", "campaign_attempts.tenant_id", "campaign_daily_usage.tenant_id", "campaign_recipients.tenant_id",
-      "card_birthdays.tenant_id", "consent_events.tenant_id", "contact_verification_challenges.tenant_id", "free_month_reminders.tenant_id", "offline_award_events.tenant_id",
-      "offline_award_leases.tenant_id", "staff_push_subscriptions.tenant_id", "tap_requests.tenant_id", "wallet_message_owner_confirmations.tenant_id",
-      "wallet_message_recipients.tenant_id", "wallet_messages.tenant_id", "wallet_template_bindings.tenant_id", "weekly_owner_reports.tenant_id"]);
+    // Review N-1: every tenant column in the schema holds a row of this shop before the erasure.
+    expect(Object.keys(before).filter(name => before[name] === 0).sort()).toEqual([]);
     const { providers, removed } = fakeProviders();
     const outcome = await erase(gone.tenantId, daysFromNow(31), true, { providers });
     expect(outcome).toMatchObject({ result: "erased", reasons: [], external: { googleCards: 1, mailgunAddresses: 1 } });

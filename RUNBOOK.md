@@ -158,7 +158,7 @@ These commands verify a local restoration only. Before live operation, arrange e
 4. Send the owner the text-form confirmation, to the address on the erasure record, once it shows as sendable. Then record it: `… confirmed --tenant-id <id> --target … --actor-user-id …`.
 
 **What it does (Legal's ruling, 1 Nov 2026):**
-- **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted.
+- **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted; revocations already done stay done, and running the erasure again skips them.
 - **Then one transaction:**
   - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
   - It deletes the logins of the shop's owner and staff, with their sessions.
