@@ -78,20 +78,6 @@ async function lockedSubscription(tx: Transaction, tenantId: string) {
   return sub;
 }
 
-/**
- * The operator's name and postal address as the invoices print them: Stripe's public business details (business_profile),
- * so the free-month reminder's footer can never differ from the invoice (Legal, B-01/B-02). Null while they are not set.
- */
-export async function operatorIdentity() {
-  const account = z.object({ business_profile: z.object({ name: z.string().nullable().optional(), support_address: z.object({
-    line1: z.string().nullable(), line2: z.string().nullable().optional(), postal_code: z.string().nullable(), city: z.string().nullable(),
-  }).nullable().optional() }).nullable().optional() }).parse(await client("GET", "/account"));
-  const profile = account.business_profile;
-  const address = profile?.support_address;
-  if (!profile?.name?.trim() || !address?.line1 || !address.postal_code || !address.city) return null;
-  return { name: profile.name.trim(), address: [address.line1, address.line2, `${address.postal_code} ${address.city}`].filter(Boolean).join(", ") };
-}
-
 /** The plan's Stripe price, verified against the plan's amount, so a swapped or wrong price ID is refused, never charged. */
 async function verifiedPrice(charge: NonNullable<ReturnType<typeof planCharge>>) {
   const price = stripePrice.parse(await client("GET", `/prices/${process.env[PLANS[charge.planCode].priceEnv]}`));
