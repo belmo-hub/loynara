@@ -129,7 +129,7 @@ describe("the owner's emails (M1–M3, Marketing FINAL with Legal's conditions)"
     expect(plain(freeWithdrawn.body)).toContain("Nach dem kostenlosen Monat beginnt die Abrechnung am 20.11.2026, 49 € im Monat.");
   });
 
-  it("queues M1 with the cancellation and sends it once, with live billing off too; nothing without the operator's settings or with email off", async () => {
+  it("queues M1 with the cancellation and sends it once, with live billing off too; it waits an hour and tries again without the operator's settings or with email off", async () => {
     const s = await shop("2026-08-28", "2026-09-28");
     const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1", [s.tenantId])).rows;
     await requestCancellation({ actorUserId: s.ownerId, programSlug: slug, now: at("2026-11-01T09:15:00Z") });
@@ -137,10 +137,11 @@ describe("the owner's emails (M1–M3, Marketing FINAL with Legal's conditions)"
     const sent: TransactionalMessage[] = [];
     const provider: TransactionalEmailProvider = { name: "mailpit", async send(message) { sent.push(message); return { state: "accepted", messageId: `local:${message.jobId}` }; } };
     process.env.SMTP_HOST = "disabled";
-    expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toMatchObject({ status: "blocked", reason: "Transactional email unavailable" });
+    // M1 is the text-form confirmation: it is never dropped, only tried again an hour later (review N-3).
+    expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toEqual({ status: "deferred", reason: "Transactional email unavailable", until: at("2026-11-01T10:16:00Z") });
     process.env.SMTP_HOST = "localhost";
     delete process.env.OPERATOR_ADDRESS;
-    expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toMatchObject({ status: "blocked", reason: expect.stringContaining("OPERATOR_ADDRESS") });
+    expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toMatchObject({ status: "deferred", reason: expect.stringContaining("OPERATOR_ADDRESS"), until: at("2026-11-01T10:16:00Z") });
     process.env.OPERATOR_ADDRESS = "Musterstraße 1\n12345 Musterstadt";
     // The confirmation never waits on live billing (CTO): Stripe is off and isn't asked.
     process.env.LIVE_BILLING_ENABLED = "false";

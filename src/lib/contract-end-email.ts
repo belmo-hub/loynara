@@ -35,12 +35,15 @@ const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 const list = (names: string[]) => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} und ${names.at(-1)}`;
 
 export async function deliverContractEndEmail(job: { id: string; tenantId: string; payload: Record<string, unknown> }, provider?: TransactionalEmailProvider, now = new Date()) {
-  if (emailTransportMode() === "disabled") return { status: "blocked" as const, reason: "Transactional email unavailable" };
+  // M1 is the text-form confirmation (Legal): while the email lane or the operator's settings are missing it waits and is
+  // tried again every hour, never dropped (review N-3).
+  const later = new Date(now.getTime() + 3600_000);
+  if (emailTransportMode() === "disabled") return { status: "deferred" as const, reason: "Transactional email unavailable", until: later };
   const parsed = payload.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked" as const, reason: "Invalid contract-end email job" };
   // The footer names the operator (Legal, Q-93), from the operator's own settings, so it never waits on live billing (CTO).
   const operator = operatorIdentity();
-  if (!operator) return { status: "blocked" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)" };
+  if (!operator) return { status: "deferred" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)", until: later };
   const { rows } = await db.execute(sql`SELECT u.email, t.name AS shop, (SELECT p.type FROM programs p WHERE p.tenant_id = t.id ORDER BY p.created_at LIMIT 1) AS type
     FROM staff_roles o JOIN "user" u ON u.id = o.user_id JOIN tenants t ON t.id = o.tenant_id
     WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active ORDER BY o.created_at LIMIT 1`);
