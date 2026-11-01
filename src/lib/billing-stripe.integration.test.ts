@@ -60,7 +60,7 @@ function fakeStripe() {
     if (method === "POST" && (match = /^\/checkout\/sessions\/([^/]+)\/expire$/.exec(path))) { const session = sessions.get(match[1])!; session.status = "expired"; return session; }
     if (method === "POST" && path === "/billing_portal/sessions") return { url: "https://billing.stripe.com/p/session/test_portal" };
     if (method === "GET" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) return structuredClone(subs.get(match[1])) ?? notFound();
-    if (method === "POST" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) { const sub = subs.get(match[1]); if (sub && "cancel_at" in params) sub.cancel_at = params.cancel_at ? Number(params.cancel_at) : null; return sub ? structuredClone(sub) : {}; }
+    if (method === "POST" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) { const sub = subs.get(match[1]); if (sub && "cancel_at" in params) sub.cancel_at = params.cancel_at ? Number(params.cancel_at) : null; if (sub && "cancel_at_period_end" in params) sub.cancel_at_period_end = params.cancel_at_period_end === "true"; return sub ? structuredClone(sub) : {}; }
     if (method === "GET" && (match = /^\/invoices\/([^/]+)$/.exec(path))) return invoices.get(match[1]) ?? notFound();
     if (method === "POST" && path === "/invoiceitems") return { id: `ii_test${++next}` };
     if (method === "POST" && path === "/credit_notes") { const note = { id: `cn_test${++next}`, invoice: params.invoice, metadata: { guarantee_key: params["metadata[guarantee_key]"] } }; creditNotes.push(note); return note; }
@@ -629,18 +629,53 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
 
 describe("the operator's confirmed shop end ends the Stripe subscription (ENG-125)", () => {
   const NOW = new Date("2026-11-10T10:00:00Z");
-  const confirm = (s: { operatorId: string }, programId: string, endDate: string, now = NOW) => operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId, command: "schedule", endDate, execute: true, now });
-  const endCalls = (subscriptionId: string) => stripe.calls.filter(call => call.path === `/subscriptions/${subscriptionId}` && (call.method === "DELETE" || "cancel_at" in call.params));
-  // The end of a Berlin day less 3 hours, as Unix seconds: 23:00 UTC is midnight in Berlin in winter.
-  const endOf = (day: string) => String(seconds(new Date(`${day}T23:00:00Z`)) - 3 * 3600);
+  const confirm = (s: { operatorId: string }, programId: string, endDate: string, now = NOW, execute = true) => operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId, command: "schedule", endDate, execute, now });
+  const endCalls = (subscriptionId: string) => stripe.calls.filter(call => call.path === `/subscriptions/${subscriptionId}` && (call.method === "DELETE" || "cancel_at" in call.params || "cancel_at_period_end" in call.params));
+  const PERIOD_END_AT = seconds(PERIOD_END);
+  // The shop's billing month renews: Stripe's period moves on one month (the fake's clock, as a renewal would).
+  const renew = (fake: FakeSub, to: Date) => { fake.items.data[0].current_period_end = seconds(to); };
+  const withdraw = async (s: { ownerId: string; programId: string }, now = NOW) => withdrawCancellation({ actorUserId: s.ownerId, programSlug: (await programme(s.programId)).slug, now });
 
-  it("sets cancel_at to the end of the confirmed day, no proration, before the next billing date: no further invoice", async () => {
+  // subscribed(): billed on the 2nd, so a billing month runs from the 2nd to the 1st; valid ends are 1 Dec, 1 Jan, …
+  it("ends the billing month that holds the confirmed end, in full: cancel_at_period_end, so no further invoice", async () => {
     const s = await subscribed();
     await confirm(s, s.programId, "2026-12-01");
-    expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "POST", params: { cancel_at: endOf("2026-12-01"), proration_behavior: "none" } })]);
-    // 1 Dec 20:00 UTC, before the period's end on 2 Dec: Stripe draws no renewal invoice.
-    expect(s.fake().cancel_at).toBeLessThan(s.fake().items.data[0].current_period_end);
-    expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: new Date(Number(endOf("2026-12-01")) * 1000), cancelAtPeriodEnd: true });
+    expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }]);
+    expect(s.fake()).toMatchObject({ cancel_at_period_end: true, cancel_at: null });
+    expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: PERIOD_END, cancelAtPeriodEnd: true });
+  });
+
+  it("holds an end in a later billing month here and never sends a future cancel_at; the renewal sends it (review R-2)", async () => {
+    const s = await subscribed();
+    await confirm(s, s.programId, "2027-01-01");
+    expect(endCalls(s.subscriptionId)).toEqual([]);
+    expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: null, cancelAtPeriodEnd: false });
+    expect(await runBillingJob()).toMatchObject({ ends: 0 });
+    // 2 Dec: Stripe renews and bills December in full; the update webhook then ends the subscription with that month.
+    renew(s.fake(), new Date("2027-01-02T10:00:00Z"));
+    await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
+    expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }]);
+    expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: new Date("2027-01-02T10:00:00Z") });
+    expect(stripe.calls.some(call => "cancel_at" in call.params && call.params.cancel_at !== "")).toBe(false);
+  });
+
+  it("the daily job sends it once the month has begun, also when the renewal webhook never arrived", async () => {
+    const s = await subscribed();
+    await confirm(s, s.programId, "2027-01-01");
+    renew(s.fake(), new Date("2027-01-02T10:00:00Z"));
+    expect(await runBillingJob()).toMatchObject({ ends: 1 });
+    expect(await runBillingJob()).toMatchObject({ ends: 0 });
+    expect(endCalls(s.subscriptionId)).toHaveLength(1);
+  });
+
+  it("refuses a confirmed end that isn't the last day of a billing month, naming the next valid day (G-1)", async () => {
+    const s = await subscribed();
+    for (const execute of [false, true]) {
+      await expect(confirm(s, s.programId, "2026-11-30", NOW, execute)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-01") });
+    }
+    await expect(confirm(s, s.programId, "2026-12-31")).rejects.toMatchObject({ message: expect.stringContaining("2027-01-01") });
+    expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: null, cancellationConfirmedAt: null });
+    expect(endCalls(s.subscriptionId)).toEqual([]);
   });
 
   it("is safe to retry: a repeated confirmation, a second sync and the daily job call Stripe no second time", async () => {
@@ -650,9 +685,9 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     expect(await syncShopEnd(s.tenantId, NOW)).toMatchObject({ action: "unchanged" });
     expect(await runBillingJob()).toMatchObject({ ends: 0 });
     expect(endCalls(s.subscriptionId)).toHaveLength(1);
-    // A moved date moves Stripe's end once.
-    await confirm(s, s.programId, "2026-11-30");
-    expect(endCalls(s.subscriptionId).map(call => call.params.cancel_at)).toEqual([endOf("2026-12-01"), endOf("2026-11-30")]);
+    // Moved into a later month: Stripe's end is taken back, to be sent at that month's renewal.
+    await confirm(s, s.programId, "2027-01-01");
+    expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }, { cancel_at_period_end: "false" }]);
   });
 
   it("keeps the confirmed date when Stripe fails; running it again or the daily job finishes it once", async () => {
@@ -664,7 +699,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     stripe.failing.clear();
     expect(await runBillingJob()).toMatchObject({ ends: 1 });
     expect(await runBillingJob()).toMatchObject({ ends: 0 });
-    expect(s.fake().cancel_at).toBe(Number(endOf("2026-12-01")));
+    expect(s.fake().cancel_at_period_end).toBe(true);
   });
 
   it("one shop's Stripe error does not stop the daily job for the other shops (review N-1)", async () => {
@@ -674,110 +709,113 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     await db.update(programs).set({ cancellationEndDate: "2026-12-01", cancellationConfirmedAt: NOW }).where(eq(programs.id, fine.programId));
     stripe.failing.add(`/subscriptions/${broken.subscriptionId}`);
     expect(await runBillingJob()).toMatchObject({ ends: 1 });
-    expect(fine.fake().cancel_at).toBe(Number(endOf("2026-12-01")));
+    expect(fine.fake().cancel_at_period_end).toBe(true);
     expect(await sub(broken.tenantId)).toMatchObject({ billingEndsAt: null });
   });
 
-  it("waits until every running location has a confirmed end, then ends on the latest day", async () => {
+  it("waits until every running location has a confirmed end, then ends with the month of the latest one", async () => {
     const s = await subscribed();
     const second = await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
-    await confirm(s, s.programId, "2026-12-15");
+    await confirm(s, s.programId, "2026-12-01");
+    expect(endCalls(s.subscriptionId)).toHaveLength(0);
+    await confirm(s, second.programId, "2027-01-01");
     expect(endCalls(s.subscriptionId)).toHaveLength(0);
     await confirm(s, second.programId, "2026-12-01");
-    expect(endCalls(s.subscriptionId).map(call => call.params.cancel_at)).toEqual([endOf("2026-12-15")]);
+    expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }]);
   });
 
   it("clears Stripe's end when the owner withdraws, so the shop keeps running and paying", async () => {
     const s = await subscribed();
     await confirm(s, s.programId, "2026-12-01");
-    await withdrawCancellation({ actorUserId: s.ownerId, programSlug: (await programme(s.programId)).slug, now: NOW });
-    expect(endCalls(s.subscriptionId).at(-1)).toMatchObject({ method: "POST" });
-    expect(endCalls(s.subscriptionId).at(-1)!.params).toEqual({ cancel_at: "", proration_behavior: "none" });
-    expect(s.fake().cancel_at).toBeNull();
+    await withdraw(s);
+    expect(endCalls(s.subscriptionId).at(-1)!.params).toEqual({ cancel_at_period_end: "false" });
+    expect(s.fake().cancel_at_period_end).toBe(false);
     expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: null, cancelAtPeriodEnd: false });
     // The same end again is a new transition with its own idempotency key, so Stripe applies it instead of replaying the first.
     await confirm(s, s.programId, "2026-12-01");
     const keys = endCalls(s.subscriptionId).map(call => call.key);
     expect(keys).toHaveLength(3);
     expect(new Set(keys).size).toBe(3);
-    expect(s.fake().cancel_at).toBe(Number(endOf("2026-12-01")));
+    expect(s.fake().cancel_at_period_end).toBe(true);
   });
 
-  it("ends at once, with no final invoice, when the end time has already passed; an immediate end is ended once", async () => {
+  it("an immediate end bills the running month in full and ends with it, once", async () => {
     const s = await subscribed();
-    await confirm(s, s.programId, "2026-12-01");
-    // The sweep runs late, after Stripe's end time (the cancel_at Stripe already holds ends it; locally nothing changes).
-    expect(await syncShopEnd(s.tenantId, new Date("2026-12-02T09:00:00Z"))).toMatchObject({ action: "unchanged" });
-    const other = await subscribed();
-    await operatorProgramme({ actorUserId: other.operatorId, env: process.env, programId: other.programId, command: "end", execute: true });
-    const [ended] = endCalls(other.subscriptionId);
-    // Ended today: cancel_at late tonight, or at once in the last hours of the Berlin day.
-    expect(ended.method === "DELETE" ? ended.params : { proration_behavior: ended.params.proration_behavior }).toEqual(ended.method === "DELETE" ? { invoice_now: "false", prorate: "false" } : { proration_behavior: "none" });
+    await operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId: s.programId, command: "end", execute: true });
+    expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }]);
     expect(await runBillingJob()).toMatchObject({ ends: 0 });
-    expect(endCalls(other.subscriptionId)).toHaveLength(1);
-  });
-
-  it("deletes the subscription without a final invoice when the end time has already passed, once", async () => {
-    const s = await subscribed();
-    const lateNow = new Date("2026-12-01T21:30:00Z"); // 22:30 Berlin on 1 Dec, after that day's end time
-    await db.update(programs).set({ cancellationEndDate: "2026-12-01", cancellationConfirmedAt: lateNow }).where(eq(programs.id, s.programId));
-    expect(await syncShopEnd(s.tenantId, lateNow)).toMatchObject({ action: "ended" });
-    expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } })]);
-    expect(await syncShopEnd(s.tenantId, lateNow)).toMatchObject({ action: "unchanged" });
+    expect(endCalls(s.subscriptionId)).toHaveLength(1);
+    expect(PERIOD_END_AT).toBe(s.fake().items.data[0].current_period_end);
   });
 
   describe("inside the free month (#160's rule)", () => {
     const GO_LIVE = new Date("2026-11-10T10:00:00Z");
+    const INSIDE = new Date("2026-11-20T10:00:00Z");
     const RECIPIENT = { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel", email: "rechnung@example.test" };
     const live = async () => {
       const s = await shop();
       stripe.clock.now = GO_LIVE;
       await startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, billing: RECIPIENT, at: GO_LIVE });
-      return { ...s, subscriptionId: (await sub(s.tenantId)).providerSubscriptionId! };
+      const subscriptionId = (await sub(s.tenantId)).providerSubscriptionId!;
+      return { ...s, subscriptionId, fake: () => stripe.subs.get(subscriptionId)! };
     };
     // free_until 10 Dec 00:00 UTC less 3 hours: 9 Dec 21:00 UTC, the last free day in Berlin, before the first invoice.
     const FREE_END = String(seconds(new Date("2026-12-09T21:00:00Z")));
+    const FREE_PARAMS = { cancel_at: FREE_END, proration_behavior: "none" };
 
-    it("ends at free_until − 3 h for any confirmed day inside the free month: no first invoice", async () => {
+    it("ends at free_until − 3 h on the last free day, the first month's end: no first invoice; any other free day is refused", async () => {
       const s = await live();
-      await confirm(s, s.programId, "2026-12-05", new Date("2026-11-20T10:00:00Z"));
-      expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "POST", params: { cancel_at: FREE_END, proration_behavior: "none" } })]);
+      await expect(confirm(s, s.programId, "2026-12-05", INSIDE)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-09") });
+      await confirm(s, s.programId, "2026-12-09", INSIDE);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
 
-    it("records „Gekündigt im kostenlosen Monat“ without a second Stripe call when the operator confirms the proposed day", async () => {
+    it("„Gekündigt im kostenlosen Monat“ is recorded at once; the confirmation of the proposed day calls Stripe no second time", async () => {
       const s = await live();
-      const inside = new Date("2026-11-20T10:00:00Z");
-      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: inside });
-      await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
-      expect(await runBillingJob()).toMatchObject({ ends: 0 });
-      expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: null, cancelAtPeriodEnd: true });
-      await confirm(s, s.programId, (await programme(s.programId)).cancellationEndDate!, inside);
-      expect(endCalls(s.subscriptionId)).toHaveLength(1);
+      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: INSIDE });
       expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: new Date("2026-12-09T21:00:00Z"), cancelAtPeriodEnd: true });
+      // Proposed at once, not only by the webhook, so the sweep never reads it as withdrawn.
+      expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: "2026-12-09", cancellationConfirmedAt: null });
+      expect(await runBillingJob()).toMatchObject({ ends: 0 });
+      await confirm(s, s.programId, "2026-12-09", INSIDE);
+      expect(endCalls(s.subscriptionId)).toHaveLength(1);
     });
 
-    it("moves an end first confirmed in month two into the free month with a Stripe call (review N-3)", async () => {
+    it("a withdrawal after „Gekündigt im kostenlosen Monat“, before the confirmation, clears Stripe's end too (review N-2)", async () => {
       const s = await live();
-      const inside = new Date("2026-11-20T10:00:00Z");
-      await confirm(s, s.programId, "2026-12-10", inside);
-      await confirm(s, s.programId, "2026-12-05", inside);
-      expect(endCalls(s.subscriptionId).map(call => call.params.cancel_at)).toEqual([endOf("2026-12-10"), FREE_END]);
-      expect(stripe.subs.get(s.subscriptionId)!.cancel_at).toBe(Number(FREE_END));
+      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: INSIDE });
+      await withdraw(s, INSIDE);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS, { cancel_at: "", proration_behavior: "none" }]);
+      expect(s.fake().cancel_at).toBeNull();
+      expect(await sub(s.tenantId)).toMatchObject({ billingEndsAt: null, cancelAtPeriodEnd: false });
     });
 
-    it("after „Gekündigt im kostenlosen Monat“, a confirmed day in month two is sent to Stripe (review N-3)", async () => {
+    it("moves an end first confirmed for month two into the free month with a Stripe call (review N-3, M10)", async () => {
       const s = await live();
-      const inside = new Date("2026-11-20T10:00:00Z");
-      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: inside });
-      await confirm(s, s.programId, "2026-12-10", inside);
-      expect(endCalls(s.subscriptionId).map(call => call.params.cancel_at)).toEqual([FREE_END, endOf("2026-12-10")]);
-      expect(stripe.subs.get(s.subscriptionId)!.cancel_at).toBe(Number(endOf("2026-12-10")));
+      await confirm(s, s.programId, "2027-01-09", INSIDE);
+      expect(endCalls(s.subscriptionId)).toEqual([]);
+      await confirm(s, s.programId, "2026-12-09", INSIDE);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
 
-    it("a confirmed day after the free month follows the normal rule", async () => {
+    it("after „Gekündigt im kostenlosen Monat“, a confirmed end in month two lifts the free-month end and ends with month two (M11)", async () => {
       const s = await live();
-      await confirm(s, s.programId, "2026-12-10", new Date("2026-11-20T10:00:00Z"));
-      expect(endCalls(s.subscriptionId).map(call => call.params.cancel_at)).toEqual([endOf("2026-12-10")]);
+      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: INSIDE });
+      await confirm(s, s.programId, "2027-01-09", INSIDE);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS, { cancel_at: "", proration_behavior: "none" }]);
+      // 10 Dec: month two starts, billed in full; then Stripe ends with it.
+      renew(s.fake(), new Date("2027-01-10T00:00:00Z"));
+      await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
+      expect(endCalls(s.subscriptionId).at(-1)!.params).toEqual({ cancel_at_period_end: "true" });
+    });
+
+    it("ends at once, with no invoice, when the free month's end time has already passed, once", async () => {
+      const s = await live();
+      const late = new Date("2026-12-09T22:30:00Z"); // 23:30 Berlin on the last free day, after 21:00 UTC
+      await db.update(programs).set({ cancellationEndDate: "2026-12-09", cancellationConfirmedAt: late }).where(eq(programs.id, s.programId));
+      expect(await syncShopEnd(s.tenantId, late)).toMatchObject({ action: "ended" });
+      expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } })]);
+      expect(await syncShopEnd(s.tenantId, late)).toMatchObject({ action: "unchanged" });
     });
   });
 });

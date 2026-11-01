@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { cancellationEnd, EXPORT_DAYS_AFTER_END, germanDate } from "./programme-end-date";
-import { syncShopEnd } from "./billing-stripe";
+import { assertBillingMonthEnd, syncShopEnd } from "./billing-stripe";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "./operator-date";
 
@@ -89,6 +89,11 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     if (!realDay(input.endDate)) throw new DomainError("INVALID_END_DATE", "Dieses Datum gibt es nicht. Bitte einen Kalendertag angeben, z. B. 2026-10-31.");
     // A day that has begun would end the programme within minutes; ending now is the `end` command.
     if (input.endDate < earliestEndDate(input.now ?? new Date())) throw new DomainError("END_DATE_TOO_EARLY", END_DATE_TOO_EARLY);
+  }
+  if (input.command === "schedule") {
+    // G-1 (Legal): only the last day of a billing month, so the date can drive Stripe (read once, outside the lock).
+    const [shop] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, input.programId));
+    if (shop) await assertBillingMonthEnd(shop.tenantId, input.endDate!);
   }
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
