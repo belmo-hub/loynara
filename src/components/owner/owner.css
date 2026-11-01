@@ -926,7 +926,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-preview p { margin: 0; overflow-wrap: anywhere; }
 .ow-preview .ow-preview-tail { color: var(--color-ink-muted); }
 .ow-preview-mark { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-fill); color: inherit; }
-.ow-preview-missing { color: var(--color-ink-muted); font-style: italic; }
+.ow-preview-missing { color: var(--color-ink-muted); }
 .ow-preview .ow-preview-note { color: var(--color-ink-muted); }
 .ow-preview--bare { margin-top: var(--space-3); padding: 0; background: none; }
 .ow-sender-preview { margin-top: var(--space-3); }

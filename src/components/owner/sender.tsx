@@ -38,6 +38,9 @@ export function senderStatus(me: MeResponse, locations: OwnerLocation[]) {
 
 /** Legal's footer as the mail prints it, with the unsubscribe link and privacy page as placeholders; `marks` tints the register and VAT lines. */
 export function FooterPreview({ sender, title, marks = false, bare = false }: { sender: SenderDetails; title: string; marks?: boolean; /** Inside the composer's mail preview: no panel of its own. */ bare?: boolean }) {
+  // The privacy page on this app's host (PUBLIC_BASE_URL, via /api/me), as the mail prints it; never a hard-coded host.
+  const base = useOwner().me?.publicBaseUrl;
+  const privacy = base ? (({ host, pathname }) => `${host}${pathname}`)(new URL("/datenschutz", base)) : "/datenschutz";
   const footer = footerPreview(sender);
   const pieces = (list: readonly PreviewPiece[]) => list.map((piece, index) => piece.missing ? <span key={index} className="ow-preview-missing">{piece.text}</span> : piece.text);
   const mark = (content: ReactNode) => content && <>{" "}{marks ? <mark className="ow-preview-mark">{content}</mark> : content}</>;
@@ -45,7 +48,7 @@ export function FooterPreview({ sender, title, marks = false, bare = false }: { 
   const body = <>
     {incomplete && <p className="ow-preview-note">Noch nicht vollständig. Sobald du das Fehlende einträgst, steht es so unter jeder Erinnerung und Kampagne.</p>}
     <p>{pieces(footer.identity)}{mark(footer.register && pieces(footer.register))}{mark(footer.vat)}</p>
-    <p className="ow-preview-tail">{footer.consent} Abmelden: <u>Link</u> · Datenschutz: app.getloynara.com/datenschutz</p>
+    <p className="ow-preview-tail">{footer.consent} Abmelden: Link · Datenschutz: {privacy}</p>
   </>;
   return bare ? <div className="ow-preview ow-preview--bare" aria-label={title}>{body}</div> : <section className="ow-preview" aria-label={title}><h2>{title}</h2>{body}</section>;
 }

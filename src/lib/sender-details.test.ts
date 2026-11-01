@@ -40,9 +40,11 @@ describe("the screens' rules, the same on the server", () => {
     expect(missingParts({ ...complete, contactEmail: null })).toEqual(["contact"]);
   });
   it("needs the register entry exactly when the legal form is a registered one (Legal, 1 Nov)", () => {
-    for (const form of ["GmbH", "GmbH & Co. KG", "UG (haftungsbeschränkt)", "e. K.", "e.K.", "eK", "OHG", "PartG mbB", "eG", "AG", "KG", "e.Kfm.", "eingetragener Kaufmann", "Eingetragene Kauffrau", "eGbR", "KGaA", "GmbH & Co. KGaA"])
+    for (const form of ["GmbH", "GmbH & Co. KG", "UG (haftungsbeschränkt)", "e. K.", "e.K.", "eK", "OHG", "PartG mbB", "eG", "AG", "KG", "e.Kfm.", "eingetragener Kaufmann", "Eingetragene Kauffrau", "eGbR", "KGaA", "GmbH & Co. KGaA", "e.Kfr.", "e. Kfm.", "gGmbH", "gUG (haftungsbeschränkt)", "SE"])
       expect(registeredForm(form), form).toBe(true);
-    for (const form of ["", "Einzelunternehmen", "GbR", "Freiberufler", "Tagescafé", "Bäckerei Krug"]) expect(registeredForm(form), form).toBe(false);
+    for (const form of ["", "Einzelunternehmen", "GbR", "Freiberufler", "Tagescafé", "Bäckerei Krug", "Seifenladen"]) expect(registeredForm(form), form).toBe(false);
+    // Still being founded: no register entry yet, so court and number stay optional.
+    for (const form of ["GmbH i.G.", "UG (haftungsbeschränkt) i. G.", "GmbH in Gründung", "GmbH i.G"]) expect(registeredForm(form), form).toBe(false);
     const empty = { legalForm: "", registerCourt: "", registerNumber: "", vatId: "" };
     expect(registerProblems({ ...empty, legalForm: "GmbH" })).toMatchObject({
       registerCourt: "Bitte gib das Registergericht ein, z. B. Amtsgericht Kassel. Für deine Rechtsform ist es Pflicht.",

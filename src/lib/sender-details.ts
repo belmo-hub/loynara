@@ -30,8 +30,12 @@ export const LEGAL_FORMS: ReadonlyArray<{ value: string; label: string }> = [
 /** „Keine Angabe“ and „Einzelunternehmen“ print no legal form in the footer (A08b). */
 const printedForm = (legalForm: string | null) => legalForm && !/^einzelunternehm/i.test(legalForm.trim()) ? legalForm : null;
 
-export const registeredForm = (legalForm: string | null) =>
-  /(^|[^a-zäöüß])(gmbh|ug|ag|kgaa|kg|ohg|e\.?\s?k(fm|ffr)?|e\.?\s?g(br)?|partg)(?![a-zäöüß])|eingetragene[rn]?\s+kauf(mann|frau)/i.test(legalForm ?? "");
+export const registeredForm = (legalForm: string | null) => {
+  const form = legalForm ?? "";
+  // A company still being founded („GmbH i.G.“, „in Gründung“) has no register entry yet and can save (Design, 1 Nov).
+  if (/(^|[^a-zäöüß])i\.\s?g\.?(?![a-zäöüß])|in\s+gründung/i.test(form)) return false;
+  return /(^|[^a-zäöüß])(g?gmbh|g?ug|ag|se|kgaa|kg|ohg|e\.?\s?k(fm|fr)?|e\.?\s?g(br)?|partg)(?![a-zäöüß])|eingetragene[rn]?\s+kauf(mann|frau)/i.test(form);
+};
 
 export function missingParts(sender: SenderDetails): SenderPart[] {
   const parts: SenderPart[] = [];
