@@ -5,7 +5,7 @@ import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, co
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
-import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
+import { promotionalEmailMode, promotionalProvider, recipientHashes, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
 import { contentRefusal } from "./wallet-message-rules";
 import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
@@ -104,7 +104,7 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id));
   const consent = new Map<string, { granted: boolean; source: string }>();
   for (const event of events) if (!consent.has(event.membershipId)) consent.set(event.membershipId, event);
-  const hashes = rows.flatMap(row => row.email ? [recipientHash(row.email)] : []);
+  const hashes = rows.flatMap(row => row.email ? recipientHashes(row.email) : []);
   // Global hard reasons (permanent failure, complaint) and this shop's own unsubscribes; another shop's unsubscribe does not count.
   const suppressions = hashes.length ? await query.select({ recipientHash: emailSuppressions.recipientHash, reason: emailSuppressions.reason }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes)) : [];
   const unsubscribes = hashes.length ? await query.select({ recipientHash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, tenantId), inArray(emailUnsubscribes.recipientHash, hashes))) : [];
@@ -116,7 +116,7 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     if (!row.email || !row.verified) { excluded.unverified++; continue; }
     if (promotionalEmailMode() === "mailpit" && !syntheticAddress(row.email)) { excluded.nonSynthetic++; continue; }
     if (!consent.get(id)?.granted) { if (consent.get(id)?.source === "email_unsubscribe") excluded.unsubscribed++; else excluded.noConsent++; continue; }
-    const suppression = suppressed.get(recipientHash(row.email));
+    const suppression = recipientHashes(row.email).map(hash => suppressed.get(hash)).find(Boolean);
     if (suppression) { if (suppression === "unsubscribed") excluded.unsubscribed++; else excluded.suppressed++; continue; }
     if (await hasRecentPromotion(query, tenantId, id, now)) { excluded.frequency++; continue; }
     eligible.push({ membershipId: id, email: row.email });

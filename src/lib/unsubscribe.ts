@@ -47,10 +47,7 @@ export async function unsubscribeMarketing(token: string) {
     const [contact] = await tx.select({ email: membershipContacts.email }).from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, value.tenantId), eq(membershipContacts.membershipId, value.membershipId))).limit(1);
     if (!contact?.email || scopedEmailHash(contact.email) !== value.emailHash) return { status: "complete" as const };
-    const [latest] = await tx.select({ granted: consentEvents.granted }).from(consentEvents)
-      .where(and(eq(consentEvents.tenantId, value.tenantId), eq(consentEvents.membershipId, value.membershipId), eq(consentEvents.channel, "email"), eq(consentEvents.purpose, "marketing")))
-      .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id)).limit(1);
-    if (latest?.granted !== false) await tx.insert(consentEvents).values({ tenantId: value.tenantId, membershipId: value.membershipId, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "email_unsubscribe" });
+    await withdrawEmailMarketingConsent(tx, value.tenantId, value.membershipId);
     return { status: "complete" as const };
   });
 }
@@ -60,4 +57,14 @@ export function unsubscribeUrl(input: { tenantId: string; membershipId: string; 
   const url = new URL("/unsubscribe", base);
   url.hash = `token=${createUnsubscribeToken(input)}`;
   return url.toString();
+}
+
+/** One unsubscribe, from the shop's own link or reported by the provider: the card's marketing email consent is withdrawn, once. */
+export async function withdrawEmailMarketingConsent(tx: Pick<typeof db, "select" | "insert">, tenantId: string, membershipId: string) {
+  const [card] = await tx.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.tenantId, tenantId), eq(memberships.id, membershipId))).limit(1);
+  if (!card) return;
+  const [latest] = await tx.select({ granted: consentEvents.granted }).from(consentEvents)
+    .where(and(eq(consentEvents.tenantId, tenantId), eq(consentEvents.membershipId, membershipId), eq(consentEvents.channel, "email"), eq(consentEvents.purpose, "marketing")))
+    .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id)).limit(1);
+  if (latest?.granted !== false) await tx.insert(consentEvents).values({ tenantId, membershipId, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "email_unsubscribe" });
 }

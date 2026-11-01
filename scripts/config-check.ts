@@ -65,6 +65,14 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("Placeholder provider credentials are forbidden in production");
   }
   const externalEmailRequested = env.EXTERNAL_EMAIL_ENABLED === "true" || env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED === "true" || env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true";
+  // Suppressions and unsubscribes are keyed by an HMAC of the address under their own key (ENG-170), never the login secret.
+  const suppressionKey = env.SUPPRESSION_HASH_SECRET ?? "";
+  if ((externalEmailRequested || suppressionKey) && (suppressionKey.length < 32 || /replace|placeholder|example|changeme|test-secret/i.test(suppressionKey) || new Set(suppressionKey).size < 12)) {
+    issues.push("External email requires SUPPRESSION_HASH_SECRET with at least 32 random characters");
+  }
+  if (suppressionKey && [env.BETTER_AUTH_SECRET, env.NFC_VERIFY_MASTER_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.APPLE_WALLET_AUTH_SECRET].includes(suppressionKey)) {
+    issues.push("SUPPRESSION_HASH_SECRET must not be reused as another secret");
+  }
   if (externalEmailRequested && (env.MAILGUN_SEND_APPROVED !== "true"
     || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(env.MAILGUN_EU_DOMAIN ?? "")
     || !/^[^\s@]+@[^\s@]+$/.test(env.MAILGUN_FROM_EMAIL ?? "")

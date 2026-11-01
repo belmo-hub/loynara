@@ -373,6 +373,30 @@ it("migration 0048 moves an old global unsubscribe to the shop whose mail record
   expect((await db.select().from(emailSuppressions)).map(row => [row.recipientHash, row.reason])).toEqual([[hard, "complained"]]);
 });
 
+it("keeps an address blocked through the switch to SUPPRESSION_HASH_SECRET and writes new rows under the new key (ENG-170)", async () => {
+  const previous = process.env.SUPPRESSION_HASH_SECRET;
+  delete process.env.SUPPRESSION_HASH_SECRET;
+  try {
+    // Before the switch: a delivery and its complaint, both hashed with the login secret.
+    const { queued } = await sentJob();
+    await recordMailgunWebhook(signed("complained", queued.id));
+    const oldHash = recipientHash("holder@example.test");
+    process.env.SUPPRESSION_HASH_SECRET = "synthetic-suppression-hash-key-0123456789";
+    const newHash = recipientHash("holder@example.test");
+    expect(newHash).not.toBe(oldHash);
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+    expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic only", jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+    expect(provider.send).not.toHaveBeenCalled();
+    // A late event for the old-key delivery still matches it, and its row is written under the new key.
+    await recordMailgunWebhook(signed("unsubscribed", queued.id));
+    expect((await db.select().from(emailUnsubscribes)).map(row => row.recipientHash)).toEqual([newHash]);
+    await recordMailgunWebhook(signed("permanent_fail", queued.id));
+    expect((await db.select().from(emailSuppressions)).map(row => row.recipientHash).sort()).toEqual([oldHash, newHash].sort());
+  } finally {
+    if (previous === undefined) delete process.env.SUPPRESSION_HASH_SECRET; else process.env.SUPPRESSION_HASH_SECRET = previous;
+  }
+});
+
 it("refreshes a hard suppression's last event and forgets it 24 months after that, not before (ENG-170)", async () => {
   const { queued } = await sentJob();
   await recordMailgunWebhook(signed("permanent_fail", queued.id));

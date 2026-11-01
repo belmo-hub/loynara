@@ -7,7 +7,7 @@ import { rewardReadyMemberships, rewardReadyNow } from "./reward-readiness";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
-import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
+import { promotionalEmailMode, promotionalProvider, recipientHashes, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
 import { requireAllowedContent } from "./campaigns";
 import { contentRefusal } from "./wallet-message-rules";
@@ -99,10 +99,10 @@ async function eligibleContact(tx: Transaction, rule: Rule, membershipId: string
   if (!contact?.email || !contact.emailVerified) return { reason: "Contact unavailable or unverified" };
   if (promotionalEmailMode() === "mailpit" && !syntheticAddress(contact.email)) return { reason: "Recipient is not synthetic" };
   if (!await latestConsent(tx, rule.tenantId, member.id)) return { reason: "Marketing consent absent or withdrawn" };
-  const hash = recipientHash(contact.email);
-  const [unsubscribed] = await tx.select({ hash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, rule.tenantId), eq(emailUnsubscribes.recipientHash, hash))).limit(1);
+  const hashes = recipientHashes(contact.email);
+  const [unsubscribed] = await tx.select({ hash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, rule.tenantId), inArray(emailUnsubscribes.recipientHash, hashes))).limit(1);
   if (unsubscribed) return { reason: "Unsubscribed" };
-  const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash)).limit(1);
+  const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes)).limit(1);
   if (suppression) return { reason: "Address suppressed by provider" };
   return { email: contact.email };
 }
