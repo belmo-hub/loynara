@@ -892,6 +892,16 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       expect(endCalls(t.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
 
+    it("an ended location's request after go-live doesn't count either: the running location's later request decides (review N-7)", async () => {
+      const s = await live();
+      const second = await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
+      // Free day 5: the second location was ended at once; its request would make the notice end the last free day.
+      await db.update(programs).set({ status: "ended", cancellationEndDate: "2026-11-14", cancellationConfirmedAt: new Date("2026-11-14T10:00:00Z"), cancellationRequestedAt: new Date("2026-11-14T10:00:00Z") }).where(eq(programs.id, second.programId));
+      await requested(s.programId, "2026-12-04T10:00:00Z"); // free day 25
+      await confirm(s, s.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+    });
+
     it("a request from before this subscription started doesn't count as a free-month request (CTO ruling on R-3)", async () => {
       const s = await live();
       // A running programme still carries a request older than go-live (10 Nov): it opens no free-month notice end.

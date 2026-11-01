@@ -450,8 +450,13 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
   if (freeLast && endDate === freeLast) return;
   if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
   if (isEnd(endDate)) return;
+  // Bounded (review N-8): a billing month ends within 31 days; a broken rule must fail loudly, never spin.
   let next = endDate;
-  do next = new Date(Date.parse(`${next}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10); while (!isEnd(next));
+  for (let step = 0; step < 62; step++) {
+    next = new Date(Date.parse(`${next}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    if (isEnd(next)) break;
+    if (step === 61) throw new DomainError("BILLING_STATE", "Kein Ende eines Abrechnungsmonats gefunden.");
+  }
   throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
 }
 
