@@ -6,6 +6,7 @@ import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, 
 import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
+import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
 import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
@@ -440,23 +441,13 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
   const anchor = sub?.freeUntil ?? sub?.currentPeriodEnd;
   if (!sub || sub.provider !== "stripe" || !sub.providerSubscriptionId || !RUNNING.includes(sub.status) || !anchor) return;
   const day = Number(berlinDay(anchor).slice(8));
-  const isEnd = (iso: string) => {
-    const next = new Date(Date.parse(`${iso}T00:00:00Z`) + 86_400_000);
-    const length = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
-    return next.getUTCDate() === Math.min(day, length);
-  };
   // A cancellation from the free month: exactly its notice end, or a later billing-month end the shop agreed to; never earlier.
   const freeLast = await freeMonthRequestEnd(db, sub);
   if (freeLast && endDate === freeLast) return;
   if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
-  if (isEnd(endDate)) return;
-  // Bounded (review N-8): a billing month ends within 31 days; a broken rule must fail loudly, never spin.
-  let next = endDate;
-  for (let step = 0; step < 62; step++) {
-    next = new Date(Date.parse(`${next}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-    if (isEnd(next)) break;
-    if (step === 61) throw new DomainError("BILLING_STATE", "Kein Ende eines Abrechnungsmonats gefunden.");
-  }
+  // One rule for every billing-month end (contract-end.ts, bounded; review #211 N-4).
+  if (isBillingMonthEnd(endDate, day)) return;
+  const next = nextBillingMonthEnd(endDate, day);
   throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
 }
 

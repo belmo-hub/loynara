@@ -14,6 +14,10 @@ describe("contract end dates (pilot § 2, ENG-167)", () => {
     expect(isBillingMonthEnd("2028-02-28", 31)).toBe(true);
   });
 
+  it("finding the next end is bounded: a broken anchor fails loudly instead of spinning (review N-4)", () => {
+    expect(() => nextBillingMonthEnd("2026-11-01", 0)).toThrow(/No billing-month end within 62 days/);
+  });
+
   it("counts 14 days' notice from the request day: by 13.11. ends 27.11., from 14.11. ends 27.12. (spec worked example)", () => {
     expect(noticeEnd({ requestDay: "2026-11-13", anchorDay: 28, lastFreeDay: null })).toEqual({ endDate: "2026-11-27", freeMonth: false, late: null });
     expect(noticeEnd({ requestDay: "2026-11-14", anchorDay: 28, lastFreeDay: null })).toEqual({ endDate: "2026-12-27", freeMonth: false, late: { missedEnd: "2026-11-27", cutoff: "2026-11-13" } });

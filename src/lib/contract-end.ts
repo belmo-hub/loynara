@@ -28,11 +28,11 @@ export function isBillingMonthEnd(isoDay: string, anchorDay: number) {
   return next === billingDayIn(next, anchorDay);
 }
 
-/** The first billing-month end on or after `isoDay`. */
+/** The first billing-month end on or after `isoDay`. Bounded: one is always within 31 days, so a broken rule fails loudly. */
 export function nextBillingMonthEnd(isoDay: string, anchorDay: number) {
   let day = isoDay;
-  while (!isBillingMonthEnd(day, anchorDay)) day = addDays(day, 1);
-  return day;
+  for (let step = 0; step < 62; step++, day = addDays(day, 1)) if (isBillingMonthEnd(day, anchorDay)) return day;
+  throw new Error(`No billing-month end within 62 days of ${isoDay}`);
 }
 
 /** The billing days strictly after `after` up to and including `until`: each opens one billing month and its invoice. */
