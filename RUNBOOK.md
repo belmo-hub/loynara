@@ -167,7 +167,7 @@ These commands verify a local restoration only. Before live operation, arrange e
   - The contract facts (who ended it, when, which day) are first copied into the erasure record.
 - **The erasure record (`shop_erasures`, 6 years)** also holds the legal name, end date, export end, rows deleted per table, the provider clean-up, and the owner's name and business email for the confirmation. Its confirmation is sendable only after both parts succeeded.
 
-**What stays (Loynara's own records):** the billing records (`billing_invoices`, `billing_handoffs`, `billing_location_plans`, `billing_webhook_events`, `subscriptions`; 8 years) and the tenant and location rows they hang off. Those are reduced: the location's contact address, logo and coordinates are cleared.
+**What stays (Loynara's own records):** the billing records (`billing_invoices`, `billing_handoffs`, `billing_webhook_events`, `subscriptions`; 8 years) and the tenant row they hang off, reduced to its legal name and ids. No location row survives; each location's plan, price and guarantee facts are copied into the erasure record first.
 
 **Backups:** a backup isn't edited. Each is deleted 14 days after it was made (R2 lifecycle, DS-06) and used only for restores. **After any restore, before the service is released**, re-apply every erasure:
 1. Before restoring, save the live erasure list: `npx tsx scripts/reapply-erasures.ts export --target loynara-production > erasures.json`. A backup older than an erasure holds no record of it.

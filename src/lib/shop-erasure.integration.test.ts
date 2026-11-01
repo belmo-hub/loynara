@@ -115,8 +115,8 @@ async function rowsNaming(tenantId: string) {
   return counts;
 }
 const nonEmpty = (counts: Record<string, number>) => Object.keys(counts).filter(name => counts[name] > 0).sort();
-// Legal's ruling, pinned here rather than read from the module: billing records (8 years) and their tenant and location rows.
-const LEGAL_KEEP = ["billing_invoices", "billing_handoffs", "billing_location_plans", "billing_webhook_events", "subscriptions", "tenants", "locations"];
+// Legal's ruling with the CTO's (#210), pinned here rather than read from the module: billing records (8 years) and the tenant row.
+const LEGAL_KEEP = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "subscriptions", "tenants"];
 const kept = (name: string) => LEGAL_KEEP.includes(name.split(".")[0]);
 /** Providers as the erasure calls them: Google objects deactivated (the pass rows marked revoked), Mailgun addresses recorded. */
 function fakeProviders() {
@@ -139,6 +139,9 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     // A plate still bound to the shop (the end unlinks active plates; this one was linked again by hand) goes back to stock.
     await pool.query("UPDATE secure_tags SET tenant_id = $1, location_id = $2, program_id = $3, status = 'active' WHERE plate_label = $4", [gone.tenantId, gone.locationId, gone.programId, gone.plate]);
     expect([...ERASURE_KEEP].sort()).toEqual([...LEGAL_KEEP].sort());
+    // A plate that moved straight from this shop to the other one: that history is the other shop's too and stays (ids only).
+    await pool.query(`INSERT INTO plate_link_events (tag_id, plate_label, action, actor_user_id, old_tenant_id, old_location_id, old_program_id, new_tenant_id, new_location_id, new_program_id)
+      SELECT id, plate_label, 'relink', $1, $2, $3, $4, $5, $6, $7 FROM secure_tags WHERE plate_label = $8`, [operatorId, gone.tenantId, gone.locationId, gone.programId, other.tenantId, other.locationId, other.programId, other.plate]);
     const before = await rowsNaming(gone.tenantId);
     const otherBefore = await rowsNaming(other.tenantId);
     // The fixture reaches the history tables that refuse deletes, so the exemption is exercised for each of them.
@@ -152,11 +155,13 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect(outcome).toMatchObject({ result: "erased", reasons: [], external: { googleCards: 1, mailgunAddresses: 1 } });
     // Only Loynara's own records still name the shop, exactly as many rows as before; everything else is gone.
     const after = await rowsNaming(gone.tenantId);
-    expect(nonEmpty(after)).toEqual(nonEmpty(before).filter(kept));
-    for (const name of nonEmpty(after)) expect(after[name]).toBe(before[name]);
+    expect(nonEmpty(after)).toEqual([...nonEmpty(before).filter(kept), "plate_link_events.old_tenant_id"].sort());
+    for (const name of nonEmpty(after).filter(kept)) expect(after[name]).toBe(before[name]);
+    expect(after["plate_link_events.old_tenant_id"]).toBe(1);
+    await expect(pool.query("DELETE FROM plate_link_events WHERE old_tenant_id = $1", [gone.tenantId])).rejects.toThrow(/append-only/);
     expect(await rowsNaming(other.tenantId)).toEqual(otherBefore);
-    // Kept rows are reduced: the shop's contact address, logo and coordinates are cleared.
-    for (const row of await db.select().from(locations).where(eq(locations.tenantId, gone.tenantId))) expect(row).toMatchObject({ contactEmail: null, logoData: null, latitude: null, longitude: null });
+    // No location survives; its plan facts are in the record.
+    expect(await db.select().from(locations).where(eq(locations.tenantId, gone.tenantId))).toEqual([]);
     // Logins: the owner's (with its session) and the cashier's are gone (a login holds one role, staff_roles_user_id_uq);
     // the operator and the other shop's logins stay.
     expect(await userExists(gone.ownerId)).toBe(false);
@@ -173,7 +178,10 @@ describe("shop erasure (ENG-166, DS-05)", () => {
       external: { googleCards: 1, mailgunAddresses: 1 }, confirmationName: "Synthetic owner A", confirmationSentAt: null, confirmationSendableAt: expect.any(Date) });
     expect(record.confirmationEmail).toMatch(/@example\.test$/);
     expect(record.contract).toMatchObject({ cancellation: [expect.objectContaining({ action: "end", by: `operator ${operatorId}`, newEndDate: today }), expect.objectContaining({ action: "end" })] });
-    expect(JSON.stringify(record)).not.toContain(gone.email.toLowerCase());
+    expect(record.contract).toMatchObject({ plan: { planCode: null, priceMinor: 4900, currency: "EUR", locationCount: 2, providerSubscriptionId: null } });
+    expect(record.contract.locationPlans).toEqual(expect.arrayContaining([expect.objectContaining({ location: gone.locationId, priceMinor: expect.any(Number), currency: "EUR" })]));
+    expect(record.contract.locationPlans).toHaveLength(2);
+    for (const text of [gone.email.toLowerCase(), "Am Markt", "Bahnhof A", "Kassel", "laden-a@example.test"]) expect(JSON.stringify(record).toLowerCase()).not.toContain(text.toLowerCase());
     expect(outcome.rows).toMatchObject({ memberships: 2, "secure_tags (plates unlinked)": 1, "apple_devices (only this shop's)": 1, "card_recovery_challenges (only this shop's addresses)": 1,
       "email_deliveries (of outbox_jobs)": 1, "plate_activation_codes (of secure_tags)": 1, secure_tags: 1, "user (logins only this shop had, with sessions)": 2 });
     // Plate back in stock; the other shop's device, recovery request, delivery and NFC code stay.
@@ -242,6 +250,13 @@ describe("shop erasure (ENG-166, DS-05)", () => {
       await client.query("BEGIN");
       await client.query("SELECT set_config('loynara.erasure', $1, true)", [a.tenantId]);
       await expect(client.query("DELETE FROM redemptions WHERE tenant_id = $1", [b.tenantId])).rejects.toThrow(/append-only/);
+      await client.query("ROLLBACK");
+      // A plate's history row that also names another shop is refused inside A's erasure too.
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO plate_link_events (tag_id, plate_label, action, actor_user_id, old_tenant_id, old_location_id, old_program_id, new_tenant_id, new_location_id, new_program_id)
+        SELECT id, plate_label, 'relink', $1, $2, $3, $4, $5, $6, $7 FROM secure_tags WHERE plate_label = $8`, [operatorId, a.tenantId, a.locationId, a.programId, b.tenantId, b.locationId, b.programId, b.plate]);
+      await client.query("SELECT set_config('loynara.erasure', $1, true)", [a.tenantId]);
+      await expect(client.query("DELETE FROM plate_link_events WHERE action = 'relink'")).rejects.toThrow(/append-only/);
       await client.query("ROLLBACK");
       await client.query("BEGIN");
       await client.query("SELECT set_config('loynara.erasure', $1, true)", [a.tenantId]);

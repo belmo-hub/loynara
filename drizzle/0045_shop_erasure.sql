@@ -51,8 +51,9 @@ $$ LANGUAGE plpgsql;--> statement-breakpoint
 -- A plate's history names shops in old/new_tenant_id; a tag of the shop's own (no plate) carries the shop on the tag itself.
 CREATE OR REPLACE FUNCTION reject_plate_link_event_mutation() RETURNS trigger AS $$
 BEGIN
-  IF TG_OP = 'DELETE' AND (erasure_permits(OLD.old_tenant_id) OR erasure_permits(OLD.new_tenant_id)
-    OR erasure_permits((SELECT tenant_id FROM secure_tags WHERE id = OLD.tag_id))) THEN RETURN OLD; END IF;
+  -- Only a row that names no other shop: a plate moved from the erased shop to another one keeps that history.
+  IF TG_OP = 'DELETE' AND (OLD.old_tenant_id IS NULL OR erasure_permits(OLD.old_tenant_id)) AND (OLD.new_tenant_id IS NULL OR erasure_permits(OLD.new_tenant_id))
+    AND (erasure_permits(OLD.old_tenant_id) OR erasure_permits(OLD.new_tenant_id) OR erasure_permits((SELECT tenant_id FROM secure_tags WHERE id = OLD.tag_id))) THEN RETURN OLD; END IF;
   RAISE EXCEPTION 'Plate link events are append-only';
 END;
 $$ LANGUAGE plpgsql;--> statement-breakpoint

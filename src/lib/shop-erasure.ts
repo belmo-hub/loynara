@@ -18,17 +18,19 @@ type Executor = Pick<Transaction, "execute">;
  * The tables come from the database itself (every table with a tenant_id, every table hanging off one, every *_tenant_id
  * column), so a table added later is erased without anyone listing it. Logins whose only role was in this shop go with it.
  * Physical plates are operator hardware: they are unlinked, not deleted. Loynara's own records survive (ERASURE_KEEP).
+ * A login holds one role today (unique staff_roles_user_id_uq); the check for a role in another shop stays as a guard.
  */
 
 /**
  * Loynara's own records (Legal: billing 8 years, the contract 6 years), never deleted by the erasure: the billing records
- * with their Stripe references, and the tenant and location rows they hang off, reduced by ERASURE_REDUCE.
+ * with their Stripe references, and the tenant row they hang off, reduced to its legal name and ids. No location row
+ * survives (CTO: a sole trader's shop name and city can be personal data); the per-location plan facts are copied into the
+ * erasure record first, and billing_location_plans goes with the locations.
  */
-export const ERASURE_KEEP: readonly string[] = ["billing_invoices", "billing_handoffs", "billing_location_plans", "billing_webhook_events", "subscriptions", "tenants", "locations"];
-/** A kept row keeps only what the kept records need: its other personal fields are cleared. */
+export const ERASURE_KEEP: readonly string[] = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "subscriptions", "tenants"];
+/** A kept row keeps only what the kept records need: its other fields are cleared. */
 const ERASURE_REDUCE: Record<string, SQL> = {
   tenants: sql`weekly_report_enabled = false`,
-  locations: sql`contact_email = NULL, logo_data = NULL, latitude = NULL, longitude = NULL`,
 };
 
 const ident = (name: string) => {
@@ -66,11 +68,12 @@ async function erasureSteps(tx: Executor, tenantId: string, keep: readonly strin
     const match = sql`(${sql.join(f.childColumns.map(ident), sql`, `)}) IN (SELECT ${sql.join(f.parentColumns.map(ident), sql`, `)} FROM ${ident(f.parent)} WHERE ${where(f.parent)}${f.parent === "secure_tags" ? sql` AND plate_label IS NULL` : sql``})`;
     steps.push({ label: `${f.child} (of ${f.parent})`, count: sql`SELECT count(*)::int AS n FROM ${ident(f.child)} WHERE ${match}`, erase: sql`DELETE FROM ${ident(f.child)} WHERE ${match}` });
   }
-  // Rows that name the shop in another column, such as a plate's link history (old_tenant_id, new_tenant_id).
+  // Rows that name the shop in another column, such as a plate's link history (old_tenant_id, new_tenant_id). A row that also
+  // names another shop (a plate moved from this shop to that one) is that shop's history too: it stays, holding ids only.
   const named = new Map<string, string[]>();
   for (const c of columns) if (c.column !== "tenant_id" && !owned.includes(c.table) && !keep.includes(c.table)) named.set(c.table, [...(named.get(c.table) ?? []), c.column]);
   for (const [table, cols] of named) {
-    const match = sql.join(cols.map(col => sql`${ident(col)} = ${tenantId}`), sql` OR `);
+    const match = sql`(${sql.join(cols.map(col => sql`${ident(col)} = ${tenantId}`), sql` OR `)}) AND ${sql.join(cols.map(col => sql`(${ident(col)} IS NULL OR ${ident(col)} = ${tenantId})`), sql` AND `)}`;
     steps.push({ label: table, count: sql`SELECT count(*)::int AS n FROM ${ident(table)} WHERE ${match}`, erase: sql`DELETE FROM ${ident(table)} WHERE ${match}` });
   }
   // Plates go back to the operator's stock; a shop's own NFC tags (no plate label) are deleted with the shop.
@@ -144,16 +147,29 @@ async function shopState(tx: Executor, tenantId: string, now: Date, env: Env) {
 
 /** Legal: the contract facts (who ended it, when, which day) go into the erasure record before the shop's tables go. */
 async function contractRecord(tx: Executor, tenantId: string, env: Env) {
-  const events = (await tx.execute(sql`SELECT l.name AS location, e.action, e.created_at AS at, e.old_end_date::text AS "oldEndDate", e.new_end_date::text AS "newEndDate",
+  // Locations by id only: their names go with the shop's data.
+  const events = (await tx.execute(sql`SELECT p.location_id AS location, e.action, e.created_at AS at, e.old_end_date::text AS "oldEndDate", e.new_end_date::text AS "newEndDate",
       (SELECT r.role FROM staff_roles r WHERE r.tenant_id = e.tenant_id AND r.user_id = e.actor_user_id ORDER BY r.created_at LIMIT 1) AS role, e.actor_user_id AS actor
-    FROM programme_cancellation_events e JOIN programs p ON p.tenant_id = e.tenant_id AND p.id = e.program_id JOIN locations l ON l.tenant_id = p.tenant_id AND l.id = p.location_id
+    FROM programme_cancellation_events e JOIN programs p ON p.tenant_id = e.tenant_id AND p.id = e.program_id
     WHERE e.tenant_id = ${tenantId} ORDER BY e.created_at, e.id`)).rows as Array<{ location: string; action: string; at: Date; oldEndDate: string | null; newEndDate: string | null; role: string | null; actor: string }>;
+  // The plan facts (CTO ruling on #210): the shop's plan and Stripe ids, and each location's plan, price, start and guarantee outcome.
+  const [subscription] = (await tx.execute(sql`SELECT plan_code AS "planCode", price_minor AS "priceMinor", currency, status, provider,
+      provider_customer_id AS "providerCustomerId", provider_subscription_id AS "providerSubscriptionId", active_location_count AS "locationCount",
+      started_at AS "startedAt", free_until AS "freeUntil", current_period_end AS "currentPeriodEnd"
+    FROM subscriptions WHERE tenant_id = ${tenantId}`)).rows;
+  const locationPlans = (await tx.execute(sql`SELECT location_id AS location, plan_code AS "planCode", price_minor AS "priceMinor", currency, member_limit AS "memberLimit",
+      created_at AS "createdAt", guarantee_decided_at AS "guaranteeDecidedAt", guarantee_customers AS "guaranteeCustomers", guarantee_outcome AS "guaranteeOutcome",
+      guarantee_invoice_id AS "guaranteeInvoiceId", guarantee_credit_ref AS "guaranteeCreditRef"
+    FROM billing_location_plans WHERE tenant_id = ${tenantId} ORDER BY created_at, location_id`)).rows;
   // Only the operator stays identifiable; the shop's owner or staff member is named by role, the end job as the system.
   const by = (role: string | null, actor: string) => role ?? (operatorIds(env).includes(actor) ? `operator ${actor}` : actor.startsWith("system:") ? "system" : "other");
   const [owner] = (await tx.execute(sql`SELECT u.name, u.email FROM staff_roles r JOIN "user" u ON u.id = r.user_id
     WHERE r.tenant_id = ${tenantId} AND r.role = 'owner' ORDER BY r.active DESC, r.created_at LIMIT 1`)).rows as Array<{ name: string; email: string }>;
   return {
-    contract: { cancellation: events.map(event => ({ location: event.location, action: event.action, at: new Date(event.at).toISOString(), oldEndDate: event.oldEndDate, newEndDate: event.newEndDate, by: by(event.role, event.actor) })) },
+    contract: {
+      cancellation: events.map(event => ({ location: event.location, action: event.action, at: new Date(event.at).toISOString(), oldEndDate: event.oldEndDate, newEndDate: event.newEndDate, by: by(event.role, event.actor) })),
+      plan: subscription ?? null, locationPlans,
+    },
     owner: owner ?? null,
   };
 }
