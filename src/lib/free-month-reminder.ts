@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
 import { z } from "zod";
 import { pool } from "@/db";
-import { operatorIdentity } from "./billing-stripe";
+import { operatorFooter } from "./operator-footer";
+import { operatorIdentity } from "./operator-identity";
 import { surfaceHidden } from "./pilot-surfaces";
 import { vatMode } from "./stripe-config";
 import { emailTransportMode, sendTransactional, type TransactionalEmailProvider } from "./transactional-email";
@@ -59,8 +60,9 @@ export async function deliverFreeMonthReminder(job: { id: string; tenantId: stri
     WHERE s.tenant_id = $1 ORDER BY l.name, l.id
   `, [job.tenantId]);
   if (!locations.length) return { status: "suppressed" as const, reason: "No free-month location" };
-  const operator = await operatorIdentity();
-  if (!operator) return { status: "blocked" as const, reason: "Operator name or address missing in Stripe's public details" };
+  // The footer names the operator as the Impressum does, from the operator's own settings, never Stripe's (CTO).
+  const operator = operatorIdentity();
+  if (!operator) return { status: "blocked" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)" };
   // Reserved by job id before the provider is called: a retried or replayed job never sends a second mail.
   return sendTransactional({ to: row.email, jobId: job.id, ...freeMonthReminderText({ shop: row.shop, locations, freeUntil: new Date(parsed.data.freeUntil), vat: mode, operator, inApp: !surfaceHidden("cancellation") }) }, provider);
 }
@@ -102,7 +104,7 @@ export function freeMonthReminderText(input: { shop: string; locations: Array<{ 
       "Viele Grüße",
       "Loynara",
       "",
-      `${clean(input.operator.name)} · ${clean(input.operator.address)}`,
+      operatorFooter(input.operator),
     ].join("\n"),
   };
 }
