@@ -147,10 +147,9 @@ function ContactQuestion({ location, home }: QuestionProps) {
         <div className="ow-field"><label htmlFor="sd-email">E-Mail</label>
           <input id="sd-email" className="ow-input" type="email" inputMode="email" autoComplete="email" value={draft.contactEmail} {...aria("sd-email", q.error("sd-email"))} onChange={event => set({ contactEmail: event.target.value })} />
           <FieldError id="sd-email-error">{q.error("sd-email")}</FieldError></div>
-        <div className="ow-field"><label htmlFor="sd-phone">Telefon</label>
+        <div className="ow-field"><label htmlFor="sd-phone">Telefon (optional)</label>
           <input id="sd-phone" className="ow-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="z. B. 0561 739 2214" value={draft.contactPhone} {...aria("sd-phone", q.error("sd-phone"))} onChange={event => set({ contactPhone: event.target.value })} />
           <FieldError id="sd-phone-error">{q.error("sd-phone")}</FieldError></div>
-        {/* shortcut: neutral hint until Design and Marketing word E12 for „email required, phone optional“ (Legal, 1 Nov). */}
         <p className="ow-hint">Was du einträgst, steht nach „Kontakt:“ unter jeder Erinnerung und Kampagne.</p>
       </div>
     </QuestionForm>
@@ -192,7 +191,7 @@ function RegisterQuestion({ me, location, home }: QuestionProps) {
     </Field>
   );
   return (
-    <QuestionForm title="Rechtsform, Register und USt-IdNr." lead="Nur wenn vorhanden. Leere Felder erscheinen nicht in der E-Mail." home={home}
+    <QuestionForm title="Rechtsform, Register und USt-IdNr." lead="Bei GmbH, UG, AG, KG, OHG, e.K., eG und PartG sind Registergericht und Registernummer Pflicht. Alles andere nur, wenn vorhanden. Leere Felder erscheinen nicht in der E-Mail." home={home}
       aside={<FooterPreview sender={preview} title="So steht es in der E-Mail" marks />} busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save("/api/merchant/sender", { part: "register", ...draft })}>
       {field("sd-legal-form", "Rechtsform", "legalForm", "z. B. GmbH, UG (haftungsbeschränkt), e.K.")}

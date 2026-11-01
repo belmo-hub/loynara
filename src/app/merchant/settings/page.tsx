@@ -86,12 +86,12 @@ function SenderRows({ me, locations, active }: { me: MeResponse; locations: Owne
   }, [toast]);
   const values = senderOf(me, active);
   /** The row's target and its chip: the active location first, else the first other location lacking the part. */
-  const open = (question: SenderQuestion, part: SenderPart) => {
-    const lacking = status.lacking(part);
+  const open = (question: SenderQuestion, ...parts: SenderPart[]) => {
+    const lacking = parts.flatMap(part => status.lacking(part)).filter((location, index, all) => all.findIndex(other => other.id === location.id) === index);
     if (!lacking.length || lacking.some(location => location.id === active.id)) return { href: senderHref(question), chip: lacking.length ? { label: "Fehlt", warn: true } : undefined };
     return { href: `${senderHref(question)}?standort=${encodeURIComponent(lacking[0].id)}`, chip: { label: lacking.length === 1 ? `Fehlt für ${lacking[0].name}` : `Fehlt an ${lacking.length} Standorten`, warn: true } };
   };
-  const address = open("anschrift", "address"), contact = open("kontakt", "contact"), representative = open("vertretung", "representative"), registerRow = open("register", "register");
+  const address = open("anschrift", "address"), contact = open("kontakt", "contact"), representative = open("vertretung", "representative"), registerRow = open("register", "registerCourt", "registerNumber");
   const register = [values.legalForm, values.registerNumber, values.vatId].filter(Boolean).join(" · ");
   const saved = (href: string) => Boolean(back?.saved && href.startsWith(back.row));
   return (
