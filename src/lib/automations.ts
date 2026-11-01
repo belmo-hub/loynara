@@ -9,6 +9,8 @@ import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
+import { requireAllowedContent } from "./campaigns";
+import { contentRefusal } from "./wallet-message-rules";
 import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -52,6 +54,7 @@ async function activeOwner(rule: Rule, query: Pick<typeof db, "select">) {
 export async function upsertAutomationRule(raw: z.input<typeof ruleInput>, now?: Date) {
   now ??= await databaseAudienceNow();
   const input = ruleInput.parse(raw);
+  requireAllowedContent(input.subject, input.body);
   if (input.enabled && promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
   return db.transaction(async tx => {
     const program = await ownerProgram(input.actorUserId, input.programSlug, tx);
@@ -231,6 +234,8 @@ export async function deliverAutomationRun(job: DeliveryJob, send: LocalSender =
       return { status: "suppressed", reason };
     };
     if (!rule.enabled || rule.revision !== run.ruleRevision) return suppress("Rule disabled or changed");
+    // Rechecked here for rules saved before the content rule existed (ENG-163).
+    if (contentRefusal(rule.subject) ?? contentRefusal(rule.body)) return suppress("Rule text breaks the content rules");
     const mode = promotionalEmailMode();
     if (mode === "disabled") return { status: "blocked", reason: "Promotional email unavailable" };
     if (!await activeOwner(rule, tx)) return suppress("Owner or programme unavailable");

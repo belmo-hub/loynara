@@ -89,3 +89,14 @@ describe("birthdayWeek (ENG-049)", () => {
     expect(birthdayWeek(1, 1, "2026-12-29")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
   });
 });
+
+describe("contentRefusal, shared with email campaigns and automations (ENG-163, Legal 1 Nov)", () => {
+  it("refuses tobacco and e-cigarettes, health claims and alcohol aimed at minors in any length of text, and nothing else", async () => {
+    const { contentRefusal } = await import("./wallet-message-rules");
+    expect(contentRefusal("Neu bei uns: E-Zigaretten und Liquids zum Probierpreis.")).toBe("Werbung für Tabak und E-Zigaretten ist nicht erlaubt.");
+    expect(contentRefusal("Unser Tee heilt Erkältungen.")).toBe("Gesundheits- und Heilversprechen sind nicht erlaubt.");
+    expect(contentRefusal("Für Schüler: Cocktails zum halben Preis.")).toBe("Alkohol-Werbung, die sich an Jugendliche richtet, ist nicht erlaubt.");
+    // Email may be long and carry links; only the content rules apply.
+    expect(contentRefusal(`Herbstkarte ab Montag, alle Details auf https://example.test. ${"Kaffee und Kuchen. ".repeat(20)}`)).toBeNull();
+  });
+});

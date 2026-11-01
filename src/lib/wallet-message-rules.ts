@@ -29,6 +29,12 @@ const rules: Array<[RegExp, string]> = [
   [/(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)[^]*(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)|(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)[^]*(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)/i, "Alkohol-Werbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
 ];
 
+/** The content rules alone, for text of any length: Wallet messages and email campaigns and automations (ENG-163, Legal). */
+export function contentRefusal(text: string): string | null {
+  for (const [pattern, error] of rules) if (pattern.test(text)) return error;
+  return null;
+}
+
 /** Trimmed single-line text, or a German refusal. Plain text only: no links, no control characters, at most 140 characters. */
 export function checkMessageText(raw: unknown): { ok: true; text: string } | { ok: false; error: string } {
   const text = typeof raw === "string" ? raw.normalize("NFC").replace(/\s+/g, " ").trim() : "";
@@ -36,8 +42,8 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
   if (Array.from(text).length > MESSAGE_MAX) return { ok: false, error: `Die Nachricht ist zu lang: höchstens ${MESSAGE_MAX} Zeichen.` };
   if (/\p{Cc}/u.test(text)) return { ok: false, error: "Die Nachricht darf nur aus einfachem Text bestehen." };
   if (/https?:|www\.|@|\b[a-z0-9-]+\.(?:de|com|net|org|eu|io|app|shop|link|ly)\b/i.test(text)) return { ok: false, error: "Links und Adressen sind in Nachrichten nicht erlaubt. Kunden können nichts anklicken." };
-  for (const [pattern, error] of rules) if (pattern.test(text)) return { ok: false, error };
-  return { ok: true, text };
+  const refused = contentRefusal(text);
+  return refused ? { ok: false, error: refused } : { ok: true, text };
 }
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */

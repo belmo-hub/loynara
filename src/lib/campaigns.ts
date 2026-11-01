@@ -7,6 +7,7 @@ import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
+import { contentRefusal } from "./wallet-message-rules";
 import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
@@ -23,6 +24,12 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Exclusions = { unverified: number; noConsent: number; unsubscribed: number; suppressed: number; frequency: number; closed: number; nonSynthetic: number; quota: number };
 type DispatchJob = { id: string; tenantId: string; payload: Record<string, unknown> };
 type DeliveryJob = DispatchJob & { attempts: number };
+
+/** The content rules Wallet messages follow apply to campaign mail too (ENG-163, Legal 1 Nov): subject and body. */
+export function requireAllowedContent(subject: string, body: string) {
+  const refused = contentRefusal(subject) ?? contentRefusal(body);
+  if (refused) throw new DomainError("MESSAGE_REFUSED", refused);
+}
 
 function requireCampaignMail() {
   if (promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
@@ -129,6 +136,7 @@ export async function previewCampaign(raw: { actorUserId: string; programSlug: s
 
 export async function createDraftCampaign(raw: { actorUserId: string; programSlug: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
   const input = contentSchema.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
+  requireAllowedContent(input.subject, input.body);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   return db.transaction(async tx => {
     // A double submit (slow network, second click) must not leave two identical drafts: an identical draft by the same
@@ -145,6 +153,7 @@ export async function createDraftCampaign(raw: { actorUserId: string; programSlu
 
 export async function editDraftCampaign(raw: { actorUserId: string; campaignId: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
   const input = contentSchema.extend({ actorUserId: z.string().min(1), campaignId: z.uuid() }).strict().parse(raw);
+  requireAllowedContent(input.subject, input.body);
   return db.transaction(async tx => {
     const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx, true);
     if (campaign.status !== "draft") throw new DomainError("CAMPAIGN_LOCKED", "Only a draft campaign can be edited");
@@ -260,6 +269,8 @@ export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ 
     if (!campaign || campaign.status !== "scheduled" || campaign.scheduleRevision !== Number(parsed.data.scheduleRevision)) return { status: "suppressed" as const, reason: "Campaign schedule changed" };
     const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, campaign.tenantId), eq(staffRoles.userId, campaign.createdByUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
     if (!owner) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Queueing owner no longer authorized" }; }
+    // Rechecked here for drafts saved before the rule existed.
+    if (contentRefusal(campaign.subject) ?? contentRefusal(campaign.body)) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Campaign text breaks the content rules" }; }
     const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, campaign.programId), eq(programs.tenantId, campaign.tenantId), eq(programs.status, "active"))).limit(1);
     if (!program) return { status: "blocked" as const, reason: "Programme unavailable" };
     const monthlyUsed = await monthlyLocationUsage(tx, campaign.tenantId, program.locationId, now, true);
