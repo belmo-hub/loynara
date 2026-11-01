@@ -150,6 +150,13 @@ describe("shop erasure (ENG-166, DS-05)", () => {
       "memberships.tenant_id", "membership_contacts.tenant_id", "referrals.tenant_id", "campaigns.tenant_id", "outbox_jobs.tenant_id", "apple_registrations.tenant_id", "wallet_passes.tenant_id",
       "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id"]));
 
+    // Review N-1: every column the fixture doesn't fill is pinned here, so a new table fails this test until it is seeded or listed.
+    // shortcut: these 18 are emptied by the same generic step as the seeded ones but not yet seeded here; seed them (review N-1 follow-up) and shrink this list.
+    expect(Object.keys(before).filter(name => before[name] === 0).sort()).toEqual([
+      "automation_rules.tenant_id", "automation_runs.tenant_id", "campaign_attempts.tenant_id", "campaign_daily_usage.tenant_id", "campaign_recipients.tenant_id",
+      "card_birthdays.tenant_id", "consent_events.tenant_id", "contact_verification_challenges.tenant_id", "free_month_reminders.tenant_id", "offline_award_events.tenant_id",
+      "offline_award_leases.tenant_id", "staff_push_subscriptions.tenant_id", "tap_requests.tenant_id", "wallet_message_owner_confirmations.tenant_id",
+      "wallet_message_recipients.tenant_id", "wallet_messages.tenant_id", "wallet_template_bindings.tenant_id", "weekly_owner_reports.tenant_id"]);
     const { providers, removed } = fakeProviders();
     const outcome = await erase(gone.tenantId, daysFromNow(31), true, { providers });
     expect(outcome).toMatchObject({ result: "erased", reasons: [], external: { googleCards: 1, mailgunAddresses: 1 } });
@@ -191,6 +198,37 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect((await pool.query("SELECT count(*)::int AS n FROM email_deliveries")).rows[0].n).toBe(1);
     expect((await pool.query("SELECT count(*)::int AS n FROM plate_activation_codes")).rows[0].n).toBe(1);
     await expect(erase(gone.tenantId, daysFromNow(32))).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("keeps what another shop still uses: a shared card address with its recovery request, a shared Apple device, no Mailgun removal (review R-1)", async () => {
+    const a = await busyShop("A", "P-912");
+    const b = await busyShop("B", "P-913");
+    const [{ email: shared }] = (await pool.query("SELECT email FROM membership_contacts WHERE tenant_id = $1", [a.tenantId])).rows;
+    // B's customer uses A's address, and B's pass is registered on A's device.
+    await pool.query("UPDATE membership_contacts SET email = $1 WHERE tenant_id = $2", [shared, b.tenantId]);
+    await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1, $2, $3, 'pass.synthetic.test', $4)", [a.device, b.tenantId, b.cardId, randomUUID()]);
+    await endShop(a);
+    const { providers, removed } = fakeProviders();
+    expect(await erase(a.tenantId, daysFromNow(31), true, { providers })).toMatchObject({ result: "erased", external: { mailgunAddresses: 0 } });
+    expect(removed).toEqual([]);
+    expect((await pool.query("SELECT count(*)::int AS n FROM card_recovery_challenges WHERE lower(email) = lower($1)", [shared])).rows[0].n).toBe(1);
+    expect((await pool.query("SELECT count(*)::int AS n FROM apple_devices WHERE device_library_identifier = $1", [a.device])).rows[0].n).toBe(1);
+    expect((await pool.query("SELECT count(*)::int AS n FROM membership_contacts WHERE tenant_id = $1 AND email = $2", [b.tenantId, shared])).rows[0].n).toBe(1);
+  });
+
+  it("the exemption ends with the erasure's transaction, and a Google pass added after the clean-up stops the erasure (review N-2)", async () => {
+    const a = await busyShop("A", "P-914");
+    await endShop(a);
+    // A pass created between the provider clean-up and the transaction (here by the Mailgun step) is caught inside it.
+    const late: ErasureProviders = { ...fakeProviders().providers, mailgun: async () => {
+      await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'google', $3, 'created')", [a.tenantId, a.cardId, `synthetic.loynara_${randomUUID()}`]);
+    } };
+    await expect(erase(a.tenantId, daysFromNow(31), true, { providers: late })).rejects.toMatchObject({ code: "EXTERNAL_PENDING" });
+    expect(await db.select().from(shopErasures)).toEqual([]);
+    expect(await erase(a.tenantId, daysFromNow(31))).toMatchObject({ result: "erased" });
+    // Every pooled connection, the erasure's included, is asked at once: none still carries the setting.
+    const settings = await Promise.all(Array.from({ length: 30 }, () => pool.query("SELECT current_setting('loynara.erasure', true) AS value, pg_sleep(0.05)")));
+    expect(settings.map(result => result.rows[0].value ?? "")).toEqual(Array(30).fill(""));
   });
 
   it("may run once the export window is over, lists the shop with its DS-05 deadline, and shows a dry run that deletes nothing", async () => {
