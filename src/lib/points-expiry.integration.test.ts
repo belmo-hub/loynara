@@ -248,6 +248,51 @@ describe("the 30-day reminder", () => {
     expect(calls[0].data.message).toBe(silentMessage.text);
   });
 
+  /** A native Apple pass (ENG-127) a device registered for updates. */
+  async function nativePass(s: Shop, card: { id: string; cardToken: string }, consent: boolean) {
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const passId = randomUUID(), deviceId = `device-${passId}`;
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'registered')",
+      [passId, s.tenantId, card.id, passId, credentialHash(m.scan_code)]);
+    await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [deviceId, "a".repeat(64)]);
+    await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [deviceId, s.tenantId, card.id, "pass.test.loynara", passId]);
+    if (consent) await setWalletConsent(card.cardToken, true);
+    return passId;
+  }
+
+  it("reaches native Apple passes too, with or without consent, within the weekly cap, through a refresh (ENG-128)", async () => {
+    const s = await shop();
+    await expiryOn(s, 24);
+    const consented = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const silent = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const capped = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await nativePass(s, consented, true);
+    await nativePass(s, silent, false);
+    const cappedPass = await nativePass(s, capped, true);
+    const first = await give(s, consented.id, 80);
+    await give(s, silent.id, 80);
+    await give(s, capped.id, 80);
+    const due = addMonths(await entryTime(first.entryId), 24);
+    const reminderAt = new Date(due.getTime() - 20 * 86_400_000);
+    // Two messages this week already: the cap of two per seven days holds for service information too.
+    for (const daysAgo of [2, 4]) {
+      const at = new Date(reminderAt.getTime() - daysAgo * 86_400_000);
+      const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'winback','Früher','complete',$3) RETURNING id", [s.tenantId, s.programId, at]);
+      await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',$5)", [m.id, cappedPass, s.tenantId, capped.id, at]);
+    }
+
+    expect(await queueExpiryReminders(reminderAt)).toBe(2);
+    const { rows } = await pool.query("SELECT m.id, r.membership_id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id WHERE m.kind = 'expiry'");
+    expect(rows.map(row => row.membership_id).sort()).toEqual([consented.id, silent.id].sort());
+    // Delivery refreshes the native pass (the device fetches it after the push) and never calls PassFast.
+    await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1 AND kind = 'wallet.refresh'", [s.tenantId]);
+    const silentMessage = rows.find(row => row.membership_id === silent.id)!;
+    const noSend = async () => { throw new Error("PassFast must not be called for a native pass"); };
+    expect(await deliverWalletMessage({ id: randomUUID(), tenantId: s.tenantId, payload: { messageId: silentMessage.id } }, { send: noSend, now: () => new Date("2026-10-22T10:00:00Z") })).toEqual({ status: "complete" });
+    const { rows: refreshes } = await pool.query("SELECT payload ->> 'membershipId' AS id FROM outbox_jobs WHERE tenant_id = $1 AND kind = 'wallet.refresh'", [s.tenantId]);
+    expect(refreshes.map(row => row.id)).toEqual([silent.id]);
+  });
+
   it("shows the notice on the card within 30 days of the first expiry", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });

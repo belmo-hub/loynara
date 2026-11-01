@@ -76,14 +76,15 @@ export async function runPointsExpiry(now = new Date()) {
 
 /**
  * One Wallet banner per card and 30 days, covering what expires in the next 30 days. Service information, not marketing
- * (Product/Legal 22 Oct): every live Apple pass gets it, with or without marketing consent; never an email.
+ * (Product/Legal 22 Oct): every live Apple pass gets it, PassFast ('created') or native ('registered', ENG-128), with or
+ * without marketing consent; never an email. queueCardWalletMessage applies the rest (registered device, cap, French shops).
  */
 export async function queueExpiryReminders(now = new Date()) {
   let queued = 0;
   for (const card of await candidates()) {
     const [row] = await db.select({ program: programs, timezone: locations.timezone }).from(programs)
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
-      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and p.provider = 'apple' and p.status = 'created' and p.revoked_at is null)`));
+      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and p.provider = 'apple' and p.status in ('created','registered') and p.revoked_at is null)`));
     if (!row) continue;
     const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, await programInForce(db, row.program)), now);
     if (!upcoming) continue;
