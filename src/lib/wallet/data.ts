@@ -68,7 +68,9 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
   // A card that allowed messages carries the (empty) field before the first one, because Wallet alerts only when an existing key changes.
-  const [consent] = lastMessage ? [] : await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
+  // So does every card of a programme whose points expire: the expiry notice is service information, sent without consent (ENG-162).
+  const expiryNotice = Boolean(program.pointsExpiryMonths);
+  const [consent] = lastMessage || expiryNotice ? [] : await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
     .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
   return {
     open: true,
@@ -85,7 +87,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       rules: [...waitingLines(changeLines({ programType: program.type === "points" ? "points" : "stamp", rewards: rewardList, pending: program.pending, pendingExpiry: program.pendingExpiry }, true)), ...signUpRules(publicRules(program, row.tenant))],
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
-      ...(lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : consent ? { message: "" } : {}),
+      ...(lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : consent || expiryNotice ? { message: "" } : {}),
       pending: program.pending, pendingExpiry: program.pendingExpiry,
     },
   };

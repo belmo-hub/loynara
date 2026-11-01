@@ -49,7 +49,7 @@ async function cardOf(cardToken: string) {
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
       EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
-        AND p.revoked_at IS NULL) AS "walletPass",
+        AND p.revoked_at IS NULL AND ${reachable}) AS "walletPass",
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS granted
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = m.tenant_id

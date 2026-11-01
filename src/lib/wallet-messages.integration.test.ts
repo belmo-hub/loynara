@@ -679,7 +679,9 @@ describe("native Apple passes (ENG-127)", () => {
 
   it("a send queues exactly one refresh per consenting, registered pass and never calls PassFast", async () => {
     const s = await shop(); const a = await nativeCustomer(s); const b = await nativeCustomer(s);
-    await nativeCustomer(s, { consent: false }); await nativeCustomer(s, { device: false });
+    await nativeCustomer(s, { consent: false });
+    // Consented, then its only device let go: not reachable any more (consent needs a reachable pass since ENG-162).
+    const gone = await nativeCustomer(s); await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [gone.passId]);
     await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1", [s.tenantId]); // the consent refreshes already ran
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(2);
     const { id, audience } = await go(s);
@@ -713,6 +715,25 @@ describe("native Apple passes (ENG-127)", () => {
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).reach).toBe(0);
     await expect(go(s)).rejects.toMatchObject({ code: "NO_REACH" });
     expect((await pool.query("SELECT count(*)::int AS n FROM wallet_message_recipients WHERE membership_id = ANY($1)", [[de.id, fr.id]])).rows[0].n).toBe(0);
+  });
+
+  it("a programme with points expiry gives every native pass the empty field, so the first expiry notice alerts (ENG-162)", async () => {
+    const s = await shop(); const quiet = await nativeCustomer(s, { consent: false });
+    const before = await walletCardSnapshot(quiet.id);
+    expect(before.open && before.pass.message).toBeUndefined();
+    await pool.query("UPDATE programs SET type = 'points', points_expiry_months = 24, points_expiry_since = now() WHERE id = $1", [s.programId]);
+    const snapshot = await walletCardSnapshot(quiet.id);
+    if (!snapshot.open) throw new Error("open");
+    expect(snapshot.pass.message).toBe("");
+    // The rendered pass carries the key the expiry notice then changes, with its banner.
+    expect(applePassJson(snapshot.pass, quiet.passId, apple).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ value: "Noch keine Nachricht.", changeMessage: "%@" });
+  });
+
+  it("the consent panel is offered only where delivery could reach the pass: not after its last device unregistered (ENG-162)", async () => {
+    const s = await shop(); const reached = await nativeCustomer(s, { consent: false }); const gone = await nativeCustomer(s, { consent: false });
+    await pool.query("DELETE FROM apple_registrations WHERE serial_number = $1", [gone.passId]);
+    expect(await getWalletConsent(reached.cardToken)).toMatchObject({ available: true });
+    expect(await getWalletConsent(gone.cardToken)).toMatchObject({ available: false });
   });
 
   it("only the last device letting go counts as a removal", async () => {
