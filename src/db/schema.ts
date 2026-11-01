@@ -894,6 +894,8 @@ export const subscriptions = pgTable("subscriptions", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   // ENG-123: the first paid moment (Stripe's first billing date) when billing started with the free month; null otherwise.
   freeUntil: timestamp("free_until", { withTimezone: true }),
+  // ENG-125: the moment Stripe was told to end the subscription because the operator confirmed the shop's end (#84); null while none is set.
+  billingEndsAt: timestamp("billing_ends_at", { withTimezone: true }),
 }, (t) => [
   check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
@@ -1119,3 +1121,28 @@ export const walletTemplateBindingEvents = pgTable("wallet_template_binding_even
   index("wallet_template_binding_events_scope_idx").on(t.tenantId, t.locationId, t.createdAt),
   check("wallet_template_binding_action_valid", sql`(${t.action} in ('set','import') and ${t.oldTemplateId} is null) or (${t.action} = 'change' and ${t.oldTemplateId} is not null)`),
 ]);
+
+/**
+ * ENG-166 (DS-05): the erasure record, one row per erased shop, kept 6 years with the contract (Legal, 1 Nov). It is
+ * Loynara's own record, not the shop's data: legal name, end date, export end, the contract facts copied in before the
+ * erasure (who confirmed the end, when; Legal: copy first), rows deleted per table, the provider clean-up, and the owner's
+ * name and business email for the text-form confirmation (AVV § 8 (2)). It is also the tombstone list a restore re-applies.
+ * Append-only, except that the confirmation's sending is stamped once.
+ */
+export const shopErasures = pgTable("shop_erasures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  erasedTenantId: uuid("erased_tenant_id").notNull().unique(),
+  legalName: varchar("legal_name", { length: 180 }).notNull(),
+  endDate: date("end_date").notNull(),
+  exportUntil: date("export_until").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  contract: jsonb("contract").$type<Record<string, unknown>>().notNull(),
+  rowCounts: jsonb("row_counts").$type<Record<string, number>>().notNull(),
+  external: jsonb("external").$type<Record<string, unknown>>().notNull(),
+  confirmationName: varchar("confirmation_name", { length: 200 }),
+  confirmationEmail: varchar("confirmation_email", { length: 320 }),
+  erasedAt: timestamp("erased_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Set with the erasure, only after the provider clean-up and the database both succeeded: the confirmation may go out. */
+  confirmationSendableAt: timestamp("confirmation_sendable_at", { withTimezone: true }).notNull(),
+  confirmationSentAt: timestamp("confirmation_sent_at", { withTimezone: true }),
+});
