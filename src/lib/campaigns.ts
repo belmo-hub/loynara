@@ -201,7 +201,9 @@ export async function listCampaigns(raw: { actorUserId: string; programSlug: str
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   const rows = await db.select().from(campaigns).where(and(eq(campaigns.tenantId, program.tenantId), eq(campaigns.programId, program.id))).orderBy(desc(campaigns.createdAt)).limit(100);
-  return rows.map(({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }));
+  // A campaign blocked at dispatch for its text says why (ENG-163); other blocks keep today's chip only.
+  return rows.map(({ id, title, subject, body, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition,
+    ...(status === "blocked" ? { blockedReason: contentRefusal(subject) ?? contentRefusal(body) ?? undefined } : {}) }));
 }
 
 export async function getCampaign(raw: { actorUserId: string; campaignId: string }) {

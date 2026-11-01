@@ -605,5 +605,8 @@ describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
     expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Campaign text breaks the content rules" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
     expect((await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, draft.id)))[0].status).toBe("blocked");
+    // The owner's list says it was blocked and why.
+    const listed = await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
+    expect(listed.find(campaign => campaign.id === draft.id)).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
   });
 });

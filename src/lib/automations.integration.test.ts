@@ -199,7 +199,7 @@ describe("content rules for automation text (ENG-163, Legal 1 Nov)", () => {
   it("refuses tobacco in the subject or body on save, and suppresses a run whose rule text breaks the rules", async () => {
     const f = await fixture();
     const base = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule };
-    await expect(upsertAutomationRule({ ...base, subject: "Willkommen, neue Liquids sind da" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    await expect(upsertAutomationRule({ ...base, subject: "Willkommen, neue E-Liquids sind da" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
     await expect(upsertAutomationRule({ ...base, body: "Danke! Beim nächsten Besuch gibt es Snus gratis." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
     const card = await member(f.merchant.programSlug);
     const rule = await upsertAutomationRule(base);

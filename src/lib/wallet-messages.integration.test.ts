@@ -221,7 +221,7 @@ describe("quiet hours 21:00 to 08:00 Berlin, including the DST change of 25 Oct 
 });
 
 describe("content rules", () => {
-  it.each(["Heute Tabak zum Sonderpreis", "Neue Liquids da", "Vape-Aktion", "Snus 2 für 1", "Das hilft: heilt Rückenschmerzen", "Bier und Wein für Jugendliche heute günstig", "Mehr unter www.beispiel.de", "Alles auf https://x.test"])("refuses %s", async text => {
+  it.each(["Heute Tabak zum Sonderpreis", "Neue E-Liquids da", "Vape-Aktion", "Snus 2 für 1", "Das hilft: heilt Rückenschmerzen", "Bier und Wein für Jugendliche heute günstig", "Mehr unter www.beispiel.de", "Alles auf https://x.test"])("refuses %s", async text => {
     const s = await shop(); await customer(s);
     await expect(go(s, NOON, text)).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
   });
