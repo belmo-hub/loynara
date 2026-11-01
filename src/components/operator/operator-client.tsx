@@ -129,10 +129,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [entry, setEntry] = useState<Row | null>(null);
   const [receivedAt, setReceivedAt] = useState("");
   const [entryEnd, setEntryEnd] = useState<string | null>(null);
+  // Review N-1: an e-mail entered so late that its end has passed is entered only after speaking with the shop.
+  const [pastEnd, setPastEnd] = useState(false);
+  const [acceptPast, setAcceptPast] = useState(false);
   const [sheetError, setSheetError] = useState("");
   const picked = ending?.choices.find(c => c.endDate === choice) ?? null;
   const openEnding = (c: Cancellation) => { setEnding(c); setChoice(c.endDate); setConsent(false); setChecked(null); setSheetError(""); };
-  const closeSheets = () => { setEnding(null); setChecked(null); setWithdrawing(null); setEntry(null); setEntryEnd(null); setSheetError(""); };
+  const closeSheets = () => { setEnding(null); setChecked(null); setWithdrawing(null); setEntry(null); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); setSheetError(""); };
   async function operate(body: Record<string, unknown>, after: () => void) {
     setBusy(true); setSheetError("");
     try { await postJson("/api/operator/programme", body); after(); }
@@ -145,9 +148,11 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function checkEntry(execute: boolean) {
     setBusy(true); setSheetError("");
     try {
-      const result = await postJson<{ endDate?: string | null }>("/api/operator/programme", { programId: entry!.programId, command: "request", receivedAt: berlinIso(receivedAt), execute });
+      const result = await postJson<{ endDate?: string | null }>("/api/operator/programme", { programId: entry!.programId, command: "request", receivedAt: berlinIso(receivedAt), acceptPastEnd: acceptPast, execute });
       if (execute) { closeSheets(); router.refresh(); } else setEntryEnd(result.endDate ?? null);
-    } catch (cause) { setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
+    } catch (cause) {
+      if (cause instanceof ClientApiError && cause.code === "END_IN_PAST") { setPastEnd(true); return; }
+      setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
     finally { setBusy(false); }
   }
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
@@ -408,11 +413,15 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     <Sheet open={!!entry} onClose={closeSheets} title="Kündigung per E-Mail eintragen">
       {entry ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{entry.tenant}</strong> · {entry.location}</p>
-        <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); }} />
+        <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
+        {pastEnd ? <div role="alert" style={{ display: "grid", gap: 4 }}>
+          <p>Mit diesem Eingang ist das Vertragsende schon vorbei. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}><input type="checkbox" checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen.</label>
+        </div> : null}
         {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
         {entryEnd ? <Button loading={busy} onClick={() => void checkEntry(true)}>Eintragen</Button>
-          : <Button loading={busy} disabled={!receivedAt} onClick={() => void checkEntry(false)}>Prüfen</Button>}
+          : <Button loading={busy} disabled={!receivedAt || (pastEnd && !acceptPast)} onClick={() => void checkEntry(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 
