@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
-import { consentLines, panelShown } from "./card-wallet-messages";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { consentLines, panelShown, SwitchedOff } from "./card-wallet-messages";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
   it("names the expiry notice on points programmes with an expiry rule", () => {
@@ -27,6 +29,18 @@ describe("the consent panel after switching off (ENG-162, Design P3)", () => {
     expect(panelShown(false, true)).toBe(true);
     expect(panelShown(true, false)).toBe(true);
     expect(panelShown(false, false)).toBe(false);
+  });
+  it("on an unreachable pass says only that messages are off: no off line, no „Einschalten“ (Design round 3)", () => {
+    const { off } = consentLines(true);
+    const props = { shop: "Café Lindenblatt", off, onSwitchOn: () => {} };
+    const gone = renderToStaticMarkup(h(SwitchedOff, { ...props, available: false }));
+    expect(panelShown(false, true)).toBe(true);
+    expect(gone).toContain("Von Café Lindenblatt · Höchstens 2 pro Woche · aus");
+    expect(gone).not.toContain(off);
+    expect(gone).not.toContain("Einschalten");
+    const offered = renderToStaticMarkup(h(SwitchedOff, { ...props, available: true }));
+    expect(offered).toContain(off);
+    expect(offered).toContain("Einschalten");
   });
 });
 
@@ -88,7 +102,7 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
     // The heading stands on every visit; only the placement under the card is once (Design, 30 Oct).
     expect(panel).toContain("<h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>");
-    expect(panel).toContain("<p>Von {state.shop} · Höchstens 2 pro Woche · aus</p>");
+    expect(panel).toContain("<p>Von {shop} · Höchstens 2 pro Woche · aus</p>");
   });
   it("offers no Apple add button once a device holds the pass, and keeps the re-add notice", () => {
     const card = readFileSync("src/components/customer/customer-card.tsx", "utf8");
