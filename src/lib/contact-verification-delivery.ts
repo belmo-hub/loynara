@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { contactVerificationChallenges, membershipContacts, memberships, outboxJobs } from "@/db/schema";
+import { contactVerificationChallenges, membershipContacts, memberships, outboxJobs, tenants } from "@/db/schema";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { syntheticAddress, type LocalSender } from "./email";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
@@ -33,11 +33,20 @@ export async function deliverVerificationEmail(
     if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date() || challenge.tokenHash !== verificationTokenHash(token)) return finish("suppressed", "Verification challenge unavailable");
     const [contact] = await tx.select().from(membershipContacts)
       .where(and(eq(membershipContacts.tenantId, job.tenantId), eq(membershipContacts.membershipId, member.id))).limit(1);
-    if (!contact || contact.email !== challenge.email || contact.emailVerified) return finish("suppressed", "Contact changed or already verified");
+    if (!contact || contact.email !== challenge.email || (contact.emailVerified && !challenge.marketing)) return finish("suppressed", "Contact changed or already verified");
     if (mode === "mailpit" && !syntheticAddress(challenge.email)) return finish("suppressed", "Recipient is not synthetic");
     const link = new URL("/verify-email", origin);
     link.hash = `token=${token}`;
-    const message = {
+    // Variant A (copy v0.5) names the shop and the marketing consent the click confirms; variant C is recovery only.
+    // Neither carries the card link: it is a bearer credential.
+    const shop = challenge.marketing ? (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name : undefined;
+    if (challenge.marketing && !shop) return finish("suppressed", "Shop unavailable");
+    const message = shop ? {
+      to: challenge.email,
+      subject: `Bitte bestätige: E-Mails von ${shop}`,
+      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.`,
+      jobId: job.id,
+    } : {
       to: challenge.email,
       subject: "E-Mail-Adresse für Loynara bestätigen",
       body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.`,
