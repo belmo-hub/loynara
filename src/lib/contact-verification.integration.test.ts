@@ -153,6 +153,14 @@ describe("local contact ownership and separate marketing preference", () => {
 });
 
 describe("ENG-007: e-mail offer on the card with double opt-in", () => {
+  it("keeps the consent on a resend that asks for it, the card's body for a ticked link (Design round 1, blocking 1)", async () => {
+    const { member } = await card();
+    await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
+    expect(await requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
+    expect(await contactStatus(member.cardToken)).toMatchObject({ pending: "marketing" });
+    const [challenge] = await db.select().from(contactVerificationChallenges);
+    expect(challenge).toMatchObject({ marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION });
+  });
   it("writes the version of the text the guest ticked into the consent event, and refuses an unknown one", async () => {
     const { member } = await card();
     await expect(requestContactVerification(member.cardToken, "guest@example.test", true)).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });

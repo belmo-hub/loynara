@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Check, Mail } from "lucide-react";
-import { apiJson, ClientApiError, postJson } from "./client-api";
+import { apiJson, ClientApiError, GERMAN_SERVER_TEXT, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { TextField } from "./ui/field";
@@ -28,8 +28,21 @@ const SENT = "Wir haben dir einen Link geschickt.";
 const HINT = "Mit dieser Adresse finde ich meine Karte wieder, falls ich den Link verliere. Sie wird nur dafür genutzt, nicht für Werbung.";
 const consentLead = ({ shop, location }: Shop) => emailConsentText(shop, location);
 const since = (iso: string) => new Date(iso).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-// The rate limit and a changed consent text bring their own German text; anything else is a failed send.
-const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || cause.code === "CONSENT_TEXT_CHANGED") ? cause.message : SEND_FAILED;
+// The server's own German text (rate limit, e-mail off, changed consent text); anything else is a failed send.
+const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || (cause.code !== undefined && GERMAN_SERVER_TEXT.has(cause.code))) ? cause.message : SEND_FAILED;
+/** What a confirmation link asks for: with the consent it carries the box text's version, or the resend would turn it into a recovery-only link. */
+export const linkRequest = (marketing: boolean) => marketing ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {};
+
+/** Moves focus to the step's `[data-focus]` element whenever `step` changes, so it never falls back to the page. */
+function useStepFocus(step: unknown) {
+  const ref = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    ref.current?.querySelector<HTMLElement>("[data-focus]")?.focus();
+  }, [step]);
+  return ref;
+}
 
 /** The card's contact state, loaded once and after every change. Null until loaded or when the API fails (the card works without it). */
 export function useEmailStatus(token: string) {
@@ -54,10 +67,16 @@ export function emailRow(status: EmailStatus) {
   return { title, sub };
 }
 
+/** The consent box with Legal's text; the privacy link sits inside the label, as on the Wallet panel. */
+function ConsentBox({ shop, id, checked, invalid, describedBy, onChange }: { shop: Shop; id?: string; checked: boolean; invalid?: boolean; describedBy?: string; onChange: (checked: boolean) => void }) {
+  return <Checkbox id={id} checked={checked} aria-invalid={invalid || undefined} aria-describedby={describedBy} onChange={event => onChange(event.target.checked)}>{consentLead(shop)}<Link href="/datenschutz">Mehr in den Datenschutzhinweisen.</Link></Checkbox>;
+}
+
 /** The field, Legal's hint, the optional tick and „Bestätigungslink schicken“; checks on tap, never a browser bubble. */
-function AddressForm({ token, shop, consent, initialTick = false, onSent }: { token: string; shop: Shop; consent: boolean; initialTick?: boolean; onSent: (address: string, ticked: boolean) => void }) {
+function AddressForm({ token, shop, consent, onSent }: { token: string; shop: Shop; consent: boolean; onSent: (address: string, ticked: boolean) => void }) {
+  const id = useId();
   const [email, setEmail] = useState("");
-  const [tick, setTick] = useState(initialTick);
+  const [tick, setTick] = useState(false);
   const [fieldError, setFieldError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,39 +86,43 @@ function AddressForm({ token, shop, consent, initialTick = false, onSent }: { to
     if (!email.trim() || !field.checkValidity()) { setFieldError(INVALID); field.focus(); return; }
     setBusy(true); setError("");
     try {
-      await postJson(`/api/card/${encodeURIComponent(token)}/contact`, { email, ...(consent && tick ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {}) });
+      await postJson(`/api/card/${encodeURIComponent(token)}/contact`, { email, ...linkRequest(consent && tick) });
       onSent(email.trim(), consent && tick);
     } catch (cause) {
-      if (cause instanceof ClientApiError && cause.status === 400 && cause.code !== "CONSENT_TEXT_CHANGED") { setFieldError(INVALID); field.focus(); }
+      // A refused address (schema check, no code) belongs to the field; everything else to the line above the button.
+      if (cause instanceof ClientApiError && cause.status === 400 && !cause.code) { setFieldError(INVALID); field.focus(); }
       else setError(sendError(cause));
     } finally { setBusy(false); }
   }
-  return <form className={styles.form} onSubmit={send} onInput={() => setFieldError("")} noValidate>
-    <TextField id="card-email" name="card-email" label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" placeholder="name@beispiel.de" maxLength={320}
-      value={email} onChange={event => setEmail(event.target.value)} hint={HINT} error={fieldError || undefined} />
-    {consent && <Checkbox checked={tick} onChange={event => setTick(event.target.checked)}>{consentLead(shop)}<Link href="/datenschutz">Mehr in den Datenschutzhinweisen.</Link></Checkbox>}
+  return <form className={styles.form} onSubmit={send} noValidate>
+    <TextField id={id} name="card-email" data-focus label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" placeholder="name@beispiel.de" maxLength={320}
+      value={email} onChange={event => { setEmail(event.target.value); setFieldError(""); }} hint={HINT} error={fieldError || undefined} />
+    {consent && <ConsentBox shop={shop} checked={tick} onChange={setTick} />}
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    <Button type="submit" variant="secondary" block loading={busy}>Bestätigungslink schicken</Button>
+    <Button type="submit" variant="secondary" className={styles.wide} loading={busy}>Bestätigungslink schicken</Button>
   </form>;
 }
 
-/** K03/K03b and the pending sheet's actions: resend to the stored address, or type another one. */
-function Pending({ token, text, onOther, announce }: { token: string; text: ReactNode; onOther: () => void; announce: (text: string) => void }) {
+/** The resend for an open or expired link, with the same consent it was asked with. A confirmed address gets no new link: nothing is claimed then. */
+function Resend({ token, marketing, expired, announce, onDone, children }: { token: string; marketing: boolean; expired: boolean; announce: (text: string) => void; onDone?: () => void; children?: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function resend() {
     setBusy(true); setError("");
-    try { await postJson(`/api/card/${encodeURIComponent(token)}/contact`, {}); announce(SENT); }
+    try {
+      const result = await postJson<{ status: "queued" | "verified" }>(`/api/card/${encodeURIComponent(token)}/contact`, linkRequest(marketing));
+      if (result.status === "queued") announce(SENT);
+      onDone?.();
+    }
     catch (cause) { setError(sendError(cause)); }
     finally { setBusy(false); }
   }
   return <>
-    {text}
-    <p className={styles.muted}>Nichts angekommen? Schau im Spam-Ordner nach oder schick den Link noch einmal.</p>
+    {!expired && <p className={styles.muted}>Nichts angekommen? Schau im Spam-Ordner nach oder schick den Link noch einmal.</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <div className={styles.actions}>
-      <Button variant="secondary" block loading={busy} onClick={() => void resend()}>Link noch einmal schicken</Button>
-      <Button variant="quiet" size="sm" className={styles.quiet} disabled={busy} onClick={onOther}>Andere Adresse eingeben</Button>
+      <Button variant="secondary" className={styles.wide} loading={busy} onClick={() => void resend()}>Link noch einmal schicken</Button>
+      {children}
     </div>
   </>;
 }
@@ -115,31 +138,36 @@ export function EmailOffer({ token, shop, onSent, onClose, reload }: { token: st
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { text: status, live, announce } = useCardStatus("email-offer");
+  const ref = useStepFocus(sent);
   async function decline() {
     setBusy(true); setError("");
     try { await postJson(`/api/card/${encodeURIComponent(token)}/contact/marketing`, { granted: false }); onClose(); void reload().catch(() => {}); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : SEND_FAILED); }
+    catch (cause) { setError(sendError(cause)); }
     finally { setBusy(false); }
   }
-  if (sent) return <section className={styles.offer} aria-label="Fast geschafft">
-    <h2 className={styles.title}>Fast geschafft</h2>
-    <Pending token={token} announce={announce} onOther={() => setSent(null)} text={<div className={styles.sent}><Mail size={18} aria-hidden="true" /><div className={styles.form}>
+  return <div ref={ref}>{sent ? <section className={styles.offer} aria-label="Fast geschafft">
+    <h2 className={styles.title} tabIndex={-1} data-focus>Fast geschafft</h2>
+    <div className={styles.sent}><Mail size={18} aria-hidden="true" /><div className={styles.form}>
       <p className={styles.text}>Wir haben dir einen Link an <strong>{sent.address}</strong> geschickt.</p>
       {sentLines(sent.ticked, true)}
-    </div></div>} />
-    <CardStatusLine text={status} live={live} className={styles.muted} />
-  </section>;
-  return <section className={styles.offer} aria-label="Erinnerungen per E-Mail?">
+    </div></div>
+    <Resend token={token} marketing={sent.ticked} expired={false} announce={announce}>
+      <Button variant="quiet" size="sm" className={styles.quiet} onClick={() => setSent(null)}>Andere Adresse eingeben</Button>
+    </Resend>
+    {/* The visible text above already says it; the status region only announces. */}
+    <CardStatusLine text={status} live={live} className={styles.srOnly} />
+  </section> : <section className={styles.offer} aria-label="Erinnerungen per E-Mail?">
     <h2 className={styles.title}>Erinnerungen per E-Mail?</h2>
     <p className={styles.muted}>{shop.shop} sagt dir Bescheid, wenn deine Prämie bereitliegt oder du länger nicht da warst. Freiwillig: Deine Karte funktioniert ohne E-Mail genauso.</p>
     <AddressForm token={token} shop={shop} consent onSent={(address, ticked) => { setSent({ address, ticked }); onSent(); announce(SENT); void reload().catch(() => {}); }} />
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <Button variant="quiet" size="sm" className={styles.quiet} disabled={busy} onClick={() => void decline()}>Nein, danke</Button>
-  </section>;
+  </section>}</div>;
 }
 
 /** K06–K09c and, while marketing mail is off, K17–K19: the sheet behind the row. */
 export function EmailSheet({ token, shop, status, reload, open, onClose }: { token: string; shop: Shop; status: EmailStatus; reload: () => Promise<void>; open: boolean; onClose: () => void }) {
+  const tickId = useId();
   const [step, setStep] = useState<"view" | "change" | "remove">("view");
   const [sent, setSent] = useState<{ address: string; ticked: boolean } | null>(null);
   const [tick, setTick] = useState(false);
@@ -147,27 +175,30 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { text: message, live, announce } = useCardStatus("email-sheet");
+  const ref = useStepFocus(`${step}-${Boolean(sent)}`);
   const marketing = status.marketingAvailable;
   const title = emailRow(status).title;
   const url = `/api/card/${encodeURIComponent(token)}/contact`;
   const close = () => { setStep("view"); setSent(null); setTickError(""); setError(""); onClose(); };
+  // Focus the box once its error line exists, so the error is read with it (E36).
+  useEffect(() => { if (tickError) document.getElementById(tickId)?.focus(); }, [tickError, tickId]);
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true); setError("");
     try { await action(); await reload(); announce(done); }
-    catch (cause) { setError(cause instanceof ClientApiError && (cause.status === 429 || cause.code === "CONSENT_TEXT_CHANGED") ? cause.message : cause instanceof Error ? cause.message : SEND_FAILED); }
+    catch (cause) { setError(sendError(cause)); }
     finally { setBusy(false); }
   }
   function setUp() {
-    if (!tick) { setTickError(`Setze das Häkchen, wenn du E-Mails von ${shop.shop} bekommen möchtest.`); document.getElementById("card-email-tick")?.focus(); return; }
+    if (!tick) { setTickError(`Setze das Häkchen, wenn du E-Mails von ${shop.shop} bekommen möchtest.`); return; }
     setTickError("");
-    void run(async () => { await postJson(url, { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION }); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT);
+    void run(async () => { await postJson(url, linkRequest(true)); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT);
   }
   const onSent = (address: string, ticked: boolean) => { setSent({ address, ticked }); setStep("view"); announce(SENT); void reload().catch(() => {}); };
 
   let body: ReactNode;
   if (step === "remove") body = <div className={styles.row}>
-    <p className={styles.text}><strong>Adresse entfernen?</strong> Deine Karte bleibt nutzbar.</p>
+    <p className={styles.text} tabIndex={-1} data-focus><strong>Adresse entfernen?</strong> Deine Karte bleibt nutzbar.</p>
     {status.marketingEmail && <p className={styles.muted}>Nachrichten von {shop.shop} bekommst du dann auch nicht mehr.</p>}
     <p className={styles.muted}>Ohne Adresse kannst du die Karte nicht mehr per E-Mail wiederfinden.</p>
     <Button variant="secondary" size="sm" loading={busy} onClick={() => void run(async () => { await apiJson(url, { method: "DELETE" }); setStep("view"); }, "Adresse entfernt.")}>Adresse entfernen</Button>
@@ -175,44 +206,56 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
   </div>;
   else if (step === "change" || !status.contactPresent) body = <>
     {!status.contactPresent && <p className={styles.muted}>{marketing ? `${shop.shop} sagt dir Bescheid, wenn deine Prämie bereitliegt oder du länger nicht da warst. Freiwillig: Deine Karte funktioniert ohne E-Mail genauso.` : "Mit einer bestätigten E-Mail-Adresse findest du deine Karte wieder, falls du diesen Link verlierst."}</p>}
-    <AddressForm token={token} shop={shop} consent={marketing} initialTick={false} onSent={onSent} />
+    {open && <AddressForm token={token} shop={shop} consent={marketing} onSent={onSent} />}
     {step === "change" && <Button variant="quiet" size="sm" className={styles.quiet} onClick={() => setStep("view")}>Abbrechen</Button>}
   </>;
-  else if (sent || !status.emailVerified || status.pending) {
-    // Pending: the typed address right after sending in this sheet, masked on every later view.
+  else if (!status.emailVerified) {
+    // An unconfirmed address: the typed address right after sending in this sheet, masked on every later view.
     const ticked = sent ? sent.ticked : status.pending === "marketing";
     const expired = !sent && (status.linkExpired || !status.pending);
     body = <div className={styles.row}>
-      <strong>{sent?.address || status.maskedEmail}</strong>
-      <Pending token={token} announce={announce} onOther={() => { setSent(null); setStep("change"); }} text={expired
+      <strong tabIndex={-1} data-focus>{sent?.address || status.maskedEmail}</strong>
+      {expired
         ? <p className={styles.text}>Der Link ist abgelaufen. Fordere einen neuen an, er gilt 30 Minuten.</p>
-        : <p className={styles.text}>Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, {ticked ? "bekommst du Nachrichten" : "ist deine Adresse bestätigt"}.</p>} />
+        : <p className={styles.text}>Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, {ticked ? "bekommst du Nachrichten" : "ist deine Adresse bestätigt"}.</p>}
+      <Resend token={token} marketing={ticked} expired={expired} announce={announce} onDone={() => void reload().catch(() => {})}>
+        <Button variant="quiet" size="sm" className={styles.quiet} onClick={() => { setSent(null); setStep("change"); }}>Andere Adresse eingeben</Button>
+      </Resend>
       <Button variant="quiet" size="sm" disabled={busy} onClick={() => setStep("remove")}>Adresse entfernen</Button>
     </div>;
-  } else body = <>
-    <div className={styles.row}>
-      <strong>{status.maskedEmail}</strong>
-      <p className={styles.muted}>Bestätigt · zum Wiederfinden der Karte</p>
-      <Button variant="secondary" size="sm" disabled={busy} onClick={() => setStep("change")}>Ändern</Button>
-    </div>
-    {marketing ? <div className={styles.row}>
-      <strong>Nachrichten von {shop.shop}</strong>
-      <p className={styles.muted}>Angebote, Neuigkeiten, Erinnerungen</p>
-      {status.marketingEmail ? <>
-        <p className={styles.on}><Check size={16} aria-hidden="true" /> An{status.marketingSince ? ` · seit ${since(status.marketingSince)}` : ""}</p>
-        <Button variant="secondary" size="sm" loading={busy} onClick={() => void run(() => postJson(`${url}/marketing`, { granted: false }), "Abbestellt. Deine Adresse zum Wiederfinden der Karte bleibt.")}>Abbestellen</Button>
-      </> : <>
-        <p className={styles.off}>Aus</p>
-        <Checkbox id="card-email-tick" checked={tick} aria-describedby={tickError ? "card-email-tick-error" : undefined} onChange={event => { setTick(event.target.checked); setTickError(""); }}>{consentLead(shop)}<Link href="/datenschutz">Mehr in den Datenschutzhinweisen.</Link></Checkbox>
-        {tickError && <p id="card-email-tick-error" className={styles.error}>{tickError}</p>}
-        <Button variant="secondary" size="sm" loading={busy} onClick={setUp}>Einrichten</Button>
-      </>}
-    </div> : <p className={styles.muted}>Mit dieser Adresse findest du deine Karte unter {status.recoverUrl} wieder.</p>}
-    <Button variant="quiet" size="sm" className={styles.quiet} disabled={busy} onClick={() => setStep("remove")}>Adresse entfernen</Button>
-  </>;
+  } else {
+    // A confirmed address always shows K06/K07; an open messages link lives in the messages row, and „Einrichten“ returns once it expires.
+    const linkOpen = !status.marketingEmail && (sent?.ticked === true || (status.pending === "marketing" && !status.linkExpired));
+    const linkExpired = !status.marketingEmail && !sent && status.pending === "marketing" && status.linkExpired;
+    body = <>
+      <div className={styles.row}>
+        <strong tabIndex={-1} data-focus>{status.maskedEmail}</strong>
+        <p className={styles.muted}>Bestätigt · zum Wiederfinden der Karte</p>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => setStep("change")}>Ändern</Button>
+      </div>
+      {marketing ? <div className={styles.row}>
+        <strong>Nachrichten von {shop.shop}</strong>
+        <p className={styles.muted}>Angebote, Neuigkeiten, Erinnerungen</p>
+        {status.marketingEmail ? <>
+          <p className={styles.on}><Check size={16} aria-hidden="true" /> An{status.marketingSince ? ` · seit ${since(status.marketingSince)}` : ""}</p>
+          <Button variant="secondary" size="sm" loading={busy} onClick={() => void run(() => postJson(`${url}/marketing`, { granted: false }), "Abbestellt. Deine Adresse zum Wiederfinden der Karte bleibt.")}>Abbestellen</Button>
+        </> : linkOpen ? <>
+          <p className={styles.text}>Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, bekommst du Nachrichten.</p>
+          <Resend token={token} marketing expired={false} announce={announce} onDone={() => void reload().catch(() => {})} />
+        </> : <>
+          <p className={styles.off}>Aus</p>
+          {linkExpired && <p className={styles.text}>Der Link ist abgelaufen. Fordere einen neuen an, er gilt 30 Minuten.</p>}
+          <ConsentBox shop={shop} id={tickId} checked={tick} invalid={Boolean(tickError)} describedBy={tickError ? `${tickId}-error` : undefined} onChange={checked => { setTick(checked); setTickError(""); }} />
+          {tickError && <p id={`${tickId}-error`} role="alert" className={styles.error}>{tickError}</p>}
+          <Button variant="secondary" size="sm" loading={busy} onClick={setUp}>Einrichten</Button>
+        </>}
+      </div> : <p className={styles.muted}>Mit dieser Adresse findest du deine Karte unter {status.recoverUrl} wieder.</p>}
+      <Button variant="quiet" size="sm" className={styles.quiet} disabled={busy} onClick={() => setStep("remove")}>Adresse entfernen</Button>
+    </>;
+  }
 
   return <Sheet open={open} onClose={close} title={title}>
-    <div className={styles.form}>
+    <div ref={ref} className={styles.form}>
       {body}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       <CardStatusLine text={message} live={live} className={styles.muted} />

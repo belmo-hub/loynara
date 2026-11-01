@@ -50,7 +50,7 @@ export default function VerifyEmailPage() {
   const invalid = state === "invalid";
   if (state === "verified" && result?.marketing) return <CustomerState merchant={result.shopName} brandColor={result.brandColor} title="Du bist dabei!" focusTitle
     message={`Ab jetzt bekommst du von ${result.shopName} Angebote, Neuigkeiten und Erinnerungen per E-Mail. Abbestellen kannst du jederzeit auf deiner Karte oder mit einem Klick in jeder E-Mail.`}>
-    <p className={styles.tip}>Tipp: Speicher dir deine Karte als Lesezeichen oder in deiner Wallet, dann hast du sie beim nächsten Besuch sofort griffbereit.</p>
+    <p className={styles.tip}><strong>Tipp</strong><span>Speicher dir deine Karte als Lesezeichen oder in deiner Wallet, dann hast du sie beim nächsten Besuch sofort griffbereit.</span></p>
   </CustomerState>;
   const title = state === "verified" ? "E-Mail bestätigt" : invalid ? "Dieser Link gilt nicht mehr" : "E-Mail-Adresse bestätigen";
   const message = state === "checking" ? "Bitte warte, während wir den einmaligen Link prüfen."

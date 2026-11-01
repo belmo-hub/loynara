@@ -14,3 +14,7 @@
 .row strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .on { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-success); }
 .off { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+/* Send buttons span the column on phones, natural width from the two-column layout up (PR-CHECKLIST §6). */
+.wide { justify-self: stretch; }
+@media (min-width: 960px) { .wide { justify-self: start; } }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

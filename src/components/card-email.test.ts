@@ -1,7 +1,7 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { EmailOffer, EmailSheet, emailRow, type EmailStatus } from "./card-email";
+import { EmailOffer, EmailSheet, emailRow, linkRequest, type EmailStatus } from "./card-email";
 import { CustomerCard } from "./customer/customer-card";
 
 const none: EmailStatus = { available: true, marketingAvailable: true, contactPresent: false, emailVerified: false, marketingEmail: false, maskedEmail: null, pending: null, linkExpired: false, marketingSince: null, recoverUrl: "app.test/recover", offer: true };
@@ -60,7 +60,7 @@ describe("the sheet (K06–K09c, K17–K19)", () => {
     const out = sheet(verified);
     expect(out).toContain("Aus");
     expect(out).toContain("Einrichten");
-    expect(out).toContain('id="card-email-tick"');
+    expect(out).toContain('type="checkbox"');
   });
   it("is neutral while the link is open, and says when it expired (K09, K09b, K09c)", () => {
     expect(sheet(pending)).toContain("Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, bekommst du Nachrichten.");
@@ -85,5 +85,36 @@ describe("the recovery sheet's fourth way (E39)", () => {
     const base = { businessName: "Café Lindenblatt", locationName: "Kassel Mitte", programType: "stamps" as const, balance: 1, rewards: [] };
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, recoverUrl: "app.test/recover" }))).toContain("Oder gib unter app.test/recover deine bestätigte E-Mail-Adresse ein.");
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("/recover deine");
+  });
+});
+
+describe("Design round 1 (FIX)", () => {
+  it("resends with the consent it was asked with, never as a recovery-only link (blocking 1)", () => {
+    expect(linkRequest(true)).toEqual({ marketing: true, noticeVersion: "email-consent-2026-11-01-v1" });
+    expect(linkRequest(false)).toEqual({});
+  });
+  it("keeps a confirmed address in K06 while its messages link is open, and brings „Einrichten“ back once it expired (blocking 2)", () => {
+    const open = sheet({ ...verified, pending: "marketing" });
+    expect(open).toContain("Bestätigt · zum Wiederfinden der Karte");
+    expect(open).toContain("Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, bekommst du Nachrichten.");
+    expect(open).toContain("Link noch einmal schicken");
+    expect(open).not.toContain("Einrichten");
+    const expired = sheet({ ...verified, pending: "marketing", linkExpired: true });
+    expect(expired).toContain("Bestätigt · zum Wiederfinden der Karte");
+    expect(expired).toContain("Der Link ist abgelaufen. Fordere einen neuen an, er gilt 30 Minuten.");
+    expect(expired).toContain("Einrichten");
+  });
+  it("gives every id on the card once, with the offer and the closed sheet side by side (blocking 3)", () => {
+    const out = renderToStaticMarkup(h("div", null,
+      h(EmailOffer, { token: "t", shop, onSent: () => {}, onClose: () => {}, reload: async () => {} }),
+      h(EmailSheet, { token: "t", shop, status: none, reload: async () => {}, open: false, onClose: () => {} }),
+      h(EmailSheet, { token: "t", shop, status: verified, reload: async () => {}, open: true, onClose: () => {} })));
+    const ids = [...out.matchAll(/ id="([^"]+)"/g)].map(match => match[1]);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("hides the spam line under an expired link", () => {
+    expect(sheet({ ...pending, linkExpired: true })).not.toContain("Spam-Ordner");
+    expect(sheet(pending)).toContain("Spam-Ordner");
   });
 });
