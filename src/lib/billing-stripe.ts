@@ -131,12 +131,13 @@ export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.get
 
 /**
  * Legal (1 Nov): a cancellation that reached us by the last free day (Berlin, until 23:59) ends on the later of that day and
- * the request day + 14, so customers see the end at least 14 days ahead, and is never charged. The business's earliest
- * request counts; null when there is no free month or no request inside it.
+ * the request day + 14, so customers see the end at least 14 days ahead, and is never charged. The earliest request among the
+ * business's running programmes counts (an ended location's old request doesn't, review R-3); null when there is no free
+ * month or no request inside it.
  */
 async function freeMonthRequestEnd(executor: Pick<Transaction, "select">, sub: { tenantId: string; freeUntil: Date | null }) {
   if (!sub.freeUntil) return null;
-  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs).where(eq(programs.tenantId, sub.tenantId));
+  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs).where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active")));
   if (!row?.requested) return null;
   const day = berlinDay(new Date(row.requested));
   const lastFree = lastFreeDay(sub.freeUntil);

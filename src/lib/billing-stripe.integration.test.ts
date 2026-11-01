@@ -673,6 +673,16 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     expect(endCalls(s.subscriptionId)).toHaveLength(1);
   });
 
+  it("a go-live on the 31st bills on the shorter month's last day: 27 February ends a billing month, 28 February doesn't (G1d)", async () => {
+    const s = await shop();
+    const goLive = new Date("2026-12-31T10:00:00Z");
+    stripe.clock.now = goLive;
+    await startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, billing: { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel", email: "rechnung@example.test" }, at: goLive });
+    await expect(confirm(s, s.programId, "2027-02-28", new Date("2027-01-05T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2027-03-30") });
+    await confirm(s, s.programId, "2027-02-27", new Date("2027-01-05T10:00:00Z"));
+    expect((await programme(s.programId)).cancellationEndDate).toBe("2027-02-27");
+  });
+
   it("refuses a confirmed end that isn't the last day of a billing month, naming the next valid day (G-1)", async () => {
     const s = await subscribed();
     for (const execute of [false, true]) {
@@ -863,6 +873,23 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       await expect(confirm(s, s.programId, "2026-12-29", new Date("2026-12-15T11:00:00Z"))).rejects.toMatchObject({ message: expect.stringContaining("2027-01-09") });
       await confirm(s, s.programId, "2027-01-09", new Date("2026-12-15T11:00:00Z"));
       expect(endCalls(s.subscriptionId)).toEqual([]);
+    });
+
+    it("an ended location's old request doesn't count (review R-3); the earliest running request does (F6)", async () => {
+      const s = await live();
+      const second = await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
+      await db.update(programs).set({ status: "ended", cancellationEndDate: "2026-10-31", cancellationConfirmedAt: new Date("2026-10-15T10:00:00Z"), cancellationRequestedAt: new Date("2026-10-15T10:00:00Z") }).where(eq(programs.id, second.programId));
+      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-04T10:00:00Z") });
+      await confirm(s, s.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+      // Two running locations: the earliest request inside the free month counts, a later one after it doesn't.
+      const t = await live();
+      const third = await createAdditionalLocation(t.ownerId, { name: "Third counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Third card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
+      await requested(t.programId, "2026-12-04T10:00:00Z");
+      await requested(third.programId, "2026-12-15T10:00:00Z");
+      await confirm(t, t.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
+      await confirm(t, third.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
+      expect(endCalls(t.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
 
     it("„Gekündigt im kostenlosen Monat“ late in the month proposes request day + 14", async () => {
