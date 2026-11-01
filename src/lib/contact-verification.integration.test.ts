@@ -6,7 +6,7 @@ import { consentEvents, contactVerificationChallenges, membershipContacts, membe
 import { createMerchant, enroll, getCard } from "./product";
 import { closeCard } from "./card-lifecycle";
 import { verificationTokenForChallenge } from "./contact-token";
-import { contactStatus, consumeContactVerification, requestContactVerification, withdrawEmailMarketing } from "./contact-verification";
+import { contactStatus, consumeContactVerification, removeRecoveryEmail, requestContactVerification, withdrawEmailMarketing } from "./contact-verification";
 import { EMAIL_CONSENT_TEXT_VERSION, EMAIL_CONSENT_TEXTS, emailConsentText } from "./email-consent-text";
 import { deliverVerificationEmail } from "./contact-verification-delivery";
 import type { LocalMessage } from "./email";
@@ -239,6 +239,50 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(refused.status).toBe(429);
     expect(await refused.json()).toMatchObject({ code: "RATE_LIMIT" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toHaveLength(4);
+  });
+
+  it("caps confirmation mails per address at 8 a day, over and above the hourly 4 (D15)", async () => {
+    const { member } = await card();
+    await pool.query("DELETE FROM rate_limits");
+    const post = (body: unknown) => contactRoute(new Request(`http://localhost:3000/api/card/${member.cardToken}/contact`, {
+      method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body),
+    }), { params: Promise.resolve({ token: member.cardToken }) });
+    // Ends every window shorter than two hours (the hourly ones), so only the day cap is left counting.
+    const nextHour = () => pool.query("UPDATE rate_limits SET reset_at = now() - interval '1 second' WHERE reset_at < now() + interval '2 hours'");
+    expect((await post({ email: `daily-${randomUUID()}@example.test` })).status).toBe(200);
+    for (let resend = 0; resend < 3; resend++) expect((await post({})).status).toBe(200);
+    await nextHour();
+    for (let resend = 0; resend < 4; resend++) expect((await post({})).status).toBe(200);
+    await nextHour();
+    const refused = await post({});
+    expect(refused.status).toBe(429);
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toHaveLength(8);
+  });
+
+  it("ends every earlier link with a new request, so an old marketing link cannot grant after a recovery-only one (D5)", async () => {
+    const { member } = await card();
+    await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
+    const old = await mail(member.id);
+    await db.delete(outboxJobs);
+    await requestContactVerification(member.cardToken, "guest@example.test");
+    await expect(consumeContactVerification(old.token)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
+    expect(await db.select().from(consentEvents)).toHaveLength(0);
+  });
+
+  it("refuses a link once the card's address changed underneath it (D9)", async () => {
+    const { member } = await card();
+    await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
+    const { token } = await mail(member.id);
+    await db.update(membershipContacts).set({ email: "someone-else@example.test" }).where(eq(membershipContacts.membershipId, member.id));
+    await expect(consumeContactVerification(token)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
+    expect(await db.select().from(consentEvents)).toHaveLength(0);
+  });
+
+  it("writes this card's marketing withdrawal, in its own tenant, when the address is removed (D7, ENG-170)", async () => {
+    const { member, merchant } = await card();
+    await removeRecoveryEmail(member.cardToken);
+    expect(await db.select({ tenantId: consentEvents.tenantId, membershipId: consentEvents.membershipId, granted: consentEvents.granted, source: consentEvents.source, channel: consentEvents.channel, purpose: consentEvents.purpose }).from(consentEvents))
+      .toEqual([{ tenantId: merchant.tenantId, membershipId: member.id, granted: false, source: "contact_removed", channel: "email", purpose: "marketing" }]);
   });
 
   it("spends no recipient budget on a closed card's resend", async () => {

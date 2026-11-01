@@ -58,12 +58,12 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
     finally { setBusy(false); }
   }
 
-  async function preference(granted: boolean) {
+  async function preference(granted: false) {
     setBusy(true); setAction("preference"); setError(""); setMessage("");
     try {
       const result = await postJson<{ marketingEmail: boolean }>(`/api/card/${encodeURIComponent(token)}/contact/marketing`, { granted });
       setStatus(current => current && ({ ...current, marketingEmail: result.marketingEmail }));
-      setMessage(granted ? status?.marketingExternal ? french ? "Courriels d'offres activés. Désabonnement possible ici." : "E-Mail-Angebote aktiviert. Hier jederzeit abbestellbar." : french ? "Courriels de test locaux activés." : "Lokale Test-E-Mails aktiviert." : french ? "Désabonné." : "Abbestellt.");
+      setMessage(french ? "Désabonné." : "Abbestellt.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : french ? "Préférence non enregistrée." : "Einstellung konnte nicht gespeichert werden."); }
     finally { setBusy(false); setAction(null); }
   }
@@ -88,9 +88,10 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
       {recoveryOnly && <Button variant="quiet" size="sm" disabled={busy} onClick={() => setDeferred(true)}>{french ? "Plus tard" : "Später"}</Button>}
     </>}
     {status.contactPresent && <p className={styles.state}>{status.emailVerified ? french ? "Adresse vérifiée." : "Adresse bestätigt." : french ? "Adresse non vérifiée ; aucun message marketing." : "Adresse noch nicht bestätigt; keine Marketing-Nachrichten."}</p>}
-    {!recoveryOnly && status.emailVerified && (status.marketingAvailable || status.marketingEmail) && <div className={styles.preference}>
-      <p className={styles.muted}>{status.marketingExternal ? french ? "Choix séparé : recevoir des offres de ce commerce par e-mail. Désabonnement possible à tout moment." : "Separate Einwilligung: E-Mail-Angebote dieses Geschäfts erhalten. Du kannst sie jederzeit abbestellen." : status.marketingAvailable ? french ? "Choix séparé pour les courriels marketing de test. Les messages restent dans la boîte locale." : "Separate Einwilligung für lokale Test-Marketing-E-Mails. Nachrichten bleiben im lokalen Test-Postfach." : french ? "Vous pouvez désactiver les offres par e-mail sans perdre votre carte ni votre adresse de récupération." : "Du kannst E-Mail-Angebote abbestellen. Karte und Wiederherstellungsadresse bleiben erhalten."}</p>
-      <Button variant="secondary" size="sm" loading={action === "preference"} disabled={busy && action !== "preference"} onClick={() => void preference(!status.marketingEmail)}>{status.marketingEmail ? french ? "Se désabonner" : "E-Mail-Marketing abbestellen" : french ? "Accepter les courriels d'offres" : "E-Mail-Angebote aktivieren"}</Button>
+    {/* ENG-165 N-1: granting goes only through the confirmation link now, so this panel (French cards, no new copy) only withdraws. */}
+    {!recoveryOnly && status.emailVerified && status.marketingEmail && <div className={styles.preference}>
+      <p className={styles.muted}>{french ? "Vous pouvez désactiver les offres par e-mail sans perdre votre carte ni votre adresse de récupération." : "Du kannst E-Mail-Angebote abbestellen. Karte und Wiederherstellungsadresse bleiben erhalten."}</p>
+      <Button variant="secondary" size="sm" loading={action === "preference"} disabled={busy && action !== "preference"} onClick={() => void preference(false)}>{french ? "Se désabonner" : "E-Mail-Marketing abbestellen"}</Button>
     </div>}
     {!recoveryOnly && status.available && status.contactPresent && <Button variant="quiet" size="sm" disabled={busy} onClick={() => void remove()}>{french ? "Supprimer l’adresse de récupération" : "Wiederherstellungsadresse entfernen"}</Button>}
     {status.available && <p className={styles.link}><Link href="/recover">{french ? "Lien perdu ? Retrouver la carte" : "Kartenlink verloren? Karte wiederfinden"}</Link></p>}

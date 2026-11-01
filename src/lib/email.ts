@@ -55,22 +55,6 @@ export async function queueMarketingEmail(raw: z.input<typeof messageInput>): Pr
   });
 }
 
-export async function withdrawMarketingConsent(cardToken: string): Promise<void> {
-  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  await db.transaction(async (tx) => {
-    const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
-    if (!member) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-    await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: false, noticeVersion: "2026-09", source: "card_preferences" });
-  });
-}
-
-export async function getMarketingPreference(cardToken: string): Promise<{ marketingEmail: boolean }> {
-  if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  const [member] = await db.select().from(memberships).where(eq(memberships.cardToken, cardToken)).limit(1);
-  if (!member) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  return { marketingEmail: await latestMarketingConsent(member.tenantId, member.id) };
-}
-
 export async function sendLocalMailpit(message: LocalMessage) {
   // Local capture only. An isolated task may choose another loopback Mailpit port.
   const origin = new URL(process.env.MAILPIT_HTTP_ORIGIN ?? "http://127.0.0.1:8026");

@@ -1,4 +1,5 @@
 import { createElement as h } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmailOffer, EmailSheet, emailRow, linkRequest, type EmailStatus } from "./card-email";
@@ -116,5 +117,26 @@ describe("Design round 1 (FIX)", () => {
   it("hides the spam line under an expired link", () => {
     expect(sheet({ ...pending, linkExpired: true })).not.toContain("Spam-Ordner");
     expect(sheet(pending)).toContain("Spam-Ordner");
+  });
+});
+
+describe("French cards' old panel (Reviewer N-1)", () => {
+  it("only withdraws: granting goes through the confirmation link, which has no French copy yet", () => {
+    const source = readFileSync("src/components/card-contact.tsx", "utf8");
+    expect(source).toContain("status.emailVerified && status.marketingEmail && <div");
+    expect(source).toContain("onClick={() => void preference(false)}");
+    expect(source).not.toContain("preference(!status.marketingEmail)");
+  });
+});
+
+describe("the „Einrichten“ box starts unticked every time (Legal; Design round 2)", () => {
+  it("is not kept by a closed sheet and appears unticked when „Einrichten“ comes back", () => {
+    // The box lives in its own component, mounted only while the sheet is open and „Einrichten“ shows: closing the
+    // sheet or an open link unmounts it, so no tick survives to the next time it appears.
+    const closed = renderToStaticMarkup(h(EmailSheet, { token: "t", shop, status: verified, reload: async () => {}, open: false, onClose: () => {} }));
+    expect(closed).not.toContain('type="checkbox"');
+    expect(sheet({ ...verified, pending: "marketing" })).not.toContain('type="checkbox"');
+    const back = sheet({ ...verified, pending: "marketing", linkExpired: true });
+    expect(back).toMatch(/<input type="checkbox"(?![^>]*checked)[^>]*>/);
   });
 });

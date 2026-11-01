@@ -1,12 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { membershipContacts } from "@/db/schema";
+import { consentEvents, membershipContacts, memberships } from "@/db/schema";
 import { createMerchant, enroll, getCard } from "./product";
-import { getMarketingPreference } from "./email";
 import { createUnsubscribeToken, unsubscribeMarketing } from "./unsubscribe";
 import { POST } from "@/app/api/unsubscribe/route";
+
+// The card's latest e-mail marketing choice (the old card preference route is gone, ENG-165 N-3).
+async function getMarketingPreference(cardToken: string) {
+  const [row] = await db.select({ granted: consentEvents.granted }).from(consentEvents)
+    .innerJoin(memberships, and(eq(memberships.tenantId, consentEvents.tenantId), eq(memberships.id, consentEvents.membershipId)))
+    .where(and(eq(memberships.cardToken, cardToken), eq(consentEvents.channel, "email"), eq(consentEvents.purpose, "marketing")))
+    .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id)).limit(1);
+  return { marketingEmail: row?.granted === true };
+}
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Unsubscribe tests require looplocal_test");
 beforeEach(async () => {

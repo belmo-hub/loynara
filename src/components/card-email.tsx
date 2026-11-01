@@ -31,6 +31,8 @@ const since = (iso: string) => new Date(iso).toLocaleString("de-DE", { day: "num
 // The server's own German text (rate limit, e-mail off, changed consent text); anything else is a failed send.
 const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || (cause.code !== undefined && GERMAN_SERVER_TEXT.has(cause.code))) ? cause.message : SEND_FAILED;
 /** What a confirmation link asks for: with the consent it carries the box text's version, or the resend would turn it into a recovery-only link. */
+// A failed setting (decline, unsubscribe, remove) sent nothing: the server's line or the client's failure text, never "not sent".
+const actionError = (cause: unknown) => cause instanceof Error ? cause.message : "Die Einstellung konnte nicht gespeichert werden.";
 export const linkRequest = (marketing: boolean) => marketing ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {};
 
 /** Moves focus to the step's `[data-focus]` element whenever `step` changes, so it never falls back to the page. */
@@ -142,7 +144,7 @@ export function EmailOffer({ token, shop, onSent, onClose, reload }: { token: st
   async function decline() {
     setBusy(true); setError("");
     try { await postJson(`/api/card/${encodeURIComponent(token)}/contact/marketing`, { granted: false }); onClose(); void reload().catch(() => {}); }
-    catch (cause) { setError(sendError(cause)); }
+    catch (cause) { setError(actionError(cause)); }
     finally { setBusy(false); }
   }
   return <div ref={ref}>{sent ? <section className={styles.offer} aria-label="Fast geschafft">
@@ -165,13 +167,27 @@ export function EmailOffer({ token, shop, onSent, onClose, reload }: { token: st
   </section>}</div>;
 }
 
-/** K06–K09c and, while marketing mail is off, K17–K19: the sheet behind the row. */
-export function EmailSheet({ token, shop, status, reload, open, onClose }: { token: string; shop: Shop; status: EmailStatus; reload: () => Promise<void>; open: boolean; onClose: () => void }) {
-  const tickId = useId();
-  const [step, setStep] = useState<"view" | "change" | "remove">("view");
-  const [sent, setSent] = useState<{ address: string; ticked: boolean } | null>(null);
+/**
+ * „Einrichten“ for a confirmed address. Its own component so the box starts unticked every time it appears (Legal): it
+ * mounts only while the sheet is open and the button shows, so neither closing the sheet nor an expired link keeps a tick.
+ */
+function SetUp({ shop, busy, onSend }: { shop: Shop; busy: boolean; onSend: () => void }) {
+  const id = useId();
   const [tick, setTick] = useState(false);
   const [tickError, setTickError] = useState("");
+  // Focus the box once its error line exists, so the error is read with it (E36).
+  useEffect(() => { if (tickError) document.getElementById(id)?.focus(); }, [tickError, id]);
+  return <>
+    <ConsentBox shop={shop} id={id} checked={tick} invalid={Boolean(tickError)} describedBy={tickError ? `${id}-error` : undefined} onChange={checked => { setTick(checked); setTickError(""); }} />
+    {tickError && <p id={`${id}-error`} role="alert" className={styles.error}>{tickError}</p>}
+    <Button variant="secondary" size="sm" loading={busy} onClick={() => { if (tick) onSend(); else setTickError(`Setze das Häkchen, wenn du E-Mails von ${shop.shop} bekommen möchtest.`); }}>Einrichten</Button>
+  </>;
+}
+
+/** K06–K09c and, while marketing mail is off, K17–K19: the sheet behind the row. */
+export function EmailSheet({ token, shop, status, reload, open, onClose }: { token: string; shop: Shop; status: EmailStatus; reload: () => Promise<void>; open: boolean; onClose: () => void }) {
+  const [step, setStep] = useState<"view" | "change" | "remove">("view");
+  const [sent, setSent] = useState<{ address: string; ticked: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { text: message, live, announce } = useCardStatus("email-sheet");
@@ -179,21 +195,15 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
   const marketing = status.marketingAvailable;
   const title = emailRow(status).title;
   const url = `/api/card/${encodeURIComponent(token)}/contact`;
-  const close = () => { setStep("view"); setSent(null); setTickError(""); setError(""); onClose(); };
-  // Focus the box once its error line exists, so the error is read with it (E36).
-  useEffect(() => { if (tickError) document.getElementById(tickId)?.focus(); }, [tickError, tickId]);
+  const close = () => { setStep("view"); setSent(null); setError(""); onClose(); };
 
-  async function run(action: () => Promise<unknown>, done: string) {
+  async function run(action: () => Promise<unknown>, done: string, failure: (cause: unknown) => string = actionError) {
     setBusy(true); setError("");
     try { await action(); await reload(); announce(done); }
-    catch (cause) { setError(sendError(cause)); }
+    catch (cause) { setError(failure(cause)); }
     finally { setBusy(false); }
   }
-  function setUp() {
-    if (!tick) { setTickError(`Setze das Häkchen, wenn du E-Mails von ${shop.shop} bekommen möchtest.`); return; }
-    setTickError("");
-    void run(async () => { await postJson(url, linkRequest(true)); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT);
-  }
+  const setUp = () => void run(async () => { await postJson(url, linkRequest(true)); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT, sendError);
   const onSent = (address: string, ticked: boolean) => { setSent({ address, ticked }); setStep("view"); announce(SENT); void reload().catch(() => {}); };
 
   let body: ReactNode;
@@ -245,9 +255,7 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
         </> : <>
           <p className={styles.off}>Aus</p>
           {linkExpired && <p className={styles.text}>Der Link ist abgelaufen. Fordere einen neuen an, er gilt 30 Minuten.</p>}
-          <ConsentBox shop={shop} id={tickId} checked={tick} invalid={Boolean(tickError)} describedBy={tickError ? `${tickId}-error` : undefined} onChange={checked => { setTick(checked); setTickError(""); }} />
-          {tickError && <p id={`${tickId}-error`} role="alert" className={styles.error}>{tickError}</p>}
-          <Button variant="secondary" size="sm" loading={busy} onClick={setUp}>Einrichten</Button>
+          {open && <SetUp shop={shop} busy={busy} onSend={setUp} />}
         </>}
       </div> : <p className={styles.muted}>Mit dieser Adresse findest du deine Karte unter {status.recoverUrl} wieder.</p>}
       <Button variant="quiet" size="sm" className={styles.quiet} disabled={busy} onClick={() => setStep("remove")}>Adresse entfernen</Button>
