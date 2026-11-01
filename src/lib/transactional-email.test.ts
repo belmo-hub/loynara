@@ -359,14 +359,14 @@ it("records a provider unsubscribe for the sending job's shop only, and leaves r
   expect((await db.select().from(emailUnsubscribes)).some(row => row.tenantId === other.tenantId)).toBe(false);
 });
 
-it("migration 0048 moves an old global unsubscribe to the shop whose mail recorded it and drops one no mail ties to a shop", async () => {
+it("migration 0044 moves an old global unsubscribe to the shop whose mail recorded it and drops one no mail ties to a shop", async () => {
   const { queued } = await sentJob();
   await recordMailgunWebhook(signed("unsubscribed", queued.id));
   const [mapped, orphan, hard] = [recipientHash("holder@example.test"), recipientHash("orphan@example.test"), recipientHash("hard@example.test")];
   await db.delete(emailUnsubscribes);
   // The rows as the old code wrote them.
   await db.insert(emailSuppressions).values([{ recipientHash: mapped, reason: "unsubscribed" }, { recipientHash: orphan, reason: "unsubscribed" }, { recipientHash: hard, reason: "complained" }]);
-  const statements = readFileSync(join(process.cwd(), "drizzle/0048_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
+  const statements = readFileSync(join(process.cwd(), "drizzle/0044_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
   expect(statements).toHaveLength(3);
   for (const statement of statements) await pool.query(statement);
   expect(await db.select().from(emailUnsubscribes)).toEqual([expect.objectContaining({ tenantId: queued.tenantId, recipientHash: mapped })]);
