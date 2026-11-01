@@ -113,9 +113,10 @@ function sendManaged(message: TransactionalMessage, provider: TransactionalEmail
 async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional"): Promise<PromotionalResult> {
   if (!provider) return { status: "blocked" as const, reason: "Email provider unavailable" };
   const hash = recipientHash(message.to);
-  // Only permanent failures and complaints are global; a shop's unsubscribe is checked by its campaigns and automations.
+  // Global rows: permanent failures and complaints, plus pre-ENG-170 unsubscribes no shop could be found for (marketing only).
+  // A shop's own unsubscribe is checked by its campaigns and automations. An unsubscribe never withdraws requested recovery mail.
   const [suppression] = await db.select().from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, recipientHashes(message.to)));
-  if (suppression) return { status: "suppressed" as const, reason: "Recipient suppressed" };
+  if (suppression && (purpose === "promotional" || suppression.reason !== "unsubscribed")) return { status: "suppressed" as const, reason: "Recipient suppressed" };
   const reservation = db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" });
   const sameRejectedDelivery = and(eq(emailDeliveries.jobId, message.jobId), eq(emailDeliveries.provider, provider.name),
     eq(emailDeliveries.recipientHash, hash), eq(emailDeliveries.status, "rate_limited"), isNull(emailDeliveries.providerMessageId));

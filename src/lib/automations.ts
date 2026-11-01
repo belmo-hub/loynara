@@ -103,7 +103,7 @@ async function eligibleContact(tx: Transaction, rule: Rule, membershipId: string
   const [unsubscribed] = await tx.select({ hash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, rule.tenantId), inArray(emailUnsubscribes.recipientHash, hashes))).limit(1);
   if (unsubscribed) return { reason: "Unsubscribed" };
   const [suppression] = await tx.select({ reason: emailSuppressions.reason }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes)).limit(1);
-  if (suppression) return { reason: "Address suppressed by provider" };
+  if (suppression) return { reason: suppression.reason === "unsubscribed" ? "Unsubscribed" : "Address suppressed by provider" };
   return { email: contact.email };
 }
 

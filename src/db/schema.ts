@@ -635,7 +635,8 @@ export const emailProviderEvents = pgTable("email_provider_events", {
 
 /**
  * Global, for every shop and every kind of mail: an address the provider reported as permanently failing or that complained.
- * Survives a shop's erasure; deleted 24 months after the last such event (ENG-170, Legal).
+ * Also "unsubscribed" rows from before ENG-170 that no shop's delivery explains: those block marketing only. Survives a shop's
+ * erasure; deleted 24 months after the last event (ENG-170, Legal).
  */
 export const emailSuppressions = pgTable("email_suppressions", {
   recipientHash: varchar("recipient_hash", { length: 64 }).primaryKey(),

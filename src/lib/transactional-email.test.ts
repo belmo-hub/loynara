@@ -359,9 +359,11 @@ it("records a provider unsubscribe for the sending job's shop only, and leaves r
   expect((await db.select().from(emailUnsubscribes)).some(row => row.tenantId === other.tenantId)).toBe(false);
 });
 
-it("migration 0044 moves an old global unsubscribe to the shop whose mail recorded it and drops one no mail ties to a shop", async () => {
-  const { queued } = await sentJob();
-  await recordMailgunWebhook(signed("unsubscribed", queued.id));
+it("migration 0044 moves an old global unsubscribe to every shop that mailed the address and keeps one no mail explains as a global marketing block", async () => {
+  // Shop A mailed holder@ and got the unsubscribe event; shop B mailed holder@ too, without one. Nobody mailed orphan@.
+  const { queued: a } = await sentJob();
+  await recordMailgunWebhook(signed("unsubscribed", a.id));
+  const { queued: b } = await sentJob();
   const [mapped, orphan, hard] = [recipientHash("holder@example.test"), recipientHash("orphan@example.test"), recipientHash("hard@example.test")];
   await db.delete(emailUnsubscribes);
   // The rows as the old code wrote them.
@@ -369,8 +371,13 @@ it("migration 0044 moves an old global unsubscribe to the shop whose mail record
   const statements = readFileSync(join(process.cwd(), "drizzle/0044_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
   expect(statements).toHaveLength(3);
   for (const statement of statements) await pool.query(statement);
-  expect(await db.select().from(emailUnsubscribes)).toEqual([expect.objectContaining({ tenantId: queued.tenantId, recipientHash: mapped })]);
-  expect((await db.select().from(emailSuppressions)).map(row => [row.recipientHash, row.reason])).toEqual([[hard, "complained"]]);
+  expect((await db.select().from(emailUnsubscribes)).map(row => [row.tenantId, row.recipientHash]).sort()).toEqual([[a.tenantId, mapped], [b.tenantId, mapped]].sort());
+  expect((await db.select().from(emailSuppressions)).map(row => [row.recipientHash, row.reason]).sort()).toEqual([[hard, "complained"], [orphan, "unsubscribed"]].sort());
+  // The kept orphan still blocks marketing, never requested recovery mail.
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const orphanMail = { to: "orphan@example.test", subject: "Synthetic", body: "Synthetic only" };
+  expect(await sendPromotional({ ...orphanMail, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+  expect(await sendTransactional({ ...orphanMail, jobId: (await job()).id }, provider)).toMatchObject({ status: "complete" });
 });
 
 it("keeps an address blocked through the switch to SUPPRESSION_HASH_SECRET and writes new rows under the new key (ENG-170)", async () => {
