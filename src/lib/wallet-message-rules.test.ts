@@ -100,6 +100,9 @@ describe("contentRefusal, shared with email campaigns and automations (ENG-163, 
     ["senkt den Blutdruck", "Heilversprechen"],
     ["Für Schüler: Cocktails zum halben Preis.", "Jugendliche"],
     ["Abi-Party: Shots für alle unter 18", "Jugendliche"],
+    // An exclusion ends at a colon: what follows it is the offer (Reviewer N-1).
+    ["Außer sonntags: Zigaretten 10 % günstiger", "Tabak"],
+    ["Für alle außer Kinder: neue E-Liquids", "Tabak"],
   ])("refuses %s", async (text, reason) => {
     const { contentRefusal } = await import("./wallet-message-rules");
     expect(contentRefusal(text)).toContain(reason);

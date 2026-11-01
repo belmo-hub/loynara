@@ -27,7 +27,8 @@ export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachr
 // must never be refused, so each rule looks for an advertising claim, not a bare word.
 const TOBACCO = /\btabak|\b(?:e-?)?zigarett|\bvap(?:e|es|ing)\b|\bsnus\b|\be-?liquids?\b/i;
 // „Nicht auf Tabak und Zeitschriften“, „außer Tabak“: an exclusion names tobacco without advertising it.
-const EXCLUSION = /\b(?:nicht\s+(?:auf|für)|außer|ausgenommen|ausgeschlossen)\b[^.!?;]*/gi;
+// It ends at the sentence's end or a colon, so „Außer sonntags: Zigaretten 10 % günstiger“ still names its offer (Reviewer N-1).
+const EXCLUSION = /\b(?:nicht\s+(?:auf|für)|außer|ausgenommen|ausgeschlossen)\b[^.!?;:]*/gi;
 const HEALTH = /\bheil(?:t|en|ung|end|mittel|versprechen)|\b(?:gegen|vor|bei)\s+(?:krebs|diabetes)\b|\b(?:krebs|diabetes)\s+(?:vorbeug|vermeid|verhinder|heil|bekämpf|linder)|gesundheitsfördernd|senkt\s+den\s+blutdruck/i;
 const ALCOHOL = /\balkohol|\bbier|bier\b|\b(?:glüh)?wein|\bsekt\b|\bschn(?:a|ä)ps|\bwhisk(?:e)?y\b|\b(?:w|v)odka\b|\blikör|\bcocktails?\b|(?<!espresso-?\s?)\bshots?\b/i;
 const MINORS = /\bjugendlich|\bminderjährig|\bteenager|\bschüler|\bunter\s*18\b/i;
