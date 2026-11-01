@@ -309,6 +309,13 @@
       "when": 1793353501977,
       "tag": "0043_dated_reward_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793502117557,
+      "tag": "0044_billing_ends_at",
+      "breakpoints": true
     }
   ]
 }

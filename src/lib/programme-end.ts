@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { cancellationEnd, EXPORT_DAYS_AFTER_END, germanDate } from "./programme-end-date";
+import { assertBillingMonthEnd, syncShopEnd } from "./billing-stripe";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "./operator-date";
 
@@ -41,13 +42,16 @@ export async function requestCancellation(input: { actorUserId: string; programS
 }
 
 export async function withdrawCancellation(input: { actorUserId: string; programSlug: string; now?: Date }) {
-  return db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
     const program = await ownerProgramme(tx, input.actorUserId, input.programSlug, input.now ?? new Date());
     if (program.status !== "active" || program.due) throw new DomainError("PROGRAM_ENDED", "Das Programm ist bereits beendet.");
     await tx.update(programs).set({ cancellationEndDate: null, cancellationConfirmedAt: null, cancellationRequestedAt: null }).where(eq(programs.id, program.id));
     await tx.insert(programmeCancellationEvents).values({ tenantId: program.tenantId, programId: program.id, action: "withdraw", actorUserId: input.actorUserId, oldEndDate: program.end, newEndDate: null });
-    return { endDate: null };
+    return { tenantId: program.tenantId };
   });
+  // ENG-125: the shop continues, so Stripe's end is cleared. The withdrawal stands even if Stripe fails; the daily billing job repairs it.
+  await syncShopEnd(result.tenantId, input.now).catch(error => console.error(`Billing: Stripe end not cleared for tenant ${result.tenantId} (${error instanceof Error && "code" in error ? String(error.code) : "error"}); the daily billing job retries`));
+  return { endDate: null };
 }
 
 /**
@@ -86,6 +90,11 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     // A day that has begun would end the programme within minutes; ending now is the `end` command.
     if (input.endDate < earliestEndDate(input.now ?? new Date())) throw new DomainError("END_DATE_TOO_EARLY", END_DATE_TOO_EARLY);
   }
+  if (input.command === "schedule") {
+    // G-1 (Legal): only the last day of a billing month, so the date can drive Stripe (read once, outside the lock).
+    const [shop] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, input.programId));
+    if (shop) await assertBillingMonthEnd(shop.tenantId, input.endDate!);
+  }
   const programme = await db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [row] = await tx.select({ id: programs.id, tenantId: programs.tenantId, name: programs.name, status: programs.status, end: programs.cancellationEndDate, confirmedAt: programs.cancellationConfirmedAt, requestedAt: programs.cancellationRequestedAt }).from(programs).where(eq(programs.id, input.programId)).for("update");
@@ -100,8 +109,14 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   if (input.command === "status") return { result: "status" as const, ...programme, state: programme.end === null ? "none" as const : programme.confirmedAt ? "confirmed" as const : "requested" as const };
   if (programme.status !== "active") return { result: "unchanged" as const, ...programme };
   if (!input.execute) return { result: `would_${input.command}` as const, ...programme, endDate: input.endDate };
-  if (input.command === "schedule") return { result: "schedule" as const, ...programme, endDate: input.endDate };
+  // ENG-125: a confirmed end moves Stripe's end with it. A Stripe failure reaches the operator; the date stands, and running the
+  // command again or the daily billing job finishes it.
+  if (input.command === "schedule") {
+    await syncShopEnd(programme.tenantId, input.now);
+    return { result: "schedule" as const, ...programme, endDate: input.endDate };
+  }
   const ended = await endProgramme({ programId: programme.id, actorUserId: input.actorUserId, force: true });
+  await syncShopEnd(programme.tenantId, input.now);
   return { result: ended ? "end" as const : "unchanged" as const, ...programme, unlinkedPlates: ended?.unlinkedPlates };
 }
 

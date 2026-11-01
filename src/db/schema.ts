@@ -882,6 +882,8 @@ export const subscriptions = pgTable("subscriptions", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   // ENG-123: the first paid moment (Stripe's first billing date) when billing started with the free month; null otherwise.
   freeUntil: timestamp("free_until", { withTimezone: true }),
+  // ENG-125: the moment Stripe was told to end the subscription because the operator confirmed the shop's end (#84); null while none is set.
+  billingEndsAt: timestamp("billing_ends_at", { withTimezone: true }),
 }, (t) => [
   check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
