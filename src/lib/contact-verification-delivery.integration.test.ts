@@ -53,7 +53,7 @@ describe("local verification delivery", () => {
     const link = message.body.match(/http:\/\/localhost:3000\/verify-email#token=(v_[A-Za-z0-9_-]{43})/);
     expect(link).not.toBeNull();
     // Legal (1 Nov): the sender and the Datenschutz link under every confirmation mail, the name from configuration.
-    expect(message.body.endsWith("\n\n--\nDiese E-Mail kommt von Synthetic Betreiber.\nDatenschutzhinweise: http://localhost:3000/datenschutz")).toBe(true);
+    expect(message.body.endsWith("\n\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von Synthetic Café.\nDatenschutzhinweise: http://localhost:3000/datenschutz")).toBe(true);
     const [challenge] = await db.select().from(contactVerificationChallenges);
     expect(challenge.tokenHash).toBe(verificationTokenHash(link![1]));
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, f.job.id));

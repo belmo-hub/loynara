@@ -98,7 +98,7 @@ export async function requestContactVerification(cardToken: string, rawEmail?: s
   const mode = emailTransportMode();
   if (mode === "disabled" || !operatorIdentity()) throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
   // The marketing link records which box text was ticked; an unknown or missing version is refused, never guessed.
-  if (marketing && !(consentVersion && Object.hasOwn(EMAIL_CONSENT_TEXTS, consentVersion))) throw new DomainError("INVALID_INPUT", "Bitte lade die Karte neu und setze das Häkchen noch einmal.");
+  if (marketing && !(consentVersion && Object.hasOwn(EMAIL_CONSENT_TEXTS, consentVersion))) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal.");
   if (marketing && promotionalEmailMode() === "disabled") throw new DomainError("CONTACT_DISABLED", "Angebote per E-Mail sind gerade nicht verfügbar.");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);

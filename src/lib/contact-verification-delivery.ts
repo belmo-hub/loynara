@@ -23,7 +23,6 @@ export async function deliverVerificationEmail(
   // hard-coded). Without it no confirmation mail goes out, and the card offers none either (contactStatus).
   const operator = operatorIdentity()?.name;
   if (!operator) return { status: "blocked", reason: "Operator name not configured" };
-  const footer = `\n\n--\nDiese E-Mail kommt von ${operator}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
   const token = verificationTokenForChallenge(parsed.data.challengeId);
   return db.transaction(async tx => {
     const [member] = await tx.select().from(memberships)
@@ -45,9 +44,11 @@ export async function deliverVerificationEmail(
     link.hash = `token=${token}`;
     // Variant A (copy v0.5) names the shop and the marketing consent the click confirms; variant C is recovery only.
     // Neither carries the card link: it is a bearer credential.
-    const shop = challenge.marketing ? (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name : undefined;
-    if (challenge.marketing && !shop) return finish("suppressed", "Shop unavailable");
-    const message = shop ? {
+    // The shop is the controller; the operator sends on its behalf (Legal, 1 Nov), in both variants.
+    const shop = (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name;
+    if (!shop) return finish("suppressed", "Shop unavailable");
+    const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${shop}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
+    const message = challenge.marketing ? {
       to: challenge.email,
       subject: `Bitte bestätige: E-Mails von ${shop}`,
       body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,

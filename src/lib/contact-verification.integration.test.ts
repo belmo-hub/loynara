@@ -155,8 +155,8 @@ describe("local contact ownership and separate marketing preference", () => {
 describe("ENG-007: e-mail offer on the card with double opt-in", () => {
   it("writes the version of the text the guest ticked into the consent event, and refuses an unknown one", async () => {
     const { member } = await card();
-    await expect(requestContactVerification(member.cardToken, "guest@example.test", true)).rejects.toMatchObject({ code: "INVALID_INPUT" });
-    await expect(requestContactVerification(member.cardToken, "guest@example.test", true, "constructor")).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(requestContactVerification(member.cardToken, "guest@example.test", true)).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });
+    await expect(requestContactVerification(member.cardToken, "guest@example.test", true, "constructor")).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED", message: "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal." });
     // A page still showing an older text: the click records that text's version, not today's.
     EMAIL_CONSENT_TEXTS["email-consent-test-old"] = () => "Ältere Fassung. ";
     try {
@@ -176,7 +176,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(message.body).toContain(`Ja, ich möchte E-Mails von Synthetic Contact Café\nhttp://localhost:3000/verify-email#token=${token}\n\nDer Link gilt 30 Minuten.`);
     expect(message.body).not.toContain(member.cardToken);
     expect(message.body).not.toContain("/card/");
-    expect(message.body).toContain("\n--\nDiese E-Mail kommt von Synthetic Betreiber.\nDatenschutzhinweise: http://localhost:3000/datenschutz");
+    expect(message.body).toContain("\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von Synthetic Contact Café.\nDatenschutzhinweise: http://localhost:3000/datenschutz");
     // Delivered, not clicked: nothing recorded, nothing marketing goes out.
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await consumeContactVerification(token)).toEqual({ verified: true, marketing: true, shopName: "Synthetic Contact Café", brandColor: "#264C45" });

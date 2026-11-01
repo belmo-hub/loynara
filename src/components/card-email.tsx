@@ -28,8 +28,8 @@ const SENT = "Wir haben dir einen Link geschickt.";
 const HINT = "Mit dieser Adresse finde ich meine Karte wieder, falls ich den Link verliere. Sie wird nur dafür genutzt, nicht für Werbung.";
 const consentLead = ({ shop, location }: Shop) => emailConsentText(shop, location);
 const since = (iso: string) => new Date(iso).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-// The rate limit and a refused address bring their own German text; anything else is a failed send.
-const sendError = (cause: unknown) => cause instanceof ClientApiError && cause.status === 429 ? cause.message : SEND_FAILED;
+// The rate limit and a changed consent text bring their own German text; anything else is a failed send.
+const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || cause.code === "CONSENT_TEXT_CHANGED") ? cause.message : SEND_FAILED;
 
 /** The card's contact state, loaded once and after every change. Null until loaded or when the API fails (the card works without it). */
 export function useEmailStatus(token: string) {
@@ -70,7 +70,7 @@ function AddressForm({ token, shop, consent, initialTick = false, onSent }: { to
       await postJson(`/api/card/${encodeURIComponent(token)}/contact`, { email, ...(consent && tick ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {}) });
       onSent(email.trim(), consent && tick);
     } catch (cause) {
-      if (cause instanceof ClientApiError && cause.status === 400) { setFieldError(INVALID); field.focus(); }
+      if (cause instanceof ClientApiError && cause.status === 400 && cause.code !== "CONSENT_TEXT_CHANGED") { setFieldError(INVALID); field.focus(); }
       else setError(sendError(cause));
     } finally { setBusy(false); }
   }
@@ -155,7 +155,7 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true); setError("");
     try { await action(); await reload(); announce(done); }
-    catch (cause) { setError(cause instanceof ClientApiError && cause.status === 429 ? cause.message : cause instanceof Error ? cause.message : SEND_FAILED); }
+    catch (cause) { setError(cause instanceof ClientApiError && (cause.status === 429 || cause.code === "CONSENT_TEXT_CHANGED") ? cause.message : cause instanceof Error ? cause.message : SEND_FAILED); }
     finally { setBusy(false); }
   }
   function setUp() {

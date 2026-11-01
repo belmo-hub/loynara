@@ -16,6 +16,8 @@ export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_O
   "BILLING_STATE", "CONTACT_DISABLED", "FORBIDDEN", "INVALID_INPUT", "NOT_FOUND", "PLAN_UNAVAILABLE",
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.
   "INVALID_LOGO",
+  // The e-mail consent box's text changed while the card was open (ENG-165).
+  "CONSENT_TEXT_CHANGED",
   // German in the programme settings; contact verification sends it in English, but that page shows its own state instead.
   "INVALID_CHALLENGE"]);
 
