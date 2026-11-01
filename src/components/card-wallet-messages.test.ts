@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
-import { consentLines } from "./card-wallet-messages";
+import { consentLines, panelShown } from "./card-wallet-messages";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
   it("names the expiry notice on points programmes with an expiry rule", () => {
@@ -19,6 +19,14 @@ describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
   it("the card page asks for the expiry variant only on points with an expiry rule in force or pending", () => {
     const source = readFileSync("src/components/card-client.tsx", "utf8");
     expect(source).toContain('const expiry = card.programType === "points" && Boolean(card.pointsExpiry || card.pendingExpiry);');
+  });
+});
+
+describe("the consent panel after switching off (ENG-162, Design P3)", () => {
+  it("keeps its off line when the card no longer offers consent, and is not shown otherwise", () => {
+    expect(panelShown(false, true)).toBe(true);
+    expect(panelShown(true, false)).toBe(true);
+    expect(panelShown(false, false)).toBe(false);
   });
 });
 

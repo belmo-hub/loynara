@@ -17,6 +17,9 @@ export function consentLines(expiry: boolean) {
     : { under: "Deinen neuen Kontostand und „Prämie bereit“ siehst du immer, auch ohne Häkchen.", off: "Kontostand und „Prämie bereit“ kommen weiter." };
 }
 
+/** After switching off, the panel keeps its off state even when the card no longer offers consent (its pass unreachable, ENG-162). */
+export const panelShown = (available: boolean, switchedOff: boolean) => available || switchedOff;
+
 /**
  * Wallet-message consent (ENG-043): one unticked box with Legal's text, saved on the tap; unticking switches it off without
  * touching the pass. Legal's wording is German only. Renders nothing while the walletMessages surface is withheld (the
@@ -42,7 +45,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
     document.addEventListener("visibilitychange", visible);
     return () => { active = false; document.removeEventListener("visibilitychange", visible); };
   }, [url]);
-  const shown = Boolean(state?.available);
+  const shown = panelShown(Boolean(state?.available), switchedOff);
   useEffect(() => { shownRef.current = shown; onShown?.(shown); }, [shown, onShown]);
 
   async function change(granted: boolean) {
@@ -55,7 +58,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
     finally { setBusy(false); }
   }
 
-  if (!state?.available) return null;
+  if (!state || !shown) return null;
   const [lead] = state.text.split(LINK);
   const lines = consentLines(expiry);
   const switchOff = <Button variant="secondary" size="sm" loading={busy} onClick={() => void change(false)}>Abschalten</Button>;

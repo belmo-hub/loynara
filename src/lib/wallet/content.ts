@@ -21,7 +21,7 @@ const TEXT = {
     // Before the first message (Design, ENG-127): an empty field reads as broken.
     noMessage: "Noch keine Nachricht.",
     // Without message consent (ENG-162, Legal 1 Nov): only the points-expiry notice, so the wording speaks of nothing else.
-    expiryNote: "Hinweis zu deinen Punkten", noExpiryNote: "Bevor Punkte verfallen, steht der Hinweis hier.",
+    expiryNote: "Hinweis vor dem Punkteverfall", noExpiryNote: "Bevor Punkte verfallen, erscheint hier ein Hinweis.",
     card: "Karte", location: "Standort", programme: "Programm", updated: "Zuletzt aktualisiert", memberCard: "Mitgliedskarte",
     note: "Hinweis", noteBody: "Stempel, Punkte und Prämien werden nur an der Kasse gebucht. Diese Karte zeigt den aktuellen Stand deiner Treuekarte und aktualisiert sich automatisch.",
     revokedLabel: "Karte", invalid: "Karte ungültig",

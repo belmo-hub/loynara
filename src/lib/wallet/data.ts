@@ -10,6 +10,7 @@ import { currentRewards, publicRules } from "@/lib/product";
 import { programInForce } from "@/lib/rule-versions";
 import type { WalletBrand, WalletPassData } from "./types";
 import { appleLogoFromData, merchantGoogleLogoUrls } from "./logo";
+import { surfaceHidden } from "@/lib/pilot-surfaces";
 
 /**
  * Binds an issued pass to the card credential it was issued for. A staff reissue or closure replaces the scan code, so
@@ -71,8 +72,10 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
   // The field is there before its first text, because Wallet alerts only when an existing key changes: with consent the
-  // shop's message field; without it, in a programme whose points expire, the expiry-only field (ENG-162).
-  const expiryNotice = !consent && (lastMessage !== undefined || Boolean(program.pointsExpiryMonths));
+  // shop's message field; without it, where an expiry rule is in force or waiting (points only, a database check), the expiry-only field (ENG-162).
+  // An empty field only while messages are switched on (Design): off, nothing can fill it. A text once sent always stays.
+  const live = !surfaceHidden("walletMessages");
+  const expiryNotice = !consent && (lastMessage !== undefined || (live && Boolean(program.pointsExpiryMonths || program.pendingExpiry)));
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
@@ -89,7 +92,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
       // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
       ...(expiryNotice ? { message: lastMessage?.text ?? "", messageKey: "expiry" as const }
-        : consent ? (lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : { message: "" }) : {}),
+        : consent ? (lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : live ? { message: "" } : {}) : {}),
       pending: program.pending, pendingExpiry: program.pendingExpiry,
     },
   };
