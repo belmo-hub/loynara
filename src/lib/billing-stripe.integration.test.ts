@@ -819,6 +819,58 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       expect(endCalls(s.subscriptionId).at(-1)!.params).toEqual({ cancel_at_period_end: "true" });
     });
 
+    const requested = (programId: string, at: string) => db.update(programs).set({ cancellationRequestedAt: new Date(at) }).where(eq(programs.id, programId));
+
+    it("a request on the last free day at 23:59 Berlin costs nothing: the end is request day + 14, Stripe ends at once without an invoice", async () => {
+      const s = await live();
+      const late = new Date("2026-12-09T22:59:00Z"); // 23:59 Berlin on 9 December
+      await requested(s.programId, late.toISOString());
+      await expect(confirm(s, s.programId, "2026-12-20", late)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-23") });
+      await expect(confirm(s, s.programId, "2026-12-24", late)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END" });
+      await confirm(s, s.programId, "2026-12-23", late);
+      expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } })]);
+    });
+
+    it("a request on day 25 of the free month ends on day 39, with no month-two charge; a later end needs the shop's consent and is billed", async () => {
+      const s = await live();
+      const day25 = new Date("2026-12-04T10:00:00Z"); // go-live 10 Nov is day 1
+      await requested(s.programId, day25.toISOString());
+      await expect(confirm(s, s.programId, "2026-12-17", day25)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-18") });
+      await confirm(s, s.programId, "2026-12-18", day25);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+      // Nothing more reaches Stripe before the free month ends, so month two is never billed; the programme runs on to 18 December.
+      expect(await runBillingJob()).toMatchObject({ ends: 0 });
+      expect(endCalls(s.subscriptionId)).toHaveLength(1);
+    });
+
+    it("an end the shop agrees to after its notice end is billed: the free-month end is lifted, month two ends it", async () => {
+      const s = await live();
+      const day25 = new Date("2026-12-04T10:00:00Z");
+      await requested(s.programId, day25.toISOString());
+      await confirm(s, s.programId, "2026-12-18", day25);
+      await confirm(s, s.programId, "2027-01-09", day25);
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS, { cancel_at: "", proration_behavior: "none" }]);
+      renew(s.fake(), new Date("2027-01-10T00:00:00Z"));
+      await deliver(eventFor("customer.subscription.updated", s.subscriptionId));
+      expect(endCalls(s.subscriptionId).at(-1)!.params).toEqual({ cancel_at_period_end: "true" });
+    });
+
+    it("a request after the free month follows the billing-month rule", async () => {
+      const s = await live();
+      await requested(s.programId, "2026-12-15T10:00:00Z");
+      await expect(confirm(s, s.programId, "2026-12-29", new Date("2026-12-15T11:00:00Z"))).rejects.toMatchObject({ message: expect.stringContaining("2027-01-09") });
+      await confirm(s, s.programId, "2027-01-09", new Date("2026-12-15T11:00:00Z"));
+      expect(endCalls(s.subscriptionId)).toEqual([]);
+    });
+
+    it("„Gekündigt im kostenlosen Monat“ late in the month proposes request day + 14", async () => {
+      const s = await live();
+      await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-04T10:00:00Z") });
+      expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: "2026-12-18", cancellationConfirmedAt: null });
+      await confirm(s, s.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+    });
+
     it("ends at once, with no invoice, when the free month's end time has already passed, once", async () => {
       const s = await live();
       const late = new Date("2026-12-09T22:30:00Z"); // 23:30 Berlin on the last free day, after 21:00 UTC

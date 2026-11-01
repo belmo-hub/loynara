@@ -6,6 +6,7 @@ import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, 
 import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
+import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
 /**
@@ -127,6 +128,22 @@ async function ensureCustomer(tx: Transaction, sub: { tenantId: string; provider
 
 /** The owner-facing last free day (Berlin, YYYY-MM-DD) for a free month that ends at `freeUntil` (Legal: trial end minus one day). */
 export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.getTime() - 86_400_000));
+
+/**
+ * Legal (1 Nov): a cancellation that reached us by the last free day (Berlin, until 23:59) ends on the later of that day and
+ * the request day + 14, so customers see the end at least 14 days ahead, and is never charged. The business's earliest
+ * request counts; null when there is no free month or no request inside it.
+ */
+async function freeMonthRequestEnd(executor: Pick<Transaction, "select">, sub: { tenantId: string; freeUntil: Date | null }) {
+  if (!sub.freeUntil) return null;
+  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs).where(eq(programs.tenantId, sub.tenantId));
+  if (!row?.requested) return null;
+  const day = berlinDay(new Date(row.requested));
+  const lastFree = lastFreeDay(sub.freeUntil);
+  if (day > lastFree) return null;
+  const notice = addDays(day, MIN_NOTICE_DAYS);
+  return notice > lastFree ? notice : lastFree;
+}
 
 /**
  * Operator, at go-live (§ 2 (1): the start day is the day billing is switched on): starts the shop's Stripe subscription with
@@ -344,7 +361,10 @@ export async function endInFreeMonth(input: { actorUserId: string; env: Env; ten
     // Recorded as what Stripe holds, so an owner's withdrawal before the confirmation clears it again (review N-2). The last
     // free day is proposed here too, not only by the webhook, so no sweep in between can read the end as withdrawn.
     await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, billingEndsAt: new Date(endsAt * 1000), updatedAt: at }).where(eq(subscriptions.tenantId, sub.tenantId));
-    await tx.update(programs).set({ cancellationEndDate: lastFreeDay(sub.freeUntil), cancellationRequestedAt: at })
+    // Legal (1 Nov): the later of the last free day and the request day + 14; Stripe still ends with the free month.
+    const notice = addDays(berlinDay(at), MIN_NOTICE_DAYS);
+    const proposed = notice > lastFreeDay(sub.freeUntil) ? notice : lastFreeDay(sub.freeUntil);
+    await tx.update(programs).set({ cancellationEndDate: proposed, cancellationRequestedAt: at })
       .where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active"), isNull(programs.cancellationEndDate)));
     return { tenantId: sub.tenantId, lastFreeDay: lastFreeDay(sub.freeUntil) };
   });
@@ -378,7 +398,9 @@ export async function syncShopEnd(tenantId: string, now = new Date()) {
     const freeEnd = sub.freeUntil ? new Date(sub.freeUntil.getTime() - 3 * 3600_000) : null;
     let target: Date | null = null;
     if (row.open === 0 && row.lastDay) {
-      if (freeEnd && row.lastDay <= lastFreeDay(sub.freeUntil!)) target = freeEnd;
+      // A free-month cancellation stays free up to its notice end: Stripe ends with the free month, the programme runs on.
+      const freeLast = await freeMonthRequestEnd(tx, sub);
+      if (freeEnd && (row.lastDay <= lastFreeDay(sub.freeUntil!) || (freeLast && row.lastDay <= freeLast))) target = freeEnd;
       else {
         // Stripe's own period, not our copy: a missed renewal webhook must not let a billing month pass unsent.
         const periodEnd = new Date(stripeSubscription.parse(await client("GET", `/subscriptions/${id}`)).items.data[0].current_period_end * 1000);
@@ -418,6 +440,10 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
     const length = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
     return next.getUTCDate() === Math.min(day, length);
   };
+  // A cancellation from the free month: exactly its notice end, or a later billing-month end the shop agreed to; never earlier.
+  const freeLast = await freeMonthRequestEnd(db, sub);
+  if (freeLast && endDate === freeLast) return;
+  if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
   if (isEnd(endDate)) return;
   let next = endDate;
   do next = new Date(Date.parse(`${next}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10); while (!isEnd(next));
