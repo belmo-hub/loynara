@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressProblems, contactProblems, footerText, missingParts, missingRefusal, missingSentence, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
+import { addressProblems, contactProblems, footerText, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
 
 const complete: SenderDetails = {
   shopName: "Café Lindenblatt", street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Mara Lind",
@@ -10,7 +10,6 @@ describe("required parts (ENG-164)", () => {
   it("names each missing part once, a location's parts with the location when asked", () => {
     expect(missingParts(complete)).toEqual([]);
     expect(missingParts({ ...complete, street: null, contactEmail: null, contactPhone: " ", representative: null })).toEqual(["address", "contact", "representative"]);
-    expect(missingParts({ ...complete, contactEmail: null })).toEqual([]);
     expect(partList(["address", "representative"])).toBe("Anschrift und „Vertreten durch“");
     expect(partList(["address"], "Kassel Nord")).toBe("Anschrift für Kassel Nord");
     expect(partList(["address", "contact", "representative"], "Kassel Nord")).toBe("Anschrift für Kassel Nord, Kontakt für Kassel Nord und „Vertreten durch“");
@@ -29,13 +28,28 @@ describe("the screens' rules, the same on the server", () => {
       street: "Bitte gib Straße und Hausnummer ein.", postalCode: "Die PLZ hat fünf Ziffern, z. B. 34117.", city: "Bitte gib die Stadt ein." });
     expect(addressProblems({ street: "Hauptstr. 1\nAngebote abbestellen", postalCode: "34117", city: "Kassel" }).street).toBe("Bitte prüfe diese Eingabe.");
   });
-  it("needs an email or a phone, and checks each one given", () => {
-    expect(contactProblems({ contactEmail: "", contactPhone: "" }).contact).toBe("Bitte gib eine E-Mail-Adresse oder eine Telefonnummer ein.");
-    expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "" })).toEqual({ contact: "", contactEmail: "", contactPhone: "" });
+  it("needs an email at every location; the phone is optional and checked when given (Legal, 1 Nov: § 5 DDG)", () => {
+    expect(contactProblems({ contactEmail: "", contactPhone: "" }).contactEmail).toBe("Bitte gib eine E-Mail-Adresse ein.");
+    expect(contactProblems({ contactEmail: "", contactPhone: "0561 739 2214" }).contactEmail).toBe("Bitte gib eine E-Mail-Adresse ein.");
+    expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "" })).toEqual({ contactEmail: "", contactPhone: "" });
     expect(contactProblems({ contactEmail: "kein-at", contactPhone: "" }).contactEmail).toBe("Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.");
-    expect(contactProblems({ contactEmail: "", contactPhone: "0561" }).contactPhone).toBe("Die Telefonnummer ist zu kurz, z. B. 0561 739 2214.");
-    expect(contactProblems({ contactEmail: "", contactPhone: "ruf an 0561 739" }).contactPhone).toBe("Bitte prüfe die Telefonnummer, z. B. 0561 739 2214.");
-    expect(contactProblems({ contactEmail: "", contactPhone: "+49 561 739 2214" }).contactPhone).toBe("");
+    expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "0561" }).contactPhone).toBe("Die Telefonnummer ist zu kurz, z. B. 0561 739 2214.");
+    expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "ruf an 0561 739" }).contactPhone).toBe("Bitte prüfe die Telefonnummer, z. B. 0561 739 2214.");
+    expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "+49 561 739 2214" }).contactPhone).toBe("");
+    // A phone alone no longer completes the sender.
+    expect(missingParts({ ...complete, contactEmail: null })).toEqual(["contact"]);
+  });
+  it("needs the register entry exactly when the legal form is a registered one (Legal, 1 Nov)", () => {
+    for (const form of ["GmbH", "UG (haftungsbeschränkt)", "GmbH & Co. KG", "AG", "OHG", "e.K.", "e. K.", "eK", "eG", "PartG mbB", "KG"]) expect(registeredForm(form), form).toBe(true);
+    for (const form of ["", "Einzelunternehmen", "GbR", "Freiberufler", "Tagescafé", "Bäckerei Krug"]) expect(registeredForm(form), form).toBe(false);
+    const empty = { legalForm: "", registerCourt: "", registerNumber: "", vatId: "" };
+    expect(registerProblems({ ...empty, legalForm: "GmbH" })).toMatchObject({ registerCourt: "Bitte gib das Registergericht an, z. B. Amtsgericht Kassel.", registerNumber: "Bitte gib die Registernummer an, z. B. HRB 12345." });
+    expect(registerProblems({ ...empty, legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 1" })).toMatchObject({ registerCourt: "", registerNumber: "" });
+    expect(registerProblems({ ...empty, legalForm: "Einzelunternehmen" })).toMatchObject({ registerCourt: "", registerNumber: "" });
+    expect(missingParts({ ...complete, legalForm: "UG (haftungsbeschränkt)", registerCourt: null, registerNumber: null })).toEqual(["register"]);
+    expect(missingParts({ ...complete, legalForm: "Einzelunternehmen", registerCourt: null, registerNumber: null })).toEqual([]);
+    expect(missingRefusal(["register"])).toBe("Es fehlen noch Angaben für den Absender: Registereintrag. Bis dahin gehen keine Erinnerungen und Kampagnen raus.");
+    expect(senderFooter({ ...complete, legalForm: "GmbH", registerCourt: null, registerNumber: null })).toBeNull();
   });
   it("needs a representative", () => {
     expect(representativeProblems({ representative: " " }).representative).toBe("Bitte gib an, wer dein Geschäft vertritt.");

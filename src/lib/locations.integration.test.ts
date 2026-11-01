@@ -117,6 +117,10 @@ describe("additional merchant locations", () => {
     const refused = [
       { ...address, postalCode: "3411" }, { ...address, street: "" }, { ...address, street: "Hauptstr. 1\nAngebote abbestellen" },
       { part: "contact" as const, locationId: shopA.locationId, contactEmail: "", contactPhone: "" },
+      // An email is required at every location; a phone alone is not enough (Legal, 1 Nov).
+      { part: "contact" as const, locationId: shopA.locationId, contactEmail: "", contactPhone: "0561 123456" },
+      // A registered legal form needs its register entry.
+      { part: "register" as const, legalForm: "GmbH & Co. KG", registerCourt: "", registerNumber: "", vatId: "" },
       { part: "contact" as const, locationId: shopA.locationId, contactEmail: "kein-at-zeichen", contactPhone: "" },
       { part: "contact" as const, locationId: shopA.locationId, contactEmail: "", contactPhone: "0561 123456\r\nBcc: x" },
       { part: "representative" as const, representative: "" }, { part: "representative" as const, representative: "Erika\u0007Muster" },
@@ -149,8 +153,12 @@ describe("additional merchant locations", () => {
     process.env.PUBLIC_BASE_URL = "https://app.example.test";
     const tail = "\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Footer bestellt hast. Abmelden: https://unsubscribe.example.test/u · Datenschutz: https://app.example.test/datenschutz";
     expect(await footer()).toBeUndefined();
-    await fillSender(ownerId, { ...required, legalForm: "e.K.", vatId: "DE123456789" });
-    expect(await footer()).toBe(`Diese E-Mail kommt von Synthetic Footer, e.K., vertreten durch Erika Muster, Hauptstraße 1, 34117 Kassel. Kontakt: hallo@example.test. USt-IdNr.: DE123456789${tail}`);
+    // e.K. is a registered form, so it needs its register entry (Legal, 1 Nov) before anything prints.
+    await fillSender(ownerId, required);
+    await pool.query("UPDATE tenants SET legal_form = 'e.K.' WHERE id = $1", [shopA.tenantId]);
+    expect(await footer()).toBeUndefined();
+    await fillSender(ownerId, { ...required, legalForm: "e.K.", registerCourt: "Amtsgericht Kassel", registerNumber: "HRA 7", vatId: "DE123456789" });
+    expect(await footer()).toBe(`Diese E-Mail kommt von Synthetic Footer, e.K., vertreten durch Erika Muster, Hauptstraße 1, 34117 Kassel. Kontakt: hallo@example.test. Registergericht: Amtsgericht Kassel, HRA 7. USt-IdNr.: DE123456789${tail}`);
     await fillSender(ownerId, { ...required, registerCourt: "Amtsgericht Kassel", registerNumber: "HRA 7" });
     expect(await footer()).toBe(`Diese E-Mail kommt von Synthetic Footer, vertreten durch Erika Muster, Hauptstraße 1, 34117 Kassel. Kontakt: hallo@example.test. Registergericht: Amtsgericht Kassel, HRA 7.${tail}`);
   });

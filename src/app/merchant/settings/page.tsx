@@ -91,7 +91,7 @@ function SenderRows({ me, locations, active }: { me: MeResponse; locations: Owne
     if (!lacking.length || lacking.some(location => location.id === active.id)) return { href: senderHref(question), chip: lacking.length ? { label: "Fehlt", warn: true } : undefined };
     return { href: `${senderHref(question)}?standort=${encodeURIComponent(lacking[0].id)}`, chip: { label: lacking.length === 1 ? `Fehlt für ${lacking[0].name}` : `Fehlt an ${lacking.length} Standorten`, warn: true } };
   };
-  const address = open("anschrift", "address"), contact = open("kontakt", "contact"), representative = open("vertretung", "representative");
+  const address = open("anschrift", "address"), contact = open("kontakt", "contact"), representative = open("vertretung", "representative"), registerRow = open("register", "register");
   const register = [values.legalForm, values.registerNumber, values.vatId].filter(Boolean).join(" · ");
   const saved = (href: string) => Boolean(back?.saved && href.startsWith(back.row));
   return (
@@ -103,7 +103,7 @@ function SenderRows({ me, locations, active }: { me: MeResponse; locations: Owne
           sub={[values.contactEmail, values.contactPhone].filter(Boolean).join(" · ") || undefined} chip={contact.chip} />
         <Row key="representative" href={representative.href} icon={UserRound} title="Vertreten durch" saved={saved(senderHref("vertretung"))}
           sub={values.representative ?? undefined} chip={representative.chip} />
-        <Row key="register" href={senderHref("register")} icon={Scale} title="Rechtsform und Register" saved={saved(senderHref("register"))} sub={register || "Nur wenn vorhanden"} />
+        <Row key="register" href={registerRow.href} icon={Scale} title="Rechtsform und Register" saved={saved(senderHref("register"))} sub={register || "Nur wenn vorhanden"} chip={registerRow.chip} />
       </Rows>
       {status.complete && <div className="ow-tabs-only ow-sender-preview"><FooterPreview sender={values} title="So steht es unter Erinnerungen und Kampagnen" /></div>}
       <div className="ow-toast-region" role="status">{toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>

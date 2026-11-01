@@ -6,16 +6,24 @@ export type SenderDetails = {
   contactEmail: string | null; contactPhone: string | null; legalForm: string | null; registerCourt: string | null; registerNumber: string | null; vatId: string | null;
 };
 
-/** The required parts: address and contact belong to each location, the representative to the business (Legal). */
-export type SenderPart = "address" | "contact" | "representative";
+/**
+ * The required parts: address and contact email belong to each location, the representative to the business, and the
+ * register entry too when the legal form is a registered one (Legal, 1 Nov: § 5 DDG).
+ */
+export type SenderPart = "address" | "contact" | "representative" | "register";
 export const LOCATION_PARTS: readonly SenderPart[] = ["address", "contact"];
-const PART_NAME: Record<SenderPart, string> = { address: "Anschrift", contact: "Kontakt", representative: "„Vertreten durch“" };
+// shortcut: „Registereintrag“ is the engineer's neutral name until Marketing words it; then change it here only.
+const PART_NAME: Record<SenderPart, string> = { address: "Anschrift", contact: "Kontakt", representative: "„Vertreten durch“", register: "Registereintrag" };
+
+/** GmbH, UG, AG, KG, OHG, e.K., eG, PartG, matched loosely („UG (haftungsbeschränkt)“, „GmbH & Co. KG“): these are in a register. */
+export const registeredForm = (legalForm: string | null) => /(^|[^a-zäöüß])(gmbh|ug|ag|kg|ohg|e\.?\s?k|e\.?\s?g|partg)(?![a-zäöüß])/i.test(legalForm ?? "");
 
 export function missingParts(sender: SenderDetails): SenderPart[] {
   const parts: SenderPart[] = [];
   if (!sender.street?.trim() || !sender.postalCode?.trim() || !sender.city.trim()) parts.push("address");
-  if (!sender.contactEmail?.trim() && !sender.contactPhone?.trim()) parts.push("contact");
+  if (!sender.contactEmail?.trim()) parts.push("contact");
   if (!sender.representative?.trim()) parts.push("representative");
+  if (registeredForm(sender.legalForm) && (!sender.registerCourt?.trim() || !sender.registerNumber?.trim())) parts.push("register");
   return parts;
 }
 
@@ -70,8 +78,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function contactProblems(draft: ContactDraft) {
   const email = draft.contactEmail.trim(), phone = draft.contactPhone.trim();
   return {
-    contact: email || phone ? "" : "Bitte gib eine E-Mail-Adresse oder eine Telefonnummer ein.",
-    contactEmail: !email || (EMAIL.test(email) && email.length <= 320) ? "" : "Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.",
+    // shortcut: neutral text until Marketing words the email-required line (Legal, 1 Nov: an email is required, the phone is optional).
+    contactEmail: !email ? "Bitte gib eine E-Mail-Adresse ein." : EMAIL.test(email) && email.length <= 320 ? "" : "Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.",
     contactPhone: !phone || /^\+?\d[\d ()/-]{4,23}\d$/.test(phone) ? ""
       : phone.replace(/\D/g, "").length < 6 ? "Die Telefonnummer ist zu kurz, z. B. 0561 739 2214." : "Bitte prüfe die Telefonnummer, z. B. 0561 739 2214.",
   };
@@ -84,10 +92,14 @@ export const representativeProblems = (draft: { representative: string }) => ({
 export type RegisterDraft = { legalForm: string; registerCourt: string; registerNumber: string; vatId: string };
 export function registerProblems(draft: RegisterDraft) {
   const court = draft.registerCourt.trim(), number = normalizeRegisterNumber(draft.registerNumber), vat = normalizeVatId(draft.vatId);
+  // A registered legal form needs its register entry (Legal, 1 Nov). shortcut: neutral texts until Marketing words them.
+  const registered = registeredForm(draft.legalForm);
   return {
     legalForm: optionalLine(draft.legalForm, 40),
-    registerCourt: !court && number ? "Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel." : optionalLine(court, 120),
+    registerCourt: !court && number ? "Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel."
+      : !court && registered ? "Bitte gib das Registergericht an, z. B. Amtsgericht Kassel." : optionalLine(court, 120),
     registerNumber: court && !number ? "Zum Registergericht gehört die Nummer, z. B. HRB 12345."
+      : !number && registered ? "Bitte gib die Registernummer an, z. B. HRB 12345."
       : number && !/^(HRA|HRB|GnR|GsR|PR|VR) \d{1,6}( [A-Z]{1,2})?$/.test(number) ? "Bitte gib die Registernummer so an, wie sie im Register steht, z. B. HRB 12345." : "",
     // German IDs are DE and 9 digits (Design, 1 Nov); other EU prefixes keep the general form.
     vatId: !vat ? "" : vat.startsWith("DE") ? (/^DE\d{9}$/.test(vat) ? "" : "Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.")

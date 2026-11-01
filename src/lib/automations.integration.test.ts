@@ -70,7 +70,7 @@ describe("bounded local automations", () => {
       expect(message.unsubscribeUrl).toContain("/unsubscribe#token=");
       expect(message.fromName).toBe("Synthetic Automation Café via Loynara");
       // Legal's footer, verbatim; legal form, register entry and VAT ID are empty here, so they disappear (campaigns test: all filled).
-      expect(message.body).toBe(`${firstRule.body}\n\nDiese E-Mail kommt von Synthetic Automation Café, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: 0561 123456.\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Automation Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      expect(message.body).toBe(`${firstRule.body}\n\nDiese E-Mail kommt von Synthetic Automation Café, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: kontakt@example.test, 0561 123456.\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Automation Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
       expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<automation@example.test>" };
     }) };
@@ -109,6 +109,8 @@ describe("bounded local automations", () => {
       ["Anschrift", f => db.update(locations).set({ city: "" }).where(where(f))],
       ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
       ["Kontakt", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null }).where(where(f))],
+      ["Registereintrag", f => db.update(tenants).set({ legalForm: "GmbH", registerCourt: null, registerNumber: null }).where(eq(tenants.id, f.merchant.tenantId))],
     ];
     for (const [label, drop] of drops) {
       await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');

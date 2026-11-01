@@ -232,6 +232,8 @@ describe("local campaign core", () => {
       ["Anschrift", f => db.update(locations).set({ city: "" }).where(where(f))],
       ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
       ["Kontakt", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null }).where(where(f))],
+      ["Registereintrag", f => db.update(tenants).set({ legalForm: "GmbH", registerCourt: null, registerNumber: null }).where(eq(tenants.id, f.merchant.tenantId))],
     ];
     for (const [label, drop] of drops) {
       await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');

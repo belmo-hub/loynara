@@ -137,23 +137,21 @@ function ContactQuestion({ location, home }: QuestionProps) {
   const initial = { contactEmail: location.contactEmail ?? "", contactPhone: location.contactPhone ?? "" };
   const [draft, setDraft] = useState(initial);
   const problems = contactProblems(draft);
-  // „Neither“ is the panel's: it shows once under both fields and takes the focus to the first.
-  const ids = { "sd-email": problems.contact || problems.contactEmail, "sd-phone": problems.contactPhone };
+  const ids = { "sd-email": problems.contactEmail, "sd-phone": problems.contactPhone };
   const q = useQuestion("sender-contact", JSON.stringify(draft) !== JSON.stringify(initial), ids, home);
   const set = (patch: Partial<typeof draft>) => setDraft(current => ({ ...current, ...patch }));
-  const emailError = q.error("sd-email") && !problems.contact ? q.error("sd-email") : "";
   return (
     <QuestionForm title="Wie erreichen dich deine Kunden?" home={home} busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save("/api/merchant/sender", { part: "contact", locationId: location.id, ...draft })}>
       <div className="ow-qpanel ow-stack">
         <div className="ow-field"><label htmlFor="sd-email">E-Mail</label>
           <input id="sd-email" className="ow-input" type="email" inputMode="email" autoComplete="email" value={draft.contactEmail} {...aria("sd-email", q.error("sd-email"))} onChange={event => set({ contactEmail: event.target.value })} />
-          <FieldError id="sd-email-error">{emailError}</FieldError></div>
+          <FieldError id="sd-email-error">{q.error("sd-email")}</FieldError></div>
         <div className="ow-field"><label htmlFor="sd-phone">Telefon</label>
           <input id="sd-phone" className="ow-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="z. B. 0561 739 2214" value={draft.contactPhone} {...aria("sd-phone", q.error("sd-phone"))} onChange={event => set({ contactPhone: event.target.value })} />
           <FieldError id="sd-phone-error">{q.error("sd-phone")}</FieldError></div>
-        {problems.contact && <FieldError id="sd-email-error">{q.error("sd-email")}</FieldError>}
-        <p className="ow-hint">Gib mindestens eins von beiden an. Was du einträgst, steht nach „Kontakt:“ unter jeder Erinnerung und Kampagne.</p>
+        {/* shortcut: neutral hint until Design and Marketing word E12 for „email required, phone optional“ (Legal, 1 Nov). */}
+        <p className="ow-hint">Was du einträgst, steht nach „Kontakt:“ unter jeder Erinnerung und Kampagne.</p>
       </div>
     </QuestionForm>
   );
