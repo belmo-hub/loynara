@@ -195,7 +195,7 @@ function RegisterQuestion({ me, location, home }: QuestionProps) {
     </Field>
   );
   return (
-    <QuestionForm title="Rechtsform, Register und USt-IdNr." lead="Bei GmbH, UG, AG, KG, OHG, e.K., eG und PartG sind Registergericht und Registernummer Pflicht. Alles andere nur, wenn vorhanden. Leere Felder erscheinen nicht in der E-Mail." home={home}
+    <QuestionForm title="Rechtsform, Register und USt-IdNr." lead="Bei eingetragenen Rechtsformen wie GmbH, UG, e.K., KG oder eGbR sind Registergericht und Registernummer Pflicht. Alles andere nur, wenn vorhanden. Leere Felder erscheinen nicht in der E-Mail." home={home}
       aside={<FooterPreview sender={preview} title="So steht es in der E-Mail" marks />} busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save("/api/merchant/sender", { part: "register", ...draft })}>
       <div className="ow-qpanel ow-field"><label htmlFor="sd-form">Rechtsform</label>
