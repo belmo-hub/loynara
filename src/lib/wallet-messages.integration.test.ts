@@ -747,8 +747,11 @@ describe("native Apple passes (ENG-127)", () => {
 
   it("with messages switched off on production, no pass gets an empty field; a text once sent stays (ENG-162, Design)", async () => {
     const s = await shop(); const quiet = await nativeCustomer(s, { consent: false }); const allowed = await nativeCustomer(s); const sent = await nativeCustomer(s);
+    const notified = await nativeCustomer(s, { consent: false });
     await priorMessage(s, sent.id, sent.passId, T("2026-10-20T10:00:00Z"));
     await pool.query("UPDATE programs SET type = 'points', points_expiry_months = 24, points_expiry_since = now() WHERE id = $1", [s.programId]);
+    const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'expiry','Deine 40 Punkte verfallen am 05.08.2027.','complete',now()) RETURNING id", [s.tenantId, s.programId]);
+    await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',now())", [m.id, notified.passId, s.tenantId, notified.id]);
     vi.stubEnv("PRODUCTION_ENVIRONMENT", "loynara-production");
     try {
       for (const c of [quiet, allowed]) {
@@ -757,6 +760,10 @@ describe("native Apple passes (ENG-127)", () => {
       }
       const kept = await walletCardSnapshot(sent.id);
       expect(kept.open && kept.pass.message).toBe("Früher");
+      // A delivered expiry notice stays in its field too.
+      const notice = await walletCardSnapshot(notified.id);
+      if (!notice.open) throw new Error("open");
+      expect(applePassJson(notice.pass, notified.passId, apple).storeCard.backFields.find(field => field.key === "expiry")).toMatchObject({ value: "Deine 40 Punkte verfallen am 05.08.2027." });
     } finally { vi.unstubAllEnvs(); }
   });
 
