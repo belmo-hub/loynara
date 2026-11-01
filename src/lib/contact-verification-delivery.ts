@@ -4,10 +4,8 @@ import { db } from "@/db";
 import { contactVerificationChallenges, membershipContacts, memberships, outboxJobs, tenants } from "@/db/schema";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { syntheticAddress, type LocalSender } from "./email";
+import { operatorIdentity } from "./operator-identity";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
-
-/** Legal (1 Nov): every confirmation mail names its sender, the operator, from configuration (the name is the founder's open G0 decision, so never hard-coded). */
-export const operatorName = () => process.env.OPERATOR_NAME?.trim() || null;
 
 const payloadSchema = z.object({ membershipId: z.uuid(), challengeId: z.uuid() }).strict();
 
@@ -21,8 +19,9 @@ export async function deliverVerificationEmail(
   const parsed = payloadSchema.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked", reason: "Invalid verification job payload" };
   const origin = new URL(process.env.PUBLIC_BASE_URL!);
-  // Without the operator's name no confirmation mail goes out (the card offers none either: contactStatus).
-  const operator = operatorName();
+  // Legal (1 Nov): every confirmation mail names its sender, the operator, from configuration (the founder's G0, never
+  // hard-coded). Without it no confirmation mail goes out, and the card offers none either (contactStatus).
+  const operator = operatorIdentity()?.name;
   if (!operator) return { status: "blocked", reason: "Operator name not configured" };
   const footer = `\n\n--\nDiese E-Mail kommt von ${operator}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
   const token = verificationTokenForChallenge(parsed.data.challengeId);

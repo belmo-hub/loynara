@@ -22,6 +22,7 @@ beforeEach(async () => {
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
   process.env.OPERATOR_NAME = "Synthetic Betreiber";
+  process.env.OPERATOR_ADDRESS = "Teststraße 1, 34117 Kassel";
   await pool.query('TRUNCATE TABLE card_recovery_challenges, email_suppressions, email_provider_events, tenants, "user", demo_requests, rate_limits CASCADE');
 });
 afterAll(async () => { await pool.end(); });

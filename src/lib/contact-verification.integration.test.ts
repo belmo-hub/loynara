@@ -21,6 +21,7 @@ const before = {
   publicUrl: process.env.PUBLIC_BASE_URL,
   external: process.env.EXTERNAL_EMAIL_ENABLED,
   operator: process.env.OPERATOR_NAME,
+  address: process.env.OPERATOR_ADDRESS,
 };
 beforeEach(async () => {
   process.env.BETTER_AUTH_SECRET = "synthetic-contact-test-secret-at-least-32-characters";
@@ -28,10 +29,11 @@ beforeEach(async () => {
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
   process.env.OPERATOR_NAME = "Synthetic Betreiber";
+  process.env.OPERATOR_ADDRESS = "Teststraße 1, 34117 Kassel";
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => {
-  for (const [key, value] of [["BETTER_AUTH_SECRET", before.secret], ["SMTP_HOST", before.smtp], ["PUBLIC_BASE_URL", before.publicUrl], ["EXTERNAL_EMAIL_ENABLED", before.external], ["OPERATOR_NAME", before.operator]] as const) {
+  for (const [key, value] of [["BETTER_AUTH_SECRET", before.secret], ["SMTP_HOST", before.smtp], ["PUBLIC_BASE_URL", before.publicUrl], ["EXTERNAL_EMAIL_ENABLED", before.external], ["OPERATOR_NAME", before.operator], ["OPERATOR_ADDRESS", before.address]] as const) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
   await pool.end();

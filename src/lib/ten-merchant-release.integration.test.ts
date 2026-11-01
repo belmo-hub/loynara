@@ -30,10 +30,10 @@ import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposab
 // External delivery and physical NFC acceptance are outside this local contract.
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
-const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED", "OPERATOR_NAME"];
+const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED", "OPERATOR_NAME", "OPERATOR_ADDRESS"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
-  Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false", OPERATOR_NAME: "Synthetic Betreiber" });
+  Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false", OPERATOR_NAME: "Synthetic Betreiber", OPERATOR_ADDRESS: "Teststraße 1, 34117 Kassel" });
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
 });

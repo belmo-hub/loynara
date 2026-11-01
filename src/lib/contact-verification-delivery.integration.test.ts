@@ -19,6 +19,7 @@ beforeEach(async () => {
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
   process.env.BETTER_AUTH_SECRET = "synthetic-test-secret-with-at-least-32-characters";
   process.env.OPERATOR_NAME = "Synthetic Betreiber";
+  process.env.OPERATOR_ADDRESS = "Teststraße 1, 34117 Kassel";
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => { await pool.end(); });

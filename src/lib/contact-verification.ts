@@ -5,9 +5,9 @@ import { db } from "@/db";
 import { cardSecurityEvents, consentEvents, contactVerificationChallenges, locations, membershipContacts, memberships, outboxJobs, programs, tenants } from "@/db/schema";
 import { validCardToken } from "./card-lifecycle";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
-import { operatorName } from "./contact-verification-delivery";
 import { EMAIL_CONSENT_TEXTS } from "./email-consent-text";
 import { DomainError } from "./loyalty";
+import { operatorIdentity } from "./operator-identity";
 import { emailTransportMode, promotionalEmailMode } from "./transactional-email";
 
 const emailSchema = z.email().max(320);
@@ -58,7 +58,7 @@ export async function contactStatus(cardToken: string): Promise<ContactStatus> {
     .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
   const verified = Boolean(contact?.email && contact.emailVerified);
   const marketingMode = promotionalEmailMode();
-  const available = emailTransportMode() !== "disabled" && operatorName() !== null;
+  const available = emailTransportMode() !== "disabled" && operatorIdentity() !== null;
   const facts = (await db.execute(sql`SELECT
       (SELECT c.marketing FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "pendingMarketing",
       (SELECT c.expires_at <= now() FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "expired",
@@ -96,7 +96,7 @@ export async function storedContactEmail(cardToken: string) {
 export async function requestContactVerification(cardToken: string, rawEmail?: string, marketing = false, consentVersion?: string): Promise<{ status: "queued" | "verified" }> {
   const typed = rawEmail === undefined ? undefined : emailSchema.parse(rawEmail.trim().normalize("NFC").toLowerCase());
   const mode = emailTransportMode();
-  if (mode === "disabled" || !operatorName()) throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
+  if (mode === "disabled" || !operatorIdentity()) throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
   // The marketing link records which box text was ticked; an unknown or missing version is refused, never guessed.
   if (marketing && !(consentVersion && Object.hasOwn(EMAIL_CONSENT_TEXTS, consentVersion))) throw new DomainError("INVALID_INPUT", "Bitte lade die Karte neu und setze das Häkchen noch einmal.");
   if (marketing && promotionalEmailMode() === "disabled") throw new DomainError("CONTACT_DISABLED", "Angebote per E-Mail sind gerade nicht verfügbar.");
