@@ -39,7 +39,7 @@ const native = sql`(p.provider = 'apple' AND p.provider_object_id NOT LIKE 'pass
  * A live pass that can carry a message: an Apple pass through PassFast, a native Apple pass a device registered for
  * updates (ENG-127; not for a French shop, whose native pass has no message field yet), and with the Google flag a Google Direct pass.
  */
-const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR ${googleOn() ? sql`(p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%')` : sql`false`}) AND p.status = 'created'
+export const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_object_id LIKE 'passfast:%') OR ${googleOn() ? sql`(p.provider = 'google' AND p.provider_object_id NOT LIKE 'passfast:%')` : sql`false`}) AND p.status = 'created'
   OR ${native} AND p.status = 'registered' AND NOT EXISTS (SELECT 1 FROM tenants t WHERE t.id = p.tenant_id AND t.locale = 'fr'))`;
 
 // ---- Consent (customer side, card-token scoped like the other card endpoints) -------------------------------------
