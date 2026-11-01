@@ -135,9 +135,11 @@ export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.get
  * business's running programmes counts (an ended location's old request doesn't, review R-3); null when there is no free
  * month or no request inside it.
  */
-async function freeMonthRequestEnd(executor: Pick<Transaction, "select">, sub: { tenantId: string; freeUntil: Date | null }) {
+async function freeMonthRequestEnd(executor: Pick<Transaction, "select">, sub: { tenantId: string; freeUntil: Date | null; startedAt: Date | null }) {
   if (!sub.freeUntil) return null;
-  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs).where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active")));
+  // Only requests made since this subscription started (CTO ruling on R-3): an older one belongs to no free month of it.
+  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs)
+    .where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active"), sub.startedAt ? sql`${programs.cancellationRequestedAt} >= ${sub.startedAt.toISOString()}::timestamptz` : undefined));
   if (!row?.requested) return null;
   const day = berlinDay(new Date(row.requested));
   const lastFree = lastFreeDay(sub.freeUntil);
