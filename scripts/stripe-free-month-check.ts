@@ -39,7 +39,7 @@ async function advance(clock: string, to: Date) {
 }
 const invoices = async (subscription: string) => ((await stripe("GET", "/invoices", { subscription, limit: "10" })).data as Array<{ number: string | null; amount_due: number; status: string; period_start: number; period_end: number }>);
 
-async function scenario(name: string, start: Date, checkpoints: Date[], anchor: "config" | "exactly-one-month" = "config", cancelAt?: Date) {
+async function scenario(name: string, start: Date, checkpoints: Date[], anchor: "config" | "exactly-one-month" = "config", cancelAt?: Date, check: { withdraw?: boolean; amounts?: number[] } = {}) {
   const clock = await stripe("POST", "/test_helpers/test_clocks", { frozen_time: String(seconds(start)), name: `ENG-123 ${name}` });
   const findings: string[] = [];
   try {
@@ -60,6 +60,11 @@ async function scenario(name: string, start: Date, checkpoints: Date[], anchor: 
     if (cancelAt) {
       await stripe("POST", `/subscriptions/${sub.id}`, { cancel_at: String(seconds(cancelAt)), proration_behavior: "none" });
       findings.push(`cancel_at set to ${cancelAt.toISOString()} as syncShopEnd sets it`);
+      // The owner withdraws: syncShopEnd clears cancel_at with proration off, so the stretched period is not charged again.
+      if (check.withdraw) {
+        await stripe("POST", `/subscriptions/${sub.id}`, { cancel_at: "", proration_behavior: "none" });
+        findings.push("cancel_at cleared again (withdrawn), proration off");
+      }
     }
     const atStart = await invoices(sub.id);
     findings.push(`invoices during the free month: ${atStart.length} ${atStart.length === 0 ? "OK (no 0,00 € invoice)" : `NOT OK: ${JSON.stringify(atStart.map(i => ({ number: i.number, amount: i.amount_due })))}`}`);
@@ -69,6 +74,11 @@ async function scenario(name: string, start: Date, checkpoints: Date[], anchor: 
       const status = (await stripe("GET", `/subscriptions/${sub.id}`)).status;
       findings.push(`at ${checkpoint.toISOString()}: subscription ${status}; ${list.length} invoice(s): ${list.map(i => `${i.number ?? "unnumbered"} ${i.amount_due / 100} € ${i.status} ${iso(i.period_start)}→${iso(i.period_end)}`).join("; ")}`);
     }
+    if (check.amounts) {
+      const amounts = (await invoices(sub.id)).sort((a, b) => a.period_start - b.period_start).map(i => i.amount_due);
+      const ok = amounts.length === check.amounts.length && amounts.every((amount, i) => amount === check.amounts![i]);
+      findings.push(`invoice amounts in cents ${JSON.stringify(amounts)}, expected ${JSON.stringify(check.amounts)} ${ok ? "OK" : "MISMATCH"}`);
+    }
   } finally {
     await stripe("DELETE", `/test_helpers/test_clocks/${clock.id}`);
   }
@@ -77,14 +87,16 @@ async function scenario(name: string, start: Date, checkpoints: Date[], anchor: 
 
 async function main() {
   // Go-live at 10:00 Berlin on 28 Oct and on 31 Jan; check just after month two starts, and for the 31st also the month after.
-  await scenario("start on the 28th", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z")]);
+  await scenario("start on the 28th", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z")], "config", undefined, { amounts: [4900] });
   await scenario("start on the 31st", new Date("2027-01-31T09:00:00Z"), [new Date("2027-02-28T01:00:00Z"), new Date("2027-03-31T01:00:00Z")]);
   // Edge: the anchor exactly one month after creation. Stripe may treat that as an immediate first full period (an invoice now); startBilling avoids it by anchoring at 00:00 UTC.
   await scenario("anchor exactly one month after creation", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T10:00:00Z")], "exactly-one-month");
   // ENG-125: ended inside the free month (free_until − 3 h), and ended on the last day of month two (end of 27 Dec in Berlin − 3 h).
-  await scenario("ended inside the free month", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z")], "config", new Date("2026-11-27T21:00:00Z"));
+  await scenario("ended inside the free month", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z")], "config", new Date("2026-11-27T21:00:00Z"), { amounts: [] });
+  // Review R-1: an end set inside the free month and then withdrawn must leave the month-two invoice at exactly the plan's price.
+  await scenario("ended inside the free month, then withdrawn", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z")], "config", new Date("2026-11-27T21:00:00Z"), { withdraw: true, amounts: [4900] });
   await scenario("ended on the last day of month two", new Date("2026-10-28T09:00:00Z"), [new Date("2026-11-28T01:00:00Z"), new Date("2026-12-28T01:00:00Z")], "config", new Date("2026-12-27T20:00:00Z"));
-  console.log("\nExpected for the ended shops: inside the free month no invoice at all and the subscription canceled on 28 Nov; ended on 27 Dec exactly the one month-two invoice, the subscription canceled on 28 Dec, and no third invoice.");
+  console.log("\nExpected for the ended shops: inside the free month no invoice at all and the subscription canceled on 28 Nov; withdrawn, the subscription active and one month-two invoice of exactly 49 € with no proration line; ended on 27 Dec exactly the one month-two invoice, the subscription canceled on 28 Dec, and no third invoice.");
   console.log("\nExpected: no invoice during the free month; one invoice at month two for the plan's price with the next number in the account-wide series; for the 31st, bills on 28 Feb, then on 31 Mar. The exact-one-month edge is informative: if it shows an invoice at creation, keep startBilling's 00:00 UTC anchor.");
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; });

@@ -375,7 +375,8 @@ export async function syncShopEnd(tenantId: string, now = new Date()) {
     const at = (value: Date | null) => value ? String(Math.floor(value.getTime() / 1000)) : "";
     // One key per transition: a retry of this one replays it, a later end, withdrawal and the same end again gets its own.
     const key = `shop-end-${id}-${at(sub.billingEndsAt) || "none"}-${target && target <= now ? "now" : at(target) || "none"}-${sub.updatedAt.getTime()}`;
-    if (!target) await client("POST", `/subscriptions/${id}`, { cancel_at: "" }, key);
+    // Removing a cancel_at inside the period stretches the period back; without "none" Stripe charges that stretch again (review R-1).
+    if (!target) await client("POST", `/subscriptions/${id}`, { cancel_at: "", proration_behavior: "none" }, key);
     else if (target <= now) await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
     else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
     await tx.update(subscriptions).set({ billingEndsAt: target, cancelAtPeriodEnd: target !== null, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
@@ -501,7 +502,11 @@ export async function runBillingJob(env: Env = process.env) {
   let ends = 0;
   const live = await db.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
     .where(and(eq(subscriptions.provider, "stripe"), inArray(subscriptions.status, RUNNING), isNotNull(subscriptions.providerSubscriptionId)));
-  for (const shop of live) if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1;
+  for (const shop of live) {
+    // One shop's Stripe error must not hold up the other shops' ends, credits and quantities (review N-1).
+    try { if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1; }
+    catch (error) { console.error(`Billing: Stripe end not synced for tenant ${shop.tenantId} (${error instanceof Error && "code" in error ? String(error.code) : "error"}); retried tomorrow`); }
+  }
   const credited = await creditOwedGuarantees();
   let quantities = 0;
   const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount,
