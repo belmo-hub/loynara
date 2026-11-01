@@ -107,22 +107,28 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   const d1 = later(10), d2 = later(20), d3 = later(30);
   const operator = await identity(), asked = await nfcFixture(), planned = await nfcFixture();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+  // No billing: the go-live day stands in for the billing day (ENG-167); the 1st makes the month's last day the end.
+  await pool.query("UPDATE tenants SET created_at = '2026-01-01T09:00:00Z' WHERE id = $1", [asked.tenant.id]);
   await requestCancellation({ actorUserId: asked.userId, programSlug: asked.program.slug, now: new Date("2026-10-10T10:00:00Z") });
   const view = () => operatorOverview(operator.userId, { PLATE_OPERATOR_USER_IDS: operator.userId });
   const row = async (id: string) => (await view()).rows.find(r => r.programId === id)!;
-  expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-10-31", confirmed: false });
+  // ENG-167: the request binds at once (Legal, 1 Nov).
+  expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-10-31", confirmed: true });
   expect((await row(asked.program.id)).requestedDays).toBeGreaterThanOrEqual(0);
   expect(await row(planned.program.id)).toMatchObject({ endDate: null, confirmed: false, requestedDays: null });
 
-  // Owner-requested: the dry run shows from → to and writes nothing; execute confirms.
+  // Owner-requested: the dry run shows from → to and writes nothing; a later end needs the shop's consent.
   const dry = await postProgramme({ programId: asked.program.id, endDate: d1, execute: false }, operator.cookie);
   expect(await dry.json()).toMatchObject({ result: "would_schedule", end: "2026-10-31", endDate: d1 });
-  expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-10-31", confirmed: false });
-  expect((await getCard(asked.member.cardToken)).endsOn).toBeUndefined();
-  expect((await postProgramme({ programId: asked.program.id, endDate: d1, execute: true }, operator.cookie)).status).toBe(200);
+  expect(await row(asked.program.id)).toMatchObject({ endDate: "2026-10-31", confirmed: true });
+  expect((await getCard(asked.member.cardToken)).endsOn).toBe("2026-10-31");
+  const refused = await postProgramme({ programId: asked.program.id, endDate: d1, execute: true }, operator.cookie);
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ code: "CONSENT_REQUIRED" });
+  expect((await postProgramme({ programId: asked.program.id, endDate: d1, consent: true, execute: true }, operator.cookie)).status).toBe(200);
   expect(await row(asked.program.id)).toMatchObject({ endDate: d1, confirmed: true });
   expect((await getCard(asked.member.cardToken)).endsOn).toBe(d1);
-  await postProgramme({ programId: asked.program.id, endDate: d2, execute: true }, operator.cookie);
+  await postProgramme({ programId: asked.program.id, endDate: d2, consent: true, execute: true }, operator.cookie);
   expect((await getCard(asked.member.cardToken)).endsOn).toBe(d2); // moving the date moves the card
 
   // Operator-scheduled, with no owner request: confirmed, and requested_at stays null.
@@ -135,7 +141,7 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   // The audit per programme: who (not which account) and the date before and after, oldest first.
   expect((await row(asked.program.id)).cancellationHistory).toEqual([
     expect.objectContaining({ action: "request", by: "Inhaber", oldEndDate: null, newEndDate: "2026-10-31" }),
-    expect.objectContaining({ action: "confirm", by: "Operator", oldEndDate: "2026-10-31", newEndDate: d1 }),
+    expect.objectContaining({ action: "schedule", by: "Operator", oldEndDate: "2026-10-31", newEndDate: d1 }),
     expect.objectContaining({ action: "schedule", by: "Operator", oldEndDate: d1, newEndDate: d2 }),
   ]);
   expect((await row(planned.program.id)).cancellationHistory).toEqual([expect.objectContaining({ action: "schedule", by: "Operator", oldEndDate: null, newEndDate: d3 })]);

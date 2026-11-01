@@ -6,7 +6,7 @@ import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, 
 import { createAdditionalLocation } from "./locations";
 import { DomainError } from "./loyalty";
 import { createMerchant } from "./product";
-import { operatorProgramme, withdrawCancellation } from "./programme-end";
+import { operatorProgramme, requestCancellation, withdrawCancellation } from "./programme-end";
 import { getBillingOverview } from "./billing";
 import { operatorOverview } from "./operator";
 import { applyStripeWebhook, createStripeCheckout, createStripePortal, endInFreeMonth, runBillingJob, syncShopEnd, setStripeClient, setTenantPlan, startBilling, STRIPE_STATUS, verifyStripeSignature, type StripeClient } from "./billing-stripe";
@@ -62,6 +62,10 @@ function fakeStripe() {
     if (method === "GET" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) return structuredClone(subs.get(match[1])) ?? notFound();
     if (method === "POST" && (match = /^\/subscriptions\/([^/]+)$/.exec(path))) { const sub = subs.get(match[1]); if (sub && "cancel_at" in params) sub.cancel_at = params.cancel_at ? Number(params.cancel_at) : null; if (sub && "cancel_at_period_end" in params) sub.cancel_at_period_end = params.cancel_at_period_end === "true"; return sub ? structuredClone(sub) : {}; }
     if (method === "GET" && (match = /^\/invoices\/([^/]+)$/.exec(path))) return invoices.get(match[1]) ?? notFound();
+    // The month-two invoices of a subscription (ENG-167: voided when a free-month cancellation came in time).
+    if (method === "GET" && path === "/invoices") return { data: [...invoices.values()].filter(invoice => (invoice as { subscription?: string }).subscription === params.subscription) };
+    if (method === "POST" && (match = /^\/invoices\/([^/]+)\/void$/.exec(path))) { const invoice = invoices.get(match[1]) as { status: string } | undefined; if (invoice) invoice.status = "void"; return invoice ?? notFound(); }
+    if (method === "DELETE" && (match = /^\/invoices\/([^/]+)$/.exec(path))) { const found = invoices.delete(match[1]); return found ? { deleted: true } : notFound(); }
     if (method === "POST" && path === "/invoiceitems") return { id: `ii_test${++next}` };
     if (method === "POST" && path === "/credit_notes") { const note = { id: `cn_test${++next}`, invoice: params.invoice, metadata: { guarantee_key: params["metadata[guarantee_key]"] } }; creditNotes.push(note); return note; }
     if (method === "GET" && path === "/credit_notes") return { data: creditNotes.filter(note => note.invoice === params.invoice) };
@@ -629,7 +633,8 @@ describe("billing starts at go-live with the free first month (ENG-123)", () => 
 
 describe("the operator's confirmed shop end ends the Stripe subscription (ENG-125)", () => {
   const NOW = new Date("2026-11-10T10:00:00Z");
-  const confirm = (s: { operatorId: string }, programId: string, endDate: string, now = NOW, execute = true) => operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId, command: "schedule", endDate, execute, now });
+  // With consent: these tests are about Stripe; the consent rule itself is pinned in programme-end's tests.
+  const confirm = (s: { operatorId: string }, programId: string, endDate: string, now = NOW, execute = true) => operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId, command: "schedule", endDate, consent: true, execute, now });
   const endCalls = (subscriptionId: string) => stripe.calls.filter(call => call.path === `/subscriptions/${subscriptionId}` && (call.method === "DELETE" || "cancel_at" in call.params || "cancel_at_period_end" in call.params));
   const PERIOD_END_AT = seconds(PERIOD_END);
   // The shop's billing month renews: Stripe's period moves on one month (the fake's clock, as a renewal would).
@@ -723,14 +728,11 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     expect(ending.fake().cancel_at_period_end).toBe(true);
   });
 
-  it("waits until every running location has a confirmed end, then ends with the month of the latest one", async () => {
+  it("one date for the whole business (ENG-167): confirming one location ends every location, with one Stripe call", async () => {
     const s = await subscribed();
     const second = await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
     await confirm(s, s.programId, "2026-12-01");
-    expect(endCalls(s.subscriptionId)).toHaveLength(0);
-    await confirm(s, second.programId, "2027-01-01");
-    expect(endCalls(s.subscriptionId)).toHaveLength(0);
-    await confirm(s, second.programId, "2026-12-01");
+    expect(await programme(second.programId)).toMatchObject({ cancellationEndDate: "2026-12-01" });
     expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([{ cancel_at_period_end: "true" }]);
   });
 
@@ -869,6 +871,30 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: "2026-12-18", cancellationConfirmedAt: null });
       await confirm(s, s.programId, "2026-12-18", new Date("2026-12-04T11:00:00Z"));
       expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+    });
+
+    it("an owner's cancellation in the free month binds and tells Stripe at once, before anyone confirms (ENG-167)", async () => {
+      const s = await live();
+      const day25 = new Date("2026-12-04T10:00:00Z");
+      expect(await requestCancellation({ actorUserId: s.ownerId, programSlug: (await programme(s.programId)).slug, now: day25 })).toEqual({ endDate: "2026-12-18", confirmed: true });
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+      // The operator's confirmation keeps it: nothing more reaches Stripe.
+      await confirm(s, s.programId, "2026-12-18", new Date("2026-12-05T10:00:00Z"));
+      expect(endCalls(s.subscriptionId)).toHaveLength(1);
+    });
+
+    it("an e-mailed cancellation that arrived in the free month but is entered after the first invoice costs nothing: the invoice is voided", async () => {
+      const s = await live();
+      const fake = stripe.subs.get(s.subscriptionId)!;
+      stripe.invoices.set("in_testmonth2", { id: "in_testmonth2", status: "open", created: seconds(new Date("2026-12-10T00:00:00Z")), subscription: s.subscriptionId, customer: fake.customer, billing_reason: "subscription_cycle" });
+      stripe.invoices.set("in_testdraft", { id: "in_testdraft", status: "draft", created: seconds(new Date("2026-12-10T00:05:00Z")), subscription: s.subscriptionId, customer: fake.customer, billing_reason: "subscription_cycle" });
+      const entered = new Date("2026-12-10T08:00:00Z");
+      // Arrived 9 December, 23:30 Berlin: on the last free day.
+      await operatorProgramme({ actorUserId: s.operatorId, env: process.env, programId: s.programId, command: "request", receivedAt: "2026-12-09T23:30:00+01:00", execute: true, now: entered });
+      expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: "2026-12-23" });
+      expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } })]);
+      expect(stripe.invoices.get("in_testmonth2")).toMatchObject({ status: "void" });
+      expect(stripe.invoices.has("in_testdraft")).toBe(false);
     });
 
     it("ends at once, with no invoice, when the free month's end time has already passed, once", async () => {

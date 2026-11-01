@@ -7,7 +7,7 @@ import { setStripeClient } from "./billing-stripe";
 import { createAdditionalLocation } from "./locations";
 import { createMerchant } from "./product";
 import type { TransactionalEmailProvider, TransactionalMessage } from "./transactional-email";
-import { deliverFreeMonthReminder, FREE_MONTH_REMINDER, freeMonthsEndingSoon, queueFreeMonthReminders } from "./free-month-reminder";
+import { deliverFreeMonthReminder, FREE_MONTH_REMINDER, freeMonthReminderText, freeMonthsEndingSoon, queueFreeMonthReminders } from "./free-month-reminder";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
 
@@ -103,7 +103,8 @@ describe("free-month reminder (ENG-123)", () => {
       "Bahnhof: 49 €",
       "Die erste Rechnung kommt am selben Tag per E-Mail. Eine Zahlungsart kannst du vorher in deinem Inhaberbereich unter „Abrechnung“ hinterlegen.",
       "",
-      "Möchtest du aufhören, schreib bis zum 9. Dezember eine kurze E-Mail an support@getloynara.com. Dann endet der Vertrag für alle Standorte mit dem kostenlosen Monat und kostet dich nichts.",
+      // ENG-167, Marketing's R1 while the cancellation surface is on (always outside real production).
+      "Möchtest du aufhören, kündige bis zum 9. Dezember in deinem Inhaberbereich unter Mehr › Geschäft › Programm beenden oder per E-Mail an support@getloynara.com. Es kostet dich nichts. Dein Programm endet frühestens 14 Tage nach deiner Kündigung, damit deine Kunden das Ende rechtzeitig sehen. Das genaue Datum bekommst du mit der Bestätigung.",
       "",
       "Viele Grüße",
       "Loynara",
@@ -112,6 +113,13 @@ describe("free-month reminder (ENG-123)", () => {
     ].join("\n"));
     await db.update(outboxJobs).set({ status: "complete" }).where(eq(outboxJobs.id, job.id));
     expect(await freeMonthsEndingSoon(pool, due)).toMatchObject([{ tenantId: s.tenantId, sent: true }]);
+  });
+
+  it("with the cancellation surface off, names only the e-mail (R2, Legal 1 Nov) and never claims the end comes with the free month", () => {
+    const text = freeMonthReminderText({ shop: "Synthetic", locations: [{ name: "Am Markt", priceMinor: 4900 }], freeUntil: FREE_UNTIL, vat: "kleinunternehmer", operator: { name: "Synthetische Betreiberin", address: "Musterstraße 1, 12345 Musterstadt" }, inApp: false });
+    expect(text.body).toContain("Möchtest du aufhören, schreibe bis zum 9. Dezember eine kurze E-Mail an support@getloynara.com. Es kostet dich nichts. Dein Programm endet frühestens 14 Tage nach deiner Kündigung, damit deine Kunden das Ende rechtzeitig sehen. Das genaue Datum bekommst du mit der Bestätigung.");
+    expect(text.body).not.toContain("Programm beenden");
+    expect(text.body).not.toContain("mit dem kostenlosen Monat");
   });
 
   it("names the one location, and adds „zzgl. USt“ in standard VAT mode, as on the invoice", async () => {

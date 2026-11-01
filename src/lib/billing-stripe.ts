@@ -416,12 +416,28 @@ export async function syncShopEnd(tenantId: string, now = new Date()) {
       // Removing a cancel_at inside the period stretches the period back; without "none" Stripe charges that stretch again (R-1).
       await client("POST", `/subscriptions/${id}`, isFree(sub.billingEndsAt) ? { cancel_at: "", proration_behavior: "none" } : { cancel_at_period_end: "false" }, key);
     } else if (isFree(target)) {
-      if (target <= now) await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
-      else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
+      if (target <= now) {
+        await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
+        // ENG-167 (CTO): a free-month cancellation entered after Stripe drew the first invoice (an e-mail that arrived in time)
+        // must cost nothing: that invoice is voided, or deleted while still a draft.
+        if (sub.freeUntil && now >= sub.freeUntil) await voidFirstInvoice(id, sub.freeUntil, key);
+      } else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
     } else await client("POST", `/subscriptions/${id}`, { cancel_at_period_end: "true" }, key);
     await tx.update(subscriptions).set({ billingEndsAt: target, cancelAtPeriodEnd: target !== null, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
     return { action: !target ? "cleared" as const : isFree(target) && target <= now ? "ended" as const : "scheduled" as const, endsAt: target };
   });
+}
+
+/** The month-two invoice of a subscription whose free-month cancellation came in time: voided if open, deleted if a draft. */
+async function voidFirstInvoice(subscriptionId: string, freeUntil: Date, key: string) {
+  const list = z.object({ data: z.array(z.object({ id: z.string().regex(/^in_[A-Za-z0-9]+$/), status: z.string(), created: z.number().int() })) })
+    .parse(await client("GET", "/invoices", { subscription: subscriptionId, limit: "10" }));
+  for (const invoice of list.data.filter(item => item.created >= Math.floor(freeUntil.getTime() / 1000) - 3600)) {
+    if (invoice.status === "draft") await client("DELETE", `/invoices/${invoice.id}`, {}, `${key}-${invoice.id}`);
+    else if (invoice.status === "open") await client("POST", `/invoices/${invoice.id}/void`, {}, `${key}-${invoice.id}`);
+    // A paid one means a payment method was on file: a refund is a person's decision, so it is named, not done here.
+    else if (invoice.status === "paid") console.error(`Billing: invoice ${invoice.id} was paid after a free-month cancellation in time; refund it in Stripe`);
+  }
 }
 
 /**
