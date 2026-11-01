@@ -106,7 +106,7 @@ export async function contractFacts(tenantId: string, endDate: string, now = new
   return { ...common, invoice: { kind: "none", previous: previous ? invoice(previous) : null }, freeMonth: false };
 }
 
-function nextBillingDay(isoDay: string, anchorDay: number) {
+export function nextBillingDay(isoDay: string, anchorDay: number) {
   let day = addDays(isoDay, 1);
   while (day !== billingDayIn(day, anchorDay)) day = addDays(day, 1);
   return day;
@@ -143,8 +143,9 @@ export function factsLines(facts: ContractFacts, vat: "none" | "kleinunternehmer
   const invoice = facts.invoice;
   const last = invoice.kind === "free" ? { value: "Keine Rechnung", sub: facts.freeMonth && facts.lastDay > lastFreeOf(facts) ? `Dein erster Monat ist kostenlos, die Tage danach bis einschließlich ${day(facts.lastDay)} auch.` : "Dein erster Monat ist kostenlos. Hörst du im ersten Monat auf, kostet es nichts." }
     : invoice.kind === "none" ? { value: "Keine weitere Rechnung", sub: invoice.previous ? `Die letzte kam am ${day(invoice.previous.date)}: ${withCount(invoice.previous.amountMinor)} für ${period(invoice.previous.from, invoice.previous.to)}.` : "" }
-      : invoice.invoices.length === 1 ? { value: `${day(invoice.invoices[0].date)} · ${withCount(invoice.invoices[0].amountMinor)}`, sub: `Für ${period(invoice.invoices[0].from, invoice.invoices[0].to)}. Das ist die letzte Rechnung.` }
-        : { value: `${day(invoice.invoices.at(-1)!.date)} · ${withCount(invoice.invoices.at(-1)!.amountMinor)}`, sub: `Noch ${invoice.invoices.length} Rechnungen: ${dayList(invoice.invoices.map(i => i.date))}, je ${withCount(invoice.invoices[0].amountMinor)}. Die am ${shortDay(invoice.invoices.at(-1)!.date)} ist die letzte.` };
+      // C2/C5/C6 show the plain total; only C4 (the last one already came) names the location count.
+      : invoice.invoices.length === 1 ? { value: `${day(invoice.invoices[0].date)} · ${amount(invoice.invoices[0].amountMinor)}`, sub: `Für ${period(invoice.invoices[0].from, invoice.invoices[0].to)}. Das ist die letzte Rechnung.` }
+        : { value: `${day(invoice.invoices.at(-1)!.date)} · ${amount(invoice.invoices.at(-1)!.amountMinor)}`, sub: `Noch ${invoice.invoices.length} Rechnungen: ${dayList(invoice.invoices.map(i => i.date))}, je ${amount(invoice.invoices[0].amountMinor)}. Die am ${shortDay(invoice.invoices.at(-1)!.date)} ist die letzte.` };
   const ds05 = env.SHOP_ERASURE_DELAY_DAYS && /^\d{1,4}$/.test(env.SHOP_ERASURE_DELAY_DAYS) && Number(env.SHOP_ERASURE_DELAY_DAYS) >= 7 ? ` innerhalb von ${Number(env.SHOP_ERASURE_DELAY_DAYS)} Tagen` : "";
   return {
     lastDay: { label: "Letzter Tag", value: day(facts.lastDay), sub: "Bis dahin läuft alles normal: Deine Kunden sammeln weiter und lösen Prämien ein." },
@@ -158,3 +159,13 @@ const lastFreeOf = (facts: ContractFacts) => facts.lastFreeDay ?? facts.lastDay;
 /** „Text für deine Kunden“ (live since #84): the owner hangs it at the till; we never write to customers. */
 export const customerText = (unit: "Stempel" | "Punkte", endDate: string) =>
   `Unsere ${unit}karte läuft noch bis einschließlich ${day(endDate)}. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.`;
+
+/**
+ * What happens to billing when a cancellation is withdrawn (C17/C18; M3 and the withdrawal question say the same): the next
+ * invoice, or in the free month the first billing day. Null before billing exists.
+ */
+export function withdrawalBillingLine(basis: NonNullable<Awaited<ReturnType<typeof contractBasis>>>, today: string) {
+  if (basis.totalMinor === null || !basis.billed) return null;
+  if (basis.lastFreeDay && today <= basis.lastFreeDay && basis.firstBillingDay) return `Nach dem kostenlosen Monat beginnt die Abrechnung am ${day(basis.firstBillingDay)}, ${euros(basis.totalMinor)} im Monat.`;
+  return `Die Abrechnung bleibt wie bisher: nächste Rechnung am ${day(nextBillingDay(today, basis.anchorDay))}, ${euros(basis.totalMinor)}.`;
+}

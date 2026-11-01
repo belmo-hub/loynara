@@ -6,6 +6,7 @@ import { outboxJobs, subscriptions } from "@/db/schema";
 import { setStripeClient } from "./billing-stripe";
 import { contractFacts, factsLines } from "./contract-end";
 import { contractEndEmailText, deliverContractEndEmail } from "./contract-end-email";
+import { ownerContractView } from "./contract-end-view";
 import { createAdditionalLocation } from "./locations";
 import { createMerchant } from "./product";
 import { requestCancellation } from "./programme-end";
@@ -149,5 +150,44 @@ describe("the owner's emails (M1–M3, Marketing FINAL with Legal's conditions)"
     expect(sent[0]).toMatchObject({ to: expect.stringMatching(/@example\.test$/), subject: "Café Lindenblatt: Dein Programm endet am 27.11.2026" });
     expect(sent[0].body).toContain("am 01.11.2026 um 10:15 Uhr erhalten");
     expect(sent[0].body.endsWith("Synthetische Betreiberin · Musterstraße 1, 12345 Musterstadt")).toBe(true);
+  });
+});
+
+describe("the owner's „Programm beenden“ view (ENG-167 b)", () => {
+  const view = async (s: { ownerId: string; tenantId: string }, now: string) => {
+    const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1 ORDER BY created_at LIMIT 1", [s.tenantId])).rows;
+    return ownerContractView({ actorUserId: s.ownerId, programSlug: slug, now: at(now), env: {} });
+  };
+
+  it("O1 before cancelling: the earliest end and its facts, no reason line; O2 late notice names the missed end and its cutoff", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    expect(await view(s, "2026-11-01T10:00:00Z")).toMatchObject({ state: "open", endDateText: "27.11.2026", reason: null, locations: null, facts: { lastInvoice: { value: "Keine weitere Rechnung" } } });
+    expect(await view(s, "2026-11-18T10:00:00Z")).toMatchObject({ state: "open", endDateText: "27.12.2026",
+      reason: "Du kannst mit 14 Tagen Frist zum letzten Tag eines Abrechnungsmonats kündigen. Für ein Ende am 27.11.2026 hätte die Kündigung bis zum 13.11.2026 bei uns sein müssen. Darum endet dein Vertrag am 27.12.2026." });
+  });
+
+  it("O3 / O3b in the free month: free, ending on the last free day or request + 14 (C11)", async () => {
+    const s = await shop("2026-10-20", "2026-11-20", { name: "Barbier Nord", type: "points" });
+    expect(await view(s, "2026-11-01T10:00:00Z")).toMatchObject({ endDateText: "19.11.2026", unit: "Punkte", facts: { lastInvoice: { value: "Keine Rechnung" } },
+      reason: "Du bist im kostenlosen ersten Monat. Kündigst du jetzt, kostet dich das nichts. Dein Programm läuft noch bis einschließlich 19.11.2026, damit deine Kunden das Ende mindestens 14 Tage vorher auf ihrer Karte sehen." });
+    expect(await view(s, "2026-11-12T10:00:00Z")).toMatchObject({ endDateText: "26.11.2026", reason: expect.stringContaining("bis einschließlich 26.11.2026") });
+  });
+
+  it("O4 after the cancellation: the recorded end, when it came in, the customer text; O5 when a later end was agreed; the withdrawal text", async () => {
+    const s = await shop("2026-08-28", "2026-09-28", { second: true });
+    const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1 ORDER BY created_at LIMIT 1", [s.tenantId])).rows;
+    await requestCancellation({ actorUserId: s.ownerId, programSlug: slug, now: at("2026-11-01T10:00:00Z") });
+    expect(await view(s, "2026-11-03T10:00:00Z")).toMatchObject({ state: "cancelled", requestedOn: "01.11.2026", endDateText: "27.11.2026", reason: null,
+      locations: "Gilt für alle deine Standorte: Kassel Mitte und Kassel Nord enden am selben Tag.",
+      customerText: "Unsere Stempelkarte läuft noch bis einschließlich 27.11.2026. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.",
+      withdrawal: { text: "Dein Programm läuft dann ohne Enddatum weiter. Die Abrechnung bleibt wie bisher: nächste Rechnung am 28.11.2026, 98\u00a0€." } });
+    await pool.query("UPDATE programs SET cancellation_end_date = '2026-12-27' WHERE tenant_id = $1", [s.tenantId]);
+    expect(await view(s, "2026-11-03T10:00:00Z")).toMatchObject({ state: "later", endDateText: "27.12.2026", facts: { lastInvoice: { value: "28.11.2026 · 98\u00a0€" } } });
+  });
+
+  it("answers only the shop's owner, like a missing programme otherwise", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1", [s.tenantId])).rows;
+    await expect(ownerContractView({ actorUserId: randomUUID(), programSlug: slug })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

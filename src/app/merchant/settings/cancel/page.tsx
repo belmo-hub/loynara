@@ -1,82 +1,171 @@
 "use client";
 
-import { CalendarClock } from "lucide-react";
+import { AlertCircle, CalendarX, Check, Download, Euro } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { postJson } from "@/components/client-api";
 import { copyText } from "@/components/copy-text";
+import { copyFor } from "@/components/customer/customer-card-copy";
+import { setFlash } from "@/components/owner/flash";
 import { useOwner } from "@/components/owner/owner-context";
-import { PageTitle } from "@/components/owner/owner-rows";
+import { Confirm, PageTitle } from "@/components/owner/owner-rows";
 import { GuardedLink } from "@/components/owner/owner-shell";
-import { Notice } from "@/components/owner/owner-ui";
-import { cancellationEnd, germanDate, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
+import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
+import { useLoad } from "@/components/owner/use-load";
 
 const SETTINGS = "/merchant/settings";
 
+type Fact = { label: string; value: string; sub: string };
+type View = {
+  state: "open" | "cancelled" | "later";
+  requestedOn: string | null;
+  endDate: string;
+  endDateText: string;
+  facts: { lastDay: Fact; lastInvoice: Fact; exportUntil: Fact };
+  reason: string | null;
+  locations: string | null;
+  customerText: string;
+  unit: "Stempel" | "Punkte";
+  withdrawal: { text: string };
+};
+type Failure = { kind: "retry" | "rate" | "ended" | "missing"; message: string };
+
+/** The three facts (C1–C8): one white panel, information not warning, the same lines the emails carry. */
+function Facts({ facts }: { facts: View["facts"] }) {
+  const rows: Array<[LucideIcon, Fact]> = [[CalendarX, facts.lastDay], [Euro, facts.lastInvoice], [Download, facts.exportUntil]];
+  return (
+    <dl className="ow-qpanel ow-facts">
+      {rows.map(([Icon, fact]) => (
+        <div key={fact.label} className="ow-fact">
+          <Icon size={22} aria-hidden="true" />
+          <dt>{fact.label}</dt>
+          <dd><strong>{fact.value}</strong>{fact.sub && <span>{fact.sub}</span>}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Desktop (≥1024): what the customers' card shows, from the moment the cancellation is in (C22, C37). */
+function CustomerPreview({ view }: { view: View }) {
+  const customerCardCopy = copyFor("de");
+  const long = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${view.endDate}T00:00:00Z`));
+  return (
+    <aside className="ow-qaside" aria-labelledby="ow-cancel-preview">
+      <h2 id="ow-cancel-preview" className="ow-qlabel">So sehen es deine Kunden</h2>
+      <div className="ow-qpanel ow-endcard">
+        <p><strong>{customerCardCopy.endsOn(long)}</strong></p>
+        <p>{customerCardCopy.endsWindow(view.unit === "Punkte")}</p>
+      </div>
+      <p className="ow-hint">Deine Kunden sehen das Enddatum ab dem Moment, in dem du kündigst.</p>
+    </aside>
+  );
+}
+
 /**
- * „Programm beenden“ behind its link on Geschäft (ENG-122c): the live flow and wording, the confirmation a screen of its own
- * (Programm 28/30), back on Geschäft after either answer. Cancelling records an end date only; nothing is sent to customers
- * and nothing is deleted. Redemptions work until then.
+ * „Programm beenden“ (ENG-167, Design's spec of 1 Nov with Legal's answers). A cancellation binds the moment it is sent:
+ * the page shows the end it gets and its three facts before, and the recorded end with the customer text after. The owner
+ * picks no date; a later end is agreed with the operator. Withdrawing is a question of its own.
  */
 export default function CancelProgrammePage() {
   const { me, refresh } = useOwner();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const programSlug = me?.programSlug;
+  const [loaded, reload] = useLoad<View>(programSlug && me?.role === "owner" ? `/api/merchant/program/cancel?programSlug=${encodeURIComponent(programSlug)}` : null);
+  const view = loaded.state === "ok" ? loaded.data : null;
+
   if (!me) return null;
-  const head = <PageTitle back={{ href: SETTINGS, label: "Geschäft" }} title="Programm beenden" />;
+  const head = <PageTitle back={{ href: SETTINGS, label: "Geschäft" }} title="Programm beenden" lead={view?.state === "open" ? "Prüfe die drei Angaben. Wir bestätigen dir das Enddatum per E-Mail." : undefined} />;
   if (me.role !== "owner") return <div className="ow-page ow-qpage">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
-  const programSlug = me.programSlug;
-  const endDate = me.cancellationEndDate ?? null;
-  const confirmed = me.cancellationConfirmed === true;
-  // Stamp shops hear about Stempel, points shops about Punkte (ENG-133, audit I-28).
-  const unit = me.programType === "stamp" ? "Stempel" : "Punkte";
-  const text = endDate ? `Unsere ${unit}karte läuft noch bis einschließlich ${germanDate(endDate)}. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.` : "";
+  if (loaded.state === "error") return <div className="ow-page ow-qpage">{head}<ErrorNotice message={loaded.message} onRetry={reload} /></div>;
+  if (!view) return <div className="ow-page ow-qpage">{head}<LoadingBlock rows={3} /></div>;
+
   async function send(withdraw: boolean) {
-    setSaving(true); setError("");
-    try { await postJson("/api/merchant/program/cancel", { programSlug, withdraw }); await refresh(); router.push(SETTINGS); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Speichern fehlgeschlagen."); setSaving(false); }
+    setSaving(true); setFailure(null);
+    try {
+      await postJson("/api/merchant/program/cancel", { programSlug, withdraw });
+      await refresh();
+      if (withdraw) { setFlash("Kündigung zurückgenommen"); router.push(SETTINGS); return; }
+      setSaving(false);
+      reload();
+    } catch (cause) {
+      setSaving(false);
+      const code = cause && typeof cause === "object" && "code" in cause ? String((cause as { code: unknown }).code) : "";
+      // C20/C21: a failed withdrawal leaves the cancellation in force, a failed cancellation leaves the programme running.
+      const stays = withdraw ? "Deine Kündigung gilt weiter." : "Dein Programm läuft unverändert weiter.";
+      if (code === "PROGRAM_ENDED") { setFailure({ kind: "ended", message: "" }); setAsking(false); }
+      else if (code === "NOT_FOUND") { setFailure({ kind: "missing", message: "Dieses Programm haben wir nicht gefunden." }); setAsking(false); }
+      else if (code === "RATE_LIMIT") setFailure({ kind: "rate", message: `Zu viele Versuche in kurzer Zeit. ${stays} Versuche es in 15 Minuten noch einmal.` });
+      else setFailure({ kind: "retry", message: `Das hat gerade nicht geklappt. ${stays} Versuche es gleich noch einmal.` });
+    }
   }
   async function copy() {
-    if (await copyText(text)) setCopied(true); else setError("Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell.");
+    if (await copyText(view!.customerText)) setCopied(true); else setFailure({ kind: "retry", message: "Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell." });
   }
-  const failed = error && <Notice tone="danger">{error}</Notice>;
+  const failed = failure && (failure.kind === "retry" || failure.kind === "rate") && <Notice tone="danger" role="alert"><strong>Nicht gespeichert</strong> {failure.message}</Notice>;
 
-  if (endDate) return (
+  // A final refusal replaces the page with no retry line: an ended programme goes to its ended page, a missing one stands alone.
+  if (failure?.kind === "ended") { router.replace("/merchant"); return null; }
+  if (failure?.kind === "missing") return <div className="ow-page ow-qpage">{head}<Notice tone="danger" role="alert">{failure.message}</Notice></div>;
+
+  // O6: withdrawing is a question of its own, and helps the shop, so it is the green action.
+  if (asking) return (
+    <Confirm title="Kündigung zurücknehmen?" back="Programm beenden" action="Zurücknehmen" busyAction="Wird gespeichert …" busy={saving} danger={false} onConfirm={() => void send(true)} onCancel={() => { setAsking(false); setFailure(null); }}>
+      <div className="ow-qpanel"><p>{view.withdrawal.text}</p></div>
+      {failed}
+    </Confirm>
+  );
+
+  if (view.state !== "open") return (
     <div className="ow-page ow-qpage">
       {head}
-      <div className="ow-q">
-        {confirmed
-          ? <Notice tone="warn">Dein Programm endet am {germanDate(endDate)}. Bis dahin läuft alles normal, auch das Einlösen von Prämien.</Notice>
-          : <Notice tone="warn">Voraussichtlich bis zum {germanDate(endDate)}. Laut Pilotvereinbarung endet der Vertrag mit {MIN_NOTICE_DAYS} Tagen Frist zum Ende eines Abrechnungsmonats. Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal.</Notice>}
-        {confirmed && <div className="ow-qpanel ow-field">
-          <label htmlFor="ow-cancel-text">Text für deine Kunden</label>
-          <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={4} value={text} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
-          <p id="ow-cancel-hint" className="ow-hint">Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
-          <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button></div>
-        </div>}
-        {failed}
-        <button type="button" className="ow-qlink" disabled={saving} onClick={() => void send(true)}>Kündigung zurücknehmen</button>
+      <div className="ow-qend">
+        <div className="ow-q">
+          <Notice tone="warn" role="status">
+            <span className="ow-notice-head"><Check size={20} aria-hidden="true" /><strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong></span>
+            {view.state === "later"
+              ? " So haben wir es mit dir vereinbart. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal."
+              : ` Deine Kündigung ist bei uns eingegangen. Dein Programm endet am ${view.endDateText}. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal.`}
+          </Notice>
+          <Facts facts={view.facts} />
+          {view.locations && <p className="ow-qnote">{view.locations}</p>}
+          <div className="ow-qpanel ow-field">
+            <label htmlFor="ow-cancel-text">Text für deine Kunden</label>
+            <textarea id="ow-cancel-text" className="ow-textarea" readOnly rows={4} value={view.customerText} aria-describedby="ow-cancel-hint" onFocus={event => event.currentTarget.select()} />
+            <p id="ow-cancel-hint" className="ow-hint">Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
+            <div><button type="button" className="ow-btn ow-btn--primary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button></div>
+          </div>
+          {failed}
+          <button type="button" className="ow-qlink" disabled={saving} onClick={() => { setFailure(null); setAsking(true); }}>Kündigung zurücknehmen</button>
+        </div>
+        <CustomerPreview view={view} />
       </div>
     </div>
   );
 
-  const planned = cancellationEnd(new Date());
+  // O1 (earliest end), O2 (late notice: names the missed cutoff), O3 (free month), O9 (every location ends together).
   return (
     <div className="ow-page ow-qpage">
       {head}
-      <div className="ow-q">
-        <div className="ow-qpanel ow-qwhen">
-          <CalendarClock size={24} aria-hidden="true" />
-          <p><strong>Voraussichtlich bis zum {germanDate(planned.endDate)}.</strong> Wir bestätigen dir das genaue Enddatum per E-Mail.{planned.nextMonth ? ` Weil bis zum Monatsende weniger als ${MIN_NOTICE_DAYS} Tage bleiben, rechnen wir mit dem Ende des Folgemonats.` : ""}</p>
+      <div className="ow-qend">
+        <div className="ow-q">
+          <Facts facts={view.facts} />
+          {view.reason && <p className="ow-qnote">{view.reason}</p>}
+          {view.locations && <p className="ow-qnote">{view.locations}</p>}
+          {failed}
+          <div className="ow-qsave ow-qsave--pair">
+            <button type="button" className="ow-btn ow-btn--danger" disabled={saving} aria-busy={saving} onClick={() => void send(false)}>
+              <AlertCircle size={20} aria-hidden="true" />{saving ? "Wird gespeichert …" : "Ja, Programm beenden"}
+            </button>
+            <GuardedLink href={SETTINGS} className="ow-btn ow-btn--secondary">Abbrechen</GuardedLink>
+          </div>
         </div>
-        <div className="ow-qpanel"><p>Bis zum Enddatum läuft alles normal. Deine Kunden sammeln weiter {unit} und lösen Prämien ein, danach nicht mehr. Die {unit} bleiben gespeichert.</p></div>
-        {failed}
-        <div className="ow-qsave ow-qsave--pair">
-          <button type="button" className="ow-btn ow-btn--danger" disabled={saving} aria-busy={saving} onClick={() => void send(false)}>Ja, Programm beenden</button>
-          <GuardedLink href={SETTINGS} className="ow-btn ow-btn--secondary">Abbrechen</GuardedLink>
-        </div>
+        <CustomerPreview view={view} />
       </div>
     </div>
   );
