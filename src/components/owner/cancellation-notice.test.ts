@@ -27,7 +27,7 @@ describe("the end-date notice", () => {
 
   it("confirmed: the date, how long customers can still redeem, and the next steps", () => {
     const html = notice(confirmed);
-    expect(html).toContain("Dein Programm endet am 30.11.2026.");
+    expect(html).toContain("Gekündigt: Ende am 30.11.2026.");
     expect(html).toContain("Noch 20 Tage. Bis dahin läuft alles normal: Deine Kunden sammeln weiter und lösen ihre Prämien ein.");
     expect(html).toContain("Sag es deinen Kunden");
     expect(html).toContain("herunterladen");
@@ -36,12 +36,12 @@ describe("the end-date notice", () => {
     expect(html).toContain("Text für deine Kunden");
   });
 
-  it("requested: provisional wording, redemptions work, and the owner can still withdraw", () => {
+  it("ENG-167: a cancellation binds from its arrival, so a date recorded before (unconfirmed) reads like any other: C23, the days left, the customer text", () => {
     const html = notice(requested, "2026-10-21T10:00:00Z");
-    expect(html).toContain("Voraussichtlich bis zum 31.10.2026.");
-    expect(html).toContain("Wir bestätigen dir das genaue Enddatum per E-Mail. Bis dahin läuft alles normal, auch das Einlösen von Prämien.");
-    expect(html).toContain("Kündigung ansehen");
-    expect(html).not.toContain("Dein Programm endet am");
+    expect(html).toContain("Gekündigt: Ende am 31.10.2026.");
+    expect(html).toContain("Noch 10 Tage. Bis dahin läuft alles normal");
+    expect(html).toContain("Text für deine Kunden");
+    expect(html).not.toContain("Voraussichtlich");
   });
 
   it("handles the end date being tomorrow, today and already past (Berlin days)", () => {
@@ -67,7 +67,7 @@ describe("the end-date notice", () => {
   it("offers no Einstellungen link where the cancel card is withheld (production) or to a manager, but keeps the facts", () => {
     for (const me of [{ hiddenSurfaces: ["cancellation" as const] }, { role: "manager" as const }]) {
       const html = notice({ ...confirmed, ...me });
-      expect(html).toContain("Dein Programm endet am 30.11.2026.");
+      expect(html).toContain("Gekündigt: Ende am 30.11.2026.");
       expect(html).not.toContain("/merchant/settings");
     }
     expect(notice({ ...confirmed, role: "manager" })).not.toContain("herunterladen"); // the export is the owner's
