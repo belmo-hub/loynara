@@ -197,13 +197,18 @@ export async function cancelCampaign(raw: { actorUserId: string; campaignId: str
   });
 }
 
+/** A campaign blocked at dispatch for its text says why (ENG-163); other blocks keep today's chip only. */
+const blockedReason = ({ status, subject, body }: { status: string; subject: string; body: string }) => {
+  const reason = status === "blocked" ? contentRefusal(subject) ?? contentRefusal(body) : null;
+  return reason ? { blockedReason: reason } : {};
+};
+
 export async function listCampaigns(raw: { actorUserId: string; programSlug: string }) {
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   const rows = await db.select().from(campaigns).where(and(eq(campaigns.tenantId, program.tenantId), eq(campaigns.programId, program.id))).orderBy(desc(campaigns.createdAt)).limit(100);
-  // A campaign blocked at dispatch for its text says why (ENG-163); other blocks keep today's chip only.
   return rows.map(({ id, title, subject, body, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition,
-    ...(status === "blocked" ? { blockedReason: contentRefusal(subject) ?? contentRefusal(body) ?? undefined } : {}) }));
+    ...blockedReason({ status, subject, body }) }));
 }
 
 export async function getCampaign(raw: { actorUserId: string; campaignId: string }) {
@@ -245,7 +250,7 @@ export async function getCampaign(raw: { actorUserId: string; campaignId: string
       FROM campaign_recipients r
       WHERE r.tenant_id = ${campaign.tenantId} AND r.campaign_id = ${campaign.id} AND r.status = 'complete' AND r.sent_at IS NOT NULL
     `).then(result => result.rows);
-    return { campaign, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
+    return { campaign: { ...campaign, ...blockedReason(campaign) }, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 

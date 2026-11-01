@@ -35,7 +35,7 @@ const rules: Array<[(text: string) => boolean, string]> = [
   [text => TOBACCO.test(text.replace(EXCLUSION, " ")), "Werbung für Tabak und E-Zigaretten ist nicht erlaubt."],
   [text => HEALTH.test(text), "Gesundheits- und Heilversprechen sind nicht erlaubt."],
   // Within one sentence: „Glühwein für die Großen, Kinderpunsch für die Kleinen“ names both but targets no minor.
-  [text => text.split(/[.!?;\n]/).some(sentence => ALCOHOL.test(sentence) && MINORS.test(sentence)), "Alkohol-Werbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
+  [text => text.split(/[.!?;\n]/).some(sentence => ALCOHOL.test(sentence) && MINORS.test(sentence)), "Alkoholwerbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
 ];
 
 /** The content rules alone, for text of any length: Wallet messages and email campaigns and automations (ENG-163, Legal). */

@@ -608,5 +608,6 @@ describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
     // The owner's list says it was blocked and why.
     const listed = await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
     expect(listed.find(campaign => campaign.id === draft.id)).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: draft.id })).campaign).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
   });
 });
