@@ -25,10 +25,15 @@ export function partList(parts: readonly SenderPart[], location?: string) {
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} und ${names.at(-1)}` : names[0] ?? "";
 }
 
-/** The refusal and the box name the missing parts the same way (Legal, 1 Nov). */
-export const missingSentence = (parts: readonly SenderPart[], location?: string) =>
-  `${partList(parts, location)}. Sie stehen unter jeder E-Mail an deine Kundschaft; bis dahin geht keine E-Mail raus.`;
-export const MISSING_TITLE = "Es fehlen noch Angaben für den Absender";
+// Legal's wording (1 Nov, E24/E41 and the API refusal): the box and the refusal name the missing parts the same way.
+export const MISSING_TITLE = "Es fehlen noch Angaben für den Absender:";
+/** The box's text after its bold title. Only a location's own parts missing: sends wait for that location alone (E41). */
+export function missingSentence(parts: readonly SenderPart[], location?: string) {
+  const only = location && parts.every(part => LOCATION_PARTS.includes(part)) ? `für ${location} ` : "";
+  return `${partList(parts, location)}. Sie stehen unter jeder Erinnerung und Kampagne an deine Kunden. Bis dahin gehen ${only}keine Erinnerungen und Kampagnen raus.`;
+}
+/** The server's refusal (ADDRESS_REQUIRED): no menu path. */
+export const missingRefusal = (parts: readonly SenderPart[]) => `${MISSING_TITLE} ${partList(parts)}. Bis dahin gehen keine Erinnerungen und Kampagnen raus.`;
 
 // ---- Normalising and checking: the owner types freely, and what is stored, previewed and printed is the normal form ----
 
@@ -65,7 +70,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function contactProblems(draft: ContactDraft) {
   const email = draft.contactEmail.trim(), phone = draft.contactPhone.trim();
   return {
-    contact: email || phone ? "" : "Gib eine E-Mail-Adresse oder eine Telefonnummer ein.",
+    contact: email || phone ? "" : "Bitte gib eine E-Mail-Adresse oder eine Telefonnummer ein.",
     contactEmail: !email || (EMAIL.test(email) && email.length <= 320) ? "" : "Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.",
     contactPhone: !phone || /^\+?\d[\d ()/-]{4,23}\d$/.test(phone) ? ""
       : phone.replace(/\D/g, "").length < 6 ? "Die Telefonnummer ist zu kurz, z. B. 0561 739 2214." : "Bitte prüfe die Telefonnummer, z. B. 0561 739 2214.",
@@ -83,9 +88,9 @@ export function registerProblems(draft: RegisterDraft) {
     legalForm: optionalLine(draft.legalForm, 40),
     registerCourt: !court && number ? "Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel." : optionalLine(court, 120),
     registerNumber: court && !number ? "Zum Registergericht gehört die Nummer, z. B. HRB 12345."
-      : number && !/^(HRA|HRB|GnR|GsR|PR|VR) \d{1,6}( [A-Z]{1,2})?$/.test(number) ? "Bitte gib die Nummer mit dem Register an, z. B. HRB 12345." : "",
+      : number && !/^(HRA|HRB|GnR|GsR|PR|VR) \d{1,6}( [A-Z]{1,2})?$/.test(number) ? "Bitte gib die Registernummer so an, wie sie im Register steht, z. B. HRB 12345." : "",
     // German IDs are DE and 9 digits (Design, 1 Nov); other EU prefixes keep the general form.
-    vatId: !vat ? "" : vat.startsWith("DE") ? (/^DE\d{9}$/.test(vat) ? "" : "Eine deutsche USt-IdNr. ist DE und 9 Ziffern, z. B. DE123456789.")
+    vatId: !vat ? "" : vat.startsWith("DE") ? (/^DE\d{9}$/.test(vat) ? "" : "Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.")
       : /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(vat) ? "" : "Bitte prüfe die USt-IdNr.",
   };
 }

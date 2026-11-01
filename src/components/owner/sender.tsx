@@ -115,10 +115,10 @@ function AddressQuestion({ location, active, home }: QuestionProps) {
   const q = useQuestion("sender-address", JSON.stringify(draft) !== JSON.stringify(initial), ids, home);
   const set = (patch: Partial<typeof draft>) => setDraft(current => ({ ...current, ...patch }));
   return (
-    <QuestionForm title={location.id === active.id ? "Wo ist dein Laden?" : `Wo ist dein Laden in ${location.name}?`} lead="Steht als Absender unter jeder E-Mail an deine Kundschaft." home={home}
+    <QuestionForm title={location.id === active.id ? "Wo ist dein Geschäft?" : `Wo ist dein Geschäft in ${location.name}?`} lead="Steht als Absender unter jeder Erinnerung und Kampagne an deine Kunden." home={home}
       busy={q.busy} failed={q.failed} onSubmit={() => void q.save("/api/merchant/sender", { part: "address", locationId: location.id, ...draft })}>
       <Field id="sd-street" label="Straße und Hausnummer" error={q.error("sd-street")}>
-        <input id="sd-street" className="ow-input" autoComplete="street-address" placeholder="z. B. Friedrich-Ebert-Straße 12" value={draft.street} {...aria("sd-street", q.error("sd-street"))} onChange={event => set({ street: event.target.value })} />
+        <input id="sd-street" className="ow-input" autoComplete="street-address" placeholder="z. B. Hauptstraße 12" value={draft.street} {...aria("sd-street", q.error("sd-street"))} onChange={event => set({ street: event.target.value })} />
       </Field>
       <div className="ow-qpanel ow-qpair">
         <div className="ow-field"><label htmlFor="sd-postal">PLZ</label>
@@ -143,7 +143,7 @@ function ContactQuestion({ location, home }: QuestionProps) {
   const set = (patch: Partial<typeof draft>) => setDraft(current => ({ ...current, ...patch }));
   const emailError = q.error("sd-email") && !problems.contact ? q.error("sd-email") : "";
   return (
-    <QuestionForm title="Wie erreicht man dich?" home={home} busy={q.busy} failed={q.failed}
+    <QuestionForm title="Wie erreichen dich deine Kunden?" home={home} busy={q.busy} failed={q.failed}
       onSubmit={() => void q.save("/api/merchant/sender", { part: "contact", locationId: location.id, ...draft })}>
       <div className="ow-qpanel ow-stack">
         <div className="ow-field"><label htmlFor="sd-email">E-Mail</label>
@@ -153,7 +153,7 @@ function ContactQuestion({ location, home }: QuestionProps) {
           <input id="sd-phone" className="ow-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="z. B. 0561 739 2214" value={draft.contactPhone} {...aria("sd-phone", q.error("sd-phone"))} onChange={event => set({ contactPhone: event.target.value })} />
           <FieldError id="sd-phone-error">{q.error("sd-phone")}</FieldError></div>
         {problems.contact && <FieldError id="sd-email-error">{q.error("sd-email")}</FieldError>}
-        <p className="ow-hint">Mindestens eins von beiden. Was du einträgst, steht nach „Kontakt:“ unter jeder E-Mail.</p>
+        <p className="ow-hint">Gib mindestens eins von beiden an. Was du einträgst, steht nach „Kontakt:“ unter jeder Erinnerung und Kampagne.</p>
       </div>
     </QuestionForm>
   );

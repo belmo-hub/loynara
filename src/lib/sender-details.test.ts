@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressProblems, contactProblems, footerText, missingParts, missingSentence, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
+import { addressProblems, contactProblems, footerText, missingParts, missingRefusal, missingSentence, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
 
 const complete: SenderDetails = {
   shopName: "Café Lindenblatt", street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Mara Lind",
@@ -14,7 +14,11 @@ describe("required parts (ENG-164)", () => {
     expect(partList(["address", "representative"])).toBe("Anschrift und „Vertreten durch“");
     expect(partList(["address"], "Kassel Nord")).toBe("Anschrift für Kassel Nord");
     expect(partList(["address", "contact", "representative"], "Kassel Nord")).toBe("Anschrift für Kassel Nord, Kontakt für Kassel Nord und „Vertreten durch“");
-    expect(missingSentence(["address"], "Kassel Nord")).toBe("Anschrift für Kassel Nord. Sie stehen unter jeder E-Mail an deine Kundschaft; bis dahin geht keine E-Mail raus.");
+    // Legal's wording (1 Nov): E24, E41 (one location's parts: sends wait for that location alone) and the API refusal.
+    expect(missingSentence(["address", "representative"])).toBe("Anschrift und „Vertreten durch“. Sie stehen unter jeder Erinnerung und Kampagne an deine Kunden. Bis dahin gehen keine Erinnerungen und Kampagnen raus.");
+    expect(missingSentence(["address"], "Kassel Nord")).toBe("Anschrift für Kassel Nord. Sie stehen unter jeder Erinnerung und Kampagne an deine Kunden. Bis dahin gehen für Kassel Nord keine Erinnerungen und Kampagnen raus.");
+    expect(missingSentence(["address", "representative"], "Kassel Nord")).toBe("Anschrift für Kassel Nord und „Vertreten durch“. Sie stehen unter jeder Erinnerung und Kampagne an deine Kunden. Bis dahin gehen keine Erinnerungen und Kampagnen raus.");
+    expect(missingRefusal(["contact"])).toBe("Es fehlen noch Angaben für den Absender: Kontakt. Bis dahin gehen keine Erinnerungen und Kampagnen raus.");
   });
 });
 
@@ -26,7 +30,7 @@ describe("the screens' rules, the same on the server", () => {
     expect(addressProblems({ street: "Hauptstr. 1\nAngebote abbestellen", postalCode: "34117", city: "Kassel" }).street).toBe("Bitte prüfe diese Eingabe.");
   });
   it("needs an email or a phone, and checks each one given", () => {
-    expect(contactProblems({ contactEmail: "", contactPhone: "" }).contact).toBe("Gib eine E-Mail-Adresse oder eine Telefonnummer ein.");
+    expect(contactProblems({ contactEmail: "", contactPhone: "" }).contact).toBe("Bitte gib eine E-Mail-Adresse oder eine Telefonnummer ein.");
     expect(contactProblems({ contactEmail: "name@beispiel.de", contactPhone: "" })).toEqual({ contact: "", contactEmail: "", contactPhone: "" });
     expect(contactProblems({ contactEmail: "kein-at", contactPhone: "" }).contactEmail).toBe("Die E-Mail-Adresse ist unvollständig, z. B. name@beispiel.de.");
     expect(contactProblems({ contactEmail: "", contactPhone: "0561" }).contactPhone).toBe("Die Telefonnummer ist zu kurz, z. B. 0561 739 2214.");
@@ -46,10 +50,10 @@ describe("the screens' rules, the same on the server", () => {
     expect(registerProblems({ ...empty, registerCourt: "Amtsgericht Kassel", registerNumber: "hrb12345", vatId: "de 298 417 365" })).toEqual({ legalForm: "", registerCourt: "", registerNumber: "", vatId: "" });
     expect(registerProblems({ ...empty, registerCourt: "Amtsgericht Kassel" }).registerNumber).toBe("Zum Registergericht gehört die Nummer, z. B. HRB 12345.");
     expect(registerProblems({ ...empty, registerNumber: "HRB 1" }).registerCourt).toBe("Zur Registernummer gehört das Registergericht, z. B. Amtsgericht Kassel.");
-    expect(registerProblems({ ...empty, registerCourt: "Amtsgericht Kassel", registerNumber: "12345" }).registerNumber).toBe("Bitte gib die Nummer mit dem Register an, z. B. HRB 12345.");
+    expect(registerProblems({ ...empty, registerCourt: "Amtsgericht Kassel", registerNumber: "12345" }).registerNumber).toBe("Bitte gib die Registernummer so an, wie sie im Register steht, z. B. HRB 12345.");
     // German IDs are DE and 9 digits; other EU prefixes keep the general form.
-    expect(registerProblems({ ...empty, vatId: "DE12345678" }).vatId).toBe("Eine deutsche USt-IdNr. ist DE und 9 Ziffern, z. B. DE123456789.");
-    expect(registerProblems({ ...empty, vatId: "DE1234567890" }).vatId).toBe("Eine deutsche USt-IdNr. ist DE und 9 Ziffern, z. B. DE123456789.");
+    expect(registerProblems({ ...empty, vatId: "DE12345678" }).vatId).toBe("Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.");
+    expect(registerProblems({ ...empty, vatId: "DE1234567890" }).vatId).toBe("Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern, z. B. DE123456789.");
     expect(registerProblems({ ...empty, vatId: "ATU12345678" }).vatId).toBe("");
     expect(registerProblems({ ...empty, vatId: "123456789" }).vatId).toBe("Bitte prüfe die USt-IdNr.");
   });

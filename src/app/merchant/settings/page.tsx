@@ -26,7 +26,7 @@ export default function MerchantSettingsPage() {
   const active = locations.find(location => location.id === me.locationId);
   const programName = active?.programName;
   const sender = senderOffered(hiddenSurfaces) && active ? <SenderRows me={me} locations={locations} active={active} /> : null;
-  const preview = sender && senderStatus(me, locations).complete && active ? <FooterPreview sender={senderOf(me, active)} title="So steht es unter jeder E-Mail" /> : null;
+  const preview = sender && senderStatus(me, locations).complete && active ? <FooterPreview sender={senderOf(me, active)} title="So steht es unter Erinnerungen und Kampagnen" /> : null;
   return (
     <div className="ow-page">
       {head}
@@ -96,7 +96,7 @@ function SenderRows({ me, locations, active }: { me: MeResponse; locations: Owne
   const saved = (href: string) => Boolean(back?.saved && href.startsWith(back.row));
   return (
     <div id={SENDER_ANCHOR}>
-      <Rows title="Absender deiner E-Mails" note={status.complete ? undefined : "Steht als Absender unter jeder E-Mail an deine Kundschaft. Solange eine Pflichtangabe fehlt, verschickt Loynara keine Erinnerungen und Kampagnen."}>
+      <Rows title="Absender deiner E-Mails" note={status.complete ? undefined : "Steht als Absender unter jeder Erinnerung und Kampagne an deine Kunden. Solange eine Pflichtangabe fehlt, gehen keine Erinnerungen und Kampagnen raus."}>
         <Row key="address" href={address.href} icon={MapPin} title="Anschrift" saved={saved(senderHref("anschrift"))}
           sub={!status.activeParts.includes("address") ? `${values.street}, ${values.postalCode} ${values.city}` : undefined} chip={address.chip} />
         <Row key="contact" href={contact.href} icon={Phone} title="Kontakt" saved={saved(senderHref("kontakt"))}
@@ -105,7 +105,7 @@ function SenderRows({ me, locations, active }: { me: MeResponse; locations: Owne
           sub={values.representative ?? undefined} chip={representative.chip} />
         <Row key="register" href={senderHref("register")} icon={Scale} title="Rechtsform und Register" saved={saved(senderHref("register"))} sub={register || "Nur wenn vorhanden"} />
       </Rows>
-      {status.complete && <div className="ow-tabs-only ow-sender-preview"><FooterPreview sender={values} title="So steht es unter jeder E-Mail" /></div>}
+      {status.complete && <div className="ow-tabs-only ow-sender-preview"><FooterPreview sender={values} title="So steht es unter Erinnerungen und Kampagnen" /></div>}
       <div className="ow-toast-region" role="status">{toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { DomainError } from "./loyalty";
-import { footerText, missingParts, missingSentence, MISSING_TITLE, senderFooter, type SenderDetails } from "./sender-details";
+import { footerText, missingParts, missingRefusal, senderFooter, type SenderDetails } from "./sender-details";
 
 type Query = Pick<typeof db, "execute">;
 
@@ -91,7 +91,7 @@ export const senderAddressMissing = (sender: ProgramSender | null) => !sender ||
 /** Refuses switching on or scheduling promotional mail while a required part is missing, naming each one as the owner's box does (Legal, 1 Nov). */
 export function requireSenderDetails(sender: ProgramSender | null) {
   const missing = sender ? missingParts(sender) : (["address", "contact", "representative"] as const);
-  if (missing.length) throw new DomainError("ADDRESS_REQUIRED", `${MISSING_TITLE}: ${missingSentence(missing)}`);
+  if (missing.length) throw new DomainError("ADDRESS_REQUIRED", missingRefusal(missing));
 }
 
 /** Sender name and footer of every campaign and automation mail (lib/sender-details); null while a required part is missing. */
