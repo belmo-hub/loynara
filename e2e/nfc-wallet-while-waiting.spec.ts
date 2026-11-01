@@ -47,7 +47,7 @@ async function waitingGuest(browser: Browser, url: string) {
   };
   return { m, customer, page, confirm, reject };
 }
-const addToWallet = (page: Page) => page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" }).click();
+const addToWallet = (page: Page) => page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" }).click();
 /** Tap add and wait until the pass itself is requested, as Apple's sheet would be opened. */
 async function addAndOpenSheet(page: Page) {
   const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
@@ -77,7 +77,7 @@ test("an Apple add while waiting stays on the tap page; the stamp landing then o
     await addAndOpenSheet(page);
     await page.waitForTimeout(4_500);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
-    await expect(page.getByRole("button", { name: "Zu Apple Wallet hinzufügen" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" })).toBeEnabled();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     const cashier = await confirm();
     await expect(page).toHaveURL(/\/card\/card_/, { timeout: 15_000 });
@@ -155,7 +155,7 @@ test("a stamp landing while the pass is being prepared still opens Apple's sheet
     await customer.route("**/api/wallet/apple", async route => { await new Promise(resolve => setTimeout(resolve, 8_000)); await route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
     const pass = page.waitForRequest(/\/api\/wallet\/apple\/download\//);
     await addToWallet(page);
-    await expect(page.getByRole("button", { name: "Wird vorbereitet …" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Wird vorbereitet …" })).toBeVisible();
     const cashier = await confirm();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
     await pass;

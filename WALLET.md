@@ -179,7 +179,7 @@ and credential contents.
 ### Apple / iPhone
 
 1. Open an approved synthetic Loynara card on the iPhone in Safari. Expect "In Wallet speichern" with one Apple button.
-2. Tap "Zu Apple Wallet hinzufügen". Expect the system Add Pass sheet within a few seconds.
+2. Tap "Hinzufügen zu Apple Wallet". Expect the system Add Pass sheet within a few seconds.
 3. Add. Expect the merchant logo or name, brand colour with readable text, `STEMPEL 0 / n`, next reward, K-number.
 4. Confirm the device registered (operator: `apple_registrations` row for the serial; no customer data needed).
 5. With pass notifications and automatic updates enabled, book one test stamp at the counter. Expect a lock-screen notice
@@ -196,7 +196,7 @@ and credential contents.
 
 1. Open a fresh approved synthetic card on the designated Android tester account in Chrome. Expect one Google button and,
    in Demo Mode, the test note. Confirm an account not designated as a tester cannot save in Demo Mode.
-2. Tap "Zu Google Wallet hinzufügen". Expect Google's save screen; save.
+2. Tap "Hinzufügen zu Google Wallet". Expect Google's save screen; save.
 3. Expect merchant name/logo, programme, `0 / n`, K-number, reward module.
 4.–8. Award, reach the reward, redeem, correct, and scan as Apple 5–8. Record each committed balance and the corresponding
    displayed balance; Google display updates may be delayed. A loyalty lock-screen notification is not required by this plan.
