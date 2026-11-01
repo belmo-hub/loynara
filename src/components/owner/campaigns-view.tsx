@@ -32,7 +32,7 @@ const GOALS: Record<string, { label: string; text: (o: GoalOptions) => string; m
 const KINDS: Array<[Kind, string]> = [["all", "Alle aktiven Karten"], ["inactive", "Länger nicht da"], ["recently_active", "Kürzlich aktiv"], ["new", "Neu angemeldet"], ["frequent_visitors", "Häufige Buchungen"], ["close_to_reward", "Kurz vor Prämie"]];
 const EXCLUSION: Array<[keyof Preview["excludedCountsByReason"], string]> = [["unverified", "Keine bestätigte E-Mail-Adresse"], ["noConsent", "Keine Werbeeinwilligung"], ["unsubscribed", "Abgemeldet"], ["suppressed", "Gesperrt wegen Zustellproblemen"], ["frequency", "Zu häufig kontaktiert"], ["closed", "Karte geschlossen"], ["nonSynthetic", "Keine Testadresse (lokaler Testkanal)"], ["quota", "Versandgrenze erreicht"]];
 /** Why a campaign was not sent, and what to do next (Design, ENG-163). */
-const blockedLine = (reason: string) => `Nicht versendet: ${reason} Leg oben einen neuen Entwurf ohne diese Aussage an.`;
+const blockedLine = (reason: string) => `Nicht versendet: ${reason} Wähle oben ein Ziel für einen neuen Entwurf und lass diese Aussage weg.`;
 const STATUS: Record<Status, [string, string]> = { draft: ["Entwurf", ""], scheduled: ["Geplant", "ow-chip--info"], paused: ["Pausiert", "ow-chip--warn"], dispatching: ["In Bearbeitung", "ow-chip--info"], complete: ["Abgeschlossen", "ow-chip--ok"], blocked: ["Blockiert", "ow-chip--danger"], cancelled: ["Abgebrochen", ""] };
 const STEPS = ["Zielgruppe", "Nachricht", "Prüfen & speichern"];
 const SUBJECT_MAX = 120;
@@ -210,7 +210,7 @@ export function CampaignsView() {
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
           {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
-          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähl oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
+          {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähle oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (
             <ul className="ow-rewards">{list.data.campaigns.map(campaign => (
               <li key={campaign.id} className="ow-reward" style={{ alignItems: "flex-start" }}>
