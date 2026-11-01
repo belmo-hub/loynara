@@ -144,6 +144,24 @@ export function senderFooter(sender: SenderDetails) {
   };
 }
 
+export type PreviewPiece = { text: string; missing?: true };
+/**
+ * The footer for the owner's previews (Design, 1 Nov): the same text, never withheld. A missing part shows as its field's
+ * name, for the screen to mute, so the preview stays while the owner fills the parts in (A09b). Sending keeps senderFooter's gate.
+ */
+export function footerPreview(sender: SenderDetails) {
+  const part = (value: string | null | undefined, label: string): PreviewPiece => value?.trim() ? { text: value.trim() } : { text: label, missing: true };
+  const form = printedForm(sender.legalForm);
+  const identity: PreviewPiece[] = [{ text: `Diese E-Mail kommt von ${sender.shopName}${form ? `, ${form}` : ""}, vertreten durch ` }, part(sender.representative, "Vertreten durch"),
+    { text: ", " }, part(sender.street, "Straße und Hausnummer"), { text: ", " }, part(sender.postalCode, "PLZ"), { text: " " }, part(sender.city, "Stadt"),
+    { text: ". Kontakt: " }, part(sender.contactEmail, "E-Mail"), ...(sender.contactPhone?.trim() ? [{ text: `, ${sender.contactPhone.trim()}` }] : []), { text: "." }];
+  const court = sender.registerCourt?.trim(), number = sender.registerNumber?.trim();
+  const register: PreviewPiece[] | null = court || number || registeredForm(sender.legalForm)
+    ? [{ text: "Registergericht: " }, part(court, "Registergericht"), { text: ", " }, part(number, "Registernummer"), { text: "." }] : null;
+  return { identity, register, vat: sender.vatId ? `USt-IdNr.: ${sender.vatId}` : null, consent: `Du bekommst diese E-Mail, weil du auf deiner Karte E-Mails von ${sender.shopName} bestellt hast.` };
+}
+export const pieceText = (pieces: readonly PreviewPiece[]) => pieces.map(piece => piece.text).join("");
+
 /** The footer as the mail prints it. */
 export function footerText(footer: NonNullable<ReturnType<typeof senderFooter>>, unsubscribeLink: string, privacyUrl: string) {
   return `${[footer.identity, footer.register, footer.vat].filter(Boolean).join(" ")}\n${footer.consent} Abmelden: ${unsubscribeLink} · Datenschutz: ${privacyUrl}`;

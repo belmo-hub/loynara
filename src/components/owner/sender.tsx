@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { addressProblems, contactProblems, LOCATION_PARTS, missingParts, missingSentence, MISSING_TITLE, LEGAL_FORMS, normalizeRegisterNumber, normalizeVatId, registeredForm, registerProblems,
-  representativeProblems, senderFooter, type SenderDetails, type SenderPart } from "@/lib/sender-details";
+  representativeProblems, footerPreview, type PreviewPiece, type SenderDetails, type SenderPart } from "@/lib/sender-details";
 import { useOwner, type OwnerLocation } from "./owner-context";
 import type { MeResponse } from "@/components/client-api";
 import { GuardedLink } from "./owner-shell";
@@ -37,17 +37,15 @@ export function senderStatus(me: MeResponse, locations: OwnerLocation[]) {
 }
 
 /** Legal's footer as the mail prints it, with the unsubscribe link and privacy page as placeholders; `marks` tints the register and VAT lines. */
-export function FooterPreview({ sender, title, marks = false }: { sender: SenderDetails; title: string; marks?: boolean }) {
-  const footer = senderFooter(sender);
-  if (!footer) return null;
-  const mark = (text: string | null) => text && <>{" "}{marks ? <mark className="ow-preview-mark">{text}</mark> : text}</>;
-  return (
-    <section className="ow-preview" aria-label={title}>
-      <h2>{title}</h2>
-      <p>{footer.identity}{mark(footer.register)}{mark(footer.vat)}</p>
-      <p className="ow-preview-tail">{footer.consent} Abmelden: <u>Link</u> · Datenschutz: app.getloynara.com/datenschutz</p>
-    </section>
-  );
+export function FooterPreview({ sender, title, marks = false, bare = false }: { sender: SenderDetails; title: string; marks?: boolean; /** Inside the composer's mail preview: no panel of its own. */ bare?: boolean }) {
+  const footer = footerPreview(sender);
+  const pieces = (list: readonly PreviewPiece[]) => list.map((piece, index) => piece.missing ? <span key={index} className="ow-preview-missing">{piece.text}</span> : piece.text);
+  const mark = (content: ReactNode) => content && <>{" "}{marks ? <mark className="ow-preview-mark">{content}</mark> : content}</>;
+  const body = <>
+    <p>{pieces(footer.identity)}{mark(footer.register && pieces(footer.register))}{mark(footer.vat)}</p>
+    <p className="ow-preview-tail">{footer.consent} Abmelden: <u>Link</u> · Datenschutz: app.getloynara.com/datenschutz</p>
+  </>;
+  return bare ? <div className="ow-preview ow-preview--bare" aria-label={title}>{body}</div> : <section className="ow-preview" aria-label={title}><h2>{title}</h2>{body}</section>;
 }
 
 /**
@@ -133,7 +131,7 @@ function AddressQuestion({ location, active, home }: QuestionProps) {
   );
 }
 
-function ContactQuestion({ location, home }: QuestionProps) {
+function ContactQuestion({ location, active, home }: QuestionProps) {
   const initial = { contactEmail: location.contactEmail ?? "", contactPhone: location.contactPhone ?? "" };
   const [draft, setDraft] = useState(initial);
   const problems = contactProblems(draft);
@@ -151,6 +149,8 @@ function ContactQuestion({ location, home }: QuestionProps) {
           <input id="sd-phone" className="ow-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="z. B. 0561 739 2214" value={draft.contactPhone} {...aria("sd-phone", q.error("sd-phone"))} onChange={event => set({ contactPhone: event.target.value })} />
           <FieldError id="sd-phone-error">{q.error("sd-phone")}</FieldError></div>
         <p className="ow-hint">Was du einträgst, steht nach „Kontakt:“ unter jeder Erinnerung und Kampagne.</p>
+        {/* Opened from „Fehlt für {Standort}“ (A15): name the location this edits, as Anschrift does. */}
+        {location.id !== active.id && <p className="ow-hint">{where(location, active)}</p>}
       </div>
     </QuestionForm>
   );

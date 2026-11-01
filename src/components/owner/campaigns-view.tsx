@@ -10,7 +10,7 @@ import { BackToActions } from "./actions-list";
 import { useLoad } from "./use-load";
 import { campaignSaveId } from "./campaign-save-response";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SenderMissingBox, useSenderMissing } from "./sender";
+import { FooterPreview, SenderMissingBox, senderOf, useSenderMissing } from "./sender";
 
 type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
@@ -74,6 +74,8 @@ function audienceSentence(e: Editor, unit: string) {
 export function CampaignsView() {
   const owner = useOwner();
   const senderMissing = useSenderMissing();
+  const activeLocation = owner.me ? owner.locations.find(location => location.id === owner.me!.locationId) : undefined;
+  const sender = owner.me && activeLocation && !senderMissing ? senderOf(owner.me, activeLocation) : null;
   const me = owner.me!;
   const slug = encodeURIComponent(me.programSlug);
   const [list, reloadList] = useLoad<CampaignList>(`/api/merchant/campaigns?programSlug=${slug}`);
@@ -263,7 +265,7 @@ export function CampaignsView() {
           <div className="ow-field"><label htmlFor="c-title">Interner Titel</label><input id="c-title" className="ow-input" value={e.title} maxLength={180} onChange={event => change({ title: event.target.value })} /></div>
           <div className="ow-field"><label htmlFor="c-subject">Betreff</label><input id="c-subject" className="ow-input" value={e.subject} maxLength={SUBJECT_MAX} aria-describedby="c-subject-n" onChange={event => change({ subject: event.target.value.replace(/[\r\n]/g, " ") })} /><span id="c-subject-n" className="ow-hint ow-num">{e.subject.length}/{SUBJECT_MAX} Zeichen{e.subject.length > 60 ? " · Kurze Betreffzeilen werden auf dem Handy vollständig angezeigt." : ""}</span></div>
           <div className="ow-field"><label htmlFor="c-body">Nachricht</label><textarea id="c-body" className="ow-textarea" rows={6} value={e.body} maxLength={BODY_MAX} aria-describedby="c-body-n c-body-h" onChange={event => change({ body: event.target.value })} /><span id="c-body-n" className="ow-hint ow-num">{e.body.length}/{BODY_MAX} Zeichen</span><span id="c-body-h" className="ow-hint">Keine Zusagen machen, die dein Team nicht einhält. Loynara ergänzt bei Zustellung die Absenderangaben und den Abmeldelink.</span></div>
-          <div className="ow-mail" aria-label="Vorschau der Nachricht"><small>Vorschau · von {me.businessName}</small><h3>{e.subject.trim() ? `${mode === "mailpit" ? "[LOCAL TEST] " : ""}${e.subject.trim()}` : "Betreff eingeben"}</h3><p style={{ whiteSpace: "pre-line" }}>{e.body.trim() || "Nachricht eingeben"}</p><p className="ow-hint ow-mt-3">Diese E-Mail kommt von {me.businessName}, mit den Angaben aus Einstellungen &gt; Anschrift.<br />Abmelden: Link wird automatisch eingefügt · Datenschutz</p></div>
+          <div className="ow-mail" aria-label="Vorschau der Nachricht"><small>Vorschau · von {me.businessName}</small><h3>{e.subject.trim() ? `${mode === "mailpit" ? "[LOCAL TEST] " : ""}${e.subject.trim()}` : "Betreff eingeben"}</h3><p style={{ whiteSpace: "pre-line" }}>{e.body.trim() || "Nachricht eingeben"}</p>{/* The mail's own footer; while the sender is incomplete the box above says why nothing goes out. */}{sender && <FooterPreview sender={sender} title="Fußzeile der E-Mail" bare />}</div>
         </>}
         {builder.step === 2 && <>
           <div><h2 id="bs-h">Prüfen &amp; speichern</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kontrolliere Zielgruppe und Kanal. Speichern legt nur einen Entwurf an.</p></div>

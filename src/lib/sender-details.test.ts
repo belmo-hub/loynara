@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressProblems, contactProblems, footerText, LEGAL_FORMS, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
+import { addressProblems, contactProblems, footerPreview, footerText, LEGAL_FORMS, pieceText, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
 
 const complete: SenderDetails = {
   shopName: "Café Lindenblatt", street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Mara Lind",
@@ -107,5 +107,24 @@ describe("Legal's footer", () => {
     expect(footer.fromName).toBe("Café Lindenblatt via Loynara");
     expect(senderFooter({ ...complete, legalForm: null, registerCourt: null, registerNumber: null, vatId: null })).toMatchObject({ register: null, vat: null });
     expect(senderFooter({ ...complete, representative: null })).toBeNull();
+  });
+});
+
+describe("the owner's footer preview (Design, 1 Nov)", () => {
+  it("is the mail's text once everything is filled", () => {
+    const preview = footerPreview(complete), mail = senderFooter(complete)!;
+    expect(pieceText(preview.identity)).toBe(mail.identity);
+    expect(pieceText(preview.register!)).toBe(mail.register);
+    expect(preview.vat).toBe(mail.vat);
+    expect(preview.identity.some(piece => piece.missing)).toBe(false);
+  });
+  it("never disappears: a missing part shows as its field's name, marked missing", () => {
+    const preview = footerPreview({ ...complete, representative: null, street: null, contactEmail: null });
+    expect(preview.identity.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Vertreten durch", "Straße und Hausnummer", "E-Mail"]);
+    expect(pieceText(preview.identity)).toContain("Kontakt: E-Mail, 0561 739 2214.");
+    // A09b: a registered form without its entry still shows the register line, with both halves to fill.
+    const registered = footerPreview({ ...complete, legalForm: "GmbH", registerCourt: null, registerNumber: null });
+    expect(registered.register!.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Registergericht", "Registernummer"]);
+    expect(footerPreview({ ...complete, legalForm: "Einzelunternehmen", registerCourt: null, registerNumber: null }).register).toBeNull();
   });
 });

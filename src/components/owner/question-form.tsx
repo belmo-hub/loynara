@@ -49,8 +49,9 @@ export function useQuestion(key: string, changed: boolean, problems: Record<stri
   /** `action` is a save that replaces the answer („Neuigkeit entfernen“): it saves as it stands, and the toast says `action`. */
   async function save(url: string, body: object, action?: string) {
     if (busy) return;
-    if (!action && !changed) { leave(); return; }
+    // Checked first: „Speichern“ on an empty screen that needs an answer says what is missing (Design, ENG-164); a valid unchanged answer goes back.
     if (!action && !check()) return;
+    if (!action && !changed) { leave(); return; }
     setBusy(true); setFailed("");
     try { await postJson(url, body); done(undefined, action); } catch (cause) { setFailed(failure(cause)); setBusy(false); }
   }
