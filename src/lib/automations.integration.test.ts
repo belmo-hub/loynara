@@ -7,7 +7,7 @@ import { db, pool } from "@/db";
 import { automationRules, automationRuns, consentEvents, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
 import { award } from "./loyalty";
 import type { LocalMessage } from "./email";
-import { updateLocationAddress } from "./locations";
+import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { deliverAutomationRun, listAutomations, processAutomationEvent, processAutomationScan, upsertAutomationRule } from "./automations";
 
@@ -36,7 +36,7 @@ async function fixture(withAddress = true) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Automation Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
-  if (withAddress) await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
+  if (withAddress) await fillSender(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   return { ownerId, merchant };
 }
 
@@ -88,9 +88,7 @@ describe("bounded local automations", () => {
     const card = await member(f.merchant.programSlug);
     await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule })).rejects.toMatchObject({ code: "ADDRESS_REQUIRED" });
     expect(await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule, enabled: false })).toMatchObject({ enabled: false });
-    expect(await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).toMatchObject({ addressMissing: true });
-    await updateLocationAddress(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
-    expect(await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).toMatchObject({ addressMissing: false });
+    await fillSender(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
     await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
     await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
@@ -106,12 +104,11 @@ describe("bounded local automations", () => {
   it("each required sender field blocks switching a rule on and every queued send, and the refusal names it", async () => {
     const where = (f: Awaited<ReturnType<typeof fixture>>) => eq(locations.id, f.merchant.locationId);
     const drops: Array<[string, (f: Awaited<ReturnType<typeof fixture>>) => Promise<unknown>]> = [
-      ["Name des Geschäfts", f => db.update(tenants).set({ name: " " }).where(eq(tenants.id, f.merchant.tenantId))],
-      ["Straße und Hausnummer", f => db.update(locations).set({ street: null }).where(where(f))],
-      ["PLZ", f => db.update(locations).set({ postalCode: null }).where(where(f))],
-      ["Stadt", f => db.update(locations).set({ city: "" }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ street: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ postalCode: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ city: "" }).where(where(f))],
       ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
-      ["Kontakt (E-Mail oder Telefon)", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
     ];
     for (const [label, drop] of drops) {
       await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
@@ -123,7 +120,6 @@ describe("bounded local automations", () => {
       await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
       await drop(f);
       await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...inactiveRule }), label).rejects.toMatchObject({ code: "ADDRESS_REQUIRED", message: expect.stringContaining(label) });
-      expect(await listAutomations({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug }), label).toMatchObject({ addressMissing: true });
       const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
       const send = vi.fn(async (message: LocalMessage) => { void message; });
       expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send), label).toEqual({ status: "suppressed", reason: "Shop address missing" });

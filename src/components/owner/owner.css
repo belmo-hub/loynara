@@ -919,3 +919,23 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-price small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; line-height: 1.2; color: var(--color-ink-muted); }
 .ow-q .ow-qlabel { margin: var(--space-3) 0 0; }
 .ow-q .ow-qnote, .ow-qpanel .ow-qreason { margin-top: var(--space-2); }
+
+/* Geschäft › Absender (ENG-164): Legal's footer as the owner's proof; beside the rows and the form from 1024 px. */
+.ow-preview { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
+.ow-preview h2 { margin: 0; padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-preview p { margin: 0; overflow-wrap: anywhere; }
+.ow-preview .ow-preview-tail { color: var(--color-ink-muted); }
+.ow-preview-mark { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-fill); color: inherit; }
+.ow-sender-preview { margin-top: var(--space-3); }
+.ow-qpair { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
+.ow-qpair > .ow-qerror { grid-column: 1 / -1; }
+.ow-qaside { margin-top: var(--space-2); }
+.ow-split-aside { display: none; }
+@media (min-width: 1024px) {
+  .ow-split[data-aside] { display: grid; grid-template-columns: minmax(0, 36rem) 22rem; gap: 32px; align-items: start; max-width: 1120px; }
+  .ow-split-aside { display: block; position: sticky; top: var(--space-6); }
+  .ow-qpage[data-aside] .ow-q { display: grid; grid-template-columns: minmax(0, 36rem) 22rem; column-gap: 32px; max-width: 1120px; }
+  .ow-qpage[data-aside] .ow-q > * { grid-column: 1; }
+  .ow-qpage[data-aside] .ow-q > .ow-qaside { grid-column: 2; grid-row: 1 / span 20; position: sticky; top: var(--space-6); align-self: start; margin: 0; }
+  .ow-qpage[data-aside] .ow-qsave .ow-btn { width: auto; min-width: 12rem; }
+}

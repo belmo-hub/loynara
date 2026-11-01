@@ -7,6 +7,7 @@ import { useOwner } from "@/components/owner/owner-context";
 import { MoreLabel, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { nf } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { senderOffered } from "@/components/owner/sender";
 
 const EXPORT = "/api/merchant/export";
 
@@ -26,7 +27,7 @@ export default function MorePage() {
       <div className="ow-prog">
         {/* Section heads, the Geschäft sub-line and „Konto“: copy-rest R13 FINAL. The sub-line names Programmende only where it is offered. */}
         {isOwner && <Rows title="Geschäft">
-          <Row key="settings" href="/merchant/settings" icon={Store} title="Geschäft" sub={owner.hiddenSurfaces.includes("cancellation") ? "Standorte, Wochenbericht" : "Standorte, Wochenbericht, Programmende"} />
+          <Row key="settings" href="/merchant/settings" icon={Store} title="Geschäft" sub={["Standorte", ...(senderOffered(owner.hiddenSurfaces) ? ["Absender"] : []), "Wochenbericht", ...(owner.hiddenSurfaces.includes("cancellation") ? [] : ["Programmende"])].join(", ")} />
           <Row key="locations" href="/merchant/locations" icon={MapPin} title="Standorte" value={owner.locations.length ? nf.format(owner.locations.length) : undefined} big />
           <Row key="staff" href="/merchant/staff" icon={Users} title="Team" value={team === null ? undefined : nf.format(team)} big />
           {billing && <Row key="billing" href="/merchant/billing" icon={Euro} title="Abrechnung" sub={plan.state === "ok" ? billingStatus(plan.data) : undefined} />}

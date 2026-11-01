@@ -9,7 +9,7 @@ import { DomainError } from "./loyalty";
 import { databaseAudienceNow, selectAudience } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails, senderAddressMissing } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails } from "./promotion-policy";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Job = { id: string; tenantId: string; payload: Record<string, unknown> };
@@ -78,8 +78,7 @@ export async function listAutomations(raw: { actorUserId: string; programSlug: s
     .from(automationRuns).leftJoin(memberships, and(eq(memberships.tenantId, automationRuns.tenantId), eq(memberships.id, automationRuns.membershipId)))
     .where(and(eq(automationRuns.tenantId, program.tenantId), inArray(automationRuns.ruleId, ids))).orderBy(desc(automationRuns.createdAt)).limit(100)
     .then(rows => rows.map(row => ({ ...row, cardLocator: row.cardLocator ? formatCardLocator(row.cardLocator) : null }))) : [];
-  const addressMissing = senderAddressMissing(await programSender(db, program.tenantId, program.id));
-  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode(), addressMissing };
+  return { rules: rows, runs, localOnly: promotionalEmailMode() === "mailpit", deliveryMode: promotionalEmailMode() };
 }
 
 async function latestConsent(tx: Transaction, tenantId: string, membershipId: string) {

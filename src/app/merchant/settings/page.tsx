@@ -1,18 +1,21 @@
 "use client";
 
-import { MapPin, Palette } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { Check, MapPin, Palette, Phone, Scale, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { MORE_HREF } from "@/components/owner/nav";
-import { useDirtyGuard, useOwner, type OwnerLocation } from "@/components/owner/owner-context";
-import { locationAddressMessage } from "@/components/owner/owner-errors";
+import { useOwner, type OwnerLocation } from "@/components/owner/owner-context";
 import { MoreLabel, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { GuardedLink } from "@/components/owner/owner-shell";
-import { ErrorNotice, Notice, SaveBar, type SaveState } from "@/components/owner/owner-ui";
-import { FieldError, SwitchRow } from "@/components/owner/question-form";
+import { ErrorNotice, Notice } from "@/components/owner/owner-ui";
+import { SwitchRow } from "@/components/owner/question-form";
 import { useLoad } from "@/components/owner/use-load";
-import { useFormCheck } from "@/components/ui/form-check";
+import { readReturn, writeReturn } from "@/components/owner/program-list";
+import { FooterPreview, SENDER_ANCHOR, SENDER_LIST, senderOf, senderOffered, senderStatus } from "@/components/owner/sender";
+import { senderHref, type SenderQuestion } from "@/components/owner/sender-routes";
+import type { MeResponse } from "@/components/client-api";
+import type { SenderPart } from "@/lib/sender-details";
 
 /** Geschäft (ENG-122c, screen 13): the card's names, the active location, the weekly report, and „Programm beenden“ last. */
 export default function MerchantSettingsPage() {
@@ -20,21 +23,25 @@ export default function MerchantSettingsPage() {
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Geschäft" lead="Name, Standort und Zugang für deine Kunden." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
-  const location = locations.find(row => row.id === me.locationId);
-  const programName = location?.programName;
+  const active = locations.find(location => location.id === me.locationId);
+  const programName = active?.programName;
+  const sender = senderOffered(hiddenSurfaces) && active ? <SenderRows me={me} locations={locations} active={active} /> : null;
+  const preview = sender && senderStatus(me, locations).complete && active ? <FooterPreview sender={senderOf(me, active)} title="So steht es unter jeder E-Mail" /> : null;
   return (
     <div className="ow-page">
       {head}
       <CancellationNotice me={me} />
+      <div className="ow-split" data-aside={preview ? true : undefined}>
       <div className="ow-prog">
         <Rows title="Dein Geschäft">
           {/* R14; where the logo upload is withheld the row promises no logo (W38's rule). */}
           <Row key="card" href="/merchant/program/card" icon={Palette} title={hiddenSurfaces.includes("cardLogo") ? "Name und Farbe" : "Name, Logo und Farbe"} sub={programName ? `${me.businessName} · ${programName}` : me.businessName} />
           <Row key="location" href="/merchant/locations" icon={MapPin} title="Aktiver Standort" value={me.locationName} off />
         </Rows>
+        {sender}
         <Rows title="E-Mail"><WeeklyReport key="weekly" /></Rows>
-        {/* Sender details for marketing mail (ENG-164): the automations and campaign notices link here. */}
-        {location && <AddressCard key={location.id} location={location} />}
+      </div>
+      {preview && <aside className="ow-split-aside">{preview}</aside>}
       </div>
       {/* The request is withheld on production until Legal's gate (pilot surfaces); a requested end shows as the notice above. */}
       {!hiddenSurfaces.includes("cancellation") && !me.cancellationEndDate && <div><GuardedLink href="/merchant/settings/cancel" className="ow-qlink" data-danger="">Programm beenden</GuardedLink></div>}
@@ -62,66 +69,44 @@ function WeeklyReport() {
   </>;
 }
 
-function AddressCard({ location }: { location: OwnerLocation }) {
-  const owner = useOwner();
-  const initial = {
-    street: location.street ?? "", postalCode: location.postalCode ?? "", city: location.city, representative: location.representative ?? "",
-    contactEmail: location.contactEmail ?? "", contactPhone: location.contactPhone ?? "", legalForm: location.legalForm ?? "",
-    registerCourt: location.registerCourt ?? "", registerNumber: location.registerNumber ?? "", vatId: location.vatId ?? "",
+/**
+ * Absender deiner E-Mails (ENG-164, A01/A02/A15): a row per part with its value or „Fehlt“, then #67's note, or the footer
+ * preview once every location and the business are complete (on a phone here; beside the rows from 1024 px). A location's
+ * part missing elsewhere names that location and opens its screen, never switching the active location.
+ */
+function SenderRows({ me, locations, active }: { me: MeResponse; locations: OwnerLocation[]; active: OwnerLocation }) {
+  const status = senderStatus(me, locations);
+  const [back] = useState(() => readReturn(SENDER_LIST));
+  const [toast, setToast] = useState(Boolean(back?.saved));
+  useEffect(() => { writeReturn(null, SENDER_LIST); }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+  const values = senderOf(me, active);
+  /** The row's target and its chip: the active location first, else the first other location lacking the part. */
+  const open = (question: SenderQuestion, part: SenderPart) => {
+    const lacking = status.lacking(part);
+    if (!lacking.length || lacking.some(location => location.id === active.id)) return { href: senderHref(question), chip: lacking.length ? { label: "Fehlt", warn: true } : undefined };
+    return { href: `${senderHref(question)}?standort=${encodeURIComponent(lacking[0].id)}`, chip: { label: lacking.length === 1 ? `Fehlt für ${lacking[0].name}` : `Fehlt an ${lacking.length} Standorten`, warn: true } };
   };
-  const [saved, setSaved] = useState(initial);
-  const [draft, setDraft] = useState(initial);
-  const [state, setState] = useState<SaveState>("clean");
-  const [error, setError] = useState("");
-  const fields = useFormCheck({
-    "ad-street": "Bitte gib Straße und Hausnummer ein.", "ad-postal": "Bitte gib die fünfstellige PLZ ein.", "ad-city": "Bitte gib die Stadt ein.",
-    "ad-representative": "Bitte gib an, wer dein Geschäft vertritt.", "ad-email": "Bitte gib eine Kontakt-E-Mail oder eine Telefonnummer ein.",
-    "ad-phone": "Bitte gib eine Telefonnummer oder eine Kontakt-E-Mail ein.",
-  });
-  const changed = JSON.stringify(draft) !== JSON.stringify(saved);
-  const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
-  useDirtyGuard("location-address", changed);
-  const edit = (patch: Partial<typeof draft>) => { setDraft(current => ({ ...current, ...patch })); if (state === "saved" || state === "error") { setState("clean"); setError(""); } };
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (state === "saving" || !fields.check(event.currentTarget)) return;
-    setState("saving"); setError("");
-    try {
-      await postJson("/api/merchant/locations/address", { locationId: location.id, ...draft });
-      setSaved(draft); setState("saved");
-      void owner.refresh(); // keeps the location list current, so this form shows the saved address after a remount
-    } catch (cause) { setState("error"); setError(locationAddressMessage(cause)); }
-  }
+  const address = open("anschrift", "address"), contact = open("kontakt", "contact"), representative = open("vertretung", "representative");
+  const register = [values.legalForm, values.registerNumber, values.vatId].filter(Boolean).join(" · ");
+  const saved = (href: string) => Boolean(back?.saved && href.startsWith(back.row));
   return (
-    <section className="ow-card ow-stack" id="anschrift" aria-labelledby="ow-address-title">
-      <div><h2 id="ow-address-title">Anschrift</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Steht als Absender unter jeder E-Mail an deine Kundschaft. Solange eine Pflichtangabe fehlt, verschickt Loynara keine Erinnerungen und Kampagnen.</p></div>
-      <form onSubmit={submit} onInput={fields.onInput} className="ow-stack" noValidate>
-        <div className="ow-field"><label htmlFor="ad-street">Straße und Hausnummer</label><input id="ad-street" {...fields.aria("ad-street")} className="ow-input" autoComplete="street-address" value={draft.street} minLength={2} maxLength={180} required onChange={event => edit({ street: event.target.value })} /><FieldError id="ad-street-error">{fields.error("ad-street") ?? ""}</FieldError></div>
-        <div className="ow-grid-2">
-          <div className="ow-field"><label htmlFor="ad-postal">PLZ</label><input id="ad-postal" {...fields.aria("ad-postal")} className="ow-input" inputMode="numeric" autoComplete="postal-code" pattern="[0-9]{5}" title="Fünf Ziffern" maxLength={5} value={draft.postalCode} required onChange={event => edit({ postalCode: event.target.value })} /><FieldError id="ad-postal-error">{fields.error("ad-postal") ?? ""}</FieldError></div>
-          <div className="ow-field"><label htmlFor="ad-city">Stadt</label><input id="ad-city" {...fields.aria("ad-city")} className="ow-input" autoComplete="address-level2" value={draft.city} minLength={2} maxLength={120} required onChange={event => edit({ city: event.target.value })} /><FieldError id="ad-city-error">{fields.error("ad-city") ?? ""}</FieldError></div>
-        </div>
-        <div className="ow-field"><label htmlFor="ad-representative">Vertreten durch (Inhaber:in oder Geschäftsführer:in)</label><input id="ad-representative" {...fields.aria("ad-representative")} className="ow-input" autoComplete="name" value={draft.representative} minLength={2} maxLength={120} required aria-describedby="ad-business-hint" onChange={event => edit({ representative: event.target.value })} /><FieldError id="ad-representative-error">{fields.error("ad-representative") ?? ""}</FieldError><p id="ad-business-hint" className="ow-hint">Vertretung, Rechtsform, Register und USt-IdNr. gelten für dein ganzes Geschäft, an allen Standorten.</p></div>
-        <fieldset className="ow-group">
-          <legend>Kontakt: E-Mail oder Telefon, mindestens eins</legend>
-          <div className="ow-grid-2">
-            <div className="ow-field"><label htmlFor="ad-email">Kontakt-E-Mail</label><input id="ad-email" {...fields.aria("ad-email")} className="ow-input" type="email" autoComplete="email" value={draft.contactEmail} maxLength={320} required={!draft.contactPhone.trim()} onChange={event => edit({ contactEmail: event.target.value })} /><FieldError id="ad-email-error">{fields.error("ad-email") ?? ""}</FieldError></div>
-            <div className="ow-field"><label htmlFor="ad-phone">Telefon</label><input id="ad-phone" {...fields.aria("ad-phone")} className="ow-input" type="tel" autoComplete="tel" value={draft.contactPhone} maxLength={30} required={!draft.contactEmail.trim()} onChange={event => edit({ contactPhone: event.target.value })} /><FieldError id="ad-phone-error">{fields.error("ad-phone") ?? ""}</FieldError></div>
-          </div>
-        </fieldset>
-        <fieldset className="ow-group">
-          <legend>Nur wenn vorhanden</legend>
-          <div className="ow-field"><label htmlFor="ad-legal-form">Rechtsform</label><input id="ad-legal-form" {...fields.aria("ad-legal-form")} className="ow-input" placeholder="z. B. GmbH, UG (haftungsbeschränkt), e.K." value={draft.legalForm} minLength={2} maxLength={40} onChange={event => edit({ legalForm: event.target.value })} /><FieldError id="ad-legal-form-error">{fields.error("ad-legal-form") ?? ""}</FieldError></div>
-          <div className="ow-grid-2">
-            <div className="ow-field"><label htmlFor="ad-register-court">Registergericht</label><input id="ad-register-court" {...fields.aria("ad-register-court")} className="ow-input" placeholder="z. B. Amtsgericht Kassel" value={draft.registerCourt} minLength={2} maxLength={120} required={Boolean(draft.registerNumber.trim())} onChange={event => edit({ registerCourt: event.target.value })} /><FieldError id="ad-register-court-error">{fields.error("ad-register-court") ?? ""}</FieldError></div>
-            <div className="ow-field"><label htmlFor="ad-register-number">Registernummer</label><input id="ad-register-number" {...fields.aria("ad-register-number")} className="ow-input" placeholder="z. B. HRB 12345" title="Registerart und Nummer, z. B. HRB 12345 oder HRA 7" pattern="(HRA|HRB|GnR|GsR|PR|VR) ?[0-9]{1,6}( ?[A-Z]{1,2})?" value={draft.registerNumber} minLength={2} maxLength={40} required={Boolean(draft.registerCourt.trim())} onChange={event => edit({ registerNumber: event.target.value })} /><FieldError id="ad-register-number-error">{fields.error("ad-register-number") ?? ""}</FieldError></div>
-          </div>
-          <div className="ow-field"><label htmlFor="ad-vat">USt-IdNr.</label><input id="ad-vat" {...fields.aria("ad-vat")} className="ow-input" placeholder="z. B. DE123456789" autoCapitalize="characters" value={draft.vatId} maxLength={20} onChange={event => edit({ vatId: event.target.value })} /><FieldError id="ad-vat-error">{fields.error("ad-vat") ?? ""}</FieldError></div>
-          <p className="ow-hint">Leere Felder erscheinen nicht in der E-Mail.</p>
-        </fieldset>
-        <SaveBar asSubmit state={shown} onDiscard={() => { setDraft(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Anschrift speichern" detail={shown === "error" ? `${error} Deine Eingaben sind noch da.` : undefined} />
-      </form>
-    </section>
+    <div id={SENDER_ANCHOR}>
+      <Rows title="Absender deiner E-Mails" note={status.complete ? undefined : "Steht als Absender unter jeder E-Mail an deine Kundschaft. Solange eine Pflichtangabe fehlt, verschickt Loynara keine Erinnerungen und Kampagnen."}>
+        <Row key="address" href={address.href} icon={MapPin} title="Anschrift" saved={saved(senderHref("anschrift"))}
+          sub={!status.activeParts.includes("address") ? `${values.street}, ${values.postalCode} ${values.city}` : undefined} chip={address.chip} />
+        <Row key="contact" href={contact.href} icon={Phone} title="Kontakt" saved={saved(senderHref("kontakt"))}
+          sub={[values.contactEmail, values.contactPhone].filter(Boolean).join(" · ") || undefined} chip={contact.chip} />
+        <Row key="representative" href={representative.href} icon={UserRound} title="Vertreten durch" saved={saved(senderHref("vertretung"))}
+          sub={values.representative ?? undefined} chip={representative.chip} />
+        <Row key="register" href={senderHref("register")} icon={Scale} title="Rechtsform und Register" saved={saved(senderHref("register"))} sub={register || "Nur wenn vorhanden"} />
+      </Rows>
+      {status.complete && <div className="ow-tabs-only ow-sender-preview"><FooterPreview sender={values} title="So steht es unter jeder E-Mail" /></div>}
+      <div className="ow-toast-region" role="status">{toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>
+    </div>
   );
 }

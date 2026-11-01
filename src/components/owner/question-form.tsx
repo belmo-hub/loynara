@@ -9,17 +9,21 @@ import { GuardedLink } from "./owner-shell";
 import { Notice, OwnerIcon } from "./owner-ui";
 import { markSaved } from "./program-list";
 
+/** The list a question belongs to: Programm by default; Geschäft's sender screens (ENG-164) go back there. */
+export type QuestionHome = { href: string; label: string; list?: string };
+export const PROGRAM_HOME: QuestionHome = { href: "/merchant/program", label: "Programm" };
+
 /** After a save: fresh account values, then back on the list with `row` outlined (Design rule 10), by default this page's,
  *  and the toast's words if the save was more than a save. */
-export function useBackToList() {
+export function useBackToList(home: QuestionHome = PROGRAM_HOME) {
   const owner = useOwner(), router = useRouter(), path = usePathname();
-  return (row = path, toast?: string) => void owner.refresh().then(() => { markSaved(row, path, toast); router.push("/merchant/program", { scroll: false }); });
+  return (row = path, toast?: string) => void owner.refresh().then(() => { markSaved(row, path, toast, home.list); router.push(home.href, { scroll: false }); });
 }
 
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
 // German checks of a challenge or levels name the field to fix, and a change already waiting (ENG-100) says so. Anything
 // else is the live W25 text.
-export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING")
+export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING" || cause.code === "INVALID_SENDER")
   ? cause.message : "Die Einstellungen konnten nicht gespeichert werden.";
 
 /** The setup's own wording for a whole number out of range („Bitte eine ganze Zahl von 1 bis 1000 eingeben.“). */
@@ -31,11 +35,11 @@ export const wholeIn = (draft: string, min: number, max: number) => /^\d+$/.test
  * `problems` maps a field id to what is wrong with it; the first one takes the focus, and each shows under its field from
  * the first tap on the button on (screen 18). The leave guard holds while the answer is changed and not being saved.
  */
-export function useQuestion(key: string, changed: boolean, problems: Record<string, string> = {}) {
-  const done = useBackToList(), router = useRouter();
+export function useQuestion(key: string, changed: boolean, problems: Record<string, string> = {}, home: QuestionHome = PROGRAM_HOME) {
+  const done = useBackToList(home), router = useRouter();
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(""), [tried, setTried] = useState(false);
   useDirtyGuard(key, !busy && changed);
-  const leave = () => router.push("/merchant/program", { scroll: false });
+  const leave = () => router.push(home.href, { scroll: false });
   /** True when every field is fine; else the first problem takes the focus. */
   function check() {
     const first = Object.keys(problems).find(id => problems[id]);
@@ -71,8 +75,9 @@ export function useReview<Step extends string = "review">() {
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
-export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
+export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
+  home?: QuestionHome; /** A preview beside the form from 1024 px, under it on a phone (ENG-164 D-A08). */ aside?: ReactNode;
   busy: boolean; busyLabel?: string; /** Kunden's steps keep the live rule: the button waits until the answer is complete. */ disabled?: boolean;
   failed: string; action?: string; /** ENG-100: „Archivieren“ (30) is danger, „Änderung zurücknehmen“ (57) secondary. */ tone?: "primary" | "danger" | "secondary";
   /** „Abbrechen“ under the button (30, 58). */ cancel?: () => void; onSubmit: () => void; children: ReactNode;
@@ -82,9 +87,9 @@ export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern �
   useEffect(() => { if (failed) fail.current?.scrollIntoView({ block: "nearest" }); }, [failed]);
   const arrow = <ChevronLeft size={20} aria-hidden="true" />;
   return (
-    <div className="ow-page ow-qpage">
+    <div className="ow-page ow-qpage" data-aside={aside ? true : undefined}>
       <header className="ow-pagehead"><div className="ow-qhead">
-        {back ? <button type="button" className="ow-back" onClick={back.onClick}>{arrow}{back.label}</button> : <GuardedLink href="/merchant/program" className="ow-back">{arrow}Programm</GuardedLink>}
+        {back ? <button type="button" className="ow-back" onClick={back.onClick}>{arrow}{back.label}</button> : <GuardedLink href={home.href} className="ow-back">{arrow}{home.label}</GuardedLink>}
         <h1 ref={heading} tabIndex={-1}>{title}</h1>
         {lead && <p>{lead}</p>}
       </div></header>
@@ -93,6 +98,7 @@ export function QuestionForm({ title, lead, back, busy, busyLabel = "Speichern �
         {failed && <div ref={fail} className="ow-qfail"><Notice tone="danger" role="alert"><strong>Speichern fehlgeschlagen</strong>{failed} Deine Änderungen sind noch da.</Notice></div>}
         {/* Not disabled while saving: the button keeps the focus, and a second tap does nothing (`busy`). */}
         {/* No action (57 for an expiry shortening): nothing to press, the back link leads on. */}
+        {aside && <div className="ow-qaside">{aside}</div>}
         {action && <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
           {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>}
       </form>

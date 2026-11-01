@@ -5,6 +5,7 @@ import { db, pool } from "@/db";
 import { billingLocationPlans, locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { addressProblems, contactProblems, firstProblem, normalizeRegisterNumber, normalizeVatId, registerProblems, representativeProblems } from "./sender-details";
 
 const input = z.object({
   name: z.string().trim().min(2).max(180),
@@ -20,27 +21,14 @@ const input = z.object({
   rewardCost: z.number().int().min(1).max(100000),
 }).strict();
 
-// One line each: these are printed in the sender footer under every marketing mail (Legal's text).
-const singleLine = (max: number) => z.string().trim().min(2).max(max).regex(/^[^\p{Cc}]+$/u);
-// Blank or absent optional input is stored as null, so the footer leaves that part out.
-const optional = <T extends z.ZodType<unknown, string>>(schema: T) => z.string().trim().optional().transform(value => value || null).pipe(schema.nullable());
-const addressInput = z.object({
-  locationId: z.uuid(),
-  street: singleLine(180),
-  postalCode: z.string().trim().regex(/^\d{5}$/),
-  city: singleLine(120),
-  representative: singleLine(120),
-  contactEmail: optional(z.email().max(320)),
-  contactPhone: optional(z.string().regex(/^\+?\d[\d ()/-]{4,23}\d$/)),
-  legalForm: optional(singleLine(40)),
-  registerCourt: optional(singleLine(120)),
-  // Printed as "Registergericht: <court>, <number>" (Legal), so the number carries its register: "HRB 12345", "HRA 7".
-  registerNumber: optional(z.string().regex(/^(HRA|HRB|GnR|GsR|PR|VR) ?\d{1,6}( ?[A-Z]{1,2})?$/).transform(value => value.replace(/^([A-Za-z]+) ?/, "$1 "))),
-  // EU VAT ID: country code and 8 to 12 letters or digits; spaces are dropped and letters upper-cased.
-  vatId: z.string().max(20).optional().transform(value => value?.replace(/\s/g, "").toUpperCase() || null).pipe(z.string().regex(/^[A-Z]{2}[0-9A-Z]{8,12}$/).nullable()),
-}).strict()
-  .refine(data => data.contactEmail || data.contactPhone, { message: "Contact email or phone required", path: ["contactEmail"] })
-  .refine(data => !data.registerCourt === !data.registerNumber, { message: "Register court and number go together", path: ["registerNumber"] });
+// Each sender screen saves its own part (Design, 1 Nov): address and contact belong to a location, the rest to the business.
+const text = (max: number) => z.string().max(max);
+const senderInput = z.discriminatedUnion("part", [
+  z.object({ part: z.literal("address"), locationId: z.uuid(), street: text(400), postalCode: text(40), city: text(400) }).strict(),
+  z.object({ part: z.literal("contact"), locationId: z.uuid(), contactEmail: text(400), contactPhone: text(80) }).strict(),
+  z.object({ part: z.literal("representative"), representative: text(400) }).strict(),
+  z.object({ part: z.literal("register"), legalForm: text(200), registerCourt: text(400), registerNumber: text(80), vatId: text(80) }).strict(),
+]);
 
 type LocationRow = {
   id: string; name: string; city: string; street: string | null; postalCode: string | null; representative: string | null; contactEmail: string | null;
@@ -119,16 +107,32 @@ export async function validateOwnerLocation(actorUserId: string, locationId: str
  * Replaces the whole sender block (Einstellungen > Anschrift): address and contact of one location, including
  * locations.city; representative, legal form, register entry and VAT ID of the business, the same for every location (Legal).
  */
-export async function updateLocationAddress(actorUserId: string, raw: z.input<typeof addressInput>) {
+/**
+ * Saves one part of the sender block (Einstellungen › Geschäft › Absender) with the rules the owner's screen checks
+ * (lib/sender-details), stored in normal form; a blank optional field is stored as null so the footer leaves it out.
+ */
+export async function updateSender(actorUserId: string, raw: z.input<typeof senderInput>) {
   const owner = await ownerRole(actorUserId);
-  const { locationId, ...details } = addressInput.parse(raw);
-  const { representative, legalForm, registerCourt, registerNumber, vatId, ...place } = details;
+  const input = senderInput.parse(raw);
+  const problems = input.part === "address" ? addressProblems(input) : input.part === "contact" ? contactProblems(input)
+    : input.part === "representative" ? representativeProblems(input) : registerProblems(input);
+  const problem = firstProblem(problems);
+  if (problem) throw new DomainError("INVALID_SENDER", problem);
+  const blank = (value: string) => value.trim() || null;
   return db.transaction(async tx => {
-    const [location] = await tx.update(locations).set(place)
-      .where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, locationId))).returning({ id: locations.id });
-    if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
-    await tx.update(tenants).set({ representative, legalForm, registerCourt, registerNumber, vatId }).where(eq(tenants.id, owner.tenantId));
-    return { locationId: location.id, ...details };
+    if (input.part === "address" || input.part === "contact") {
+      const values = input.part === "address" ? { street: input.street.trim(), postalCode: input.postalCode.trim(), city: input.city.trim() }
+        : { contactEmail: blank(input.contactEmail), contactPhone: blank(input.contactPhone) };
+      const [location] = await tx.update(locations).set(values).where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, input.locationId))).returning({ id: locations.id });
+      if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
+      return { part: input.part, locationId: location.id, ...values };
+    }
+    const values = input.part === "representative" ? { representative: input.representative.trim() } : {
+      legalForm: blank(input.legalForm), registerCourt: blank(input.registerCourt),
+      registerNumber: blank(normalizeRegisterNumber(input.registerNumber)), vatId: blank(normalizeVatId(input.vatId)),
+    };
+    await tx.update(tenants).set(values).where(eq(tenants.id, owner.tenantId));
+    return { part: input.part, ...values };
   });
 }
 

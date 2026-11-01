@@ -10,6 +10,7 @@ import { BackToActions } from "./actions-list";
 import { useLoad } from "./use-load";
 import { campaignSaveId } from "./campaign-save-response";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SenderMissingBox, useSenderMissing } from "./sender";
 
 type Kind = AudienceDefinition["kind"];
 type Editor = { title: string; subject: string; body: string; kind: Kind; withinDays: number; daysSinceLast: number; minCheckouts: number; maxRemaining: number; rewardId: string };
@@ -72,6 +73,7 @@ function audienceSentence(e: Editor, unit: string) {
 
 export function CampaignsView() {
   const owner = useOwner();
+  const senderMissing = useSenderMissing();
   const me = owner.me!;
   const slug = encodeURIComponent(me.programSlug);
   const [list, reloadList] = useLoad<CampaignList>(`/api/merchant/campaigns?programSlug=${slug}`);
@@ -213,7 +215,7 @@ export function CampaignsView() {
             <ul className="ow-rewards">{list.data.campaigns.map(campaign => (
               <li key={campaign.id} className="ow-reward" style={{ alignItems: "flex-start" }}>
                 <div className="ow-reward-main"><strong>{campaign.title}</strong><span className="ow-muted">{campaign.subject}</span>{campaign.audienceDefinition && <span className="ow-hint">{audienceSentence(editorFrom({ ...campaign, body: "", audienceDefinition: campaign.audienceDefinition }), unit)}</span>}<span className="ow-hint">{campaign.status === "draft" ? "Noch nicht geplant, nichts versendet." : <>Zielgruppe bei Planung: {campaign.audienceCount}</>}{campaign.status !== "draft" && <> · eingereiht: {campaign.queuedCount} · Termin: {campaign.scheduledAt ? germanDate(campaign.scheduledAt, true) : "nicht geplant"}</>}</span>
-                  {campaign.status === "paused" && mode !== "disabled" && <div className="ow-row ow-mt-2"><label className="ow-sr" htmlFor={`w-${campaign.id}`}>Neuer Termin</label><input id={`w-${campaign.id}`} className="ow-input" style={{ maxWidth: 240 }} type="datetime-local" value={when[campaign.id] ?? ""} onChange={event => setWhen(current => ({ ...current, [campaign.id]: event.target.value }))} /><button type="button" className="ow-btn ow-btn--primary ow-btn--sm" disabled={busy || !when[campaign.id]} onClick={() => void act(campaign.id, "schedule")}>Erneut planen</button></div>}
+                  {campaign.status === "paused" && mode !== "disabled" && <div className="ow-row ow-mt-2"><label className="ow-sr" htmlFor={`w-${campaign.id}`}>Neuer Termin</label><input id={`w-${campaign.id}`} className="ow-input" style={{ maxWidth: 240 }} type="datetime-local" value={when[campaign.id] ?? ""} onChange={event => setWhen(current => ({ ...current, [campaign.id]: event.target.value }))} /><button type="button" className="ow-btn ow-btn--primary ow-btn--sm" disabled={busy || senderMissing || !when[campaign.id]} onClick={() => void act(campaign.id, "schedule")}>Erneut planen</button></div>}
                 </div>
                 <div className="ow-reward-actions"><span className={`ow-chip ${STATUS[campaign.status][1]}`}>{STATUS[campaign.status][0]}</span>
                   <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy} onClick={() => void open(campaign.id)}>Details</button>
@@ -239,6 +241,7 @@ export function CampaignsView() {
   return (
     <div className="ow-page">
       {head}{notices}
+      <SenderMissingBox returnTo="/merchant/campaigns" />
       {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
       <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol>
       <section className="ow-card ow-stack ow-stack--wide" aria-labelledby="bs-h">
@@ -303,7 +306,7 @@ export function CampaignsView() {
           <span className="ow-row">
             {builder.step === 2 && builder.savedId && !dirty && <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { closeBuilder(); reloadList(); }}>Zur Kampagnenliste</button>}
             {builder.step === 2 && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void saveDraft()} disabled={busy || !okStep0 || !okStep1} aria-busy={busy}>{busy ? "Speichern …" : builder.savedId ? "Entwurf aktualisieren" : "Entwurf speichern"}</button>}
-            {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || !okStep0 || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
+            {builder.step === 2 && builder.savedId && mode !== "disabled" && <button type="button" className="ow-btn ow-btn--primary" disabled={busy || dirty || senderMissing || !okStep0 || !when[builder.savedId]} onClick={() => void act(builder.savedId!, "schedule")}>Planen</button>}
             {builder.step < 2 && <button type="button" className="ow-btn ow-btn--primary" disabled={builder.step === 0 ? !okStep0 : !okStep0 || !okStep1} onClick={() => { const next = builder.step + 1; setBuilder({ ...builder, step: next }); if (next === 2 && preview.state === "idle") void inspect(); }}>Weiter</button>}
           </span>
         </div>
