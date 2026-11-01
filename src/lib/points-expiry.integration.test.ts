@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, programs } from "@/db/schema";
@@ -246,6 +246,35 @@ describe("the 30-day reminder", () => {
     expect(await deliverWalletMessage({ id: randomUUID(), tenantId: s.tenantId, payload: { messageId: silentMessage.id } }, { send: async call => { calls.push(call); }, now: () => new Date("2026-10-22T10:00:00Z") })).toEqual({ status: "complete" });
     expect(calls).toHaveLength(1);
     expect(calls[0].data.message).toBe(silentMessage.text);
+  });
+
+  it("reaches every pass the consent panel's line speaks to: a registered native Apple pass, and Google with its message switch (ENG-161)", async () => {
+    const s = await shop();
+    await expiryOn(s, 24);
+    const pass = async (provider: "apple" | "google", device: boolean) => {
+      const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+      const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+      const passId = randomUUID();
+      await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        [passId, s.tenantId, card.id, provider, provider === "apple" ? passId : `3388000000000000001.loynara_${passId}`, credentialHash(m.scan_code), provider === "apple" ? "registered" : "created"]);
+      if (device) {
+        await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [`device-${passId}`, "a".repeat(64)]);
+        await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [`device-${passId}`, s.tenantId, card.id, "pass.test.loynara", passId]);
+      }
+      return { card, entry: await give(s, card.id, 80) };
+    };
+    const native = await pass("apple", true);
+    await pass("apple", false); // installed but no device registered for updates: nothing can reach it
+    const google = await pass("google", false);
+    const reminderAt = new Date(addMonths(await entryTime(native.entry.entryId), 24).getTime() - 20 * 86_400_000);
+    const recipients = async () => (await pool.query("SELECT membership_id FROM wallet_message_recipients")).rows.map(row => row.membership_id);
+    expect(await queueExpiryReminders(reminderAt)).toBe(1);
+    expect(await recipients()).toEqual([native.card.id]);
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    try {
+      expect(await queueExpiryReminders(reminderAt)).toBe(1);
+      expect((await recipients()).sort()).toEqual([native.card.id, google.card.id].sort());
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("shows the notice on the card within 30 days of the first expiry", async () => {

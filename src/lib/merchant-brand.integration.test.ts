@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { createAdditionalLocation } from "./locations";
@@ -136,5 +136,23 @@ describe("merchant brand editor", () => {
       if (previousOrigin === undefined) delete process.env.GOOGLE_WALLET_ASSET_ORIGIN;
       else process.env.GOOGLE_WALLET_ASSET_ORIGIN = previousOrigin;
     }
+  });
+
+  it("limits each address to 120 logo requests in 15 minutes, one budget across both public Google routes (ENG-161)", async () => {
+    // Local ingress: every request is the one "untrusted-peer" address, as the limiter keys it.
+    const key = createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("wallet_google_logo_peer").update("\0").update("untrusted-peer").digest("hex");
+    const clear = () => pool.query("delete from rate_limits where key_hash = $1", [key]);
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ENABLED", "true");
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ORIGIN", "https://assets.example.test");
+    await clear();
+    try {
+      const get = (route: typeof getGoogleLogo) => route(new Request("https://assets.example.test/logo.png"), { params: Promise.resolve({ programId: `${randomUUID()}.png` }) });
+      for (let i = 0; i < 60; i++) for (const route of [getGoogleLogo, getGoogleWideLogo]) expect((await get(route)).status).toBe(404);
+      for (const route of [getGoogleLogo, getGoogleWideLogo]) {
+        const limited = await get(route);
+        expect(limited.status).toBe(429);
+        expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+      }
+    } finally { await clear(); vi.unstubAllEnvs(); }
   });
 });
