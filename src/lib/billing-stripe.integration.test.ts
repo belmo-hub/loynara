@@ -890,6 +890,15 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       expect(endCalls(t.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
 
+    it("a request from before this subscription started doesn't count as a free-month request (CTO ruling on R-3)", async () => {
+      const s = await live();
+      // A running programme still carries a request older than go-live (10 Nov): it opens no free-month notice end.
+      await requested(s.programId, "2026-11-01T10:00:00Z");
+      await expect(confirm(s, s.programId, "2026-11-15", new Date("2026-11-12T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-09") });
+      await confirm(s, s.programId, "2026-12-09", new Date("2026-11-12T10:00:00Z"));
+      expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
+    });
+
     it("„Gekündigt im kostenlosen Monat“ late in the month proposes request day + 14", async () => {
       const s = await live();
       await endInFreeMonth({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, at: new Date("2026-12-04T10:00:00Z") });
