@@ -8,6 +8,7 @@ import { db, pool } from "../src/db";
 import { campaigns as campaignRows, campaignAttempts, campaignRecipients, outboxJobs } from "../src/db/schema";
 import { createMerchant, enroll } from "../src/lib/product";
 import { createDraftCampaign, scheduleCampaign } from "../src/lib/campaigns";
+import { updateLocationAddress } from "../src/lib/locations";
 
 const target = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || target.hostname !== "localhost" || target.port !== "55433" || target.pathname !== "/looplocal_test") throw new Error("Owned disposable local database required");
@@ -26,6 +27,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     const email = `report-${randomUUID()}@example.test`;
     const user = (await auth.api.signUpEmail({ body: { name: "Synthetic report owner", email, password } })).user;
     const merchant = await createMerchant({ userId: user.id, businessName: `Report merchant ${index}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: `Report programme ${index}`, programType: "stamp", rulesText: "Synthetic approved checkout", rewardTitle: "Synthetic reward", rewardCost: 3 });
+    await updateLocationAddress(user.id, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
     fixtures.push({ email, user, merchant });
   }
   ownerEmail = fixtures[0].email;

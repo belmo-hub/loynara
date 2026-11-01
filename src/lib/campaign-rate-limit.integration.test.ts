@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { automationRuns, campaignAttempts, campaignRecipients, consentEvents, emailDeliveries, membershipContacts, outboxJobs } from "@/db/schema";
+import { updateLocationAddress } from "./locations";
 import { createMerchant, enroll } from "./product";
 import { award } from "./loyalty";
 import { createDraftCampaign, deliverCampaignRecipient, dispatchCampaign, scheduleCampaign } from "./campaigns";
@@ -53,6 +54,7 @@ async function fixture(kind: "campaign" | "automation" = "campaign") {
   const timezone = offset === 0 ? "Etc/GMT" : `Etc/GMT${offset > 0 ? "+" : ""}${offset}`;
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Rate Limit Café", city: "Kassel", country: "DE",
     timezone, locale: "de", currency: "EUR", programName: "Synthetic Card", programType: "stamp", rulesText: "One stamp per checkout", rewardTitle: "Coffee", rewardCost: 8 });
+  await updateLocationAddress(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: recipient, marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   if (kind === "campaign") {

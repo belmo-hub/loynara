@@ -107,6 +107,17 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     logged.mockRestore();
   });
 
+  it("sends from the configured address, with the shop's display name only when one is given and never a second header line", async () => {
+    const froms: unknown[] = [];
+    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => { froms.push((options?.body as FormData).get("from")); return Response.json({ id: "<from@example.test>" }); });
+    const provider = mailgunEuProvider(config, request as typeof fetch)!;
+    const message = { to: "holder@example.test", subject: "Offer", body: "Synthetic message", jobId: randomUUID() };
+    await provider.send(message);
+    await provider.send({ ...message, fromName: "Café Müller via Loynara" });
+    await provider.send({ ...message, fromName: 'Bad "Shop"\\\r\nBcc: x@example.test via Loynara' });
+    expect(froms).toEqual(["service@mail.example.test", '"Café Müller via Loynara" <service@mail.example.test>', '"Bad \\"Shop\\"\\\\  Bcc: x@example.test via Loynara" <service@mail.example.test>']);
+  });
+
   it("records accepted sends once and idempotent signed delivery/complaint events, then suppresses future sends", async () => {
     const queued = await job();
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: "<synthetic@example.test>" })) };
