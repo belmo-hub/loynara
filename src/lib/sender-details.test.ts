@@ -120,11 +120,12 @@ describe("the owner's footer preview (Design, 1 Nov)", () => {
   });
   it("never disappears: a missing part shows as its field's name, marked missing", () => {
     const preview = footerPreview({ ...complete, representative: null, street: null, contactEmail: null });
-    expect(preview.identity.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Vertreten durch", "Straße und Hausnummer", "E-Mail"]);
-    expect(pieceText(preview.identity)).toContain("Kontakt: E-Mail, 0561 739 2214.");
+    // Marketing's placeholders (round 6), in the slot of the missing value; a half-filled address reads „Anschrift fehlt“ once.
+    expect(preview.identity.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Name fehlt", "Anschrift fehlt", "E-Mail-Adresse fehlt"]);
+    expect(pieceText(preview.identity)).toBe("Diese E-Mail kommt von Café Lindenblatt, e.K., vertreten durch Name fehlt, Anschrift fehlt. Kontakt: E-Mail-Adresse fehlt, 0561 739 2214.");
     // A09b: a registered form without its entry still shows the register line, with both halves to fill.
     const registered = footerPreview({ ...complete, legalForm: "GmbH", registerCourt: null, registerNumber: null });
-    expect(registered.register!.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Registergericht", "Registernummer"]);
+    expect(registered.register!.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Registergericht fehlt", "Registernummer fehlt"]);
     expect(footerPreview({ ...complete, legalForm: "Einzelunternehmen", registerCourt: null, registerNumber: null }).register).toBeNull();
   });
 });

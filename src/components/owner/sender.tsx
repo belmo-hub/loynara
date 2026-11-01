@@ -41,7 +41,9 @@ export function FooterPreview({ sender, title, marks = false, bare = false }: { 
   const footer = footerPreview(sender);
   const pieces = (list: readonly PreviewPiece[]) => list.map((piece, index) => piece.missing ? <span key={index} className="ow-preview-missing">{piece.text}</span> : piece.text);
   const mark = (content: ReactNode) => content && <>{" "}{marks ? <mark className="ow-preview-mark">{content}</mark> : content}</>;
+  const incomplete = [...footer.identity, ...(footer.register ?? [])].some(piece => piece.missing);
   const body = <>
+    {incomplete && <p className="ow-preview-note">Noch nicht vollständig. Sobald du das Fehlende einträgst, steht es so unter jeder Erinnerung und Kampagne.</p>}
     <p>{pieces(footer.identity)}{mark(footer.register && pieces(footer.register))}{mark(footer.vat)}</p>
     <p className="ow-preview-tail">{footer.consent} Abmelden: <u>Link</u> · Datenschutz: app.getloynara.com/datenschutz</p>
   </>;

@@ -152,12 +152,14 @@ export type PreviewPiece = { text: string; missing?: true };
 export function footerPreview(sender: SenderDetails) {
   const part = (value: string | null | undefined, label: string): PreviewPiece => value?.trim() ? { text: value.trim() } : { text: label, missing: true };
   const form = printedForm(sender.legalForm);
-  const identity: PreviewPiece[] = [{ text: `Diese E-Mail kommt von ${sender.shopName}${form ? `, ${form}` : ""}, vertreten durch ` }, part(sender.representative, "Vertreten durch"),
-    { text: ", " }, part(sender.street, "Straße und Hausnummer"), { text: ", " }, part(sender.postalCode, "PLZ"), { text: " " }, part(sender.city, "Stadt"),
-    { text: ". Kontakt: " }, part(sender.contactEmail, "E-Mail"), ...(sender.contactPhone?.trim() ? [{ text: `, ${sender.contactPhone.trim()}` }] : []), { text: "." }];
+  // Marketing's placeholders (round 6): the address is one slot, so a half-filled one reads „Anschrift fehlt“ once.
+  const address: PreviewPiece = sender.street?.trim() && sender.postalCode?.trim() && sender.city.trim()
+    ? { text: `${sender.street.trim()}, ${sender.postalCode.trim()} ${sender.city.trim()}` } : { text: "Anschrift fehlt", missing: true };
+  const identity: PreviewPiece[] = [{ text: `Diese E-Mail kommt von ${sender.shopName}${form ? `, ${form}` : ""}, vertreten durch ` }, part(sender.representative, "Name fehlt"),
+    { text: ", " }, address, { text: ". Kontakt: " }, part(sender.contactEmail, "E-Mail-Adresse fehlt"), ...(sender.contactPhone?.trim() ? [{ text: `, ${sender.contactPhone.trim()}` }] : []), { text: "." }];
   const court = sender.registerCourt?.trim(), number = sender.registerNumber?.trim();
   const register: PreviewPiece[] | null = court || number || registeredForm(sender.legalForm)
-    ? [{ text: "Registergericht: " }, part(court, "Registergericht"), { text: ", " }, part(number, "Registernummer"), { text: "." }] : null;
+    ? [{ text: "Registergericht: " }, part(court, "Registergericht fehlt"), { text: ", " }, part(number, "Registernummer fehlt"), { text: "." }] : null;
   return { identity, register, vat: sender.vatId ? `USt-IdNr.: ${sender.vatId}` : null, consent: `Du bekommst diese E-Mail, weil du auf deiner Karte E-Mails von ${sender.shopName} bestellt hast.` };
 }
 export const pieceText = (pieces: readonly PreviewPiece[]) => pieces.map(piece => piece.text).join("");
