@@ -6,6 +6,9 @@ import { verificationTokenForChallenge, verificationTokenHash } from "./contact-
 import { syntheticAddress, type LocalSender } from "./email";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
 
+/** Legal (1 Nov): every confirmation mail names its sender, the operator, from configuration (the name is the founder's open G0 decision, so never hard-coded). */
+export const operatorName = () => process.env.OPERATOR_NAME?.trim() || null;
+
 const payloadSchema = z.object({ membershipId: z.uuid(), challengeId: z.uuid() }).strict();
 
 /** The outbox stores only IDs, never the link token or address. */
@@ -18,6 +21,10 @@ export async function deliverVerificationEmail(
   const parsed = payloadSchema.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked", reason: "Invalid verification job payload" };
   const origin = new URL(process.env.PUBLIC_BASE_URL!);
+  // Without the operator's name no confirmation mail goes out (the card offers none either: contactStatus).
+  const operator = operatorName();
+  if (!operator) return { status: "blocked", reason: "Operator name not configured" };
+  const footer = `\n\n--\nDiese E-Mail kommt von ${operator}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
   const token = verificationTokenForChallenge(parsed.data.challengeId);
   return db.transaction(async tx => {
     const [member] = await tx.select().from(memberships)
@@ -44,12 +51,12 @@ export async function deliverVerificationEmail(
     const message = shop ? {
       to: challenge.email,
       subject: `Bitte bestätige: E-Mails von ${shop}`,
-      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.`,
+      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
       jobId: job.id,
     } : {
       to: challenge.email,
       subject: "E-Mail-Adresse für Loynara bestätigen",
-      body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.`,
+      body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.${footer}`,
       jobId: job.id,
     };
     if (send) await send(message);

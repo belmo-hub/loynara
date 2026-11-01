@@ -10,6 +10,7 @@ import { TextField } from "./ui/field";
 import { Sheet } from "./ui/sheet";
 import { CardStatusLine, useCardStatus } from "./customer/card-status";
 import styles from "./customer/card-email.module.css";
+import { EMAIL_CONSENT_TEXT_VERSION, emailConsentText } from "@/lib/email-consent-text";
 
 // ENG-165: the e-mail offer under the card (once), the „E-Mail“ row in „Deine Karte“ and its sheet. One confirmation
 // link confirms the address and, with the tick, the marketing consent (double opt-in). German only: French cards keep
@@ -25,7 +26,7 @@ const INVALID = "Bitte gib eine gültige E-Mail-Adresse ein.";
 const SEND_FAILED = "Konnte nicht gesendet werden. Versuch es gleich noch einmal.";
 const SENT = "Wir haben dir einen Link geschickt.";
 const HINT = "Mit dieser Adresse finde ich meine Karte wieder, falls ich den Link verliere. Sie wird nur dafür genutzt, nicht für Werbung.";
-const consentLead = ({ shop, location }: Shop) => `Ja, ${shop}${location && location !== shop ? `, ${location}` : ""}, darf mir Angebote, Neuigkeiten und Erinnerungen per E-Mail schicken. Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit widerrufen, auf meiner Karte oder mit einem Klick in jeder E-Mail. `;
+const consentLead = ({ shop, location }: Shop) => emailConsentText(shop, location);
 const since = (iso: string) => new Date(iso).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 // The rate limit and a refused address bring their own German text; anything else is a failed send.
 const sendError = (cause: unknown) => cause instanceof ClientApiError && cause.status === 429 ? cause.message : SEND_FAILED;
@@ -66,7 +67,7 @@ function AddressForm({ token, shop, consent, initialTick = false, onSent }: { to
     if (!email.trim() || !field.checkValidity()) { setFieldError(INVALID); field.focus(); return; }
     setBusy(true); setError("");
     try {
-      await postJson(`/api/card/${encodeURIComponent(token)}/contact`, { email, marketing: consent && tick });
+      await postJson(`/api/card/${encodeURIComponent(token)}/contact`, { email, ...(consent && tick ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {}) });
       onSent(email.trim(), consent && tick);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 400) { setFieldError(INVALID); field.focus(); }
@@ -160,7 +161,7 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
   function setUp() {
     if (!tick) { setTickError(`Setze das Häkchen, wenn du E-Mails von ${shop.shop} bekommen möchtest.`); document.getElementById("card-email-tick")?.focus(); return; }
     setTickError("");
-    void run(async () => { await postJson(url, { marketing: true }); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT);
+    void run(async () => { await postJson(url, { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION }); setSent({ address: status.maskedEmail ?? "", ticked: true }); }, SENT);
   }
   const onSent = (address: string, ticked: boolean) => { setSent({ address, ticked }); setStep("view"); announce(SENT); void reload().catch(() => {}); };
 

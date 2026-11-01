@@ -6,7 +6,7 @@ import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 type Context = { params: Promise<{ token: string }> };
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 // No email: send the link again to the stored address. marketing: the link also confirms the marketing consent.
-const inputSchema = z.object({ email: z.string().min(3).max(320).optional(), marketing: z.boolean().optional() }).strict();
+const inputSchema = z.object({ email: z.string().min(3).max(320).optional(), marketing: z.boolean().optional(), noticeVersion: z.string().max(32).optional() }).strict();
 
 export async function GET(request: Request, context: Context) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request, context: Context) {
     await enforcePeerLimit(request, "card_contact_peer", 30, 60 * 60);
     const { token } = await context.params;
     await enforceRateLimit({ scope: "card_contact_token", identity: token, max: 10, windowSeconds: 60 * 60 });
-    const { email, marketing } = inputSchema.parse(await jsonBody(request, 1500));
+    const { email, marketing, noticeVersion } = inputSchema.parse(await jsonBody(request, 1500));
     const normalized = email === undefined ? undefined : z.email().max(320).parse(email.trim().normalize("NFC").toLowerCase());
     // Every mail counts against its recipient: a resend goes to the stored address and is limited like a typed one.
     const destination = normalized ?? await storedContactEmail(token);
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: Context) {
       // A card link can ask again after a withdrawal: a day cap keeps an address from being worn down with confirmation mails.
       await enforceRateLimit({ scope: "card_contact_destination_day", identity: destination, max: 8, windowSeconds: 24 * 60 * 60 });
     }
-    return Response.json(await requestContactVerification(token, normalized, marketing), { headers });
+    return Response.json(await requestContactVerification(token, normalized, marketing, noticeVersion), { headers });
   } catch (error) { return respondError(error); }
 }
 

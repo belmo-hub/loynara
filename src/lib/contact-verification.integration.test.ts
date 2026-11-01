@@ -7,6 +7,7 @@ import { createMerchant, enroll, getCard } from "./product";
 import { closeCard } from "./card-lifecycle";
 import { verificationTokenForChallenge } from "./contact-token";
 import { contactStatus, consumeContactVerification, requestContactVerification, withdrawEmailMarketing } from "./contact-verification";
+import { EMAIL_CONSENT_TEXT_VERSION, EMAIL_CONSENT_TEXTS, emailConsentText } from "./email-consent-text";
 import { deliverVerificationEmail } from "./contact-verification-delivery";
 import type { LocalMessage } from "./email";
 import { award } from "./loyalty";
@@ -19,16 +20,18 @@ const before = {
   smtp: process.env.SMTP_HOST,
   publicUrl: process.env.PUBLIC_BASE_URL,
   external: process.env.EXTERNAL_EMAIL_ENABLED,
+  operator: process.env.OPERATOR_NAME,
 };
 beforeEach(async () => {
   process.env.BETTER_AUTH_SECRET = "synthetic-contact-test-secret-at-least-32-characters";
   process.env.SMTP_HOST = "localhost";
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
+  process.env.OPERATOR_NAME = "Synthetic Betreiber";
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => {
-  for (const [key, value] of [["BETTER_AUTH_SECRET", before.secret], ["SMTP_HOST", before.smtp], ["PUBLIC_BASE_URL", before.publicUrl], ["EXTERNAL_EMAIL_ENABLED", before.external]] as const) {
+  for (const [key, value] of [["BETTER_AUTH_SECRET", before.secret], ["SMTP_HOST", before.smtp], ["PUBLIC_BASE_URL", before.publicUrl], ["EXTERNAL_EMAIL_ENABLED", before.external], ["OPERATOR_NAME", before.operator]] as const) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
   await pool.end();
@@ -58,7 +61,7 @@ describe("local contact ownership and separate marketing preference", () => {
   it("queues only a challenge reference, verifies once, then takes the marketing consent only through a second confirmed link", async () => {
     const { member } = await card();
     expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: false, emailVerified: false, maskedEmail: null, marketingEmail: false, pending: null, offer: false, linkExpired: false, marketingSince: null, recoverUrl: expect.stringMatching(/\/recover$/) });
-    await expect(requestContactVerification(member.cardToken, undefined, true)).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).rejects.toMatchObject({ code: "INVALID_INPUT" });
     expect(await requestContactVerification(member.cardToken, "Recipient@Example.Test")).toEqual({ status: "queued" });
     const [challenge] = await db.select().from(contactVerificationChallenges);
     expect(challenge.email).toBe("recipient@example.test");
@@ -79,13 +82,13 @@ describe("local contact ownership and separate marketing preference", () => {
     expect(await contactStatus(member.cardToken)).toEqual({ available: true, marketingAvailable: true, marketingExternal: false, contactPresent: true, emailVerified: true, maskedEmail: "r•••@example.test", marketingEmail: false, pending: null, offer: false, linkExpired: false, marketingSince: null, recoverUrl: expect.stringMatching(/\/recover$/) });
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     // A verified address adds the consent later: same mail, same click rule, the address stays as it is.
-    expect(await requestContactVerification(member.cardToken, undefined, true)).toEqual({ status: "queued" });
+    expect(await requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
     expect(await contactStatus(member.cardToken)).toMatchObject({ emailVerified: true, marketingEmail: false, pending: "marketing" });
     const later = await mail(member.id);
     expect(later.message.subject).toBe("Bitte bestätige: E-Mails von Synthetic Contact Café");
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await consumeContactVerification(later.token)).toMatchObject({ verified: true, marketing: true });
-    expect(await requestContactVerification(member.cardToken, undefined, true)).toEqual({ status: "verified" });
+    expect(await requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "verified" });
     expect(await withdrawEmailMarketing(member.cardToken)).toEqual({ marketingEmail: false });
     expect(await withdrawEmailMarketing(member.cardToken)).toEqual({ marketingEmail: false });
     expect((await marketingEvents()).map(event => [event.granted, event.source])).toEqual([[true, "double_opt_in"], [false, "card_preferences"]]);
@@ -94,7 +97,7 @@ describe("local contact ownership and separate marketing preference", () => {
   it("asks for the consent of a verified real address only when a confirmation mail can go out", async () => {
     const { merchant, member } = await card();
     await db.insert(membershipContacts).values({ tenantId: merchant.tenantId, membershipId: member.id, email: "controlled@example.com", emailVerified: true });
-    await expect(requestContactVerification(member.cardToken, undefined, true)).rejects.toMatchObject({ code: "LOCAL_TEST_ONLY" });
+    await expect(requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).rejects.toMatchObject({ code: "LOCAL_TEST_ONLY" });
     const values: Record<string, string> = {
       PUBLIC_BASE_URL: "https://preview.getloynara.com", SMTP_HOST: "disabled",
       PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", MAILGUN_SEND_APPROVED: "true",
@@ -108,7 +111,7 @@ describe("local contact ownership and separate marketing preference", () => {
       Object.assign(process.env, values);
       expect(await contactStatus(member.cardToken)).toMatchObject({ available: false, marketingAvailable: true, marketingExternal: true, emailVerified: true, marketingEmail: false, offer: false });
       // No transactional mail, no confirmation link, so no consent; withdrawing still works.
-      await expect(requestContactVerification(member.cardToken, undefined, true)).rejects.toMatchObject({ code: "CONTACT_DISABLED" });
+      await expect(requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).rejects.toMatchObject({ code: "CONTACT_DISABLED" });
       expect(await withdrawEmailMarketing(member.cardToken)).toEqual({ marketingEmail: false });
       expect((await db.select().from(consentEvents)).map(event => event.granted)).toEqual([false]);
     } finally {
@@ -118,7 +121,7 @@ describe("local contact ownership and separate marketing preference", () => {
 
   it("invalidates marketing eligibility when the cardholder changes address", async () => {
     const { member } = await card();
-    await requestContactVerification(member.cardToken, "first@example.test", true);
+    await requestContactVerification(member.cardToken, "first@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
     const [first] = await db.select().from(contactVerificationChallenges);
     await consumeContactVerification(verificationTokenForChallenge(first.id));
     await requestContactVerification(member.cardToken, "second@example.test");
@@ -148,9 +151,22 @@ describe("local contact ownership and separate marketing preference", () => {
 });
 
 describe("ENG-007: e-mail offer on the card with double opt-in", () => {
+  it("writes the version of the text the guest ticked into the consent event, and refuses an unknown one", async () => {
+    const { member } = await card();
+    await expect(requestContactVerification(member.cardToken, "guest@example.test", true)).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(requestContactVerification(member.cardToken, "guest@example.test", true, "constructor")).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    // A page still showing an older text: the click records that text's version, not today's.
+    EMAIL_CONSENT_TEXTS["email-consent-test-old"] = () => "Ältere Fassung. ";
+    try {
+      await requestContactVerification(member.cardToken, "guest@example.test", true, "email-consent-test-old");
+      const { token } = await mail(member.id);
+      await consumeContactVerification(token);
+      expect(await db.select({ noticeVersion: consentEvents.noticeVersion, source: consentEvents.source }).from(consentEvents)).toEqual([{ noticeVersion: "email-consent-test-old", source: "double_opt_in" }]);
+    } finally { delete EMAIL_CONSENT_TEXTS["email-consent-test-old"]; }
+  });
   it("records the marketing consent only after the confirmation click, from a mail that names it and carries no card link", async () => {
     const { member } = await card();
-    expect(await requestContactVerification(member.cardToken, "guest@example.test", true)).toEqual({ status: "queued" });
+    expect(await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
     expect(await contactStatus(member.cardToken)).toMatchObject({ contactPresent: true, emailVerified: false, marketingEmail: false, pending: "marketing" });
     const { message, token } = await mail(member.id);
     expect(message).toMatchObject({ to: "guest@example.test", subject: "Bitte bestätige: E-Mails von Synthetic Contact Café" });
@@ -158,11 +174,14 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(message.body).toContain(`Ja, ich möchte E-Mails von Synthetic Contact Café\nhttp://localhost:3000/verify-email#token=${token}\n\nDer Link gilt 30 Minuten.`);
     expect(message.body).not.toContain(member.cardToken);
     expect(message.body).not.toContain("/card/");
+    expect(message.body).toContain("\n--\nDiese E-Mail kommt von Synthetic Betreiber.\nDatenschutzhinweise: http://localhost:3000/datenschutz");
     // Delivered, not clicked: nothing recorded, nothing marketing goes out.
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await consumeContactVerification(token)).toEqual({ verified: true, marketing: true, shopName: "Synthetic Contact Café", brandColor: "#264C45" });
     const [event] = await db.select().from(consentEvents);
-    expect(event).toMatchObject({ granted: true, source: "double_opt_in", noticeVersion: "2026-10-19", channel: "email", purpose: "marketing" });
+    expect(event).toMatchObject({ granted: true, source: "double_opt_in", noticeVersion: EMAIL_CONSENT_TEXT_VERSION, channel: "email", purpose: "marketing" });
+    // The version names the exact box text the card showed (Legal, 1 Nov).
+    expect(EMAIL_CONSENT_TEXTS[event.noticeVersion]("Synthetic Contact Café", "Mitte")).toBe(emailConsentText("Synthetic Contact Café", "Mitte"));
     expect(await contactStatus(member.cardToken)).toMatchObject({ emailVerified: true, marketingEmail: true, pending: null, marketingSince: expect.any(String) });
     // The card link is a bearer link: the card's reads carry the address masked only, never in full.
     const reads = JSON.stringify([await contactStatus(member.cardToken), await getCard(member.cardToken)]);
@@ -193,7 +212,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect((await contactStatus(member.cardToken)).offer).toBe(false);
     expect(await marketingEvents()).toEqual([expect.objectContaining({ granted: false, source: "card_preferences" })]);
     // The guest can still set it up by hand from the quiet row; the offer itself does not return.
-    await requestContactVerification(member.cardToken, "later@example.test", true);
+    await requestContactVerification(member.cardToken, "later@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
     expect((await contactStatus(member.cardToken)).offer).toBe(false);
   });
 
@@ -203,10 +222,10 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     const post = (body: unknown) => contactRoute(new Request(`http://localhost:3000/api/card/${member.cardToken}/contact`, {
       method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body),
     }), { params: Promise.resolve({ token: member.cardToken }) });
-    expect((await post({ email: `flood-${randomUUID()}@example.test`, marketing: true })).status).toBe(200);
-    for (let resend = 0; resend < 3; resend++) expect((await post({ marketing: true })).status).toBe(200);
+    expect((await post({ email: `flood-${randomUUID()}@example.test`, marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION })).status).toBe(200);
+    for (let resend = 0; resend < 3; resend++) expect((await post({ marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION })).status).toBe(200);
     // Fifth mail to the same inbox within the hour: refused, nothing queued.
-    const refused = await post({ marketing: true });
+    const refused = await post({ marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION });
     expect(refused.status).toBe(429);
     expect(await refused.json()).toMatchObject({ code: "RATE_LIMIT" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toHaveLength(4);
@@ -218,7 +237,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     const destination = createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("card_contact_destination").update("\0").update(email).digest("hex");
     const hits = async () => (await pool.query<{ hits: number }>("SELECT hits FROM rate_limits WHERE key_hash = $1", [destination])).rows.map(row => row.hits);
     const post = () => contactRoute(new Request(`http://localhost:3000/api/card/${member.cardToken}/contact`, {
-      method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ marketing: true }),
+      method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION }),
     }), { params: Promise.resolve({ token: member.cardToken }) });
     await requestContactVerification(member.cardToken, email);
     await pool.query("DELETE FROM rate_limits"); // disposable test database: start every limit at zero
@@ -239,7 +258,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     const a = await card("Synthetic Shop A");
     const b = await card("Synthetic Shop B");
     await a.stamp(); await b.stamp();
-    await requestContactVerification(a.member.cardToken, "same@example.test", true);
+    await requestContactVerification(a.member.cardToken, "same@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
     const { message, token } = await mail(a.member.id);
     expect(message.subject).toBe("Bitte bestätige: E-Mails von Synthetic Shop A");
     expect(message.body).not.toContain("Synthetic Shop B");

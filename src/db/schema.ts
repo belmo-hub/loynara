@@ -284,6 +284,8 @@ export const contactVerificationChallenges = pgTable("contact_verification_chall
   tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
   // The link also confirms the marketing consent (double opt-in); the grant is written only when it is clicked.
   marketing: boolean("marketing").notNull().default(false),
+  // The consent text version the guest ticked (email-consent-text.ts); the click writes it into the consent event.
+  noticeVersion: varchar("notice_version", { length: 32 }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
   createdAt: createdAt(),

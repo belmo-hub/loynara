@@ -5,11 +5,14 @@ import { db } from "@/db";
 import { cardSecurityEvents, consentEvents, contactVerificationChallenges, locations, membershipContacts, memberships, outboxJobs, programs, tenants } from "@/db/schema";
 import { validCardToken } from "./card-lifecycle";
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
+import { operatorName } from "./contact-verification-delivery";
+import { EMAIL_CONSENT_TEXTS } from "./email-consent-text";
 import { DomainError } from "./loyalty";
 import { emailTransportMode, promotionalEmailMode } from "./transactional-email";
 
 const emailSchema = z.email().max(320);
 // The card offer's consent text (Legal, 19 Oct 2026) names the shop, the content, the channel and the withdrawal.
+// Withdrawals and changes; a grant carries the version of the box text the guest ticked (email-consent-text.ts).
 const noticeVersion = "2026-10-19";
 
 function syntheticEmail(email: string) { return email.toLowerCase().endsWith(".test"); }
@@ -55,7 +58,7 @@ export async function contactStatus(cardToken: string): Promise<ContactStatus> {
     .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
   const verified = Boolean(contact?.email && contact.emailVerified);
   const marketingMode = promotionalEmailMode();
-  const available = emailTransportMode() !== "disabled";
+  const available = emailTransportMode() !== "disabled" && operatorName() !== null;
   const facts = (await db.execute(sql`SELECT
       (SELECT c.marketing FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "pendingMarketing",
       (SELECT c.expires_at <= now() FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "expired",
@@ -90,10 +93,12 @@ export async function storedContactEmail(cardToken: string) {
  * adding the marketing consent). With `marketing` the same link also confirms the marketing consent: nothing is
  * recorded before the click. An address alone is recovery only.
  */
-export async function requestContactVerification(cardToken: string, rawEmail?: string, marketing = false): Promise<{ status: "queued" | "verified" }> {
+export async function requestContactVerification(cardToken: string, rawEmail?: string, marketing = false, consentVersion?: string): Promise<{ status: "queued" | "verified" }> {
   const typed = rawEmail === undefined ? undefined : emailSchema.parse(rawEmail.trim().normalize("NFC").toLowerCase());
   const mode = emailTransportMode();
-  if (mode === "disabled") throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
+  if (mode === "disabled" || !operatorName()) throw new DomainError("CONTACT_DISABLED", "Das Bestätigen per E-Mail ist gerade nicht verfügbar. Bitte versuche es später noch einmal.");
+  // The marketing link records which box text was ticked; an unknown or missing version is refused, never guessed.
+  if (marketing && !(consentVersion && Object.hasOwn(EMAIL_CONSENT_TEXTS, consentVersion))) throw new DomainError("INVALID_INPUT", "Bitte lade die Karte neu und setze das Häkchen noch einmal.");
   if (marketing && promotionalEmailMode() === "disabled") throw new DomainError("CONTACT_DISABLED", "Angebote per E-Mail sind gerade nicht verfügbar.");
   return db.transaction(async tx => {
     const member = await cardInTransaction(tx, cardToken);
@@ -115,7 +120,7 @@ export async function requestContactVerification(cardToken: string, rawEmail?: s
       .where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     const challengeId = randomUUID();
     const tokenHash = verificationTokenHash(verificationTokenForChallenge(challengeId));
-    await tx.insert(contactVerificationChallenges).values({ id: challengeId, tenantId: member.tenantId, membershipId: member.id, email, tokenHash, marketing, expiresAt: new Date(Date.now() + 30 * 60_000) });
+    await tx.insert(contactVerificationChallenges).values({ id: challengeId, tenantId: member.tenantId, membershipId: member.id, email, tokenHash, marketing, noticeVersion: marketing ? consentVersion : null, expiresAt: new Date(Date.now() + 30 * 60_000) });
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.verify", payload: { membershipId: member.id, challengeId } });
     return { status: "queued" as const };
   });
@@ -154,7 +159,7 @@ export async function consumeContactVerification(token: string): Promise<{ verif
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));
     if (!challenge.marketing) return { verified: true as const, marketing: false as const };
     if (!await latestMarketingConsent(member.tenantId, member.id, tx)) {
-      await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion, source: "double_opt_in" });
+      await tx.insert(consentEvents).values({ tenantId: member.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion: challenge.noticeVersion ?? noticeVersion, source: "double_opt_in" });
     }
     const [shop] = await tx.select({ shopName: tenants.name, brandColor: locations.brandColor }).from(programs)
       .innerJoin(tenants, eq(tenants.id, programs.tenantId))
