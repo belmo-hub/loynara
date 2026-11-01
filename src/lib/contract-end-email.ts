@@ -55,7 +55,9 @@ export async function deliverContractEndEmail(job: { id: string; tenantId: strin
 export async function contractEndEmailText(input: { tenantId: string; shop: string; unit: "Stempel" | "Punkte"; event: ContractEndEvent; operator: { name: string; address: string }; now: Date; env?: Record<string, string | undefined> }) {
   const env = input.env ?? process.env;
   const shop = clean(input.shop);
-  const footer = ["", "Viele Grüße", "Loynara", "", `${clean(input.operator.name)} · ${clean(input.operator.address)}`];
+  // The address may come on several lines (a real line break, or „\n“ typed into a single-line setting): one footer line.
+  const address = input.operator.address.split(/\r?\n|\\n/).map(clean).filter(Boolean).join(", ");
+  const footer = ["", "Viele Grüße", "Loynara", "", `${clean(input.operator.name)} · ${address}`];
   if (input.event.event === "withdrawn") {
     const basis = await contractBasis(input.tenantId);
     if (!basis) return null;
