@@ -60,7 +60,7 @@ describe("Programm beenden (ENG-167, Design's spec with Legal's answers)", () =>
   it("the desktop preview shows the card's own end notice, from the moment of cancelling (C22, C37)", () => {
     const html = page({ state: "ok", data: view() });
     expect(html).toContain("So sehen es deine Kunden");
-    expect(html).toContain("Diese Karte endet am 27. November 2026.");
+    expect(html).toContain("Diese Karte endet am 27.\u00a0November\u00a02026.");
     expect(html).toContain("Bis dahin kannst du weiter Stempel sammeln und Prämien einlösen.");
     expect(html).toContain("Deine Kunden sehen das Enddatum ab dem Moment, in dem du kündigst.");
   });

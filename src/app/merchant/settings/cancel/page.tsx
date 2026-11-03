@@ -50,7 +50,7 @@ function Facts({ facts }: { facts: View["facts"] }) {
 /** Desktop (≥1024): what the customers' card shows, from the moment the cancellation is in (C22, C37). */
 function CustomerPreview({ view }: { view: View }) {
   const customerCardCopy = copyFor("de");
-  const long = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${view.endDate}T00:00:00Z`));
+  const long = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${view.endDate}T00:00:00Z`)).replace(/ /g, "\u00a0"); // the date never breaks after „27.“
   return (
     <aside className="ow-qaside" aria-labelledby="ow-cancel-preview">
       <h2 id="ow-cancel-preview" className="ow-qlabel">So sehen es deine Kunden</h2>

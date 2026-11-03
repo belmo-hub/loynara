@@ -10,6 +10,7 @@ import { ClientApiError, postJson } from "@/components/client-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useFormCheck } from "@/components/ui/form-check";
 import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -155,8 +156,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
     finally { setBusy(false); }
   }
-  const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
-  const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
+  // The list says what the Kündigungen card says (C40, C25), so one shop never shows two states.
+  const endText = (r: Row) => cancellations.find(c => c.tenantId === r.tenantId)?.badge ?? (r.endDate ? `gekündigt zum ${germanDate(r.endDate)}` : "keine Kündigung");
+  const origin = (r: Row) => r.requestedDays === null ? "vom Operator geplant" : r.requestedDays === 0 ? "heute angefragt" : r.requestedDays === 1 ? "gestern angefragt" : `vor ${r.requestedDays} Tagen angefragt`;
   const close = () => { setLabel(null); setPreview(null); setError(""); };
   // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
   const [startFor, setStartFor] = useState<string | null>(null);
@@ -322,7 +324,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {rows.map(r => <li key={r.programId} style={{ padding: "8px 0", borderTop: "1px solid var(--color-line, currentColor)" }}>
           <strong>{r.tenant}</strong> · {r.location} ({r.city})<br />
-          <span className="ow-muted">{r.programme} · {r.status === "active" ? "aktiv" : "archiviert"} · {r.cards} Karten · letzte Gutschrift: {date(r.lastAward)} · Wochenbericht {r.weeklyReport ? "an" : "aus"}{r.endDate ? ` · Kündigung ${origin(r)}, ${endText(r)}` : ""}</span>
+          <span className="ow-muted">{r.programme} · {r.status === "active" ? "aktiv" : "archiviert"} · {r.cards} Karten · letzte Gutschrift: {date(r.lastAward)} · Wochenbericht {r.weeklyReport ? "an" : "aus"}{r.endDate ? ` · ${endText(r)} · ${origin(r)}` : ""}</span>
           {r.walletMessages ? <><br /><span className={r.walletMessages.warn ? undefined : "ow-muted"} role={r.walletMessages.warn ? "alert" : undefined}>Wallet-Nachrichten (30 Tage): {r.walletMessages.messages} gesendet an {r.walletMessages.sent} Karten · Karten entfernt innerhalb von 48 Stunden (nur Apple Wallet): {r.walletMessages.removed}{r.walletMessages.warn ? " · Warnung: mehr Karten entfernt als erwartet" : ""}</span></> : null}
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
@@ -393,7 +395,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           <p>Letzte Rechnung: {checked.facts.lastInvoice.value}</p>
           <p>Export bis {checked.facts.exportUntil.value}</p>
           {checked.endDate !== ending.endDate ? <p>Das Geschäft bekommt die Änderung per E-Mail.</p> : null}
-          {checked.consent ? <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={consent} onChange={event => setConsent(event.target.checked)} />Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</label> : null}
+          {checked.consent ? <Checkbox checked={consent} onChange={event => setConsent(event.target.checked)}>Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</Checkbox> : null}
         </div> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
         {checked ? <Button loading={busy} disabled={checked.consent && !consent} onClick={() => void confirmEnd()}>Bestätigen</Button>
@@ -414,9 +416,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       {entry ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{entry.tenant}</strong> · {entry.location}</p>
         <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
-        {pastEnd ? <div role="alert" style={{ display: "grid", gap: 4 }}>
-          <p>Diese E-Mail kam vor mehr als 14 Tagen an, ihr Vertragsende kann schon vorbei sein. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
-          <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen</label>
+        {pastEnd ? <div style={{ display: "grid", gap: 4 }}>
+          <p role="alert" style={{ display: "flex", gap: 8, alignItems: "baseline" }}><AlertCircle size={16} aria-hidden="true" style={{ flex: "none", color: "var(--color-warning)", alignSelf: "center" }} />Diese E-Mail kam vor mehr als 14 Tagen an, ihr Vertragsende kann schon vorbei sein. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
+          <Checkbox checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)}>Mit dem Geschäft besprochen: trotzdem eintragen</Checkbox>
         </div> : null}
         {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
