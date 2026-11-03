@@ -933,8 +933,6 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-fact dd strong { font-size: var(--text-22); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; line-height: 1.2; }
 .ow-fact dd span { color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qend .ow-qnote { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-fill); text-wrap: pretty; }
-.ow-notice-head { display: inline-flex; align-items: center; gap: var(--space-2); }
-.ow-qsave .ow-btn--danger svg { flex: none; }
 .ow-qaside { display: none; }
 .ow-endcard p + p { margin-top: var(--space-1); color: var(--color-ink-muted); }
 @media (min-width: 1024px) {

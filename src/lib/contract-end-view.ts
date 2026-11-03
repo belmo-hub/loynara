@@ -87,7 +87,7 @@ export async function operatorCancellations(now = new Date(), env: Record<string
       const facts = await contractFacts(row.tenantId, end, now, requestDay);
       const extra = facts && facts.invoice.kind === "due" ? facts.invoice.invoices.filter(invoice => invoice.date > bindingEnd) : [];
       const amount = factsLinesAmount(extra[0]?.amountMinor ?? basis.totalMinor ?? 0);
-      const label = extra.length === 1 ? `Eine Rechnung mehr: ${day(extra[0].date)}, ${amount}` : `${extra.length === 2 ? "Zwei" : extra.length} Rechnungen mehr: ${extra.map(invoice => day(invoice.date)).join(" und ")}, je ${amount}`;
+      const label = extra.length === 1 ? `Eine Rechnung mehr: ${day(extra[0].date)}, ${amount}` : `${["Zwei", "Drei"][extra.length - 2] ?? extra.length} Rechnungen mehr: ${extra.map(invoice => day(invoice.date)).join(", ").replace(/, ([^,]*)$/, " und $1")}, je ${amount}`;
       choices.push({ endDate: end, label: `${day(end)} · ${label}`, consent: true, facts: factsLines(facts!, vatMode(), env) });
     }
     out.push({

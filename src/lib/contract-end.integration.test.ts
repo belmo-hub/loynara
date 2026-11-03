@@ -212,7 +212,7 @@ describe("the operator's „Kündigungen“ (ENG-167 b)", () => {
       ["27.11.2026 · Wie gekündigt · keine weitere Rechnung", false],
       ["27.12.2026 · Eine Rechnung mehr: 28.11.2026, 98 €", true],
       ["27.01.2027 · Zwei Rechnungen mehr: 28.11.2026 und 28.12.2026, je 98 €", true],
-      ["27.02.2027 · 3 Rechnungen mehr: 28.11.2026 und 28.12.2026 und 28.01.2027, je 98 €", true],
+      ["27.02.2027 · Drei Rechnungen mehr: 28.11.2026, 28.12.2026 und 28.01.2027, je 98 €", true],
     ]);
     expect(entry.withdrawal).toBe("Das Programm von Café Lindenblatt läuft dann ohne Enddatum weiter. Die Abrechnung bleibt: nächste Rechnung am 28.11.2026, 98 €. Das Geschäft bekommt eine E-Mail.");
   });

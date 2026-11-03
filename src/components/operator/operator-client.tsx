@@ -378,13 +378,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         <p className="ow-muted">Jetzt: {ending.badge}{ending.requestedOn ? ` · angefragt am ${ending.requestedOn}` : ""} · Abrechnung am {ending.anchorDay}.</p>
         <fieldset style={{ display: "grid", gap: 8, border: 0, margin: 0, padding: 0 }}>
           <legend className="ow-muted">Letzter Tag</legend>
-          {ending.choices.filter(c => !c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}>
-            <input type="radio" name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
+          {ending.choices.filter(c => !c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}>
+            <input type="radio" style={{ accentColor: "var(--color-action)" }} name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
           </label>)}
           {ending.choices.some(c => c.consent) ? <details open={picked?.consent === true}>
-            <summary style={{ minHeight: 44, display: "flex", alignItems: "center" }}>Späteres Ende (nur wenn das Geschäft zustimmt)</summary>
-            {ending.choices.filter(c => c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}>
-              <input type="radio" name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
+            <summary style={{ padding: "12px 0", cursor: "pointer" }}>Späteres Ende (nur wenn das Geschäft zustimmt)</summary>
+            {ending.choices.filter(c => c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}>
+              <input type="radio" style={{ accentColor: "var(--color-action)" }} name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
             </label>)}
           </details> : null}
         </fieldset>
@@ -393,7 +393,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           <p>Letzte Rechnung: {checked.facts.lastInvoice.value}</p>
           <p>Export bis {checked.facts.exportUntil.value}</p>
           {checked.endDate !== ending.endDate ? <p>Das Geschäft bekommt die Änderung per E-Mail.</p> : null}
-          {checked.consent ? <label style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</label> : null}
+          {checked.consent ? <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={consent} onChange={event => setConsent(event.target.checked)} />Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</label> : null}
         </div> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
         {checked ? <Button loading={busy} disabled={checked.consent && !consent} onClick={() => void confirmEnd()}>Bestätigen</Button>
@@ -416,7 +416,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
         {pastEnd ? <div role="alert" style={{ display: "grid", gap: 4 }}>
           <p>Diese E-Mail kam vor mehr als 14 Tagen an, ihr Vertragsende kann schon vorbei sein. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
-          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", minHeight: 44 }}><input type="checkbox" checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen.</label>
+          <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen.</label>
         </div> : null}
         {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CalendarX, Check, Download, Euro } from "lucide-react";
+import { CalendarX, Download, Euro } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -126,8 +126,9 @@ export default function CancelProgrammePage() {
       {head}
       <div className="ow-qend">
         <div className="ow-q">
-          <Notice tone="warn" role="status">
-            <span className="ow-notice-head"><Check size={20} aria-hidden="true" /><strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong></span>
+          {/* Design: a check in the warn tint; an end is a fact to plan for, not a success. */}
+          <Notice tone="warn" role="status" icon="check">
+            <strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong>
             {view.state === "later"
               ? " So haben wir es mit dir vereinbart. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal."
               : ` Deine Kündigung ist bei uns eingegangen. Dein Programm endet am ${view.endDateText}. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal.`}
@@ -160,7 +161,7 @@ export default function CancelProgrammePage() {
           {failed}
           <div className="ow-qsave ow-qsave--pair">
             <button type="button" className="ow-btn ow-btn--danger" disabled={saving} aria-busy={saving} onClick={() => void send(false)}>
-              <AlertCircle size={20} aria-hidden="true" />{saving ? "Wird gespeichert …" : "Ja, Programm beenden"}
+              {saving ? "Wird gespeichert …" : "Ja, Programm beenden"}
             </button>
             <GuardedLink href={SETTINGS} className="ow-btn ow-btn--secondary">Abbrechen</GuardedLink>
           </div>
