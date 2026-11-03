@@ -130,7 +130,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [entry, setEntry] = useState<Row | null>(null);
   const [receivedAt, setReceivedAt] = useState("");
   const [entryEnd, setEntryEnd] = useState<string | null>(null);
-  // Review N-1 (CTO): an e-mail older than the 14-day notice window is entered only after speaking with the shop.
+  // Legal (§ 130 BGB): an e-mail older than 14 days still counts from its arrival; the tick confirms it was checked, not taken back.
   const [pastEnd, setPastEnd] = useState(false);
   const [acceptPast, setAcceptPast] = useState(false);
   const [sheetError, setSheetError] = useState("");
@@ -417,8 +417,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         <p><strong>{entry.tenant}</strong> · {entry.location}</p>
         <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
         {pastEnd ? <div style={{ display: "grid", gap: 4 }}>
-          <p role="alert" style={{ display: "flex", gap: 8, alignItems: "baseline" }}><AlertCircle size={16} aria-hidden="true" style={{ flex: "none", color: "var(--color-warning)", alignSelf: "center" }} />Diese E-Mail kam vor mehr als 14 Tagen an, ihr Vertragsende kann schon vorbei sein. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
-          <Checkbox checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)}>Mit dem Geschäft besprochen: trotzdem eintragen</Checkbox>
+          <p role="alert" style={{ display: "flex", gap: 8, alignItems: "baseline" }}><AlertCircle size={16} aria-hidden="true" style={{ flex: "none", color: "var(--color-warning)", alignSelf: "center" }} />{`Diese E-Mail kam vor mehr als 14 Tagen an. Die Kündigung gilt ab ihrem Eingang am ${receivedAt.slice(0, 10).split("-").reverse().join(".")}; das Vertragsende kann schon vorbei sein. Prüfe, ob das Geschäft sie inzwischen zurückgenommen hat, und trage sie mit dem Eingangsdatum ein.`}</p>
+          <Checkbox checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)}>Eingang geprüft, nicht zurückgenommen: mit Eingangsdatum eintragen</Checkbox>
         </div> : null}
         {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
