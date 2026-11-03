@@ -125,6 +125,8 @@ describe("French cards' old panel (Reviewer N-1)", () => {
     const source = readFileSync("src/components/card-contact.tsx", "utf8");
     expect(source).toContain("status.emailVerified && status.marketingEmail && <div");
     expect(source).toContain("onClick={() => void preference(false)}");
+    // N-5: the button alone, no French sentence of its own.
+    expect(source).not.toContain("Vous pouvez désactiver les offres");
     expect(source).not.toContain("preference(!status.marketingEmail)");
   });
 });
@@ -138,5 +140,13 @@ describe("the „Einrichten“ box starts unticked every time (Legal; Design rou
     expect(sheet({ ...verified, pending: "marketing" })).not.toContain('type="checkbox"');
     const back = sheet({ ...verified, pending: "marketing", linkExpired: true });
     expect(back).toMatch(/<input type="checkbox"(?![^>]*checked)[^>]*>/);
+  });
+});
+
+describe("a failed setting says nothing was saved, not that nothing was sent (Marketing, 3 Nov)", () => {
+  it("uses Marketing's line for decline, unsubscribe and remove", () => {
+    const source = readFileSync("src/components/card-email.tsx", "utf8");
+    expect(source).toContain('const SAVE_FAILED = "Das konnten wir gerade nicht speichern. Es bleibt alles wie vorher. Versuche es gleich noch einmal.";');
+    expect(source).toContain("catch (cause) { setError(actionError(cause)); }");
   });
 });

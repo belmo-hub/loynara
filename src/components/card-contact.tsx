@@ -88,9 +88,9 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
       {recoveryOnly && <Button variant="quiet" size="sm" disabled={busy} onClick={() => setDeferred(true)}>{french ? "Plus tard" : "Später"}</Button>}
     </>}
     {status.contactPresent && <p className={styles.state}>{status.emailVerified ? french ? "Adresse vérifiée." : "Adresse bestätigt." : french ? "Adresse non vérifiée ; aucun message marketing." : "Adresse noch nicht bestätigt; keine Marketing-Nachrichten."}</p>}
-    {/* ENG-165 N-1: granting goes only through the confirmation link now, so this panel (French cards, no new copy) only withdraws. */}
+    {/* ENG-165 N-1/N-5: granting goes only through the confirmation link now, so this panel (French cards) only withdraws,
+        with the button alone: no French sentence beyond the existing „Se désabonner“ (founder's hold on French copy). */}
     {!recoveryOnly && status.emailVerified && status.marketingEmail && <div className={styles.preference}>
-      <p className={styles.muted}>{french ? "Vous pouvez désactiver les offres par e-mail sans perdre votre carte ni votre adresse de récupération." : "Du kannst E-Mail-Angebote abbestellen. Karte und Wiederherstellungsadresse bleiben erhalten."}</p>
       <Button variant="secondary" size="sm" loading={action === "preference"} disabled={busy && action !== "preference"} onClick={() => void preference(false)}>{french ? "Se désabonner" : "E-Mail-Marketing abbestellen"}</Button>
     </div>}
     {!recoveryOnly && status.available && status.contactPresent && <Button variant="quiet" size="sm" disabled={busy} onClick={() => void remove()}>{french ? "Supprimer l’adresse de récupération" : "Wiederherstellungsadresse entfernen"}</Button>}
