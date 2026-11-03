@@ -26,10 +26,14 @@ async function staff(s: Shop, role: "cashier" | "manager") {
   await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, $3, $4)", [s.tenantId, id, role, s.locationId]);
   return id;
 }
-/** A confirmed visit `ago` before now (an interval like '89 days 23 hours'); returns its ledger id. */
-async function visitAgo(s: Shop, membershipId: string, ago: string, source = "staff_online") {
+/**
+ * A confirmed visit; returns its ledger id. A number is that many Berlin days ago at noon Berlin time, because the product
+ * counts Berlin days and 24 h steps put two visits on one day across a 25-hour day; a string is an exact interval before now.
+ */
+async function visitAgo(s: Shop, membershipId: string, ago: number | string, source = "staff_online") {
+  const at = typeof ago === "number" ? "(((now() AT TIME ZONE 'Europe/Berlin')::date - $7::int) + time '12:00') AT TIME ZONE 'Europe/Berlin'" : "now() - $7::interval";
   const { rows: [row] } = await pool.query<{ id: string }>(`INSERT INTO ledger_entries (tenant_id, location_id, membership_id, delta, kind, source, actor_user_id, request_id, idempotency_key, created_at)
-    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, now() - $7::interval) RETURNING id`,
+    VALUES ($1, $2, $3, 1, 'award', $4, $5, gen_random_uuid(), $6, ${at}) RETURNING id`,
     [s.tenantId, s.locationId, membershipId, source, source === "nfc_tap" ? null : s.owner, `synthetic-${randomUUID()}`, ago]);
   await pool.query("UPDATE memberships SET balance = balance + 1 WHERE id = $1", [membershipId]);
   return row.id;
@@ -37,14 +41,17 @@ async function visitAgo(s: Shop, membershipId: string, ago: string, source = "st
 const levels = (s: Shop, patch: Partial<Parameters<typeof updateProgramExtras>[0]> = {}, actorUserId = s.owner) =>
   updateProgramExtras({ actorUserId, programId: s.programId, levelsEnabled: true, levelSilverVisits: 3, levelGoldVisits: 5, levelBronzePerk: "", levelSilverPerk: "Kaffee aufs Haus", levelGoldPerk: "Bart gratis", ...patch });
 const levelOf = async (token: string) => (await getCard(token)).level;
-/** The Berlin date `days` from now, as the card writes it. */
-const inDays = (days: number) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" }).format(new Date(Date.now() + days * 86_400_000));
+/** The Berlin date `days` calendar days from today in Berlin, as the card writes it. */
+const inDays = (days: number) => {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
+  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000));
+};
 
 describe("level settings", () => {
   it("are off by default: no level on the card or at the counter", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
-    await visitAgo(s, card.id, "1 day");
+    await visitAgo(s, card.id, 1);
     expect(await levelOf(card.cardToken)).toBeUndefined();
     expect((await lookupCard({ userId: s.owner, locationId: s.locationId, scanCode: card.scanCode })).level).toBeUndefined();
   });
@@ -76,13 +83,13 @@ describe("levels", () => {
     const cashier = await staff(s, "cashier");
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     expect(await levelOf(card.cardToken)).toEqual({ name: null, perk: undefined, until: undefined, visits: 0, next: { name: "Silber", visits: 3 } });
-    await visitAgo(s, card.id, "10 days");
+    await visitAgo(s, card.id, 10);
     expect(await levelOf(card.cardToken)).toEqual({ name: "Bronze", perk: undefined, until: inDays(80), visits: 1, next: { name: "Silber", visits: 2 } });
-    await visitAgo(s, card.id, "9 days");
+    await visitAgo(s, card.id, 9);
     expect((await levelOf(card.cardToken))?.name).toBe("Bronze");
-    await visitAgo(s, card.id, "8 days");
+    await visitAgo(s, card.id, 8);
     expect(await levelOf(card.cardToken)).toEqual({ name: "Silber", perk: "Kaffee aufs Haus", until: inDays(80), visits: 3, next: { name: "Gold", visits: 2 } });
-    await visitAgo(s, card.id, "7 days");
+    await visitAgo(s, card.id, 7);
     await award({ userId: cashier, locationId: s.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect(await levelOf(card.cardToken)).toEqual({ name: "Gold", perk: "Bart gratis", until: inDays(80), visits: 5, next: null });
     expect((await lookupCard({ userId: cashier, locationId: s.locationId, scanCode: card.scanCode })).level).toMatchObject({ name: "Gold", perk: "Bart gratis" });
@@ -107,9 +114,9 @@ describe("levels", () => {
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     await award({ userId: s.owner, locationId: s.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await award({ userId: s.owner, locationId: s.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
-    await visitAgo(s, card.id, "3 days", "nfc_tap");
+    await visitAgo(s, card.id, 3, "nfc_tap");
     expect(await levelOf(card.cardToken)).toMatchObject({ name: "Bronze", visits: 1 });
-    const corrected = await visitAgo(s, card.id, "2 days");
+    const corrected = await visitAgo(s, card.id, 2);
     expect(await levelOf(card.cardToken)).toMatchObject({ name: "Silber", visits: 2 });
     await reverseEntry({ userId: s.owner, locationId: s.locationId, entryId: corrected, reason: "Falsche Karte gestempelt", idempotencyKey: randomUUID(), requestId: randomUUID() });
     expect(await levelOf(card.cardToken)).toMatchObject({ name: "Bronze", visits: 1 });
@@ -122,8 +129,8 @@ describe("levels", () => {
     await levels(other, { levelSilverVisits: 2, levelGoldVisits: 3 });
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const neighbour = await enroll({ slug: other.programSlug, acceptedTerms: true });
-    await visitAgo(s, card.id, "2 days");
-    await visitAgo(s, card.id, "1 day");
+    await visitAgo(s, card.id, 2);
+    await visitAgo(s, card.id, 1);
     expect((await levelOf(card.cardToken))?.name).toBe("Silber");
     expect((await levelOf(neighbour.cardToken))?.name).toBeNull();
     await expect(lookupCard({ userId: other.owner, locationId: other.locationId, scanCode: card.scanCode })).rejects.toMatchObject({ code: "NOT_FOUND" });
