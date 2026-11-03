@@ -416,7 +416,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
         {pastEnd ? <div role="alert" style={{ display: "grid", gap: 4 }}>
           <p>Diese E-Mail kam vor mehr als 14 Tagen an, ihr Vertragsende kann schon vorbei sein. Trag die Kündigung nur nach Rücksprache mit dem Geschäft ein.</p>
-          <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen.</label>
+          <label style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}><input type="checkbox" style={{ accentColor: "var(--color-action)" }} checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)} />Mit dem Geschäft besprochen: trotzdem eintragen</label>
         </div> : null}
         {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
