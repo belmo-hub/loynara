@@ -27,6 +27,7 @@ let programmesEndedAt = 0;
 let winbackCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
+let erasureCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -106,6 +107,21 @@ async function processJob(job: Job, claimedAt: number) {
       const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
       const marked = await mark(job, permanent ? "failed" : "retry", "Weekly report failed", permanent ? 0 : delay);
       console.error(`Weekly report job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
+  if (job.kind === "email.contract_end") {
+    try {
+      const { deliverContractEndEmail } = await import("../src/lib/contract-end-email");
+      const result = await deliverContractEndEmail(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Contract-end email failed", permanent ? 0 : delay);
+      console.error(`Contract-end email job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return marked;
     }
   }
@@ -355,11 +371,12 @@ async function main() {
       }
       if (Date.now() - billingCheckedAt >= 24 * 60 * 60_000) {
         try {
-          // Daily and idempotent (owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
+          // Daily and idempotent (Stripe end = confirmed shop end, owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
           const { runBillingJob } = await import("../src/lib/billing-stripe");
           const result = await runBillingJob();
           if (result.quantities) console.log(`Billing: location quantity updated for ${result.quantities} subscription(s)`);
           if (result.credited) console.log(`Billing: ${result.credited} owed start-guarantee credit(s) issued`);
+          if (result.ends) console.log(`Billing: Stripe end updated for ${result.ends} shop(s) after a programme end`);
           billingCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
@@ -367,6 +384,20 @@ async function main() {
           const code = error instanceof Error && "code" in error ? ` ${String(error.code)}` : "";
           console.error(`Billing job failed (${error instanceof Error ? error.name : "error"}${code}); retrying in an hour`);
           billingCheckedAt = Date.now() - 23 * 60 * 60_000;
+        }
+      }
+      if (Date.now() - erasureCheckedAt >= 24 * 60 * 60_000) {
+        erasureCheckedAt = Date.now();
+        try {
+          // ENG-166 (DS-05): says daily which ended shops to erase, by when, and which confirmations are still to send; the
+          // operator erases them (operator-shop-erasure).
+          const { dueShopErasures } = await import("../src/lib/shop-erasure");
+          const { due, confirmations } = await dueShopErasures();
+          if (due.length) console.log(`Erasure: ${due.length} ended shop(s) to erase (${due.map(shop => `${shop.tenantId} by ${shop.deadline}${shop.overdue ? " OVERDUE" : ""}${shop.billing ? ", Stripe still running" : ""}`).join(", ")}); run operator-shop-erasure`);
+          if (confirmations.length) console.log(`Erasure: ${confirmations.length} confirmation(s) to the owner still to send (${confirmations.map(shop => shop.tenantId).join(", ")})`);
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          console.error(`Erasure check failed (${error instanceof Error ? error.name : "error"}); retrying tomorrow`);
         }
       }
       let processed = 0;

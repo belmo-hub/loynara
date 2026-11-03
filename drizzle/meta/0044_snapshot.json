@@ -1,5 +1,5 @@
 {
-  "id": "256e839e-ad1a-47b3-9364-ca27e08549d9",
+  "id": "e0e9b6c4-5206-44ce-923d-804c1d6f2e62",
   "prevId": "ecefef8b-6982-40a1-b84d-71f0d3aaab83",
   "version": "7",
   "dialect": "postgresql",
@@ -1844,19 +1844,6 @@
           "type": "varchar(64)",
           "primaryKey": false,
           "notNull": true
-        },
-        "marketing": {
-          "name": "marketing",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "notice_version": {
-          "name": "notice_version",
-          "type": "varchar(32)",
-          "primaryKey": false,
-          "notNull": false
         },
         "expires_at": {
           "name": "expires_at",
@@ -5874,6 +5861,12 @@
         },
         "free_until": {
           "name": "free_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "billing_ends_at": {
+          "name": "billing_ends_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

@@ -4,24 +4,33 @@ import { assertOperatorTarget, OperatorRefusal } from "./operator-identity";
 import { DomainError } from "../src/lib/loyalty";
 
 /**
- * Shows a programme's cancellation (none / requested / confirmed), confirms or moves its end date, or ends it now (private Railway console, like operator-plate). Ending unlinks its plates.
+ * Shows a programme's cancellation, enters one that came by e-mail, keeps or moves its end, withdraws it on the shop's wish, or
+ * ends it now (private Railway console, like operator-plate). Every change applies to the whole business (one contract);
+ * ending unlinks its plates. ENG-167 (Legal, 1 Nov): a cancellation binds from the moment it reached us.
  *   npx tsx scripts/operator-programme.ts status   --program-id <id> --target loynara-production --actor-user-id <operator user id>
- *   npx tsx scripts/operator-programme.ts schedule --program-id <id> --end-date 2026-11-15 --target ... --actor-user-id ...   # dry run
- *   npx tsx scripts/operator-programme.ts end      --program-id <id> --target ... --actor-user-id ...                         # dry run; ends NOW, final
+ *   npx tsx scripts/operator-programme.ts request  --program-id <id> --received-at 2026-11-12T09:30+01:00 --target ... --actor-user-id ...   # e-mailed cancellation: the time the e-mail ARRIVED
+ *   npx tsx scripts/operator-programme.ts schedule --program-id <id> --end-date 2026-11-27 --target ... --actor-user-id ...   # keep the date, or a later one with --consent
+ *   npx tsx scripts/operator-programme.ts withdraw --program-id <id> --target ... --actor-user-id ...                         # on the shop's wish
+ *   npx tsx scripts/operator-programme.ts end      --program-id <id> --target ... --actor-user-id ...                         # ends NOW, final
  *   ... --execute                                                                                                             # after reading the dry run
- * schedule takes a real day from tomorrow (Berlin) on; to end today, use end. The actor must be on PLATE_OPERATOR_USER_IDS. Refusals print one reason code.
+ * request refuses an arrival time more than 14 days ago unless --accept-late-entry (after speaking with the shop).
+ * schedule never moves a requested end earlier; a later end needs --consent (the shop agreed in text form; keep its message
+ * with the contract record). The actor must be on PLATE_OPERATOR_USER_IDS. Refusals print one reason code.
  */
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, strict: true, options: { target: { type: "string" }, "actor-user-id": { type: "string" }, "program-id": { type: "string" }, "end-date": { type: "string" }, execute: { type: "boolean" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, strict: true, options: { target: { type: "string" }, "actor-user-id": { type: "string" }, "program-id": { type: "string" }, "end-date": { type: "string" }, "received-at": { type: "string" }, consent: { type: "boolean" }, "accept-late-entry": { type: "boolean" }, execute: { type: "boolean" } } });
   const [command, ...rest] = positionals;
-  if (rest.length || !["status", "schedule", "end"].includes(command ?? "")) throw new OperatorRefusal("COMMAND_MUST_BE_STATUS_SCHEDULE_OR_END");
+  if (rest.length || !["status", "schedule", "end", "request", "withdraw"].includes(command ?? "")) throw new OperatorRefusal("COMMAND_MUST_BE_STATUS_SCHEDULE_REQUEST_WITHDRAW_OR_END");
   if (!values["program-id"]) throw new OperatorRefusal("PROGRAM_ID_REQUIRED");
   if ((command === "schedule") !== Boolean(values["end-date"])) throw new OperatorRefusal(command === "schedule" ? "END_DATE_REQUIRED" : "END_DATE_ONLY_FOR_SCHEDULE");
+  if ((command === "request") !== Boolean(values["received-at"])) throw new OperatorRefusal(command === "request" ? "RECEIVED_AT_REQUIRED" : "RECEIVED_AT_ONLY_FOR_REQUEST");
+  if (values.consent && command !== "schedule") throw new OperatorRefusal("CONSENT_ONLY_FOR_SCHEDULE");
+  if (values["accept-late-entry"] && command !== "request") throw new OperatorRefusal("ACCEPT_LATE_ENTRY_ONLY_FOR_REQUEST");
   assertOperatorTarget(values.target, process.env);
   const actorUserId = values["actor-user-id"] ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(actorUserId)) throw new OperatorRefusal("ACTOR_REQUIRED");
   const { operatorProgramme } = await import("../src/lib/programme-end");
-  const outcome = await operatorProgramme({ actorUserId, env: process.env, programId: values["program-id"], command: command as "status" | "schedule" | "end", endDate: values["end-date"], execute: values.execute === true });
+  const outcome = await operatorProgramme({ actorUserId, env: process.env, programId: values["program-id"], command: command as "status" | "schedule" | "end" | "request" | "withdraw", endDate: values["end-date"], receivedAt: values["received-at"], consent: values.consent === true, acceptLateEntry: values["accept-late-entry"] === true, execute: values.execute === true });
   console.log(`PROGRAMME ${JSON.stringify({ at: new Date().toISOString(), command, actorUserId, ...outcome })}`);
   process.exit(0);
 }

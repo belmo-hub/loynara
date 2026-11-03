@@ -1,11 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, subscriptions, tenants } from "@/db/schema";
 import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
+import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
+import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
 /**
@@ -77,20 +79,6 @@ async function lockedSubscription(tx: Transaction, tenantId: string) {
   return sub;
 }
 
-/**
- * The operator's name and postal address as the invoices print them: Stripe's public business details (business_profile),
- * so the free-month reminder's footer can never differ from the invoice (Legal, B-01/B-02). Null while they are not set.
- */
-export async function operatorIdentity() {
-  const account = z.object({ business_profile: z.object({ name: z.string().nullable().optional(), support_address: z.object({
-    line1: z.string().nullable(), line2: z.string().nullable().optional(), postal_code: z.string().nullable(), city: z.string().nullable(),
-  }).nullable().optional() }).nullable().optional() }).parse(await client("GET", "/account"));
-  const profile = account.business_profile;
-  const address = profile?.support_address;
-  if (!profile?.name?.trim() || !address?.line1 || !address.postal_code || !address.city) return null;
-  return { name: profile.name.trim(), address: [address.line1, address.line2, `${address.postal_code} ${address.city}`].filter(Boolean).join(", ") };
-}
-
 /** The plan's Stripe price, verified against the plan's amount, so a swapped or wrong price ID is refused, never charged. */
 async function verifiedPrice(charge: NonNullable<ReturnType<typeof planCharge>>) {
   const price = stripePrice.parse(await client("GET", `/prices/${process.env[PLANS[charge.planCode].priceEnv]}`));
@@ -127,6 +115,25 @@ async function ensureCustomer(tx: Transaction, sub: { tenantId: string; provider
 
 /** The owner-facing last free day (Berlin, YYYY-MM-DD) for a free month that ends at `freeUntil` (Legal: trial end minus one day). */
 export const lastFreeDay = (freeUntil: Date) => berlinDay(new Date(freeUntil.getTime() - 86_400_000));
+
+/**
+ * Legal (1 Nov): a cancellation that reached us by the last free day (Berlin, until 23:59) ends on the later of that day and
+ * the request day + 14, so customers see the end at least 14 days ahead, and is never charged. The earliest request among the
+ * business's running programmes counts (an ended location's old request doesn't, review R-3); null when there is no free
+ * month or no request inside it.
+ */
+async function freeMonthRequestEnd(executor: Pick<Transaction, "select">, sub: { tenantId: string; freeUntil: Date | null; startedAt: Date | null }) {
+  if (!sub.freeUntil) return null;
+  // Only requests made since this subscription started (CTO ruling on R-3): an older one belongs to no free month of it.
+  const [row] = await executor.select({ requested: sql<Date | null>`min(${programs.cancellationRequestedAt})` }).from(programs)
+    .where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active"), sub.startedAt ? sql`${programs.cancellationRequestedAt} >= ${sub.startedAt.toISOString()}::timestamptz` : undefined));
+  if (!row?.requested) return null;
+  const day = berlinDay(new Date(row.requested));
+  const lastFree = lastFreeDay(sub.freeUntil);
+  if (day > lastFree) return null;
+  const notice = addDays(day, MIN_NOTICE_DAYS);
+  return notice > lastFree ? notice : lastFree;
+}
 
 /**
  * Operator, at go-live (§ 2 (1): the start day is the day billing is switched on): starts the shop's Stripe subscription with
@@ -301,11 +308,17 @@ export async function applyStripeWebhook(raw: string, signature: string, at = ne
         .where(and(eq(programs.tenantId, tenantId), eq(programs.status, "active"), isNull(programs.cancellationConfirmedAt), eq(programs.cancellationEndDate, berlinDay(sub.currentPeriodEnd))));
     }
     await tx.insert(billingWebhookEvents).values({ eventId: event.id, tenantId, eventType: event.type, payloadHash });
-    return { status: "applied" as const };
+    return { status: "applied" as const, tenantId };
   });
   // The guarantee decision is committed above; only now is the credit issued. If it fails, the error makes Stripe retry the
   // event, whose duplicate delivery lands here again and finishes the credit (the daily sweep is the backstop).
   if (event.type === "invoice.created" && "tenantId" in result && result.tenantId) await creditOwedGuarantees(result.tenantId);
+  // ENG-125 (R-2): a renewal starts the billing month that may hold the shop's confirmed end; tell Stripe now. A failure is
+  // left to the daily sweep rather than to Stripe's retry of an event that is already recorded.
+  if (result.status === "applied" && "tenantId" in result && result.tenantId) {
+    const tenantId = result.tenantId;
+    await syncShopEnd(tenantId, at).catch(error => console.error(`Billing: Stripe end not synced for tenant ${tenantId} after a webhook (${error instanceof Error && "code" in error ? String(error.code) : "error"}); the daily billing job retries`));
+  }
   return { status: result.status };
 }
 
@@ -335,9 +348,107 @@ export async function endInFreeMonth(input: { actorUserId: string; env: Env; ten
     // In those last hours that moment has passed and Stripe refuses a past cancel_at: end it now, with no final invoice.
     if (endsAt <= Math.floor(at.getTime() / 1000)) await client("DELETE", `/subscriptions/${sub.providerSubscriptionId}`, { invoice_now: "false", prorate: "false" }, `free-month-end-${sub.providerSubscriptionId}`);
     else await client("POST", `/subscriptions/${sub.providerSubscriptionId}`, { cancel_at: String(endsAt), proration_behavior: "none" }, `free-month-end-${sub.providerSubscriptionId}`);
-    await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, updatedAt: at }).where(eq(subscriptions.tenantId, sub.tenantId));
+    // Recorded as what Stripe holds, so an owner's withdrawal before the confirmation clears it again (review N-2). The last
+    // free day is proposed here too, not only by the webhook, so no sweep in between can read the end as withdrawn.
+    await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, billingEndsAt: new Date(endsAt * 1000), updatedAt: at }).where(eq(subscriptions.tenantId, sub.tenantId));
+    // Legal (1 Nov): the later of the last free day and the request day + 14; Stripe still ends with the free month.
+    const notice = addDays(berlinDay(at), MIN_NOTICE_DAYS);
+    const proposed = notice > lastFreeDay(sub.freeUntil) ? notice : lastFreeDay(sub.freeUntil);
+    await tx.update(programs).set({ cancellationEndDate: proposed, cancellationRequestedAt: at })
+      .where(and(eq(programs.tenantId, sub.tenantId), eq(programs.status, "active"), isNull(programs.cancellationEndDate)));
     return { tenantId: sub.tenantId, lastFreeDay: lastFreeDay(sub.freeUntil) };
   });
+}
+
+/**
+ * ENG-125 (gate before live billing): the shop's Stripe subscription ends with the operator's confirmed end (#84). The
+ * subscription is per business and programmes are per location, so it ends once no running programme is left without a
+ * confirmed end date, with the billing month that contains the latest confirmed day. Pilot § 2: the contract ends on the last
+ * day of a billing month, and that month is billed in full, never pro rata. So Stripe is told only once that month is the
+ * current one (cancel_at_period_end); an end in a later month is held here and sent by the renewal webhook or the daily
+ * sweep (review R-2, CTO ruling (a)), because Stripe prorates a cancel_at in a future period whatever the request says.
+ * Inside the free month, #160's rule: cancel_at = free_until − 3 h, so no first invoice (at once, with no invoice, in its
+ * last hours). What Stripe holds is recorded in billing_ends_at: a retry, the sweep or a repeated confirmation finds it equal
+ * and calls Stripe no second time. When the owner withdraws, Stripe's end is cleared, with proration off (review R-1).
+ */
+export async function syncShopEnd(tenantId: string, now = new Date()) {
+  if (!stripeEnabled()) return { action: "disabled" as const };
+  return db.transaction(async tx => {
+    const sub = await lockedSubscription(tx, tenantId);
+    if (sub.provider !== "stripe" || !sub.providerSubscriptionId || !RUNNING.includes(sub.status)) return { action: "none" as const };
+    const confirmedOrEnded = sql`${programs.status} = 'ended' or ${programs.cancellationConfirmedAt} is not null`;
+    const [row] = await tx.select({
+      open: sql<number>`(count(*) filter (where ${programs.status} = 'active' and (${programs.cancellationConfirmedAt} is null or ${programs.cancellationEndDate} is null)))::int`,
+      awaiting: sql<number>`(count(*) filter (where ${programs.status} = 'active' and ${programs.cancellationConfirmedAt} is null and ${programs.cancellationEndDate} is not null))::int`,
+      lastDay: sql<string | null>`(max(${programs.cancellationEndDate}) filter (where ${confirmedOrEnded}))::text`,
+    }).from(programs).where(eq(programs.tenantId, tenantId));
+    // A proposed end the operator hasn't confirmed yet (such as „Gekündigt im kostenlosen Monat“) leaves Stripe as it is.
+    if (row.open > 0 && row.awaiting > 0) return { action: "unchanged" as const, endsAt: sub.billingEndsAt };
+    const id = sub.providerSubscriptionId;
+    const freeEnd = sub.freeUntil ? new Date(sub.freeUntil.getTime() - 3 * 3600_000) : null;
+    let target: Date | null = null;
+    if (row.open === 0 && row.lastDay) {
+      // A free-month cancellation stays free up to its notice end: Stripe ends with the free month, the programme runs on.
+      const freeLast = await freeMonthRequestEnd(tx, sub);
+      if (freeEnd && (row.lastDay <= lastFreeDay(sub.freeUntil!) || (freeLast && row.lastDay <= freeLast))) target = freeEnd;
+      else {
+        // Stripe's own period, not our copy: a missed renewal webhook must not let a billing month pass unsent.
+        const periodEnd = new Date(stripeSubscription.parse(await client("GET", `/subscriptions/${id}`)).items.data[0].current_period_end * 1000);
+        if (row.lastDay < berlinDay(periodEnd)) target = periodEnd;
+      }
+    }
+    if ((target?.getTime() ?? null) === (sub.billingEndsAt?.getTime() ?? null)) return { action: "unchanged" as const, endsAt: target };
+    const at = (value: Date | null) => value ? String(Math.floor(value.getTime() / 1000)) : "";
+    const isFree = (value: Date | null) => !!value && !!freeEnd && value.getTime() === freeEnd.getTime();
+    // One key per transition: a retry of this one replays it, a later end, withdrawal and the same end again gets its own.
+    const key = `shop-end-${id}-${at(sub.billingEndsAt) || "none"}-${isFree(target) && target! <= now ? "now" : at(target) || "none"}-${sub.updatedAt.getTime()}`;
+    if (!target) {
+      // Removing a cancel_at inside the period stretches the period back; without "none" Stripe charges that stretch again (R-1).
+      await client("POST", `/subscriptions/${id}`, isFree(sub.billingEndsAt) ? { cancel_at: "", proration_behavior: "none" } : { cancel_at_period_end: "false" }, key);
+    } else if (isFree(target)) {
+      if (target <= now) {
+        await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
+        // ENG-167 (CTO): a free-month cancellation entered after Stripe drew the first invoice (an e-mail that arrived in time)
+        // must cost nothing: that invoice is voided, or deleted while still a draft.
+        if (sub.freeUntil && now >= sub.freeUntil) await voidFirstInvoice(id, sub.freeUntil, key);
+      } else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
+    } else await client("POST", `/subscriptions/${id}`, { cancel_at_period_end: "true" }, key);
+    await tx.update(subscriptions).set({ billingEndsAt: target, cancelAtPeriodEnd: target !== null, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
+    return { action: !target ? "cleared" as const : isFree(target) && target <= now ? "ended" as const : "scheduled" as const, endsAt: target };
+  });
+}
+
+/** The month-two invoice of a subscription whose free-month cancellation came in time: voided if open, deleted if a draft. */
+async function voidFirstInvoice(subscriptionId: string, freeUntil: Date, key: string) {
+  const list = z.object({ data: z.array(z.object({ id: z.string().regex(/^in_[A-Za-z0-9]+$/), status: z.string(), created: z.number().int() })) })
+    .parse(await client("GET", "/invoices", { subscription: subscriptionId, limit: "10" }));
+  for (const invoice of list.data.filter(item => item.created >= Math.floor(freeUntil.getTime() / 1000) - 3600)) {
+    if (invoice.status === "draft") await client("DELETE", `/invoices/${invoice.id}`, {}, `${key}-${invoice.id}`);
+    else if (invoice.status === "open") await client("POST", `/invoices/${invoice.id}/void`, {}, `${key}-${invoice.id}`);
+    // A paid one means a payment method was on file: a refund is a person's decision, so it is named, not done here.
+    else if (invoice.status === "paid") console.error(`Billing: invoice ${invoice.id} was paid after a free-month cancellation in time; refund it in Stripe`);
+  }
+}
+
+/**
+ * Pilot § 2 (Legal, G-1): the contract, and so the programme, ends only on the last day of a billing month. Billing months
+ * start on the go-live day of the month (the shorter month's last day where it has none). Refuses any other day while a
+ * Stripe subscription runs, so a calendar-month date can never drive Stripe; the error names the next valid day.
+ */
+export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
+  if (!stripeEnabled()) return;
+  const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId));
+  const anchor = sub?.freeUntil ?? sub?.currentPeriodEnd;
+  if (!sub || sub.provider !== "stripe" || !sub.providerSubscriptionId || !RUNNING.includes(sub.status) || !anchor) return;
+  const day = Number(berlinDay(anchor).slice(8));
+  // A cancellation from the free month: exactly its notice end, or a later billing-month end the shop agreed to; never earlier.
+  const freeLast = await freeMonthRequestEnd(db, sub);
+  if (freeLast && endDate === freeLast) return;
+  if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
+  // One rule for every billing-month end (contract-end.ts, bounded; review #211 N-4).
+  if (isBillingMonthEnd(endDate, day)) return;
+  const next = nextBillingMonthEnd(endDate, day);
+  throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
 }
 
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
@@ -453,7 +564,17 @@ export async function creditOwedGuarantees(tenantId?: string) {
  * location pro rata from its start day, see below).
  */
 export async function runBillingJob(env: Env = process.env) {
-  if (!stripeEnabled(env)) return { quantities: 0, credited: 0 };
+  if (!stripeEnabled(env)) return { quantities: 0, credited: 0, ends: 0 };
+  // ENG-125, first (review N-1b): sends an end whose billing month has begun, and is the only retry for a failed Stripe call
+  // at confirmation, withdrawal or renewal; the credits and quantities below can still throw for one shop. Caught per shop,
+  // so it never holds them up.
+  let ends = 0;
+  const live = await db.select({ tenantId: subscriptions.tenantId }).from(subscriptions)
+    .where(and(eq(subscriptions.provider, "stripe"), inArray(subscriptions.status, RUNNING), isNotNull(subscriptions.providerSubscriptionId)));
+  for (const shop of live) {
+    try { if (!["unchanged", "none"].includes((await syncShopEnd(shop.tenantId)).action)) ends += 1; }
+    catch (error) { console.error(`Billing: Stripe end not synced for tenant ${shop.tenantId} (${error instanceof Error && "code" in error ? String(error.code) : "error"}); retried tomorrow`); }
+  }
   const credited = await creditOwedGuarantees();
   let quantities = 0;
   const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount,
@@ -471,5 +592,5 @@ export async function runBillingJob(env: Env = process.env) {
       : { quantity: String(shop.locations), proration_behavior: "none" });
     quantities += 1;
   }
-  return { quantities, credited };
+  return { quantities, credited, ends };
 }

@@ -111,6 +111,8 @@ describe("contentRefusal, shared with email campaigns and automations (ENG-163, 
     "10 % auf alles, nicht auf Tabak und Zeitschriften.",
     "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.",
     "Glühwein für die Großen, Kinderpunsch für die Kleinen.",
+    // Alcohol and minors in different sentences: the rule works per sentence (Reviewer N-4).
+    "Schülerrabatt auf Kakao. Abends Bier vom Fass.",
     "Frischer Flusskrebs-Salat",
     "Sternzeichen Krebs? Alles Gute!",
     "Unser neues Styling-Liquid",

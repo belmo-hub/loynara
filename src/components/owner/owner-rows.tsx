@@ -27,9 +27,10 @@ export function PageTitle({ back, title, lead }: { back?: { label: ReactNode; hr
 
 /** A link with `href` (a file with `download`), a button with `onClick`, otherwise a plain row. */
 export type RowProps = { icon: LucideIcon; title: ReactNode; sub?: ReactNode; value?: ReactNode; big?: boolean; off?: boolean; href?: string; download?: boolean; onClick?: () => void;
-  /** A state on its own line under the text (the 55 chip rule): ok for a state, warn for a to-do. */ chip?: { label: string; warn?: boolean } };
+  /** A state on its own line under the text (the 55 chip rule): ok for a state, warn for a to-do. */ chip?: { label: string; warn?: boolean };
+  /** Outlined after its page saved (Design rule 10). */ saved?: boolean };
 
-export function Row({ icon: Icon, title, sub, value, big, off, href, download, onClick, chip }: RowProps) {
+export function Row({ icon: Icon, title, sub, value, big, off, href, download, onClick, chip, saved }: RowProps) {
   const opens = Boolean(href || onClick);
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
@@ -40,7 +41,7 @@ export function Row({ icon: Icon, title, sub, value, big, off, href, download, o
     {opens && <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />}
     {chip && <span className="ow-prog-chip"><span className={`ow-chip ow-chip--${chip.warn ? "warn" : "ok"}`}><OwnerIcon name={chip.warn ? "alert" : "check"} size={14} />{chip.label}</span></span>}
   </>;
-  if (href) return download ? <a className="ow-prog-row" href={href} download>{body}</a> : <GuardedLink className="ow-prog-row" href={href}>{body}</GuardedLink>;
+  if (href) return download ? <a className="ow-prog-row" href={href} download>{body}</a> : <GuardedLink className="ow-prog-row" href={href} data-saved={saved || undefined}>{body}</GuardedLink>;
   if (onClick) return <button type="button" className="ow-prog-row" onClick={onClick}>{body}</button>;
   return <div className="ow-prog-row">{body}</div>;
 }

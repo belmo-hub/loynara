@@ -125,6 +125,13 @@ describe("production configuration gate", () => {
     ]));
   });
 
+  it("requires the operator's name and address for owner emails whenever the email lane is on (ENG-167)", () => {
+    const operator = /OPERATOR_NAME and OPERATOR_ADDRESS/;
+    expect(productionConfigIssues(safe).some(issue => operator.test(issue))).toBe(false);
+    expect(productionConfigIssues({ ...safe, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "true" })).toEqual(expect.arrayContaining([expect.stringMatching(operator)]));
+    expect(productionConfigIssues({ ...safe, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "true", OPERATOR_NAME: "Synthetische Betreiberin", OPERATOR_ADDRESS: "Musterstraße 1\n12345 Musterstadt" }).some(issue => operator.test(issue))).toBe(false);
+  });
+
   it("does not label a local development environment as production-invalid", () => {
     expect(productionConfigIssues({ NODE_ENV: "development" })).toEqual([]);
   });

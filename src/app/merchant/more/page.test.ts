@@ -22,7 +22,7 @@ describe("„Mehr“ (ENG-122c)", () => {
   it("owner: one row per page with the counts from the existing reads, the two exports, and sign-out", () => {
     const page = html();
     for (const href of ["/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"]) expect(page).toContain(`href="${href}"`);
-    expect(page).toContain("Standorte, Wochenbericht, Programmende");
+    expect(page).toContain("Absender, Wochenbericht, Programmende");
     expect(page).toMatch(/Standorte<\/strong><\/span><span class="ow-prog-value" data-big="true">2</);
     expect(page).toMatch(/Team<\/strong><\/span><span class="ow-prog-value" data-big="true">2</); // active people only
     expect(page).toContain("Noch kein Abo");
@@ -36,7 +36,7 @@ describe("„Mehr“ (ENG-122c)", () => {
     const page = html();
     expect(page).not.toContain("/merchant/billing");
     expect(state.urls).not.toContain("/api/merchant/billing");
-    expect(page).toContain("Standorte, Wochenbericht<");
+    expect(page).toContain(">Absender, Wochenbericht<");
   });
 
   it("a row whose read is still loading or failed shows no number rather than a wrong one", () => {

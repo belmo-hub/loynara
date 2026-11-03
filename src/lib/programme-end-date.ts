@@ -22,6 +22,16 @@ export const germanDate = (isoDay: string) => new Intl.DateTimeFormat("de-DE", {
 /** Days after the confirmed end date during which the owner can still log in and download the export (pilot agreement § 6 (3)). */
 export const EXPORT_DAYS_AFTER_END = 30;
 
+/**
+ * ENG-166 (DS-05, AVV § 8 (2)): days after the export window before an ended shop is erased; 7 unless SHOP_ERASURE_DELAY_DAYS
+ * sets a longer period (the founder decides). Null for a value outside 7 to 3650 days.
+ */
+export function erasureDelayDays(env: Record<string, string | undefined> = process.env): number | null {
+  const value = env.SHOP_ERASURE_DELAY_DAYS;
+  if (value === undefined) return 7;
+  return /^\d{1,4}$/.test(value) && Number(value) >= 7 && Number(value) <= 3650 ? Number(value) : null;
+}
+
 const dayNumber = (isoDay: string) => Date.parse(`${isoDay}T00:00:00Z`) / 86_400_000;
 export const addDays = (isoDay: string, days: number) => new Date(Date.parse(`${isoDay}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 

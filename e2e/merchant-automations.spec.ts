@@ -24,6 +24,22 @@ test("owner configures bounded local automation rules through the merchant page"
       await expect(page.getByRole("heading", { name: "Automationen", exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Noch keine Ausführungen." })).toBeVisible();
       await expect(page.getByText("Neue Regeln sind zunächst deaktiviert.")).toBeVisible();
+      // No sender address yet: rules cannot be switched on, and the one way out leads to the address form.
+      await expect(page.getByText("Es fehlen noch Angaben zu deinem Laden.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Willkommen nach dem ersten Einkauf" }).locator("..").getByLabel("Regel aktivieren")).toBeDisabled();
+      await page.getByRole("link", { name: "Anschrift eintragen" }).click();
+      const address = page.getByRole("region", { name: "Anschrift" });
+      await address.getByLabel("Straße und Hausnummer").fill("Friedrich-Ebert-Straße 12");
+      await address.getByLabel("PLZ").fill("34117");
+      await expect(address.getByLabel("Stadt")).toHaveValue("Kassel");
+      await address.getByLabel("Vertreten durch").fill("Erika Muster");
+      await address.getByLabel("Telefon").fill("0561 123456");
+      await address.getByRole("button", { name: "Anschrift speichern" }).click();
+      await expect(address.getByText("Gespeichert", { exact: true })).toBeVisible();
+      await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Aktionen", exact: true }).click();
+      await page.getByRole("navigation", { name: "Aktionen – Unterseiten" }).getByRole("link", { name: "Automationen", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Automationen", exact: true })).toBeVisible();
+      await expect(page.getByText("Es fehlen noch Angaben zu deinem Laden.")).toHaveCount(0);
       const first = page.getByRole("heading", { name: "Willkommen nach dem ersten Einkauf" }).locator("..");
       await first.getByLabel("Betreff").fill("Synthetischer Erstkontakt");
       await first.getByLabel("Tageslimit je Regel").fill("2");
