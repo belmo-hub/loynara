@@ -1,5 +1,5 @@
 {
-  "id": "5a46c0ec-8b7c-46db-8a73-db481ff5a153",
+  "id": "e0e9b6c4-5206-44ce-923d-804c1d6f2e62",
   "prevId": "ecefef8b-6982-40a1-b84d-71f0d3aaab83",
   "version": "7",
   "dialect": "postgresql",
@@ -2150,58 +2150,11 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "last_event_at": {
-          "name": "last_event_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.email_unsubscribes": {
-      "name": "email_unsubscribes",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recipient_hash": {
-          "name": "recipient_hash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "email_unsubscribes_tenant_id_recipient_hash_pk": {
-          "name": "email_unsubscribes_tenant_id_recipient_hash_pk",
-          "columns": [
-            "tenant_id",
-            "recipient_hash"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -5908,6 +5861,12 @@
         },
         "free_until": {
           "name": "free_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "billing_ends_at": {
+          "name": "billing_ends_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

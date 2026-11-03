@@ -147,6 +147,34 @@ Run `npm run backup` to write a restricted custom-format PostgreSQL dump under i
 
 These commands verify a local restoration only. Before live operation, arrange encrypted offsite backups, access limits, retention, periodic restoration drills, and a documented recovery owner. Never point the local scripts at a production database.
 
+## Erasing an ended shop (DS-05)
+
+**When:** never before the owner's 30-day export window is over, and at the latest by end date + 30 days + `SHOP_ERASURE_DELAY_DAYS` (7 by default, AVV § 8 (2)). The shop's Stripe subscription must have ended, and no checkout may be open. Once a day the worker logs `Erasure: N ended shop(s) to erase (<id> by <deadline>…)`, marked `OVERDUE` past the deadline, and the confirmations still to send. Erasing is final, so the operator runs it.
+
+**From the private Railway console**, as for `operator-programme`:
+1. `npx tsx scripts/operator-shop-erasure.ts due --target loynara-production --actor-user-id <operator user id>` lists the shops to erase and the confirmations still to send.
+2. `… erase --tenant-id <id> --target … --actor-user-id …` is a dry run: the rows per table that would go, or why not yet.
+3. Add `--execute` after reading the dry run.
+4. Send the owner the text-form confirmation, to the address on the erasure record, once it shows as sendable. Then record it: `… confirmed --tenant-id <id> --target … --actor-user-id …`.
+
+**What it does (Legal's ruling, 1 Nov 2026):**
+- **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted; revocations already done stay done, and running the erasure again skips them.
+- **Then one transaction:**
+  - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
+  - It deletes the logins of the shop's owner and staff, with their sessions.
+  - Apple registrations and push tokens are in the database and go with it.
+  - Plates go back to stock.
+  - The contract facts (who ended it, when, which day) are first copied into the erasure record.
+- **The erasure record (`shop_erasures`, 6 years)** also holds the legal name, end date, export end, rows deleted per table, the provider clean-up, and the owner's name and business email for the confirmation. Its confirmation is sendable only after both parts succeeded.
+
+**What stays (Loynara's own records):** the billing records (`billing_invoices`, `billing_handoffs`, `billing_webhook_events`, `subscriptions`; 8 years) and the tenant row they hang off, reduced to its legal name and ids. No location row survives; each location's plan, price and guarantee facts are copied into the erasure record first.
+
+**Backups:** a backup isn't edited. Each is deleted 14 days after it was made (R2 lifecycle, DS-06) and used only for restores. **After any restore, before the service is released**, re-apply every erasure:
+1. Before restoring, save the live erasure list: `npx tsx scripts/reapply-erasures.ts export --target loynara-production > erasures.json`. A backup older than an erasure holds no record of it.
+2. After restoring: `npx tsx scripts/reapply-erasures.ts apply --file erasures.json --target loynara-production`. It prints a line for each shop it erased again and writes back any missing record.
+
+**Before the first real erasure (Legal: „tested on a copy“):** restore a recent backup into an isolated database (see the backup and restore check above). Run the dry run and then `--execute` there with `--target local`, and keep the console output with the release evidence.
+
 ## Deployment preparation
 
 The application has **not** been publicly deployed. `npm start` executes `scripts/production-guard.ts` before `next start`. The guard rejects local/demo database credentials and URLs, non-HTTPS app URLs, short or placeholder auth secrets, public registration, unapproved external email or billing flags, and the local demo credential file. Keep public registration, external delivery, live billing, and wallet features disabled until operator setup and approvals are complete.
