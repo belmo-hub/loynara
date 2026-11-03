@@ -130,14 +130,17 @@ describe("owner request and withdrawal", () => {
     expect(mail.payload).toMatchObject({ event: "received", receivedAt: "2026-10-17T07:30:00.000Z", requestDay: "2026-10-17", endDate: "2026-10-31" });
   });
 
-  it("refuses an e-mail entered so late that its end has passed, unless the operator says so after speaking with the shop (review N-1)", async () => {
+  it("refuses an e-mail older than the 14-day notice window, unless the operator says so after speaking with the shop (review N-1)", async () => {
     const f = await shop();
-    const request = (acceptPastEnd?: boolean) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "request", receivedAt: "2026-10-17T09:30:00+02:00", acceptPastEnd, execute: true, now: at("2026-11-03T10:00:00Z") });
-    expect(await code(() => request())).toBe("END_IN_PAST");
+    const request = (now: string, acceptLateEntry?: boolean, execute = true) => operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "request", receivedAt: "2026-10-17T09:30:00+02:00", acceptLateEntry, execute, now: at(now) });
+    // 14 Berlin days after the arrival day is still inside the window; the 15th is not.
+    expect(await request("2026-10-31T21:59:00Z", undefined, false)).toMatchObject({ result: "would_request", endDate: "2026-10-31" });
+    expect(await code(() => request("2026-10-31T23:00:00Z"))).toBe("LATE_ENTRY");
+    expect(await code(() => request("2026-11-03T10:00:00Z"))).toBe("LATE_ENTRY");
     expect((await programme(f.program.id)).cancellationEndDate).toBeNull();
     expect((await pool.query("SELECT 1 FROM outbox_jobs WHERE kind = 'email.contract_end'")).rowCount).toBe(0);
     // The end is still the one the arrival time gives; the next end job ends the programme.
-    expect(await request(true)).toMatchObject({ result: "request", endDate: "2026-10-31" });
+    expect(await request("2026-11-03T10:00:00Z", true)).toMatchObject({ result: "request", endDate: "2026-10-31" });
   });
 
   it("sets one date for every location of the business, and a withdrawal clears them all", async () => {

@@ -292,3 +292,27 @@ describe("ENG-130 placement kept by the rebuild (Reviewer N-2)", () => {
     expect(out.slice(cardAt, panel)).not.toMatch(/customer-(notes|rewards|activity|more)-title/);
   });
 });
+
+describe("the Wallet sheet's badges (ENG-132)", () => {
+  const sheet = (extra: Partial<CustomerCardProps> = {}) => renderToStaticMarkup(h(CustomerCard, { ...base, onAppleWallet: () => {}, onGoogleWallet: () => {}, ...extra }));
+  const button = (html: string, id: string) => html.match(new RegExp(`<button[^>]*wallet-add--${id}[^>]*>.*?</button>`))?.[0] ?? "";
+  it("names each badge button as its artwork reads, also while busy, and keeps the status line mounted", () => {
+    for (const walletBusy of [null, "apple"] as const) {
+      const html = sheet({ walletBusy });
+      for (const [id, name] of [["apple", "Hinzufügen zu Apple Wallet"], ["google", "Hinzufügen zu Google Wallet"]]) {
+        expect(button(html, id)).not.toContain("aria-label");
+        expect(button(html, id)).toContain(`alt="${name}"`);
+      }
+      expect(html).toMatch(new RegExp(`<p class="wallet-busy[^"]*" role="status">${walletBusy ? "Wird vorbereitet …" : ""}</p>`));
+    }
+  });
+  it("gives a French card the house button with its wording (no French Apple artwork yet)", () => {
+    const apple = button(sheet({ locale: "fr" }), "apple");
+    expect(apple).not.toContain("<img");
+    expect(apple).toContain("Ajouter à Apple Wallet");
+  });
+  it("never dims a badge while the buttons are disabled", async () => {
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".walletButton[data-badge]:disabled { opacity: 1; }");
+  });
+});

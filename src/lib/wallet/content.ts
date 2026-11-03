@@ -20,6 +20,8 @@ const TEXT = {
     message: (shop: string, day?: string) => day ? `Nachricht von ${shop} vom ${day}` : `Nachricht von ${shop}`,
     // Before the first message (Design, ENG-127): an empty field reads as broken.
     noMessage: "Noch keine Nachricht.",
+    // Without message consent (ENG-162, Legal 1 Nov): only the points-expiry notice, so the wording speaks of nothing else.
+    expiryNote: "Hinweis vor dem Punkteverfall", noExpiryNote: "Bevor Punkte verfallen, erscheint hier ein Hinweis.",
     card: "Karte", location: "Standort", programme: "Programm", updated: "Zuletzt aktualisiert", memberCard: "Mitgliedskarte",
     note: "Hinweis", noteBody: "Stempel, Punkte und Prämien werden nur an der Kasse gebucht. Diese Karte zeigt den aktuellen Stand deiner Treuekarte und aktualisiert sich automatisch.",
     revokedLabel: "Karte", invalid: "Karte ungültig",
@@ -42,6 +44,7 @@ const TEXT = {
     redeem: "Statut", redeemValue: "À utiliser en caisse", redeemMessage: "%@",
     balanceMessage: "%@", rules: "Règles du programme", rewardList: null, // no approved French label: French passes skip the list
     message: null, noMessage: null, // no approved French label: French native passes get no owner message field
+    expiryNote: null, noExpiryNote: null,
     card: "Carte", location: "Établissement", programme: "Programme", updated: "Dernière mise à jour", memberCard: "Carte de fidélité",
     note: "Remarque", noteBody: "Les tampons, points et récompenses sont enregistrés uniquement en caisse. Cette carte affiche l’état actuel de votre carte de fidélité et se met à jour automatiquement.",
     revokedLabel: "Carte", invalid: "Carte invalide",

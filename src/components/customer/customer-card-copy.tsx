@@ -24,7 +24,7 @@ const de = {
   goodToKnow: "Gut zu wissen", yourCardHead: "Deine Karte", walletRow: "Stand aktualisiert sich automatisch",
   readyTitle: "Prämie verfügbar.", readyText: "Lass sie an der Kasse einlösen.",
   of: (n: string, total: string) => `${n} von ${total}`, showAll: "Alle anzeigen",
-  addApple: "Zu Apple Wallet hinzufügen", addGoogle: "Zu Google Wallet hinzufügen", walletLoading: "Wird vorbereitet …",
+  addApple: "Hinzufügen zu Apple Wallet", addGoogle: "Hinzufügen zu Google Wallet", walletLoading: "Wird vorbereitet …",
   googleDemo: "Google Wallet ist für dieses Geschäft noch in der Testphase. Speichern ist nur mit freigegebenen Testkonten möglich.",
   chooseReward: "Deine Prämien", rewardsGroup: "Prämien", redeemable: "Einlösbar", short: (n: string) => `noch ${n}`,
   save: "So findest du deine Karte wieder",

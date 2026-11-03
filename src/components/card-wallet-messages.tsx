@@ -17,6 +17,18 @@ export function consentLines(expiry: boolean) {
     : { under: "Deinen neuen Kontostand und „Prämie bereit“ siehst du immer, auch ohne Häkchen.", off: "Kontostand und „Prämie bereit“ kommen weiter." };
 }
 
+/** After switching off, the panel keeps its off state even when the card no longer offers consent (its pass unreachable, ENG-162). */
+export const panelShown = (available: boolean, switchedOff: boolean) => available || switchedOff;
+
+/** Just switched off. The off line and „Einschalten“ only while the card still offers consent: an unreachable pass gets neither (Design, ENG-162). */
+export function SwitchedOff({ shop, available, off, onSwitchOn }: { shop: string; available: boolean; off: string; onSwitchOn: () => void }) {
+  return <>
+    <p>Von {shop} · Höchstens 2 pro Woche · aus</p>
+    {available && <p className={styles.muted}>{off}</p>}
+    {available && <Button variant="secondary" size="sm" onClick={onSwitchOn}>Einschalten</Button>}
+  </>;
+}
+
 /**
  * Wallet-message consent (ENG-043): one unticked box with Legal's text, saved on the tap; unticking switches it off without
  * touching the pass. Legal's wording is German only. Renders nothing while the walletMessages surface is withheld (the
@@ -42,7 +54,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
     document.addEventListener("visibilitychange", visible);
     return () => { active = false; document.removeEventListener("visibilitychange", visible); };
   }, [url]);
-  const shown = Boolean(state?.available);
+  const shown = panelShown(Boolean(state?.available), switchedOff);
   useEffect(() => { shownRef.current = shown; onShown?.(shown); }, [shown, onShown]);
 
   async function change(granted: boolean) {
@@ -55,7 +67,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
     finally { setBusy(false); }
   }
 
-  if (!state?.available) return null;
+  if (!state || !shown) return null;
   const [lead] = state.text.split(LINK);
   const lines = consentLines(expiry);
   const switchOff = <Button variant="secondary" size="sm" loading={busy} onClick={() => void change(false)}>Abschalten</Button>;
@@ -64,11 +76,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
       <p>Von {state.shop} · Höchstens 2 pro Woche · an</p>
       {state.givenAt && <p className={styles.muted}>Erlaubt am {new Date(state.givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
       {switchOff}
-    </> : switchedOff ? <>
-      <p>Von {state.shop} · Höchstens 2 pro Woche · aus</p>
-      <p className={styles.muted}>{lines.off}</p>
-      <Button variant="secondary" size="sm" onClick={() => setSwitchedOff(false)}>Einschalten</Button>
-    </> : <>
+    </> : switchedOff ? <SwitchedOff shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
       <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>
       <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}<Link href="/datenschutz">{LINK}</Link></Checkbox>
       <p className={styles.muted}>{lines.under}</p>
