@@ -404,6 +404,30 @@ it("keeps an address blocked through the switch to SUPPRESSION_HASH_SECRET and w
   }
 });
 
+it("keeps old-key rows matching through a BETTER_AUTH_SECRET rotation once the old value sits in SUPPRESSION_LEGACY_HASH_SECRET (ENG-170 G-1)", async () => {
+  const saved = { auth: process.env.BETTER_AUTH_SECRET, key: process.env.SUPPRESSION_HASH_SECRET, legacy: process.env.SUPPRESSION_LEGACY_HASH_SECRET };
+  delete process.env.SUPPRESSION_HASH_SECRET; delete process.env.SUPPRESSION_LEGACY_HASH_SECRET;
+  try {
+    // A complaint stored before ENG-170, under the login secret of that time.
+    const { queued } = await sentJob();
+    await recordMailgunWebhook(signed("complained", queued.id));
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+    const recovery = async () => sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic only", jobId: (await job()).id }, provider);
+    // The deploy sets the new key; the operator then moves the old login secret aside and rotates it.
+    process.env.SUPPRESSION_HASH_SECRET = "synthetic-suppression-hash-key-0123456789";
+    process.env.SUPPRESSION_LEGACY_HASH_SECRET = saved.auth;
+    process.env.BETTER_AUTH_SECRET = "synthetic-rotated-login-secret-0123456789abc";
+    expect(await recovery()).toMatchObject({ status: "suppressed" });
+    // Without the legacy setting the old row would no longer match: exactly what G-1 guards against.
+    delete process.env.SUPPRESSION_LEGACY_HASH_SECRET;
+    expect(await recovery()).toMatchObject({ status: "complete" });
+  } finally {
+    for (const [name, value] of [["BETTER_AUTH_SECRET", saved.auth], ["SUPPRESSION_HASH_SECRET", saved.key], ["SUPPRESSION_LEGACY_HASH_SECRET", saved.legacy]] as const) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
 it("refreshes a hard suppression's last event and forgets it 24 months after that, not before (ENG-170)", async () => {
   const { queued } = await sentJob();
   await recordMailgunWebhook(signed("permanent_fail", queued.id));

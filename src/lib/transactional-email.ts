@@ -48,13 +48,15 @@ export function recipientHash(email: string) {
 }
 
 /**
- * Every hash a stored row for this address may carry: the current key, and rows written before ENG-170 under
- * BETTER_AUTH_SECRET. A hash cannot be re-keyed, so lookups match both (§ 7 UWG: an opt-out must hold through a rotation).
+ * Every hash a stored row for this address may carry: the current key, and rows written before ENG-170 under the login
+ * secret of that time. A hash cannot be re-keyed, so lookups match both (§ 7 UWG: an opt-out must hold through a rotation).
+ * That old key is SUPPRESSION_LEGACY_HASH_SECRET: before BETTER_AUTH_SECRET is rotated, copy its current value there, or every
+ * pre-ENG-170 row stops matching. Unset, it is BETTER_AUTH_SECRET itself.
  * TODO(ENG-170): drop the old-key hash once every row written under it is older than 24 months (or now, if only demo rows
  * exist): count `email_suppressions` and `email_unsubscribes` rows created before the deploy that set SUPPRESSION_HASH_SECRET.
  */
 export function recipientHashes(email: string) {
-  return [...new Set([recipientHash(email), hashWith(process.env.BETTER_AUTH_SECRET, email)])];
+  return [...new Set([recipientHash(email), hashWith(process.env.SUPPRESSION_LEGACY_HASH_SECRET || process.env.BETTER_AUTH_SECRET, email)])];
 }
 
 export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch, purpose: "transactional" | "promotional" = "transactional"): TransactionalEmailProvider | null {

@@ -71,8 +71,13 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if ((externalEmailRequested || suppressionKey) && (suppressionKey.length < 32 || /replace|placeholder|example|changeme|test-secret/i.test(suppressionKey) || new Set(suppressionKey).size < 12)) {
     issues.push("External email requires SUPPRESSION_HASH_SECRET with at least 32 random characters");
   }
-  if (suppressionKey && [env.BETTER_AUTH_SECRET, env.NFC_VERIFY_MASTER_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.APPLE_WALLET_AUTH_SECRET].includes(suppressionKey)) {
+  if (suppressionKey && [env.BETTER_AUTH_SECRET, env.SUPPRESSION_LEGACY_HASH_SECRET, env.NFC_VERIFY_MASTER_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.APPLE_WALLET_AUTH_SECRET].includes(suppressionKey)) {
     issues.push("SUPPRESSION_HASH_SECRET must not be reused as another secret");
+  }
+  // The pre-ENG-170 login secret, kept only to match old rows after BETTER_AUTH_SECRET is rotated. Optional; set, it must be real.
+  const legacyKey = env.SUPPRESSION_LEGACY_HASH_SECRET;
+  if (legacyKey !== undefined && (legacyKey.length < 32 || /replace|placeholder|example|changeme|test-secret/i.test(legacyKey))) {
+    issues.push("SUPPRESSION_LEGACY_HASH_SECRET, when set, must be the former login secret (at least 32 characters)");
   }
   if (externalEmailRequested && (env.MAILGUN_SEND_APPROVED !== "true"
     || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(env.MAILGUN_EU_DOMAIN ?? "")

@@ -111,6 +111,10 @@ describe("production configuration gate", () => {
     }
     expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: safe.BETTER_AUTH_SECRET })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
     expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key })).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    // G-1: the legacy key is optional; set, it must be a real former secret and not the new key.
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "a-former-login-secret-of-forty-characters" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "short" })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_LEGACY_HASH_SECRET/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: key })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
   });
 
   it("refuses a remote database labelled preview or device-test", () => {
