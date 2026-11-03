@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { DomainError } from "./loyalty";
+import { footerText, missingParts, missingRefusal, senderFooter, type SenderDetails } from "./sender-details";
 
 type Query = Pick<typeof db, "execute">;
 
@@ -70,11 +72,31 @@ export function quietHoursDeferral(now: Date, timeZone: string, window: { startH
   return zonedTimeToUtc(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), window.endHour, timeZone);
 }
 
-/** Location timezone for a programme; promotional sends are always scheduled in the merchant's local time. */
-export async function programTimezone(query: Query, tenantId: string, programId: string) {
+type ProgramSender = SenderDetails & { timezone: string };
+
+/** Shop and location behind a programme: the timezone schedules every promotional send, the sender details sign it. */
+export async function programSender(query: Query, tenantId: string, programId: string) {
   const result = await query.execute(sql`
-    SELECT l.timezone FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id
+    SELECT t.name AS "shopName", l.timezone, l.street, l.postal_code AS "postalCode", l.city, t.representative,
+      l.contact_email AS "contactEmail", l.contact_phone AS "contactPhone", t.legal_form AS "legalForm",
+      t.register_court AS "registerCourt", t.register_number AS "registerNumber", t.vat_id AS "vatId"
+    FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id JOIN tenants t ON t.id = p.tenant_id
     WHERE p.tenant_id = ${tenantId}::uuid AND p.id = ${programId}::uuid
   `);
-  return (result.rows[0] as { timezone?: string } | undefined)?.timezone ?? null;
+  return (result.rows[0] as ProgramSender | undefined) ?? null;
+}
+
+export const senderAddressMissing = (sender: ProgramSender | null) => !sender || missingParts(sender).length > 0;
+
+/** Refuses switching on or scheduling promotional mail while a required part is missing, naming each one as the owner's box does (Legal, 1 Nov). */
+export function requireSenderDetails(sender: ProgramSender | null) {
+  const missing = sender ? missingParts(sender) : (["address", "contact", "representative"] as const);
+  if (missing.length) throw new DomainError("ADDRESS_REQUIRED", missingRefusal(missing));
+}
+
+/** Sender name and footer of every campaign and automation mail (lib/sender-details); null while a required part is missing. */
+export function marketingSignature(sender: ProgramSender, unsubscribeLink: string) {
+  const footer = senderFooter(sender);
+  if (!footer) return null;
+  return { fromName: footer.fromName, footer: footerText(footer, unsubscribeLink, new URL("/datenschutz", process.env.PUBLIC_BASE_URL).toString()) };
 }

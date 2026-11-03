@@ -30,7 +30,8 @@ type Executor = Pick<Transaction, "execute">;
 export const ERASURE_KEEP: readonly string[] = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "subscriptions", "tenants"];
 /** A kept row keeps only what the kept records need: its other fields are cleared. */
 const ERASURE_REDUCE: Record<string, SQL> = {
-  tenants: sql`weekly_report_enabled = false`,
+  // ENG-164: the sender details name a person (the representative) and identify the business; an erased shop keeps none.
+  tenants: sql`weekly_report_enabled = false, representative = NULL, legal_form = NULL, register_court = NULL, register_number = NULL, vat_id = NULL`,
 };
 
 const ident = (name: string) => {

@@ -323,6 +323,13 @@
       "when": 1793507837240,
       "tag": "0045_shop_erasure",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793522822267,
+      "tag": "0046_sender_details",
+      "breakpoints": true
     }
   ]
 }
