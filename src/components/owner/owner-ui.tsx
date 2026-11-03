@@ -72,8 +72,8 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
   );
 }
 
-export function Notice({ tone = "info", children, actions, role }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status" }) {
-  const icon = tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info";
+export function Notice({ tone = "info", children, actions, role, icon: own }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status"; icon?: "alert" | "check" | "info" }) {
+  const icon = own ?? (tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info");
   return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={18} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
 }
 

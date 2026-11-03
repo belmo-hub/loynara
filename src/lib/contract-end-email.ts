@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { contractBasis, contractFacts, customerText, factsLines } from "./contract-end";
+import { contractBasis, contractFacts, customerText, factsLines, withdrawalBillingLine } from "./contract-end";
 import { operatorFooter } from "./operator-footer";
 import { operatorIdentity } from "./operator-identity";
 import { surfaceHidden } from "./pilot-surfaces";
@@ -31,7 +31,6 @@ export async function queueContractEndEmail(tx: Query, tenantId: string, event: 
 }
 
 const berlin = (at: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", ...options }).format(at);
-const euros = (minor: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: minor % 100 === 0 ? 0 : 2 }).format(minor / 100);
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 const list = (names: string[]) => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} und ${names.at(-1)}`;
 
@@ -65,9 +64,7 @@ export async function contractEndEmailText(input: { tenantId: string; shop: stri
     const basis = await contractBasis(input.tenantId);
     if (!basis) return null;
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(input.now);
-    const billing = basis.totalMinor === null || !basis.billed ? null
-      : basis.lastFreeDay && today <= basis.lastFreeDay ? `Nach dem kostenlosen Monat beginnt die Abrechnung am ${germanDay(basis.firstBillingDay!)}, ${euros(basis.totalMinor)} im Monat.`
-        : `Die Abrechnung bleibt wie bisher: nächste Rechnung am ${germanDay(nextBilling(today, basis.anchorDay))}, ${euros(basis.totalMinor)}.`;
+    const billing = withdrawalBillingLine(basis, today);
     return {
       subject: `${shop}: Dein Programm läuft weiter`,
       body: ["Hallo,", "", "deine Kündigung ist zurückgenommen. Dein Programm läuft ohne Enddatum weiter.", ...(billing ? ["", billing] : []), ...footer].join("\n"),
@@ -98,14 +95,4 @@ export async function contractEndEmailText(input: { tenantId: string; shop: stri
       ...footer,
     ].join("\n"),
   };
-}
-
-const germanDay = (iso: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
-function nextBilling(today: string, anchorDay: number) {
-  for (let day = new Date(`${today}T00:00:00Z`); ; day = new Date(day.getTime() + 86_400_000)) {
-    const iso = day.toISOString().slice(0, 10);
-    if (iso === today) continue;
-    const length = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0)).getUTCDate();
-    if (day.getUTCDate() === Math.min(anchorDay, length)) return iso;
-  }
 }

@@ -106,7 +106,7 @@ export async function contractFacts(tenantId: string, endDate: string, now = new
   return { ...common, invoice: { kind: "none", previous: previous ? invoice(previous) : null }, freeMonth: false };
 }
 
-function nextBillingDay(isoDay: string, anchorDay: number) {
+export function nextBillingDay(isoDay: string, anchorDay: number) {
   let day = addDays(isoDay, 1);
   while (day !== billingDayIn(day, anchorDay)) day = addDays(day, 1);
   return day;
@@ -159,3 +159,13 @@ const lastFreeOf = (facts: ContractFacts) => facts.lastFreeDay ?? facts.lastDay;
 /** „Text für deine Kunden“ (live since #84): the owner hangs it at the till; we never write to customers. */
 export const customerText = (unit: "Stempel" | "Punkte", endDate: string) =>
   `Unsere ${unit}karte läuft noch bis einschließlich ${day(endDate)}. Bis dahin kannst du weiter sammeln und Prämien einlösen. Danach geht das nicht mehr.`;
+
+/**
+ * What happens to billing when a cancellation is withdrawn (C17/C18; M3 and the withdrawal question say the same): the next
+ * invoice, or in the free month the first billing day. Null before billing exists.
+ */
+export function withdrawalBillingLine(basis: NonNullable<Awaited<ReturnType<typeof contractBasis>>>, today: string) {
+  if (basis.totalMinor === null || !basis.billed) return null;
+  if (basis.lastFreeDay && today <= basis.lastFreeDay && basis.firstBillingDay) return `Nach dem kostenlosen Monat beginnt die Abrechnung am ${day(basis.firstBillingDay)}, ${euros(basis.totalMinor)} im Monat.`;
+  return `Die Abrechnung bleibt wie bisher: nächste Rechnung am ${day(nextBillingDay(today, basis.anchorDay))}, ${euros(basis.totalMinor)}.`;
+}

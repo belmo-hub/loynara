@@ -10,8 +10,10 @@ import { useOwner } from "@/components/owner/owner-context";
 import { Band, MoreLabel, NumberCard, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { germanDate } from "@/lib/programme-end-date";
 
-const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
+// DD.MM.YYYY everywhere (ENG-167 spec: today's „1.12.2026“ is padded like every other date).
+const date = (value: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" }).format(new Date(value));
 const count = (value: number) => value.toLocaleString("de-DE");
 
 /**
@@ -31,7 +33,7 @@ export default function MerchantBillingPage() {
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const o = data.data;
-  if (o.liveBilling) return <LiveBilling o={o} head={<>{head}<CancellationNotice me={me} /></>} />;
+  if (o.liveBilling) return <LiveBilling o={o} endDate={me.cancellationEndDate ?? null} head={<>{head}<CancellationNotice me={me} /></>} />;
 
   async function startFixture() {
     setBusy(true); setError("");
@@ -91,7 +93,7 @@ function Price({ minor, currency }: { minor: number; currency: "EUR" | "MAD" }) 
 }
 
 /** Live billing through Stripe: checkout and the customer portal are Stripe-hosted pages; only their exact hosts are followed. */
-function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
+function LiveBilling({ o, head, endDate }: { o: Overview; head: ReactNode; endDate: string | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function go(path: string, host: string) {
@@ -119,8 +121,10 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
       <div className="ow-prog">
         <Rows title="Status">
-          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined} />
-          {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
+          {/* ENG-167: the contract's last day from the binding cancellation, never Stripe's period end (one date everywhere). */}
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={endDate ? `Letzter Tag: ${germanDate(endDate)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined} />
+          {/* Cancelling runs through „Programm beenden“; the Stripe portal's own cancel is switched off (CTO). */}
+          {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten und Rechnungen" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
         <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>
           {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
