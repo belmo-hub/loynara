@@ -382,13 +382,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             <input type="radio" style={{ accentColor: "var(--color-action)" }} name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
           </label>)}
           {ending.choices.some(c => c.consent) ? <details open={picked?.consent === true}>
-            <summary style={{ padding: "12px 0", cursor: "pointer" }}>Späteres Ende (nur wenn das Geschäft zustimmt)</summary>
+            <summary style={{ paddingBlock: "var(--space-3)", cursor: "pointer" }}>Späteres Ende (nur wenn das Geschäft zustimmt)</summary>
             {ending.choices.filter(c => c.consent).map(c => <label key={c.endDate} style={{ display: "flex", gap: 8, alignItems: "baseline", minHeight: 44 }}>
               <input type="radio" style={{ accentColor: "var(--color-action)" }} name="op-end" checked={choice === c.endDate} onChange={() => { setChoice(c.endDate); setConsent(false); setChecked(null); }} />{c.label}
             </label>)}
           </details> : null}
         </fieldset>
-        {checked ? <div role="status" style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--color-line, currentColor)", borderRadius: 12 }}>
+        {checked ? <div role="status" style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--color-line, currentColor)", borderRadius: "var(--radius-md)" }}>
           <p>Von <strong>{ending.badge}</strong> zu <strong>bestätigt bis {checked.facts.lastDay.value}</strong></p>
           <p>Letzte Rechnung: {checked.facts.lastInvoice.value}</p>
           <p>Export bis {checked.facts.exportUntil.value}</p>
