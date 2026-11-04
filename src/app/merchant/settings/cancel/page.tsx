@@ -137,7 +137,7 @@ export default function CancelProgrammePage() {
           <div ref={statusRef} tabIndex={-1} className="ow-qstatus">
             <Notice tone="warn" role="status" icon="check">
               {view.state === "planned"
-                ? <><strong>Dein Programm endet am {view.endDateText}.</strong> So haben wir es mit dir vereinbart.</>
+                ? <><strong>Dein Programm endet am {view.endDateText}.</strong> So haben wir es mit dir vereinbart. Bis dahin läuft alles normal.</>
                 : <><strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong>
                   {view.state === "later"
                     ? " So haben wir es mit dir vereinbart. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal."

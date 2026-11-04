@@ -94,6 +94,7 @@ function Price({ minor, currency }: { minor: number; currency: "EUR" | "MAD" }) 
 
 /** Live billing through Stripe: checkout and the customer portal are Stripe-hosted pages; only their exact hosts are followed. */
 function LiveBilling({ o, head, endDate }: { o: Overview; head: ReactNode; endDate: string | null }) {
+  const { hiddenSurfaces } = useOwner();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function go(path: string, host: string) {
@@ -118,7 +119,7 @@ function LiveBilling({ o, head, endDate }: { o: Overview; head: ReactNode; endDa
           {o.taxNote && <p className="ow-board-sub">{o.taxNote}</p>}
         </NumberCard>
         : <NumberCard label="Monatlich" value="Tarif offen"><p className="ow-board-sub">Dein Preis wird mit dir vereinbart.</p></NumberCard>}
-      {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
+      {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub={`Zahlung und Rechnungen laufen über unseren Zahlungsanbieter Stripe.${hiddenSurfaces.includes("cancellation") ? "" : " Kündigen kannst du unter Mehr › Geschäft › Programm beenden."}`} onClick={checkout} />}
       <div className="ow-prog">
         <Rows title="Status">
           {/* ENG-167: the contract's last day from the binding cancellation, never Stripe's period end (one date everywhere). */}

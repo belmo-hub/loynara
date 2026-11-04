@@ -68,7 +68,7 @@ describe("Programm beenden (ENG-167, Design's spec with Legal's answers)", () =>
   it("a planned end (no request): the agreed date and its facts, focusable for the move after cancelling, and no withdrawal (Design 6, 9)", () => {
     const html = page({ state: "ok", data: view({ state: "planned", endDateText: "27.12.2026" }) });
     expect(html).toContain("Dein Programm endet am 27.12.2026.");
-    expect(html).toContain("So haben wir es mit dir vereinbart.");
+    expect(html).toContain("So haben wir es mit dir vereinbart. Bis dahin läuft alles normal.");
     expect(html).toContain("Letzter Tag");
     expect(html).not.toContain("Gekündigt am");
     expect(html).not.toContain("Kündigung zurücknehmen");
