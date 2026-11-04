@@ -15,22 +15,23 @@ describe("customer legal pages", () => {
     expect(html).toContain("support@getloynara.com");
   });
 
-  it("privacy notice keeps recovery email and marketing consent separate", () => {
+  it("privacy notice uses the recovery email only to recover the card (ENG-171, push only)", () => {
     const html = renderToStaticMarkup(createElement(DatenschutzPage));
     expect(html).toContain("keine Einwilligung in Werbung");
-    expect(html).toContain("ausdrücklich und getrennt");
-    expect(html).toContain("jederzeit");
+    expect(html).toContain("nur für diesen Zweck verwendet");
+    expect(html).not.toContain("e-mail-angebote");
   });
 
-  it("privacy notice has Legal's section on Wallet messages, verbatim and separate from e-mail", () => {
+  it("privacy notice has Legal's section on Wallet messages, verbatim", () => {
     const html = renderToStaticMarkup(createElement(DatenschutzPage));
     expect(html).toContain(">Nachrichten auf deiner Wallet-Karte</h2>");
     // ENG-049: Legal's birthday section (22 Oct), right after the Wallet messages.
     expect(html.indexOf(">Nachrichten auf deiner Wallet-Karte</h2>")).toBeLessThan(html.indexOf(">Geburtstag</h2>"));
     expect(html).toContain("Freiwillig kannst du auf deiner Karte Tag und Monat deines Geburtstags hinterlegen, ohne Jahr. Das Geschäft nutzt ihn nur für eine Geburtstagsprämie und, wenn du Nachrichten auf deiner Wallet-Karte erlaubt hast, für eine Erinnerung in deiner Geburtstagswoche. Du kannst ihn jederzeit auf deiner Karte löschen. Rechtsgrundlage ist die Durchführung des Kundenkartenprogramms (Art. 6 Abs. 1 Buchst. b DSGVO).");
-    for (const part of ["höchstens zwei pro Woche und nicht nachts", "getrennt von der Einwilligung in E-Mails", "ohne die Karte aus deiner Wallet zu löschen", "Art. 6 Abs. 1 Buchst. a DSGVO"]) expect(html).toContain(part);
-    expect(html.indexOf(">E-Mail-Angebote</h2>")).toBeLessThan(html.indexOf(">Nachrichten auf deiner Wallet-Karte</h2>"));
-    expect(html).toContain("Wenn du es auf deiner Karte ausdrücklich erlaubst, kann dir das Geschäft kurze Nachrichten mit Angeboten, Neuigkeiten und Erinnerungen auf deiner Wallet-Karte schicken, höchstens zwei pro Woche und nicht nachts. Dazu kann eine automatische Erinnerung gehören, wenn du länger nicht da warst. Diese Einwilligung ist freiwillig und getrennt von der Einwilligung in E-Mails. Sie wird mit Zeitpunkt und Textversion protokolliert, und du kannst sie jederzeit auf deiner Karte widerrufen, ohne die Karte aus deiner Wallet zu löschen. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO). Zugestellt werden die Nachrichten bei Apple Wallet über Apple, bei Google Wallet über Google.");
+    for (const part of ["höchstens zwei pro Woche und nicht nachts", "ohne die Karte aus deiner Wallet zu löschen", "Art. 6 Abs. 1 Buchst. a DSGVO"]) expect(html).toContain(part);
+    expect(html).not.toContain("E-Mail-Angebote");
+    expect(html).toContain("bei Google-Wallet-Karten Google und, wenn du eine Wiederherstellungsadresse hinterlegst, Mailgun (Versand der Bestätigungs- und Wiederherstellungs-E-Mails).");
+    expect(html).toContain("Wenn du es auf deiner Karte ausdrücklich erlaubst, kann dir das Geschäft kurze Nachrichten mit Angeboten, Neuigkeiten und Erinnerungen auf deiner Wallet-Karte schicken, höchstens zwei pro Woche und nicht nachts. Dazu kann eine automatische Erinnerung gehören, wenn du länger nicht da warst. Diese Einwilligung ist freiwillig. Sie wird mit Zeitpunkt und Textversion protokolliert, und du kannst sie jederzeit auf deiner Karte widerrufen, ohne die Karte aus deiner Wallet zu löschen. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO). Zugestellt werden die Nachrichten bei Apple Wallet über Apple, bei Google Wallet über Google.");
     expect(html).toContain("Läuft auf deiner Punktekarte ein Teil deiner Punkte bald ab, schickt dir das Geschäft vorher einen Hinweis auf deine Karte in Apple Wallet oder Google Wallet. Dafür musst du nichts erlauben; der Hinweis zählt zu den höchstens zwei Nachrichten pro Woche. Rechtsgrundlage ist die Durchführung des Kundenkartenprogramms (Art. 6 Abs. 1 Buchst. b DSGVO).");
   });
 
@@ -41,7 +42,7 @@ describe("customer legal pages", () => {
     expect(html).toContain("Bei Apple-Wallet-Karten erhält Apple für Aktualisierungen den Push-Token deines Geräts, aber keine Karteninhalte.");
     expect(html).toContain("erstellen wir den Pass mit deinem Kartenstand selbst, und dein Gerät lädt ihn von unserem Server.");
     expect(html).not.toContain("PassFast");
-    expect(html).toContain("Stand: 1. November 2026.");
+    expect(html).toContain("Stand: 4. November 2026.");
   });
 
   it("announces changes to the customer's disadvantage four weeks ahead (ENG-100, Legal §3 and Q-88)", () => {
