@@ -131,6 +131,9 @@ export const firstProblem = (problems: Record<string, string>) => Object.values(
 
 // ---- Legal's footer ----
 
+/** The display name in front of Loynara's sender address: the shop, as every mail to its customers shows it. */
+export const senderName = (shopName: string) => `${shopName} via Loynara`;
+
 /**
  * The footer's parts, Legal's text verbatim: the identity sentence, the register and VAT lines only when filled, then the
  * consent line. Null while a required part is missing: such a shop sends nothing promotional. Never a card link.
@@ -140,7 +143,7 @@ export function senderFooter(sender: SenderDetails) {
   const legalForm = printedForm(sender.legalForm) ? `, ${sender.legalForm}` : "";
   const contact = [sender.contactEmail, sender.contactPhone].filter(Boolean).join(", ");
   return {
-    fromName: `${sender.shopName} via Loynara`,
+    fromName: senderName(sender.shopName),
     identity: `Diese E-Mail kommt von ${sender.shopName}${legalForm}, vertreten durch ${sender.representative}, ${sender.street}, ${sender.postalCode} ${sender.city}. Kontakt: ${contact}.`,
     register: sender.registerCourt && sender.registerNumber ? `Registergericht: ${sender.registerCourt}, ${sender.registerNumber}.` : null,
     vat: sender.vatId ? `USt-IdNr.: ${sender.vatId}` : null,

@@ -2,7 +2,8 @@ import { createElement as h } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { EmailOffer, EmailSheet, emailRow, linkRequest, type EmailStatus } from "./card-email";
+import { actionError, EmailOffer, EmailSheet, emailRow, linkRequest, type EmailStatus } from "./card-email";
+import { ClientApiError } from "./client-api";
 import { CustomerCard } from "./customer/customer-card";
 
 const none: EmailStatus = { available: true, marketingAvailable: true, contactPresent: false, emailVerified: false, marketingEmail: false, maskedEmail: null, pending: null, linkExpired: false, marketingSince: null, recoverUrl: "app.test/recover", offer: true };
@@ -148,5 +149,19 @@ describe("a failed setting says nothing was saved, not that nothing was sent (Ma
     const source = readFileSync("src/components/card-email.tsx", "utf8");
     expect(source).toContain('const SAVE_FAILED = "Das konnten wir gerade nicht speichern. Es bleibt alles wie vorher. Versuche es gleich noch einmal.";');
     expect(source).toContain("catch (cause) { setError(actionError(cause)); }");
+  });
+});
+
+describe("actionError (Reviewer N-6)", () => {
+  const SAVE_FAILED = "Das konnten wir gerade nicht speichern. Es bleibt alles wie vorher. Versuche es gleich noch einmal.";
+  it("gives Marketing's line for a network error and for server text it can't vouch for", () => {
+    expect(actionError(new TypeError("Failed to fetch"))).toBe(SAVE_FAILED);
+    expect(actionError(new ClientApiError(500, "Internal error"))).toBe(SAVE_FAILED);
+    expect(actionError(new ClientApiError(400, "Invalid input", "SOMETHING_ENGLISH"))).toBe(SAVE_FAILED);
+    expect(actionError("weird")).toBe(SAVE_FAILED);
+  });
+  it("passes the server's own German text through: a rate limit, or a known code", () => {
+    expect(actionError(new ClientApiError(429, "Zu viele Versuche. Bitte warte kurz."))).toBe("Zu viele Versuche. Bitte warte kurz.");
+    expect(actionError(new ClientApiError(404, "Diese Karte haben wir nicht gefunden.", "NOT_FOUND"))).toBe("Diese Karte haben wir nicht gefunden.");
   });
 });
