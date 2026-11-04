@@ -50,6 +50,8 @@ describe("local verification delivery", () => {
     expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
     const message = send.mock.calls[0][0];
     expect(message.to).toBe("cardholder@example.test");
+    // The shop is the sender, also of the recovery-only mail (#212 follow-up, N-7).
+    expect(message.fromName).toBe("Synthetic Café via Loynara");
     const link = message.body.match(/http:\/\/localhost:3000\/verify-email#token=(v_[A-Za-z0-9_-]{43})/);
     expect(link).not.toBeNull();
     // Legal (1 Nov): the sender and the Datenschutz link under every confirmation mail, the name from configuration.

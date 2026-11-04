@@ -179,7 +179,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
     expect(await contactStatus(member.cardToken)).toMatchObject({ contactPresent: true, emailVerified: false, marketingEmail: false, pending: "marketing" });
     const { message, token } = await mail(member.id);
-    expect(message).toMatchObject({ to: "guest@example.test", subject: "Bitte bestätige: E-Mails von Synthetic Contact Café" });
+    expect(message).toMatchObject({ to: "guest@example.test", fromName: "Synthetic Contact Café via Loynara", subject: "Bitte bestätige: E-Mails von Synthetic Contact Café" });
     expect(message.body).toContain("damit Synthetic Contact Café dir Angebote, Neuigkeiten und Erinnerungen schicken darf");
     expect(message.body).toContain(`Ja, ich möchte E-Mails von Synthetic Contact Café\nhttp://localhost:3000/verify-email#token=${token}\n\nDer Link gilt 30 Minuten.`);
     expect(message.body).not.toContain(member.cardToken);
