@@ -24,7 +24,8 @@ export function CancellationNotice({ me, now }: { me: MeResponse; now?: Date }) 
   return (
     <section className="ow-card ow-next" aria-labelledby="ow-ends-title" data-state="cancelled">
       <h2 id="ow-ends-title">Programm endet{locations.length > 1 ? ` · ${me.locationName}` : ""}</h2>
-      <p className="ow-next-text">Gekündigt: Ende am {germanDate(endDate)}.</p>
+      {/* A planned end was agreed, not cancelled (Design blocking 6; draft string, to Marketing). */}
+      <p className="ow-next-text">{me.cancellationPlanned ? `Dein Programm endet am ${germanDate(endDate)}. So haben wir es mit dir vereinbart.` : `Gekündigt: Ende am ${germanDate(endDate)}.`}</p>
       <p className="ow-muted">{running}</p>
       <p className="ow-muted">{phase !== "past" && "Sag es deinen Kunden, damit sie ihre Prämien noch einlösen."}{isOwner && `${phase !== "past" ? " " : ""}Deine Daten kannst du bis zum ${germanDate(exportUntil)} herunterladen.`}</p>
       {settings && phase !== "past" && <div><Link className="ow-btn ow-btn--secondary" href="/merchant/settings/cancel">Text für deine Kunden</Link></div>}

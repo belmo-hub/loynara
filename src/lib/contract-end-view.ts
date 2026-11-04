@@ -27,10 +27,12 @@ export async function ownerContractView(input: { actorUserId: string; programSlu
   const active = await db.select({ end: programs.cancellationEndDate, requested: programs.cancellationRequestedAt }).from(programs)
     .where(and(eq(programs.tenantId, program.tenantId), eq(programs.status, "active")));
   const recorded = active.filter(row => row.end && row.requested);
+  // An end the operator set without a request (Design blocking 6): shown as recorded, with its facts, never as „open“.
+  const planned = recorded.length ? null : active.filter(row => row.end).map(row => row.end!).sort().at(-1) ?? null;
   const requestedAt = recorded.length ? new Date(Math.min(...recorded.map(row => row.requested!.getTime()))) : null;
   const requestDay = berlinDay(requestedAt ?? now);
   const binding = noticeEnd({ requestDay, anchorDay: basis.anchorDay, lastFreeDay: basis.lastFreeDay });
-  const endDate = recorded.length ? recorded.map(row => row.end!).sort().at(-1)! : binding.endDate;
+  const endDate = recorded.length ? recorded.map(row => row.end!).sort().at(-1)! : planned ?? binding.endDate;
   const facts = await contractFacts(program.tenantId, endDate, now, requestDay);
   const lines = factsLines(facts!, vatMode(), input.env ?? process.env);
   const unit = program.type === "stamp" ? "Stempel" as const : "Punkte" as const;
@@ -38,12 +40,12 @@ export async function ownerContractView(input: { actorUserId: string; programSlu
   const reason = binding.freeMonth ? `Du bist im kostenlosen ersten Monat. Kündigst du jetzt, kostet dich das nichts. Dein Programm läuft noch bis einschließlich ${day(binding.endDate)}, damit deine Kunden das Ende mindestens 14 Tage vorher auf ihrer Karte sehen.`
     : binding.late ? `Du kannst mit 14 Tagen Frist zum letzten Tag eines Abrechnungsmonats kündigen. Für ein Ende am ${day(binding.late.missedEnd)} hätte die Kündigung bis zum ${day(binding.late.cutoff)} bei uns sein müssen. Darum endet dein Vertrag am ${day(binding.endDate)}.` : null;
   return {
-    state: recorded.length ? endDate > binding.endDate ? "later" as const : "cancelled" as const : "open" as const,
+    state: recorded.length ? endDate > binding.endDate ? "later" as const : "cancelled" as const : planned ? "planned" as const : "open" as const,
     requestedOn: requestedAt ? day(requestDay) : null,
     endDate,
     endDateText: day(endDate),
     facts: lines,
-    reason: recorded.length ? null : reason,
+    reason: recorded.length || planned ? null : reason,
     locations: basis.locations.length > 1 ? `Gilt für alle deine Standorte: ${list(basis.locations)} enden am selben Tag.` : null,
     customerText: customerText(unit, endDate),
     unit,
@@ -77,22 +79,31 @@ export async function operatorCancellations(now = new Date(), env: Record<string
     const origin = days === null ? "vom Operator geplant" : days === 0 ? "heute angefragt" : days === 1 ? "gestern angefragt" : `vor ${days} Tagen angefragt`;
     const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
     const free = binding.freeMonth && row.endDate <= binding.endDate;
+    // C41 only when Stripe holds the end (billing_ends_at, ENG-125); otherwise a failed cancel must be visible.
+    const [held] = (await db.execute(sql`SELECT billing_ends_at IS NOT NULL AS held FROM subscriptions WHERE tenant_id = ${row.tenantId}`)).rows as Array<{ held: boolean }>;
+    const stripeEnded = !!held?.held;
     const factsLine = free
-      ? `${origin} · kostenloser Monat · keine Rechnung · Stripe-Abo beendet · Export bis ${current.exportUntil.value}`
+      ? `${origin} · kostenloser Monat · keine Rechnung${basis.billed && stripeEnded ? " · Stripe-Abo beendet" : ""} · Export bis ${current.exportUntil.value}`
       : `${origin} · Abrechnung am ${basis.anchorDay}. · ${lower(current.lastInvoice.value)} · Export bis ${current.exportUntil.value}`;
-    // The binding date first; later ends only with the shop's consent, never in the free month (Legal: the one binding date).
+    // The binding date first, or the end already agreed later („Wie bisher“, Design P5); later ends only with the shop's consent,
+    // never in the free month, and nothing earlier is ever offered (Legal: the one binding date).
     const bindingEnd = row.requestedAt ? binding.endDate : row.endDate;
-    const choices = [{ endDate: bindingEnd, label: `${day(bindingEnd)} · ${free ? "Ende des kostenlosen Monats · keine Rechnung" : `${row.requestedAt ? "Wie gekündigt" : "Wie geplant"} · ${lower((await factsFor(bindingEnd)).lastInvoice.value)}`}`, consent: false, facts: await factsFor(bindingEnd) }];
-    if (!free) for (const end of laterEnds(bindingEnd, basis.anchorDay, 3)) {
+    const base = row.endDate > bindingEnd ? row.endDate : bindingEnd;
+    const kept = base === bindingEnd
+      ? free ? (bindingEnd === basis.lastFreeDay ? "Ende des kostenlosen Monats · keine Rechnung" : "Wie gekündigt · keine Rechnung") : `${row.requestedAt ? "Wie gekündigt" : "Wie geplant"} · ${lower((await factsFor(bindingEnd)).lastInvoice.value)}`
+      : `Wie bisher · ${lower((await factsFor(base)).lastInvoice.value)}`;
+    const choices = [{ endDate: base, label: `${day(base)} · ${kept}`, consent: false, facts: await factsFor(base) }];
+    if (!free) for (const end of laterEnds(base, basis.anchorDay, 3)) {
       const facts = await contractFacts(row.tenantId, end, now, requestDay);
-      const extra = facts && facts.invoice.kind === "due" ? facts.invoice.invoices.filter(invoice => invoice.date > bindingEnd) : [];
+      const extra = facts && facts.invoice.kind === "due" ? facts.invoice.invoices.filter(invoice => invoice.date > base) : [];
       const amount = factsLinesAmount(extra[0]?.amountMinor ?? basis.totalMinor ?? 0);
-      const label = extra.length === 1 ? `Eine Rechnung mehr: ${day(extra[0].date)}, ${amount}` : `${["Zwei", "Drei"][extra.length - 2] ?? extra.length} Rechnungen mehr: ${extra.map(invoice => day(invoice.date)).join(", ").replace(/, ([^,]*)$/, " und $1")}, je ${amount}`;
+      // Unbilled shops (live billing off) owe nothing for a later end.
+      const label = extra.length === 0 ? "keine Rechnung" : extra.length === 1 ? `Eine Rechnung mehr: ${day(extra[0].date)}, ${amount}` : `${["Zwei", "Drei"][extra.length - 2] ?? extra.length} Rechnungen mehr: ${extra.map(invoice => day(invoice.date)).join(", ").replace(/, ([^,]*)$/, " und $1")}, je ${amount}`;
       choices.push({ endDate: end, label: `${day(end)} · ${label}`, consent: true, facts: factsLines(facts!, vatMode(), env) });
     }
     out.push({
       tenantId: row.tenantId, tenant: row.tenant, locations: row.locations, programId: row.programId, endDate: row.endDate, endText: day(row.endDate),
-      acknowledged, freeMonth: free, factsLine,
+      acknowledged, freeMonth: free, factsLine, origin, stripeNotEnded: free && basis.billed && !stripeEnded,
       badge: acknowledged ? `bestätigt bis ${day(row.endDate)}` : `gekündigt zum ${day(row.endDate)}`,
       deadline: !acknowledged && !free ? `bestätigen bis ${day(addDays(row.endDate, -1))}` : null,
       requestedOn: row.requestedAt ? day(requestDay) : null, anchorDay: basis.anchorDay, choices,

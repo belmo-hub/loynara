@@ -21,16 +21,21 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 
-type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; nextEnd: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
+type EntryPreview = { endDate: string; past: boolean; facts: { lastDay: Fact; lastInvoice: Fact; exportUntil: Fact } | null };
 type EndPreview = { result: string; end: string | null; endDate?: string };
 type Fact = { label: string; value: string; sub: string };
 type Choice = { endDate: string; label: string; consent: boolean; facts: { lastDay: Fact; lastInvoice: Fact; exportUntil: Fact } };
 /** ENG-167 (b): one business's cancellation, from lib/contract-end-view (operatorCancellations). */
-type Cancellation = { tenantId: string; tenant: string; locations: string[]; programId: string; endDate: string; endText: string; acknowledged: boolean; freeMonth: boolean; factsLine: string; badge: string; deadline: string | null; requestedOn: string | null; anchorDay: number; choices: Choice[]; withdrawal: string };
+type Cancellation = { tenantId: string; tenant: string; locations: string[]; programId: string; endDate: string; endText: string; acknowledged: boolean; origin: string; stripeNotEnded: boolean; freeMonth: boolean; factsLine: string; badge: string; deadline: string | null; requestedOn: string | null; anchorDay: number; choices: Choice[]; withdrawal: string };
 // #207's guard names days as 2026-12-01; the console shows 01.12.2026.
 const readable = (message: string) => message.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3.$2.$1");
+// Draft (Design, to Marketing): a receipt time after now.
+const FUTURE_RECEIPT = "Der Eingang liegt in der Zukunft. Prüfe Datum und Uhrzeit.";
+/** Now in Berlin as a datetime-local value, the latest receipt time the field accepts. */
+const berlinNow = () => new Date().toLocaleString("sv-SE", { timeZone: "Europe/Berlin" }).replace(" ", "T").slice(0, 16);
 /** A datetime-local value read as Berlin time (Legal: an e-mailed cancellation counts from the moment it arrived). */
 function berlinIso(local: string) {
   const guess = new Date(`${local}:00Z`);
@@ -100,12 +105,12 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     finally { setBusy(false); }
   }
   async function sendEnd(execute: boolean) {
-    if (endDate < earliestEndDate(new Date())) { setError(END_DATE_TOO_EARLY); return; }
-    setBusy(true); setError("");
+    if (endDate < earliestEndDate(new Date())) { setSheetError(END_DATE_TOO_EARLY); return; }
+    setBusy(true); setSheetError("");
     try {
       const result = await postJson<EndPreview>("/api/operator/programme", { programId: prog!.programId, endDate, execute });
       if (execute) { setProg(null); setEndPreview(null); router.refresh(); } else setEndPreview(result);
-    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    } catch (cause) { setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
     finally { setBusy(false); }
   }
   async function sendTemplate(execute: boolean) {
@@ -118,8 +123,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   }
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
-  const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setError(""); };
-  const closeEnd = () => { setProg(null); setEndPreview(null); setError(""); };
+  const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setSheetError(""); };
+  const closeEnd = () => { setProg(null); setEndPreview(null); setSheetError(""); };
   // ENG-167 (b): the end-date sheet (keep, or later with consent; never earlier), the withdrawal on the shop's wish, and the
   // entry of a cancellation that came by e-mail. These sheets keep their own error, so it never shows twice on the page.
   const [ending, setEnding] = useState<Cancellation | null>(null);
@@ -129,7 +134,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [withdrawing, setWithdrawing] = useState<Cancellation | null>(null);
   const [entry, setEntry] = useState<Row | null>(null);
   const [receivedAt, setReceivedAt] = useState("");
-  const [entryEnd, setEntryEnd] = useState<string | null>(null);
+  const [entryEnd, setEntryEnd] = useState<EntryPreview | null>(null);
   // Legal (§ 130 BGB): an e-mail older than 14 days still counts from its arrival; the tick confirms it was checked, not taken back.
   const [pastEnd, setPastEnd] = useState(false);
   const [acceptPast, setAcceptPast] = useState(false);
@@ -149,16 +154,19 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function checkEntry(execute: boolean) {
     setBusy(true); setSheetError("");
     try {
-      const result = await postJson<{ endDate?: string | null }>("/api/operator/programme", { programId: entry!.programId, command: "request", receivedAt: berlinIso(receivedAt), acceptLateEntry: acceptPast, execute });
-      if (execute) { closeSheets(); router.refresh(); } else setEntryEnd(result.endDate ?? null);
+      const result = await postJson<{ endDate?: string | null; past?: boolean; facts?: EntryPreview["facts"] }>("/api/operator/programme", { programId: entry!.programId, command: "request", receivedAt: berlinIso(receivedAt), acceptLateEntry: acceptPast, execute });
+      if (execute) { closeSheets(); router.refresh(); } else setEntryEnd(result.endDate ? { endDate: result.endDate, past: result.past === true, facts: result.facts ?? null } : null);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.code === "LATE_ENTRY") { setPastEnd(true); return; }
+      if (cause instanceof ClientApiError && cause.code === "INVALID_RECEIVED_AT") { setSheetError(FUTURE_RECEIPT); return; }
       setSheetError(readable(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.")); }
     finally { setBusy(false); }
   }
   // The list says what the Kündigungen card says (C40, C25), so one shop never shows two states.
   const endText = (r: Row) => cancellations.find(c => c.tenantId === r.tenantId)?.badge ?? (r.endDate ? `gekündigt zum ${germanDate(r.endDate)}` : "keine Kündigung");
-  const origin = (r: Row) => r.requestedDays === null ? "vom Operator geplant" : r.requestedDays === 0 ? "heute angefragt" : r.requestedDays === 1 ? "gestern angefragt" : `vor ${r.requestedDays} Tagen angefragt`;
+  // One age per request: the Kündigungen entry's own (C25), so the two cards never disagree.
+  const origin = (r: Row) => cancellations.find(c => c.tenantId === r.tenantId)?.origin ?? (r.requestedDays === null ? "vom Operator geplant" : r.requestedDays === 0 ? "heute angefragt" : r.requestedDays === 1 ? "gestern angefragt" : `vor ${r.requestedDays} Tagen angefragt`);
+  const firstOpen = cancellations.findIndex(c => !c.acknowledged);
   const close = () => { setLabel(null); setPreview(null); setError(""); };
   // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
   const [startFor, setStartFor] = useState<string | null>(null);
@@ -226,7 +234,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
         <TextField id="op-4" error={fields.error("op-4")} label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
-        <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
+        <Button type="submit" variant="secondary" block loading={busy}>Geschäft anlegen und einladen</Button>
       </form>
       {awaiting.length ? <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }} aria-label="Geschäfte ohne Programm">
         {awaiting.map(a => <li key={a.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
@@ -241,14 +249,17 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     {cancellations.length ? <Card as="section" aria-labelledby="op-cancel">
       <CardHeader id="op-cancel" title="Kündigungen" description="Offene zuerst. Eine Kündigung gilt ab Eingang. Bestätigen heißt: Datum behalten oder mit Zustimmung des Geschäfts nach hinten verschieben." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>
-        {cancellations.map(c => <li key={c.tenantId} style={{ display: "grid", gap: 4 }}>
+        {cancellations.map((c, index) => <li key={c.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{c.tenant}</strong> · {c.locations.join(", ")}</span>
           <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             <Badge tone={c.acknowledged ? "success" : "warning"}>{c.badge}</Badge>
             {c.deadline ? <Badge tone="danger"><AlertCircle size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />{c.deadline}</Badge> : null}
+            {/* C41's opposite (draft): the free-month cancel has not reached Stripe, so someone must look. */}
+            {c.stripeNotEnded ? <Badge tone="danger"><AlertCircle size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />Stripe-Abo nicht beendet</Badge> : null}
           </span>
           <span className="ow-muted" style={{ fontVariantNumeric: "tabular-nums" }}>{c.factsLine}</span>
-          <Button variant={c.acknowledged ? "secondary" : "primary"} onClick={() => openEnding(c)}>{c.acknowledged ? "Datum ändern" : "Datum bestätigen"}</Button>
+          {/* Design: one green on the console, the most urgent open cancellation (sorted open first, then by end). */}
+          <Button variant={index === firstOpen ? "primary" : "secondary"} style={{ justifySelf: "start" }} onClick={() => openEnding(c)}>{c.acknowledged ? "Datum ändern" : "Datum bestätigen"}</Button>
         </li>)}
       </ul>
     </Card> : null}
@@ -296,7 +307,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-plates">
-      <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
+      <CardHeader id="op-plates" title="Platten" action={<Button variant="secondary" icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
       {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
       <form noValidate onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
@@ -366,9 +377,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       {prog ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{prog.tenant}</strong> · {prog.location} · {prog.programme}</p>
         <p>Jetzt: <strong>{endText(prog)}</strong></p>
-        <TextField label="Letzter Tag" type="date" min={earliestEndDate(new Date())} value={endDate} onChange={event => { setEndDate(event.target.value); setEndPreview(null); }} />
+        <TextField label="Letzter Tag" type="date" min={earliestEndDate(new Date())} value={endDate} hint={prog.nextEnd ? `Nächstes mögliches Ende: ${germanDate(prog.nextEnd)}` : undefined} onChange={event => { setEndDate(event.target.value); setEndPreview(null); setSheetError(""); }} />
         {endPreview ? <p role="status">Von <strong>{endText(prog)}</strong> zu <strong>bestätigt bis {germanDate(endPreview.endDate ?? endDate)}</strong></p> : null}
-        {error ? <p role="alert">{error}</p> : null}
+        {sheetError ? <p role="alert">{sheetError}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>
           : <Button loading={busy} disabled={!endDate} onClick={() => sendEnd(false)}>Prüfen</Button>}
       </div> : null}
@@ -400,7 +411,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         {sheetError ? <p role="alert">{sheetError}</p> : null}
         {checked ? <Button loading={busy} disabled={checked.consent && !consent} onClick={() => void confirmEnd()}>Bestätigen</Button>
           : <Button loading={busy} disabled={!choice} onClick={() => void checkEnd()}>Prüfen</Button>}
-        <div><Button variant="quiet" onClick={() => { setWithdrawing(ending); setEnding(null); setSheetError(""); }}>Kündigung zurücknehmen (auf Wunsch des Geschäfts)</Button></div>
+        <Button variant="quiet" block onClick={() => { setWithdrawing(ending); setEnding(null); setSheetError(""); }}>Kündigung zurücknehmen (auf Wunsch des Geschäfts)</Button>
       </div> : null}
     </Sheet>
 
@@ -415,15 +426,20 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     <Sheet open={!!entry} onClose={closeSheets} title="Kündigung per E-Mail eintragen">
       {entry ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{entry.tenant}</strong> · {entry.location}</p>
-        <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
+        <TextField label="Eingang der E-Mail (deutsche Zeit)" type="datetime-local" max={berlinNow()} value={receivedAt} hint="Die Kündigung zählt ab dem Eingang der E-Mail, nicht ab jetzt. Sie gilt für alle Standorte des Geschäfts." onChange={event => { setReceivedAt(event.target.value); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); }} />
         {pastEnd ? <div style={{ display: "grid", gap: 4 }}>
           <p role="alert" style={{ display: "flex", gap: 8, alignItems: "baseline" }}><AlertCircle size={16} aria-hidden="true" style={{ flex: "none", color: "var(--color-warning)", alignSelf: "center" }} />{`Diese E-Mail kam vor mehr als 14 Tagen an. Die Kündigung gilt ab ihrem Eingang am ${receivedAt.slice(0, 10).split("-").reverse().join(".")}; das Vertragsende kann schon vorbei sein. Prüfe, ob das Geschäft sie inzwischen zurückgenommen hat, und trage sie mit dem Eingangsdatum ein.`}</p>
           <Checkbox checked={acceptPast} onChange={event => setAcceptPast(event.target.checked)}>Eingang geprüft, nicht zurückgenommen: mit Eingangsdatum eintragen</Checkbox>
         </div> : null}
-        {entryEnd ? <p role="status">Endet am <strong>{germanDate(entryEnd)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
+        {receivedAt > berlinNow() ? <p role="alert">{FUTURE_RECEIPT}</p> : null}
+        {/* Design (blocking 5): an end that has already passed is said plainly, in the danger tone; final copy comes with ENG-167c. */}
+        {entryEnd ? entryEnd.past
+          ? <p role="alert" style={{ display: "flex", gap: 8, alignItems: "baseline", color: "var(--color-danger)" }}><AlertCircle size={16} aria-hidden="true" style={{ flex: "none", alignSelf: "center" }} />Endet am {germanDate(entryEnd.endDate)}. Das Datum ist schon vorbei.</p>
+          : <p role="status">Endet am <strong>{germanDate(entryEnd.endDate)}</strong>. Das Geschäft bekommt die Bestätigung per E-Mail.</p> : null}
+        {entryEnd?.facts ? <dl style={{ display: "grid", gap: 4, margin: 0 }}>{[entryEnd.facts.lastDay, entryEnd.facts.lastInvoice, entryEnd.facts.exportUntil].map(fact => <div key={fact.label}><dt className="ow-muted" style={{ display: "inline" }}>{fact.label}: </dt><dd style={{ display: "inline", margin: 0 }}>{fact.value}</dd></div>)}</dl> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
-        {entryEnd ? <Button loading={busy} onClick={() => void checkEntry(true)}>Eintragen</Button>
-          : <Button loading={busy} disabled={!receivedAt || (pastEnd && !acceptPast)} onClick={() => void checkEntry(false)}>Prüfen</Button>}
+        {entryEnd ? <Button variant={entryEnd.past ? "danger" : "primary"} loading={busy} onClick={() => void checkEntry(true)}>{entryEnd.past ? "Trotzdem eintragen" : "Eintragen"}</Button>
+          : <Button loading={busy} disabled={!receivedAt || receivedAt > berlinNow() || (pastEnd && !acceptPast)} onClick={() => void checkEntry(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 

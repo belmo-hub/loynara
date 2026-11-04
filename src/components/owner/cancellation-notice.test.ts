@@ -25,6 +25,12 @@ describe("the end-date notice", () => {
     expect(notice({ cancellationEndDate: null })).toBe("");
   });
 
+  it("an end the operator set without a request reads as agreed, never „Gekündigt“ (Design blocking 6)", () => {
+    const html = notice({ ...confirmed, cancellationPlanned: true });
+    expect(html).toContain("Dein Programm endet am 30.11.2026. So haben wir es mit dir vereinbart.");
+    expect(html).not.toContain("Gekündigt");
+  });
+
   it("confirmed: the date, how long customers can still redeem, and the next steps", () => {
     const html = notice(confirmed);
     expect(html).toContain("Gekündigt: Ende am 30.11.2026.");

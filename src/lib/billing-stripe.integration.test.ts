@@ -678,7 +678,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     const goLive = new Date("2026-12-31T10:00:00Z");
     stripe.clock.now = goLive;
     await startBilling({ actorUserId: s.operatorId, env: process.env, tenantId: s.tenantId, billing: { name: "Synthetische Inhaberin", line1: "Beispielweg 2", postalCode: "34117", city: "Kassel", email: "rechnung@example.test" }, at: goLive });
-    await expect(confirm(s, s.programId, "2027-02-28", new Date("2027-01-05T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2027-03-30") });
+    await expect(confirm(s, s.programId, "2027-02-28", new Date("2027-01-05T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("30.03.2027") });
     await confirm(s, s.programId, "2027-02-27", new Date("2027-01-05T10:00:00Z"));
     expect((await programme(s.programId)).cancellationEndDate).toBe("2027-02-27");
   });
@@ -686,9 +686,9 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
   it("refuses a confirmed end that isn't the last day of a billing month, naming the next valid day (G-1)", async () => {
     const s = await subscribed();
     for (const execute of [false, true]) {
-      await expect(confirm(s, s.programId, "2026-11-30", NOW, execute)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-01") });
+      await expect(confirm(s, s.programId, "2026-11-30", NOW, execute)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("01.12.2026") });
     }
-    await expect(confirm(s, s.programId, "2026-12-31")).rejects.toMatchObject({ message: expect.stringContaining("2027-01-01") });
+    await expect(confirm(s, s.programId, "2026-12-31")).rejects.toMatchObject({ message: expect.stringContaining("01.01.2027") });
     expect(await programme(s.programId)).toMatchObject({ cancellationEndDate: null, cancellationConfirmedAt: null });
     expect(endCalls(s.subscriptionId)).toEqual([]);
   });
@@ -787,7 +787,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
 
     it("ends at free_until − 3 h on the last free day, the first month's end: no first invoice; any other free day is refused", async () => {
       const s = await live();
-      await expect(confirm(s, s.programId, "2026-12-05", INSIDE)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-09") });
+      await expect(confirm(s, s.programId, "2026-12-05", INSIDE)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("09.12.2026") });
       await confirm(s, s.programId, "2026-12-09", INSIDE);
       expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });
@@ -837,7 +837,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       const s = await live();
       const late = new Date("2026-12-09T22:59:00Z"); // 23:59 Berlin on 9 December
       await requested(s.programId, late.toISOString());
-      await expect(confirm(s, s.programId, "2026-12-20", late)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-23") });
+      await expect(confirm(s, s.programId, "2026-12-20", late)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("23.12.2026") });
       await expect(confirm(s, s.programId, "2026-12-24", late)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END" });
       await confirm(s, s.programId, "2026-12-23", late);
       expect(endCalls(s.subscriptionId)).toEqual([expect.objectContaining({ method: "DELETE", params: { invoice_now: "false", prorate: "false" } })]);
@@ -847,7 +847,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       const s = await live();
       const day25 = new Date("2026-12-04T10:00:00Z"); // go-live 10 Nov is day 1
       await requested(s.programId, day25.toISOString());
-      await expect(confirm(s, s.programId, "2026-12-17", day25)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-18") });
+      await expect(confirm(s, s.programId, "2026-12-17", day25)).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("18.12.2026") });
       await confirm(s, s.programId, "2026-12-18", day25);
       expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
       // Nothing more reaches Stripe before the free month ends, so month two is never billed; the programme runs on to 18 December.
@@ -870,7 +870,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
     it("a request after the free month follows the billing-month rule", async () => {
       const s = await live();
       await requested(s.programId, "2026-12-15T10:00:00Z");
-      await expect(confirm(s, s.programId, "2026-12-29", new Date("2026-12-15T11:00:00Z"))).rejects.toMatchObject({ message: expect.stringContaining("2027-01-09") });
+      await expect(confirm(s, s.programId, "2026-12-29", new Date("2026-12-15T11:00:00Z"))).rejects.toMatchObject({ message: expect.stringContaining("09.01.2027") });
       await confirm(s, s.programId, "2027-01-09", new Date("2026-12-15T11:00:00Z"));
       expect(endCalls(s.subscriptionId)).toEqual([]);
     });
@@ -906,7 +906,7 @@ describe("the operator's confirmed shop end ends the Stripe subscription (ENG-12
       const s = await live();
       // A running programme still carries a request older than go-live (10 Nov): it opens no free-month notice end.
       await requested(s.programId, "2026-11-01T10:00:00Z");
-      await expect(confirm(s, s.programId, "2026-11-15", new Date("2026-11-12T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("2026-12-09") });
+      await expect(confirm(s, s.programId, "2026-11-15", new Date("2026-11-12T10:00:00Z"))).rejects.toMatchObject({ code: "NOT_BILLING_MONTH_END", message: expect.stringContaining("09.12.2026") });
       await confirm(s, s.programId, "2026-12-09", new Date("2026-11-12T10:00:00Z"));
       expect(endCalls(s.subscriptionId).map(call => call.params)).toEqual([FREE_PARAMS]);
     });

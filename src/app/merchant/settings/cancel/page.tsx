@@ -3,7 +3,7 @@
 import { CalendarX, Download, Euro } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { copyText } from "@/components/copy-text";
 import { copyFor } from "@/components/customer/customer-card-copy";
@@ -18,7 +18,7 @@ const SETTINGS = "/merchant/settings";
 
 type Fact = { label: string; value: string; sub: string };
 type View = {
-  state: "open" | "cancelled" | "later";
+  state: "open" | "cancelled" | "later" | "planned";
   requestedOn: string | null;
   endDate: string;
   endDateText: string;
@@ -29,7 +29,7 @@ type View = {
   unit: "Stempel" | "Punkte";
   withdrawal: { text: string };
 };
-type Failure = { kind: "retry" | "rate" | "ended" | "missing"; message: string };
+type Failure = { kind: "retry" | "rate" | "ended" | "missing" | "copy"; message: string };
 
 /** The three facts (C1–C8): one white panel, information not warning, the same lines the emails carry. */
 function Facts({ facts }: { facts: View["facts"] }) {
@@ -75,9 +75,13 @@ export default function CancelProgrammePage() {
   const [failure, setFailure] = useState<Failure | null>(null);
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Design blocking 9: after the binding act, focus lands on the status that confirms it, so a screen reader announces it.
+  const focusStatus = useRef(false);
+  const statusRef = useRef<HTMLDivElement>(null);
   const programSlug = me?.programSlug;
   const [loaded, reload] = useLoad<View>(programSlug && me?.role === "owner" ? `/api/merchant/program/cancel?programSlug=${encodeURIComponent(programSlug)}` : null);
   const view = loaded.state === "ok" ? loaded.data : null;
+  useEffect(() => { if (focusStatus.current && view && view.state !== "open") { focusStatus.current = false; statusRef.current?.focus(); } }, [view]);
 
   if (!me) return null;
   const head = <PageTitle back={{ href: SETTINGS, label: "Geschäft" }} title="Programm beenden" lead={view?.state === "open" ? "Prüfe die drei Angaben. Wir bestätigen dir das Enddatum per E-Mail." : undefined} />;
@@ -92,6 +96,7 @@ export default function CancelProgrammePage() {
       await refresh();
       if (withdraw) { setFlash("Kündigung zurückgenommen"); router.push(SETTINGS); return; }
       setSaving(false);
+      focusStatus.current = true;
       reload();
     } catch (cause) {
       setSaving(false);
@@ -105,9 +110,11 @@ export default function CancelProgrammePage() {
     }
   }
   async function copy() {
-    if (await copyText(view!.customerText)) setCopied(true); else setFailure({ kind: "retry", message: "Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell." });
+    if (await copyText(view!.customerText)) setCopied(true); else setFailure({ kind: "copy", message: "Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell." });
   }
   const failed = failure && (failure.kind === "retry" || failure.kind === "rate") && <Notice tone="danger" role="alert"><strong>Nicht gespeichert</strong> {failure.message}</Notice>;
+  // A failed copy saved nothing and lost nothing: its own line, not „Nicht gespeichert“.
+  const copyFailed = failure?.kind === "copy" && <Notice tone="warn" role="alert">{failure.message}</Notice>;
 
   // A final refusal replaces the page with no retry line: an ended programme goes to its ended page, a missing one stands alone.
   if (failure?.kind === "ended") { router.replace("/merchant"); return null; }
@@ -127,12 +134,16 @@ export default function CancelProgrammePage() {
       <div className="ow-qend">
         <div className="ow-q">
           {/* Design: a check in the warn tint; an end is a fact to plan for, not a success. */}
-          <Notice tone="warn" role="status" icon="check">
-            <strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong>
-            {view.state === "later"
-              ? " So haben wir es mit dir vereinbart. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal."
-              : ` Deine Kündigung ist bei uns eingegangen. Dein Programm endet am ${view.endDateText}. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal.`}
-          </Notice>
+          <div ref={statusRef} tabIndex={-1} className="ow-qstatus">
+            <Notice tone="warn" role="status" icon="check">
+              {view.state === "planned"
+                ? <><strong>Dein Programm endet am {view.endDateText}.</strong> So haben wir es mit dir vereinbart.</>
+                : <><strong>{view.state === "later" ? `Neues Enddatum: ${view.endDateText}` : `Gekündigt am ${view.requestedOn}`}</strong>
+                  {view.state === "later"
+                    ? " So haben wir es mit dir vereinbart. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal."
+                    : ` Deine Kündigung ist bei uns eingegangen. Dein Programm endet am ${view.endDateText}. Die Bestätigung haben wir dir per E-Mail geschickt. Bis dahin läuft alles normal.`}</>}
+            </Notice>
+          </div>
           <Facts facts={view.facts} />
           {view.locations && <p className="ow-qnote">{view.locations}</p>}
           <div className="ow-qpanel ow-field">
@@ -141,8 +152,9 @@ export default function CancelProgrammePage() {
             <p id="ow-cancel-hint" className="ow-hint">Diesen Text kannst du an der Kasse aushängen oder an deine Kunden schicken. Wir schicken nichts an deine Kunden.</p>
             <div><button type="button" className="ow-btn ow-btn--primary" onClick={() => void copy()}>{copied ? "Text kopiert" : "Text kopieren"}</button></div>
           </div>
-          {failed}
-          <button type="button" className="ow-qlink" disabled={saving} onClick={() => { setFailure(null); setAsking(true); }}>Kündigung zurücknehmen</button>
+          {failed}{copyFailed}
+          {/* A planned end was agreed with the operator; the owner did not cancel, so there is nothing to take back here. */}
+          {view.state !== "planned" && <button type="button" className="ow-qlink" disabled={saving} onClick={() => { setFailure(null); setAsking(true); }}>Kündigung zurücknehmen</button>}
         </div>
         <CustomerPreview view={view} />
       </div>

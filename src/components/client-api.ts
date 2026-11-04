@@ -17,7 +17,9 @@ export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ALREADY_O
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.
   "INVALID_LOGO",
   // German in the programme settings; contact verification sends it in English, but that page shows its own state instead.
-  "INVALID_CHALLENGE"]);
+  "INVALID_CHALLENGE",
+  // ENG-167 operator end-date sheets: every message with these codes is German and names the date to use.
+  "INVALID_RECEIVED_AT", "END_DATE_EARLIER", "END_CONSENT_REQUIRED", "NOT_BILLING_MONTH_END"]);
 
 // The pick-time check's own line, before anything reaches the server.
 export const LOGO_INVALID = "Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.";
@@ -138,6 +140,8 @@ export type MeResponse = {
   cancellationEndDate?: string | null;
   /** True once the operator has confirmed the end date; before that it is provisional. */
   cancellationConfirmed?: boolean;
+  /** An end the operator set without a request from the shop (Design: shown as agreed, never as „Gekündigt“). */
+  cancellationPlanned?: boolean;
   rewardTitle: string;
   rewardCost: number;
   stats?: { members: number; awards: number; redemptions: number; periodLabel?: string };

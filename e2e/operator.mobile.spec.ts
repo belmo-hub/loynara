@@ -35,4 +35,20 @@ test("the operator page fits a 375 px phone", async ({ page }) => {
     await expect(sheet).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   }
+  // ENG-167 (Design blocking 1): the end-date sheet's own content fits the narrowest phones; the page check alone missed it.
+  const ending = page.getByRole("button", { name: /^Datum (bestätigen|ändern)$/ }).first();
+  if (await ending.count()) {
+    for (const width of [320, 375, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      await ending.click();
+      const sheet = page.getByRole("dialog");
+      await expect(sheet).toBeVisible();
+      await sheet.getByText(/Späteres Ende/).click().catch(() => {}); // the later ends, where the longest labels are
+      const overflow = await sheet.evaluate(dialog => [dialog, ...dialog.querySelectorAll("*")].filter(e => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== "visible").length
+        + Math.max(0, dialog.scrollWidth - dialog.clientWidth));
+      expect(overflow, `end-date sheet at ${width} px`).toBe(0);
+      await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
+    }
+  }
 });

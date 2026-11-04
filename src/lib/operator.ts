@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
+import { contractBasis, nextBillingMonthEnd } from "./contract-end";
 import { operatorCancellations } from "./contract-end-view";
+import { earliestEndDate } from "./operator-date";
 import { freeMonthsEndingSoon } from "./free-month-reminder";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
@@ -70,6 +72,12 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
     const freeMonths = await freeMonthsEndingSoon();
     // ENG-167: one entry per business with its facts and the end-date choices (lib/contract-end-view).
     const cancellations = await operatorCancellations(new Date(now), env);
-    return { awaiting, billing, guarantees, freeMonths, cancellations, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    // „Enddatum setzen“ hint (Design): the next end the billing-month guard accepts, for billed shops; any day otherwise.
+    const nextEnds = new Map<string, string | null>();
+    for (const tenantId of new Set(rows.map(row => row.tenantId))) {
+      const basis = await contractBasis(tenantId);
+      nextEnds.set(tenantId, basis?.billed ? nextBillingMonthEnd(earliestEndDate(new Date(now)), basis.anchorDay) : null);
+    }
+    return { awaiting, billing, guarantees, freeMonths, cancellations, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], nextEnd: nextEnds.get(row.tenantId) ?? null, confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

@@ -188,6 +188,12 @@ describe("the owner's „Programm beenden“ view (ENG-167 b)", () => {
     expect(await view(s, "2026-11-03T10:00:00Z")).toMatchObject({ state: "later", endDateText: "27.12.2026", facts: { lastInvoice: { value: "28.11.2026 · 98\u00a0€" } } });
   });
 
+  it("an end the operator set without a request is shown as agreed, with its facts, never as open (Design blocking 6)", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    await pool.query("UPDATE programs SET cancellation_end_date = '2026-12-27', cancellation_confirmed_at = now() WHERE tenant_id = $1", [s.tenantId]);
+    expect(await view(s, "2026-11-03T10:00:00Z")).toMatchObject({ state: "planned", endDateText: "27.12.2026", requestedOn: null, reason: null, facts: { lastDay: { value: "27.12.2026" } } });
+  });
+
   it("answers only the shop's owner, like a missing programme otherwise", async () => {
     const s = await shop("2026-08-28", "2026-09-28");
     const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1", [s.tenantId])).rows;
@@ -217,11 +223,49 @@ describe("the operator's „Kündigungen“ (ENG-167 b)", () => {
     expect(entry.withdrawal).toBe("Das Programm von Café Lindenblatt läuft dann ohne Enddatum weiter. Die Abrechnung bleibt: nächste Rechnung am 28.11.2026, 98 €. Das Geschäft bekommt eine E-Mail.");
   });
 
-  it("in the free month: the one binding date, „Stripe-Abo beendet“, no deadline badge (Legal, C31, C41)", async () => {
+  it("in the free month: the one binding date, no deadline badge; C31 only on the last free day, C42 at request + 14 (Design blocking 8)", async () => {
     const s = await shop("2026-10-20", "2026-11-20", { name: "Barbier Nord" });
     await cancel(s, "2026-11-12T10:00:00Z");
-    const [entry] = plainAll(await operatorCancellations(at("2026-11-12T12:00:00Z"), {}));
-    expect(entry).toMatchObject({ freeMonth: true, deadline: null, badge: "gekündigt zum 26.11.2026", factsLine: "heute angefragt · kostenloser Monat · keine Rechnung · Stripe-Abo beendet · Export bis 26.12.2026" });
-    expect(entry.choices.map((choice: { label: string }) => choice.label)).toEqual(["26.11.2026 · Ende des kostenlosen Monats · keine Rechnung"]);
+    const [late] = plainAll(await operatorCancellations(at("2026-11-12T12:00:00Z"), {}));
+    expect(late).toMatchObject({ freeMonth: true, deadline: null, badge: "gekündigt zum 26.11.2026" });
+    expect(late.choices.map((choice: { label: string }) => choice.label)).toEqual(["26.11.2026 · Wie gekündigt · keine Rechnung"]);
+    const early = await shop("2026-10-21", "2026-11-20", { name: "Barbier Süd" });
+    await cancel(early, "2026-11-01T10:00:00Z");
+    const entries = plainAll(await operatorCancellations(at("2026-11-01T12:00:00Z"), {}));
+    expect(entries.find((entry: { tenant: string }) => entry.tenant === "Barbier Süd").choices.map((choice: { label: string }) => choice.label)).toEqual(["19.11.2026 · Ende des kostenlosen Monats · keine Rechnung"]);
+  });
+
+  it("C41 „Stripe-Abo beendet“ only once Stripe holds the end; until then a danger flag, so a failed cancel shows (Design should-fix)", async () => {
+    const s = await shop("2026-10-20", "2026-11-20", { name: "Barbier Nord" });
+    await cancel(s, "2026-11-12T10:00:00Z");
+    const [failed] = plainAll(await operatorCancellations(at("2026-11-12T12:00:00Z"), {}));
+    expect(failed).toMatchObject({ stripeNotEnded: true, factsLine: "heute angefragt · kostenloser Monat · keine Rechnung · Export bis 26.12.2026" });
+    await pool.query("UPDATE subscriptions SET billing_ends_at = '2026-11-19T20:00:00Z' WHERE tenant_id = $1", [s.tenantId]);
+    const [held] = plainAll(await operatorCancellations(at("2026-11-12T12:00:00Z"), {}));
+    expect(held).toMatchObject({ stripeNotEnded: false, factsLine: "heute angefragt · kostenloser Monat · keine Rechnung · Stripe-Abo beendet · Export bis 26.12.2026" });
+  });
+
+  it("after an agreed later end: „Wie bisher“ without consent first, then later ends with consent, nothing earlier (Design blocking 3)", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    await cancel(s, "2026-11-01T10:00:00Z");
+    await pool.query("UPDATE programs SET cancellation_end_date = '2026-12-27' WHERE tenant_id = $1", [s.tenantId]);
+    await pool.query("INSERT INTO programme_cancellation_events (tenant_id, program_id, action, actor_user_id, old_end_date, new_end_date) SELECT tenant_id, id, 'schedule', 'synthetic-operator', '2026-11-27', '2026-12-27' FROM programs WHERE tenant_id = $1", [s.tenantId]);
+    const [entry] = plainAll(await operatorCancellations(at("2026-11-03T10:00:00Z"), {}));
+    expect(entry.choices.map((choice: { label: string; consent: boolean; endDate: string }) => [choice.endDate, choice.label, choice.consent])).toEqual([
+      ["2026-12-27", "27.12.2026 · Wie bisher · 28.11.2026 · 49 €", false],
+      ["2027-01-27", "27.01.2027 · Eine Rechnung mehr: 28.12.2026, 49 €", true],
+      ["2027-02-27", "27.02.2027 · Zwei Rechnungen mehr: 28.12.2026 und 28.01.2027, je 49 €", true],
+      ["2027-03-27", "27.03.2027 · Drei Rechnungen mehr: 28.12.2026, 28.01.2027 und 28.02.2027, je 49 €", true],
+    ]);
+  });
+
+  it("an unbilled shop (live billing off) owes nothing for a later end: „keine Rechnung“, never „0 Rechnungen mehr“ (Design blocking 4)", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    await pool.query("UPDATE subscriptions SET free_until = NULL, provider_subscription_id = NULL, provider = 'none' WHERE tenant_id = $1", [s.tenantId]);
+    await cancel(s, "2026-11-01T10:00:00Z");
+    const [entry] = plainAll(await operatorCancellations(at("2026-11-03T10:00:00Z"), {}));
+    expect(entry.choices).toHaveLength(4);
+    for (const choice of entry.choices.slice(1)) expect(choice.label).toMatch(/^\d\d\.\d\d\.\d{4} · keine Rechnung$/);
+    expect(JSON.stringify(entry.choices)).not.toContain("0 Rechnungen");
   });
 });

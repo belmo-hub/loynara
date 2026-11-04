@@ -124,7 +124,7 @@ it("lists owner-requested and operator-scheduled cancellations, dry run changes 
   expect((await getCard(asked.member.cardToken)).endsOn).toBe("2026-10-31");
   const refused = await postProgramme({ programId: asked.program.id, endDate: d1, execute: true }, operator.cookie);
   expect(refused.status).toBe(400);
-  expect(await refused.json()).toMatchObject({ code: "CONSENT_REQUIRED" });
+  expect(await refused.json()).toMatchObject({ code: "END_CONSENT_REQUIRED" });
   expect((await postProgramme({ programId: asked.program.id, endDate: d1, consent: true, execute: true }, operator.cookie)).status).toBe(200);
   expect(await row(asked.program.id)).toMatchObject({ endDate: d1, confirmed: true });
   expect((await getCard(asked.member.cardToken)).endsOn).toBe(d1);

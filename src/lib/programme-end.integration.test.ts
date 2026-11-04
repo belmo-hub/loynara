@@ -97,7 +97,7 @@ describe("owner request and withdrawal", () => {
     expect(await status()).toMatchObject({ state: "requested", end: "2026-10-31" });
     expect(await mails()).toEqual([{ event: "received", end: "2026-10-31" }]);
     expect(await code(() => operate("2026-10-30"))).toBe("END_DATE_EARLIER");
-    expect(await code(() => operate("2026-11-30"))).toBe("CONSENT_REQUIRED");
+    expect(await code(() => operate("2026-11-30"))).toBe("END_CONSENT_REQUIRED");
     await operate("2026-10-31"); // keeping the date acknowledges it and sends nothing
     expect(await status()).toMatchObject({ state: "confirmed", end: "2026-10-31" });
     await operate("2026-11-30", true); // later, with the shop's consent: the card follows and M2 goes out

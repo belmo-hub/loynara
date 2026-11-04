@@ -1,9 +1,10 @@
 "use client";
 
 import { MapPin, Palette } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
+import { clearFlash, peekFlash } from "@/components/owner/flash";
 import { MORE_HREF } from "@/components/owner/nav";
 import { useOwner } from "@/components/owner/owner-context";
 import { MoreLabel, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
@@ -15,6 +16,9 @@ import { useLoad } from "@/components/owner/use-load";
 /** Geschäft (ENG-122c, screen 13): the card's names, the active location, the weekly report, and „Programm beenden“ last. */
 export default function MerchantSettingsPage() {
   const { me, locations, hiddenSurfaces } = useOwner();
+  // O7: „Kündigung zurückgenommen“ is shown here, where the withdrawal returns, and read only once.
+  const [flash] = useState(() => peekFlash());
+  useEffect(() => { clearFlash(); }, []);
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Geschäft" lead="Name, Standort und Zugang für deine Kunden." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
@@ -22,6 +26,7 @@ export default function MerchantSettingsPage() {
   return (
     <div className="ow-page">
       {head}
+      {flash && <div role="status"><Notice tone="ok">{flash}</Notice></div>}
       <CancellationNotice me={me} />
       <div className="ow-prog">
         <Rows title="Dein Geschäft">

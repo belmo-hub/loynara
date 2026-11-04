@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { memberships, programmeCancellationEvents, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { addDays, EXPORT_DAYS_AFTER_END, germanDate, MIN_NOTICE_DAYS } from "./programme-end-date";
-import { contractBasis, noticeEnd } from "./contract-end";
+import { contractBasis, contractFacts, factsLines, noticeEnd } from "./contract-end";
+import { vatMode } from "./stripe-config";
 import { queueContractEndEmail } from "./contract-end-email";
 import { assertBillingMonthEnd, syncShopEnd } from "./billing-stripe";
 import { assertPlateOperator, unlinkProgrammePlates } from "./plates";
@@ -149,8 +150,8 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
   const [shop] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, input.programId));
   // Review N-1 (CTO): an e-mail entered weeks late gives an end that has passed, and the end job would end every location
   // within a minute. One older than the 14-day notice window is entered only on an explicit flag, after speaking with the shop.
+  const berlin = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at);
   if (input.command === "request" && !input.acceptLateEntry) {
-    const berlin = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(at);
     if (berlin(receivedAt!) < addDays(berlin(now), -MIN_NOTICE_DAYS)) throw new DomainError("LATE_ENTRY", `Diese E-Mail kam vor mehr als ${MIN_NOTICE_DAYS} Tagen an, ihr Vertragsende kann schon vorbei sein. Nur nach Rücksprache mit dem Geschäft eintragen.`);
   }
   // G-1 (Legal): only the last day of a billing month, or a free-month cancellation's notice end, can drive Stripe (read once, outside the lock).
@@ -169,7 +170,7 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     const requested = active.some(program => program.requested !== null);
     // Legal (1 Nov): a confirmation keeps the binding date or moves it later with the shop's consent, never earlier.
     if (requested && current && input.endDate! < current) throw new DomainError("END_DATE_EARLIER", `Das Ende kann nicht vor dem gekündigten Tag liegen (${germanDate(current)}).`);
-    if (requested && current && input.endDate! > current && input.consent !== true) throw new DomainError("CONSENT_REQUIRED", "Ein späteres Ende braucht die Zustimmung des Geschäfts in Textform.");
+    if (requested && current && input.endDate! > current && input.consent !== true) throw new DomainError("END_CONSENT_REQUIRED", "Ein späteres Ende braucht die Zustimmung des Geschäfts in Textform.");
     const moved = current !== input.endDate;
     await tx.update(programs).set({ cancellationEndDate: input.endDate, cancellationConfirmedAt: new Date() }).where(and(eq(programs.tenantId, row.tenantId), eq(programs.status, "active")));
     // "confirm" keeps the date a request set; "schedule" sets the operator's own date or moves one later.
@@ -191,7 +192,10 @@ export async function operatorProgramme(input: { actorUserId: string; env: Env; 
     if (input.command === "request" && shop) {
       const basis = await contractBasis(shop.tenantId);
       const requestDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(receivedAt!);
-      return { result: "would_request" as const, ...row, endDate: basis ? noticeEnd({ requestDay, anchorDay: basis.anchorDay, lastFreeDay: basis.lastFreeDay }).endDate : null };
+      const endDate = basis ? noticeEnd({ requestDay, anchorDay: basis.anchorDay, lastFreeDay: basis.lastFreeDay }).endDate : null;
+      // The preview shows the three facts and whether the end has already passed (Design, blocking 5).
+      const facts = endDate ? await contractFacts(shop.tenantId, endDate, now, requestDay) : null;
+      return { result: "would_request" as const, ...row, endDate, past: !!endDate && endDate < berlin(now), facts: facts ? factsLines(facts, vatMode(), input.env) : null };
     }
     return { result: `would_${input.command}` as const, ...row, endDate: input.endDate };
   }

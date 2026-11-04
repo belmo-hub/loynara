@@ -65,6 +65,18 @@ describe("Programm beenden (ENG-167, Design's spec with Legal's answers)", () =>
     expect(html).toContain("Deine Kunden sehen das Enddatum ab dem Moment, in dem du kündigst.");
   });
 
+  it("a planned end (no request): the agreed date and its facts, focusable for the move after cancelling, and no withdrawal (Design 6, 9)", () => {
+    const html = page({ state: "ok", data: view({ state: "planned", endDateText: "27.12.2026" }) });
+    expect(html).toContain("Dein Programm endet am 27.12.2026.");
+    expect(html).toContain("So haben wir es mit dir vereinbart.");
+    expect(html).toContain("Letzter Tag");
+    expect(html).not.toContain("Gekündigt am");
+    expect(html).not.toContain("Kündigung zurücknehmen");
+    expect(html).not.toContain("Ja, Programm beenden");
+    // The status the focus moves to after „Ja, Programm beenden“ (blocking 9).
+    expect(page({ state: "ok", data: view({ state: "cancelled", requestedOn: "01.11.2026" }) })).toMatch(/<div tabindex="-1" class="ow-qstatus">/);
+  });
+
   it("loading and a failed read; staff see the owner-only notice and nothing is loaded", () => {
     expect(page({ state: "loading" })).toContain("ow-skel");
     expect(page({ state: "error", message: "Das hat gerade nicht geklappt." })).toContain("Das hat gerade nicht geklappt.");

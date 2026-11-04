@@ -7,7 +7,7 @@ import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
-import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
+import { addDays, germanDate, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
 /**
@@ -444,11 +444,11 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
   // A cancellation from the free month: exactly its notice end, or a later billing-month end the shop agreed to; never earlier.
   const freeLast = await freeMonthRequestEnd(db, sub);
   if (freeLast && endDate === freeLast) return;
-  if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
+  if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${germanDate(freeLast)} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
   // One rule for every billing-month end (contract-end.ts, bounded; review #211 N-4).
   if (isBillingMonthEnd(endDate, day)) return;
   const next = nextBillingMonthEnd(endDate, day);
-  throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
+  throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${germanDate(next)}.`);
 }
 
 /** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */

@@ -934,10 +934,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-fact dd span { color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qend .ow-qnote { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-fill); text-wrap: pretty; }
 .ow-qaside { display: none; }
+.ow-qstatus:focus { outline: none; }
+.ow-qstatus:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-md); }
 .ow-endcard p + p { margin-top: var(--space-1); color: var(--color-ink-muted); }
 @media (min-width: 1024px) {
   .ow-qend { display: grid; grid-template-columns: minmax(0, 36rem) minmax(0, 22rem); gap: var(--space-8); align-items: start; }
   .ow-qend .ow-qsave .ow-btn { width: auto; }
-  .ow-qend .ow-qsave--pair { justify-items: start; }
+  .ow-qend .ow-qsave--pair { grid-auto-flow: column; justify-content: start; }
   .ow-qaside { display: grid; gap: var(--space-2); position: sticky; top: var(--space-6); }
 }
