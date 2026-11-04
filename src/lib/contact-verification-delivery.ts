@@ -5,6 +5,7 @@ import { contactVerificationChallenges, membershipContacts, memberships, outboxJ
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { syntheticAddress, type LocalSender } from "./email";
 import { operatorIdentity } from "./operator-identity";
+import { senderName } from "./sender-details";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
 
 const payloadSchema = z.object({ membershipId: z.uuid(), challengeId: z.uuid() }).strict();
@@ -50,11 +51,13 @@ export async function deliverVerificationEmail(
     const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${shop}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
     const message = challenge.marketing ? {
       to: challenge.email,
+      fromName: senderName(shop),
       subject: `Bitte bestätige: E-Mails von ${shop}`,
       body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
       jobId: job.id,
     } : {
       to: challenge.email,
+      fromName: senderName(shop),
       subject: "E-Mail-Adresse für Loynara bestätigen",
       body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.${footer}`,
       jobId: job.id,
