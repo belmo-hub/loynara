@@ -278,6 +278,29 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(await db.select().from(consentEvents)).toHaveLength(0);
   });
 
+  it("refuses a crafted marketing request while promotional email is off and stores no consent (D11, ENG-171)", async () => {
+    const { member } = await card();
+    await pool.query("DELETE FROM rate_limits");
+    const saved = process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED;
+    // Without a promotional Mailgun configuration this switches promotional mail off; recovery mail still goes to Mailpit.
+    process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = "true";
+    try {
+      const post = (body: unknown) => contactRoute(new Request(`http://localhost:3000/api/card/${member.cardToken}/contact`, {
+        method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body),
+      }), { params: Promise.resolve({ token: member.cardToken }) });
+      const refused = await post({ email: `crafted-${randomUUID()}@example.test`, marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION });
+      expect(refused.ok).toBe(false);
+      expect(await refused.json()).toMatchObject({ code: "CONTACT_DISABLED" });
+      expect(await db.select().from(consentEvents)).toEqual([]);
+      expect(await db.select().from(contactVerificationChallenges)).toEqual([]);
+      expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"))).toEqual([]);
+      // The same card can still save a recovery address.
+      expect((await post({ email: `recovery-${randomUUID()}@example.test` })).status).toBe(200);
+    } finally {
+      if (saved === undefined) delete process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED; else process.env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED = saved;
+    }
+  });
+
   it("writes this card's marketing withdrawal, in its own tenant, when the address is removed (D7, ENG-170)", async () => {
     const { member, merchant } = await card();
     await removeRecoveryEmail(member.cardToken);
