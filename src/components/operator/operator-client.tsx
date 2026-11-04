@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import QRCode from "qrcode";
 import { AlertCircle, ScanLine } from "lucide-react";
 import { QrScanner } from "@/components/qr-scanner";
@@ -140,6 +140,10 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [acceptPast, setAcceptPast] = useState(false);
   const [sheetError, setSheetError] = useState("");
   const picked = ending?.choices.find(c => c.endDate === choice) ?? null;
+  // Design: after the dry run focus moves to what needs doing next, the consent tick or the preview, never to <body>.
+  const consentRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (checked) (checked.consent ? consentRef.current : previewRef.current)?.focus(); }, [checked]);
   const openEnding = (c: Cancellation) => { setEnding(c); setChoice(c.endDate); setConsent(false); setChecked(null); setSheetError(""); };
   const closeSheets = () => { setEnding(null); setChecked(null); setWithdrawing(null); setEntry(null); setEntryEnd(null); setPastEnd(false); setAcceptPast(false); setSheetError(""); };
   async function operate(body: Record<string, unknown>, after: () => void) {
@@ -401,16 +405,16 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             </label>)}
           </details> : null}
         </fieldset>
-        {checked ? <div role="status" style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--color-line, currentColor)", borderRadius: "var(--radius-md)" }}>
+        {checked ? <div ref={previewRef} tabIndex={-1} role="status" style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--color-line, currentColor)", borderRadius: "var(--radius-md)" }}>
           <p>Von <strong>{ending.badge}</strong> zu <strong>bestätigt bis {checked.facts.lastDay.value}</strong></p>
           <p>Letzte Rechnung: {checked.facts.lastInvoice.value}</p>
           <p>Export bis {checked.facts.exportUntil.value}</p>
           {checked.endDate !== ending.endDate ? <p>Das Geschäft bekommt die Änderung per E-Mail.</p> : null}
-          {checked.consent ? <Checkbox checked={consent} onChange={event => setConsent(event.target.checked)}>Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</Checkbox> : null}
+          {checked.consent ? <Checkbox ref={consentRef} checked={consent} onChange={event => setConsent(event.target.checked)}>Das Geschäft hat diesem späteren Ende in Textform zugestimmt.</Checkbox> : null}
         </div> : null}
         {sheetError ? <p role="alert">{sheetError}</p> : null}
         {checked ? <Button loading={busy} disabled={checked.consent && !consent} onClick={() => void confirmEnd()}>Bestätigen</Button>
-          : <Button loading={busy} disabled={!choice} onClick={() => void checkEnd()}>Prüfen</Button>}
+          : <Button loading={busy} disabled={!choice || (ending.acknowledged && choice === ending.endDate)} onClick={() => void checkEnd()}>Prüfen</Button>}
         <Button variant="quiet" block onClick={() => { setWithdrawing(ending); setEnding(null); setSheetError(""); }}>Kündigung zurücknehmen (auf Wunsch des Geschäfts)</Button>
       </div> : null}
     </Sheet>

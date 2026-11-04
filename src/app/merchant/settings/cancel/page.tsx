@@ -58,7 +58,8 @@ function CustomerPreview({ view }: { view: View }) {
         <p><strong>{customerCardCopy.endsOn(long)}</strong></p>
         <p>{customerCardCopy.endsWindow(view.unit === "Punkte")}</p>
       </div>
-      <p className="ow-hint">Deine Kunden sehen das Enddatum ab dem Moment, in dem du kündigst.</p>
+      {/* C37 is about the owner's own cancellation; a planned end was never cancelled by them (Design). */}
+      {view.state !== "planned" && <p className="ow-hint">Deine Kunden sehen das Enddatum ab dem Moment, in dem du kündigst.</p>}
     </aside>
   );
 }

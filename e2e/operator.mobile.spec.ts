@@ -50,5 +50,14 @@ test("the operator page fits a 375 px phone", async ({ page }) => {
       await page.keyboard.press("Escape");
       await expect(sheet).toBeHidden();
     }
+    // Design: after „Prüfen“ on a later end, focus lands on the consent tick, never on <body>.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await ending.click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByText(/Späteres Ende/).click();
+    await sheet.getByRole("radio").nth(1).check();
+    await sheet.getByRole("button", { name: "Prüfen" }).click();
+    await expect(sheet.getByRole("checkbox", { name: /in Textform zugestimmt/ })).toBeFocused();
+    await page.keyboard.press("Escape");
   }
 });

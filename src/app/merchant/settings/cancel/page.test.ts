@@ -73,6 +73,7 @@ describe("Programm beenden (ENG-167, Design's spec with Legal's answers)", () =>
     expect(html).not.toContain("Gekündigt am");
     expect(html).not.toContain("Kündigung zurücknehmen");
     expect(html).not.toContain("Ja, Programm beenden");
+    expect(html).not.toContain("ab dem Moment, in dem du kündigst");
     // The status the focus moves to after „Ja, Programm beenden“ (blocking 9).
     expect(page({ state: "ok", data: view({ state: "cancelled", requestedOn: "01.11.2026" }) })).toMatch(/<div tabindex="-1" class="ow-qstatus">/);
   });
