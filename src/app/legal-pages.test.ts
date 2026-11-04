@@ -18,6 +18,7 @@ describe("customer legal pages", () => {
   it("privacy notice uses the recovery email only to recover the card (ENG-171, push only)", () => {
     const html = renderToStaticMarkup(createElement(DatenschutzPage));
     expect(html).toContain("keine Einwilligung in Werbung");
+    expect(html).toContain(">Optionale Wiederherstellungsadresse</h2>");
     expect(html).toContain("nur für diesen Zweck verwendet");
     expect(html).not.toContain("e-mail-angebote");
   });
