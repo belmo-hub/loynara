@@ -33,7 +33,7 @@ const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.
 /** What a confirmation link asks for: with the consent it carries the box text's version, or the resend would turn it into a recovery-only link. */
 // A failed setting (decline, unsubscribe, remove) sent nothing: the server's own German text, else Marketing's line, never "not sent".
 const SAVE_FAILED = "Das konnten wir gerade nicht speichern. Es bleibt alles wie vorher. Versuche es gleich noch einmal.";
-const actionError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || (cause.code !== undefined && GERMAN_SERVER_TEXT.has(cause.code))) ? cause.message : SAVE_FAILED;
+export const actionError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || (cause.code !== undefined && GERMAN_SERVER_TEXT.has(cause.code))) ? cause.message : SAVE_FAILED;
 export const linkRequest = (marketing: boolean) => marketing ? { marketing: true, noticeVersion: EMAIL_CONSENT_TEXT_VERSION } : {};
 
 /** Moves focus to the step's `[data-focus]` element whenever `step` changes, so it never falls back to the page. */
