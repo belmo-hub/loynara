@@ -92,14 +92,15 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
 // and the toast's words when a save did more than save („Neuigkeit entfernt“).
 type Return = { row: string; y?: number; saved?: boolean; toast?: string };
 const RETURN = "owner-programm-return";
-function readReturn(): Return | null {
-  try { const value = JSON.parse(sessionStorage.getItem(RETURN) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
+/** `list` names another list's return (Geschäft's sender rows, ENG-164); Programm's by default. */
+export function readReturn(list = RETURN): Return | null {
+  try { const value = JSON.parse(sessionStorage.getItem(list) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
 }
-function writeReturn(value: Return | null) {
-  try { if (value) sessionStorage.setItem(RETURN, JSON.stringify(value)); else sessionStorage.removeItem(RETURN); } catch { /* storage may be unavailable */ }
+export function writeReturn(value: Return | null, list = RETURN) {
+  try { if (value) sessionStorage.setItem(list, JSON.stringify(value)); else sessionStorage.removeItem(list); } catch { /* storage may be unavailable */ }
 }
 /** A row's page saved: the list outlines `row` and says `toast`, scrolled as when the owner tapped `from`. */
-export function markSaved(row: string, from = row, toast = "Gespeichert") { const last = readReturn(); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }); }
+export function markSaved(row: string, from = row, toast = "Gespeichert", list = RETURN) { const last = readReturn(list); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }, list); }
 
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {

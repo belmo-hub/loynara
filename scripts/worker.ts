@@ -111,6 +111,21 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "email.contract_end") {
+    try {
+      const { deliverContractEndEmail } = await import("../src/lib/contract-end-email");
+      const result = await deliverContractEndEmail(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Contract-end email failed", permanent ? 0 : delay);
+      console.error(`Contract-end email job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind === "email.free_month") {
     try {
       const { deliverFreeMonthReminder } = await import("../src/lib/free-month-reminder");

@@ -1,14 +1,14 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, emailUnsubscribes, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, emailUnsubscribes, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
 import { promotionalEmailMode, promotionalProvider, recipientHashes, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails, senderAddressMissing } from "./promotion-policy";
 import { contentRefusal } from "./wallet-message-rules";
-import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
 
 const DAILY_QUOTA = 100;
 const AUDIENCE_PAGE_SIZE = 500;
@@ -172,6 +172,7 @@ export async function scheduleCampaign(raw: { actorUserId: string; campaignId: s
   return db.transaction(async tx => {
     const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx, true);
     if (campaign.status !== "draft" && campaign.status !== "paused") throw new DomainError("CAMPAIGN_LOCKED", "Only draft or paused campaigns can be scheduled");
+    requireSenderDetails(await programSender(tx, campaign.tenantId, campaign.programId));
     const revision = campaign.scheduleRevision + 1;
     await tx.update(campaigns).set({ status: "scheduled", scheduledAt: input.scheduledAt, audienceAsOf: input.scheduledAt, scheduleRevision: revision, updatedAt: now }).where(eq(campaigns.id, campaign.id));
     await tx.insert(outboxJobs).values({ tenantId: campaign.tenantId, kind: "campaign.dispatch", payload: { campaignId: campaign.id, scheduleRevision: String(revision) }, nextAttemptAt: input.scheduledAt });
@@ -280,6 +281,8 @@ export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ 
     if (!owner) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Queueing owner no longer authorized" }; }
     // Rechecked here for drafts saved before the rule existed.
     if (contentRefusal(campaign.subject) ?? contentRefusal(campaign.body)) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Campaign text breaks the content rules" }; }
+    // A campaign scheduled before the sender details became required (or emptied since) reserves no quota and queues nothing.
+    if (senderAddressMissing(await programSender(tx, campaign.tenantId, campaign.programId))) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Sender details missing" }; }
     const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, campaign.programId), eq(programs.tenantId, campaign.tenantId), eq(programs.status, "active"))).limit(1);
     if (!program) return { status: "blocked" as const, reason: "Programme unavailable" };
     const monthlyUsed = await monthlyLocationUsage(tx, campaign.tenantId, program.locationId, now, true);
@@ -345,14 +348,14 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
     } catch { return suppress("Audience could not be rechecked"); }
     const classified = await classify(campaign.tenantId, campaign.programId, [member.id], tx);
     if (!classified.eligible.length) return suppress(classified.excluded.unsubscribed ? "Unsubscribed" : classified.excluded.suppressed ? "Address suppressed by provider" : classified.excluded.frequency ? "Customer frequency limit" : classified.excluded.noConsent ? "Marketing consent withdrawn" : classified.excluded.nonSynthetic ? "Recipient is not synthetic" : "Contact unavailable or unverified");
-    const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, campaign.tenantId)).limit(1);
-    if (!tenant) return suppress("Merchant unavailable");
-    const timezone = await programTimezone(tx, campaign.tenantId, campaign.programId);
-    if (!timezone) return suppress("Location unavailable");
-    const until = quietHoursDeferral(now, timezone);
-    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const sender = await programSender(tx, campaign.tenantId, campaign.programId);
+    if (!sender) return suppress("Location unavailable");
     const link = unsubscribeUrl({ tenantId: campaign.tenantId, membershipId: member.id, email: classified.eligible[0].email });
-    const message = { to: classified.eligible[0].email, subject: campaign.subject, body: `${campaign.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
+    const signature = marketingSignature(sender, link);
+    if (!signature) return suppress("Shop address missing");
+    const until = quietHoursDeferral(now, sender.timezone);
+    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const message = { to: classified.eligible[0].email, fromName: signature.fromName, subject: campaign.subject, body: `${campaign.body}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
     try {
       if (mode === "mailpit") await send(message);
       else {

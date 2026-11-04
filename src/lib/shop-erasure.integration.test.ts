@@ -19,13 +19,14 @@ import { dueShopErasures, ERASURE_KEEP, reapplyErasures, recordErasureConfirmati
 import { acceptStaffInvite, createStaffInvite } from "./staff";
 
 assertLocalTestDatabaseUrl();
-const envKeys = ["PLATE_OPERATOR_USER_IDS", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "SHOP_ERASURE_DELAY_DAYS"];
+const envKeys = ["PLATE_OPERATOR_USER_IDS", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "SHOP_ERASURE_DELAY_DAYS", "OPERATOR_NAME", "OPERATOR_ADDRESS"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 let operatorId = "";
 beforeEach(async () => {
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices, card_recovery_challenges, secure_tags, plate_link_events, shop_erasures CASCADE');
-  Object.assign(process.env, { SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false" });
+  // The confirmation mail names the operator as sender (ENG-165); without it the card offers no e-mail.
+  Object.assign(process.env, { SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", OPERATOR_NAME: "Synthetic Betreiber", OPERATOR_ADDRESS: "Teststraße 1, 34117 Kassel" });
   delete process.env.SHOP_ERASURE_DELAY_DAYS;
   operatorId = await user("Synthetic operator");
   process.env.PLATE_OPERATOR_USER_IDS = operatorId;
@@ -173,6 +174,8 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     // A plate that moved straight from this shop to the other one: that history is the other shop's too and stays (ids only).
     await pool.query(`INSERT INTO plate_link_events (tag_id, plate_label, action, actor_user_id, old_tenant_id, old_location_id, old_program_id, new_tenant_id, new_location_id, new_program_id)
       SELECT id, plate_label, 'relink', $1, $2, $3, $4, $5, $6, $7 FROM secure_tags WHERE plate_label = $8`, [operatorId, gone.tenantId, gone.locationId, gone.programId, other.tenantId, other.locationId, other.programId, other.plate]);
+    // E16 (ENG-164): both shops carry the sender details that name a person and identify the business.
+    await pool.query("UPDATE tenants SET representative = 'Synthetische Inhaberin', legal_form = 'GmbH', register_court = 'Amtsgericht Kassel', register_number = 'HRB 12345', vat_id = 'DE123456789' WHERE id = ANY($1)", [[gone.tenantId, other.tenantId]]);
     const before = await rowsNaming(gone.tenantId);
     const otherBefore = await rowsNaming(other.tenantId);
     // The fixture reaches the history tables that refuse deletes, so the exemption is exercised for each of them.
@@ -194,6 +197,10 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect(after["plate_link_events.old_tenant_id"]).toBe(1);
     await expect(pool.query("DELETE FROM plate_link_events WHERE old_tenant_id = $1", [gone.tenantId])).rejects.toThrow(/append-only/);
     expect(await rowsNaming(other.tenantId)).toEqual(otherBefore);
+    // E16: the kept tenants row loses every sender detail; the other shop keeps its own.
+    const senderOf = async (tenantId: string) => (await pool.query("SELECT representative, legal_form, register_court, register_number, vat_id FROM tenants WHERE id = $1", [tenantId])).rows[0];
+    expect(await senderOf(gone.tenantId)).toEqual({ representative: null, legal_form: null, register_court: null, register_number: null, vat_id: null });
+    expect(await senderOf(other.tenantId)).toEqual({ representative: "Synthetische Inhaberin", legal_form: "GmbH", register_court: "Amtsgericht Kassel", register_number: "HRB 12345", vat_id: "DE123456789" });
     // No location survives; its plan facts are in the record.
     expect(await db.select().from(locations).where(eq(locations.tenantId, gone.tenantId))).toEqual([]);
     // Logins: the owner's (with its session) and the cashier's are gone (a login holds one role, staff_roles_user_id_uq);

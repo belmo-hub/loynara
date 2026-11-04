@@ -97,7 +97,9 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
   it("moves the panel under the card with its heading, never beside the e-mail offer", () => {
     const source = readFileSync("src/components/card-client.tsx", "utf8");
     expect(source).toContain("{savedView && <CardWalletMessages token={token} expiry={expiry} onShown={setConsentUp} />}");
-    expect(source).toContain("{!(savedView && consentUp) && <CardContact");
+    expect(source).toContain("{french && !(savedView && consentUp) && <CardContact");
+    // ENG-165: one offer under the card at a time; on the saved view the Wallet panel has the slot.
+    expect(source).toContain("{!french && offerShown && !savedView && <EmailOffer");
     expect(source).toContain("{!savedView && <CardWalletMessages token={token} expiry={expiry} />}");
     const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
     // The heading stands on every visit; only the placement under the card is once (Design, 30 Oct).

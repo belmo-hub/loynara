@@ -7,7 +7,8 @@ import { db, pool } from "@/db";
 import { consentEvents, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { closeCard } from "./card-lifecycle";
-import { deliverMarketingEmail, getMarketingPreference, queueMarketingEmail, withdrawMarketingConsent } from "./email";
+import { deliverMarketingEmail, queueMarketingEmail } from "./email";
+import { withdrawEmailMarketing } from "./contact-verification";
 
 const run = promisify(execFile);
 
@@ -45,7 +46,7 @@ describe("local marketing email safety", () => {
     const f = await fixture();
     await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, f.member.id));
     const job = await queueMarketingEmail({ userId: f.ownerId, membershipId: f.member.id, subject: "Test", body: "Lokale Nachricht" });
-    await withdrawMarketingConsent(f.member.cardToken);
+    await withdrawEmailMarketing(f.member.cardToken);
     const events = await db.select().from(consentEvents).where(eq(consentEvents.membershipId, f.member.id)).orderBy(desc(consentEvents.createdAt));
     expect(events[0]?.granted).toBe(false);
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, job.id));
@@ -57,7 +58,7 @@ describe("local marketing email safety", () => {
     const f = await fixture();
     await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, f.member.id));
     const job = await queueMarketingEmail({ userId: f.ownerId, membershipId: f.member.id, subject: "Worker test", body: "Lokale Nachricht" });
-    await withdrawMarketingConsent(f.member.cardToken);
+    await withdrawEmailMarketing(f.member.cardToken);
     await run("./node_modules/.bin/tsx", ["scripts/worker.ts", "--once"], { cwd: process.cwd(), env: process.env, timeout: 10_000 });
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, job.id));
     expect(stored.status).toBe("suppressed");
@@ -81,14 +82,6 @@ describe("local marketing email safety", () => {
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, job.id));
     const result = await deliverMarketingEmail({ id: job.id, tenantId: f.merchant.tenantId, payload: stored.payload }, async () => { throw new Error("Revoked owner must not send"); });
     expect(result.status).toBe("suppressed");
-  });
-
-  it("lets the bearer card token view and withdraw marketing, but rejects the scan code", async () => {
-    const f = await fixture();
-    expect(await getMarketingPreference(f.member.cardToken)).toEqual({ marketingEmail: true });
-    await expect(getMarketingPreference(f.member.scanCode)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await withdrawMarketingConsent(f.member.cardToken);
-    expect(await getMarketingPreference(f.member.cardToken)).toEqual({ marketingEmail: false });
   });
 
   it("does not insert a fresh message after card closure scrubs the outbox", async () => {

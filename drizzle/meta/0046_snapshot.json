@@ -1,5 +1,5 @@
 {
-  "id": "e985a388-d50a-4373-8dba-4eb37f0c3403",
+  "id": "347cdbe3-937a-4fa8-be50-038dfe20d8bf",
   "prevId": "d63645da-60a0-47be-bb17-c9c7b93b8c3e",
   "version": "7",
   "dialect": "postgresql",
@@ -2150,58 +2150,11 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "last_event_at": {
-          "name": "last_event_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.email_unsubscribes": {
-      "name": "email_unsubscribes",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recipient_hash": {
-          "name": "recipient_hash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "email_unsubscribes_tenant_id_recipient_hash_pk": {
-          "name": "email_unsubscribes_tenant_id_recipient_hash_pk",
-          "columns": [
-            "tenant_id",
-            "recipient_hash"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -2519,6 +2472,24 @@
           "type": "varchar(120)",
           "primaryKey": false,
           "notNull": true
+        },
+        "street": {
+          "name": "street",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_phone": {
+          "name": "contact_phone",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false
         },
         "country": {
           "name": "country",
@@ -6290,6 +6261,36 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "representative": {
+          "name": "representative",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legal_form": {
+          "name": "legal_form",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "register_court": {
+          "name": "register_court",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "register_number": {
+          "name": "register_number",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vat_id": {
+          "name": "vat_id",
+          "type": "varchar(14)",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

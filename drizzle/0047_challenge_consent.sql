@@ -1,0 +1,2 @@
+ALTER TABLE "contact_verification_challenges" ADD COLUMN "marketing" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "contact_verification_challenges" ADD COLUMN "notice_version" varchar(32);

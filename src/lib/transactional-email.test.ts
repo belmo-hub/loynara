@@ -109,6 +109,17 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     logged.mockRestore();
   });
 
+  it("sends from the configured address, with the shop's display name only when one is given and never a second header line", async () => {
+    const froms: unknown[] = [];
+    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => { froms.push((options?.body as FormData).get("from")); return Response.json({ id: "<from@example.test>" }); });
+    const provider = mailgunEuProvider(config, request as typeof fetch)!;
+    const message = { to: "holder@example.test", subject: "Offer", body: "Synthetic message", jobId: randomUUID() };
+    await provider.send(message);
+    await provider.send({ ...message, fromName: "Café Müller via Loynara" });
+    await provider.send({ ...message, fromName: 'Bad "Shop"\\\r\nBcc: x@example.test via Loynara' });
+    expect(froms).toEqual(["service@mail.example.test", '"Café Müller via Loynara" <service@mail.example.test>', '"Bad \\"Shop\\"\\\\  Bcc: x@example.test via Loynara" <service@mail.example.test>']);
+  });
+
   it("records accepted sends once and idempotent signed delivery/complaint events, then suppresses future sends", async () => {
     const queued = await job();
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: "<synthetic@example.test>" })) };
@@ -359,7 +370,7 @@ it("records a provider unsubscribe for the sending job's shop only, and leaves r
   expect((await db.select().from(emailUnsubscribes)).some(row => row.tenantId === other.tenantId)).toBe(false);
 });
 
-it("migration 0046 moves an old global unsubscribe to every shop that mailed the address and keeps one no mail explains as a global marketing block", async () => {
+it("migration 0048 moves an old global unsubscribe to every shop that mailed the address and keeps one no mail explains as a global marketing block", async () => {
   // Shop A mailed holder@ and got the unsubscribe event; shop B mailed holder@ too, without one. Nobody mailed orphan@.
   const { queued: a } = await sentJob();
   await recordMailgunWebhook(signed("unsubscribed", a.id));
@@ -368,7 +379,7 @@ it("migration 0046 moves an old global unsubscribe to every shop that mailed the
   await db.delete(emailUnsubscribes);
   // The rows as the old code wrote them.
   await db.insert(emailSuppressions).values([{ recipientHash: mapped, reason: "unsubscribed" }, { recipientHash: orphan, reason: "unsubscribed" }, { recipientHash: hard, reason: "complained" }]);
-  const statements = readFileSync(join(process.cwd(), "drizzle/0046_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
+  const statements = readFileSync(join(process.cwd(), "drizzle/0048_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
   expect(statements).toHaveLength(3);
   for (const statement of statements) await pool.query(statement);
   expect((await db.select().from(emailUnsubscribes)).map(row => [row.tenantId, row.recipientHash]).sort()).toEqual([[a.tenantId, mapped], [b.tenantId, mapped]].sort());

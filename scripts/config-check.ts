@@ -111,6 +111,9 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("NFC key settings are present while NFC is not enabled");
   }
   issues.push(...stripeConfigIssues(env, true));
+  // ENG-167: owner emails (the cancellation's text-form confirmation) carry the operator's name and address. The cancellation
+  // page is withheld on production (pilot-surfaces), but the operator enters e-mailed cancellations, so the email lane decides.
+  if (externalEmailRequested && !(env.OPERATOR_NAME?.trim() && env.OPERATOR_ADDRESS?.trim())) issues.push("OPERATOR_NAME and OPERATOR_ADDRESS (the operator's name and postal address for owner emails) must both be set");
   if (erasureDelayDays(env) === null) issues.push("SHOP_ERASURE_DELAY_DAYS must be a whole number of days from 7 to 3650");
   if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");

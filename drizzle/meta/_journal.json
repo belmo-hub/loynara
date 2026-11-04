@@ -327,8 +327,22 @@
     {
       "idx": 46,
       "version": "7",
-      "when": 1793523633117,
-      "tag": "0046_shop_unsubscribes",
+      "when": 1793522822267,
+      "tag": "0046_sender_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793749608716,
+      "tag": "0047_challenge_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793751426716,
+      "tag": "0048_shop_unsubscribes",
       "breakpoints": true
     }
   ]

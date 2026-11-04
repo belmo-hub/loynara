@@ -183,6 +183,9 @@ jobs:
       MAILPIT_HTTP_ORIGIN: http://127.0.0.1:18149
       E2E_RECOVERY_MAILPIT: http://127.0.0.1:18149
       VAPID_SUBJECT: mailto:nfc-e2e@example.test
+      # Confirmation mails name their sender (Legal, 1 Nov); a synthetic name for the browser tests.
+      OPERATOR_NAME: Synthetic Betreiber
+      OPERATOR_ADDRESS: Teststraße 1, 34117 Kassel
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

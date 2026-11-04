@@ -1,7 +1,9 @@
 import type { Pool } from "pg";
 import { z } from "zod";
 import { pool } from "@/db";
-import { operatorIdentity } from "./billing-stripe";
+import { operatorFooter } from "./operator-footer";
+import { operatorIdentity } from "./operator-identity";
+import { surfaceHidden } from "./pilot-surfaces";
 import { vatMode } from "./stripe-config";
 import { emailTransportMode, sendTransactional, type TransactionalEmailProvider } from "./transactional-email";
 
@@ -58,10 +60,11 @@ export async function deliverFreeMonthReminder(job: { id: string; tenantId: stri
     WHERE s.tenant_id = $1 ORDER BY l.name, l.id
   `, [job.tenantId]);
   if (!locations.length) return { status: "suppressed" as const, reason: "No free-month location" };
-  const operator = await operatorIdentity();
-  if (!operator) return { status: "blocked" as const, reason: "Operator name or address missing in Stripe's public details" };
+  // The footer names the operator as the Impressum does, from the operator's own settings, never Stripe's (CTO).
+  const operator = operatorIdentity();
+  if (!operator) return { status: "blocked" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)" };
   // Reserved by job id before the provider is called: a retried or replayed job never sends a second mail.
-  return sendTransactional({ to: row.email, jobId: job.id, ...freeMonthReminderText({ shop: row.shop, locations, freeUntil: new Date(parsed.data.freeUntil), vat: mode, operator }) }, provider);
+  return sendTransactional({ to: row.email, jobId: job.id, ...freeMonthReminderText({ shop: row.shop, locations, freeUntil: new Date(parsed.data.freeUntil), vat: mode, operator, inApp: !surfaceHidden("cancellation") }) }, provider);
 }
 
 const ownerDay = (value: Date) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(value);
@@ -73,7 +76,7 @@ const clean = (value: string) => value.replace(/\s+/g, " ").trim();
  * the last free day (the day before the first billing date) and the first billing day. Prices as on the invoice: plain for a
  * Kleinunternehmer, with „zzgl. USt“ in standard mode. The footer names the operator as the invoice does.
  */
-export function freeMonthReminderText(input: { shop: string; locations: Array<{ name: string; priceMinor: number }>; freeUntil: Date; vat: "kleinunternehmer" | "standard"; operator: { name: string; address: string } }) {
+export function freeMonthReminderText(input: { shop: string; locations: Array<{ name: string; priceMinor: number }>; freeUntil: Date; vat: "kleinunternehmer" | "standard"; operator: { name: string; address: string }; inApp: boolean }) {
   const lastFree = ownerDay(new Date(input.freeUntil.getTime() - DAY_MS));
   const firstBilling = ownerDay(input.freeUntil);
   const price = (minor: number) => `${euros(minor)}${input.vat === "standard" ? " zzgl. USt" : ""}`;
@@ -93,12 +96,15 @@ export function freeMonthReminderText(input: { shop: string; locations: Array<{ 
       ...priceLines,
       "Die erste Rechnung kommt am selben Tag per E-Mail. Eine Zahlungsart kannst du vorher in deinem Inhaberbereich unter „Abrechnung“ hinterlegen.",
       "",
-      `Möchtest du aufhören, schreib bis zum ${lastFree} eine kurze E-Mail an support@getloynara.com. Dann endet der Vertrag für alle Standorte mit dem kostenlosen Monat und kostet dich nichts.`,
+      // ENG-167 (Marketing R1/R2, Legal 1 Nov): the in-app path only while the cancellation surface is on.
+      input.inApp
+        ? `Möchtest du aufhören, kündige bis zum ${lastFree} in deinem Inhaberbereich unter Mehr › Geschäft › Programm beenden oder per E-Mail an support@getloynara.com. Es kostet dich nichts. Dein Programm endet frühestens 14 Tage nach deiner Kündigung, damit deine Kunden das Ende rechtzeitig sehen. Das genaue Datum bekommst du mit der Bestätigung.`
+        : `Möchtest du aufhören, schreibe bis zum ${lastFree} eine kurze E-Mail an support@getloynara.com. Es kostet dich nichts. Dein Programm endet frühestens 14 Tage nach deiner Kündigung, damit deine Kunden das Ende rechtzeitig sehen. Das genaue Datum bekommst du mit der Bestätigung.`,
       "",
       "Viele Grüße",
       "Loynara",
       "",
-      `${clean(input.operator.name)} · ${clean(input.operator.address)}`,
+      operatorFooter(input.operator),
     ].join("\n"),
   };
 }

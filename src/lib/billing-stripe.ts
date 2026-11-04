@@ -6,6 +6,7 @@ import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, 
 import { ownerTenant } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
+import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
 import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
 import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
@@ -76,20 +77,6 @@ async function lockedSubscription(tx: Transaction, tenantId: string) {
   const [sub] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)).for("update");
   if (!sub) throw new DomainError("NOT_FOUND", "Dein Abo haben wir nicht gefunden. Bitte wende dich an den Support.");
   return sub;
-}
-
-/**
- * The operator's name and postal address as the invoices print them: Stripe's public business details (business_profile),
- * so the free-month reminder's footer can never differ from the invoice (Legal, B-01/B-02). Null while they are not set.
- */
-export async function operatorIdentity() {
-  const account = z.object({ business_profile: z.object({ name: z.string().nullable().optional(), support_address: z.object({
-    line1: z.string().nullable(), line2: z.string().nullable().optional(), postal_code: z.string().nullable(), city: z.string().nullable(),
-  }).nullable().optional() }).nullable().optional() }).parse(await client("GET", "/account"));
-  const profile = account.business_profile;
-  const address = profile?.support_address;
-  if (!profile?.name?.trim() || !address?.line1 || !address.postal_code || !address.city) return null;
-  return { name: profile.name.trim(), address: [address.line1, address.line2, `${address.postal_code} ${address.city}`].filter(Boolean).join(", ") };
 }
 
 /** The plan's Stripe price, verified against the plan's amount, so a swapped or wrong price ID is refused, never charged. */
@@ -419,12 +406,28 @@ export async function syncShopEnd(tenantId: string, now = new Date()) {
       // Removing a cancel_at inside the period stretches the period back; without "none" Stripe charges that stretch again (R-1).
       await client("POST", `/subscriptions/${id}`, isFree(sub.billingEndsAt) ? { cancel_at: "", proration_behavior: "none" } : { cancel_at_period_end: "false" }, key);
     } else if (isFree(target)) {
-      if (target <= now) await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
-      else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
+      if (target <= now) {
+        await client("DELETE", `/subscriptions/${id}`, { invoice_now: "false", prorate: "false" }, key);
+        // ENG-167 (CTO): a free-month cancellation entered after Stripe drew the first invoice (an e-mail that arrived in time)
+        // must cost nothing: that invoice is voided, or deleted while still a draft.
+        if (sub.freeUntil && now >= sub.freeUntil) await voidFirstInvoice(id, sub.freeUntil, key);
+      } else await client("POST", `/subscriptions/${id}`, { cancel_at: at(target), proration_behavior: "none" }, key);
     } else await client("POST", `/subscriptions/${id}`, { cancel_at_period_end: "true" }, key);
     await tx.update(subscriptions).set({ billingEndsAt: target, cancelAtPeriodEnd: target !== null, updatedAt: now }).where(eq(subscriptions.tenantId, tenantId));
     return { action: !target ? "cleared" as const : isFree(target) && target <= now ? "ended" as const : "scheduled" as const, endsAt: target };
   });
+}
+
+/** The month-two invoice of a subscription whose free-month cancellation came in time: voided if open, deleted if a draft. */
+async function voidFirstInvoice(subscriptionId: string, freeUntil: Date, key: string) {
+  const list = z.object({ data: z.array(z.object({ id: z.string().regex(/^in_[A-Za-z0-9]+$/), status: z.string(), created: z.number().int() })) })
+    .parse(await client("GET", "/invoices", { subscription: subscriptionId, limit: "10" }));
+  for (const invoice of list.data.filter(item => item.created >= Math.floor(freeUntil.getTime() / 1000) - 3600)) {
+    if (invoice.status === "draft") await client("DELETE", `/invoices/${invoice.id}`, {}, `${key}-${invoice.id}`);
+    else if (invoice.status === "open") await client("POST", `/invoices/${invoice.id}/void`, {}, `${key}-${invoice.id}`);
+    // A paid one means a payment method was on file: a refund is a person's decision, so it is named, not done here.
+    else if (invoice.status === "paid") console.error(`Billing: invoice ${invoice.id} was paid after a free-month cancellation in time; refund it in Stripe`);
+  }
 }
 
 /**
@@ -438,18 +441,13 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
   const anchor = sub?.freeUntil ?? sub?.currentPeriodEnd;
   if (!sub || sub.provider !== "stripe" || !sub.providerSubscriptionId || !RUNNING.includes(sub.status) || !anchor) return;
   const day = Number(berlinDay(anchor).slice(8));
-  const isEnd = (iso: string) => {
-    const next = new Date(Date.parse(`${iso}T00:00:00Z`) + 86_400_000);
-    const length = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
-    return next.getUTCDate() === Math.min(day, length);
-  };
   // A cancellation from the free month: exactly its notice end, or a later billing-month end the shop agreed to; never earlier.
   const freeLast = await freeMonthRequestEnd(db, sub);
   if (freeLast && endDate === freeLast) return;
   if (freeLast && endDate < freeLast) throw new DomainError("NOT_BILLING_MONTH_END", `Die Kündigung kam im kostenlosen Monat: Das Vertragsende ist der ${freeLast} oder, mit Zustimmung des Geschäfts, ein späteres Ende eines Abrechnungsmonats.`);
-  if (isEnd(endDate)) return;
-  let next = endDate;
-  do next = new Date(Date.parse(`${next}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10); while (!isEnd(next));
+  // One rule for every billing-month end (contract-end.ts, bounded; review #211 N-4).
+  if (isBillingMonthEnd(endDate, day)) return;
+  const next = nextBillingMonthEnd(endDate, day);
   throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
 }
 

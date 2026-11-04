@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { apiJson, postJson } from "@/components/client-api";
 import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
+import { SenderMissingBox, useSenderMissing } from "@/components/owner/sender";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead, SaveBar, type SaveState } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
 import { BackToActions } from "@/components/owner/actions-list";
@@ -28,6 +29,7 @@ export default function AutomationsPage() {
   const { me } = useOwner();
   const slug = me?.programSlug ?? "";
   const [data, reload] = useLoad<Data>(me?.role === "owner" && slug ? `/api/merchant/automations?programSlug=${encodeURIComponent(slug)}` : null);
+  const senderMissing = useSenderMissing();
   if (!me) return null;
   const head = <PageHead back={<BackToActions />} title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
@@ -37,14 +39,15 @@ export default function AutomationsPage() {
   return (
     <div className="ow-page">
       {head}
+      <SenderMissingBox returnTo="/merchant/automations" />
       {d.deliveryMode === "disabled"
         ? <Notice tone="warn"><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Regeln vorbereiten und speichern. Solange der Versand nicht freigegeben ist, wird keine Nachricht verschickt, auch nicht bei aktiver Regel.</Notice>
         : d.deliveryMode === "mailpit" ? <Notice>Lokaler Testkanal: Nachrichten gehen nur an synthetische .test-Adressen in Mailpit.</Notice> : null}
       <div className="ow-two">
         <div className="ow-stack">
-          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} onSaved={reload} />
-          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einer früheren bestätigten Buchung, die länger als die eingestellten Tage keine bestätigte Buchung hatten." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} onSaved={reload} />
-          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} onSaved={reload} />
+          <RuleEditor title="Willkommen nach dem ersten Einkauf" description="Einmal nach dem ersten nicht korrigierten Stempel- oder Punktevorgang an der Kasse. Ein späteres Einrichten löst keine rückwirkende Nachricht aus." initial={d.rules.find(row => row.triggerKind === "first_checkout") ?? defaults.first_checkout} slug={slug} locked={senderMissing} onSaved={reload} />
+          <RuleEditor title="Erinnern, wenn jemand wegbleibt" description="Tägliche Prüfung von Karten mit mindestens einer früheren bestätigten Buchung, die länger als die eingestellten Tage keine bestätigte Buchung hatten." initial={d.rules.find(row => row.triggerKind === "inactive") ?? defaults.inactive} slug={slug} locked={senderMissing} onSaved={reload} />
+          <RuleEditor title="An eine einlösbare Prämie erinnern" description="Tägliche Prüfung des aktuellen Kartenstands und der verfügbaren Prämien. Vor dem Versand wird erneut geprüft, ob eine Prämie einlösbar ist. Der Mindestabstand gilt auch bei weiterhin einlösbarer Prämie." initial={d.rules.find(row => row.triggerKind === "reward_ready") ?? defaults.reward_ready} slug={slug} locked={senderMissing} onSaved={reload} />
         </div>
         <aside className="ow-card ow-stack" aria-labelledby="au-limits">
           <h2 id="au-limits">Versandgrenzen</h2>
@@ -63,7 +66,7 @@ export default function AutomationsPage() {
   );
 }
 
-function RuleEditor({ title, description, initial, slug, onSaved }: { title: string; description: string; initial: Editor; slug: string; onSaved: () => void }) {
+function RuleEditor({ title, description, initial, slug, locked, onSaved }: { title: string; description: string; initial: Editor; slug: string; locked: boolean; onSaved: () => void }) {
   const pick = (e: Editor): Editor => ({ triggerKind: e.triggerKind, enabled: e.enabled, subject: e.subject, body: e.body, inactivityDays: e.inactivityDays, cooldownDays: e.cooldownDays, dailyCap: e.dailyCap });
   const [saved, setSaved] = useState<Editor>(pick(initial));
   const [editor, setEditor] = useState<Editor>(pick(initial));
@@ -97,7 +100,7 @@ function RuleEditor({ title, description, initial, slug, onSaved }: { title: str
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cool`}>Mindestabstand in Tagen</label><input id={`${editor.triggerKind}-cool`} {...fields.aria(`${editor.triggerKind}-cool`)} className="ow-input" type="number" value={editor.cooldownDays} min={7} max={365} required onChange={event => edit({ cooldownDays: Number(event.target.value) })} /><FieldError id={`${editor.triggerKind}-cool-error`}>{fields.error(`${editor.triggerKind}-cool`) ?? ""}</FieldError></div>
           <div className="ow-field"><label htmlFor={`${editor.triggerKind}-cap`}>Tageslimit je Regel</label><input id={`${editor.triggerKind}-cap`} {...fields.aria(`${editor.triggerKind}-cap`)} className="ow-input" type="number" value={editor.dailyCap} min={1} max={20} required onChange={event => edit({ dailyCap: Number(event.target.value) })} /><FieldError id={`${editor.triggerKind}-cap-error`}>{fields.error(`${editor.triggerKind}-cap`) ?? ""}</FieldError></div>
         </div>
-        <label className="ow-check"><input type="checkbox" role="switch" checked={editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
+        <label className="ow-check"><input type="checkbox" role="switch" checked={editor.enabled} disabled={locked && !editor.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Regel aktivieren</label>
         <SaveBar asSubmit state={shown} onDiscard={() => { setEditor(saved); setState("clean"); setError(""); }} canSave={changed} saveLabel="Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : shown === "saved" ? "Regel gespeichert. Änderungen gelten nur für neue Ausführungen." : undefined} />
       </form>
     </section>

@@ -5,6 +5,7 @@ import { db, pool } from "@/db";
 import { billingLocationPlans, locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { addressProblems, contactProblems, firstProblem, normalizeRegisterNumber, normalizeVatId, registerProblems, representativeProblems } from "./sender-details";
 
 const input = z.object({
   name: z.string().trim().min(2).max(180),
@@ -20,8 +21,19 @@ const input = z.object({
   rewardCost: z.number().int().min(1).max(100000),
 }).strict();
 
+// Each sender screen saves its own part (Design, 1 Nov): address and contact belong to a location, the rest to the business.
+const text = (max: number) => z.string().max(max);
+const senderInput = z.discriminatedUnion("part", [
+  z.object({ part: z.literal("address"), locationId: z.uuid(), street: text(400), postalCode: text(40), city: text(400) }).strict(),
+  z.object({ part: z.literal("contact"), locationId: z.uuid(), contactEmail: text(400), contactPhone: text(80) }).strict(),
+  z.object({ part: z.literal("representative"), representative: text(400) }).strict(),
+  z.object({ part: z.literal("register"), legalForm: text(200), registerCourt: text(400), registerNumber: text(80), vatId: text(80) }).strict(),
+]);
+
 type LocationRow = {
-  id: string; name: string; city: string; country: string; timezone: string; createdAt: Date;
+  id: string; name: string; city: string; street: string | null; postalCode: string | null; representative: string | null; contactEmail: string | null;
+  contactPhone: string | null; legalForm: string | null; registerCourt: string | null; registerNumber: string | null; vatId: string | null;
+  country: string; timezone: string; createdAt: Date;
   programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null;
   cards: number; awards: number; redemptions: number; activeStaff: number;
 };
@@ -91,18 +103,53 @@ export async function validateOwnerLocation(actorUserId: string, locationId: str
   return location;
 }
 
+/**
+ * Replaces the whole sender block (Einstellungen > Anschrift): address and contact of one location, including
+ * locations.city; representative, legal form, register entry and VAT ID of the business, the same for every location (Legal).
+ */
+/**
+ * Saves one part of the sender block (Einstellungen › Geschäft › Absender) with the rules the owner's screen checks
+ * (lib/sender-details), stored in normal form; a blank optional field is stored as null so the footer leaves it out.
+ */
+export async function updateSender(actorUserId: string, raw: z.input<typeof senderInput>) {
+  const owner = await ownerRole(actorUserId);
+  const input = senderInput.parse(raw);
+  const problems = input.part === "address" ? addressProblems(input) : input.part === "contact" ? contactProblems(input)
+    : input.part === "representative" ? representativeProblems(input) : registerProblems(input);
+  const problem = firstProblem(problems);
+  if (problem) throw new DomainError("INVALID_SENDER", problem);
+  const blank = (value: string) => value.trim() || null;
+  return db.transaction(async tx => {
+    if (input.part === "address" || input.part === "contact") {
+      const values = input.part === "address" ? { street: input.street.trim(), postalCode: input.postalCode.trim(), city: input.city.trim() }
+        : { contactEmail: blank(input.contactEmail), contactPhone: blank(input.contactPhone) };
+      const [location] = await tx.update(locations).set(values).where(and(eq(locations.tenantId, owner.tenantId), eq(locations.id, input.locationId))).returning({ id: locations.id });
+      if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
+      return { part: input.part, locationId: location.id, ...values };
+    }
+    const values = input.part === "representative" ? { representative: input.representative.trim() } : {
+      legalForm: blank(input.legalForm), registerCourt: blank(input.registerCourt),
+      registerNumber: blank(normalizeRegisterNumber(input.registerNumber)), vatId: blank(normalizeVatId(input.vatId)),
+    };
+    await tx.update(tenants).set(values).where(eq(tenants.id, owner.tenantId));
+    return { part: input.part, ...values };
+  });
+}
+
 export async function listMerchantLocations(actorUserId: string) {
   const owner = await ownerRole(actorUserId);
   const [tenant] = await db.select({ currency: tenants.currency }).from(tenants).where(eq(tenants.id, owner.tenantId)).limit(1);
   if (!tenant) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
   const result = await pool.query<LocationRow>(`
-    SELECT l.id, l.name, l.city, l.country, l.timezone, l.created_at AS "createdAt",
+    SELECT l.id, l.name, l.city, l.street, l.postal_code AS "postalCode", t.representative, l.contact_email AS "contactEmail",
+      l.contact_phone AS "contactPhone", t.legal_form AS "legalForm", t.register_court AS "registerCourt", t.register_number AS "registerNumber",
+      t.vat_id AS "vatId", l.country, l.timezone, l.created_at AS "createdAt",
       p.slug AS "programSlug", p.name AS "programName", p.type AS "programType",
       (SELECT count(*)::int FROM memberships m JOIN programs card_program ON card_program.tenant_id = m.tenant_id AND card_program.id = m.program_id WHERE m.tenant_id = l.tenant_id AND card_program.location_id = l.id) AS cards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')) AS awards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'redeem') AS redemptions,
       (SELECT count(*)::int FROM staff_roles s WHERE s.tenant_id = l.tenant_id AND s.location_id = l.id AND s.active = true) AS "activeStaff"
-    FROM locations l
+    FROM locations l JOIN tenants t ON t.id = l.tenant_id
     LEFT JOIN programs p ON p.tenant_id = l.tenant_id AND p.location_id = l.id AND p.status = 'active'
     WHERE l.tenant_id = $1
     ORDER BY l.created_at, l.id
