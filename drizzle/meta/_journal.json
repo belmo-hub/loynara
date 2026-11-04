@@ -330,6 +330,13 @@
       "when": 1793522822267,
       "tag": "0046_sender_details",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793749608716,
+      "tag": "0047_challenge_consent",
+      "breakpoints": true
     }
   ]
 }

@@ -98,10 +98,12 @@ test("real isolated email delivery verifies recovery contact and restores origin
     expect(second.status()).toBe(201);
     const { cardToken: secondToken } = await second.json();
     await page.goto(`/card/${secondToken}`);
-    const secondSetup = page.getByRole("region", { name: "Karte sichern" });
+    // ENG-165: on the card the address lives in the „Deine Karte“ row's sheet („E-Mail“, or „Karte sichern“ while marketing mail is off).
+    await page.getByRole("button", { name: /^(E-Mail|Karte sichern)/ }).click();
+    const secondSetup = page.getByRole("dialog");
     await secondSetup.getByRole("textbox", { name:"E-Mail-Adresse" }).fill(email);
-    await secondSetup.getByRole("button", { name:"Bestätigungslink senden" }).click();
-    await expect(secondSetup.getByText(/Bestätigungslink angefordert/)).toBeVisible();
+    await secondSetup.getByRole("button", { name:"Bestätigungslink schicken" }).click();
+    await expect(secondSetup.getByText("Wir haben dir einen Link geschickt.")).toBeVisible();
     await verificationPage.goto(await deliveredLink(email,"/verify-email"));
     await verificationPage.getByRole("button", { name:"E-Mail-Adresse bestätigen",exact:true }).click();
     await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();

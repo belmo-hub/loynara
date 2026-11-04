@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -68,6 +68,10 @@ export type CustomerCardProps = {
   walletError?: string;
   exportUrl?: string;
   contactPanel?: ReactNode;
+  /** ENG-165: the „E-Mail“ (or, while marketing mail is off, „Karte sichern“) row in „Deine Karte“ and the sheet it opens. */
+  email?: { title: string; sub: string; sheet: (open: boolean, onClose: () => void) => ReactNode };
+  /** With a confirmed address, „So findest du deine Karte wieder“ names the recovery page as a fourth way (E39). */
+  recoverUrl?: string;
   onRefresh?: () => void;
   refreshing?: boolean;
   refreshFailed?: boolean;
@@ -87,7 +91,7 @@ export function CustomerCard(props: CustomerCardProps) {
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<"wallet" | "rules" | "return" | null>(null);
+  const [sheet, setSheet] = useState<"wallet" | "rules" | "return" | "email" | null>(null);
   const [allActivity, setAllActivity] = useState(false);
   const closeSheet = () => setSheet(null);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
@@ -180,6 +184,7 @@ export function CustomerCard(props: CustomerCardProps) {
       <Section name="more" title={t.yourCardHead}>
         <div className={styles.rows}>
           {wallets.length ? <Signpost icon={WalletIcon} title={t.walletTitle} sub={t.walletRow} onOpen={() => setSheet("wallet")} /> : null}
+          {props.email ? <Signpost icon={Mail} title={props.email.title} sub={props.email.sub} onOpen={() => setSheet("email")} /> : null}
           {props.walletError && sheet !== "wallet" ? <p className={`wallet-error ${styles.alert}`} role="alert">{props.walletError}</p> : null}
           {hasRules ? <Signpost icon={Megaphone} title={t.rules} onOpen={() => setSheet("rules")} /> : null}
           <Signpost icon={Link2} title={t.save} onOpen={() => setSheet("return")} />
@@ -197,7 +202,8 @@ export function CustomerCard(props: CustomerCardProps) {
           <p className={styles.links}><a href="/teilnahmebedingungen" target="_blank" rel="noopener">{t.terms}</a></p>
         </div>
       </Sheet> : null}
-      <ReturnSteps t={t} cardLocator={cardLocator} open={sheet === "return"} onClose={closeSheet} />
+      <ReturnSteps t={t} cardLocator={cardLocator} recoverUrl={locale === "de" ? props.recoverUrl : undefined} open={sheet === "return"} onClose={closeSheet} />
+      {props.email?.sheet(sheet === "email", closeSheet)}
 
       {props.onCloseCard ? <CloseCard {...props} t={t} /> : null}
     </div>
@@ -308,7 +314,7 @@ function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, local
   </Sheet>;
 }
 
-function ReturnSteps({ t, cardLocator, open, onClose }: { t: Copy; cardLocator?: string; open: boolean; onClose: () => void }) {
+function ReturnSteps({ t, cardLocator, recoverUrl, open, onClose }: { t: Copy; cardLocator?: string; recoverUrl?: string; open: boolean; onClose: () => void }) {
   const { text: status, live, announce: setStatus } = useCardStatus("return");
   async function copyLink() {
     setStatus(await copyText(new URL(window.location.pathname, window.location.origin).href) ? t.copied : t.copyFailed);
@@ -319,6 +325,7 @@ function ReturnSteps({ t, cardLocator, open, onClose }: { t: Copy; cardLocator?:
         <li>{t.stepBookmark}</li>
         <li>{t.stepScanAgain}</li>
         {cardLocator ? <li>{t.stepNumber(cardLocator)}</li> : null}
+        {recoverUrl ? <li>Oder gib unter {recoverUrl} deine bestätigte E-Mail-Adresse ein.</li> : null}
       </ol>
       <p className={styles.muted}>{t.linkWarning}</p>
       <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>

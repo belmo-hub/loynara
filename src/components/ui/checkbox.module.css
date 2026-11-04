@@ -4,3 +4,5 @@
 .box[aria-invalid="true"] { outline: 2px solid var(--color-danger); outline-offset: 2px; }
 .text { display: block; }
 .description { display: block; margin-top: 2px; font-size: var(--text-14); color: var(--color-ink-muted); }
+/* A link inside the label (the privacy notice) reads as a link, not as label text (WCAG 1.4.1). */
+.text a { color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }

@@ -19,13 +19,14 @@ import { dueShopErasures, ERASURE_KEEP, reapplyErasures, recordErasureConfirmati
 import { acceptStaffInvite, createStaffInvite } from "./staff";
 
 assertLocalTestDatabaseUrl();
-const envKeys = ["PLATE_OPERATOR_USER_IDS", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "SHOP_ERASURE_DELAY_DAYS"];
+const envKeys = ["PLATE_OPERATOR_USER_IDS", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "SHOP_ERASURE_DELAY_DAYS", "OPERATOR_NAME", "OPERATOR_ADDRESS"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 let operatorId = "";
 beforeEach(async () => {
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, apple_devices, card_recovery_challenges, secure_tags, plate_link_events, shop_erasures CASCADE');
-  Object.assign(process.env, { SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false" });
+  // The confirmation mail names the operator as sender (ENG-165); without it the card offers no e-mail.
+  Object.assign(process.env, { SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", OPERATOR_NAME: "Synthetic Betreiber", OPERATOR_ADDRESS: "Teststraße 1, 34117 Kassel" });
   delete process.env.SHOP_ERASURE_DELAY_DAYS;
   operatorId = await user("Synthetic operator");
   process.env.PLATE_OPERATOR_USER_IDS = operatorId;

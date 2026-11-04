@@ -11,7 +11,8 @@ import { createMerchant, enroll, getCard, getMerchantRewards, lookupCard } from 
 import { acceptStaffInvite, createStaffInvite, revokeStaff } from "./staff";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
 import { configureReferrals, getCardReferralShare, listReferrals } from "./referrals";
-import { consumeContactVerification, requestContactVerification, setEmailMarketingPreference } from "./contact-verification";
+import { consumeContactVerification, requestContactVerification } from "./contact-verification";
+import { EMAIL_CONSENT_TEXT_VERSION } from "./email-consent-text";
 import { recoveryTokenForChallenge, verificationTokenForChallenge } from "./contact-token";
 import { completeCardRecovery, recoveryOptions, requestCardRecovery } from "./card-recovery";
 import { createDraftCampaign, dispatchCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
@@ -30,10 +31,10 @@ import { assertDisposableDatabase, assertLocalTestDatabaseUrl } from "./disposab
 // External delivery and physical NFC acceptance are outside this local contract.
 assertLocalTestDatabaseUrl();
 const origin = "http://localhost:3000";
-const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED"];
+const envKeys = ["PUBLIC_REGISTRATION_ENABLED", "STAFF_INVITE_SIGNUP_ENABLED", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "MAILGUN_PROMOTIONAL_SEND_APPROVED", "OPERATOR_NAME", "OPERATOR_ADDRESS"];
 const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
 beforeAll(async () => {
-  Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false" });
+  Object.assign(process.env, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true", SMTP_HOST: "localhost", EXTERNAL_EMAIL_ENABLED: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false", MAILGUN_PROMOTIONAL_SEND_APPROVED: "false", OPERATOR_NAME: "Synthetic Betreiber", OPERATOR_ADDRESS: "Teststraße 1, 34117 Kassel" });
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
 });
@@ -120,10 +121,9 @@ it("keeps ten simultaneous merchants isolated through real sessions, checkout re
     for (let replay = 0; replay < 2; replay++) expect((await redeemRoute(request("/api/cashier/redeem", redemption, f.cashier.cookie))).status).toBe(200);
     expect((await getCard(f.cardToken)).balance).toBe(2);
     const email = `cohort-${index}@example.test`;
-    await requestContactVerification(f.cardToken, email);
+    await requestContactVerification(f.cardToken, email, true, EMAIL_CONSENT_TEXT_VERSION);
     const challenge = (await pool.query("SELECT id FROM contact_verification_challenges WHERE membership_id=$1", [f.member.id])).rows[0];
     await consumeContactVerification(verificationTokenForChallenge(challenge.id));
-    await setEmailMarketingPreference(f.cardToken, true);
     const audienceDefinition = { kind: "new" as const, withinDays: 7 };
     expect(await previewCampaign({ actorUserId: f.owner.userId, programSlug: f.merchant.programSlug, audienceDefinition })).toMatchObject({ total: 2, eligibleCount: 1 });
     await expect(previewCampaign({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug, audienceDefinition })).rejects.toMatchObject({ code: "NOT_FOUND" });

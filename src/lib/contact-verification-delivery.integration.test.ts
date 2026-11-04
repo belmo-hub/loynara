@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { contactVerificationChallenges, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
-import { requestContactVerification } from "./contact-verification";
+import { contactStatus, requestContactVerification } from "./contact-verification";
 import { verificationTokenHash } from "./contact-token";
 import { deliverVerificationEmail } from "./contact-verification-delivery";
 import { type LocalMessage } from "./email";
@@ -18,6 +18,8 @@ beforeEach(async () => {
   process.env.PUBLIC_BASE_URL = "http://localhost:3000";
   process.env.EXTERNAL_EMAIL_ENABLED = "false";
   process.env.BETTER_AUTH_SECRET = "synthetic-test-secret-with-at-least-32-characters";
+  process.env.OPERATOR_NAME = "Synthetic Betreiber";
+  process.env.OPERATOR_ADDRESS = "Teststraße 1, 34117 Kassel";
   await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
 });
 afterAll(async () => { await pool.end(); });
@@ -33,6 +35,15 @@ async function fixture() {
 }
 
 describe("local verification delivery", () => {
+  it("sends nothing, and the card offers no e-mail, until the operator's name is configured", async () => {
+    const f = await fixture();
+    delete process.env.OPERATOR_NAME;
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toEqual({ status: "blocked", reason: "Operator name not configured" });
+    expect(send).not.toHaveBeenCalled();
+    expect(await contactStatus(f.card.cardToken)).toMatchObject({ available: false });
+    await expect(requestContactVerification(f.card.cardToken, "cardholder@example.test")).rejects.toMatchObject({ code: "CONTACT_DISABLED" });
+  });
   it("sends a fragment-only one-time link and scrubs the completed outbox payload", async () => {
     const f = await fixture();
     const send = vi.fn(async (message: LocalMessage) => { void message; });
@@ -41,6 +52,8 @@ describe("local verification delivery", () => {
     expect(message.to).toBe("cardholder@example.test");
     const link = message.body.match(/http:\/\/localhost:3000\/verify-email#token=(v_[A-Za-z0-9_-]{43})/);
     expect(link).not.toBeNull();
+    // Legal (1 Nov): the sender and the Datenschutz link under every confirmation mail, the name from configuration.
+    expect(message.body.endsWith("\n\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von Synthetic Café.\nDatenschutzhinweise: http://localhost:3000/datenschutz")).toBe(true);
     const [challenge] = await db.select().from(contactVerificationChallenges);
     expect(challenge.tokenHash).toBe(verificationTokenHash(link![1]));
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, f.job.id));
