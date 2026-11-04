@@ -81,6 +81,8 @@ async function busyShop(label: string, plate: string) {
   // Rows without a tenant_id that hang off shop rows: a delivery of one of its email jobs, and its own NFC tag (no plate) with an activation code.
   const job = (await pool.query("SELECT id FROM outbox_jobs WHERE tenant_id = $1 LIMIT 1", [shop.tenantId])).rows[0].id as string;
   await pool.query("INSERT INTO email_deliveries (job_id, provider, recipient_hash, status, updated_at) VALUES ($1, 'mailpit', 'synthetic-hash', 'accepted', now())", [job]);
+  // A provider-reported unsubscribe from this shop's mail (ENG-170): erased with the shop.
+  await pool.query("INSERT INTO email_unsubscribes (tenant_id, recipient_hash) VALUES ($1, 'synthetic-hash')", [shop.tenantId]);
   const tag = (await pool.query(`INSERT INTO secure_tags (public_ref, tenant_id, location_id, program_id, uid, key_ref, config_version, last_counter, status)
     VALUES ($1, $2, $3, $4, $5, 'synthetic-key', 1, 0, 'active') RETURNING id`, [`t_${randomUUID().replaceAll("-", "").slice(0, 20)}`, shop.tenantId, shop.locationId, shop.programId, `04${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`])).rows[0].id as string;
   await pool.query("INSERT INTO plate_activation_codes (tag_id, code_hash, issued_by_user_id, issued_at) VALUES ($1, 'synthetic-code-hash', $2, now())", [tag, operatorId]);
@@ -180,7 +182,7 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect(nonEmpty(before)).toEqual(expect.arrayContaining(["ledger_entries.tenant_id", "program_rule_versions.tenant_id", "staff_audit_events.tenant_id", "card_security_events.tenant_id", "wallet_template_binding_events.tenant_id",
       "reward_versions.tenant_id", "redemptions.tenant_id", "wallet_message_consents.tenant_id", "programme_cancellation_events.tenant_id", "plate_link_events.old_tenant_id", "plate_link_events.new_tenant_id", "purchase_awards.tenant_id",
       "memberships.tenant_id", "membership_contacts.tenant_id", "referrals.tenant_id", "campaigns.tenant_id", "outbox_jobs.tenant_id", "apple_registrations.tenant_id", "wallet_passes.tenant_id",
-      "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id"]));
+      "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id", "email_unsubscribes.tenant_id"]));
 
     // Review N-1: every column the fixture doesn't fill is pinned here, so a new table fails this test until it is seeded or listed.
     // Review N-1: every tenant column in the schema holds a row of this shop before the erasure.

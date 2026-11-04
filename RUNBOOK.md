@@ -163,6 +163,7 @@ These commands verify a local restoration only. Before live operation, arrange e
   - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
   - It deletes the logins of the shop's owner and staff, with their sessions.
   - Apple registrations and push tokens are in the database and go with it.
+  - The shop's promotional unsubscribes (`email_unsubscribes`) go with it. Global permanent failures and complaints (`email_suppressions`, no shop) stay until their 24-month expiry.
   - Plates go back to stock.
   - The contract facts (who ended it, when, which day) are first copied into the erasure record.
 - **The erasure record (`shop_erasures`, 6 years)** also holds the legal name, end date, export end, rows deleted per table, the provider clean-up, and the owner's name and business email for the confirmation. Its confirmation is sendable only after both parts succeeded.

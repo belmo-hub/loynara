@@ -1,11 +1,11 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, emailUnsubscribes, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
-import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
+import { promotionalEmailMode, promotionalProvider, recipientHashes, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
 import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails, senderAddressMissing } from "./promotion-policy";
 import { contentRefusal } from "./wallet-message-rules";
@@ -104,9 +104,11 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id));
   const consent = new Map<string, { granted: boolean; source: string }>();
   for (const event of events) if (!consent.has(event.membershipId)) consent.set(event.membershipId, event);
-  const hashes = rows.flatMap(row => row.email ? [recipientHash(row.email)] : []);
+  const hashes = rows.flatMap(row => row.email ? recipientHashes(row.email) : []);
+  // Global hard reasons (permanent failure, complaint) and this shop's own unsubscribes; another shop's unsubscribe does not count.
   const suppressions = hashes.length ? await query.select({ recipientHash: emailSuppressions.recipientHash, reason: emailSuppressions.reason }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes)) : [];
-  const suppressed = new Map(suppressions.map(row => [row.recipientHash, row.reason]));
+  const unsubscribes = hashes.length ? await query.select({ recipientHash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, tenantId), inArray(emailUnsubscribes.recipientHash, hashes))) : [];
+  const suppressed = new Map([...suppressions.map(row => [row.recipientHash, row.reason] as const), ...unsubscribes.map(row => [row.recipientHash, "unsubscribed"] as const)]);
   const eligible: Array<{ membershipId: string; email: string }> = [];
   for (const id of ids) {
     const row = contacts.get(id);
@@ -114,7 +116,7 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     if (!row.email || !row.verified) { excluded.unverified++; continue; }
     if (promotionalEmailMode() === "mailpit" && !syntheticAddress(row.email)) { excluded.nonSynthetic++; continue; }
     if (!consent.get(id)?.granted) { if (consent.get(id)?.source === "email_unsubscribe") excluded.unsubscribed++; else excluded.noConsent++; continue; }
-    const suppression = suppressed.get(recipientHash(row.email));
+    const suppression = recipientHashes(row.email).map(hash => suppressed.get(hash)).find(Boolean);
     if (suppression) { if (suppression === "unsubscribed") excluded.unsubscribed++; else excluded.suppressed++; continue; }
     if (await hasRecentPromotion(query, tenantId, id, now)) { excluded.frequency++; continue; }
     eligible.push({ membershipId: id, email: row.email });

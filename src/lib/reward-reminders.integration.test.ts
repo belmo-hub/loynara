@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { automationRuns, consentEvents, emailSuppressions, membershipContacts, outboxJobs, rewards, rewardVersions, staffRoles } from "@/db/schema";
+import { automationRuns, consentEvents, emailSuppressions, emailUnsubscribes, membershipContacts, outboxJobs, rewards, rewardVersions, staffRoles } from "@/db/schema";
 import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { award, redeem, reverseEntry } from "./loyalty";
@@ -93,6 +93,12 @@ describe("LOY-133 catalogue reward reminders", () => {
     if (condition === "suppressed") await db.insert(emailSuppressions).values({ recipientHash: recipientHash("reward@example.test"), reason: "permanent_fail" });
     expect((await queue(f)).outcome).toMatchObject({ queuedCount: 0 });
     expect(await db.select().from(automationRuns)).toHaveLength(0);
+  });
+
+  it.each([["here", 0], ["elsewhere", 1]] as const)("an unsubscribe from mail of a shop %s gives %i queued (ENG-170)", async (where, queued) => {
+    const f = await fixture();
+    await db.insert(emailUnsubscribes).values({ tenantId: where === "here" ? f.merchant.tenantId : randomUUID(), recipientHash: recipientHash("reward@example.test") });
+    expect((await queue(f)).outcome).toMatchObject({ queuedCount: queued });
   });
 
   it.each(["consent", "suppression", "redemption", "reversal", "catalogue", "disabled", "owner"] as const)("rechecks %s immediately before dispatch", async condition => {

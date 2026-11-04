@@ -100,6 +100,23 @@ describe("production configuration gate", () => {
     expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "2" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
   });
 
+  it("keys suppressions with their own SUPPRESSION_HASH_SECRET once email is on, never a reused or placeholder value (ENG-170)", () => {
+    const issue = /SUPPRESSION_HASH_SECRET/;
+    const key = "Zq7wXr2Lp9Kd4Ns8Vb1Mt6Hy3Gc5Fj0E";
+    expect(productionConfigIssues(safe)).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)])); // email off: not needed
+    const email = { ...safe, EXTERNAL_EMAIL_ENABLED: "true" };
+    expect(productionConfigIssues(email)).toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    for (const bad of ["short-key", "replace-with-at-least-32-random-characters", "a".repeat(40)]) {
+      expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: bad }), bad).toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    }
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: safe.BETTER_AUTH_SECRET })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key })).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    // G-1: the legacy key is optional; set, it must be a real former secret and not the new key.
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "a-former-login-secret-of-forty-characters" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "short" })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_LEGACY_HASH_SECRET/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: key })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
+  });
+
   it("refuses a remote database labelled preview or device-test", () => {
     const issues = productionConfigIssues({ ...safe, DATABASE_URL: "postgresql://merchant:unique-value@preview-db.railway.internal/device_test" });
     expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/database/i)]));

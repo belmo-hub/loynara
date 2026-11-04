@@ -649,11 +649,24 @@ export const emailProviderEvents = pgTable("email_provider_events", {
   createdAt: createdAt(),
 });
 
+/**
+ * Global, for every shop and every kind of mail: an address the provider reported as permanently failing or that complained.
+ * Also "unsubscribed" rows from before ENG-170 that no shop's delivery explains: those block marketing only. Survives a shop's
+ * erasure; deleted 24 months after the last event (ENG-170, Legal).
+ */
 export const emailSuppressions = pgTable("email_suppressions", {
   recipientHash: varchar("recipient_hash", { length: 64 }).primaryKey(),
   reason: varchar("reason", { length: 32 }).notNull(),
   createdAt: createdAt(),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** One shop's promotional unsubscribe, reported by the provider: blocks that shop's marketing only, never another shop's or recovery mail. */
+export const emailUnsubscribes = pgTable("email_unsubscribes", {
+  tenantId: uuid("tenant_id").notNull(),
+  recipientHash: varchar("recipient_hash", { length: 64 }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.recipientHash] })]);
 
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").primaryKey().defaultRandom(),

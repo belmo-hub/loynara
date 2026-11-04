@@ -337,6 +337,13 @@
       "when": 1793749608716,
       "tag": "0047_challenge_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793751426716,
+      "tag": "0048_shop_unsubscribes",
+      "breakpoints": true
     }
   ]
 }

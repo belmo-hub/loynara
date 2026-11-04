@@ -3,9 +3,9 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, emailUnsubscribes, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
 import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
@@ -664,4 +664,34 @@ describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
     await expect(editDraftCampaign({ ...edit, campaignId: draft.id })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
   });
+});
+
+it("an unsubscribe from one shop's mail leaves the same address eligible for another shop (ENG-170)", async () => {
+  const a = await fixture(); const b = await fixture();
+  for (const f of [a, b]) await member(f.merchant.programSlug, "shared@example.test", true, true);
+  await db.insert(emailUnsubscribes).values({ tenantId: a.merchant.tenantId, recipientHash: recipientHash("shared@example.test") });
+  const preview = (f: Awaited<ReturnType<typeof fixture>>) => previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: { kind: "all" } });
+  expect(await preview(a)).toMatchObject({ eligibleCount: 0, excludedCountsByReason: { unsubscribed: 1 } });
+  expect(await preview(b)).toMatchObject({ eligibleCount: 1 });
+});
+
+it("a provider-reported unsubscribe also withdraws the card's marketing consent, so the shop stays blocked even if every hash were lost (ENG-170)", async () => {
+  const f = await fixture();
+  const card = await member(f.merchant.programSlug, "provider-unsub@example.test", true, true);
+  Object.assign(process.env, { PUBLIC_BASE_URL: "https://test.example.test", EXTERNAL_EMAIL_ENABLED: "true", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", MAILGUN_SEND_APPROVED: "true", MAILGUN_EU_DOMAIN: "mail.example.test", MAILGUN_FROM_EMAIL: "service@mail.example.test", MAILGUN_EU_API_KEY: "synthetic-key", MAILGUN_EU_WEBHOOK_SIGNING_KEY: "synthetic-signing-key-long-enough", PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "100", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24", PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.example.test", PROMOTIONAL_UNSUBSCRIBE_SECRET: "synthetic-dedicated-unsubscribe-secret-long-enough" });
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  const when = new Date(Date.now() + 1_000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+  const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+  expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, undefined, provider)).toMatchObject({ status: "complete" });
+  const timestamp = String(Math.floor(Date.now() / 1000)), token = randomBytes(25).toString("hex");
+  await recordMailgunWebhook({ signature: { timestamp, token, signature: createHmac("sha256", process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY!).update(timestamp + token).digest("hex") }, "event-data": { id: randomUUID(), event: "unsubscribed", recipient: "provider-unsub@example.test", "user-variables": { job_id: job.id } } });
+  const consent = await db.select().from(consentEvents).where(and(eq(consentEvents.membershipId, card.id), eq(consentEvents.granted, false)));
+  expect(consent).toEqual([expect.objectContaining({ tenantId: f.merchant.tenantId, channel: "email", purpose: "marketing", source: "email_unsubscribe" })]);
+  // Every hash gone (a key rotation, a restore): the consent withdrawal alone still blocks.
+  await db.delete(emailUnsubscribes);
+  expect(await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: { kind: "all" } })).toMatchObject({ eligibleCount: 0, excludedCountsByReason: { unsubscribed: 1 } });
 });
