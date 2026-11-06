@@ -42,14 +42,15 @@ export async function overwriteGoogleClasses(tenantId: string, env: Env = proces
   try { bound = googleLocationClasses(env).filter(row => row.tenantId === tenantId.toLowerCase()); } catch { /* Google off or misconfigured: only the table counts */ }
   const classIds = [...new Set([...rows.map(row => row.classId), ...bound.map(row => row.classId)])];
   if (!classIds.length) return 0;
-  const record = (classId: string, lastError: string) => db.update(walletGoogleClasses).set({ lastError, updatedAt: new Date() }).where(eq(walletGoogleClasses.classId, classId));
+  const record = (classId: string, state: { status: "under_review"; lastError: null } | { lastError: string }) => db.update(walletGoogleClasses).set({ ...state, updatedAt: new Date() }).where(eq(walletGoogleClasses.classId, classId));
   if (!googleDirectStatus(env).ready) throw new DomainError("EXTERNAL_PENDING", `${classIds.length} Google Wallet class(es) of the shop cannot be overwritten while Google is unavailable; the erasure waits`);
   const config = googleConfig(env);
   const client = new GoogleWalletClient(config, fetcher);
   let waiting = 0;
   for (const classId of classIds) {
-    try { if (await client.neutralizeClass(classId, config.logoUrl) === "done") continue; await record(classId, "erasure overwrite under review"); }
-    catch (error) { await record(classId, `erasure ${error instanceof GoogleWalletError ? error.step : "overwrite"}`.slice(0, 60)); }
+    // Waiting for Google is no failure: the row just says it is under review.
+    try { if (await client.neutralizeClass(classId, config.logoUrl) === "done") continue; await record(classId, { status: "under_review", lastError: null }); }
+    catch (error) { await record(classId, { lastError: `erasure ${error instanceof GoogleWalletError ? error.step : "overwrite"}`.slice(0, 60) }); }
     waiting++;
   }
   if (waiting) throw new DomainError("EXTERNAL_PENDING", `${waiting} Google Wallet class(es) of the shop are not overwritten yet; the erasure waits, run it again`);
@@ -79,7 +80,11 @@ export async function syncGoogleClasses(env: Env = process.env, fetcher: typeof 
       const config = googleDirectConfig(await googleDirectEnv(scope.tenantId, scope.locationId, scope.programId, db, env), scope.tenantId, scope.locationId, scope.programId, "maintenance");
       const brand = await walletProgramBrand(scope.tenantId, scope.programId);
       const hash = createHash("sha256").update(JSON.stringify(googleClass(brand, config))).digest("hex");
-      if (row.syncedHash === hash && (row.status === "approved" || row.status === "rejected")) continue;
+      if (row.syncedHash === hash && (row.status === "approved" || row.status === "rejected")) {
+        // Nothing to send, and this run got this far: an older failure note no longer holds.
+        if (row.lastError) await db.update(walletGoogleClasses).set({ lastError: null, updatedAt: new Date() }).where(where);
+        continue;
+      }
       const review = await new GoogleWalletClient(config, fetcher).provisionClass(brand, config);
       await db.update(walletGoogleClasses).set({ status: REVIEW[review] ?? "under_review", syncedHash: hash, lastError: null, updatedAt: new Date() }).where(where);
       synced++;

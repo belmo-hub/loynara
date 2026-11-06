@@ -144,6 +144,21 @@ describe("Google Wallet classes per shop (ENG-175)", () => {
     });
   });
 
+  it("clears an old failure note on an unchanged approved class, with no Google call", async () => {
+    const s = await shop();
+    await withGoogle(async () => {
+      const api = fakeGoogleApi();
+      await syncGoogleClasses(process.env, api.fetcher);
+      approve(api, s);
+      await syncGoogleClasses(process.env, api.fetcher);
+      await db.update(walletGoogleClasses).set({ lastError: "class lookup" }).where(eq(walletGoogleClasses.programId, s.programId));
+      const before = api.calls.length;
+      await syncGoogleClasses(process.env, api.fetcher);
+      expect(await rowOf(s)).toMatchObject({ status: "approved", lastError: null });
+      expect(api.calls.slice(before)).toEqual([]);
+    });
+  });
+
   it("leaves a rejected class alone until the shop changes it", async () => {
     const s = await shop();
     await withGoogle(async () => {
@@ -195,7 +210,7 @@ describe("Google Wallet classes per shop (ENG-175)", () => {
       expect(JSON.stringify(overwritten)).not.toContain("Pizzeria Tappi");
       expect(overwritten).toMatchObject({ issuerName: "Programm beendet", programName: "Programm beendet", reviewStatus: "UNDER_REVIEW", wideProgramLogo: null, merchantLocations: null });
       expect((overwritten.programLogo as { sourceUri: { uri: string } }).sourceUri.uri).toBe(process.env.GOOGLE_WALLET_PROGRAM_LOGO_URL);
-      expect((await rowOf(s)).lastError).toBe("erasure overwrite under review");
+      expect(await rowOf(s)).toMatchObject({ status: "under_review", lastError: null }); // waiting, not a failure
 
       // The rerun only looks; once Google approves, it is done with no second write.
       approve(api, s);
