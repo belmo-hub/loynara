@@ -35,7 +35,7 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   expect(registration.status()).toBe(403);
   const page=await context.newPage();
   mkdirSync("var/qa/overnight-independent",{recursive:true});
-  for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."]]){
+  for(const [path,heading] of [["/merchant",/^Übersicht: /],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Team"]]){
    await page.goto(path);await expect(page.getByRole("heading",{name:heading,exact:true,level:1})).toBeVisible();
    await expect(page.locator(".ow-skel")).toHaveCount(0);
    if(path==="/merchant")await expect(page.getByRole("heading",{name:"Letzte 30 Tage an diesem Standort"})).toBeVisible();

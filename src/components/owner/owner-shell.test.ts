@@ -14,7 +14,9 @@ describe("the owner shell before /api/me has answered", () => {
   it("leaves a withheld surface out of the server HTML, so no tab shows and then vanishes", () => {
     state.hidden = ["audiences"];
     expect(html()).not.toContain("Zielgruppen");
+    expect(html()).not.toContain("ow-subnav");
     state.hidden = [];
     expect(html()).toContain("Zielgruppen");
+    expect(html()).toContain("ow-subnav");
   });
 });
