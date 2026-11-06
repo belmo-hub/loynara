@@ -120,7 +120,9 @@ describe("Apple Wallet saved on a device (ENG-130 08)", () => {
         expect(await otherDownloaded()).toBe(false);
         await pool.query("UPDATE wallet_passes SET revoked_at = now(), revoke_reason = 'superseded', status = 'downloaded' WHERE id = $1", [pass.id]);
         expect(await downloaded()).toBe(false);
-        await pool.query("UPDATE wallet_passes SET revoked_at = NULL, revoke_reason = NULL, status = 'downloaded' WHERE id = $1", [pass.id]);
+        await pool.query("UPDATE wallet_passes SET revoked_at = NULL, revoke_reason = NULL, status = 'downloaded', provider = 'google' WHERE id = $1", [pass.id]);
+        expect(await downloaded()).toBe(false);
+        await pool.query("UPDATE wallet_passes SET provider = 'apple' WHERE id = $1", [pass.id]);
         // Wallet off for the shop: nothing was handed out as far as the customer's page is concerned.
         await withEnv({ APPLE_WALLET_ENABLED: "false" }, async () => { expect(await downloaded()).toBe(false); });
         await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('device-eng-130', $1)", ["a".repeat(64)]);
