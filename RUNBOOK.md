@@ -127,7 +127,7 @@ The printable enrollment sign is `var/device-test-counter-sign.pdf` (one A5 page
 
 Run `npm run local`, then `node scripts/record-full-platform-demo.mjs --verify` for the guarded synthetic rehearsal or `node scripts/record-full-platform-demo.mjs` to record. The script creates a fresh synthetic merchant and staff through app sessions, uses real database-backed actions and local Mailpit, and refuses remote origins/databases or enabled external providers. Its simulated camera feeds a generated QR through the actual decoder; it does not use physical camera hardware. Stop the local app/worker with Ctrl-C. If Colima was stopped, `colima start` starts the existing local Docker runtime first.
 
-Current outputs: [`full-platform-kassel-synthetic.mp4`](demo/full-platform-kassel-synthetic.mp4) and [`recorded evidence`](demo/full-platform-kassel-evidence.json). The new recording supersedes the narrow card demo for merchant presentations. The September pitch, demo script and product sheet were retired on 6 Nov 2026; they are in git history. French merchant-flow work remains the next independent product slice **after** protected HTTPS, actual two-phone checkout, one real Wallet provider path, and this updated demo.
+Current outputs: [`full-platform-kassel-synthetic.mp4`](demo/full-platform-kassel-synthetic.mp4) and [`recorded evidence`](demo/full-platform-kassel-evidence.json). The recording is a test record and is not shown to merchants. The September pitch, demo script and product sheet were retired on 6 Nov 2026; they are in git history. French merchant-flow work remains the next independent product slice **after** protected HTTPS, actual two-phone checkout, one real Wallet provider path, and this updated demo.
 
 ## Local marketing mail test
 
