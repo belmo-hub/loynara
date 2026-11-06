@@ -17,7 +17,7 @@ Aktuelle Aufnahme: [`full-platform-kassel-synthetic.mp4`](full-platform-kassel-s
 
 Der zweite Standort und eine qualifizierte Empfehlung wurden vor der Aufnahme über die echten lokalen App-Routen eingerichtet. Kontaktverifikation und ausdrückliche Einwilligung erfolgten ebenfalls lokal über die echte Oberfläche, außerhalb der aufgenommenen Seite. Verfügbare Wallet-Aktionen sind mangels freigegebener Anbieter verborgen. Es gab keine externen E-Mails, Live-Zahlungen oder echten Kunden. Die Aufnahme selbst enthält keine Geräteprüfung; die späteren Mac-/iPhone-Scans sind Eigentümerberichte. Die gespeicherten €49-Standortentwürfe wurden nicht auf den neuen Standard-Preisvorschlag von €69 umgestellt.
 
-Die aktuelle einseitige Loynara-Verkaufsunterlage ist [`loynara-product-sheet-de.pdf`](loynara-product-sheet-de.pdf). Technische Wiederholung und Gerätetest-Protokoll stehen im [Runbook](../RUNBOOK.md).
+Technische Wiederholung und Gerätetest-Protokoll stehen im [Runbook](../RUNBOOK.md).
 
 ## Frühere enge Browserkarten-Demonstration (archiviert)
 
