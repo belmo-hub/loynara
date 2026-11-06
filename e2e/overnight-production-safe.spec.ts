@@ -29,20 +29,20 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
  const context=await browser.newContext({baseURL:url,viewport:{width,height:1000},storageState:await owner.storageState(),extraHTTPHeaders:{"cf-connecting-ip":"203.0.113.71"}});
  try{
   const me=await(await owner.get("/api/me")).json();
-  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["automations","billing","campaigns","nfc","walletPreviews"]));
-  expect(me.hiddenSurfaces).not.toContain("audiences");expect(me.tapAutomaticAllowed).toBe(false);
+  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["audiences","automations","billing","campaigns","nfc","walletPreviews"]));
+  expect(me.tapAutomaticAllowed).toBe(false);
   const registration=await owner.post("/api/auth/sign-up/email",{data:{name:"Must refuse",email:`refused-${randomUUID()}@example.test`,password:`Local!${randomUUID()}Aa`}});
   expect(registration.status()).toBe(403);
   const page=await context.newPage();
   mkdirSync("var/qa/overnight-independent",{recursive:true});
-  for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."],["/merchant/audiences","Segmente prüfen"]]){
+  for(const [path,heading] of ([["/merchant",/^Übersicht: /],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Team"]]) as [string,string|RegExp][]){
    await page.goto(path);await expect(page.getByRole("heading",{name:heading,exact:true,level:1})).toBeVisible();
    await expect(page.locator(".ow-skel")).toHaveCount(0);
    if(path==="/merchant")await expect(page.getByRole("heading",{name:"Letzte 30 Tage an diesem Standort"})).toBeVisible();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
    await page.screenshot({path:`var/qa/overnight-independent/${width}-${path.split("/").pop()||"overview"}.png`,fullPage:true});
   }
-  for(const path of ["/merchant/campaigns","/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
+  for(const path of ["/merchant/audiences","/merchant/campaigns","/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
   await page.goto("/merchant/program");await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
   const policy=await owner.post("/api/merchant/tap",{data:{action:"policy",programId:f.programId,mode:"automatic_fixed",cooldownSeconds:60}});expect(policy.status()).toBe(400);expect((await policy.json()).code).toBe("TAP_AUTOMATIC_NOT_ALLOWED");
   // Even a stored staff-confirmed policy cannot display a disabled-capability panel.
@@ -51,7 +51,7 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   try{const till=await counter.newPage();await till.goto("/cashier");await expect(till.getByRole("heading",{name:/Karte scannen/})).toBeVisible();await expect(till.getByRole("heading",{name:"NFC-Anfragen"})).toHaveCount(0);await till.screenshot({path:`var/qa/overnight-independent/${width}-cashier.png`,fullPage:true});}finally{await counter.close();}
   expect((await owner.post("/api/merchant/tap",{data:{action:"policy",programId:f.programId,mode:"disabled",cooldownSeconds:null}})).status()).toBe(200);
   const managerContext=await browser.newContext({baseURL:url,viewport:{width,height:1000},storageState:await manager.storageState(),extraHTTPHeaders:{"cf-connecting-ip":"203.0.113.72"}});
-  try{const scoped=await managerContext.newPage();await scoped.goto("/merchant/audiences");await expect(scoped.getByRole("heading",{name:"Segmente prüfen"})).toBeVisible();await expect(scoped.getByRole("link",{name:/Kampagne/})).toHaveCount(0);await scoped.screenshot({path:`var/qa/overnight-independent/${width}-manager-audiences.png`,fullPage:true});}finally{await managerContext.close();}
+  try{const scoped=await managerContext.newPage();await scoped.goto("/merchant/audiences");await expect(scoped.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}finally{await managerContext.close();}
   expect((await manager.get(`/api/merchant/retention?locationId=${f.secondLocationId}`)).status()).toBe(404);
   expect((await owner.get(`/api/merchant/retention?locationId=${f.foreignLocationId}`)).status()).toBe(404);
   const m=await(await manager.get("/api/merchant/retention")).json();expect(m.locationId).toBe(f.locationId);

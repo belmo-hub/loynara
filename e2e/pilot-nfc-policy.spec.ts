@@ -122,7 +122,7 @@ test("login page carries no internal wording and offers registration only where 
   await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeEnabled();
 });
 
-const HIDDEN_ROUTES = ["/merchant/billing", "/merchant/billing/fixture/x", "/merchant/campaigns", "/merchant/automations"];
+const HIDDEN_ROUTES = ["/merchant/billing", "/merchant/billing/fixture/x", "/merchant/campaigns", "/merchant/automations", "/merchant/audiences"];
 
 test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all available outside production"}`, async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -146,9 +146,6 @@ test(`pilot surfaces: ${productionLike ? "withheld on real production" : "all av
           await expect(page.getByRole("heading", { name: "Diese Seite gibt es nicht." }), path).toBeVisible();
           await expect(page.getByText(/Tarif|Abrechnung bestätigen|€|Automationen|Regel aktivieren/)).toHaveCount(0);
         }
-        // Audiences only count cards; campaigns are withheld above while e-mail is off (Product, 24 Oct).
-        await page.goto("/merchant/audiences");
-        await expect(page.getByRole("heading", { name: "Segmente prüfen" })).toBeVisible();
         await page.goto("/merchant/settings");
         await expect(page.getByRole("link", { name: "Abrechnung" })).toHaveCount(0);
         await page.goto("/merchant/actions");

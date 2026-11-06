@@ -55,7 +55,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
 
   const me = owner.me;
   const role = me?.role ?? "owner";
-  const hidden = me?.hiddenSurfaces ?? [];
+  const hidden = me?.hiddenSurfaces ?? owner.hiddenSurfaces;
   const group = activeGroup(pathname, role, hidden);
   const subItems = group ? visibleItems(group, role, hidden) : [];
   const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => router.push("/cashier")); } };

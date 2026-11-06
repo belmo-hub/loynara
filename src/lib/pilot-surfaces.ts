@@ -17,7 +17,8 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   Withheld on real production until Legal's documents are live and the founder switches it on; preview and development show it.
  * - campaigns: withheld like automations while production e-mail delivery is disabled (Product, 24 Oct: the owner area offers
  *   one way to bring customers back, the Wallet win-back bonus on the programme page).
- * - audiences: NOT withheld. The audience preview only counts cards; nothing can be sent from it.
+ * - audiences: withheld with campaigns (founder, 6 Nov): its only next step is a campaign, so on production it would end in a
+ *   number with nothing to do, and the Kunden groups cover most of it.
  * - walletPreviews / cardLogo: Apple/Google Wallet previews, Wallet readiness and the logo upload in the card studio.
  *   Like NFC these follow CAPABILITY on real production: withheld while no Wallet provider can issue a pass (the browser
  *   card does not show a logo, the Apple pass does), shown automatically once Apple or Google Wallet is configured.
@@ -28,7 +29,7 @@ import { anyWalletAvailable } from "./wallet/capability";
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
 export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "cancellation", "walletMessages"];
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "audiences", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 
