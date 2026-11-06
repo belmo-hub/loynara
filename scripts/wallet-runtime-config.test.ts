@@ -36,7 +36,9 @@ describe("shared web and worker production Wallet runtime gate", () => {
   it("allows a locally parseable synthetic Google key but rejects demo publication in production", () => {
     const google = googleFixture();
     try {
-      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production" })).toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
+      // Classes live in the table (ENG-175): no env binding is fine, an invalid one is not.
+      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
+      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production", GOOGLE_WALLET_LOCATION_CLASSES: "not json" })).toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
       expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production", GOOGLE_WALLET_PUBLISHING_STATUS: "demo" })).toEqual(expect.arrayContaining([expect.stringMatching(/not approved for production/)]));
     } finally { google.cleanup(); }
   });

@@ -264,8 +264,8 @@ export class GoogleWalletClient {
           ? ({ oneUserAllDevices: "ONE_USER_ALL_DEVICES", oneUserOneDevice: "ONE_USER_ONE_DEVICE", multipleHolders: "MULTIPLE_HOLDERS" } as Record<string, string>)[String(current[key])] ?? current[key] : current[key];
         if (comparableClassField(observed) !== comparableClassField(cls[key as keyof typeof cls])) {
           const value = cls[key as keyof typeof cls];
-          // A logo changed to square must drop the wide one, which Google clears on a PATCH with null.
-          if (value !== undefined || key === "wideProgramLogo") patch[key] = value ?? null;
+          // A logo changed to square must drop the wide one, and a removed pin its location: Google clears both on a PATCH with null.
+          if (value !== undefined || key === "wideProgramLogo" || key === "merchantLocations") patch[key] = value ?? null;
         }
       }
       if (Object.keys(patch).length) {

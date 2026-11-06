@@ -47,7 +47,7 @@ export async function walletProgramBrand(tenantId: string, programId: string, re
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.id, programId), eq(programs.tenantId, tenantId)));
-  if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return brandOf(row, await programInForce(reader, row.program));
 }
 

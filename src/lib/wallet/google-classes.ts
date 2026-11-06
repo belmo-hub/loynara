@@ -41,6 +41,7 @@ export async function syncGoogleClasses(env: Env = process.env, fetcher: typeof 
   const status = googleDirectStatus(env);
   if (!status.ready || status.publishingStatus !== "published") return { synced: 0, failed: 0 };
   const envBound = new Set(googleLocationClasses(env).map(scopeKey));
+  // shortcut: every active programme's class fields are rebuilt each run, logo processing included (64-entry cache); fine for pilot numbers, move to change-driven jobs when the shop count grows.
   const active = await db.select({ tenantId: programs.tenantId, locationId: programs.locationId, programId: programs.id }).from(programs).where(eq(programs.status, "active"));
   let synced = 0, failed = 0;
   for (const scope of active) {

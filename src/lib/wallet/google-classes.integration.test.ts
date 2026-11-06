@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
-import { walletGoogleClasses } from "@/db/schema";
+import { locations, walletGoogleClasses } from "@/db/schema";
 import { updateMerchantBrand } from "@/lib/merchant-brand";
 import { createMerchant, enroll } from "@/lib/product";
 import { walletAvailability } from "./capability";
@@ -105,6 +105,27 @@ describe("Google Wallet classes per shop (ENG-175)", () => {
       await syncGoogleClasses(process.env, api.fetcher);
       expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { issuerName: "New Name Café", hexBackgroundColor: "#2f6b58", reviewStatus: "UNDER_REVIEW" } });
       expect((await rowOf(s)).status).toBe("under_review");
+    });
+  });
+
+  it("sends a set, moved or removed shop pin to the class, with or without a pass (ENG-176 sets coordinates)", async () => {
+    const s = await shop();
+    await withGoogle(async () => {
+      const api = fakeGoogleApi();
+      await syncGoogleClasses(process.env, api.fetcher);
+      approve(api, s);
+      await syncGoogleClasses(process.env, api.fetcher);
+      const pin = (latitude: number | null, longitude: number | null) => db.update(locations).set({ latitude, longitude }).where(eq(locations.id, s.locationId));
+      await pin(51.3127, 9.4797);
+      await syncGoogleClasses(process.env, api.fetcher);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { merchantLocations: [{ latitude: 51.3127, longitude: 9.4797 }], reviewStatus: "UNDER_REVIEW" } });
+      approve(api, s);
+      await pin(51.32, 9.5);
+      await syncGoogleClasses(process.env, api.fetcher);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { merchantLocations: [{ latitude: 51.32, longitude: 9.5 }] } });
+      await pin(null, null);
+      await syncGoogleClasses(process.env, api.fetcher);
+      expect(api.calls.at(-1)).toMatchObject({ method: "PATCH", body: { merchantLocations: null } });
     });
   });
 
