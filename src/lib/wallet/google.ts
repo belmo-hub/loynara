@@ -232,21 +232,21 @@ export class GoogleWalletClient {
   }
 
   /** Creates or aligns the programme class (merchant name, programme, colour, logo, location). */
-  async upsertClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
-    return (await this.alignClass(brand, config, false)).id;
+  async upsertClass(brand: WalletBrand, config: GoogleConfig, mode: "issue" | "maintain" = "issue"): Promise<string> {
+    return (await this.alignClass(brand, config, mode)).id;
   }
 
   /** The worker's side (ENG-175): may create a missing class even when published, and reports its review state instead of refusing it. */
   async provisionClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
-    return (await this.alignClass(brand, config, true)).status;
+    return (await this.alignClass(brand, config, "provision")).status;
   }
 
   /**
    * Erasure (Legal): Google has no class delete, so an erased shop's class is overwritten until nothing names the shop:
    * names, logo with its alt text, wide logo, location and colour. "done" only once Google shows that text approved; a class
-   * Google never had is done too. Anything else waits for the next run.
+   * Google never had is done too. "rejected" needs a person, since sending the same text again changes nothing.
    */
-  async neutralizeClass(classId: string, logoUrl: string): Promise<"done" | "waiting"> {
+  async neutralizeClass(classId: string, logoUrl: string): Promise<"done" | "waiting" | "rejected"> {
     const path = `/loyaltyClass/${encodeURIComponent(classId)}`;
     const read = async () => {
       const response = await this.request("GET", path);
@@ -267,20 +267,23 @@ export class GoogleWalletClient {
       if (!updated.ok) throw new GoogleWalletError("class overwrite", updated.status);
       current = await read();
     }
-    return current && neutral(current) && classReviewStatus(current.reviewStatus) === "APPROVED" ? "done" : "waiting";
+    if (!current || !neutral(current)) return "waiting";
+    const review = classReviewStatus(current.reviewStatus);
+    return review === "APPROVED" ? "done" : review === "REJECTED" ? "rejected" : "waiting";
   }
 
-  private async alignClass(brand: WalletBrand, config: GoogleConfig, provision: boolean): Promise<{ id: string; status: string }> {
+  /** "issue" needs an eligible class. "maintain" keeps passes already out updated in any review state. Only "provision" may create a published class. */
+  private async alignClass(brand: WalletBrand, config: GoogleConfig, mode: "issue" | "maintain" | "provision"): Promise<{ id: string; status: string }> {
     const cls = googleClass(brand, config);
     const eligible = (current: Record<string, unknown>) => {
-      if (!provision) assertClassEligibility(current, cls.id, config);
+      if (mode === "issue") assertClassEligibility(current, cls.id, config);
       else if (current.id !== cls.id) throw new GoogleWalletError("class eligibility", 0);
       return String(classReviewStatus(current.reviewStatus));
     };
     const classGet = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
     let status: string = cls.reviewStatus;
     if (classGet.status === 404) {
-      if (config.binding && config.publishingStatus !== "demo" && !provision) throw new GoogleWalletError("approved class missing", 404);
+      if (config.binding && config.publishingStatus !== "demo" && mode !== "provision") throw new GoogleWalletError("approved class missing", 404);
       const inserted = await this.request("POST", "/loyaltyClass", cls);
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("class creation", inserted.status);
       if (inserted.status === 409) {
@@ -313,8 +316,8 @@ export class GoogleWalletClient {
   }
 
   /** Creates the object or overwrites its displayed state from Loynara. Never reads a balance back from Google. */
-  async upsert(pass: WalletPassData, passId: string, config: GoogleConfig): Promise<{ id: string; classId: string }> {
-    await this.upsertClass(pass, config);
+  async upsert(pass: WalletPassData, passId: string, config: GoogleConfig, mode: "issue" | "maintain" = "issue"): Promise<{ id: string; classId: string }> {
+    await this.upsertClass(pass, config, mode);
     const object = googleObject(pass, passId, config);
     const objectGet = await this.request("GET", `/loyaltyObject/${encodeURIComponent(object.id)}`);
     if (objectGet.status === 404) {

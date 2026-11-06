@@ -375,7 +375,7 @@ async function main() {
         try {
           // Idempotent, and a no-op unless Google is on and published: each active programme gets its class, each changed shop its fields.
           const { syncGoogleClasses } = await import("../src/lib/wallet/google-classes");
-          const result = await syncGoogleClasses();
+          const result = await syncGoogleClasses(process.env, fetch, { signal: shutdown.signal });
           if (result.synced || result.failed) console.log(`Google Wallet classes: ${result.synced} synced, ${result.failed} failed`);
           googleClassesSyncedAt = Date.now();
         } catch (error) {

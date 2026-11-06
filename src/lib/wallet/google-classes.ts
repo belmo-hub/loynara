@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { programs, walletGoogleClasses } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
@@ -10,6 +10,8 @@ import { googleDirectConfig, googleDirectStatus, googleLocationClasses, type Goo
 type Env = Record<string, string | undefined>;
 type Reader = Pick<typeof db, "select">;
 const scopeKey = (row: { tenantId: string; locationId: string; programId: string }) => `${row.tenantId}/${row.locationId}/${row.programId}`.toLowerCase();
+const SWEEP_MS = 60_000;
+const CLASS_MS = 30_000;
 const REVIEW: Record<string, "pending" | "under_review" | "approved" | "rejected"> = { DRAFT: "pending", UNDER_REVIEW: "under_review", APPROVED: "approved", REJECTED: "rejected" };
 
 /**
@@ -42,17 +44,22 @@ export async function overwriteGoogleClasses(tenantId: string, env: Env = proces
   try { bound = googleLocationClasses(env).filter(row => row.tenantId === tenantId.toLowerCase()); } catch { /* Google off or misconfigured: only the table counts */ }
   const classIds = [...new Set([...rows.map(row => row.classId), ...bound.map(row => row.classId)])];
   if (!classIds.length) return 0;
-  const record = (classId: string, state: { status: "under_review"; lastError: null } | { lastError: string }) => db.update(walletGoogleClasses).set({ ...state, updatedAt: new Date() }).where(eq(walletGoogleClasses.classId, classId));
+  const record = (classId: string, state: { status: "under_review" | "rejected"; lastError: null } | { lastError: string }) => db.update(walletGoogleClasses).set({ ...state, updatedAt: new Date() }).where(eq(walletGoogleClasses.classId, classId));
   if (!googleDirectStatus(env).ready) throw new DomainError("EXTERNAL_PENDING", `${classIds.length} Google Wallet class(es) of the shop cannot be overwritten while Google is unavailable; the erasure waits`);
   const config = googleConfig(env);
   const client = new GoogleWalletClient(config, fetcher);
-  let waiting = 0;
+  let waiting = 0, rejected = 0;
   for (const classId of classIds) {
-    // Waiting for Google is no failure: the row just says it is under review.
-    try { if (await client.neutralizeClass(classId, config.logoUrl) === "done") continue; await record(classId, { status: "under_review", lastError: null }); }
-    catch (error) { await record(classId, { lastError: `erasure ${error instanceof GoogleWalletError ? error.step : "overwrite"}`.slice(0, 60) }); }
+    // Waiting for Google is no failure: the row just says what Google says.
+    try {
+      const result = await client.neutralizeClass(classId, config.logoUrl);
+      if (result === "done") continue;
+      if (result === "rejected") rejected++;
+      await record(classId, { status: result === "rejected" ? "rejected" : "under_review", lastError: null });
+    } catch (error) { await record(classId, { lastError: `erasure ${error instanceof GoogleWalletError ? error.step : "overwrite"}`.slice(0, 60) }); }
     waiting++;
   }
+  if (rejected) throw new DomainError("EXTERNAL_PENDING", `Google rejected the overwrite of ${rejected} Wallet class(es) of the shop; the erasure waits and a rerun alone will not help (RUNBOOK, erasure)`);
   if (waiting) throw new DomainError("EXTERNAL_PENDING", `${waiting} Google Wallet class(es) of the shop are not overwritten yet; the erasure waits, run it again`);
   return classIds.length;
 }
@@ -62,16 +69,20 @@ export async function overwriteGoogleClasses(tenantId: string, env: Env = proces
  * customer request, so a Google failure can never block a card or Apple; the row records it and the next run tries again.
  * Published issuers only: in Demo Mode the one approved synthetic class stays an explicit env binding. A scope the env
  * already binds stays with the env, because object ids hash the class id. A row whose fields did not change costs no call,
- * unless Google is still reviewing it.
+ * unless Google is still reviewing it. It runs inline in the worker, so it stops at its time budget or on shutdown; the
+ * least recently touched rows go first, so a hanging class cannot starve the ones behind it.
  */
-export async function syncGoogleClasses(env: Env = process.env, fetcher: typeof fetch = fetch) {
+export async function syncGoogleClasses(env: Env = process.env, fetcher: typeof fetch = fetch, { signal, budgetMs = SWEEP_MS }: { signal?: AbortSignal; budgetMs?: number } = {}) {
   const status = googleDirectStatus(env);
   if (!status.ready || status.publishingStatus !== "published") return { synced: 0, failed: 0 };
   const envBound = new Set(googleLocationClasses(env).map(scopeKey));
   // shortcut: every active programme's class fields are rebuilt each run, logo processing included (64-entry cache); fine for pilot numbers, move to change-driven jobs when the shop count grows.
-  const active = await db.select({ tenantId: programs.tenantId, locationId: programs.locationId, programId: programs.id }).from(programs).where(eq(programs.status, "active"));
+  const active = await db.select({ tenantId: programs.tenantId, locationId: programs.locationId, programId: programs.id }).from(programs)
+    .leftJoin(walletGoogleClasses, eq(walletGoogleClasses.programId, programs.id)).where(eq(programs.status, "active")).orderBy(sql`${walletGoogleClasses.updatedAt} asc nulls first`);
+  const deadline = Date.now() + budgetMs;
   let synced = 0, failed = 0;
   for (const scope of active) {
+    if (signal?.aborted || Date.now() >= deadline) break;
     if (envBound.has(scopeKey(scope))) continue;
     await db.insert(walletGoogleClasses).values({ ...scope, classId: `${env.GOOGLE_WALLET_ISSUER_ID}.program_${scope.programId}` }).onConflictDoNothing();
     const where = and(eq(walletGoogleClasses.tenantId, scope.tenantId), eq(walletGoogleClasses.locationId, scope.locationId), eq(walletGoogleClasses.programId, scope.programId));
@@ -85,7 +96,7 @@ export async function syncGoogleClasses(env: Env = process.env, fetcher: typeof 
         if (row.lastError) await db.update(walletGoogleClasses).set({ lastError: null, updatedAt: new Date() }).where(where);
         continue;
       }
-      const review = await new GoogleWalletClient(config, fetcher).provisionClass(brand, config);
+      const review = await new GoogleWalletClient(config, fetcher, Math.min(CLASS_MS, deadline - Date.now())).provisionClass(brand, config);
       await db.update(walletGoogleClasses).set({ status: REVIEW[review] ?? "under_review", syncedHash: hash, lastError: null, updatedAt: new Date() }).where(where);
       synced++;
     } catch (error) {

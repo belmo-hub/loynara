@@ -36,6 +36,7 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
   const blocked: string[] = [];
   let google = deps.google;
   let passFastFailed = false;
+  let googleFailure: unknown;
   for (const original of rows) {
     if (isPassFastObjectId(original.providerObjectId)) {
       const brand = snapshot.open ? snapshot.pass : snapshot.brand;
@@ -68,13 +69,13 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
           await google.revoke(revokedView(row, latest), row.providerObjectId, config);
           await tx.update(walletPasses).set({ status: "revoked", syncedAt: new Date() }).where(eq(walletPasses.id, row.id));
         } else if (latest.open) {
-          await google.upsert(latest.pass, row.id, config);
+          await google.upsert(latest.pass, row.id, config, "maintain");
           // Service message („Prämie bereit“): off until Google approves the issuer (GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED); the balance update above always runs.
           const message = process.env.GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED === "true" ? await rewardReadyMessage(tx, row, latest.pass) : null;
           if (message && await google.addMessageOnce(row.providerObjectId, message, config) === "limited") console.warn("Google Wallet reward message skipped: notification limit reached");
           await tx.update(walletPasses).set({ status: row.status === "pending" ? "created" : row.status, syncedAt: new Date(), updatedAt: new Date() }).where(eq(walletPasses.id, row.id));
         }
-      });
+      }).catch((error: unknown) => { googleFailure ??= error; }); // Still push the other platform; rethrown below so the job retries.
       continue;
     }
     let row = original;
@@ -113,6 +114,7 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
     }
   }
   if (passFastFailed) throw new PassFastError();
+  if (googleFailure) throw googleFailure;
   return blocked.length ? { status: "blocked", reason: blocked.join("; ") } : { status: "complete" };
 }
 
