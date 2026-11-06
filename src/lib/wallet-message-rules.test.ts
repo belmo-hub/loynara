@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EXCLUDED_GOODS } from "./card-extras";
-import { almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
+import { almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, CONSENT_TEXT_VERSION, CONSENT_TEXTS, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
 
 describe("message text rules", () => {
   it("accepts the founder's example and counts characters, not bytes", () => {
@@ -28,6 +28,15 @@ describe("message text rules", () => {
 describe("texts and hints", () => {
   it("consent text fills in shop and location", () => {
     expect(consentText("Café Kurz", "Kassel Mitte")).toMatch(/^Ja, Café Kurz, Kassel Mitte, darf mir Angebote.*\(höchstens 2 pro Woche\)\./);
+  });
+  it("never changes a published consent wording: a new one gets a new version and a line here (ENG-174b)", () => {
+    const published: Record<string, string> = {
+      "wallet-consent-2026-10-22-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
+      "wallet-consent-join-2026-11-06-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
+    };
+    expect(Object.keys(CONSENT_TEXTS).sort()).toEqual(Object.keys(published).sort());
+    for (const [version, text] of Object.entries(published)) expect(CONSENT_TEXTS[version]("Café Kurz", "Kassel Mitte")).toBe(text);
+    expect(consentText("Café Kurz", "Kassel Mitte")).toBe(CONSENT_TEXTS[CONSENT_TEXT_VERSION]("Café Kurz", "Kassel Mitte"));
   });
   it("shows the action hint for Punkte, Stempel or doppelt in any case, never otherwise", () => {
     for (const text of ["Doppelte Punkte heute", "STEMPEL extra", "heute doppelt", "punkte"]) expect(needsActionHint(text), text).toBe(true);

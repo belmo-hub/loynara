@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CustomerExportError, readCustomerExport } from "./customer-export-download";
 
 afterEach(() => { vi.restoreAllMocks(); });
-const body = JSON.stringify({ formatVersion: 1, scope: "pseudonymous-card-activity-without-contact-records", membership: { id: "synthetic-member", balance: 2 }, program: { name: "Synthetic Card" }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
+const body = JSON.stringify({ formatVersion: 1, walletMessageConsents: [], consentTexts: [{ version: "synthetic", text: "Synthetic" }], scope: "pseudonymous-card-activity-without-contact-records", membership: { id: "synthetic-member", balance: 2 }, program: { name: "Synthetic Card" }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
 const signal = new AbortController().signal;
 
 describe("customer export response validation", () => {

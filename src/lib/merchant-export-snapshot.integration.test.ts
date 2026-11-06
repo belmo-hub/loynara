@@ -55,7 +55,7 @@ it.each(["award", "redemption", "reversal"] as const)("exports membership balanc
     await expect(mutation).resolves.toMatchObject({ balance: freshBalance });
     holdLedger = false; release();
     const exported = await pending;
-    expect(exported).toMatchObject({ formatVersion: 4, scope: "owner-business-data-without-card-or-contact-credentials" });
+    expect(exported).toMatchObject({ formatVersion: 6, scope: "owner-business-data-without-card-or-contact-credentials" });
     expect(exported.memberships.map(row => row.id)).toEqual(expect.arrayContaining([first.member.id, another.id]));
     for (const member of exported.memberships) expect(member.balance).toBe(exported.ledger.filter(row => row.membershipId === member.id).reduce((sum, row) => sum + row.delta, 0));
     expect(exported.memberships.find(row => row.id === first.member.id)?.balance).toBe(oldBalance);
@@ -111,7 +111,7 @@ it("preserves the 50,000 membership boundary and rejects larger exports without 
   await pool.query(`insert into memberships (tenant_id, program_id, scan_code, card_token)
     select $1, $2, 'sc_limit_' || n, 'card_limit_' || n from generate_series(1, 49999) n`, [f.tenant.id, f.program.id]);
   const boundary = await getMerchantExport(f.userId);
-  expect(boundary.formatVersion).toBe(4);
+  expect(boundary.formatVersion).toBe(6);
   expect(boundary.memberships).toHaveLength(50_000);
   await pool.query(`insert into memberships (tenant_id, program_id, scan_code, card_token) values ($1, $2, 'sc_limit_over', 'card_limit_over')`, [f.tenant.id, f.program.id]);
   await expect(getMerchantExport(f.userId)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
