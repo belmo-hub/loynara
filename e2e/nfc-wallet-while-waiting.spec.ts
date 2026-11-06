@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { MASTER, merchantWithTag, pathOf, resetPeerLimits } from "./nfc-support";
 
 // ENG-160 (founder, 31 Oct): after an NFC join on an iPhone, the Wallet offer shows while the customer waits for the team.
-// While waiting, Apple's sheet leaves the customer on the tap page; once the stamp has landed, the card page takes over
+// ENG-172: on an iPhone the band starts Apple's sheet by itself. While waiting, the sheet leaves the customer on the tap page; once the stamp has landed, the card page takes over
 // as in ENG-130. A stamp landing above a customer scrolled down to the band is brought into view (Design, 31 Oct).
 test.skip(!MASTER, "Run only against a server configured with the synthetic derived NFC provider (E2E_NFC_VERIFY_MASTER)");
 test.beforeEach(async () => { await resetPeerLimits(); });
@@ -24,6 +24,8 @@ async function waitingGuest(browser: Browser, url: string) {
   await customer.route("**/api/wallet/apple", async route => { await new Promise(resolve => setTimeout(resolve, 300)); await route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
   await customer.route("**/api/wallet/apple/download/synthetic-ticket", route => route.fulfill({ contentType: "application/vnd.apple.pkpass", body: Buffer.from("synthetic pass") }));
   const page = await customer.newPage();
+  const passes: string[] = [];
+  page.on("request", request => { if (/\/api\/wallet\/apple\/download\//.test(request.url())) passes.push(request.url()); });
   await page.goto(pathOf(m.nextUrl()));
   await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
   await page.getByRole("checkbox").first().check();
@@ -45,7 +47,7 @@ async function waitingGuest(browser: Browser, url: string) {
     await counter.getByRole("button", { name: "Stempel bestätigen", exact: true }).click({ timeout: 15_000 });
     return cashier;
   };
-  return { m, customer, page, confirm, reject };
+  return { m, customer, page, passes, confirm, reject };
 }
 const addToWallet = (page: Page) => page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" }).click();
 /** Tap add and wait until the pass itself is requested, as Apple's sheet would be opened. */
@@ -54,6 +56,30 @@ async function addAndOpenSheet(page: Page) {
   await addToWallet(page);
   await pass;
 }
+
+test("on an iPhone the band opens Apple's sheet by itself, leaves the page where it is, and the stamp then opens the card", async ({ baseURL, browser }) => {
+  const { m, customer, page, passes, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    await customer.route("**/api/wallet/status", async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, json: { ...(await response.json()), appleDownloaded: true } });
+    });
+    await expect.poll(() => passes.length).toBe(1);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.evaluate(() => document.activeElement?.id)).not.toBe("wallet-step-title");
+    await expect(page.locator("#wallet-step-title")).not.toHaveAttribute("tabindex");
+    await expect(page.getByRole("status").filter({ hasText: "Wird vorbereitet …" })).toHaveCount(0);
+    // Past the watch's first read, the sheet counts as opened: the waiting page stays, with its state and its button.
+    await page.waitForTimeout(4_500);
+    expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
+    await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" })).toBeEnabled();
+    const cashier = await confirm();
+    await expect(page).toHaveURL(/\/card\/card_/, { timeout: 15_000 });
+    expect(passes).toHaveLength(1);
+    await cashier.close();
+  } finally { await customer.close(); await m.close(); }
+});
 
 test("scrolled down to the band, the confirmed stamp comes into view and the band stays once", async ({ baseURL, browser }) => {
   const { m, customer, page, confirm } = await waitingGuest(browser, baseURL ?? "http://localhost:3000");

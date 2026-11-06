@@ -9,7 +9,7 @@ import { CardFace, nearestReward } from "./customer/card-face";
 import { CustomerState, StateLink } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
 import styles from "./customer/tap.module.css";
-import { walletPlatform } from "./wallet-preparation";
+import { iphoneDevice, walletPlatform } from "./wallet-preparation";
 import { markWalletStep, readWalletStep, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
 
 type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
@@ -212,7 +212,7 @@ export function TapClient({ refId }: { refId: string }) {
     </div>}
     {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
-    {walletProgram && recoveryCard && <WalletStep band stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
+    {walletProgram && recoveryCard && <WalletStep band auto={iphoneDevice()} stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
   </CustomerState>;
 }

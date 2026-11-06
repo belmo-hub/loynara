@@ -55,7 +55,7 @@ type Props = { token: string; program: Pick<PublicProgram, "businessName" | "pro
   stay?: boolean;
   /** Told once Apple's sheet opens, so the tap page leaves the stamp's scroll to the sheet's return. */
   onAdd?: () => void;
-  /** ENG-172: open Apple's sheet on arrival, as if the button was pressed; this screen stays as the fallback. */
+  /** ENG-172: open Apple's sheet on arrival, as if the button was pressed; this screen or band stays as the fallback. */
   auto?: boolean };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
@@ -89,14 +89,17 @@ export function WalletStep({ token, program: { businessName, programType, wallet
       const url = await prepareAppleWallet(token, controller.signal);
       if (controller.signal.aborted) return;
       window.location.assign(url);
-      // Only an add that reached Apple's sheet counts: a failed prepare keeps the band and its error on the tap page.
-      onAdd?.();
       // Nothing is being prepared any more, and a press is what rescues a refused sheet (ENG-172).
       if (unprompted) {
         operation.current = null; watching.current = controller; setBusy(false);
-        if (await waitForSheet(token, controller.signal)) router.replace(cardHref);
+        if (!await waitForSheet(token, controller.signal)) return;
+        onAdd?.();
+        // As after a press: the waiting tap page stays until the stamp lands.
+        if (stayRef.current) setBack(true); else router.replace(cardHref);
         return;
       }
+      // Only an add that reached Apple's sheet counts: a failed prepare keeps the band and its error on the tap page.
+      onAdd?.();
       // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). While the
       // tap page still waits for the team it stays there instead, so the customer sees the stamp confirmed (ENG-160).
       setTimeout(() => {
@@ -112,14 +115,17 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   useEffect(() => {
     if (!auto) return;
     // The step replaces the join in place: bring its heading to the top and give it focus, as CustomerState does.
-    heading.current?.scrollIntoView({ block: "start" });
-    heading.current?.focus({ preventScroll: true });
+    // The band sits under the tap page's state, which keeps the screen and the focus.
+    if (!band) {
+      heading.current?.scrollIntoView({ block: "start" });
+      heading.current?.focus({ preventScroll: true });
+    }
     void addRef.current(true);
-  }, [auto]);
+  }, [auto, band]);
 
   const Heading = band ? "h2" : "h1";
   return <section className={styles.step} data-band={band || undefined} aria-labelledby="wallet-step-title">
-    <Heading id="wallet-step-title" ref={heading} tabIndex={auto ? -1 : undefined} className={styles.title}>Deine Karte ist fertig. Leg sie in Apple Wallet.</Heading>
+    <Heading id="wallet-step-title" ref={heading} tabIndex={auto && !band ? -1 : undefined} className={styles.title}>Deine Karte ist fertig. Leg sie in Apple Wallet.</Heading>
     <p className={styles.lead}>Dann ist sie immer griffbereit, bei deinen anderen Karten. Kein Link, den du suchen musst.</p>
     <div className={styles.lock} role="group" aria-label="So sieht das auf dem Sperrbildschirm aus">
       <p className={styles.alert}><span className={styles.mono} aria-hidden="true">{initial}</span><span className={styles.from}><strong>{businessName}</strong><small>jetzt</small></span><span className={styles.text}>Deine Prämie ist bereit. Du kannst sie an der Kasse einlösen.</span></p>

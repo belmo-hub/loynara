@@ -116,23 +116,23 @@ describe("the pages wire the decisions (ENG-130 review N-3)", () => {
 
 describe("Apple's sheet straight after the join (ENG-172)", () => {
   const read = async (file: string) => (await import("node:fs")).readFileSync(file, "utf8");
-  it("only the join's step opens by itself, on an iPhone; the tap band stays manual", async () => {
+  it("the join's step and the tap band open by themselves, on an iPhone only", async () => {
     expect(await read("src/components/join-client.tsx")).toContain("<WalletStep token={walletStep} program={program} auto={iphoneDevice()} />");
     const bands = (await read("src/components/tap-client.tsx")).split("\n").filter(line => line.includes("<WalletStep"));
-    expect(bands.length).toBeGreaterThan(0);
-    for (const band of bands) expect(band).not.toMatch(/\bauto\b/);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]).toContain("<WalletStep band auto={iphoneDevice()} stay={!done}");
   });
   it("brings the auto step's heading to the top and focuses it before starting", async () => {
     const step = await read("src/components/wallet-step.tsx");
-    expect(step).toContain('heading.current?.scrollIntoView({ block: "start" });\n    heading.current?.focus({ preventScroll: true });\n    void addRef.current(true);');
-    expect(step).toContain("tabIndex={auto ? -1 : undefined}");
+    expect(step).toContain('if (!band) {\n      heading.current?.scrollIntoView({ block: "start" });\n      heading.current?.focus({ preventScroll: true });\n    }\n    void addRef.current(true);');
+    expect(step).toContain("tabIndex={auto && !band ? -1 : undefined}");
     expect(step).not.toContain("scrollTo(");
   });
   it("the unprompted run ends busy at the hand-over and only watches; a press takes over, and a pressed run never reads the status", async () => {
     const step = await read("src/components/wallet-step.tsx");
     expect(step).toContain("async function add(unprompted = false) {");
     expect(step).toContain("onClick={() => void add()}");
-    expect(step).toContain("if (unprompted) {\n        operation.current = null; watching.current = controller; setBusy(false);\n        if (await waitForSheet(token, controller.signal)) router.replace(cardHref);\n        return;\n      }");
+    expect(step).toContain("if (unprompted) {\n        operation.current = null; watching.current = controller; setBusy(false);\n        if (!await waitForSheet(token, controller.signal)) return;\n        onAdd?.();\n        // As after a press: the waiting tap page stays until the stamp lands.\n        if (stayRef.current) setBack(true); else router.replace(cardHref);\n        return;\n      }");
     expect(step).toContain("watching.current?.abort();\n    const controller = new AbortController(); operation.current = controller;");
     expect(step.match(/waitForSheet\(/g)).toHaveLength(1);
     expect(step).not.toContain("sheetOpened");
