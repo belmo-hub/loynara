@@ -46,6 +46,8 @@ French staff reminder for this same local workflow: choisir le bon établissemen
 
 An owner can review the last 50 invite, acceptance and revocation events under **Team → Zugriffsverlauf** and download the full tenant-scoped history in the merchant JSON export. The database rejects updates and deletes of these new audit rows. No earlier staff events were backfilled, invitation links are never logged in the audit, and the operator still needs an approved retention schedule.
 
+In the merchant JSON export, a `programRuleVersions` or `rewardVersions` row replaced before its date keeps its past `effectiveAt` although it never applied; read `createdAt`: the row never applied if a higher version of it was created before that `effectiveAt`.
+
 ### Offline award simulation (local browser only)
 
 While online, look up the card to obtain a staff/location/card/browser lease valid for 30 minutes. After a disconnect, explicitly choose **Offline-Vergabe vormerken** in the award review. Up to 20 events stay in that browser's localStorage; the card balance and rewards do not change. Reconnect and choose **Ausstehende Vergaben synchronisieren**. Server acceptance posts one idempotent ledger award; rejection shows a reason for staff review and never credits the card. Expired leases, revoked staff, changed rules and closed cards are rejected. Redemption stays online. Do not clear browser data, switch device/browser or sign out before all pending events are reviewed; browser storage is not a durable server backup. The simulated disconnect/reload/retry/revocation tests passed locally, but a physical cashier-device outage and recovery are **NOT RUN**.

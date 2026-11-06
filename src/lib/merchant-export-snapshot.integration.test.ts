@@ -126,6 +126,8 @@ it("exports every rule version of the shop's own programmes, including the rules
   const exported = await getMerchantExport(f.userId);
   expect(exported.programRuleVersions.map(row => row.programId)).not.toContain(foreign.program.id);
   expect(exported.programRuleVersions.map(row => row.version).sort()).toEqual([1, 2]);
+  // A new column on the table must not reach the owner's file unnoticed.
+  for (const row of exported.programRuleVersions) expect(Object.keys(row).sort()).toEqual(["createdAt", "earningMode", "effectiveAt", "id", "name", "pointsExpiryMonths", "pointsExpirySince", "pointsPerCurrencyUnit", "programId", "rulesText", "tenantId", "type", "version"]);
   expect(exported.programRuleVersions.find(row => row.version === 1)).toMatchObject({ tenantId: f.tenant.id, programId: f.program.id, name: "Tap Card", rulesText: "One stamp per visit." });
   expect(exported.programRuleVersions.find(row => row.version === 2)).toMatchObject({ name: "Neue Karte", type: "points", earningMode: "purchase", rulesText: "Neue Regeln", pointsPerCurrencyUnit: 5, pointsExpiryMonths: 12, pointsExpirySince: effectiveAt, effectiveAt });
 });
