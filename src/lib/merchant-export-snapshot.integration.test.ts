@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { eq } from "drizzle-orm";
-import { memberships, rewardVersions } from "@/db/schema";
+import { memberships, programRuleVersions, rewardVersions } from "@/db/schema";
 import { getMerchantExport } from "./export";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { addStaff, nfcFixture } from "./nfc-test-db";
@@ -55,7 +55,7 @@ it.each(["award", "redemption", "reversal"] as const)("exports membership balanc
     await expect(mutation).resolves.toMatchObject({ balance: freshBalance });
     holdLedger = false; release();
     const exported = await pending;
-    expect(exported).toMatchObject({ formatVersion: 6, scope: "owner-business-data-without-card-or-contact-credentials" });
+    expect(exported).toMatchObject({ formatVersion: 7, scope: "owner-business-data-without-card-or-contact-credentials" });
     expect(exported.memberships.map(row => row.id)).toEqual(expect.arrayContaining([first.member.id, another.id]));
     for (const member of exported.memberships) expect(member.balance).toBe(exported.ledger.filter(row => row.membershipId === member.id).reduce((sum, row) => sum + row.delta, 0));
     expect(exported.memberships.find(row => row.id === first.member.id)?.balance).toBe(oldBalance);
@@ -111,10 +111,30 @@ it("preserves the 50,000 membership boundary and rejects larger exports without 
   await pool.query(`insert into memberships (tenant_id, program_id, scan_code, card_token)
     select $1, $2, 'sc_limit_' || n, 'card_limit_' || n from generate_series(1, 49999) n`, [f.tenant.id, f.program.id]);
   const boundary = await getMerchantExport(f.userId);
-  expect(boundary.formatVersion).toBe(6);
+  expect(boundary.formatVersion).toBe(7);
   expect(boundary.memberships).toHaveLength(50_000);
   await pool.query(`insert into memberships (tenant_id, program_id, scan_code, card_token) values ($1, $2, 'sc_limit_over', 'card_limit_over')`, [f.tenant.id, f.program.id]);
   await expect(getMerchantExport(f.userId)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
   const other = await nfcFixture();
   expect((await getMerchantExport(other.userId)).memberships).toHaveLength(1);
+}, 15000);
+
+it("exports every rule version of the shop's own programmes, including the rules that no longer apply (ENG-174c)", async () => {
+  const f = await nfcFixture(); const foreign = await nfcFixture();
+  const effectiveAt = new Date("2026-11-01T00:00:00Z");
+  await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 2, name: "Neue Karte", type: "points", earningMode: "purchase", rulesText: "Neue Regeln", pointsPerCurrencyUnit: 5, pointsExpiryMonths: 12, pointsExpirySince: effectiveAt, effectiveAt });
+  const exported = await getMerchantExport(f.userId);
+  expect(exported.programRuleVersions.map(row => row.programId)).not.toContain(foreign.program.id);
+  expect(exported.programRuleVersions.map(row => row.version).sort()).toEqual([1, 2]);
+  expect(exported.programRuleVersions.find(row => row.version === 1)).toMatchObject({ tenantId: f.tenant.id, programId: f.program.id, name: "Tap Card", rulesText: "One stamp per visit." });
+  expect(exported.programRuleVersions.find(row => row.version === 2)).toMatchObject({ name: "Neue Karte", type: "points", earningMode: "purchase", rulesText: "Neue Regeln", pointsPerCurrencyUnit: 5, pointsExpiryMonths: 12, pointsExpirySince: effectiveAt, effectiveAt });
+});
+
+it("refuses an export with more rule versions than one file holds instead of cutting the history off (ENG-174c)", async () => {
+  const f = await nfcFixture();
+  await pool.query(`insert into program_rule_versions (tenant_id, program_id, version, name, type, rules_text, earning_mode, points_per_currency_unit)
+    select $1, $2, n, 'Synthetic', 'stamp', '', 'manual', 1 from generate_series(2, 50000) n`, [f.tenant.id, f.program.id]);
+  expect((await getMerchantExport(f.userId)).programRuleVersions).toHaveLength(50_000);
+  await pool.query(`insert into program_rule_versions (tenant_id, program_id, version, name, type, rules_text, earning_mode, points_per_currency_unit) values ($1, $2, 50001, 'Synthetic', 'stamp', '', 'manual', 1)`, [f.tenant.id, f.program.id]);
+  await expect(getMerchantExport(f.userId)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
 }, 15000);
