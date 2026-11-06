@@ -48,12 +48,29 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts the required confirm tick before the optional box, and ties the button to the notice", async () => {
     const page = await source();
-    expect(page.indexOf("<Checkbox checked={confirmAnother}")).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
-    expect(page).toContain('aria-describedby={locale === "fr" ? undefined : "join-notice"}');
+    expect(page.indexOf('<Checkbox id="join-confirm"')).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
+    expect(page).toContain('aria-describedby={notice ? "join-notice" : undefined}');
     expect(page).toContain('<p id="join-notice" className={styles.notice}>');
   });
-  it("brings the rules back into view on a German stale join", async () => {
-    expect(await source()).toContain('if (locale !== "fr") document.getElementById("join-rules")?.scrollIntoView({ block: "start" });');
+  it("keeps a German stale line with the rules: under them, outside the block, both scrolled into view", async () => {
+    const page = await source();
+    expect(page).toContain('if (locale !== "fr") { setErrorSpot("rules"); document.getElementById("join-rules")?.scrollIntoView({ block: "start" }); }');
+    expect(page).toContain('})()}</div>\n      {errorLine("rules")}');
+    expect((await import("node:fs")).readFileSync("src/components/customer/join.module.css", "utf8")).toMatch(/\.rules \{[^}]*scroll-margin-top/);
+  });
+  it("puts the additional-card error under its tick, focuses that tick and ties them together", async () => {
+    const page = await source();
+    expect(page).toContain('setError(t.anotherConfirmError); setErrorSpot("confirm"); document.getElementById("join-confirm")?.focus(); return;');
+    expect(page).toContain('aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}');
+    expect(page.indexOf('{errorLine("confirm")}')).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
+    expect(page.indexOf("{t.anotherConfirm}</Checkbox>")).toBeLessThan(page.indexOf('{errorLine("confirm")}'));
+  });
+  it("hides the notice on a closed programme, where nothing can be accepted, and every new tap starts in the form", async () => {
+    const page = await source();
+    expect(page).toContain('const notice = locale !== "fr" && program.active !== false;');
+    expect(page).toContain('{notice && <p id="join-notice"');
+    expect(page).toContain('aria-describedby={notice ? "join-notice" : undefined}');
+    expect(page).toContain('setError(""); setErrorSpot("form");');
   });
   it("sends the version only for a shown, ticked box, and the box starts unticked", async () => {
     expect(joinConsent(true, true)).toEqual({ walletConsentVersion: "wallet-consent-join-2026-11-06-v1" });
@@ -76,7 +93,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();
-    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '<p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
+    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '{notice && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
     expect(order.every(at => at > 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');

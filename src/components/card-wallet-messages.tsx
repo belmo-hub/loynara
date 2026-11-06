@@ -20,7 +20,6 @@ export function consentLines(expiry: boolean) {
 /** After switching off, the panel keeps its off state even when the card no longer offers consent (its pass unreachable, ENG-162). */
 export const panelShown = (available: boolean, switchedOff: boolean) => available || switchedOff;
 
-/** Just switched off. The off line and „Einschalten“ only while the card still offers consent: an unreachable pass gets neither (Design, ENG-162). */
 /** On: also what a guest who ticked at the join sees, before any pass exists, so the off switch is always here (Legal, Art. 7(3)). */
 export function SwitchedOn({ shop, givenAt, busy, onSwitchOff }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void }) {
   return <>
@@ -30,6 +29,7 @@ export function SwitchedOn({ shop, givenAt, busy, onSwitchOff }: { shop: string;
   </>;
 }
 
+/** Just switched off. The off line and „Einschalten“ only while the card still offers consent: an unreachable pass gets neither (Design, ENG-162). */
 export function SwitchedOff({ shop, available, off, onSwitchOn }: { shop: string; available: boolean; off: string; onSwitchOn: () => void }) {
   return <>
     <p>Von {shop} · Höchstens 2 pro Woche · aus</p>

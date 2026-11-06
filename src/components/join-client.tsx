@@ -84,6 +84,8 @@ export function JoinClient({ slug }: { slug: string }) {
   const [messagesTicked, setMessagesTicked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // ENG-173: the line stands by what it asks for: under the rules after a stale join, under the tick it wants.
+  const [errorSpot, setErrorSpot] = useState<"form" | "rules" | "confirm">("form");
   const [referralUnavailable, setReferralUnavailable] = useState(false);
   // ENG-100: the full new rule opens in place, above the checkbox (W58); a stale join marks the rules it reloaded.
   const [showRule, setShowRule] = useState(false), [stale, setStale] = useState(false);
@@ -111,9 +113,9 @@ export function JoinClient({ slug }: { slug: string }) {
   }, [slug]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setReferralUnavailable(false);
+    event.preventDefault(); setError(""); setErrorSpot("form"); setReferralUnavailable(false);
     if (joinNeedsTick(locale, acceptedTerms)) { setError(copy.fr.acceptError); document.getElementById("join-consent")?.focus(); return; }
-    if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); return; }
+    if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); setErrorSpot("confirm"); document.getElementById("join-confirm")?.focus(); return; }
     setBusy(true);
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
@@ -148,8 +150,8 @@ export function JoinClient({ slug }: { slug: string }) {
         // The shop changed the programme while the page was open (W58): the rules reload in place, to be read and accepted again.
         const next = staleJoin(program!, await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).catch(() => null), staleLine(locale, existing ? t.anotherSubmit : t.submit));
         setProgram(next.program); setAcceptedTerms(next.acceptedTerms); setStale(next.stale); setError(next.error);
-        // The line says to read the rules above, which the message box can push a screen away.
-        if (locale !== "fr") document.getElementById("join-rules")?.scrollIntoView({ block: "start" });
+        // The line says to read the rules, which the message box can push a screen away: rules and line come into view together.
+        if (locale !== "fr") { setErrorSpot("rules"); document.getElementById("join-rules")?.scrollIntoView({ block: "start" }); }
       } else if (cause instanceof ClientApiError && cause.code === "INVALID_REFERRAL") {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {
@@ -170,6 +172,9 @@ export function JoinClient({ slug }: { slug: string }) {
     <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
   const iphone = iphoneJoin(platform, program);
+  const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p> : null;
+  // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
+  const notice = locale !== "fr" && program.active !== false;
 
   const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
     <p className={styles.welcome}>{t.welcome}</p>
@@ -232,19 +237,21 @@ export function JoinClient({ slug }: { slug: string }) {
           </Fragment>)}
         </>;
       })()}</div>
+      {errorLine("rules")}
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit} noValidate>
         {locale === "fr" && <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === copy.fr.acceptError || undefined} aria-describedby={error === copy.fr.acceptError ? "join-error" : undefined}>{copy.fr.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{copy.fr.terms}</Link> {copy.fr.and} <Link href="/datenschutz" target="_blank">{copy.fr.privacy}</Link>.</Checkbox>}
-        {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
+        {(existing || returning.state === "stale") && <Checkbox id="join-confirm" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}>{t.anotherConfirm}</Checkbox>}
+        {errorLine("confirm")}
         {joinOffersMessages(onIphone, program) && <div className={styles.messages}>
           <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>
           <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>
           <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
         </div>}
-        {error && <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p>}
+        {errorLine("form")}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
-        {locale !== "fr" && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
-        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={locale === "fr" ? undefined : "join-notice"} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
+        {notice && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
+        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
       <p className={styles.link}>{locale === "fr" ? <Link href="/recover">Vous avez déjà une carte ? Récupération sécurisée</Link> : <><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></>}</p>
