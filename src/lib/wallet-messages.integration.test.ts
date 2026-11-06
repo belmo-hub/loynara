@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
+import { getCustomerExport, getMerchantExport } from "./export";
 import { createMerchant, enroll, updateProgramExtras } from "./product";
 import { credentialHash } from "./wallet/data";
 import { passFastData } from "./wallet/passfast";
@@ -115,6 +116,21 @@ describe("consent gate", () => {
     await setWalletConsent(c.cardToken, false);
     expect((await pool.query("SELECT status, revoked_at FROM wallet_passes WHERE id = $1", [c.passId])).rows[0]).toEqual({ status: "created", revoked_at: null });
     await expect(getWalletConsent("card_unknown")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("both exports carry the consent proof, withdrawn rows included, scoped to the shop and the card (ENG-174)", async () => {
+    const s = await shop(); const c = await customer(s); const other = await customer(s);
+    const elsewhere = await shop("Anderes Café"); await customer(elsewhere);
+    await setWalletConsent(c.cardToken, false); await setWalletConsent(c.cardToken, true);
+    const card = (await getCustomerExport(c.cardToken)).walletMessageConsents.sort((a, b) => a.givenAt.getTime() - b.givenAt.getTime());
+    expect(card).toEqual([
+      { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: expect.any(Date) },
+      { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: null },
+    ]);
+    const shopRows = (await getMerchantExport(s.owner)).walletMessageConsents;
+    expect(shopRows.map(row => row.membershipId).sort()).toEqual([c.id, c.id, other.id].sort());
+    expect(shopRows.every(row => row.tenantId === s.tenantId && row.textVersion === CONSENT_TEXT_VERSION && row.channel === "wallet")).toBe(true);
+    expect(shopRows.filter(row => row.withdrawnAt !== null)).toHaveLength(1);
   });
 
   it("the consent log is append-only: only a first withdrawal is allowed, a new grant is a new row", async () => {
