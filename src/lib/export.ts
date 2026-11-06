@@ -6,11 +6,28 @@ import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { assertExportOpen } from "./programme-end";
 import { programInForce } from "./rule-versions";
+import { CONSENT_TEXTS } from "./wallet-message-rules";
 
 const MAX_ROWS = 50_000;
 function checked<T>(rows: T[], label: string) {
   if (rows.length > MAX_ROWS) throw new DomainError("EXPORT_TOO_LARGE", `${label} exceeds the single-file export limit`);
   return rows;
+}
+/** The wording behind a stored version, with today's names. A version without wording fails the export: proof is never dropped. */
+function consentWording(version: string, shop: string, location: string) {
+  if (!Object.hasOwn(CONSENT_TEXTS, version)) throw new DomainError("CONSENT_TEXT_UNKNOWN", `Consent text version ${version} has no wording`);
+  return CONSENT_TEXTS[version](shop, location);
+}
+/** One entry per version and location: the wording names the location, and a shop can have several. */
+function shopConsentTexts(consents: Array<{ textVersion: string; membershipId: string }>, members: Array<{ id: string; programId: string }>, programList: Array<{ id: string; locationId: string }>, locationList: Array<{ id: string; name: string }>, shop: string) {
+  const programOf = new Map(members.map(member => [member.id, member.programId]));
+  const locationOf = new Map(programList.map(program => [program.id, program.locationId]));
+  const names = new Map(locationList.map(location => [location.id, location.name]));
+  const pairs = new Map(consents.map(({ textVersion, membershipId }) => {
+    const locationId = locationOf.get(programOf.get(membershipId)!)!;
+    return [`${textVersion}\0${locationId}`, { version: textVersion, locationId }];
+  }));
+  return [...pairs.values()].map(({ version, locationId }) => ({ version, locationId, text: consentWording(version, shop, names.get(locationId)!) }));
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -47,7 +64,8 @@ export async function getMerchantExport(actorUserId: string) {
     return {
       // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
       // 5: Wallet message consents, the shop's proof of each customer's opt-in and withdrawal (ENG-174).
-      formatVersion: 5,
+      // 6: consentTexts, the wording behind each consent version (ENG-174b).
+      formatVersion: 6,
       exportedAt: new Date().toISOString(),
       scope: "owner-business-data-without-card-or-contact-credentials",
       tenant,
@@ -61,6 +79,7 @@ export async function getMerchantExport(actorUserId: string) {
       redemptions: checked(redemptionRows, "Redemptions"),
       consentEvents: checked(consentRows, "Consent events"),
       walletMessageConsents: checked(walletConsentRows, "Wallet message consents"),
+      consentTexts: shopConsentTexts(walletConsentRows, membershipRows, programRows, locationRows, tenant.name),
       staff: checked(roleRows, "Staff roles"),
       staffAuditEvents: checked(auditRows, "Staff audit events"),
       billingLocationPlans: checked(planRows, "Billing location plans"),
@@ -141,7 +160,7 @@ export async function getCustomerExport(cardToken: string) {
   return db.transaction(async (tx) => {
     const [card] = await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
     if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-    const [[program], entries, redemptionRows, consentRows, walletConsentRows, [birthday]] = await Promise.all([
+    const [[program], entries, redemptionRows, consentRows, walletConsentRows, [birthday], [names]] = await Promise.all([
       tx.select().from(programs).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
       tx.select({ id: ledgerEntries.id, delta: ledgerEntries.delta, kind: ledgerEntries.kind, reason: ledgerEntries.reason, reversalOfId: ledgerEntries.reversalOfId, createdAt: ledgerEntries.createdAt }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.id))).limit(MAX_ROWS + 1),
       tx.select({ rewardTitle: redemptions.rewardTitle, cost: redemptions.cost, createdAt: redemptions.createdAt }).from(redemptions).where(and(eq(redemptions.tenantId, card.tenantId), eq(redemptions.membershipId, card.id))).limit(MAX_ROWS + 1),
@@ -149,9 +168,10 @@ export async function getCustomerExport(cardToken: string) {
       tx.select({ textVersion: walletMessageConsents.textVersion, givenAt: walletMessageConsents.givenAt, withdrawnAt: walletMessageConsents.withdrawnAt }).from(walletMessageConsents).where(and(eq(walletMessageConsents.tenantId, card.tenantId), eq(walletMessageConsents.membershipId, card.id))).limit(MAX_ROWS + 1),
       // The customer's own stored birthday (ENG-049, Art. 15/20); never in the shop's exports.
       tx.select({ day: cardBirthdays.day, month: cardBirthdays.month }).from(cardBirthdays).where(and(eq(cardBirthdays.tenantId, card.tenantId), eq(cardBirthdays.membershipId, card.id))),
+      tx.select({ shop: tenants.name, location: locations.name }).from(programs).innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId))).innerJoin(tenants, eq(tenants.id, programs.tenantId)).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
     ]);
     // The rule in force (ENG-100), not a change still waiting for its date.
     const { name, type, rulesText } = await programInForce(tx, program);
-    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program: { name, type, rulesText }, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), walletMessageConsents: checked(walletConsentRows, "Card Wallet message consents"), birthday: birthday ?? null };
+    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program: { name, type, rulesText }, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), walletMessageConsents: checked(walletConsentRows, "Card Wallet message consents"), consentTexts: [...new Set(walletConsentRows.map(row => row.textVersion))].map(version => ({ version, text: consentWording(version, names.shop, names.location) })), birthday: birthday ?? null };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
