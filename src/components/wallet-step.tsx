@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { PublicProgram } from "./client-api";
-import { prepareAppleWallet, sheetOpened, walletMessage } from "./wallet-preparation";
+import { ClientApiError, type PublicProgram } from "./client-api";
+import { prepareAppleWallet, waitForSheet, walletMessage } from "./wallet-preparation";
 import styles from "./customer/wallet-step.module.css";
 
 /**
@@ -45,6 +46,9 @@ export const tapAsksForWalletStep = ({ done, waiting, ios, mark }: { done: boole
 /** With the location's answer the hand-over ends either way ("shown"); the band shows only where the join would have offered it. */
 export const tapWalletStep = (program: Pick<PublicProgram, "appleWallet" | "locale">) => ({ show: iphoneJoin("ios", program), mark: "shown" as const });
 
+/** The step's error line. Nobody pressed anything on the unprompted run, so „Zu viele Versuche“ waits for a real press. */
+export const walletStepError = (cause: unknown, unprompted: boolean) => unprompted && cause instanceof ClientApiError && cause.code === "RATE_LIMIT" ? "" : walletMessage(cause, false);
+
 type Props = { token: string; program: Pick<PublicProgram, "businessName" | "programType" | "walletMessages">; band?: boolean;
   /** As a band on the tap page until the stamp is booked: stay there after Apple's sheet, so a rejected or expired
    *  request still shows its state (ENG-160). */
@@ -61,6 +65,9 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const operation = useRef<AbortController | null>(null);
+  // The unprompted run after the hand-over: it only watches for the sheet, and a press takes over from it.
+  const watching = useRef<AbortController | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const cardHref = `/card/${encodeURIComponent(token)}`;
   const initial = Array.from(businessName)[0];
   // Read when Apple's sheet has had its 4 s: the stamp may have landed meanwhile.
@@ -70,10 +77,11 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   const [back, setBack] = useState(false);
   useEffect(() => { if (back && !stay) router.replace(cardHref); }, [back, stay, router, cardHref]);
 
-  useEffect(() => () => { operation.current?.abort(); operation.current = null; }, []);
+  useEffect(() => () => { operation.current?.abort(); operation.current = null; watching.current?.abort(); }, []);
 
   async function add(unprompted = false) {
     if (operation.current) return;
+    watching.current?.abort();
     const controller = new AbortController(); operation.current = controller;
     // A second add starts afresh: an earlier return from the sheet must not send this one to the card early.
     setBusy(true); setError(""); setBack(false);
@@ -83,28 +91,35 @@ export function WalletStep({ token, program: { businessName, programType, wallet
       window.location.assign(url);
       // Only an add that reached Apple's sheet counts: a failed prepare keeps the band and its error on the tap page.
       onAdd?.();
+      // Nothing is being prepared any more, and a press is what rescues a refused sheet (ENG-172).
+      if (unprompted) {
+        operation.current = null; watching.current = controller; setBusy(false);
+        if (await waitForSheet(token, controller.signal)) router.replace(cardHref);
+        return;
+      }
       // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). While the
       // tap page still waits for the team it stays there instead, so the customer sees the stamp confirmed (ENG-160).
-      setTimeout(async () => {
-        // Without a tap Safari may refuse the sheet: then the customer stays here, with the button (ENG-172).
-        if (unprompted && !await sheetOpened(token, controller.signal)) {
-          if (!controller.signal.aborted) { operation.current = null; setBusy(false); }
-          return;
-        }
+      setTimeout(() => {
         if (!stayRef.current) { router.replace(cardHref); return; }
         operation.current = null; setBusy(false); setBack(true);
       }, 4000);
     } catch (cause) {
-      if (!controller.signal.aborted) { setError(walletMessage(cause, false)); setBusy(false); }
+      if (!controller.signal.aborted) { setError(walletStepError(cause, unprompted)); setBusy(false); }
       if (operation.current === controller) operation.current = null;
     }
   }
   const addRef = useRef(add);
-  useEffect(() => { if (auto) void addRef.current(true); }, [auto]);
+  useEffect(() => {
+    if (!auto) return;
+    // The step replaces the join in place: bring its heading to the top and give it focus, as CustomerState does.
+    heading.current?.scrollIntoView({ block: "start" });
+    heading.current?.focus({ preventScroll: true });
+    void addRef.current(true);
+  }, [auto]);
 
   const Heading = band ? "h2" : "h1";
   return <section className={styles.step} data-band={band || undefined} aria-labelledby="wallet-step-title">
-    <Heading id="wallet-step-title" className={styles.title}>Deine Karte ist fertig. Leg sie in Apple Wallet.</Heading>
+    <Heading id="wallet-step-title" ref={heading} tabIndex={auto ? -1 : undefined} className={styles.title}>Deine Karte ist fertig. Leg sie in Apple Wallet.</Heading>
     <p className={styles.lead}>Dann ist sie immer griffbereit, bei deinen anderen Karten. Kein Link, den du suchen musst.</p>
     <div className={styles.lock} role="group" aria-label="So sieht das auf dem Sperrbildschirm aus">
       <p className={styles.alert}><span className={styles.mono} aria-hidden="true">{initial}</span><span className={styles.from}><strong>{businessName}</strong><small>jetzt</small></span><span className={styles.text}>Deine Prämie ist bereit. Du kannst sie an der Kasse einlösen.</span></p>
@@ -114,7 +129,7 @@ export function WalletStep({ token, program: { businessName, programType, wallet
     {/* Apple's German badge as supplied (ENG-132), named as it reads; never dimmed while busy, the status line says so. */}
     <button type="button" className={styles.apple} onClick={() => void add()} disabled={busy} aria-busy={busy}><Image unoptimized src="/wallet/apple-add-de.svg" alt="Hinzufügen zu Apple Wallet" width={166} height={52} /></button>
     <p className={styles.busy} role="status">{busy ? "Wird vorbereitet …" : ""}</p>
-    {error && <p className={styles.error} role="alert">{error}</p>}
+    {error && <p className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p>}
     <p className={styles.skip}><Link href={cardHref}>Später, zuerst meine Karte ansehen</Link></p>
     <p className={styles.muted}>{programType === "points" ? "Punkte" : "Stempel"} sammelst du auch ohne Wallet. Speichern kannst du die Karte später unter „In Wallet speichern“.</p>
   </section>;

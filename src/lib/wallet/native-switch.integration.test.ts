@@ -112,6 +112,17 @@ describe("Apple Wallet saved on a device (ENG-130 08)", () => {
         await pool.query("UPDATE wallet_passes SET status = 'downloaded' WHERE id = $1", [pass.id]);
         expect(await downloaded()).toBe(true);
         expect(await saved()).toBe(false);
+        await pool.query("UPDATE wallet_passes SET status = 'registered' WHERE id = $1", [pass.id]);
+        expect(await downloaded()).toBe(true);
+        // Another card's pass says nothing about this one, and a revoked pass doesn't count.
+        const other = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+        const otherDownloaded = async () => (await (await walletStatus(post("/api/wallet/status", other.cardToken))).json()).appleDownloaded;
+        expect(await otherDownloaded()).toBe(false);
+        await pool.query("UPDATE wallet_passes SET revoked_at = now(), revoke_reason = 'superseded', status = 'downloaded' WHERE id = $1", [pass.id]);
+        expect(await downloaded()).toBe(false);
+        await pool.query("UPDATE wallet_passes SET revoked_at = NULL, revoke_reason = NULL, status = 'downloaded' WHERE id = $1", [pass.id]);
+        // Wallet off for the shop: nothing was handed out as far as the customer's page is concerned.
+        await withEnv({ APPLE_WALLET_ENABLED: "false" }, async () => { expect(await downloaded()).toBe(false); });
         await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('device-eng-130', $1)", ["a".repeat(64)]);
         await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ('device-eng-130', $1, $2, $3, $4)", [merchant.tenantId, member.id, apple.config.passTypeId, pass.id]);
         expect(await saved()).toBe(true);

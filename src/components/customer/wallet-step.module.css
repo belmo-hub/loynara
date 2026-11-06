@@ -1,10 +1,14 @@
 /* ENG-130 Wallet step (Design 03–07): why Wallet, a lock-screen picture, then the Apple button with the skip link right under it. */
 .step { display: grid; gap: var(--space-4); min-width: 0; }
 .step[data-band] { margin-top: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-xl); background: var(--color-surface); }
+.title:focus { outline: none; }
+/* The auto step scrolls its heading to the top: clear of the status bar, as the header is. */
+.title { scroll-margin-top: calc(var(--space-3) + env(safe-area-inset-top)); }
 .title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
-.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error svg { flex: none; margin-top: 2px; }
 
 /* A phone lock screen is dark in both themes; in dark mode a 1 px ring keeps its edge (07). */
 .lock { display: grid; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: #1F2A25; box-shadow: var(--shadow-object); }

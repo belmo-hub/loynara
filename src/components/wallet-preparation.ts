@@ -46,8 +46,19 @@ export async function prepareAppleWallet(token: string, signal: AbortSignal): Pr
   } catch (error) { if (!signal.aborted && controller.signal.aborted) throw unavailable(); throw error; }
   finally { clearTimeout(timeout); signal.removeEventListener("abort", abort); }
 }
-/** ENG-172: only a pass the server handed out proves Apple's sheet opened; a failed read counts as not opened, so the button stays. */
+/** ENG-172: the server handed the pass out, so Safari fetched it and Apple's sheet had its chance; that doesn't prove the sheet showed. A failed read counts as no. */
 export const sheetOpened = (token: string, signal: AbortSignal) => readWalletStatus(token, signal).then(status => status.appleDownloaded === true, () => false);
+const SHEET_READ_MS = 4_000, SHEET_READS = 8;
+/** Reads every 4 s for about 30 s, so a late sheet still ends on the card; false when it never came or `signal` stopped it. */
+export async function waitForSheet(token: string, signal: AbortSignal) {
+  for (let read = 0; read < SHEET_READS; read++) {
+    try { await wait(SHEET_READ_MS, signal); } catch { return false; }
+    if (await sheetOpened(token, signal)) return !signal.aborted;
+  }
+  return false;
+}
+/** ENG-172: iPads pass as "ios" for the Wallet step, but only an iPhone or iPod opens the sheet by itself (founder: iPhone). */
+export const iphoneDevice = () => /iPhone|iPod/.test(navigator.userAgent);
 export function walletPlatform(): "ios" | "android" | "other" {
   const agent = navigator.userAgent;
   if (/iPhone|iPod/.test(agent) || (/iPad|Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) return "ios";

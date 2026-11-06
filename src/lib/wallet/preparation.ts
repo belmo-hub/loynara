@@ -44,6 +44,7 @@ export async function appleSaved(eligibility: WalletCardEligibility, reader: Pic
 
 /** ENG-172: the card's live Apple pass was downloaded, so Safari followed the link and Apple's sheet had its chance. */
 export async function appleDownloaded(eligibility: WalletCardEligibility, reader: Pick<typeof db, "select"> = db): Promise<boolean> {
+  if (eligibility.availability.apple !== "available") return false;
   const [pass] = await reader.select({ id: walletPasses.id }).from(walletPasses)
     .where(and(eq(walletPasses.tenantId,eligibility.tenantId),eq(walletPasses.membershipId,eligibility.membershipId),eq(walletPasses.provider,"apple"),isNull(walletPasses.revokedAt),inArray(walletPasses.status,["downloaded","registered"]))).limit(1);
   return Boolean(pass);
