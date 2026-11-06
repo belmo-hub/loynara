@@ -19,6 +19,7 @@ import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
+import { OwnerIcon } from "@/components/owner/owner-ui";
 
 type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
@@ -351,9 +352,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten">
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
-        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
+        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <><OwnerIcon name="alert" size={18} /> {error}</> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
         {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
           : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}
