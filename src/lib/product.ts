@@ -395,9 +395,10 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if ((input.ruleVersionId && input.ruleVersionId !== (await programInForce(tx, program)).newestRuleVersionId)
       || (shownRewards !== undefined && shownRewards !== (await newestRewardVersionIds(tx, program.tenantId, program.id)).sort().join())) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     if (input.walletConsentVersion !== undefined) {
-      // A tick counts only for the text shown today, on the German join page, while the surface is on.
+      // A tick counts only for the text shown today, on the German join page, while the surface is on and the location has Apple Wallet.
       const [tenant] = await tx.select({ locale: tenants.locale }).from(tenants).where(eq(tenants.id, program.tenantId));
-      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages")) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
+      const appleWallet = walletAvailability(await passFastEnv(program.tenantId, program.locationId, tx), program.tenantId, program.locationId, program.id).apple === "available";
+      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages") || !appleWallet) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
     }
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
     if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Für dieses Geschäft kannst du gerade keine Karte erstellen. Bitte frage im Geschäft nach.");

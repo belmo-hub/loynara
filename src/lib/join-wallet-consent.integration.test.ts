@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/db";
 import { POST as enrollRoute } from "@/app/api/enroll/route";
 import { createMerchant, enroll } from "./product";
+import { appleFixture, withEnv } from "./wallet/test-support";
 import { CONSENT_TEXT_VERSION, CONSENT_TEXTS, JOIN_CONSENT_TEXT_VERSION, joinConsentText } from "./wallet-message-rules";
 import { getWalletConsent, setWalletConsent } from "./wallet-messages";
 
@@ -11,7 +12,10 @@ if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Int
 const origin = "http://localhost:3000";
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests, rate_limits CASCADE'); });
 afterEach(() => vi.unstubAllEnvs());
-afterAll(async () => { await pool.end(); });
+let apple: ReturnType<typeof appleFixture>;
+beforeAll(() => { apple = appleFixture(); });
+afterAll(async () => { apple.cleanup(); await pool.end(); });
+const withApple = <T>(run: () => Promise<T>) => withEnv(apple.env, run);
 
 async function shop(locale: "de" | "fr" = "de") {
   const owner = randomUUID();
@@ -33,6 +37,7 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     expect(await consents()).toEqual([]);
   });
   it("writes one row for the tick, through the route, and the card can switch it off without a pass", async () => {
+    await withApple(async () => {
     const { programSlug } = await shop();
     const response = await enrollRoute(new Request(`${origin}/api/enroll`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ slug: programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION }) }));
     expect(response.status).toBe(201);
@@ -41,16 +46,20 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     expect(await getWalletConsent(cardToken)).toMatchObject({ available: true, granted: true, givenAt: expect.any(String), shop: "Tick Café" });
     await setWalletConsent(cardToken, false);
     expect((await consents())[0].withdrawn_at).not.toBeNull();
+    });
   });
   it("writes it in the card's transaction: a failed consent row leaves no card", async () => {
+    await withApple(async () => {
     const { programSlug } = await shop();
     await pool.query("ALTER TABLE wallet_message_consents ADD CONSTRAINT eng_173_refuse CHECK (false) NOT VALID");
     try {
       await expect(enroll({ slug: programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION })).rejects.toThrow();
     } finally { await pool.query("ALTER TABLE wallet_message_consents DROP CONSTRAINT eng_173_refuse"); }
     expect(await cards()).toBe(0);
+    });
   });
   it("refuses a stale or unknown version, and creates nothing", async () => {
+    await withApple(async () => {
     const { programSlug } = await shop();
     for (const walletConsentVersion of [CONSENT_TEXT_VERSION, "wallet-consent-join-2026-01-01-v1", ""]) {
       await expect(enroll({ slug: programSlug, acceptedTerms: true, walletConsentVersion })).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });
@@ -61,8 +70,20 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     await enroll({ slug: programSlug, acceptedTerms: true });
     expect(await cards()).toBe(1);
     expect(await consents()).toEqual([]);
+    });
+  });
+  it("refuses the tick where the location has no Apple Wallet, and the card still comes without it", async () => {
+    const { programSlug } = await shop();
+    await withEnv({ APPLE_WALLET_ENABLED: "false", PASSFAST_ENABLED: undefined }, async () => {
+      await expect(enroll({ slug: programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION })).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });
+      expect(await cards()).toBe(0);
+      await enroll({ slug: programSlug, acceptedTerms: true });
+    });
+    expect(await cards()).toBe(1);
+    expect(await consents()).toEqual([]);
   });
   it("refuses the tick for a French shop and while the surface is off", async () => {
+    await withApple(async () => {
     const french = await shop("fr");
     await expect(enroll({ slug: french.programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION })).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });
     const german = await shop();
@@ -70,5 +91,6 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     vi.stubEnv("WALLET_MESSAGES_ENABLED", "");
     await expect(enroll({ slug: german.programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION })).rejects.toMatchObject({ code: "CONSENT_TEXT_CHANGED" });
     expect(await cards()).toBe(0);
+    });
   });
 });
