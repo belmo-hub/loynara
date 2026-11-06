@@ -122,7 +122,9 @@ describe("consent gate", () => {
     const s = await shop(); const c = await customer(s); const other = await customer(s);
     const elsewhere = await shop("Anderes Café"); await customer(elsewhere);
     await setWalletConsent(c.cardToken, false); await setWalletConsent(c.cardToken, true);
-    const card = (await getCustomerExport(c.cardToken)).walletMessageConsents.sort((a, b) => a.givenAt.getTime() - b.givenAt.getTime());
+    const exported = await getCustomerExport(c.cardToken);
+    expect(exported.formatVersion).toBe(1); // customer-export-download.ts refuses anything else
+    const card = exported.walletMessageConsents.sort((a, b) => a.givenAt.getTime() - b.givenAt.getTime());
     expect(card).toEqual([
       { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: expect.any(Date) },
       { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: null },
@@ -131,6 +133,13 @@ describe("consent gate", () => {
     expect(shopRows.map(row => row.membershipId).sort()).toEqual([c.id, c.id, other.id].sort());
     expect(shopRows.every(row => row.tenantId === s.tenantId && row.textVersion === CONSENT_TEXT_VERSION && row.channel === "wallet")).toBe(true);
     expect(shopRows.filter(row => row.withdrawnAt !== null)).toHaveLength(1);
+  });
+
+  it("refuses an export with more consent rows than one file holds instead of cutting the proof off (ENG-174)", async () => {
+    const s = await shop(); const c = await customer(s, false);
+    await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version, withdrawn_at) SELECT $1, $2, $3, clock_timestamp() FROM generate_series(1, 50001)", [s.tenantId, c.id, CONSENT_TEXT_VERSION]);
+    await expect(getMerchantExport(s.owner)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
+    await expect(getCustomerExport(c.cardToken)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
   });
 
   it("the consent log is append-only: only a first withdrawal is allowed, a new grant is a new row", async () => {
