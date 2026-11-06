@@ -25,7 +25,6 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     await expect(page.getByRole("heading", { name: "Deine Karte erstellen" })).toBeVisible();
     await expect(page.getByText("Du hast schon eine Karte?")).toBeVisible();
     await page.getByRole("link", { name: "Karte erstellen" }).click();
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
     // enrollment returns to the same tap and waits for the cashier
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();

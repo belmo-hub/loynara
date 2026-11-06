@@ -26,7 +26,6 @@ async function waitingGuest(browser: Browser, url: string) {
   const page = await customer.newPage();
   await page.goto(pathOf(m.nextUrl()));
   await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
-  await page.getByRole("checkbox").first().check();
   await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
   await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
   await expect(page.getByRole("heading", { name: BAND })).toBeVisible({ timeout: 15_000 });

@@ -25,8 +25,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
     await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "E-Mail-Adresse" })).toHaveCount(0);
-    await expect(page.getByRole("checkbox")).toHaveCount(1);
-    await page.getByRole("checkbox").first().check();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `0 von ${program.rewardCost}` : `0 ${unit}`);

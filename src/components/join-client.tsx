@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { signUpRules } from "@/lib/card-extras";
+import { JOIN_CONSENT_TEXT_VERSION, joinConsentText } from "@/lib/wallet-message-rules";
 import { changeLines } from "@/lib/change-lines";
 import { withUnit } from "@/lib/units";
+import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
@@ -20,7 +22,7 @@ import styles from "./customer/join.module.css";
 
 const copy = {
   de: {
-    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "Willkommen bei", headline: (points: boolean) => `Deine ${points ? "Punktekarte" : "Stempelkarte"}, direkt im Browser.`, intro: "Ohne App und ohne Konto. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", rewardLabel: "Deine Prämie", cardPreview: "So sieht deine Karte aus", noEmail: "Für die Karte brauchst du keine E-Mail-Adresse und kein Konto.", for: "für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", consentStart: "Ich habe die oben stehenden Programmregeln gelesen und akzeptiere sie.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutzhinweise", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara, ohne zusätzliche App", acceptError: "Bitte akzeptiere zuerst die Programmregeln.", staleError: "Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal und akzeptiere sie. Deine Karte ist noch nicht erstellt.", readRule: "Neue Regel lesen", hideRule: "Neue Regel ausblenden", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.", and: "und",
+    header: "DIGITALE TREUEKARTE", loadingLabel: "EIN MOMENT", loadingTitle: "Programm wird geladen.", loadingText: "Die Regeln und die Prämie werden abgerufen.", missingLabel: "NICHT VERFÜGBAR", missingTitle: "Dieses Programm ist nicht erreichbar.", home: "Zur Startseite", welcome: "Willkommen bei", headline: (points: boolean) => `Deine ${points ? "Punktekarte" : "Stempelkarte"}, direkt im Browser.`, intro: "Ohne App und ohne Konto. An der Kasse sammelst du", introEnd: "für deine nächste Prämie.", stamp: "Stempel", points: "Punkte", reward: "DEINE PRÄMIE", rewardLabel: "Deine Prämie", cardPreview: "So sieht deine Karte aus", noEmail: "Für die Karte brauchst du keine E-Mail-Adresse und kein Konto.", for: "für", rules: "So funktioniert das Programm", inactive: "Dieses Programm startet zu einem späteren Zeitpunkt. Die Anmeldung ist noch geschlossen.", email: "E-Mail-Adresse", optional: "optional", emailHint: "Für deine Karte ist keine E-Mail-Adresse nötig.", marketing: "Ich möchte künftig E-Mails mit Angeboten dieses Geschäfts erhalten. Diese Wahl ist freiwillig und unabhängig von meiner Karte.", submit: "Meine Karte erstellen", submitting: "Karte wird erstellt …", footer: "Mit Loynara, ohne zusätzliche App", staleError: "Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal und akzeptiere sie. Deine Karte ist noch nicht erstellt.", readRule: "Neue Regel lesen", hideRule: "Neue Regel ausblenden", emailError: "Für Nachrichten brauchen wir eine E-Mail-Adresse.", inactiveError: "Dieses Programm ist noch nicht aktiv.", submitError: "Die Karte konnte nicht erstellt werden.", loadError: "Das Programm wurde nicht gefunden.",
     welcomeBack: "Willkommen zurück.", savedHere: "Auf diesem Gerät ist deine Karte gespeichert.", cardNumber: "Kartennummer", openCard: "Meine Karte öffnen", anotherLink: "Ich brauche eine weitere Karte", anotherTitle: "Weitere Karte erstellen?", anotherConfirm: "Ich möchte trotzdem eine zusätzliche Karte erstellen.", anotherSubmit: "Weitere Karte erstellen", backToCard: "Zurück zu meiner Karte", anotherConfirmError: "Bitte bestätige, dass du eine zusätzliche Karte möchtest.", staleNote: "Auf diesem Gerät war eine Karte gespeichert, die nicht mehr gilt, zum Beispiel weil sie geschlossen oder neu ausgestellt wurde. Hast du einen neuen Kartenlink bekommen, öffne bitte diesen.", existsError: "Auf diesem Gerät gibt es schon eine Karte für dieses Programm.", checking: "Prüfe, ob du hier schon eine Karte hast …", referralUnavailable: "Dieser Empfehlungslink ist nicht verfügbar. Du kannst ohne Empfehlungsbonus eine normale Karte erstellen.", withoutReferral: "Ohne Empfehlungslink fortfahren", unconfirmed: "Die Kartenerstellung wurde nicht bestätigt. Deine Karte kann bereits erstellt sein. Lade die Seite neu, um eine auf diesem Gerät gespeicherte Karte zu prüfen. Erstelle nicht vorschnell eine weitere Karte.",
   },
   fr: {
@@ -59,6 +61,15 @@ export function staleJoin(program: PublicProgram, fresh: PublicProgram | null, m
   return { program: fresh ?? program, acceptedTerms: false, stale: true, error: message };
 }
 
+const PRIVACY_LINK = "Mehr in den Datenschutzhinweisen.";
+const CONSENT_CHANGED = "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal.";
+/** ENG-173: the Wallet-message box shows where a pass can follow (iphoneJoin) while the walletMessages surface is on. */
+export const joinOffersMessages = (platform: "ios" | "android" | "other", program: Pick<PublicProgram, "appleWallet" | "locale" | "walletMessages">) => iphoneJoin(platform, program) && program.walletMessages === true;
+/** What the join sends for that box: only a shown, ticked box sends the version of the text it showed. */
+export const joinConsent = (offered: boolean, ticked: boolean) => offered && ticked ? { walletConsentVersion: JOIN_CONSENT_TEXT_VERSION } : {};
+/** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
+export const joinNeedsTick = (locale: "de" | "fr", accepted: boolean) => locale === "fr" && !accepted;
+
 export function JoinClient({ slug }: { slug: string }) {
   const router = useRouter();
   const [program, setProgram] = useState<PublicProgram | null>(null);
@@ -67,6 +78,7 @@ export function JoinClient({ slug }: { slug: string }) {
   const [wantsAnother, setWantsAnother] = useState(false);
   const [confirmAnother, setConfirmAnother] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [messagesTicked, setMessagesTicked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [referralUnavailable, setReferralUnavailable] = useState(false);
@@ -96,7 +108,7 @@ export function JoinClient({ slug }: { slug: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setReferralUnavailable(false);
-    if (!acceptedTerms) { setError(t.acceptError); document.getElementById("join-consent")?.focus(); return; }
+    if (joinNeedsTick(locale, acceptedTerms)) { setError(copy.fr.acceptError); document.getElementById("join-consent")?.focus(); return; }
     if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); return; }
     setBusy(true);
     try {
@@ -110,7 +122,7 @@ export function JoinClient({ slug }: { slug: string }) {
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}) });
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(platform, program), messagesTicked) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -135,6 +147,8 @@ export function JoinClient({ slug }: { slug: string }) {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {
         setError(t.unconfirmed);
+      } else if (cause instanceof ClientApiError && cause.code === "CONSENT_TEXT_CHANGED") {
+        setError(CONSENT_CHANGED);
       } else setError(t.submitError);
     }
     finally { setBusy(false); }
@@ -213,10 +227,16 @@ export function JoinClient({ slug }: { slug: string }) {
       })()}</div>
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit} noValidate>
-        <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === t.acceptError || undefined} aria-describedby={error === t.acceptError ? "join-error" : undefined}>{t.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{t.terms}</Link> {t.and} <Link href="/datenschutz" target="_blank">{t.privacy}</Link>.</Checkbox>
+        {locale === "fr" && <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === copy.fr.acceptError || undefined} aria-describedby={error === copy.fr.acceptError ? "join-error" : undefined}>{copy.fr.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{copy.fr.terms}</Link> {copy.fr.and} <Link href="/datenschutz" target="_blank">{copy.fr.privacy}</Link>.</Checkbox>}
+        {joinOffersMessages(platform, program) && <div className={styles.messages}>
+          <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>
+          <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>
+          <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
+        </div>}
         {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
         {error && <p id="join-error" className={styles.error} role="alert">{error}</p>}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
+        {locale !== "fr" && <p className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>

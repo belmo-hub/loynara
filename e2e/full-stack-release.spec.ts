@@ -75,7 +75,6 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       await login(owner.page, f.owners[0], "/merchant");
       await login(cashier.page, f.cashier, "/cashier");
       await customer.page.goto(`/join/${f.merchants[0].programSlug}`);
-      await customer.page.getByRole("checkbox").first().check();
       await customer.page.getByRole("button", { name: "Meine Karte erstellen" }).click();
       await expect.poll(() => new URL(customer.page.url()).pathname.startsWith("/card/")).toBe(true);
       const cardPath = new URL(customer.page.url()).pathname, cardToken = cardPath.split("/").pop()!;

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
@@ -16,7 +16,7 @@ import { CHALLENGE_VISITS, challengeBonusRange, challengeFor, challengeSentence,
 import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { germanDate } from "./programme-end-date";
-import { birthdayRule, winbackRule } from "./wallet-message-rules";
+import { birthdayRule, JOIN_CONSENT_TEXT_VERSION, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh, scheduleWalletProgramRefresh } from "./wallet/enqueue";
 import { walletAvailability } from "./wallet/capability";
 import { passFastEnv } from "./wallet/template-bindings";
@@ -370,6 +370,8 @@ const enrollInput = z.object({
    *  refused as stale when they differ. Optional here; the join page always sends them. */
   ruleVersionId: z.uuid().optional(),
   rewardVersionIds: z.array(z.uuid()).max(100).optional(),
+  /** ENG-173: the Wallet-message text the guest ticked on the join page; absent = no tick, no consent. */
+  walletConsentVersion: z.string().max(40).optional(),
 });
 
 /** The newest version (pending, else in force) of each live reward: what a join page shows (D7). */
@@ -392,6 +394,11 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     const shownRewards = input.rewardVersionIds && [...input.rewardVersionIds].sort().join();
     if ((input.ruleVersionId && input.ruleVersionId !== (await programInForce(tx, program)).newestRuleVersionId)
       || (shownRewards !== undefined && shownRewards !== (await newestRewardVersionIds(tx, program.tenantId, program.id)).sort().join())) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
+    if (input.walletConsentVersion !== undefined) {
+      // A tick counts only for the text shown today, on the German join page, while the surface is on.
+      const [tenant] = await tx.select({ locale: tenants.locale }).from(tenants).where(eq(tenants.id, program.tenantId));
+      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages")) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal.");
+    }
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
     if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Für dieses Geschäft kannst du gerade keine Karte erstellen. Bitte frage im Geschäft nach.");
     const [usage] = await tx.select({ total: sql<number>`count(*)::int` }).from(memberships)
@@ -402,6 +409,7 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if (input.referralCode) await recordReferralAttribution(tx, { tenantId: program.tenantId, programId: program.id, referredMembershipId: member.id, referralCode: input.referralCode });
     if (input.email) await tx.insert(membershipContacts).values({ tenantId: program.tenantId, membershipId: member.id, email: input.email.toLowerCase() });
     if (input.marketingOptIn) await tx.insert(consentEvents).values({ tenantId: program.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion: "2026-09", source: "enrollment" });
+    if (input.walletConsentVersion !== undefined) await tx.insert(walletMessageConsents).values({ tenantId: program.tenantId, membershipId: member.id, textVersion: input.walletConsentVersion });
     return { id: member.id, programId: program.id, cardToken: member.cardToken, scanCode: member.scanCode };
   });
 }

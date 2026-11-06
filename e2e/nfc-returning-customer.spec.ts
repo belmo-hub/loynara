@@ -18,7 +18,6 @@ test("first enrollment then restarted browser returns to the original membership
     await page.goto(first);
     await expect(page.getByRole("heading", { name: "Deine Karte erstellen" })).toBeVisible();
     await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     const number = await customerCardNumber(page);

@@ -49,7 +49,6 @@ test("synthetic referral link earns once after checkout and reverses with its qu
       const publicPage = await friendBrowser.newPage();
       await publicPage.goto(shareUrl);
       await expect(publicPage.getByText(/Empfehlungslink:/)).toBeVisible();
-      await publicPage.getByRole("checkbox").check();
       await publicPage.getByRole("button", { name: "Meine Karte erstellen" }).click();
       await expect(publicPage).toHaveURL(/\/card\/card_[A-Za-z0-9_-]+$/);
       const referredToken = new URL(publicPage.url()).pathname.split("/").at(-1)!;
