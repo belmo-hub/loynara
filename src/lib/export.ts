@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { billingInvoices, billingLocationPlans, cardBirthdays, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
+import { billingInvoices, billingLocationPlans, cardBirthdays, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programRuleVersions, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
@@ -46,7 +46,7 @@ export async function getMerchantExport(actorUserId: string) {
   return db.transaction(async (tx) => {
     const tenantId = await ownerTenantId(tx, actorUserId);
     await assertExportOpen(tx, tenantId);
-    const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows, walletConsentRows] = await Promise.all([
+    const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows, walletConsentRows, ruleVersionRows] = await Promise.all([
       tx.select().from(tenants).where(eq(tenants.id, tenantId)),
       tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
       tx.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
@@ -63,19 +63,22 @@ export async function getMerchantExport(actorUserId: string) {
       tx.select().from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).limit(MAX_ROWS + 1),
       tx.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.tenantId, tenantId)).orderBy(desc(cardSecurityEvents.createdAt)).limit(MAX_ROWS + 1),
       tx.select().from(walletMessageConsents).where(eq(walletMessageConsents.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select().from(programRuleVersions).where(eq(programRuleVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
     ]);
     if (!tenant) throw new DomainError("NOT_FOUND", "Dieses Geschäft haben wir nicht gefunden.");
     return {
       // 4: card locators on memberships; card security events (reissues with actor, reason and verification method).
       // 5: Wallet message consents, the shop's proof of each customer's opt-in and withdrawal (ENG-174).
       // 6: consentTexts, the wording behind each consent version (ENG-174b).
-      formatVersion: 6,
+      // 7: programRuleVersions, the rules as they stood at each version, so a shop can show what applied when (ENG-174c).
+      formatVersion: 7,
       exportedAt: new Date().toISOString(),
       scope: "owner-business-data-without-card-or-contact-credentials",
       tenant,
       subscription,
       locations: checked(locationRows, "Locations"),
       programs: checked(programRows, "Programs"),
+      programRuleVersions: checked(ruleVersionRows, "Program rule versions"),
       rewards: checked(rewardRows, "Rewards"),
       rewardVersions: checked(versionRows, "Reward versions"),
       memberships: checked(membershipRows, "Memberships").map(row => ({ ...row, cardLocator: formatCardLocator(row.cardLocator) })),
