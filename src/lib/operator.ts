@@ -6,6 +6,7 @@ import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
 import { walletMessageStats } from "./wallet-messages";
+import { googleClassOverview } from "./wallet/google-classes";
 import { walletTemplateOverview } from "./wallet/template-bindings";
 
 /**
@@ -48,6 +49,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .from(programmeCancellationEvents).orderBy(asc(programmeCancellationEvents.createdAt));
     const history = Map.groupBy(events.map(({ actorUserId, ...event }) => ({ ...event, by: actorUserId === PROGRAMME_END_ACTOR ? "System" : event.action === "request" || event.action === "withdraw" ? "Inhaber" : "Operator" })), event => event.programId);
     const templates = await walletTemplateOverview(tx, env);
+    const googleClasses = await googleClassOverview(tx);
     const awaiting = await shopsAwaitingOwner(tx);
     // Billing per shop (the plan the operator chose, the Stripe state) and every start-guarantee decision per location (the operator's notice).
     const billing = await tx.select({ tenantId: tenants.id, tenant: tenants.name, status: subscriptions.status, planCode: subscriptions.planCode, currency: subscriptions.currency,
@@ -67,6 +69,6 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
     // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
     const freeMonths = await freeMonthsEndingSoon();
-    return { awaiting, billing, guarantees, freeMonths, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    return { awaiting, billing, guarantees, freeMonths, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }

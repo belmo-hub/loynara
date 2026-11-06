@@ -275,6 +275,13 @@ describe("production configuration gate", () => {
     };
     const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
 
+    it("needs no GOOGLE_WALLET_LOCATION_CLASSES (classes live in the table), but refuses an invalid value and a managed issuer (ENG-175)", () => {
+      const issue = /owned issuer/;
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: undefined })).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+      refused({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: "not json" }, issue);
+      refused({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: undefined, GOOGLE_WALLET_ISSUER_ID: "3388000000023094673" }, issue);
+    });
+
     it("accepts Wallet OFF, approved native Apple (alone or beside PassFast) and approved Direct Google", () => {
       expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(apple)).toEqual([]);

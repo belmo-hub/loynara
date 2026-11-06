@@ -8,6 +8,7 @@ import { sendApplePassNotifications } from "./apple-push";
 import { walletText } from "./content";
 import { walletCardSnapshot } from "./data";
 import { googleObjectId, GoogleWalletClient, type GoogleMessage } from "./google";
+import { googleDirectEnv } from "./google-classes";
 import { googleDirectConfig, googleDirectStatus } from "./google-direct";
 import type { RevokeReason, WalletPassData, WalletRevokedData } from "./types";
 import { withGooglePassLock } from "./write";
@@ -57,9 +58,10 @@ export async function refreshWalletForMembership(membershipId: string, deps: { g
             .where(eq(walletPasses.id, row.id)).returning();
         }
         const brand = latest.open ? latest.pass : latest.brand;
-        const status = googleDirectStatus(process.env, row.tenantId, brand.locationId, brand.programId, "maintenance");
+        const env = await googleDirectEnv(row.tenantId, brand.locationId!, brand.programId, tx);
+        const status = googleDirectStatus(env, row.tenantId, brand.locationId, brand.programId, "maintenance");
         if (!status.ready) { blocked.push(`Google Wallet: ${status.reason}`); return; }
-        const config = googleDirectConfig(process.env, row.tenantId, brand.locationId!, brand.programId, "maintenance");
+        const config = googleDirectConfig(env, row.tenantId, brand.locationId!, brand.programId, "maintenance");
         if (brand.tenantId !== row.tenantId || row.providerObjectId !== googleObjectId(row.id, config)) { blocked.push("Google Wallet binding unavailable"); return; }
         google ??= new GoogleWalletClient(config);
         if (!live) {

@@ -229,20 +229,35 @@ export class GoogleWalletClient {
 
   /** Creates or aligns the programme class (merchant name, programme, colour, logo, location). */
   async upsertClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
+    return (await this.alignClass(brand, config, false)).id;
+  }
+
+  /** The worker's side (ENG-175): may create a missing class even when published, and reports its review state instead of refusing it. */
+  async provisionClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
+    return (await this.alignClass(brand, config, true)).status;
+  }
+
+  private async alignClass(brand: WalletBrand, config: GoogleConfig, provision: boolean): Promise<{ id: string; status: string }> {
     const cls = googleClass(brand, config);
+    const eligible = (current: Record<string, unknown>) => {
+      if (!provision) assertClassEligibility(current, cls.id, config);
+      else if (current.id !== cls.id) throw new GoogleWalletError("class eligibility", 0);
+      return String(classReviewStatus(current.reviewStatus));
+    };
     const classGet = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
+    let status: string = cls.reviewStatus;
     if (classGet.status === 404) {
-      if (config.binding && config.publishingStatus !== "demo") throw new GoogleWalletError("approved class missing", 404);
+      if (config.binding && config.publishingStatus !== "demo" && !provision) throw new GoogleWalletError("approved class missing", 404);
       const inserted = await this.request("POST", "/loyaltyClass", cls);
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("class creation", inserted.status);
       if (inserted.status === 409) {
         const raced = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
         if (!raced.ok) throw new GoogleWalletError("class conflict", 409);
-        assertClassEligibility(await raced.json(), cls.id, config);
+        status = eligible(await raced.json());
       }
     } else if (classGet.ok) {
       const current = await classGet.json() as Record<string, unknown>;
-      assertClassEligibility(current, cls.id, config);
+      status = eligible(current);
       const patch: Record<string, unknown> = {};
       for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "wideProgramLogo", "merchantLocations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
         const observed = key === "multipleDevicesAndHoldersAllowedStatus"
@@ -258,9 +273,10 @@ export class GoogleWalletClient {
         patch.reviewStatus = "UNDER_REVIEW";
         const updated = await this.request("PATCH", `/loyaltyClass/${encodeURIComponent(cls.id)}`, patch);
         if (!updated.ok) throw new GoogleWalletError("class update", updated.status);
+        status = "UNDER_REVIEW";
       }
     } else throw new GoogleWalletError("class lookup", classGet.status);
-    return cls.id;
+    return { id: cls.id, status };
   }
 
   /** Creates the object or overwrites its displayed state from Loynara. Never reads a balance back from Google. */

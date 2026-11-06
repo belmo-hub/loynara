@@ -5,6 +5,7 @@ import { locations, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { walletAvailability } from "./capability";
 import { passInk } from "./content";
+import { googleDirectEnv } from "./google-classes";
 import { merchantGoogleLogoUrls, walletLogoView } from "./logo";
 import { passFastEnv } from "./template-bindings";
 
@@ -36,7 +37,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
     .where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
   if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
 
-  const availability = walletAvailability(await passFastEnv(program.tenantId, program.locationId), program.tenantId, program.locationId, program.id);
+  const availability = walletAvailability(await googleDirectEnv(program.tenantId, program.locationId, program.id, db, await passFastEnv(program.tenantId, program.locationId)), program.tenantId, program.locationId, program.id);
   // Every accepted upload is converted and resized; a stored logo is left off when it is too faint, or (unreadable) treated as absent.
   const view = await walletLogoView(program.logoData, program.brandColor);
   const logo = !view ? "missing" : view.faint ? "low_contrast" : "ready";

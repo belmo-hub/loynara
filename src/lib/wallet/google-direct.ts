@@ -15,7 +15,9 @@ export function googleLocationClasses(env: Env): GoogleLocationClass[] {
   const issuer = env.GOOGLE_WALLET_ISSUER_ID ?? "";
   if (!/^\d{10,25}$/.test(issuer) || issuer === MANAGED_PASSFAST_ISSUER) throw new Error("Google Direct requires an owned issuer");
   const raw = env.GOOGLE_WALLET_LOCATION_CLASSES;
-  if (!raw || raw.length > 65536) throw new Error("Google Direct requires approved location classes");
+  // Absent is fine: classes live in wallet_google_classes (ENG-175). Set, the variable is a read-only fallback and must be valid.
+  if (!raw) return [];
+  if (raw.length > 65536) throw new Error("Google Direct requires approved location classes");
   const rows: unknown = JSON.parse(raw);
   if (!Array.isArray(rows) || !rows.length || rows.length > 500) throw new Error("Invalid Google Direct bindings");
   const scopes = new Set<string>(), classes = new Set<string>();

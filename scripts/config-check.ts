@@ -170,7 +170,7 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   }
   if (google) {
     if (env.GOOGLE_WALLET_PROVIDER !== "GOOGLE_DIRECT") issues.push("Google Wallet requires explicit GOOGLE_DIRECT provider selection");
-    try { googleLocationClasses(env); } catch { issues.push("Google Direct requires valid owned issuer and approved location classes"); }
+    try { googleLocationClasses(env); } catch { issues.push("Google Direct requires a valid owned issuer; GOOGLE_WALLET_LOCATION_CLASSES, when set, must be valid"); }
     credentialPath("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE");
     if (!/^\d{10,25}$/.test(env.GOOGLE_WALLET_ISSUER_ID ?? "")) issues.push("GOOGLE_WALLET_ISSUER_ID must be the numeric Google Wallet issuer ID");
     if (env.GOOGLE_WALLET_PUBLISHING_STATUS !== "published") issues.push("Google Wallet publishing must be approved (GOOGLE_WALLET_PUBLISHING_STATUS=published); Demo Mode is not production");

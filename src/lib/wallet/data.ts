@@ -20,6 +20,37 @@ export function credentialHash(scanCode: string): string {
   return createHash("sha256").update("loynara-wallet-credential-v1\0").update(scanCode).digest("hex");
 }
 
+type BrandRow = { program: typeof programs.$inferSelect; location: typeof locations.$inferSelect; tenant: typeof tenants.$inferSelect };
+async function brandOf(row: BrandRow, program: { type: string; name: string }): Promise<WalletBrand> {
+  const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
+  const googleLogos = await merchantGoogleLogoUrls(row.program.id, row.location.logoData, row.location.brandColor, row.tenant.name);
+  return {
+    programType: program.type === "points" ? "points" : "stamp",
+    tenantId: row.tenant.id,
+    locationId: row.location.id,
+    programId: row.program.id,
+    merchantName: row.tenant.name,
+    programName: program.name,
+    locationName: row.location.name,
+    brandColor: row.location.brandColor,
+    country: row.location.country,
+    locale: row.tenant.locale === "fr" ? "fr" : "de",
+    ...(appleLogo ? { appleLogo } : {}),
+    ...googleLogos,
+    ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
+  };
+}
+
+/** A programme's Wallet presentation without any card: what its Google class shows. */
+export async function walletProgramBrand(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db): Promise<WalletBrand> {
+  const [row] = await reader.select({ program: programs, location: locations, tenant: tenants }).from(programs)
+    .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, programs.tenantId))
+    .where(and(eq(programs.id, programId), eq(programs.tenantId, tenantId)));
+  if (!row) throw new DomainError("NOT_FOUND", "Programme not found");
+  return brandOf(row, await programInForce(reader, row.program));
+}
+
 export type WalletCardSnapshot =
   | { open: true; credentialHash: string; pass: WalletPassData }
   | { open: false; brand: WalletBrand & { membershipId: string } };
@@ -37,24 +68,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .where(eq(memberships.id, membershipId));
   if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const program = await programInForce(reader, row.program);
-  const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
-  const googleLogos = await merchantGoogleLogoUrls(row.program.id, row.location.logoData, row.location.brandColor, row.tenant.name);
-  const brand: WalletBrand & { membershipId: string } = {
-    programType: program.type === "points" ? "points" : "stamp",
-    tenantId: row.tenant.id,
-    locationId: row.location.id,
-    membershipId: row.member.id,
-    programId: row.program.id,
-    merchantName: row.tenant.name,
-    programName: program.name,
-    locationName: row.location.name,
-    brandColor: row.location.brandColor,
-    country: row.location.country,
-    locale: row.tenant.locale === "fr" ? "fr" : "de",
-    ...(appleLogo ? { appleLogo } : {}),
-    ...googleLogos,
-    ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
-  };
+  const brand: WalletBrand & { membershipId: string } = { ...await brandOf(row, program), membershipId: row.member.id };
   if (row.member.closedAt) return { open: false, brand };
   const rewardList = await currentRewards(row.member.tenantId, row.program.id, reader);
   const [target] = rewardList;

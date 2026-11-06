@@ -28,6 +28,7 @@ let winbackCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
 let suppressionsPrunedAt = 0;
+let googleClassesSyncedAt = 0;
 let erasureCheckedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
@@ -368,6 +369,20 @@ async function main() {
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
+        }
+      }
+      if (Date.now() - googleClassesSyncedAt >= 15 * 60_000) {
+        try {
+          // Idempotent, and a no-op unless Google is on and published: each active programme gets its class, each changed shop its fields.
+          const { syncGoogleClasses } = await import("../src/lib/wallet/google-classes");
+          const result = await syncGoogleClasses();
+          if (result.synced || result.failed) console.log(`Google Wallet classes: ${result.synced} synced, ${result.failed} failed`);
+          googleClassesSyncedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          // Google must not stop stamping jobs: a fixed line, and the next round tries again.
+          console.error(`Google Wallet class sync failed (${error instanceof Error ? error.name : "error"})`);
+          googleClassesSyncedAt = Date.now();
         }
       }
       if (Date.now() - suppressionsPrunedAt >= 24 * 60 * 60_000) {
