@@ -16,9 +16,15 @@ export const OWNER_TEXT_VERSION = "wallet-owner-2026-10-22-v1";
 export const OWNER_CONFIRM_TEXT = "Ich bin für den Inhalt verantwortlich; Angebote sind wahr und werden eingehalten.";
 export const OWNER_GUIDANCE = "Du bist für deine Nachrichten verantwortlich. Bitte schreib nur, was stimmt und was du einhältst: Ein Angebot „bis 17 Uhr“ gilt dann auch bis 17 Uhr. Nicht erlaubt: Werbung für Tabak oder E-Zigaretten, Alkohol-Werbung, die sich an Jugendliche richtet, Heilversprechen, erfundene Knappheit („nur noch 2 Plätze“, wenn es nicht stimmt), „statt“-Preise, die es nie gab, und Namen oder Daten einzelner Kunden. Bedingungen eines Angebots (wann, wie lange, wofür) gehören in die Nachricht oder auf die Karte.";
 
-export function consentText(shop: string, location: string) {
-  return `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`;
-}
+/**
+ * The consent wording by version, the single source for the card and the exports (ENG-174b, Legal). The stored row keeps only
+ * the version, so a published text never changes: a new wording gets a new version here.
+ */
+export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => string> = {
+  "wallet-consent-2026-10-22-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
+};
+
+export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
 
 export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
 
