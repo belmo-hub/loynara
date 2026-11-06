@@ -3,9 +3,9 @@ import { promotionalEmailMode } from "./transactional-email";
 import { hiddenSurfaces } from "./pilot-surfaces";
 
 /**
- * Campaigns and audiences are visible in the pilot because, with the production configuration below, they can
- * only produce drafts and previews. These tests pin that: if the configuration or the mode logic drifts so that
- * delivery could become available, they fail before the surfaces are shown to a real merchant.
+ * Campaigns can only produce drafts and previews under the production configuration below. These tests pin that:
+ * if the configuration or the mode logic drifts so that delivery could become available, they fail before a real
+ * merchant could reach it.
  */
 const PRODUCTION = {
   NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production", TRUSTED_INGRESS: "cloudflare_tunnel",
@@ -18,10 +18,10 @@ afterEach(() => vi.unstubAllEnvs());
 const stub = (extra: Record<string, string> = {}) => { for (const [name, value] of Object.entries({ ...PRODUCTION, ...extra })) vi.stubEnv(name, value); };
 
 describe("draft-only campaigns in the pilot", () => {
-  it("shows audiences but keeps campaigns and automations hidden under the production configuration (e-mail is off)", () => {
+  it("keeps campaigns, audiences and automations hidden under the production configuration (e-mail is off)", () => {
     const hidden = hiddenSurfaces({ ...PRODUCTION });
     expect(hidden).toContain("campaigns");
-    expect(hidden).not.toContain("audiences");
+    expect(hidden).toContain("audiences");
     expect(hidden).toContain("automations");
     expect(hidden).toContain("billing");
   });

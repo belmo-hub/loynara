@@ -32,6 +32,13 @@ describe("navigation with pilot-withheld surfaces", () => {
       }
     }
   });
+  it("with audiences withheld the Kunden area is the card list alone, for owner and manager (production, founder 6 Nov)", () => {
+    const hidden = [...ALL, "audiences"] as const;
+    for (const role of ["owner", "manager"] as const) {
+      const customers = visibleGroups(role, hidden).find(group => group.id === "customers")!;
+      expect(visibleItems(customers, role, hidden).map(item => item.href)).toEqual(["/merchant/customers"]);
+    }
+  });
   it("manager keeps overview, programme and customers (with audience counts) only", () => {
     const groups = visibleGroups("manager", ALL);
     expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers"]);
