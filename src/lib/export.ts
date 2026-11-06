@@ -13,10 +13,14 @@ function checked<T>(rows: T[], label: string) {
   if (rows.length > MAX_ROWS) throw new DomainError("EXPORT_TOO_LARGE", `${label} exceeds the single-file export limit`);
   return rows;
 }
-/** The wording behind a stored version, with today's names. A version without wording fails the export: proof is never dropped. */
+/**
+ * The wording behind a stored version, with today's names. A version without wording (a rollback past the release that added
+ * it) must not cost the owner the export: its row stays, its text is null, and the log names the version.
+ */
 function consentWording(version: string, shop: string, location: string) {
-  if (!Object.hasOwn(CONSENT_TEXTS, version)) throw new DomainError("CONSENT_TEXT_UNKNOWN", `Consent text version ${version} has no wording`);
-  return CONSENT_TEXTS[version](shop, location);
+  if (Object.hasOwn(CONSENT_TEXTS, version)) return CONSENT_TEXTS[version](shop, location);
+  console.error(`Consent text version ${version} has no wording`);
+  return null;
 }
 /** One entry per version and location: the wording names the location, and a shop can have several. */
 function shopConsentTexts(consents: Array<{ textVersion: string; membershipId: string }>, members: Array<{ id: string; programId: string }>, programList: Array<{ id: string; locationId: string }>, locationList: Array<{ id: string; name: string }>, shop: string) {

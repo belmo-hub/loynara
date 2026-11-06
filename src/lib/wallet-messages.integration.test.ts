@@ -158,11 +158,19 @@ describe("consent gate", () => {
     expect((await getMerchantExport(none.owner)).consentTexts).toEqual([]);
   });
 
-  it("an export with a consent version that has no wording fails instead of dropping it (ENG-174b)", async () => {
+  it("a consent version without wording keeps the row, shows null and logs it, and the export still works (ENG-174b)", async () => {
     const s = await shop(); const c = await customer(s, false);
     await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES ($1,$2,'wallet-consent-unknown')", [s.tenantId, c.id]);
-    await expect(getCustomerExport(c.cardToken)).rejects.toMatchObject({ code: "CONSENT_TEXT_UNKNOWN" });
-    await expect(getMerchantExport(s.owner)).rejects.toMatchObject({ code: "CONSENT_TEXT_UNKNOWN" });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const card = await getCustomerExport(c.cardToken);
+    expect(card.walletMessageConsents).toMatchObject([{ textVersion: "wallet-consent-unknown" }]);
+    expect(card.consentTexts).toEqual([{ version: "wallet-consent-unknown", text: null }]);
+    expect(log).toHaveBeenCalledExactlyOnceWith("Consent text version wallet-consent-unknown has no wording");
+    log.mockClear();
+    const shopExport = await getMerchantExport(s.owner);
+    expect(shopExport.walletMessageConsents).toMatchObject([{ textVersion: "wallet-consent-unknown", membershipId: c.id }]);
+    expect(shopExport.consentTexts).toMatchObject([{ version: "wallet-consent-unknown", text: null }]);
+    expect(log).toHaveBeenCalledExactlyOnceWith("Consent text version wallet-consent-unknown has no wording");
   });
 
   it("refuses an export with more consent rows than one file holds instead of cutting the proof off (ENG-174)", async () => {
