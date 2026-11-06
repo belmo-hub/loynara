@@ -78,7 +78,7 @@ test("on an iPhone the band opens Apple's sheet by itself, leaves the page where
     await expect(page).toHaveURL(/\/card\/card_/, { timeout: 15_000 });
     expect(passes).toHaveLength(1);
     await cashier.close();
-  } finally { await customer.close(); await m.close(); }
+  } finally { await customer.unrouteAll({ behavior: "ignoreErrors" }); await customer.close(); await m.close(); }
 });
 
 test("scrolled down to the band, the confirmed stamp comes into view and the band stays once", async ({ baseURL, browser }) => {
