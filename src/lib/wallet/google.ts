@@ -189,6 +189,10 @@ function accessAssertion(credentials: GoogleCredentials, issuedAt = Math.floor(D
   return signJwt({ iss: credentials.clientEmail, scope: SCOPE, aud: "https://oauth2.googleapis.com/token", iat: issuedAt, exp: issuedAt + 3600 }, credentials);
 }
 
+/** What an erased shop's class shows instead of the shop (Legal). */
+const NEUTRAL_CLASS_TEXT = "Programm beendet";
+const NEUTRAL_CLASS_COLOUR = "#5f6368";
+
 /** Error without provider response bodies, which can echo request details. */
 export class GoogleWalletError extends Error {
   constructor(readonly step: string, readonly status: number) { super(`Google Wallet ${step} failed (${status})`); this.name = "GoogleWalletError"; }
@@ -235,6 +239,35 @@ export class GoogleWalletClient {
   /** The worker's side (ENG-175): may create a missing class even when published, and reports its review state instead of refusing it. */
   async provisionClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
     return (await this.alignClass(brand, config, true)).status;
+  }
+
+  /**
+   * Erasure (Legal): Google has no class delete, so an erased shop's class is overwritten until nothing names the shop:
+   * names, logo with its alt text, wide logo, location and colour. "done" only once Google shows that text approved; a class
+   * Google never had is done too. Anything else waits for the next run.
+   */
+  async neutralizeClass(classId: string, logoUrl: string): Promise<"done" | "waiting"> {
+    const path = `/loyaltyClass/${encodeURIComponent(classId)}`;
+    const read = async () => {
+      const response = await this.request("GET", path);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new GoogleWalletError("class lookup", response.status);
+      return await response.json() as Record<string, unknown>;
+    };
+    const fields = {
+      issuerName: NEUTRAL_CLASS_TEXT, programName: NEUTRAL_CLASS_TEXT, hexBackgroundColor: NEUTRAL_CLASS_COLOUR,
+      programLogo: { sourceUri: { uri: logoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: NEUTRAL_CLASS_TEXT } } },
+    };
+    const neutral = (current: Record<string, unknown>) => !current.wideProgramLogo && !current.merchantLocations
+      && (Object.keys(fields) as Array<keyof typeof fields>).every(key => comparableClassField(current[key]) === comparableClassField(fields[key]));
+    let current = await read();
+    if (!current) return "done";
+    if (!neutral(current)) {
+      const updated = await this.request("PATCH", path, { ...fields, wideProgramLogo: null, merchantLocations: null, reviewStatus: "UNDER_REVIEW" });
+      if (!updated.ok) throw new GoogleWalletError("class overwrite", updated.status);
+      current = await read();
+    }
+    return current && neutral(current) && classReviewStatus(current.reviewStatus) === "APPROVED" ? "done" : "waiting";
   }
 
   private async alignClass(brand: WalletBrand, config: GoogleConfig, provision: boolean): Promise<{ id: string; status: string }> {

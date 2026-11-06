@@ -159,6 +159,7 @@ These commands verify a local restoration only. Before live operation, arrange e
 
 **What it does (Legal's ruling, 1 Nov 2026):**
 - **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted; revocations already done stay done, and running the erasure again skips them.
+- **The shop's Google Wallet classes are overwritten too (Legal).** Google has no class delete, so names, logo with its alt text, wide logo, location and colour become „Programm beendet“ and the neutral `GOOGLE_WALLET_PROGRAM_LOGO_URL`. Google may review that: the erasure then stops with `EXTERNAL_PENDING`, nothing is deleted, no confirmation is due, and `/operator` shows the state. Run the erasure again later; it finishes once Google shows the text approved. A class with Google off holds the erasure the same way. A shop without a class is not affected.
 - **Then one transaction:**
   - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
   - It deletes the logins of the shop's owner and staff, with their sessions.

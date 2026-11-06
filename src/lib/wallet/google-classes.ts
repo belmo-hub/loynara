@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { programs, walletGoogleClasses } from "@/db/schema";
+import { DomainError } from "@/lib/loyalty";
 import { walletProgramBrand } from "./data";
-import { googleClass, GoogleWalletClient, GoogleWalletError } from "./google";
+import { googleClass, googleConfig, GoogleWalletClient, GoogleWalletError } from "./google";
 import { googleDirectConfig, googleDirectStatus, googleLocationClasses, type GoogleLocationClass } from "./google-direct";
 
 type Env = Record<string, string | undefined>;
@@ -28,6 +29,31 @@ export async function googleDirectEnv(tenantId: string, locationId: string, prog
 export async function googleClassOverview(reader: Reader) {
   const rows = await reader.select({ programId: walletGoogleClasses.programId, status: walletGoogleClasses.status, lastError: walletGoogleClasses.lastError }).from(walletGoogleClasses);
   return new Map(rows.map(({ programId, ...state }) => [programId, state]));
+}
+
+/**
+ * Erasure step (Legal): every class of the shop, in the table or the env, is overwritten at Google before the shop's rows go.
+ * Throws until all are done, so the erasure waits, no record is written and the confirmation is held; running the erasure
+ * again retries. The rows hold what happened meanwhile, for the operator page. A shop without a class changes nothing.
+ */
+export async function overwriteGoogleClasses(tenantId: string, env: Env = process.env, fetcher: typeof fetch = fetch) {
+  const rows = await db.select({ classId: walletGoogleClasses.classId }).from(walletGoogleClasses).where(eq(walletGoogleClasses.tenantId, tenantId));
+  let bound: GoogleLocationClass[] = [];
+  try { bound = googleLocationClasses(env).filter(row => row.tenantId === tenantId.toLowerCase()); } catch { /* Google off or misconfigured: only the table counts */ }
+  const classIds = [...new Set([...rows.map(row => row.classId), ...bound.map(row => row.classId)])];
+  if (!classIds.length) return 0;
+  const record = (classId: string, lastError: string) => db.update(walletGoogleClasses).set({ lastError, updatedAt: new Date() }).where(eq(walletGoogleClasses.classId, classId));
+  if (!googleDirectStatus(env).ready) throw new DomainError("EXTERNAL_PENDING", `${classIds.length} Google Wallet class(es) of the shop cannot be overwritten while Google is unavailable; the erasure waits`);
+  const config = googleConfig(env);
+  const client = new GoogleWalletClient(config, fetcher);
+  let waiting = 0;
+  for (const classId of classIds) {
+    try { if (await client.neutralizeClass(classId, config.logoUrl) === "done") continue; await record(classId, "erasure overwrite under review"); }
+    catch (error) { await record(classId, `erasure ${error instanceof GoogleWalletError ? error.step : "overwrite"}`.slice(0, 60)); }
+    waiting++;
+  }
+  if (waiting) throw new DomainError("EXTERNAL_PENDING", `${waiting} Google Wallet class(es) of the shop are not overwritten yet; the erasure waits, run it again`);
+  return classIds.length;
 }
 
 /**

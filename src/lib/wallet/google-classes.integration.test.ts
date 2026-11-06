@@ -8,7 +8,7 @@ import { createMerchant, enroll } from "@/lib/product";
 import { walletAvailability } from "./capability";
 import { walletCardEligibility } from "./eligibility";
 import { googleObjectId, GoogleWalletClient } from "./google";
-import { googleDirectEnv, syncGoogleClasses } from "./google-classes";
+import { googleDirectEnv, overwriteGoogleClasses, syncGoogleClasses } from "./google-classes";
 import { googleDirectConfig, googleDirectStatus } from "./google-direct";
 import { issueWalletPass } from "./issue";
 import { refreshWalletForMembership } from "./refresh";
@@ -176,6 +176,54 @@ describe("Google Wallet classes per shop (ENG-175)", () => {
       expect(googleDirectStatus(await googleDirectEnv(a.tenantId, b.locationId, b.programId), a.tenantId, b.locationId, b.programId).ready).toBe(false);
       expect((await scoped(b)).ready).toBe(true);
     });
+  });
+
+  it("overwrites an erased shop's class until nothing names the shop, and only then counts it done (Legal)", async () => {
+    const s = await shop("Pizzeria Tappi");
+    await db.update(locations).set({ latitude: 51.3127, longitude: 9.4797 }).where(eq(locations.id, s.locationId));
+    await withGoogle(async () => {
+      const api = fakeGoogleApi();
+      await syncGoogleClasses(process.env, api.fetcher);
+      approve(api, s);
+      await syncGoogleClasses(process.env, api.fetcher);
+      api.classes.set(classIdOf(s), { ...api.classes.get(classIdOf(s)), wideProgramLogo: { sourceUri: { uri: "https://assets.example.test/wide.png" } } });
+      expect(JSON.stringify(api.classes.get(classIdOf(s)))).toContain("Pizzeria Tappi");
+
+      // Google reviews the overwrite: not done yet, recorded, and the shop's name is gone everywhere, the alt text included.
+      await expect(overwriteGoogleClasses(s.tenantId, process.env, api.fetcher)).rejects.toMatchObject({ code: "EXTERNAL_PENDING" });
+      const overwritten = api.classes.get(classIdOf(s))!;
+      expect(JSON.stringify(overwritten)).not.toContain("Pizzeria Tappi");
+      expect(overwritten).toMatchObject({ issuerName: "Programm beendet", programName: "Programm beendet", reviewStatus: "UNDER_REVIEW", wideProgramLogo: null, merchantLocations: null });
+      expect((overwritten.programLogo as { sourceUri: { uri: string } }).sourceUri.uri).toBe(process.env.GOOGLE_WALLET_PROGRAM_LOGO_URL);
+      expect((await rowOf(s)).lastError).toBe("erasure overwrite under review");
+
+      // The rerun only looks; once Google approves, it is done with no second write.
+      approve(api, s);
+      const before = api.calls.length;
+      expect(await overwriteGoogleClasses(s.tenantId, process.env, api.fetcher)).toBe(1);
+      expect(classCalls(api, before).map(call => call.method)).toEqual(["GET"]);
+    });
+  });
+
+  it("holds the erasure when Google refuses or is off, and changes nothing for a shop without a class (Legal)", async () => {
+    const s = await shop();
+    const none = await shop("No class yet");
+    await withGoogle(async () => {
+      const api = fakeGoogleApi();
+      await syncGoogleClasses(process.env, api.fetcher);
+      await expect(overwriteGoogleClasses(s.tenantId, process.env, fakeGoogleApi({ failWith: 503 }).fetcher)).rejects.toMatchObject({ code: "EXTERNAL_PENDING" });
+      expect((await rowOf(s)).lastError).toBe("erasure class lookup");
+      await db.delete(walletGoogleClasses).where(eq(walletGoogleClasses.programId, none.programId));
+      const before = api.calls.length;
+      expect(await overwriteGoogleClasses(none.tenantId, process.env, api.fetcher)).toBe(0);
+      expect(api.calls.slice(before)).toEqual([]);
+    });
+    await withEnv({ GOOGLE_WALLET_ENABLED: undefined }, async () => {
+      expect(await overwriteGoogleClasses(none.tenantId)).toBe(0);
+      await expect(overwriteGoogleClasses(s.tenantId)).rejects.toMatchObject({ code: "EXTERNAL_PENDING" });
+    });
+    // A class Google no longer has is done: nothing is left to overwrite.
+    await withGoogle(async () => { expect(await overwriteGoogleClasses(s.tenantId, process.env, fakeGoogleApi().fetcher)).toBe(1); });
   });
 
   it("creates nothing in Demo Mode or with Google off: the demo class stays an explicit env binding", async () => {
