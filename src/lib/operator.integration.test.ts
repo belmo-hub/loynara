@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, membershipContacts, plateLinkEvents, secureTags } from "@/db/schema";
+import { ledgerEntries, locations, membershipContacts, outboxJobs, plateLinkEvents, secureTags, walletPasses } from "@/db/schema";
 import { auth } from "./auth";
 import { nfcFixture } from "./nfc-test-db";
-import { operatorOverview } from "./operator";
+import { operatorOverview, parseCoordinates } from "./operator";
+import { POST as coordinatesRoute } from "@/app/api/operator/location-coordinates/route";
 import { POST as plateRoute } from "@/app/api/operator/plate/route";
 import { POST as programmeRoute } from "@/app/api/operator/programme/route";
 import { earliestEndDate } from "./operator-date";
@@ -166,4 +168,58 @@ it("refuses an end date before tomorrow (Berlin) with a pointer to the console a
   expect((await pool.query("SELECT cancellation_end_date FROM programs WHERE id = $1", [f.program.id])).rows[0].cancellation_end_date).toBeNull();
   expect((await postProgramme({ programId: f.program.id, endDate: tomorrow, execute: true }, operator.cookie)).status).toBe(200);
   expect((await getCard(f.member.cardToken)).endsOn).toBe(tomorrow);
+});
+
+it.each([
+  ["51.31270, 9.47970", 51.3127, 9.4797],
+  [" -33.8688,151.2093 ", -33.8688, 151.2093],
+  ["https://www.google.com/maps/place/Laden/@51.3,9.4,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d51.3127!4d9.4797!16s", 51.3127, 9.4797],
+])("reads the pin from %s", (text, latitude, longitude) => {
+  expect(parseCoordinates(text)).toEqual({ latitude, longitude });
+});
+
+it.each(["", "Kassel", "51, 9", "51,3127 9,4797", "91.0, 9.4", "51.3, 181.0", "51.3, 9.4, 17z", "https://maps.app.goo.gl/abc", "https://www.google.com/maps/@51.3,9.4,17z"])("refuses %j", text => {
+  expect(() => parseCoordinates(text)).toThrow("Google Maps");
+});
+
+describe("location coordinates on /operator", () => {
+  const post = (body: unknown, cookie: string) => coordinatesRoute(new Request(origin + "/api/operator/location-coordinates", { method: "POST", headers: { "Content-Type": "application/json", Origin: origin, cookie }, body: JSON.stringify(body) }));
+  const point = async (id: string) => (await db.select({ latitude: locations.latitude, longitude: locations.longitude }).from(locations).where(eq(locations.id, id)))[0];
+  const refreshes = () => db.select().from(outboxJobs).where(eq(outboxJobs.kind, "wallet.refresh"));
+  const body = (f: Awaited<ReturnType<typeof nfcFixture>>, execute: boolean) => ({ tenantId: f.tenant.id, locationId: f.location.id, coordinates: "51.31270, 9.47970", execute });
+
+  it("checks without writing, then saves and queues one refresh for the cards holding a pass", async () => {
+    const operator = await identity(), f = await nfcFixture();
+    process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+    await db.insert(walletPasses).values({ tenantId: f.tenant.id, membershipId: f.member.id, provider: "apple", status: "active", providerObjectId: randomUUID() } as typeof walletPasses.$inferInsert);
+
+    expect(await (await post(body(f, false), operator.cookie)).json()).toEqual({ latitude: 51.3127, longitude: 9.4797, changed: true });
+    expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
+    expect(await refreshes()).toHaveLength(0);
+
+    expect((await post(body(f, true), operator.cookie)).status).toBe(200);
+    expect(await point(f.location.id)).toEqual({ latitude: 51.3127, longitude: 9.4797 });
+    expect((await refreshes()).map(job => job.payload.membershipId)).toEqual([f.member.id]);
+    expect((await operatorOverview(operator.userId)).rows[0]).toMatchObject({ latitude: 51.3127, longitude: 9.4797 });
+
+    await pool.query("DELETE FROM outbox_jobs");
+    expect(await (await post(body(f, true), operator.cookie)).json()).toMatchObject({ changed: false });
+    expect(await refreshes()).toHaveLength(0);
+  });
+
+  it("answers 400 to the operator for bad input and writes nothing", async () => {
+    const operator = await identity(), f = await nfcFixture();
+    process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+    expect((await post({ ...body(f, true), coordinates: "91.0, 9.4" }, operator.cookie)).status).toBe(400);
+    expect((await post({ ...body(f, true), coordinates: 51 }, operator.cookie)).status).toBe(400);
+    expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
+  });
+
+  it("is a plain 404 for anyone but the operator, and never reaches another tenant's location", async () => {
+    const operator = await identity(), owner = await identity(), f = await nfcFixture(), other = await nfcFixture();
+    process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+    for (const cookie of ["", owner.cookie]) { const res = await post(body(f, true), cookie); expect(res.status).toBe(404); expect(await res.text()).toBe(""); }
+    expect((await post({ ...body(f, true), tenantId: other.tenant.id }, operator.cookie)).status).toBe(404);
+    expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
+  });
 });
