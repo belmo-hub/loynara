@@ -19,8 +19,9 @@ import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
+import { OwnerIcon } from "@/components/owner/owner-ui";
 
-type Row = { walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
@@ -38,6 +39,7 @@ const date = (value: Date | string | null) => value ? new Date(value).toLocaleDa
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };
+const mapsUrl = (p: { latitude: number | null; longitude: number | null }) => `https://www.google.com/maps?q=${p.latitude},${p.longitude}`;
 const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 const CODE = { none: "kein Code", open: "Code offen", locked: "Code offen, ein Konto gesperrt", used: "Code benutzt" } as const;
@@ -63,6 +65,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [tplRow, setTplRow] = useState<Row | null>(null);
   const [templateId, setTemplateId] = useState("");
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
+  const [pointRow, setPointRow] = useState<Row | null>(null);
+  const [coordinates, setCoordinates] = useState("");
+  const [pointPreview, setPointPreview] = useState<{ latitude: number; longitude: number; changed: boolean } | null>(null);
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState("");
@@ -104,6 +109,16 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
+  async function sendPoint(execute: boolean) {
+    setBusy(true); setError("");
+    try {
+      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, execute });
+      if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
+    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPointPreview(null); setError(""); };
+  const closePoint = () => { setPointRow(null); setPointPreview(null); setError(""); };
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
   const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setError(""); };
@@ -279,9 +294,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card>
 
     <Card as="section" aria-labelledby="op-shops">
-      <CardHeader id="op-shops" title="Geschäfte" description="Nur Lesen." />
+      <CardHeader id="op-shops" title="Geschäfte" description="Koordinaten je Standort für den Wallet-Hinweis in der Nähe. Sonst nur Lesen." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {rows.map(r => <li key={r.programId} style={{ padding: "8px 0", borderTop: "1px solid var(--color-line, currentColor)" }}>
+        {rows.map((r, index) => <li key={r.programId} style={{ padding: "8px 0", borderTop: "1px solid var(--color-line, currentColor)" }}>
           <strong>{r.tenant}</strong> · {r.location} ({r.city})<br />
           <span className="ow-muted">{r.programme} · {r.status === "active" ? "aktiv" : "archiviert"} · {r.cards} Karten · letzte Gutschrift: {date(r.lastAward)} · Wochenbericht {r.weeklyReport ? "an" : "aus"}{r.endDate ? ` · Kündigung ${origin(r)}, ${endText(r)}` : ""}</span>
           {r.googleClass ? <><br /><span className={r.googleClass.status === "rejected" || r.googleClass.lastError ? undefined : "ow-muted"} role={r.googleClass.status === "rejected" || r.googleClass.lastError ? "alert" : undefined}>Google-Wallet-Klasse: {GOOGLE_CLASS[r.googleClass.status] ?? r.googleClass.status}{r.googleClass.lastError ? ` (letzter Versuch fehlgeschlagen: ${r.googleClass.lastError})` : ""}</span></> : null}
@@ -290,6 +305,11 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
+          {/* Rows are per programme, the point per location: only its first row carries it. */}
+          {rows.findIndex(other => other.locationId === r.locationId) === index ? <div>
+            {r.latitude !== null ? <a className="ow-muted" style={{ textDecoration: "underline" }} href={mapsUrl(r)} target="_blank" rel="noopener noreferrer">{r.latitude}, {r.longitude}</a> : <span className="ow-muted">Keine Koordinaten</span>}
+            <Button variant="quiet" onClick={() => openPoint(r)}>{r.latitude !== null ? "Koordinaten ändern" : "Koordinaten setzen"}</Button>
+          </div> : null}
         </li>)}
       </ul>
     </Card>
@@ -328,6 +348,18 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
         {error ? <p role="alert">{error}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>
           : <Button loading={busy} disabled={!endDate} onClick={() => sendEnd(false)}>Prüfen</Button>}
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten">
+      {pointRow ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
+        {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
+        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={18} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
+        {pointPreview?.changed
+          ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
+          : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 
