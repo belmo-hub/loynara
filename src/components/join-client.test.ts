@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { joinConsent, joinNeedsTick, joinOffersMessages, staleJoin } from "./join-client";
+import { joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -47,10 +47,16 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     expect(page).toContain("const [messagesTicked, setMessagesTicked] = useState(false);");
     expect(page).toContain("...joinConsent(program !== null && joinOffersMessages(platform, program), messagesTicked)");
   });
+  it("names the button after a stale join on German pages; French pages keep their line", async () => {
+    expect(staleLine("de", "Meine Karte erstellen")).toBe("Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „Meine Karte erstellen“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.");
+    expect(staleLine("de", "Weitere Karte erstellen")).toContain("Mit „Weitere Karte erstellen“ akzeptierst du sie.");
+    expect(staleLine("fr", "Créer ma carte")).toBe("Le commerce vient de modifier le programme. Veuillez relire les règles ci-dessus et les accepter. Votre carte n’a pas encore été créée.");
+    expect(await source()).toContain("staleLine(locale, existing ? t.anotherSubmit : t.submit)");
+  });
   it("says in its own words why a tick was refused, and keeps the page", async () => {
     const page = await source();
     expect(page).toContain('cause.code === "CONSENT_TEXT_CHANGED") {\n        setError(CONSENT_CHANGED);');
-    expect(page).toContain("Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal.");
+    expect(page).toContain("Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();

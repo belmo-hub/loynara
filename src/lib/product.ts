@@ -397,7 +397,7 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if (input.walletConsentVersion !== undefined) {
       // A tick counts only for the text shown today, on the German join page, while the surface is on.
       const [tenant] = await tx.select({ locale: tenants.locale }).from(tenants).where(eq(tenants.id, program.tenantId));
-      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages")) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu, lies ihn und setze das Häkchen noch einmal.");
+      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages")) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
     }
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
     if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Für dieses Geschäft kannst du gerade keine Karte erstellen. Bitte frage im Geschäft nach.");

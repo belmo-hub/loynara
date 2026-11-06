@@ -57,6 +57,10 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     }
     expect(await cards()).toBe(0);
     expect(await consents()).toEqual([]);
+    // After the reload the box is unticked: the customer gets the card without it, and no consent.
+    await enroll({ slug: programSlug, acceptedTerms: true });
+    expect(await cards()).toBe(1);
+    expect(await consents()).toEqual([]);
   });
   it("refuses the tick for a French shop and while the surface is off", async () => {
     const french = await shop("fr");
