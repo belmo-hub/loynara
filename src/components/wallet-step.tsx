@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { PublicProgram } from "./client-api";
-import { prepareAppleWallet, walletMessage } from "./wallet-preparation";
+import { prepareAppleWallet, sheetOpened, walletMessage } from "./wallet-preparation";
 import styles from "./customer/wallet-step.module.css";
 
 /**
@@ -50,10 +50,12 @@ type Props = { token: string; program: Pick<PublicProgram, "businessName" | "pro
    *  request still shows its state (ENG-160). */
   stay?: boolean;
   /** Told once Apple's sheet opens, so the tap page leaves the stamp's scroll to the sheet's return. */
-  onAdd?: () => void };
+  onAdd?: () => void;
+  /** ENG-172: open Apple's sheet on arrival, as if the button was pressed; this screen stays as the fallback. */
+  auto?: boolean };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
-export function WalletStep({ token, program: { businessName, programType, walletMessages }, band, stay = false, onAdd }: Props) {
+export function WalletStep({ token, program: { businessName, programType, walletMessages }, band, stay = false, onAdd, auto = false }: Props) {
   const messages = walletMessages === true;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -68,9 +70,9 @@ export function WalletStep({ token, program: { businessName, programType, wallet
   const [back, setBack] = useState(false);
   useEffect(() => { if (back && !stay) router.replace(cardHref); }, [back, stay, router, cardHref]);
 
-  useEffect(() => () => operation.current?.abort(), []);
+  useEffect(() => () => { operation.current?.abort(); operation.current = null; }, []);
 
-  async function add() {
+  async function add(unprompted = false) {
     if (operation.current) return;
     const controller = new AbortController(); operation.current = controller;
     // A second add starts afresh: an earlier return from the sheet must not send this one to the card early.
@@ -83,15 +85,22 @@ export function WalletStep({ token, program: { businessName, programType, wallet
       onAdd?.();
       // Apple's sheet opens over this page; the card is underneath when the customer comes back (screen 08). While the
       // tap page still waits for the team it stays there instead, so the customer sees the stamp confirmed (ENG-160).
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Without a tap Safari may refuse the sheet: then the customer stays here, with the button (ENG-172).
+        if (unprompted && !await sheetOpened(token, controller.signal)) {
+          if (!controller.signal.aborted) { operation.current = null; setBusy(false); }
+          return;
+        }
         if (!stayRef.current) { router.replace(cardHref); return; }
         operation.current = null; setBusy(false); setBack(true);
       }, 4000);
     } catch (cause) {
       if (!controller.signal.aborted) { setError(walletMessage(cause, false)); setBusy(false); }
-      operation.current = null;
+      if (operation.current === controller) operation.current = null;
     }
   }
+  const addRef = useRef(add);
+  useEffect(() => { if (auto) void addRef.current(true); }, [auto]);
 
   const Heading = band ? "h2" : "h1";
   return <section className={styles.step} data-band={band || undefined} aria-labelledby="wallet-step-title">

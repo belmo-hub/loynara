@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
+import { prepareAppleWallet, readWalletStatus, sheetOpened } from "./wallet-preparation";
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 it("posts the bearer and waits for a fresh ready ticket without repeating issuance", async () => {
@@ -30,4 +30,15 @@ it("ends failed preparation and caps never-ending pending polling", async () => 
   await vi.advanceTimersByTimeAsync(300_000); await rejection; expect(fetcher.mock.calls.length).toBeLessThanOrEqual(7);
   fetcher.mockReset().mockResolvedValueOnce(Response.json({ status: "pending" })).mockResolvedValueOnce(Response.json({ applePass: { status: "failed" } }));
   const failed = prepareAppleWallet("synthetic", new AbortController().signal); const failure = expect(failed).rejects.toThrow(); await vi.advanceTimersByTimeAsync(5000); await failure; expect(fetcher).toHaveBeenCalledTimes(2);
+});
+it("counts Apple's sheet as opened only when the server handed the pass out (ENG-172)", async () => {
+  const signal = new AbortController().signal;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ apple: "available", google: "unavailable", appleDownloaded: true })));
+  expect(await sheetOpened("synthetic", signal)).toBe(true);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ apple: "available", google: "unavailable", appleDownloaded: false })));
+  expect(await sheetOpened("synthetic", signal)).toBe(false);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ code: "RATE_LIMIT" }, { status: 429 })));
+  expect(await sheetOpened("synthetic", signal)).toBe(false);
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+  expect(await sheetOpened("synthetic", signal)).toBe(false);
 });

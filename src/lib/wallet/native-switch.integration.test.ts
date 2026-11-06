@@ -106,6 +106,12 @@ describe("Apple Wallet saved on a device (ENG-130 08)", () => {
         // Issued and downloaded, but Apple's sheet was cancelled: nothing registered.
         expect(await saved()).toBe(false);
         const [pass] = await rows(member.id);
+        // ENG-172: issued is not handed out; only the download proves Safari followed the link to Apple's sheet.
+        const downloaded = async () => (await (await walletStatus(post("/api/wallet/status", member.cardToken))).json()).appleDownloaded;
+        expect(await downloaded()).toBe(false);
+        await pool.query("UPDATE wallet_passes SET status = 'downloaded' WHERE id = $1", [pass.id]);
+        expect(await downloaded()).toBe(true);
+        expect(await saved()).toBe(false);
         await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ('device-eng-130', $1)", ["a".repeat(64)]);
         await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ('device-eng-130', $1, $2, $3, $4)", [merchant.tenantId, member.id, apple.config.passTypeId, pass.id]);
         expect(await saved()).toBe(true);

@@ -112,3 +112,28 @@ describe("the pages wire the decisions (ENG-130 review N-3)", () => {
     expect(source).toContain("const step = tapWalletStep(value);\n      markWalletStep(recoveryCard, step.mark);\n      if (step.show) setWalletProgram(value);");
   });
 });
+
+describe("Apple's sheet straight after the join (ENG-172)", () => {
+  it("only the join's step opens by itself, through the button's own handler; the tap band stays manual", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("src/components/join-client.tsx", "utf8")).toContain("<WalletStep token={walletStep} program={program} auto />");
+    const tap = readFileSync("src/components/tap-client.tsx", "utf8");
+    expect(tap).toContain("<WalletStep");
+    expect(tap).not.toMatch(/<WalletStep[^>]*\bauto\b/);
+    const step = readFileSync("src/components/wallet-step.tsx", "utf8");
+    expect(step).toContain("useEffect(() => { if (auto) void addRef.current(true); }, [auto]);");
+  });
+  it("stays on the step with its button when the sheet did not open; a pressed button keeps going to the card", async () => {
+    const step = (await import("node:fs")).readFileSync("src/components/wallet-step.tsx", "utf8");
+    expect(step).toContain("if (unprompted && !await sheetOpened(token, controller.signal)) {");
+    expect(step).toContain("if (!controller.signal.aborted) { operation.current = null; setBusy(false); }");
+    expect(step).toContain("onClick={() => void add()}");
+  });
+  it("the auto step renders the same fallback screen, and the join's mark stops a second offer", () => {
+    const html = renderToStaticMarkup(h(WalletStep, { token: "card_x", program: { businessName: "Café Lindenblatt", programType: "stamp" }, auto: true }));
+    expect(html).toContain("Hinzufügen zu Apple Wallet");
+    expect(html).toContain("Später, zuerst meine Karte ansehen");
+    expect(afterJoin({ continuation: null, offer: true, mark: null })).toEqual({ go: "step", mark: "shown" });
+    expect(afterJoin({ continuation: null, offer: true, mark: "shown" })).toEqual({ go: "card" });
+  });
+});

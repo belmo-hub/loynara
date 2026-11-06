@@ -42,6 +42,13 @@ export async function appleSaved(eligibility: WalletCardEligibility, reader: Pic
   return Boolean(row);
 }
 
+/** ENG-172: the card's live Apple pass was downloaded, so Safari followed the link and Apple's sheet had its chance. */
+export async function appleDownloaded(eligibility: WalletCardEligibility, reader: Pick<typeof db, "select"> = db): Promise<boolean> {
+  const [pass] = await reader.select({ id: walletPasses.id }).from(walletPasses)
+    .where(and(eq(walletPasses.tenantId,eligibility.tenantId),eq(walletPasses.membershipId,eligibility.membershipId),eq(walletPasses.provider,"apple"),isNull(walletPasses.revokedAt),inArray(walletPasses.status,["downloaded","registered"]))).limit(1);
+  return Boolean(pass);
+}
+
 /** Read-only projection/job reconciliation. This never queues work, contacts a provider, or accepts a pass ID. */
 export async function applePreparation(eligibility: WalletCardEligibility, reader: Pick<typeof db, "select"> = db): Promise<ApplePreparation> {
   if (eligibility.availability.apple !== "available") return { status: "unavailable" };

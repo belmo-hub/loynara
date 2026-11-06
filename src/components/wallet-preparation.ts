@@ -7,6 +7,8 @@ export type WalletStatus = {
   appleReAdd?: boolean;
   /** ENG-130: a device registered the card's live Apple pass. */
   appleSaved?: boolean;
+  /** ENG-172: the card's live Apple pass left the server at least once. */
+  appleDownloaded?: boolean;
 };
 async function walletRequest<T>(path: string, token: string, signal: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -44,6 +46,8 @@ export async function prepareAppleWallet(token: string, signal: AbortSignal): Pr
   } catch (error) { if (!signal.aborted && controller.signal.aborted) throw unavailable(); throw error; }
   finally { clearTimeout(timeout); signal.removeEventListener("abort", abort); }
 }
+/** ENG-172: only a pass the server handed out proves Apple's sheet opened; a failed read counts as not opened, so the button stays. */
+export const sheetOpened = (token: string, signal: AbortSignal) => readWalletStatus(token, signal).then(status => status.appleDownloaded === true, () => false);
 export function walletPlatform(): "ios" | "android" | "other" {
   const agent = navigator.userAgent;
   if (/iPhone|iPod/.test(agent) || (/iPad|Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) return "ios";
