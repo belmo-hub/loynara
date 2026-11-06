@@ -9,6 +9,7 @@ import { enqueueWalletRefresh } from "./enqueue";
 import type { WalletProvider } from "./types";
 import { isPassFastObjectId, passFastConfig, bindPassFastObjectId, assertPassFastBinding, type PassFastConfig, passFastSerial } from "./passfast";
 import { walletCardEligibility } from "./eligibility";
+import { googleDirectEnv } from "./google-classes";
 import { googleDirectConfig } from "./google-direct";
 import { googleObjectId } from "./google";
 import { passFastEnv } from "./template-bindings";
@@ -31,7 +32,7 @@ export async function issueWalletPass(cardToken: string, provider: WalletProvide
     if (provider === "google") {
       const eligibility = await walletCardEligibility(cardToken, tx);
       if (eligibility.availability.google === "unavailable") throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
-      const config = googleDirectConfig(process.env, eligibility.tenantId, eligibility.locationId, eligibility.programId);
+      const config = googleDirectConfig(await googleDirectEnv(eligibility.tenantId, eligibility.locationId, eligibility.programId, tx), eligibility.tenantId, eligibility.locationId, eligibility.programId);
       if (objectIdFor(member.id) !== googleObjectId(member.id, config)) throw new DomainError("FORBIDDEN", "Diese Karte kannst du gerade nicht in Wallet speichern.");
     }
     // Refuse unmapped tenants before changing any projection or enqueueing work.

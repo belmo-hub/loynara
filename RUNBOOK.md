@@ -46,6 +46,8 @@ French staff reminder for this same local workflow: choisir le bon établissemen
 
 An owner can review the last 50 invite, acceptance and revocation events under **Team → Zugriffsverlauf** and download the full tenant-scoped history in the merchant JSON export. The database rejects updates and deletes of these new audit rows. No earlier staff events were backfilled, invitation links are never logged in the audit, and the operator still needs an approved retention schedule.
 
+In the merchant JSON export, a `programRuleVersions` or `rewardVersions` row replaced before its date keeps its past `effectiveAt` although it never applied; read `createdAt`: the row never applied if a higher version of it was created before that `effectiveAt`.
+
 ### Offline award simulation (local browser only)
 
 While online, look up the card to obtain a staff/location/card/browser lease valid for 30 minutes. After a disconnect, explicitly choose **Offline-Vergabe vormerken** in the award review. Up to 20 events stay in that browser's localStorage; the card balance and rewards do not change. Reconnect and choose **Ausstehende Vergaben synchronisieren**. Server acceptance posts one idempotent ledger award; rejection shows a reason for staff review and never credits the card. Expired leases, revoked staff, changed rules and closed cards are rejected. Redemption stays online. Do not clear browser data, switch device/browser or sign out before all pending events are reviewed; browser storage is not a durable server backup. The simulated disconnect/reload/retry/revocation tests passed locally, but a physical cashier-device outage and recovery are **NOT RUN**.
@@ -159,6 +161,8 @@ These commands verify a local restoration only. Before live operation, arrange e
 
 **What it does (Legal's ruling, 1 Nov 2026):**
 - **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted; revocations already done stay done, and running the erasure again skips them.
+- **The shop's Google Wallet classes are overwritten too (Legal).** Google has no class delete, so names, logo with its alt text, wide logo, location and colour become „Programm beendet“ and the neutral `GOOGLE_WALLET_PROGRAM_LOGO_URL`. Google may review that: the erasure then stops with `EXTERNAL_PENDING`, nothing is deleted, no confirmation is due, and `/operator` shows the state. Run the erasure again later; it finishes once Google shows the text approved. A class with Google off holds the erasure the same way. A shop without a class is not affected.
+- **If Google rejects the overwrite,** `/operator` shows „von Google abgelehnt“ and the erasure's error says so. Running it again alone won't help: the text is already there, so nothing is sent again. Find Google's reason in the Google Pay & Wallet Console and ask for a new review there. If the neutral logo is the reason, change `GOOGLE_WALLET_PROGRAM_LOGO_URL`, and the next run sends the overwrite again. Run the erasure again once the class is approved. If that won't happen before the DS-05 deadline, tell Legal the same day; the shop's data stays until then.
 - **Then one transaction:**
   - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
   - It deletes the logins of the shop's owner and staff, with their sessions.

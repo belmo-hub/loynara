@@ -6,6 +6,7 @@ import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { erasureDelayDays, EXPORT_DAYS_AFTER_END } from "./programme-end-date";
 import { revokeCardWalletPasses } from "./wallet/enqueue";
+import { overwriteGoogleClasses } from "./wallet/google-classes";
 import { refreshWalletForMembership } from "./wallet/refresh";
 
 type Env = Record<string, string | undefined>;
@@ -178,6 +179,8 @@ async function contractRecord(tx: Executor, tenantId: string, env: Env) {
 export type ErasureProviders = {
   /** Deactivates the shop's Google Wallet objects; resolves with how many cards had one. */
   google?: (tenantId: string) => Promise<number>;
+  /** Overwrites the shop's Google Wallet classes, which Google cannot delete; throws while one is not done. */
+  googleClasses?: (tenantId: string) => Promise<number>;
   /** Removes one address from the operator's Mailgun suppression lists. */
   mailgun?: (address: string) => Promise<void>;
 };
@@ -219,11 +222,13 @@ async function providerCleanup(tenantId: string, providers: ErasureProviders) {
   const googleCards = await withRetries(() => (providers.google ?? revokeGoogleObjects)(tenantId));
   const left = await unrevokedGoogle(db, tenantId);
   if (left) throw new DomainError("EXTERNAL_PENDING", `${left} Google Wallet object(s) of the shop are not revoked yet; the erasure waits`);
+  // After the objects, which still point at the class. Google may review the overwrite, so a rerun finishes it, not a retry here.
+  const googleClasses = await (providers.googleClasses ?? overwriteGoogleClasses)(tenantId);
   const addresses = ((await db.execute(sql`SELECT DISTINCT lower(email) AS email FROM membership_contacts c WHERE c.tenant_id = ${tenantId} AND c.email IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM membership_contacts o WHERE o.tenant_id <> ${tenantId} AND lower(o.email) = lower(c.email))`)).rows as Array<{ email: string }>).map(row => row.email);
   const mailgun = providers.mailgun ?? (mailgunConfig(process.env) ? removeMailgunSuppressions : null);
   for (const address of mailgun ? addresses : []) await withRetries(() => mailgun!(address));
-  return { googleCards, mailgunAddresses: mailgun ? addresses.length : "not configured" };
+  return { googleCards, googleClasses, mailgunAddresses: mailgun ? addresses.length : "not configured" };
 }
 
 /** The database part: the shop's rows, under the exemption that names only this shop. `count` reads instead (dry run). */

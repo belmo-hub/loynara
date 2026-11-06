@@ -18,7 +18,8 @@
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
 .note { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-action-soft); font-size: var(--text-14); line-height: 1.5; }
 .warning { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-warning), transparent 88%); font-size: var(--text-14); line-height: 1.5; }
-.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error svg { flex: none; margin-top: 2px; }
 .cardNumber { display: grid; justify-items: center; gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); }
 .cardNumber span { font-size: var(--text-14); color: var(--color-ink-muted); }
 .cardNumber strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
@@ -28,7 +29,7 @@
 .rewardList li:first-child { border-top: 0; }
 .rewardList span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
 
-.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); scroll-margin-top: var(--space-4); }
 .rules h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
 .rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
@@ -60,3 +61,8 @@
 .merchant strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .merchant span:not(.mono) { font-size: var(--text-14); color: var(--color-ink-muted); }
 .mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
+
+/* ENG-173: the optional Wallet-message box, then the notice that accepts the terms: normal size and contrast (Legal, 6 Nov). */
+.messages { display: grid; gap: var(--space-2); padding-block: var(--space-3); border-block: 1px solid var(--color-line); overflow-wrap: anywhere; }
+.messages h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; text-wrap: balance; }
+.notice { margin: 0; line-height: 1.5; }

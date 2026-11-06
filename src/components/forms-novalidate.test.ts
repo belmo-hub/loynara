@@ -29,7 +29,7 @@ it("checks the fields of every form that has rules", () => {
 it("keeps the join page's own words and its consent check (G-01, G-02)", () => {
   const join = source("components/join-client.tsx");
   expect(join).not.toMatch(/cause\.message|cause instanceof Error \?/);
-  expect(join).toContain('if (!acceptedTerms) { setError(t.acceptError); document.getElementById("join-consent")?.focus(); return; }');
+  expect(join).toContain('if (joinNeedsTick(locale, acceptedTerms)) { setError(copy.fr.acceptError); document.getElementById("join-consent")?.focus(); return; }');
 });
 
 it("checks a setup logo when it is picked", () => {

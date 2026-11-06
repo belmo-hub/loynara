@@ -28,7 +28,6 @@ async function waitingGuest(browser: Browser, url: string) {
   page.on("request", request => { if (/\/api\/wallet\/apple\/download\//.test(request.url())) passes.push(request.url()); });
   await page.goto(pathOf(m.nextUrl()));
   await page.getByRole("link", { name: "Karte erstellen", exact: true }).click();
-  await page.getByRole("checkbox").first().check();
   await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
   await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
   await expect(page.getByRole("heading", { name: BAND })).toBeVisible({ timeout: 15_000 });
@@ -70,7 +69,8 @@ test("on an iPhone the band opens Apple's sheet by itself, leaves the page where
     await expect(page.locator("#wallet-step-title")).not.toHaveAttribute("tabindex");
     await expect(page.getByRole("status").filter({ hasText: "Wird vorbereitet …" })).toHaveCount(0);
     // Past the watch's first read, the sheet counts as opened: the waiting page stays, with its state and its button.
-    await page.waitForTimeout(4_500);
+    // Long enough for a wrong jump to the card to have loaded (Reviewer).
+    await page.waitForTimeout(7_000);
     expect(new URL(page.url()).pathname).toMatch(/^\/tap\//);
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hinzufügen zu Apple Wallet" })).toBeEnabled();

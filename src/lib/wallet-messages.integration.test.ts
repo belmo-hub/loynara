@@ -1,6 +1,8 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pool } from "@/db";
+import { db, pool } from "@/db";
+import { billingLocationPlans, locations, programs } from "@/db/schema";
+import { getCustomerExport, getMerchantExport } from "./export";
 import { createMerchant, enroll, updateProgramExtras } from "./product";
 import { credentialHash } from "./wallet/data";
 import { passFastData } from "./wallet/passfast";
@@ -115,6 +117,68 @@ describe("consent gate", () => {
     await setWalletConsent(c.cardToken, false);
     expect((await pool.query("SELECT status, revoked_at FROM wallet_passes WHERE id = $1", [c.passId])).rows[0]).toEqual({ status: "created", revoked_at: null });
     await expect(getWalletConsent("card_unknown")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("both exports carry the consent proof, withdrawn rows included, scoped to the shop and the card (ENG-174)", async () => {
+    const s = await shop(); const c = await customer(s); const other = await customer(s);
+    const elsewhere = await shop("Anderes Café"); await customer(elsewhere);
+    await setWalletConsent(c.cardToken, false); await setWalletConsent(c.cardToken, true);
+    const exported = await getCustomerExport(c.cardToken);
+    expect(exported.formatVersion).toBe(1); // customer-export-download.ts refuses anything else
+    const card = exported.walletMessageConsents.sort((a, b) => a.givenAt.getTime() - b.givenAt.getTime());
+    expect(card).toEqual([
+      { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: expect.any(Date) },
+      { textVersion: CONSENT_TEXT_VERSION, givenAt: expect.any(Date), withdrawnAt: null },
+    ]);
+    const shopRows = (await getMerchantExport(s.owner)).walletMessageConsents;
+    expect(shopRows.map(row => row.membershipId).sort()).toEqual([c.id, c.id, other.id].sort());
+    expect(shopRows.every(row => row.tenantId === s.tenantId && row.textVersion === CONSENT_TEXT_VERSION && row.channel === "wallet")).toBe(true);
+    expect(shopRows.filter(row => row.withdrawnAt !== null)).toHaveLength(1);
+  });
+
+  it("both exports carry the filled-in wording of each version present, per location in the shop export (ENG-174b)", async () => {
+    const s = await shop("Café Kurz"); const c = await customer(s);
+    const [first] = (await pool.query("SELECT l.id, l.name FROM programs p JOIN locations l ON l.id = p.location_id WHERE p.id = $1", [s.programId])).rows;
+    expect((await getCustomerExport(c.cardToken)).consentTexts).toEqual([{ version: CONSENT_TEXT_VERSION, text: consentText("Café Kurz", first.name) }]);
+    const [second] = await db.insert(locations).values({ tenantId: s.tenantId, name: "Zweiter Laden", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    await db.insert(billingLocationPlans).values({ tenantId: s.tenantId, locationId: second.id, currency: "EUR", priceMinor: 4900 });
+    const slug = `second-${randomUUID()}`;
+    await db.insert(programs).values({ tenantId: s.tenantId, locationId: second.id, slug, name: "Zweite Karte", type: "stamp", rulesText: "Synthetic rule" });
+    const elsewhere = await enroll({ slug, acceptedTerms: true });
+    await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES ($1,$2,$3)", [s.tenantId, elsewhere.id, CONSENT_TEXT_VERSION]);
+    expect((await getCustomerExport(elsewhere.cardToken)).consentTexts).toEqual([{ version: CONSENT_TEXT_VERSION, text: consentText("Café Kurz", "Zweiter Laden") }]);
+    expect((await getCustomerExport(c.cardToken)).consentTexts).toEqual([{ version: CONSENT_TEXT_VERSION, text: consentText("Café Kurz", first.name) }]);
+    await customer(s); // a second consent at the first location adds no entry
+    const texts = (await getMerchantExport(s.owner)).consentTexts;
+    expect(texts).toHaveLength(2);
+    expect(texts).toEqual(expect.arrayContaining([
+      { version: CONSENT_TEXT_VERSION, locationId: first.id, text: consentText("Café Kurz", first.name) },
+      { version: CONSENT_TEXT_VERSION, locationId: second.id, text: consentText("Café Kurz", "Zweiter Laden") },
+    ]));
+    const none = await shop("Ohne Einwilligung");
+    expect((await getMerchantExport(none.owner)).consentTexts).toEqual([]);
+  });
+
+  it("a consent version without wording keeps the row, shows null and logs it, and the export still works (ENG-174b)", async () => {
+    const s = await shop(); const c = await customer(s, false);
+    await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES ($1,$2,'wallet-consent-unknown')", [s.tenantId, c.id]);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const card = await getCustomerExport(c.cardToken);
+    expect(card.walletMessageConsents).toMatchObject([{ textVersion: "wallet-consent-unknown" }]);
+    expect(card.consentTexts).toEqual([{ version: "wallet-consent-unknown", text: null }]);
+    expect(log).toHaveBeenCalledExactlyOnceWith("Consent text version wallet-consent-unknown has no wording");
+    log.mockClear();
+    const shopExport = await getMerchantExport(s.owner);
+    expect(shopExport.walletMessageConsents).toMatchObject([{ textVersion: "wallet-consent-unknown", membershipId: c.id }]);
+    expect(shopExport.consentTexts).toMatchObject([{ version: "wallet-consent-unknown", text: null }]);
+    expect(log).toHaveBeenCalledExactlyOnceWith("Consent text version wallet-consent-unknown has no wording");
+  });
+
+  it("refuses an export with more consent rows than one file holds instead of cutting the proof off (ENG-174)", async () => {
+    const s = await shop(); const c = await customer(s, false);
+    await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version, withdrawn_at) SELECT $1, $2, $3, clock_timestamp() FROM generate_series(1, 50001)", [s.tenantId, c.id, CONSENT_TEXT_VERSION]);
+    await expect(getMerchantExport(s.owner)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
+    await expect(getCustomerExport(c.cardToken)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
   });
 
   it("the consent log is append-only: only a first withdrawal is allowed, a new grant is a new row", async () => {

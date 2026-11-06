@@ -23,6 +23,15 @@ export function markWalletStep(token: string, mark: WalletStepMark) {
   try { localStorage.setItem(key(token), mark); } catch { /* private mode: the step may show again, nothing breaks */ }
 }
 
+/** ENG-173: the join showed this card's message box, so the return from Wallet doesn't ask again under the card (once per card on this device). */
+const joinAskedKey = (token: string) => `loynara_wallet_join_asked:${token}`;
+export function markJoinAsked(token: string) {
+  try { localStorage.setItem(joinAskedKey(token), "1"); } catch { /* private mode: the panel may move up once, nothing breaks */ }
+}
+export function joinAsked(token: string) {
+  try { return localStorage.getItem(joinAskedKey(token)) !== null; } catch { return false; }
+}
+
 /** ENG-130 (01): on an iPhone where this location has Apple Wallet, the join names the iPhone and offers the Wallet step (German shops only). */
 export const iphoneJoin = (platform: "ios" | "android" | "other", program: Pick<PublicProgram, "appleWallet" | "locale">) => platform === "ios" && program.appleWallet === true && program.locale !== "fr";
 
