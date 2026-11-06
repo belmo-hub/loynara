@@ -43,7 +43,8 @@ describe("customer legal pages", () => {
     expect(html).toContain("Bei Apple-Wallet-Karten erhält Apple für Aktualisierungen den Push-Token deines Geräts, aber keine Karteninhalte.");
     expect(html).toContain("erstellen wir den Pass mit deinem Kartenstand selbst, und dein Gerät lädt ihn von unserem Server.");
     expect(html).not.toContain("PassFast");
-    expect(html).toContain("Stand: 4. November 2026.");
+    expect(html).toContain("Für Apple Wallet erstellen wir selbst einen Pass mit deinem Kartenstand. Auf dem iPhone bieten wir ihn dir gleich nach dem Anlegen der Karte an; dein Gerät lädt ihn dafür von unserem Server. Ob du ihn hinzufügst, entscheidest du. Fügst du ihn hinzu, meldet dein Gerät uns eine Gerätekennung und einen Push-Token, damit der Pass aktuell bleibt.");
+    expect(html).toContain("Stand: 6. November 2026.");
   });
 
   it("announces changes to the customer's disadvantage four weeks ahead (ENG-100, Legal §3 and Q-88)", () => {
