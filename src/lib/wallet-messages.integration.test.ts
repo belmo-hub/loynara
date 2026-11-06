@@ -146,6 +146,7 @@ describe("consent gate", () => {
     await db.insert(programs).values({ tenantId: s.tenantId, locationId: second.id, slug, name: "Zweite Karte", type: "stamp", rulesText: "Synthetic rule" });
     const elsewhere = await enroll({ slug, acceptedTerms: true });
     await pool.query("INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES ($1,$2,$3)", [s.tenantId, elsewhere.id, CONSENT_TEXT_VERSION]);
+    expect((await getCustomerExport(elsewhere.cardToken)).consentTexts).toEqual([{ version: CONSENT_TEXT_VERSION, text: consentText("Café Kurz", "Zweiter Laden") }]);
     await customer(s); // a second consent at the first location adds no entry
     const texts = (await getMerchantExport(s.owner)).consentTexts;
     expect(texts).toHaveLength(2);
