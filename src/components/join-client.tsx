@@ -9,15 +9,15 @@ import { changeLines } from "@/lib/change-lines";
 import { withUnit } from "@/lib/units";
 import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
-import { CalendarClock, Gift } from "lucide-react";
+import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
 import { Button, buttonClassName } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { CustomerShell } from "./ui/customer-shell";
 import { PointsLadder } from "./ui/points-ladder";
 import { StampGrid } from "./ui/stamp-grid";
-import { walletPlatform } from "./wallet-preparation";
-import { afterJoin, iphoneJoin, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
+import { iphoneDevice, walletPlatform } from "./wallet-preparation";
+import { afterJoin, iphoneJoin, markJoinAsked, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
 
 const copy = {
@@ -39,6 +39,7 @@ function currentReferralCode() { return new URLSearchParams(window.location.sear
 function serverReferralCode() { return null; }
 const noSubscription = () => () => {};
 const serverPlatform = () => "other" as const;
+const serverIphone = () => false;
 
 type Returning = { state: "checking" | "none" | "stale" | "unknown" } | { state: "existing"; cardLocator: string };
 
@@ -63,8 +64,8 @@ export function staleJoin(program: PublicProgram, fresh: PublicProgram | null, m
 
 const PRIVACY_LINK = "Mehr in den Datenschutzhinweisen.";
 const CONSENT_CHANGED = "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.";
-/** ENG-173: the Wallet-message box shows where a pass can follow (iphoneJoin) while the walletMessages surface is on. */
-export const joinOffersMessages = (platform: "ios" | "android" | "other", program: Pick<PublicProgram, "appleWallet" | "locale" | "walletMessages">) => iphoneJoin(platform, program) && program.walletMessages === true;
+/** ENG-173: the Wallet-message box shows on an iPhone (not a touch iPad) where a pass can follow, while the walletMessages surface is on and the programme is open. */
+export const joinOffersMessages = (iphone: boolean, program: Pick<PublicProgram, "active" | "appleWallet" | "locale" | "walletMessages">) => iphone && iphoneJoin("ios", program) && program.walletMessages === true && program.active !== false;
 /** What the join sends for that box: only a shown, ticked box sends the version of the text it showed. */
 export const joinConsent = (offered: boolean, ticked: boolean) => offered && ticked ? { walletConsentVersion: JOIN_CONSENT_TEXT_VERSION } : {};
 /** W58 on German pages names the button, whose next tap accepts the reloaded rules (Legal, 6 Nov); French pages tick again. */
@@ -88,6 +89,7 @@ export function JoinClient({ slug }: { slug: string }) {
   const [showRule, setShowRule] = useState(false), [stale, setStale] = useState(false);
   const referralCode = useSyncExternalStore(subscribeToLocation, currentReferralCode, serverReferralCode);
   const platform = useSyncExternalStore(noSubscription, walletPlatform, serverPlatform);
+  const onIphone = useSyncExternalStore(noSubscription, iphoneDevice, serverIphone);
   // ENG-130: the card made here, while the Wallet step shows instead of the join form.
   const [walletStep, setWalletStep] = useState<string | null>(null);
   const locale = program?.locale === "fr" ? "fr" : "de";
@@ -124,7 +126,7 @@ export function JoinClient({ slug }: { slug: string }) {
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(platform, program), messagesTicked) });
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -132,6 +134,7 @@ export function JoinClient({ slug }: { slug: string }) {
       sessionStorage.removeItem("loynara_tap_return");
       const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
       if (next.mark) markWalletStep(result.cardToken, next.mark);
+      if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
       else router.push(`/card/${encodeURIComponent(result.cardToken)}`);
@@ -145,6 +148,8 @@ export function JoinClient({ slug }: { slug: string }) {
         // The shop changed the programme while the page was open (W58): the rules reload in place, to be read and accepted again.
         const next = staleJoin(program!, await apiJson<PublicProgram>(`/api/program/${encodeURIComponent(slug)}`).catch(() => null), staleLine(locale, existing ? t.anotherSubmit : t.submit));
         setProgram(next.program); setAcceptedTerms(next.acceptedTerms); setStale(next.stale); setError(next.error);
+        // The line says to read the rules above, which the message box can push a screen away.
+        if (locale !== "fr") document.getElementById("join-rules")?.scrollIntoView({ block: "start" });
       } else if (cause instanceof ClientApiError && cause.code === "INVALID_REFERRAL") {
         setReferralUnavailable(true); setError(t.referralUnavailable);
       } else if (cause instanceof ClientApiError && (cause.status === 0 || (cause.status >= 200 && cause.status < 300))) {
@@ -211,9 +216,9 @@ export function JoinClient({ slug }: { slug: string }) {
         ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${withUnit(program.referral.referrerBonus, program.programType, locale)} et vous ${withUnit(program.referral.referredBonus, program.programType, locale)}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${withUnit(program.referral.referrerBonus, program.programType, locale)} und deine Karte ${withUnit(program.referral.referredBonus, program.programType, locale)} erhalten. Das Öffnen des Links bringt keinen Bonus.`
         : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
       {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
-      {/* The rules the checkbox accepts: by purchase amount the earning sentence opens them (server), and the fixed
+      {/* The rules the guest accepts (German pages: the notice above the button; French: the checkbox): by purchase amount the earning sentence opens them (server), and the fixed
           exclusions stand on the page itself, not only behind the terms link (Legal). */}
-      <div className={styles.rules} data-stale={stale || undefined}><h3>{t.rules}</h3>{(() => {
+      <div id="join-rules" className={styles.rules} data-stale={stale || undefined}><h3>{t.rules}</h3>{(() => {
         // ENG-100 (W58): reward lines first, the rule's line after the rule, the expiry's after the expiry rule.
         const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={18} aria-hidden="true" /><span>{text}{extra}</span></p>;
         const expiryLine = waiting.expiry && change(waiting.expiry);
@@ -230,16 +235,16 @@ export function JoinClient({ slug }: { slug: string }) {
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit} noValidate>
         {locale === "fr" && <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === copy.fr.acceptError || undefined} aria-describedby={error === copy.fr.acceptError ? "join-error" : undefined}>{copy.fr.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{copy.fr.terms}</Link> {copy.fr.and} <Link href="/datenschutz" target="_blank">{copy.fr.privacy}</Link>.</Checkbox>}
-        {joinOffersMessages(platform, program) && <div className={styles.messages}>
+        {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
+        {joinOffersMessages(onIphone, program) && <div className={styles.messages}>
           <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>
           <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>
           <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
         </div>}
-        {(existing || returning.state === "stale") && <Checkbox checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)}>{t.anotherConfirm}</Checkbox>}
-        {error && <p id="join-error" className={styles.error} role="alert">{error}</p>}
+        {error && <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p>}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
-        {locale !== "fr" && <p className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
-        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
+        {locale !== "fr" && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
+        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={locale === "fr" ? undefined : "join-notice"} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
       <p className={styles.link}>{locale === "fr" ? <Link href="/recover">Vous avez déjà une carte ? Récupération sécurisée</Link> : <><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></>}</p>

@@ -72,6 +72,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   const lines = consentLines(expiry);
   const switchOff = <Button variant="secondary" size="sm" loading={busy} onClick={() => void change(false)}>Abschalten</Button>;
   return <section className={styles.panel} aria-label="Nachrichten auf der Wallet-Karte">
+    {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf der Wallet-Karte</h2>}
     {state.granted ? <>
       <p>Von {state.shop} · Höchstens 2 pro Woche · an</p>
       {state.givenAt && <p className={styles.muted}>Erlaubt am {new Date(state.givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
+import { iphoneDevice, prepareAppleWallet, readWalletStatus } from "./wallet-preparation";
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 it("posts the bearer and waits for a fresh ready ticket without repeating issuance", async () => {
@@ -30,4 +30,10 @@ it("ends failed preparation and caps never-ending pending polling", async () => 
   await vi.advanceTimersByTimeAsync(300_000); await rejection; expect(fetcher.mock.calls.length).toBeLessThanOrEqual(7);
   fetcher.mockReset().mockResolvedValueOnce(Response.json({ status: "pending" })).mockResolvedValueOnce(Response.json({ applePass: { status: "failed" } }));
   const failed = prepareAppleWallet("synthetic", new AbortController().signal); const failure = expect(failed).rejects.toThrow(); await vi.advanceTimersByTimeAsync(5000); await failure; expect(fetcher).toHaveBeenCalledTimes(2);
+});
+it("counts an iPhone or iPod as an iPhone, not a touch iPad (ENG-173)", () => {
+  for (const [userAgent, expected] of [["Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", true], ["Mozilla/5.0 (iPod touch; CPU iPhone OS 12_0 like Mac OS X)", true], ["Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)", false], ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", false]] as const) {
+    vi.stubGlobal("navigator", { userAgent, maxTouchPoints: 5 });
+    expect(iphoneDevice()).toBe(expected);
+  }
 });

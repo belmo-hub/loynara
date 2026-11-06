@@ -15,7 +15,7 @@ import { CardWalletMessages } from "./card-wallet-messages";
 import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
-import { markWalletStep, readWalletStep } from "./wallet-step";
+import { joinAsked, markWalletStep, readWalletStep } from "./wallet-step";
 import { cardChanges } from "@/lib/change-lines";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable"; appleReAdd?: boolean; appleSaved?: boolean };
@@ -39,7 +39,7 @@ function continueTap() {
 }
 
 /** ENG-130 (08): the panel moves under the card while a device holds the pass and this device has not yet shown it there. */
-export const savedViewDue = (token: string, status: Pick<WalletStatus, "appleSaved">) => status.appleSaved === true && readWalletStep(token) !== "saved";
+export const savedViewDue = (token: string, status: Pick<WalletStatus, "appleSaved">) => status.appleSaved === true && readWalletStep(token) !== "saved" && !joinAsked(token);
 /** „In Apple Wallet gespeichert“ shows on the first card view after the pass registers, once per card on this device, with its
  *  own flag: it hides on later visits even while the panel still waits for walletMessages (Design, 30 Oct). */
 export function savedLineDue(token: string, status: Pick<WalletStatus, "appleSaved">) {

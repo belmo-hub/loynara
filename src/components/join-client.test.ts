@@ -30,14 +30,30 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     expect(joinNeedsTick("fr", true)).toBe(false);
     expect(await source()).toContain('{locale === "fr" && <Checkbox id="join-consent"');
   });
-  it("offers the message box only on an iPhone with Apple Wallet, for a German shop, while the surface is on", () => {
+  it("offers the message box only on an iPhone with Apple Wallet, for a German shop, while the surface is on and the programme open", () => {
     const on = { appleWallet: true, walletMessages: true };
-    expect(joinOffersMessages("ios", on)).toBe(true);
-    expect(joinOffersMessages("ios", { ...on, walletMessages: false })).toBe(false);
-    expect(joinOffersMessages("ios", { ...on, appleWallet: false })).toBe(false);
-    expect(joinOffersMessages("ios", { ...on, locale: "fr" })).toBe(false);
-    expect(joinOffersMessages("android", on)).toBe(false);
-    expect(joinOffersMessages("other", on)).toBe(false);
+    expect(joinOffersMessages(true, on)).toBe(true);
+    expect(joinOffersMessages(true, { ...on, active: true })).toBe(true);
+    expect(joinOffersMessages(true, { ...on, walletMessages: false })).toBe(false);
+    expect(joinOffersMessages(true, { ...on, appleWallet: false })).toBe(false);
+    expect(joinOffersMessages(true, { ...on, locale: "fr" })).toBe(false);
+    expect(joinOffersMessages(true, { ...on, active: false })).toBe(false);
+    expect(joinOffersMessages(false, on)).toBe(false);
+  });
+  it("uses the iPhone check, not the platform that counts touch iPads as iOS, and marks the card as asked", async () => {
+    const page = await source();
+    expect(page).toContain("const onIphone = useSyncExternalStore(noSubscription, iphoneDevice, serverIphone);");
+    expect(page.match(/joinOffersMessages\(onIphone, program\)/g)).toHaveLength(3);
+    expect(page).toContain("if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);");
+  });
+  it("puts the required confirm tick before the optional box, and ties the button to the notice", async () => {
+    const page = await source();
+    expect(page.indexOf("<Checkbox checked={confirmAnother}")).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
+    expect(page).toContain('aria-describedby={locale === "fr" ? undefined : "join-notice"}');
+    expect(page).toContain('<p id="join-notice" className={styles.notice}>');
+  });
+  it("brings the rules back into view on a German stale join", async () => {
+    expect(await source()).toContain('if (locale !== "fr") document.getElementById("join-rules")?.scrollIntoView({ block: "start" });');
   });
   it("sends the version only for a shown, ticked box, and the box starts unticked", async () => {
     expect(joinConsent(true, true)).toEqual({ walletConsentVersion: "wallet-consent-join-2026-11-06-v1" });
@@ -45,7 +61,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     expect(joinConsent(false, true)).toEqual({});
     const page = await source();
     expect(page).toContain("const [messagesTicked, setMessagesTicked] = useState(false);");
-    expect(page).toContain("...joinConsent(program !== null && joinOffersMessages(platform, program), messagesTicked)");
+    expect(page).toContain("...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked)");
   });
   it("names the button after a stale join on German pages; French pages keep their line", async () => {
     expect(staleLine("de", "Meine Karte erstellen")).toBe("Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „Meine Karte erstellen“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.");
@@ -60,7 +76,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();
-    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", "<p className={styles.notice}>", '<Button type="submit"'].map(mark => page.indexOf(mark));
+    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '<p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
     expect(order.every(at => at > 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');
