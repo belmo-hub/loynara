@@ -32,6 +32,7 @@ describe("texts and hints", () => {
   it("never changes a published consent wording: a new one gets a new version and a line here (ENG-174b)", () => {
     const published: Record<string, string> = {
       "wallet-consent-2026-10-22-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
+      "wallet-consent-join-2026-11-06-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
     };
     expect(Object.keys(CONSENT_TEXTS).sort()).toEqual(Object.keys(published).sort());
     for (const [version, text] of Object.entries(published)) expect(CONSENT_TEXTS[version]("Café Kurz", "Kassel Mitte")).toBe(text);

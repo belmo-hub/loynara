@@ -63,7 +63,6 @@ test("a returning guest is offered the saved card instead of a silent second car
 
     // First visit: the normal join creates the card.
     await page.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     const firstPath = new URL(page.url()).pathname;
@@ -92,7 +91,6 @@ test("a returning guest is offered the saved card instead of a silent second car
     await page.getByRole("button", { name: "Ich brauche eine weitere Karte" }).click();
     await expect(page.getByRole("heading", { name: "Weitere Karte erstellen?" })).toBeVisible();
     await expect(page.locator(".join-another-warning")).toContainText(`bleiben auf Karte ${locator} und werden nicht übertragen`);
-    await page.getByRole("checkbox", { name: /Programmregeln/ }).check();
     await page.getByRole("button", { name: "Weitere Karte erstellen" }).click();
     await expect(page.getByText("Bitte bestätige, dass du eine zusätzliche Karte möchtest.")).toBeVisible();
     expect(enrolPosts).toHaveLength(1);
@@ -136,7 +134,6 @@ test("two tabs of one browser pressing create at the same time make one card", a
     const [first, second] = [await phone.newPage(), await phone.newPage()];
     for (const tab of [first, second]) {
       await tab.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-      await tab.getByRole("checkbox").first().check();
       await expect(tab.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
     }
     await Promise.all([first.getByRole("button", { name: "Meine Karte erstellen" }).click(), second.getByRole("button", { name: "Meine Karte erstellen" }).click()]);
@@ -154,7 +151,6 @@ test("a card from one programme is never offered on another programme's join pag
   try {
     const page = await phone.newPage();
     await page.goto(`/join/${encodeURIComponent(pizza.programSlug)}`);
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await page.goto(`/join/${encodeURIComponent(barber.programSlug)}`);

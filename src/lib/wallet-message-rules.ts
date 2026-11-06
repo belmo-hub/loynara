@@ -11,6 +11,8 @@ export const CAP_WINDOW_DAYS = 7;
 export const WALLET_QUIET_HOURS = { startHour: 21, endHour: 8 } as const;
 
 export const CONSENT_TEXT_VERSION = "wallet-consent-2026-10-22-v1";
+/** ENG-173: the box on the join page, Legal's ruling of 6 Nov. A changed text gets a new version; never edit a published one. */
+export const JOIN_CONSENT_TEXT_VERSION = "wallet-consent-join-2026-11-06-v1";
 export const OWNER_TEXT_VERSION = "wallet-owner-2026-10-22-v1";
 
 export const OWNER_CONFIRM_TEXT = "Ich bin für den Inhalt verantwortlich; Angebote sind wahr und werden eingehalten.";
@@ -22,9 +24,11 @@ export const OWNER_GUIDANCE = "Du bist für deine Nachrichten verantwortlich. Bi
  */
 export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => string> = {
   "wallet-consent-2026-10-22-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
+  "wallet-consent-join-2026-11-06-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
 };
 
 export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
+export const joinConsentText = (shop: string, location: string) => CONSENT_TEXTS[JOIN_CONSENT_TEXT_VERSION](shop, location);
 
 export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
 

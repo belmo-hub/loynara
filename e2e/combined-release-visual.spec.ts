@@ -34,7 +34,6 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         await page.goto(`/join/${programSlug}`);
         await expect(page.getByRole("button", { name: "Meine Karte erstellen" })).toBeVisible();
         await capture(page, "new-join", viewport.width);
-        await page.getByRole("checkbox").first().check();
         await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
         await expect(page.locator(".customer-card-number strong")).toBeVisible();
         const token = new URL(page.url()).pathname.split("/").at(-1)!;

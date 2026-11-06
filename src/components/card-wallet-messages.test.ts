@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { consentLines, panelShown, SwitchedOff } from "./card-wallet-messages";
+import { consentLines, panelShown, SwitchedOff, SwitchedOn } from "./card-wallet-messages";
+import { markJoinAsked } from "./wallet-step";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
   it("names the expiry notice on points programmes with an expiry rule", () => {
@@ -80,6 +81,28 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     expect(savedViewDue("card_a", { appleSaved: true })).toBe(true);
     expect(savedLineDue("card_b", { appleSaved: true })).toBe(true);
     expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("walletSaved={savedLine && !french}");
+  });
+  it("doesn't ask again under the card when the join showed the box; the saved line stays", () => {
+    const items = storage({ "loynara_wallet_step:card_a": "shown", "loynara_wallet_join_asked:card_a": "1" });
+    expect(savedViewDue("card_a", { appleSaved: true })).toBe(false);
+    expect(savedLineDue("card_a", { appleSaved: true })).toBe(true);
+    expect(items.get("loynara_wallet_step:card_a")).toBe("shown");
+    expect(savedViewDue("card_b", { appleSaved: true })).toBe(true);
+    markJoinAsked("card_b");
+    expect(savedViewDue("card_b", { appleSaved: true })).toBe(false);
+  });
+  it("a guest who ticked at the join sees „an“ with the off switch in the card's usual place (Legal)", () => {
+    const html = renderToStaticMarkup(h(SwitchedOn, { shop: "Tick Café", givenAt: "2026-11-06T10:00:00.000Z", busy: false, onSwitchOff: () => {} }));
+    expect(html).toContain("Von Tick Café · Höchstens 2 pro Woche · an");
+    expect(html).toContain("Erlaubt am");
+    expect(html).toContain("Abschalten");
+    const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
+    expect(panel).toContain("{state.granted ? <SwitchedOn ");
+    expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("{!savedView && <CardWalletMessages token={token} expiry={expiry} />}");
+  });
+  it("names the panel when the box is gone: on and switched off, while the question keeps its own heading", () => {
+    const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
+    expect(panel).toContain('{(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}');
   });
   it("a cancelled Apple sheet registers nothing, so the panel does not move up", () => {
     storage({ "loynara_wallet_step:card_a": "shown" });

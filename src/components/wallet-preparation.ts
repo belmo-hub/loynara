@@ -44,6 +44,8 @@ export async function prepareAppleWallet(token: string, signal: AbortSignal): Pr
   } catch (error) { if (!signal.aborted && controller.signal.aborted) throw unavailable(); throw error; }
   finally { clearTimeout(timeout); signal.removeEventListener("abort", abort); }
 }
+/** ENG-172: iPads pass as "ios" for the Wallet step, but only an iPhone or iPod opens the sheet by itself (founder: iPhone). */
+export const iphoneDevice = () => /iPhone|iPod/.test(navigator.userAgent);
 export function walletPlatform(): "ios" | "android" | "other" {
   const agent = navigator.userAgent;
   if (/iPhone|iPod/.test(agent) || (/iPad|Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) return "ios";
