@@ -21,6 +21,15 @@ export function consentLines(expiry: boolean) {
 export const panelShown = (available: boolean, switchedOff: boolean) => available || switchedOff;
 
 /** Just switched off. The off line and „Einschalten“ only while the card still offers consent: an unreachable pass gets neither (Design, ENG-162). */
+/** On: also what a guest who ticked at the join sees, before any pass exists, so the off switch is always here (Legal, Art. 7(3)). */
+export function SwitchedOn({ shop, givenAt, busy, onSwitchOff }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void }) {
+  return <>
+    <p>Von {shop} · Höchstens 2 pro Woche · an</p>
+    {givenAt && <p className={styles.muted}>Erlaubt am {new Date(givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+    <Button variant="secondary" size="sm" loading={busy} onClick={onSwitchOff}>Abschalten</Button>
+  </>;
+}
+
 export function SwitchedOff({ shop, available, off, onSwitchOn }: { shop: string; available: boolean; off: string; onSwitchOn: () => void }) {
   return <>
     <p>Von {shop} · Höchstens 2 pro Woche · aus</p>
@@ -70,14 +79,9 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   if (!state || !shown) return null;
   const [lead] = state.text.split(LINK);
   const lines = consentLines(expiry);
-  const switchOff = <Button variant="secondary" size="sm" loading={busy} onClick={() => void change(false)}>Abschalten</Button>;
-  return <section className={styles.panel} aria-label="Nachrichten auf der Wallet-Karte">
-    {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf der Wallet-Karte</h2>}
-    {state.granted ? <>
-      <p>Von {state.shop} · Höchstens 2 pro Woche · an</p>
-      {state.givenAt && <p className={styles.muted}>Erlaubt am {new Date(state.givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
-      {switchOff}
-    </> : switchedOff ? <SwitchedOff shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
+  return <section className={styles.panel} aria-label="Nachrichten auf deiner Wallet-Karte">
+    {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}
+    {state.granted ? <SwitchedOn shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
       <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>
       <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}<Link href="/datenschutz">{LINK}</Link></Checkbox>
       <p className={styles.muted}>{lines.under}</p>

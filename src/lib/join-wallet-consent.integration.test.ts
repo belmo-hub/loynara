@@ -38,7 +38,7 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     expect(response.status).toBe(201);
     const { cardToken } = await response.json();
     expect(await consents()).toMatchObject([{ text_version: JOIN_CONSENT_TEXT_VERSION, withdrawn_at: null }]);
-    expect(await getWalletConsent(cardToken)).toMatchObject({ available: true, granted: true });
+    expect(await getWalletConsent(cardToken)).toMatchObject({ available: true, granted: true, givenAt: expect.any(String), shop: "Tick Café" });
     await setWalletConsent(cardToken, false);
     expect((await consents())[0].withdrawn_at).not.toBeNull();
   });
