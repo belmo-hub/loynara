@@ -344,6 +344,13 @@
       "when": 1793751426716,
       "tag": "0048_shop_unsubscribes",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793967495347,
+      "tag": "0049_google_classes",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,8 @@ import { configureReferrals, getCardReferralShare } from "./referrals";
 import { erasureDelayDays } from "./programme-end-date";
 import { dueShopErasures, ERASURE_KEEP, reapplyErasures, recordErasureConfirmation, shopErasure, type ErasureProviders } from "./shop-erasure";
 import { acceptStaffInvite, createStaffInvite } from "./staff";
+import { overwriteGoogleClasses } from "./wallet/google-classes";
+import { fakeGoogleApi, googleFixture, withEnv } from "./wallet/test-support";
 
 assertLocalTestDatabaseUrl();
 const envKeys = ["PLATE_OPERATOR_USER_IDS", "SMTP_HOST", "EXTERNAL_EMAIL_ENABLED", "SHOP_ERASURE_DELAY_DAYS", "OPERATOR_NAME", "OPERATOR_ADDRESS"];
@@ -83,6 +85,8 @@ async function busyShop(label: string, plate: string) {
   await pool.query("INSERT INTO email_deliveries (job_id, provider, recipient_hash, status, updated_at) VALUES ($1, 'mailpit', 'synthetic-hash', 'accepted', now())", [job]);
   // A provider-reported unsubscribe from this shop's mail (ENG-170): erased with the shop.
   await pool.query("INSERT INTO email_unsubscribes (tenant_id, recipient_hash) VALUES ($1, 'synthetic-hash')", [shop.tenantId]);
+  // Its Google Wallet class binding (ENG-175): erased with the shop. The class itself stays at Google, which has no delete.
+  await pool.query("INSERT INTO wallet_google_classes (tenant_id, location_id, program_id, class_id) VALUES ($1, $2, $3, $4)", [shop.tenantId, shop.locationId, shop.programId, `3388000000023201754.program_${shop.programId}`]);
   const tag = (await pool.query(`INSERT INTO secure_tags (public_ref, tenant_id, location_id, program_id, uid, key_ref, config_version, last_counter, status)
     VALUES ($1, $2, $3, $4, $5, 'synthetic-key', 1, 0, 'active') RETURNING id`, [`t_${randomUUID().replaceAll("-", "").slice(0, 20)}`, shop.tenantId, shop.locationId, shop.programId, `04${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`])).rows[0].id as string;
   await pool.query("INSERT INTO plate_activation_codes (tag_id, code_hash, issued_by_user_id, issued_at) VALUES ($1, 'synthetic-code-hash', $2, now())", [tag, operatorId]);
@@ -155,6 +159,7 @@ function fakeProviders() {
   const removed: string[] = [];
   const providers: ErasureProviders = {
     google: async tenantId => (await pool.query("UPDATE wallet_passes SET status = 'revoked', revoked_at = now(), revoke_reason = 'closed' WHERE tenant_id = $1 AND provider = 'google' AND status <> 'revoked'", [tenantId])).rowCount ?? 0,
+    googleClasses: async () => 1,
     mailgun: async address => { removed.push(address); },
   };
   return { providers, removed };
@@ -182,7 +187,7 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect(nonEmpty(before)).toEqual(expect.arrayContaining(["ledger_entries.tenant_id", "program_rule_versions.tenant_id", "staff_audit_events.tenant_id", "card_security_events.tenant_id", "wallet_template_binding_events.tenant_id",
       "reward_versions.tenant_id", "redemptions.tenant_id", "wallet_message_consents.tenant_id", "programme_cancellation_events.tenant_id", "plate_link_events.old_tenant_id", "plate_link_events.new_tenant_id", "purchase_awards.tenant_id",
       "memberships.tenant_id", "membership_contacts.tenant_id", "referrals.tenant_id", "campaigns.tenant_id", "outbox_jobs.tenant_id", "apple_registrations.tenant_id", "wallet_passes.tenant_id",
-      "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id", "email_unsubscribes.tenant_id"]));
+      "subscriptions.tenant_id", "billing_invoices.tenant_id", "billing_handoffs.tenant_id", "billing_webhook_events.tenant_id", "billing_location_plans.tenant_id", "email_unsubscribes.tenant_id", "wallet_google_classes.tenant_id"]));
 
     // Review N-1: every column the fixture doesn't fill is pinned here, so a new table fails this test until it is seeded or listed.
     // Review N-1: every tenant column in the schema holds a row of this shop before the erasure.
@@ -311,6 +316,31 @@ describe("shop erasure (ENG-166, DS-05)", () => {
     expect(await erase(shop.tenantId, daysFromNow(31), true, { providers: flaky })).toMatchObject({ result: "erased" });
     expect(calls).toBe(2);
     expect(tries).toBe(1);
+  });
+
+  it("holds the erasure and its confirmation until Google has taken the overwrite of the shop's class, and a rerun finishes it (Legal)", async () => {
+    const shop = await busyShop("A", "P-911");
+    await endShop(shop);
+    const classId = `3388000000023201754.program_${shop.programId}`;
+    const google = googleFixture();
+    try {
+      await withEnv(google.env, async () => {
+        const api = fakeGoogleApi();
+        api.classes.set(classId, { id: classId, issuerName: "Shop A", programName: "Karte A", reviewStatus: "approved" });
+        const providers: ErasureProviders = { ...fakeProviders().providers, googleClasses: tenantId => overwriteGoogleClasses(tenantId, process.env, api.fetcher) };
+        const before = await rowsNaming(shop.tenantId);
+        await expect(erase(shop.tenantId, daysFromNow(31), true, { providers })).rejects.toMatchObject({ code: "EXTERNAL_PENDING" });
+        // Sent to Google, under its review: nothing erased, no record, so no confirmation is due.
+        expect(api.classes.get(classId)).toMatchObject({ issuerName: "Programm beendet", reviewStatus: "UNDER_REVIEW" });
+        expect((await rowsNaming(shop.tenantId))["wallet_google_classes.tenant_id"]).toBe(before["wallet_google_classes.tenant_id"]);
+        expect(await db.select().from(shopErasures)).toEqual([]);
+        expect((await dueShopErasures(daysFromNow(31))).confirmations).toEqual([]);
+
+        api.classes.set(classId, { ...api.classes.get(classId), reviewStatus: "approved" });
+        expect(await erase(shop.tenantId, daysFromNow(31), true, { providers })).toMatchObject({ result: "erased", external: { googleClasses: 1 } });
+        expect((await dueShopErasures(daysFromNow(31))).confirmations).toEqual([expect.objectContaining({ tenantId: shop.tenantId })]);
+      });
+    } finally { google.cleanup(); }
   });
 
   it("keeps the history tables append-only outside an erasure, and inside one for any other shop", async () => {

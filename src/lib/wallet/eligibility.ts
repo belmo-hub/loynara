@@ -5,6 +5,7 @@ import { validCardToken } from "@/lib/card-lifecycle";
 import { DomainError } from "@/lib/loyalty";
 import { walletAvailability, type WalletAvailability } from "./capability";
 import { credentialHash } from "./data";
+import { googleDirectEnv } from "./google-classes";
 import { passFastEnv } from "./template-bindings";
 
 export type WalletCardEligibility = { tenantId: string; locationId: string; programId: string; membershipId: string; credentialHash: string; availability: WalletAvailability };
@@ -18,5 +19,5 @@ export async function walletCardEligibility(cardToken: string, reader: Pick<type
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt))).limit(1);
   if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  return { tenantId: row.tenantId, locationId: row.locationId, programId: row.programId, membershipId: row.membershipId, credentialHash: credentialHash(row.scanCode), availability: walletAvailability(await passFastEnv(row.tenantId, row.locationId, reader), row.tenantId, row.locationId, row.programId) };
+  return { tenantId: row.tenantId, locationId: row.locationId, programId: row.programId, membershipId: row.membershipId, credentialHash: credentialHash(row.scanCode), availability: walletAvailability(await googleDirectEnv(row.tenantId, row.locationId, row.programId, reader, await passFastEnv(row.tenantId, row.locationId, reader)), row.tenantId, row.locationId, row.programId) };
 }

@@ -10,6 +10,7 @@ import { assertPassFastBinding, isPassFastObjectId, PassFastClient, passFastConf
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 import { walletCardSnapshot } from "./wallet/data";
 import { googleObjectId, GoogleWalletClient, type GoogleMessage } from "./wallet/google";
+import { googleDirectEnv } from "./wallet/google-classes";
 import { googleDirectConfig } from "./wallet/google-direct";
 import { passFastEnv } from "./wallet/template-bindings";
 import {
@@ -272,7 +273,7 @@ const providerSend: WalletMessageSend = async ({ tenantId, locationId, objectId,
 export type WalletMessageGoogleSend = (call: { tenantId: string; locationId: string; programId: string; passId: string; objectId: string; message: GoogleMessage }) => Promise<"added" | "present" | "limited">;
 /** Google Direct: the pass's own class binding, then the client's look-before-add, so a retry never adds the message twice. */
 const googleProviderSend: WalletMessageGoogleSend = async ({ tenantId, locationId, programId, passId, objectId, message }) => {
-  const config = googleDirectConfig(process.env, tenantId, locationId, programId, "maintenance");
+  const config = googleDirectConfig(await googleDirectEnv(tenantId, locationId, programId), tenantId, locationId, programId, "maintenance");
   if (objectId !== googleObjectId(passId, config)) throw new Error("Google Wallet binding unavailable");
   return new GoogleWalletClient(config).addMessageOnce(objectId, message, config);
 };

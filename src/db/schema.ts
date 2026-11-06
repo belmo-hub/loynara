@@ -1109,6 +1109,29 @@ export const walletMessageRecipients = pgTable("wallet_message_recipients", {
  * Apple Wallet (PassFast) template per location (ENG-046), set by the operator on /operator. Wins over the env binding of
  * the same scope; PASSFAST_TENANT_TEMPLATES stays the read-only fallback. One template per location, no template shared.
  */
+/**
+ * One Google Wallet class per tenant, location and programme (ENG-175), made by the worker. Only an `approved` class issues
+ * passes. GOOGLE_WALLET_LOCATION_CLASSES stays the read-only fallback for a scope without a row.
+ */
+export const walletGoogleClasses = pgTable("wallet_google_classes", {
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  classId: varchar("class_id", { length: 230 }).notNull().unique(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  /** Hash of the class fields last sent: an unchanged, approved class costs no Google call. */
+  syncedHash: varchar("synced_hash", { length: 64 }),
+  /** The failed step only, never a provider response. */
+  lastError: varchar("last_error", { length: 60 }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId, t.programId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("wallet_google_classes_status_check", sql`${t.status} IN ('pending', 'under_review', 'approved', 'rejected')`),
+]);
+
 export const walletTemplateBindings = pgTable("wallet_template_bindings", {
   tenantId: uuid("tenant_id").notNull(),
   locationId: uuid("location_id").notNull(),
