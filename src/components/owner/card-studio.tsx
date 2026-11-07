@@ -10,6 +10,7 @@ import { SurfacePreview, type LogoWallet, type Surface } from "./wallet-previews
 import { WalletReadiness } from "./wallet-readiness";
 import { brandingSaveFeedback } from "./branding-save-feedback";
 import { SHORT_NAME } from "./program-helpers";
+import { FieldError } from "./question-form";
 
 /** logoWallet: what the pass does with the saved logo on the saved colour (server-side processing, lib/wallet/logo). */
 export type Brand = { businessName: string; locationName: string; brandColor: string; logoData: string | null; logoWallet?: LogoWallet | null };
@@ -111,10 +112,10 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
         <div className="ow-studio-controls ow-card">
           <fieldset className="ow-group">
             <legend>Namen</legend>
-            <div className="ow-field"><label htmlFor="cs-name">Geschäftsname</label><input id="cs-name" className="ow-input" value={draft.businessName} maxLength={180} onChange={event => edit({ businessName: event.target.value })} aria-invalid={businessShort} aria-describedby={businessShort ? "cs-name-err cs-name-hint" : "cs-name-hint"} />{businessShort && <span id="cs-name-err" className="ow-error">{SHORT_NAME}</span>}<span id="cs-name-hint" className="ow-hint">Gilt für alle deine Standorte.</span></div>
-            <div className="ow-field"><label htmlFor="cs-loc">Standortname</label><input id="cs-loc" className="ow-input" value={draft.locationName} maxLength={180} onChange={event => edit({ locationName: event.target.value })} aria-invalid={locationShort} aria-describedby={locationShort ? "cs-loc-err" : undefined} />{locationShort && <span id="cs-loc-err" className="ow-error">{SHORT_NAME}</span>}<span className="ow-hint">Nur für diesen Standort.</span></div>
+            <div className="ow-field"><label htmlFor="cs-name">Geschäftsname</label><input id="cs-name" className="ow-input" value={draft.businessName} maxLength={180} onChange={event => edit({ businessName: event.target.value })} aria-invalid={businessShort} aria-describedby={businessShort ? "cs-name-err cs-name-hint" : "cs-name-hint"} />{businessShort && <FieldError id="cs-name-err">{SHORT_NAME}</FieldError>}<span id="cs-name-hint" className="ow-hint">Gilt für alle deine Standorte.</span></div>
+            <div className="ow-field"><label htmlFor="cs-loc">Standortname</label><input id="cs-loc" className="ow-input" value={draft.locationName} maxLength={180} onChange={event => edit({ locationName: event.target.value })} aria-invalid={locationShort} aria-describedby={locationShort ? "cs-loc-err" : undefined} />{locationShort && <FieldError id="cs-loc-err">{SHORT_NAME}</FieldError>}<span className="ow-hint">Nur für diesen Standort.</span></div>
             <div className="ow-field"><label htmlFor="cs-program">Programmname</label><input id="cs-program" className="ow-input" value={draft.programName} maxLength={180} onChange={event => edit({ programName: event.target.value })} aria-invalid={programShort} aria-describedby={programShort ? "cs-program-err cs-program-hint" : "cs-program-hint"} />
-              {programShort && <span id="cs-program-err" className="ow-error">Bitte einen Programmnamen mit 2 bis 180 Zeichen eingeben.</span>}<span id="cs-program-hint" className="ow-hint">Steht auf der Wallet-Karte.</span></div>
+              {programShort && <FieldError id="cs-program-err">Bitte einen Programmnamen mit 2 bis 180 Zeichen eingeben.</FieldError>}<span id="cs-program-hint" className="ow-hint">Steht auf der Wallet-Karte.</span></div>
           </fieldset>
           <fieldset className="ow-group">
             <legend>Gestaltung</legend>

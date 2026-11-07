@@ -78,7 +78,7 @@ export default function MerchantAudiencesPage() {
               : preview ? <div><strong className="ow-metric-value" style={{ fontSize: "var(--display-num)" }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, "feed")}</time></p>{campaignLink && <p className="ow-mt-3"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
               : <p className="ow-muted">Wähle eine Regel und berechne die Anzahl.</p>}
             {error && <ErrorNotice message={error} />}
-            <Notice><div><strong>So wird gezählt</strong><p>Jede bestätigte Buchung zählt einmal, außer sie wurde korrigiert. Eine Buchung ist kein Beweis für einen Besuch. Anmeldung und Startguthaben zählen hier nicht.</p></div></Notice>
+            <Notice><div><strong>So wird gezählt</strong><p>Jede bestätigte Buchung zählt einmal, außer sie wurde korrigiert. Eine Buchung ist kein Beweis für einen Besuch. Anmeldung und Startguthaben zählen hier nicht.</p><p>Nachrichten bekommen nur Karten in Apple Wallet, die zugestimmt haben.</p></div></Notice>
           </section>
         </div>
       )}

@@ -3,7 +3,7 @@ export type StaffMember = { userId: string; email?: string; role: "owner" | "man
 export type Invitation = { id: string; email: string; role: "manager" | "cashier"; locationId: string; expiresAt: string; status: "pending" | "accepted" | "revoked" | "expired" };
 export const INVITATION_LABEL = { pending: "Offen", accepted: "Angenommen", revoked: "Widerrufen", expired: "Abgelaufen" } as const;
 export const ROLE_LABEL = { owner: "Inhaber:in", manager: "Leitung", cashier: "Kasse" } as const;
-export const ROLE_HINT = { manager: "Alles von Kasse, dazu Kundenkarten, Korrekturen und Neuausstellung für diesen Standort." } as const;
+export const ROLE_HINT = { manager: "Alles wie Kasse, dazu Kundenkarten und Korrekturen" } as const;
 
 /** The Kasse role hint in the programme's unit; purchase points have no manual limit to name (award-limits.ts). */
 export const cashierHint = (programType: "stamp" | "points" | undefined, earningMode: "manual" | "purchase" | undefined) => programType === "points" && earningMode === "purchase"

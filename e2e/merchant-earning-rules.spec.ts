@@ -43,7 +43,7 @@ test("switching to manual points starts the rule empty and offers the extra rule
       // The rule is still the owner's own and needs 10 characters.
       await rule.fill("");
       await page.getByRole("button", { name: "Weiter" }).click();
-      await expect(page.getByText("Der Regeltext braucht mindestens 10 Zeichen.")).toBeVisible();
+      await expect(page.getByText("Die Regel braucht mindestens 10 Zeichen.")).toBeVisible();
       await expect(adopt).toBeVisible();
     } finally { await context.close(); }
     // Without extra rules there is nothing to take over.

@@ -273,7 +273,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
-.ow-mail-domain { white-space: nowrap; }
+.ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
 .ow-savestate-label { flex: 1 1 min(12rem, calc(100% - 8px - var(--space-2))); min-width: 0; } /* never on a line without its dot */
 .ow-savestate-detail { font-weight: var(--weight-body); }
 .ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */

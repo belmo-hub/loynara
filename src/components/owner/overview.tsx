@@ -299,7 +299,7 @@ function ErrorCard({ reload }: { reload: () => void }) {
 /** The rail's steps and their sentences (copy E7). Karte gestalten and Team stay where they are today (Programm, Team). */
 const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: string }> = {
   programme: () => ({ title: "Programm und Prämie" }),
-  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit dem Anmeldelink oder dem Tresenschild." }),
+  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit Anmeldelink oder Tresenschild" }),
   first_award: me => ({ title: "Erste Buchung an der Kasse", text: me.programType === "points" ? "Ein paar Punkte auf deine eigene Karte." : "Ein Stempel auf deine eigene Karte." }),
   first_redemption: () => ({ title: "Einlösung einmal durchspielen", text: "Zeigt deinem Team die Bestätigung." }),
 };

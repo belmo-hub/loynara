@@ -41,7 +41,7 @@ export default function MerchantReferralsPage() {
   const [list, reloadList] = useLoad<{ referrals: Referral[] }>(owner && slug ? `/api/merchant/referrals?programSlug=${slug}` : null);
   if (!me) return null;
   const head = <PageTitle back={BACK} title="Empfehlungen" lead="Geteilt ist noch nicht gewonnen: Ein Bonus fließt erst, wenn die neue Karte zum ersten Mal an deiner Kasse bestätigt wird." />;
-  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Empfehlungen können nur von Inhaber:innen verwaltet werden.</Notice></div>;
+  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Empfehlungen verwalten.</Notice></div>;
   if (rule.state === "error") return <div className="ow-page">{head}<ErrorNotice message={rule.message} onRetry={reloadRule} /></div>;
   if (rule.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={2} height={64} /></div>;
   return <Loaded slug={me.programSlug} head={head} settings={rule.data} list={list} reloadList={reloadList} />;

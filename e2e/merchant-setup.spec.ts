@@ -40,7 +40,7 @@ test("guided setup walks four questions, validates inline and previews the card 
   await page.getByText("Manuell", { exact: true }).click();
   await page.getByLabel("Regeltext für Kunden").fill("Kurz");
   await weiter(page);
-  await expect(page.getByText("Der Regeltext braucht mindestens 10 Zeichen.")).toBeVisible();
+  await expect(page.getByText("Die Regel braucht mindestens 10 Zeichen.")).toBeVisible();
   await page.getByText("Stempelkarte", { exact: true }).click();
   await page.getByLabel("Regeltext für Kunden").fill("Ein Stempel pro Heißgetränk.");
   await weiter(page);

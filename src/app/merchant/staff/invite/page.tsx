@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, ScanLine, Users } from "lucide-react";
+import { ScanLine, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { CopyLabel, useCopy } from "@/components/copy-text";
@@ -40,7 +40,7 @@ export default function InvitePage() {
   const locationId = chosenLocation || me.locationId;
   const locationName = locations.find(location => location.id === locationId)?.name ?? me.locationName;
   const head = <PageTitle back={BACK} title="Wen lädst du ein?" lead={`Zugriff gilt für ${locationName}.`} />;
-  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Teamzugänge verwalten.</Notice></div>;
+  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Teamzugänge verwalten.</Notice></div>;
   const inviteUrl = invite && me.publicBaseUrl ? new URL(`/invite/${encodeURIComponent(invite.token)}`, me.publicBaseUrl).toString() : "";
 
   async function create() {
@@ -67,7 +67,7 @@ export default function InvitePage() {
         <Choices name="st-role" label="Rolle" options={roles} value={role} saved={role} onChange={value => { draftRevision.current++; setRole(value as "manager" | "cashier"); }} />
         {locations.length > 1 && <>
           <h2 className="ow-qlabel">Standort</h2>
-          <Choices name="st-location" label="Standort" options={locations.map(location => ({ value: location.id, label: location.name, sub: "", icon: MapPin }))} value={locationId} saved={locationId} onChange={value => { draftRevision.current++; setChosenLocation(value); }} />
+          <Choices name="st-location" label="Standort" options={locations.map(location => ({ value: location.id, label: location.name, sub: "" }))} value={locationId} saved={locationId} onChange={value => { draftRevision.current++; setChosenLocation(value); }} />
         </>}
         <p className="ow-hint ow-qnote">Der Link wird nicht versendet. Du gibst ihn der Person selbst.</p>
         {error && <ErrorNotice message={error} />}

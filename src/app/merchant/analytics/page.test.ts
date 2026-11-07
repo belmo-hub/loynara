@@ -72,7 +72,7 @@ describe("Ergebnisse as Wegweiser rows (ENG-122b)", () => {
     try {
       const html = render();
       expect(html).toContain("Im Zeitraum wurde keine Prämie eingelöst.");
-      expect(html).toContain("Keine Buchungen in diesem Zeitraum. Wähl oben einen längeren Zeitraum.");
+      expect(html).toContain("Keine Buchungen in diesem Zeitraum. Wähle oben einen längeren Zeitraum.");
     } finally { data.report.staffActivity = staff; }
   });
 });

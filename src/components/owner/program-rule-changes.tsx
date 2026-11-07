@@ -100,7 +100,7 @@ export function ExpiryWaiting({ slug, program, expiry, label }: { slug: string; 
   if (step.step === "takeback" && !shorter) return (
     <QuestionForm title="Änderung zurücknehmen?" back={{ label, onClick: step.back }} busy={q.busy} failed={q.failed} action="Zurücknehmen" cancel={step.back}
       onSubmit={() => q.save(UPDATE, ruleBody.takeBack(slug), "Änderung zurückgenommen")}>
-      <When title="Punkte verfallen weiter nie" undo>Die Änderung entfällt sofort, auch der Hinweis auf den Karten deiner Kunden.</When>
+      <When title="Punkte verfallen weiterhin nicht" undo>Die Änderung entfällt sofort, auch der Hinweis auf den Karten deiner Kunden.</When>
     </QuestionForm>
   );
   const body = <>

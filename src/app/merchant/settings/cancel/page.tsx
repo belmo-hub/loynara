@@ -30,7 +30,7 @@ export default function CancelProgrammePage() {
   useEffect(() => { if (error) fail.current?.scrollIntoView({ block: "nearest" }); }, [error]);
   if (!me) return null;
   const head = <PageTitle back={{ href: SETTINGS, label: "Geschäft" }} title="Programm beenden" />;
-  if (me.role !== "owner") return <div className="ow-page ow-qpage">{head}<Notice tone="warn">Diese Einstellungen ändert nur die Inhaberin oder der Inhaber.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page ow-qpage">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
   const programSlug = me.programSlug;
   const endDate = me.cancellationEndDate ?? null;
   const confirmed = me.cancellationConfirmed === true;

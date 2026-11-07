@@ -17,7 +17,7 @@ export default function MerchantAdviserPage() {
   const [report, reload] = useLoad<MerchantAdvice>(me?.role === "owner" ? `/api/merchant/adviser?window=${windowDays}` : null);
   if (!me) return null;
   const head = <PageHead back={<BackToActions />} title="Beratung" lead="Hinweise aus deinen bestätigten Buchungen. Was du änderst, entscheidest du." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können diese Hinweise sehen.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (
     <div className="ow-page">

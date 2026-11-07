@@ -385,7 +385,7 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).toMatch(/<a class="ow-band" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">[^]*<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><span class="ow-band-go">Anmeldelink öffnen<svg/);
     expect(html.indexOf('class="ow-band"')).toBeLessThan(html.indexOf("Pflichtschritte erledigt")); // the card holds the count and the strip
     expect(html).toContain("Hier siehst du bald jeden Tag am Tresen.");
-    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit dem Anmeldelink oder dem Tresenschild.", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
+    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit Anmeldelink oder Tresenschild", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
     expect(html).not.toContain("NFC am Tresen");
     expect(html).not.toContain("Kundenkarte gestaltet");
     expect(html).not.toContain("Wenn du magst");

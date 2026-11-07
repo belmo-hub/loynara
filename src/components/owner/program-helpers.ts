@@ -46,10 +46,10 @@ export const RULE_PLACEHOLDER: Record<RuleKind, string> = {
 /** The rule row's title, and its page's, where points come from the purchase amount. */
 export const EXTRA_RULES = "Weitere Regeln";
 export const EXTRA_RULES_LABEL = "Weitere Regeln (optional)";
-export const EXTRA_RULES_HINT = "Wie Kunden Punkte sammeln, steht automatisch auf der Karte. Schreib hier nur, was dazukommt. Ändern kannst du die Sammelregel hier nicht.";
+export const EXTRA_RULES_HINT = "Wie Kunden Punkte sammeln, steht automatisch auf der Karte. Schreibe hier nur, was dazukommt. Ändern kannst du die Sammelregel hier nicht.";
 /** The same field in setup and on a new location, where the earning rule is set in the fields above it (Marketing). */
-export const SETUP_EXTRA_RULES_HINT = "Die Sammelregel legst du oben fest, sie steht automatisch auf der Karte. Schreib hier nur, was dazukommt. Ändern kannst du sie nur oben.";
-export const SHORT_RULE = "Der Regeltext braucht mindestens 10 Zeichen.";
+export const SETUP_EXTRA_RULES_HINT = "Die Sammelregel legst du oben fest, sie steht automatisch auf der Karte. Schreibe hier nur, was dazukommt. Ändern kannst du sie nur oben.";
+export const SHORT_RULE = "Die Regel braucht mindestens 10 Zeichen.";
 /** Reward and name errors (Marketing F10): the imperative, one wording in every file. */
 export const REWARD_NAME_MISSING = "Gib der Prämie einen Namen.";
 export const SHORT_NAME = "Der Name braucht mindestens 2 Zeichen.";

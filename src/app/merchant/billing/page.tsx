@@ -27,7 +27,7 @@ export default function MerchantBillingPage() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Abrechnung" lead="Preise und Nutzung pro Standort." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Abrechnungsdaten sehen.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Abrechnungsdaten sehen.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const o = data.data;
