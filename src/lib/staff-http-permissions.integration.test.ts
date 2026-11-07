@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { pool } from "@/db";
 import { auth } from "./auth";
+import { createAdditionalLocation } from "./locations";
 import { createMerchant } from "./product";
 import { acceptStaffInvite, createStaffInvite } from "./staff";
 import { POST as inviteRoute } from "@/app/api/staff/invite/route";
@@ -59,6 +60,17 @@ it("enforces real-session invitation roles, origin and selected tenant/location 
   expect(row).toEqual([{ tenant_id: f.merchant.tenantId, location_id: f.merchant.locationId, invited_by_user_id: f.owner.userId }]);
   const audit = (await pool.query("SELECT actor_user_id FROM staff_audit_events WHERE action='invite_created' AND invite_id=(SELECT id FROM staff_invites WHERE invited_email=$1)", [body.email])).rows;
   expect(audit).toEqual([{ actor_user_id: f.owner.userId }]);
+});
+
+it("invites to any of the owner's locations while the first one is active, never to a foreign one (ENG-179 R-1)", async () => {
+  const f = await fixture(); const foreign = await fixture();
+  const second = await createAdditionalLocation(f.owner.userId, { name: "Zweiter Tresen", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "Zweite Karte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 8 });
+  const body = { locationId: second.locationId, email: "second-location@example.test", role: "cashier" };
+  const response = await inviteRoute(request("/api/staff/invite", body, f.owner.cookie)); // no location cookie: the first is active
+  expect(response.status).toBe(201);
+  expect((await pool.query("SELECT tenant_id,location_id FROM staff_invites WHERE invited_email=$1", [body.email])).rows).toEqual([{ tenant_id: f.merchant.tenantId, location_id: second.locationId }]);
+  expect((await inviteRoute(request("/api/staff/invite", { ...body, email: "foreign-location@example.test", locationId: foreign.merchant.locationId }, f.owner.cookie))).status).toBe(404);
+  expect((await pool.query("SELECT 1 FROM staff_invites WHERE invited_email=$1", ["foreign-location@example.test"])).rows).toEqual([]);
 });
 
 it("enforces real-session departure permissions and idempotent audit without allowing cross-tenant or owner revocation", async () => {

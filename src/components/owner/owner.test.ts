@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { cssDeclarations } from "@/styles/raw-values";
 import { readableInk, whiteContrast } from "./color";
 import { activeGroup, groupHref, visibleGroups } from "./nav";
-import { confirmSentence, earningSentence, minimumSpendMinor, parseGermanMoney, parseWholeNumber, purchaseExample } from "./program-helpers";
+import { confirmSentence, earningSentence, minimumSpendMinor, parseGermanMoney, parseWholeNumber, purchaseExample, QUESTIONS } from "./program-helpers";
 
 describe("purchaseExample uses the server's rounding", () => {
   it("accepts German decimals and rounds down", () => {
@@ -95,5 +95,17 @@ describe("navigation", () => {
 describe("points expiry wording (Legal, 7 Nov)", () => {
   it("keeps „Alle Punkte davor verfallen nie.“: a change of period restarts the rule, so older points never expire", () => {
     for (const file of ["program-extras.tsx", "program-rule-changes.tsx"]) expect(readFileSync(join(__dirname, file), "utf8")).toContain("Alle Punkte davor verfallen nie.");
+  });
+});
+
+describe("Legal 6 wording (7 Nov)", () => {
+  it("says the win-back goes once per absence, „je Pause“", () => {
+    expect(readFileSync(join(__dirname, "winback-card.tsx"), "utf8")).toContain("Höchstens einmal je Pause von {last.days} Tagen ohne Buchung, Mo–Sa 10–18 Uhr.");
+  });
+  it("never calls the rules field „Teilnahmebedingungen“ on Standort hinzufügen: it is „Regel auf der Karte“", () => {
+    const page = readFileSync(join(__dirname, "../../app/merchant/locations/new/page.tsx"), "utf8");
+    expect(page).not.toContain("Teilnahmebedingungen");
+    expect(page).toContain("QUESTIONS.rule");
+    expect(QUESTIONS.rule).toBe("Regel auf der Karte");
   });
 });

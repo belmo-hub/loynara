@@ -183,8 +183,12 @@ describe("owner-only merchant analytics", () => {
 
   it("dates „30 Tage“ as today and the 29 days before, and draws the same Monday weeks on 30 and 90 Tage", async () => {
     const owner = await user();
-    await merchant(owner, "Synthetic Week Report");
+    const shop = await merchant(owner, "Synthetic Week Report");
     const asOf = new Date("2026-11-06T15:00:00Z"); // a Friday
+    // Sunday 18 Oct 23:30 UTC is Monday 19 Oct 00:30 in Berlin: it belongs to the week of the 19th, not the UTC day's week.
+    const card = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    await db.insert(ledgerEntries).values({ tenantId: shop.tenantId, locationId: shop.locationId, membershipId: card.id, actorUserId: owner, createdAt: new Date("2026-10-18T22:30:00Z"),
+      requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1 });
     const short = await getMerchantAnalytics(owner, { windowDays: 30, asOf });
     const long = await getMerchantAnalytics(owner, { windowDays: 90, asOf });
     expect(short.from).toBe("2026-10-07T22:00:00.000Z"); // 8 October, 00:00 in Berlin (summer time)
@@ -193,6 +197,10 @@ describe("owner-only merchant analytics", () => {
     // Monday 00:00 in Berlin; the week of 19 October is an hour longer (the clock went back on the 25th).
     expect(full(short)).toEqual(["2026-10-11T22:00:00.000Z", "2026-10-18T22:00:00.000Z", "2026-10-25T23:00:00.000Z"]);
     expect(full(long).slice(-3)).toEqual(full(short));
+    const checkouts = (report: typeof short) => Object.fromEntries(report.series.map(week => [week.from, week.checkouts]));
+    expect(checkouts(short)).toMatchObject({ "2026-10-11T22:00:00.000Z": 0, "2026-10-18T22:00:00.000Z": 1 });
+    expect(checkouts(long)).toMatchObject({ "2026-10-11T22:00:00.000Z": 0, "2026-10-18T22:00:00.000Z": 1 });
+    expect(long.series).toHaveLength(14); // the cut week of 3 August through this week, none missing
     expect(short.series.at(-1)).toMatchObject({ from: "2026-11-01T23:00:00.000Z", to: asOf.toISOString() }); // this week so far
     expect(short.series[0]).toMatchObject({ from: short.from, to: "2026-10-11T22:00:00.000Z" });
   });

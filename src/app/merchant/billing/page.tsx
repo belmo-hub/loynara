@@ -3,7 +3,7 @@
 import { CreditCard, Euro, FileText, FlaskConical, MapPin } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
-import { billingStatus, money, perMonth, type BillingOverview as Overview } from "@/components/owner/billing-copy";
+import { billingStatus, liveStatusSub, money, perMonth, type BillingOverview as Overview } from "@/components/owner/billing-copy";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { MORE_HREF } from "@/components/owner/nav";
 import { useOwner } from "@/components/owner/owner-context";
@@ -119,7 +119,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
       <div className="ow-prog">
         <Rows title="Status">
-          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined} />
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={liveStatusSub(o, date)} />
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
         <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>

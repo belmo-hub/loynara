@@ -7,6 +7,7 @@ import { useOwner } from "@/components/owner/owner-context";
 import { Band, Confirm, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { ErrorNotice, LoadingBlock, nf, Notice, NumberStepper } from "@/components/owner/owner-ui";
 import { Control, QuestionForm, rangeError, SwitchRow, useReview, wholeIn } from "@/components/owner/question-form";
+import { reviewNotice } from "@/components/owner/referral-summary";
 import { useLoad } from "@/components/owner/use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -146,8 +147,8 @@ function ReviewStep({ referral, onBack, onDone }: { referral: Referral; onBack: 
     setBusy(true); setError("");
     try {
       const outcome = await postJson<{ status: string }>(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: note.trim() } : { action });
-      if (outcome.status === "review") onDone("Die Bonus-Korrektur ist noch nicht möglich. Der Vorgang bleibt zur Prüfung offen.", "warn");
-      else onDone("Prüfentscheidung gespeichert.", "ok");
+      const shown = reviewNotice(outcome.status);
+      onDone(shown.text, shown.tone);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Prüfung konnte nicht gespeichert werden."); setBusy(false); }
   }
   return (

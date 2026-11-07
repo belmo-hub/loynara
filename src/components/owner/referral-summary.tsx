@@ -1,5 +1,10 @@
 "use client";
 
+/** What a review decision says afterwards (fault 7): a retry that is still held is a warning, never the green success. */
+export const reviewNotice = (status: string): { text: string; tone: "ok" | "warn" } => status === "review"
+  ? { text: "Die Bonus-Korrektur ist noch nicht möglich. Der Vorgang bleibt zur Prüfung offen.", tone: "warn" }
+  : { text: "Prüfentscheidung gespeichert.", tone: "ok" };
+
 type Props = { enabled: boolean; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; referrals: Array<{ status: string }>; truncated: boolean };
 
 /** One-sentence rule plus the three funnel stages kept apart: signed up via link, waiting, and bonus credited. */
