@@ -327,12 +327,13 @@ it("rolls back a failed reporting read and releases a clean reusable client", as
   expect((await getMerchantAnalytics(owner, { windowDays: 30 })).issued.awardActions).toBe(0);
 });
 
-it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact %i-day UTC boundaries", async windowDays => {
+it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact %i-day Berlin-day boundaries", async windowDays => {
   const owner = await user(); const foreignOwner = await user();
   const shop = await merchant(owner, "Synthetic Referral Boundary");
   const foreign = await merchant(foreignOwner, "Synthetic Foreign Referral Boundary");
   const asOf = new Date("2030-01-31T00:00:00.000Z");
-  const from = new Date(asOf.getTime() - windowDays * 86_400_000);
+  // Berlin midnight of today − (windowDays − 1): 23:00 UTC the evening before, in winter.
+  const from = new Date(Date.UTC(2030, 0, 31) - (windowDays - 1) * 86_400_000 - 3_600_000);
   const before = new Date(from.getTime() - 1); const last = new Date(asOf.getTime() - 1);
   const seed = async (actor: string, target: typeof shop, createdAt: Date, qualifiedAt: Date, reversedAt: Date) => {
     await configureReferrals({ actorUserId: actor, programSlug: target.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
@@ -356,7 +357,7 @@ it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact 
   await seed(owner, shop, before, from, asOf);
   await seed(foreignOwner, foreign, from, from, from);
   const report = await getMerchantAnalytics(owner, { windowDays, asOf });
-  expect(report.timezone).toBe("UTC");
+  expect(report.timezone).toBe("Europe/Berlin");
   expect(report.referrals).toEqual({ attributed: 2, qualified: 3, reversed: 2 });
   expect((await getMerchantAnalytics(foreignOwner, { windowDays, asOf })).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
 });
