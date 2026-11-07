@@ -19,7 +19,7 @@ import { TapPolicyCard } from "./tap-policy";
 import { useLoad } from "./use-load";
 import { WinbackQuestion, type Winback } from "./winback-card";
 
-const OWNER_ONLY = "Nur Inhaber:innen können Regeln und Prämien ändern.";
+const OWNER_ONLY = "Nur die Inhaberin oder der Inhaber kann Regeln und Prämien ändern.";
 // Questions that need the programme read: rewards, the shop's colour, the currency or the stored rule.
 const READS_PROGRAM = new Set<Question>(["rule", "earning", "winback", "challenge", "news", "average-spend", "points-expiry"]);
 

@@ -79,7 +79,7 @@ test("manager sees an accurate read-only programme action while the owner keeps 
         // A setting's own page: the owner gets the field, a manager only the notice and nothing to save.
         await page.goto("/merchant/program/news");
         await expect(page.getByRole("heading", { name: name === "owner" ? "Was sollen Kunden auf der Karte lesen?" : "Neuigkeit", exact: true }), name).toBeVisible();
-        await expect(page.getByText("Nur Inhaber:innen können Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
+        await expect(page.getByText("Nur die Inhaberin oder der Inhaber kann Regeln und Prämien ändern."), name).toHaveCount(name === "manager" ? 1 : 0);
         await expect(page.getByLabel("Neuigkeit", { exact: true }), name).toHaveCount(name === "owner" ? 1 : 0);
         await expect(page.getByRole("button", { name: "Speichern", exact: true }), name).toHaveCount(name === "owner" ? 1 : 0);
       } finally { await ctx.close(); }

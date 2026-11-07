@@ -18,7 +18,7 @@ export default function LocationPage() {
   const [list, reload] = useLoad<LocationList>(me?.role === "owner" ? "/api/merchant/locations" : null);
   if (!me) return null;
   const fallback = <PageTitle back={BACK} title="Standorte" />;
-  if (me.role !== "owner") return <div className="ow-page">{fallback}<Notice tone="warn" role="alert">Nur Inhaber:innen können Standorte verwalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{fallback}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{fallback}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (list.state !== "ok") return <div className="ow-page">{fallback}<LoadingBlock rows={2} /></div>;
   const location = list.data.locations.find(item => item.id === id);
