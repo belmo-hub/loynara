@@ -14,11 +14,12 @@ import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-anal
 import { bookingsText } from "@/lib/overview-day";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionSummary } from "@/lib/retention";
+import { germanDate as date } from "@/lib/german-date";
 import { SPEND_COPY } from "@/lib/spend-copy";
 
-const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-const dayMonth = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
-const WEEK_MS = 7 * 86_400_000;
+const dayMonth = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" });
+// A Berlin week is an hour short across the spring clock change; a cut week is at least a day short.
+const FULL_WEEK_MS = 7 * 86_400_000 - 3_600_000;
 const PERIOD_SUB = "Bestätigte Buchungen im Zeitraum";
 
 type Week = MerchantAnalytics["series"][number];
@@ -36,8 +37,8 @@ export default function MerchantAnalyticsPage() {
   const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
-  // The read's last bucket holds only the 2 (or 6) days after the last full week; a short bar would read as a drop.
-  const weeks = r?.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= WEEK_MS) ?? [];
+  // The read's bars are Monday weeks; the cut first and current week would read as a drop, so only full weeks show.
+  const weeks = r?.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= FULL_WEEK_MS) ?? [];
   const last = weeks.at(-1);
   const lastWasBest = Boolean(last && last.checkouts > 0 && weeks.length > 1 && weeks.slice(0, -1).every(week => week.checkouts < last.checkouts));
   return (
@@ -75,7 +76,7 @@ export default function MerchantAnalyticsPage() {
         <RowSection title="Team" help={[{ text: "Über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung." }]}>
           {r.staffActivity.length
             ? <Rows rows={r.staffActivity.map(row => ({ key: row.userId, icon: Users, title: row.name, sub: PERIOD_SUB, value: nf.format(row.awardActions) }))} />
-            : <p className="ow-rows-note">Keine Buchungen in diesem Zeitraum. Wähl oben einen längeren Zeitraum.</p>}
+            : <p className="ow-rows-note">Keine Buchungen in diesem Zeitraum.{windowDays === 30 && " Wähl oben einen längeren Zeitraum."}</p>}
         </RowSection>
         {/* With one location its row would repeat the card's number. */}
         {r.locationActivity.length > 1 && <RowSection title="Aktivität je Standort" help={[{ text: "Gezählt am Standort der Buchung, mit dem heutigen Namen. Auch Buchungen aus archivierten Programmen zählen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl." }]}>

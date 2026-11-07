@@ -17,7 +17,8 @@ import { Sheet } from "@/components/ui/sheet";
 
 type AuditEvent = { id: string; inviteId?: string | null; action: "invite_created" | "invite_accepted" | "access_revoked"; actorUserId: string; subjectUserId: string | null; locationId: string | null; role: "manager" | "cashier"; createdAt: string };
 /** An e-mail title may break after its „@“, never inside a word (Design FIX 1). */
-const breakAfterAt = (email: string) => { const at = email.indexOf("@"); return at < 0 ? email : <>{email.slice(0, at + 1)}<wbr />{email.slice(at + 1)}</>; };
+// The domain never breaks inside itself (a hyphen is a break chance otherwise): only after the „@“.
+const breakAfterAt = (email: string) => { const at = email.indexOf("@"); return at < 0 ? email : <>{email.slice(0, at + 1)}<wbr /><span className="ow-mail-domain">{email.slice(at + 1)}</span></>; };
 const AUDIT_LABEL = { invite_created: "Einladung erstellt", invite_accepted: "Einladung angenommen", access_revoked: "Zugang gesperrt" } as const;
 /**
  * Team (ENG-122c, screen 15): „Person einladen“ as the band, access and invitations as rows; a row that can be blocked or
@@ -107,7 +108,7 @@ export default function StaffPage() {
         {audit.state === "error" && <ErrorNotice message={audit.message} onRetry={reloadAudit} />}
         {audit.state === "loading" && <LoadingBlock rows={1} height={48} />}
         {audit.state === "ok" && (audit.data.events.length
-          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted">{ROLE_LABEL[event.role as keyof typeof ROLE_LABEL] ?? "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, true)}</time></li>)}</ol>
+          ? <ol className="ow-feed" aria-label="Teamereignisse">{audit.data.events.map(event => <li key={event.id}><span><strong>{event.action === "access_revoked" && event.inviteId && !event.subjectUserId ? "Einladung widerrufen" : AUDIT_LABEL[event.action]}</strong><br /><span className="ow-muted">{ROLE_LABEL[event.role as keyof typeof ROLE_LABEL] ?? "Kasse"} · {event.subjectUserId ? userLabel(event.subjectUserId) : "Noch kein Teamkonto"} · durch {userLabel(event.actorUserId)}</span></span><time dateTime={event.createdAt}>{germanDate(event.createdAt, "feed")}</time></li>)}</ol>
           : <EmptyState level={3} size="compact" title="Noch keine Teamereignisse.">Frühere Vorgänge vor Einführung des Verlaufs sind nicht nachgetragen.</EmptyState>)}
       </Sheet>
     </div>

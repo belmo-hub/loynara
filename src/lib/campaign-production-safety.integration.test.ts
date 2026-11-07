@@ -133,7 +133,7 @@ describe("production-equivalent campaign draft-only safety", () => {
     // Generic audiences intentionally consider any not-yet-affordable reward. A card with ten stamps is
     // ready for Coffee (eight), but is also two short of the larger reward (twelve).
     expect(await selectAudience({ actorUserId: f.ownerId, programId: f.merchant.programId, definition: { kind: "close_to_reward", maxRemaining: 2 } })).toMatchObject({ total: 2 });
-    const reminder = buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: [] })
+    const reminder = buildInsights({ summary, isOwner: true, campaigns: true, referrals: [] })
       .find(insight => insight.id === "near-reward")?.actions.find(action => action.href.startsWith("/merchant/campaigns"));
     expect(reminder).toBeDefined();
     const params = new URL(reminder!.href, ORIGIN).searchParams;

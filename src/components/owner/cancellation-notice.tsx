@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { MeResponse } from "@/components/client-api";
-import { cancellationTimeline, germanDate } from "@/lib/programme-end-date";
+import { cancellationTimeline } from "@/lib/programme-end-date";
+import { germanDate } from "@/lib/german-date";
 import { useOwner } from "./owner-context";
 
 /**

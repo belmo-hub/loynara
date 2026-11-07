@@ -127,7 +127,8 @@ function GroupsScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   const short = q.trim().length > 0 && q.trim().length < 3 && parseCardLocator(q) === null;
   function submit(event: FormEvent) {
     event.preventDefault();
-    router.push(q.trim() ? `/merchant/customers?${new URLSearchParams({ q: q.trim() })}` : "/merchant/customers");
+    // An owner's search covers every location (fault 18); the segment narrows it to one.
+    router.push(q.trim() ? `/merchant/customers?${new URLSearchParams({ q: q.trim(), ...(me.role === "owner" ? { scope: "all" } : {}) })}` : "/merchant/customers");
   }
   return (
     <div className="ow-page">

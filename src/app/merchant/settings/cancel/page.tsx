@@ -2,14 +2,15 @@
 
 import { CalendarClock } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { copyText } from "@/components/copy-text";
 import { useOwner } from "@/components/owner/owner-context";
 import { PageTitle } from "@/components/owner/owner-rows";
 import { GuardedLink } from "@/components/owner/owner-shell";
 import { Notice } from "@/components/owner/owner-ui";
-import { cancellationEnd, germanDate, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
+import { cancellationEnd, MIN_NOTICE_DAYS } from "@/lib/programme-end-date";
+import { germanDate } from "@/lib/german-date";
 
 const SETTINGS = "/merchant/settings";
 
@@ -24,9 +25,12 @@ export default function CancelProgrammePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  // A failed save sits behind the two pinned buttons on a phone: bring it into view, as question-form.tsx does.
+  const fail = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (error) fail.current?.scrollIntoView({ block: "nearest" }); }, [error]);
   if (!me) return null;
   const head = <PageTitle back={{ href: SETTINGS, label: "Geschäft" }} title="Programm beenden" />;
-  if (me.role !== "owner") return <div className="ow-page ow-qpage">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page ow-qpage">{head}<Notice tone="warn">Diese Einstellungen ändert nur die Inhaberin oder der Inhaber.</Notice></div>;
   const programSlug = me.programSlug;
   const endDate = me.cancellationEndDate ?? null;
   const confirmed = me.cancellationConfirmed === true;
@@ -41,7 +45,7 @@ export default function CancelProgrammePage() {
   async function copy() {
     if (await copyText(text)) setCopied(true); else setError("Kopieren nicht möglich. Markiere den Text und kopiere ihn manuell.");
   }
-  const failed = error && <Notice tone="danger">{error}</Notice>;
+  const failed = error && <div ref={fail} className="ow-qfail"><Notice tone="danger">{error}</Notice></div>;
 
   if (endDate) return (
     <div className="ow-page ow-qpage">

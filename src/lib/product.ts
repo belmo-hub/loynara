@@ -16,7 +16,7 @@ import { CHALLENGE_VISITS, challengeBonusRange, challengeFor, challengeSentence,
 import { challengeProgress, recentVisitDays } from "./challenges";
 import { hiddenSurfaces, surfaceHidden } from "./pilot-surfaces";
 import { germanDate } from "./programme-end-date";
-import { birthdayRule, JOIN_CONSENT_TEXT_VERSION, winbackRule } from "./wallet-message-rules";
+import { birthdayRule, contentRefusal, JOIN_CONSENT_TEXT_VERSION, winbackRule } from "./wallet-message-rules";
 import { enqueueWalletProgramRefresh, scheduleWalletProgramRefresh } from "./wallet/enqueue";
 import { walletAvailability } from "./wallet/capability";
 import { passFastEnv } from "./wallet/template-bindings";
@@ -106,6 +106,13 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/** A reward title reaches every pass holder (pass front, reminders), so it follows the Wallet message content rules (Legal,
+ *  7 Nov): checked when a title is created or changed; titles already stored are left as they are. */
+export function requireAllowedRewardTitle(title: string) {
+  const refused = contentRefusal(title);
+  if (refused) throw new DomainError("MESSAGE_REFUSED", refused);
+}
+
 /**
  * A shop the operator created (its owner accepted an owner invitation) with no programme and no subscription yet: the
  * assistant finishes it. Any other half-made shop keeps the explicit setup error.
@@ -117,6 +124,7 @@ async function awaitsSetup(tx: Transaction | typeof db, tenantId: string) {
 }
 
 async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
+  requireAllowedRewardTitle(input.rewardTitle);
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
   // Never backdated (Legal, ENG-099 3c): a card maps to the rule version in force when it joined. A start date that has
   // begun (today's, by default) counts from now, as every later version does; a future one stays.
@@ -484,6 +492,7 @@ export async function getMerchantRewards(input: { actorUserId: string; programSl
 
 export async function createReward(raw: { actorUserId: string; programSlug: string; title: string; cost: number; termsText?: string }) {
   const input = rewardFields.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).parse(raw);
+  requireAllowedRewardTitle(input.title);
   return db.transaction(async tx => {
     const program = await ownerProgram(tx, input.actorUserId, input.programSlug);
     const active = await tx.select({ id: rewards.id }).from(rewards).where(and(eq(rewards.tenantId, program.tenantId), eq(rewards.programId, program.id), sql.raw(liveReward("rewards", "now()"))));
@@ -511,6 +520,7 @@ export async function editReward(raw: { actorUserId: string; programSlug: string
     const { reward, inForce, next, waiting } = await ownerReward(tx, program, input.rewardId, at);
     const title = input.title ?? inForce.title, cost = input.cost ?? inForce.cost, termsText = input.termsText ?? inForce.termsText;
     const renamed = title !== inForce.title || termsText !== inForce.termsText;
+    if (title !== inForce.title) requireAllowedRewardTitle(title);
     // Before the no-op: an edit back to the version in force must not read as saved while the dated change still waits.
     if (waiting) throw CHANGE_PENDING();
     if (!renamed && cost === inForce.cost) return { rewardId: reward.id, versionId: inForce.id, version: inForce.version, effectiveAt: null };

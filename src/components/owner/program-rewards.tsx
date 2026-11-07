@@ -5,7 +5,8 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { postJson, type PublicProgram } from "@/components/client-api";
 import { useOwner } from "./owner-context";
 import { Notice } from "./owner-ui";
-import { longDay, unitName } from "./program-helpers";
+import { germanDate } from "@/lib/german-date";
+import { unitName } from "./program-helpers";
 import { useLoad } from "./use-load";
 
 /** „Reihenfolge ändern“: the rewards in the order of the join page and the counter, each move saved at once. Each reward's
@@ -50,7 +51,7 @@ export function RewardOrder({ slug, program, onChanged }: { slug: string; progra
 }
 
 /** „24. November“, with the year when it isn't this one (Marketing FINAL): „3. März 2026“. */
-export const archivedDay = (iso: string, today = new Date()) => `${longDay(iso)}${iso.slice(0, 4) === String(today.getFullYear()) ? "" : ` ${iso.slice(0, 4)}`}`;
+export const archivedDay = (iso: string, today = new Date()) => germanDate(iso, "long", { now: today });
 
 type Stored = { rewardId: string; title: string; cost: number; active: boolean; endedOn: string | null };
 /** „Archivierte Prämien“ (read-only, Design): name, cost and the day it ended where one is stored; archives from before

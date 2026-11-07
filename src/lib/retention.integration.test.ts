@@ -138,6 +138,28 @@ describe("customer list retention filters", () => {
 });
 
 describe("retention destination reconciliation", () => {
+  it("lists drifting cards longest gone first and recent cards latest first, across pages (fault 16)", async () => {
+    const ownerId = await user();
+    const merchant = await shop(ownerId, "Synthetic Order Café");
+    const now = (await pool.query<{ now: Date }>("SELECT now() AS now")).rows[0].now.getTime();
+    const ago = (days: number) => new Date(now - days * DAY);
+    // Newest card first would read 45, 57, 49, 69 days.
+    const gone: [string, number][] = [];
+    for (const [created, last] of [[80, 45], [81, 57], [82, 49], [83, 69], [84, 2], [85, 5], [86, 1]]) {
+      const member = await card(merchant, ago(created));
+      await checkout(merchant, ownerId, member.id, ago(last));
+      gone.push([member.id, last]);
+    }
+    const order = (days: number[]) => days.map(day => gone.find(([, last]) => last === day)![0]);
+    const all = async (activity: "drifting" | "recent") => {
+      const first = await listMerchantMembers(ownerId, { activity, limit: 2 });
+      const rest = await listMerchantMembers(ownerId, { activity, cursor: first.nextCursor! });
+      return [...first.members, ...rest.members].map(member => member.id);
+    };
+    expect(await all("drifting")).toEqual(order([69, 57, 49, 45]));
+    expect(await all("recent")).toEqual(order([1, 2, 5]));
+  });
+
   it("matches older unvisited insight cards and excludes inactive programs", async () => {
     const ownerId = await user();
     const merchant = await shop(ownerId, "Synthetic Age Café");

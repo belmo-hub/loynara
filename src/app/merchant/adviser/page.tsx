@@ -8,8 +8,8 @@ import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/
 import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
 import { useLoad } from "@/components/owner/use-load";
 import type { MerchantAdvice } from "@/lib/adviser";
+import { germanDate } from "@/lib/german-date";
 
-const day = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
 export default function MerchantAdviserPage() {
   const { me, locations } = useOwner();
@@ -23,7 +23,7 @@ export default function MerchantAdviserPage() {
     <div className="ow-page">
       {head}
       {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
-      <PeriodBar id="adviser-window" value={windowDays} onChange={setWindowDays} meta={r ? `${day(r.from)} bis ${day(r.asOf)}` : undefined} />
+      <PeriodBar id="adviser-window" value={windowDays} onChange={setWindowDays} meta={r ? `${germanDate(r.from)} bis ${germanDate(r.asOf)}` : undefined} />
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>

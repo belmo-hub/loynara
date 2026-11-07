@@ -11,6 +11,7 @@ import { GuardedLink } from "./owner-shell";
 import { PageHead } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { Rows, RowSection, type ValueRow } from "./value-rows";
+import { germanDate } from "@/lib/german-date";
 
 /** Back to the Aktionen list, on the pages its rows open (Ergebnisse, Beratung, Nachricht). */
 export const BackToActions = () => <GuardedLink href="/merchant/actions" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Aktionen</GuardedLink>;
@@ -18,8 +19,8 @@ export const BackToActions = () => <GuardedLink href="/merchant/actions" classNa
 /** The part of the wallet-message read the list needs: the rolling 7-day cap, as the message page enforces it. */
 export type MessageRoom = { remaining: number; nextAllowedAt: string | null; timezone: string };
 
-/** „30. Oktober“ in the shop's time zone (Marketing R9/R12: the owner format). */
-export const ownerDay = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone }).format(new Date(iso));
+/** „30. Oktober“ in the shop's time zone (Marketing R9/R12: the owner format), the shared date helper's long form. */
+export const ownerDay = (iso: string, timeZone: string, now = Date.now()) => germanDate(iso, "long", { timeZone, now: new Date(now) });
 
 /** R9 FINAL: how many messages are free in the rolling window, or from when one is again. */
 export const messageRoom = (room: MessageRoom) => room.remaining > 0
@@ -38,7 +39,7 @@ export function reopenDay(history: Array<{ createdAt: string; status: string; se
   if (!counted) return null;
   const free = new Date(Date.parse(counted.createdAt) + window);
   const hour = Number(new Intl.DateTimeFormat("de-DE", { hour: "numeric", hourCycle: "h23", timeZone }).formatToParts(free).find(part => part.type === "hour")?.value);
-  return ownerDay(new Date(free.getTime() + (hour >= 21 ? 86_400_000 : 0)).toISOString(), timeZone);
+  return ownerDay(new Date(free.getTime() + (hour >= 21 ? 86_400_000 : 0)).toISOString(), timeZone, now);
 }
 
 /** R12 FINAL: the confirm box, with what is left after this message (`remaining` is before it). */
@@ -50,10 +51,12 @@ export const sendNote = (reach: number, remaining: number, reopen: string | null
 /** Aktionen (screen 08, ENG-087's gate left open): what the owner can do for regulars, then the reports. Withheld surfaces leave no row. */
 export function actionSections({ me, hidden, room }: { me: MeResponse; hidden: HiddenSurfaces; room: MessageRoom | null }) {
   const offered = (surface: HiddenSurfaces[number]) => !hidden.includes(surface);
+  // The server applies it to purchase awards only (loyalty.ts), so a manual-points shop's switch does nothing.
+  const happyHourOn = me.happyHourEnabled === true && me.earningMode === "purchase";
   const regulars: ValueRow[] = [
     ...(offered("walletMessages") ? [{ key: "message", icon: Megaphone, title: "Nachricht an deine Stammkunden", sub: room ? messageRoom(room) : undefined, href: "/merchant/wallet-messages" }] : []),
     // Double points need amounts, so only points programmes have it; its page stays the Programm question (ENG-099).
-    ...(me.programType === "points" ? [{ key: "happy-hour", icon: Clock, title: "Happy Hour", sub: "Doppelte Punkte zu ruhigen Zeiten", value: me.happyHourEnabled ? "An" : "Aus", off: !me.happyHourEnabled, href: "/merchant/program/happy-hour" }] : []),
+    ...(me.programType === "points" ? [{ key: "happy-hour", icon: Clock, title: "Happy Hour", sub: "Doppelte Punkte zu ruhigen Zeiten", value: happyHourOn ? "An" : "Aus", off: !happyHourOn, href: "/merchant/program/happy-hour" }] : []),
     ...(offered("campaigns") ? [{ key: "campaigns", icon: Mail, title: "Kampagnen", href: "/merchant/campaigns" }] : []),
     ...(offered("automations") ? [{ key: "automations", icon: Workflow, title: "Automationen", href: "/merchant/automations" }] : []),
   ];

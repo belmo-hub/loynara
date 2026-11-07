@@ -1,6 +1,6 @@
 "use client";
 
-import { germanDate } from "@/lib/programme-end-date";
+import { germanDate } from "@/lib/german-date";
 import type { EndedInfo } from "./owner-context";
 
 /** The whole owner area once the programme has ended: the data export for 30 days, and nothing that could change the programme. */

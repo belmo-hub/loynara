@@ -51,7 +51,7 @@ test("guided setup walks four questions, validates inline and previews the card 
   await expect(page.getByLabel("Einlösbar ab")).toHaveValue("8");
   await page.getByLabel("Einlösbar ab").fill("");
   await weiter(page);
-  await expect(page.getByText("Bitte eine ganze Zahl größer 0 eingeben.")).toBeVisible();
+  await expect(page.getByText("Gib eine ganze Zahl ab 1 ein.")).toBeVisible();
   await page.getByLabel("Einlösbar ab").fill("8");
   await weiter(page);
 

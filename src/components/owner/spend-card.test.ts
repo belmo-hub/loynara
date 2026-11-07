@@ -37,6 +37,13 @@ describe("euro section (item 7, L3, ENG-077)", () => {
     expect(html).toContain('<span class="ow-prog-value" data-big="true">182,20 €</span>');
   });
 
+  it("gives a location without any booking 0 €, not „ohne Betrag“", () => {
+    const recent = figures({ visits: 10, spentMinor: 18_220, realMinor: 18_220, averagePerVisitMinor: 1_822 });
+    const html = render(spend(recent, recent, [{ locationId: "b", name: "Neu", recentFrom: "2026-09-25T22:00:00.000Z", recent: figures({}), total: figures({}), brought: null }]), true);
+    expect(html).not.toContain("ohne Betrag");
+    expect(html).toMatch(/Neu<\/strong><small>[^<]*0,00\s€[^<]*0,00\s€/);
+  });
+
   it("shows the reminder with a whole-row control when only some bookings have no amount", () => {
     const recent = figures({ visits: 4, spentMinor: 3_000, estimatedMinor: 3_000, averagePerVisitMinor: 1_000, unpricedVisits: 1, newCardMinor: 0, returningCardMinor: 3_000 });
     const html = render(spend(recent, { ...recent, newCardMinor: null, returningCardMinor: null }));

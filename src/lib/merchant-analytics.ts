@@ -13,7 +13,8 @@ export type MerchantAnalytics<W extends number = AnalyticsWindowDays> = {
   windowDays: W;
   from: string;
   asOf: string;
-  timezone: "UTC";
+  /** Days and weeks are Berlin calendar days: the window is today and the days before it, the bars Monday weeks. */
+  timezone: "Europe/Berlin";
   currentActiveCards: number;
   newCards: number;
   qualifyingCheckouts: number;
@@ -39,6 +40,11 @@ type TopTitle = { title: string; count: number };
 type AttemptCounts = { status: string; count: number };
 type ReferralCounts = { attributed: number; qualified: number; reversed: number };
 type BucketCount = { bucket: number; count: number };
+
+const BERLIN = "Europe/Berlin";
+// Bars are Monday weeks in Berlin, the same on 30 and 90 Tage; bucket 0 is the week holding `from` ($2).
+const firstMonday = (from: string) => `date_trunc('week', ${from}::timestamptz AT TIME ZONE '${BERLIN}')`;
+const WEEK_BUCKET = (column: string) => `((((${column}) AT TIME ZONE '${BERLIN}')::date - ${firstMonday("$2")}::date) / 7)::int`;
 
 // A checkout is one distinct server-accepted staff-award request on one card. All entries for a
 // request must be reversed to stop that checkout counting; partial corrections
@@ -77,7 +83,12 @@ export async function getMerchantAnalytics(
       [actorUserId],
     )).rows;
     if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
-    return readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
+    // „30 Tage“ is today and the 29 days before it, from Berlin midnight; 30 × 24 h would reach into a 31st day.
+    const [{ from }] = (await client.query<{ from: Date }>(
+      `SELECT (((($1::timestamptz AT TIME ZONE '${BERLIN}')::date - $2::int)::timestamp) AT TIME ZONE '${BERLIN}') AS "from"`,
+      [asOf, options.windowDays - 1],
+    )).rows;
+    return readAnalytics(client, owner.tenantId, from, asOf, options.windowDays);
   });
 }
 
@@ -109,7 +120,7 @@ async function inSnapshot<T>(snapshot: PoolClient | undefined, read: (client: Po
 
 async function readAnalytics<W extends number>(client: PoolClient, tenantId: string, from: Date, asOf: Date, windowDays: W): Promise<MerchantAnalytics<W>> {
     const params = [tenantId, from, asOf];
-    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity, wonBack] = await Promise.all([
+    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity, wonBack, weeks] = await Promise.all([
       client.query<MembershipCounts>(`
         SELECT
           count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
@@ -160,7 +171,7 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
         FROM referrals WHERE tenant_id = $1
       `, params),
       client.query<BucketCount>(`
-        SELECT floor(extract(epoch FROM (created_at - $2::timestamptz)) / 604800)::int AS bucket,
+        SELECT ${WEEK_BUCKET("created_at")} AS bucket,
           count(*)::int AS count
         FROM memberships WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
         GROUP BY bucket
@@ -169,7 +180,7 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
         SELECT membership_id, request_id, min(created_at) AS first_at
         FROM accepted_awards GROUP BY membership_id, request_id
       )
-        SELECT floor(extract(epoch FROM (first_at - $2::timestamptz)) / 604800)::int AS bucket,
+        SELECT ${WEEK_BUCKET("first_at")} AS bucket,
           count(*)::int AS count
         FROM checkout_first GROUP BY bucket
       `, params),
@@ -210,13 +221,21 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
         ) previous
         WHERE previous.previous_at <= a.created_at - interval '504 hours'
       `, params),
+      // Each week cut to the window; only the first and the last can be short.
+      client.query<{ from: Date; to: Date }>(`
+        SELECT greatest(start, $1::timestamptz) AS "from", least(next, $2::timestamptz) AS "to" FROM (
+          SELECT (${firstMonday("$1")} + k * interval '7 days') AT TIME ZONE '${BERLIN}' AS start,
+            (${firstMonday("$1")} + (k + 1) * interval '7 days') AT TIME ZONE '${BERLIN}' AS next
+          FROM generate_series(0, $3::int) k
+        ) week WHERE start < $2 ORDER BY start
+      `, [from, asOf, Math.ceil(windowDays / 7) + 1]),
     ]);
 
     const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
     const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
-    const series = Array.from({ length: Math.ceil(windowDays / 7) }, (_, index) => ({
-      from: new Date(from.getTime() + index * 7 * 86_400_000).toISOString(),
-      to: new Date(Math.min(asOf.getTime(), from.getTime() + (index + 1) * 7 * 86_400_000)).toISOString(),
+    const series = weeks.rows.map((week, index) => ({
+      from: week.from.toISOString(),
+      to: week.to.toISOString(),
       newCards: perBucketCards.get(index) ?? 0,
       checkouts: perBucketCheckouts.get(index) ?? 0,
     }));
@@ -229,7 +248,7 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
     }
 
     return {
-      windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
+      windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: BERLIN,
       currentActiveCards: members.rows[0].currentActiveCards,
       newCards: members.rows[0].newCards,
       qualifyingCheckouts: checkout.rows[0].qualifyingCheckouts,

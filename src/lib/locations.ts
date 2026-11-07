@@ -5,6 +5,7 @@ import { db, pool } from "@/db";
 import { billingLocationPlans, locations, programRuleVersions, programs, rewardVersions, rewards, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT } from "./points";
+import { requireAllowedRewardTitle } from "./product";
 import { addressProblems, contactProblems, firstProblem, normalizeRegisterNumber, normalizeVatId, registerProblems, representativeProblems } from "./sender-details";
 
 const input = z.object({
@@ -54,6 +55,7 @@ export async function createAdditionalLocation(actorUserId: string, raw: z.input
   const earningMode = data.earningMode ?? (data.programType === "points" ? "purchase" : "manual");
   if (data.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   checkRulesText(data.programType, earningMode, data.rulesText);
+  requireAllowedRewardTitle(data.rewardTitle);
   try { new Intl.DateTimeFormat("de", { timeZone: data.timezone }); }
   catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
 
@@ -148,7 +150,7 @@ export async function listMerchantLocations(actorUserId: string) {
       (SELECT count(*)::int FROM memberships m JOIN programs card_program ON card_program.tenant_id = m.tenant_id AND card_program.id = m.program_id WHERE m.tenant_id = l.tenant_id AND card_program.location_id = l.id) AS cards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')) AS awards,
       (SELECT count(*)::int FROM ledger_entries e WHERE e.tenant_id = l.tenant_id AND e.location_id = l.id AND e.kind = 'redeem') AS redemptions,
-      (SELECT count(*)::int FROM staff_roles s WHERE s.tenant_id = l.tenant_id AND s.location_id = l.id AND s.active = true) AS "activeStaff"
+      (SELECT count(*)::int FROM staff_roles s WHERE s.tenant_id = l.tenant_id AND (s.location_id = l.id OR s.location_id IS NULL) AND s.active = true) AS "activeStaff"
     FROM locations l JOIN tenants t ON t.id = l.tenant_id
     LEFT JOIN programs p ON p.tenant_id = l.tenant_id AND p.location_id = l.id AND p.status = 'active'
     WHERE l.tenant_id = $1

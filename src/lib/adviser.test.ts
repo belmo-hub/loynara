@@ -10,7 +10,7 @@ function retention(overrides: Partial<RetentionSummary> = {}): RetentionSummary 
 
 function report(overrides: Partial<MerchantAnalytics> = {}): MerchantAnalytics {
   return {
-    windowDays: 30, from: "2030-01-01T00:00:00.000Z", asOf: "2030-01-31T00:00:00.000Z", timezone: "UTC",
+    windowDays: 30, from: "2030-01-01T00:00:00.000Z", asOf: "2030-01-31T00:00:00.000Z", timezone: "Europe/Berlin",
     currentActiveCards: 0, newCards: 0, qualifyingCheckouts: 0, participatingCards: 0, repeatCards: 0, wonBack: 0,
     staffActivity: [], locationActivity: [],
     issued: { stampUnits: 0, pointUnits: 0, awardActions: 0 },

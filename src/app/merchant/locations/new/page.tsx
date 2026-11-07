@@ -9,7 +9,7 @@ import { useDirtyGuard, useOwner } from "@/components/owner/owner-context";
 import { locationCreateMessage, locationSwitchMessage } from "@/components/owner/owner-errors";
 import { PageTitle } from "@/components/owner/owner-rows";
 import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
-import { EXTRA_RULES_LABEL, RULE_PLACEHOLDER, SETUP_EXTRA_RULES_HINT } from "@/components/owner/program-helpers";
+import { EXTRA_RULES_LABEL, QUESTIONS, RULE_PLACEHOLDER, SETUP_EXTRA_RULES_HINT } from "@/components/owner/program-helpers";
 import { useLoad } from "@/components/owner/use-load";
 import { FieldError } from "@/components/owner/question-form";
 import { useFormCheck } from "@/components/ui/form-check";
@@ -83,7 +83,7 @@ export default function NewLocationPage() {
           <Field error={fields.error} id="lc-type" label="Programmtyp"><select id="lc-type" className="ow-select" value={draft.programType} onChange={event => set({ programType: event.target.value as Draft["programType"], ...(event.target.value === "points" ? { rulesText: "" } : {}) })}><option value="stamp">Stempel, manuelle Vergabe</option><option value="points">Punkte je Kaufbetrag</option></select></Field>
           {draft.programType === "points" && <Field error={fields.error} id="lc-rate" label={`Punkte pro 1 ${currency}`}><input id="lc-rate" {...fields.aria("lc-rate")} className="ow-input" type="number" value={draft.pointsPerCurrencyUnit} onChange={event => set({ pointsPerCurrencyUnit: Number(event.target.value) })} min={1} max={1000} step={1} required /></Field>}
           {/* Points here earn by the purchase amount: the card states that rule, so the text holds optional extra rules. */}
-          <Field error={fields.error} id="lc-rules" label={draft.programType === "points" ? EXTRA_RULES_LABEL : "Teilnahmebedingungen"}>
+          <Field error={fields.error} id="lc-rules" label={draft.programType === "points" ? EXTRA_RULES_LABEL : QUESTIONS.rule}>
             <textarea id="lc-rules" {...fields.aria("lc-rules")} className="ow-textarea" value={draft.rulesText} onChange={event => set({ rulesText: event.target.value })} maxLength={3000} rows={4}
               {...(draft.programType === "points" ? { placeholder: RULE_PLACEHOLDER.purchase, "aria-describedby": "lc-rules-hint" } : { minLength: 10, required: true })} />
             {draft.programType === "points" && <span id="lc-rules-hint" className="ow-hint">{SETUP_EXTRA_RULES_HINT}</span>}

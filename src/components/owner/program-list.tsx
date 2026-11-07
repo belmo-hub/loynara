@@ -72,7 +72,7 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       // Referrals waiting for the owner's review replace the bonus with their count.
       { href: "/merchant/referrals", icon: UserPlus, title: "Empfehlungen", ...(reviews ? { sub: "Braucht deine Prüfung", ...big(nf.format(reviews)) } : { sub: "Bonus für die empfehlende und neue Karte",
         ...(!referral?.enabled ? off("Aus") : referral.referrerBonus === referral.referredBonus ? big(`+${referral.referrerBonus}`) : { ...big(`+${referral.referrerBonus} · +${referral.referredBonus}`), pair: true }) }) },
-      ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
+      ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(me.happyHourEnabled && program.earningMode === "purchase" ? { value: "An" } : off("Aus")) }] : []),
     ] },
     // The card studio holds the names (W38); where the logo upload is withheld (pilot surfaces) it offers the colour, no logo.
     { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" }] },

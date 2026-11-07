@@ -1,6 +1,6 @@
 "use client";
 
-import { ScanLine, Users } from "lucide-react";
+import { MapPin, ScanLine, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { CopyLabel, useCopy } from "@/components/copy-text";
@@ -12,18 +12,20 @@ import { Choices, FieldError } from "@/components/owner/question-form";
 import { cashierHint, ROLE_HINT } from "@/components/owner/staff-data";
 import { useLoad } from "@/components/owner/use-load";
 import { useFormCheck } from "@/components/ui/form-check";
+import { germanDate } from "@/lib/german-date";
 
 type InviteResult = { id: string; token: string; expiresAt: string; email: string; role: "manager" | "cashier" };
 const BACK = { href: "/merchant/staff", label: "Team" };
 
 /** „Person einladen“ (ENG-122c, screen 16) as one question; the link shows once on this page afterwards and is never sent. */
 export default function InvitePage() {
-  const { me } = useOwner();
+  const { me, locations } = useOwner();
   const owner = me?.role === "owner";
   const roles = [{ value: "cashier", label: "Kasse", sub: cashierHint(me?.programType, me?.earningMode), icon: ScanLine }, { value: "manager", label: "Leitung", sub: ROLE_HINT.manager, icon: Users }];
   const [staff] = useLoad<{ accountCreation?: "public" | "invite" | "operator" }>(owner ? "/api/staff" : null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"manager" | "cashier">("cashier");
+  const [chosenLocation, setChosenLocation] = useState("");
   const draftRevision = useRef(0);
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState<InviteResult | null>(null);
@@ -34,16 +36,19 @@ export default function InvitePage() {
   useDirtyGuard("staff-invite", email.trim().length > 0);
   if (!me) return null;
   // Heading and note: copy-rest R16 FINAL.
-  const head = <PageTitle back={BACK} title="Wen lädst du ein?" lead={`Zugriff gilt für ${me.locationName}.`} />;
+  // An owner of several locations picks where the access applies (fault 18); the active one is preselected.
+  const locationId = chosenLocation || me.locationId;
+  const locationName = locations.find(location => location.id === locationId)?.name ?? me.locationName;
+  const head = <PageTitle back={BACK} title="Wen lädst du ein?" lead={`Zugriff gilt für ${locationName}.`} />;
   if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Teamzugänge verwalten.</Notice></div>;
   const inviteUrl = invite && me.publicBaseUrl ? new URL(`/invite/${encodeURIComponent(invite.token)}`, me.publicBaseUrl).toString() : "";
 
   async function create() {
-    if (!me?.locationId || busy) return;
+    if (!locationId || busy) return;
     const submitted = { email: email.trim(), role, revision: draftRevision.current };
     setBusy(true); setError(""); setMessage(""); setInvite(null);
     try {
-      setInvite(await postJson<InviteResult>("/api/staff/invite", { locationId: me.locationId, email: submitted.email, role: submitted.role }));
+      setInvite(await postJson<InviteResult>("/api/staff/invite", { locationId, email: submitted.email, role: submitted.role }));
       if (draftRevision.current === submitted.revision) setEmail("");
     } catch (cause) { setError(inviteCreateMessage(cause, submitted.email)); }
     finally { setBusy(false); }
@@ -60,11 +65,15 @@ export default function InvitePage() {
         <div className="ow-qpanel ow-field"><label htmlFor="st-email">E-Mail-Adresse</label><input id="st-email" {...fields.aria("st-email")} className="ow-input" type="email" value={email} onChange={event => { draftRevision.current++; setEmail(event.target.value); }} autoComplete="email" required placeholder="team@geschaeft.de" /><FieldError id="st-email-error">{fields.error("st-email") ?? ""}</FieldError></div>
         <h2 className="ow-qlabel">Rolle</h2>
         <Choices name="st-role" label="Rolle" options={roles} value={role} saved={role} onChange={value => { draftRevision.current++; setRole(value as "manager" | "cashier"); }} />
+        {locations.length > 1 && <>
+          <h2 className="ow-qlabel">Standort</h2>
+          <Choices name="st-location" label="Standort" options={locations.map(location => ({ value: location.id, label: location.name, sub: "", icon: MapPin }))} value={locationId} saved={locationId} onChange={value => { draftRevision.current++; setChosenLocation(value); }} />
+        </>}
         <p className="ow-hint ow-qnote">Der Link wird nicht versendet. Du gibst ihn der Person selbst.</p>
         {error && <ErrorNotice message={error} />}
         {invite && (
           <div className="ow-qpanel ow-stack" role="status"><strong>Einladung für {invite.email}</strong>
-            <p>Dieser Link gilt bis {new Date(invite.expiresAt).toLocaleDateString("de-DE")}. Teile ihn nur mit der eingeladenen Person.</p>
+            <p>Dieser Link gilt bis {germanDate(invite.expiresAt)}. Teile ihn nur mit der eingeladenen Person.</p>
             {staff.state === "ok" && <p className="ow-hint">{staff.data.accountCreation === "operator" ? "Konten werden derzeit vom Loynara-Betreiber angelegt. Die Person nimmt die Einladung an, sobald ihr Konto für genau diese Adresse besteht." : staff.data.accountCreation === "invite" ? "Die Person legt über den Link ihr eigenes Konto für genau diese Adresse an und ist danach sofort an der Kasse." : "Die Person kann über den Link ein Konto erstellen und die Einladung annehmen."}</p>}
             <code style={{ overflowWrap: "anywhere", fontSize: "var(--text-14)" }}>{inviteUrl}</code>
             <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void copy()}><CopyLabel copied={copied} label="Link kopieren" /></button></div>

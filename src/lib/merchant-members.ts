@@ -169,12 +169,14 @@ export async function listMerchantMembers(actorUserId: string, options: { locati
   if (query && !/^[0-9a-f-]{3,36}$/.test(query)) throw new DomainError("INVALID_QUERY", "Search with a card locator or at least three characters from a card ID");
   const cursor = decodeCursor(options.cursor);
   const limit = options.limit === undefined ? memberLimit : Math.max(1, Math.min(memberLimit, Math.trunc(options.limit)));
+  // Drifting: longest gone first; recent: latest booking first (fault 16). Both states imply a booking, so last_at is set.
+  const sort = retention === "drifting" ? { key: "q.last_at", dir: "ASC", after: ">" } : retention === "recent" ? { key: "q.last_at", dir: "DESC", after: "<" } : { key: "m.created_at", dir: "DESC", after: "<" };
   const rows = await pool.query<MemberRow>(`
     WITH page AS (
       SELECT m.id, m.tenant_id, m.balance, m.card_locator AS "cardLocator", m.created_at AS "createdAt", m.closed_at AS "closedAt",
         p.id AS "programId", p.name AS "programName", p.type AS "programType", p.status AS "programStatus",
         p.earning_mode AS "earningMode", (p.effective_at <= now()) AS "programStarted", l.id AS "locationId", l.name AS "locationName",
-        to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"
+        ${sort.key} AS "sortAt", to_char(${sort.key} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorAt"
       FROM memberships m
       JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id
       JOIN locations l ON l.id = p.location_id AND l.tenant_id = m.tenant_id
@@ -190,11 +192,11 @@ export async function listMerchantMembers(actorUserId: string, options: { locati
             AND activity.kind = 'award' AND activity.source in ('staff_online','staff_offline')
             AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = activity.tenant_id AND undo.reversal_of_id = activity.id)
         ))
-        AND ($6::timestamptz IS NULL OR (m.created_at, m.id) < ($6, $7::uuid))
-      ORDER BY m.created_at DESC, m.id DESC LIMIT $8
+        AND ($6::timestamptz IS NULL OR (${sort.key}, m.id) ${sort.after} ($6, $7::uuid))
+      ORDER BY ${sort.key} ${sort.dir}, m.id ${sort.dir} LIMIT $8
     )
     SELECT ${memberFields} FROM page LEFT JOIN LATERAL (${activitySummary}) summary ON true
-    ORDER BY page."createdAt" DESC, page.id DESC
+    ORDER BY page."sortAt" ${sort.dir}, page.id ${sort.dir}
   `, [scope.tenantId, scope.locationId, status, query ? `${query}%` : null, activity, cursor?.at ?? null, cursor?.id ?? null, limit + 1, locator, ...(usesCutoff ? [inactiveDays] : [])]);
   const hasMore = rows.rows.length > limit;
   const page = rows.rows.slice(0, limit);

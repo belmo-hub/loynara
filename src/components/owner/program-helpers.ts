@@ -1,5 +1,6 @@
 import { MAX_POINTS_PER_CURRENCY_UNIT, parsePurchaseAmountMinor, PointsError, purchasePoints, purchaseRuleSentence } from "@/lib/points";
 import { unitWord } from "@/lib/units";
+import { germanDate } from "@/lib/german-date";
 
 export type ProgramKind = "stamp" | "points";
 export type EarningMode = "manual" | "purchase";
@@ -19,10 +20,10 @@ export function earningSentence(type: ProgramKind, mode: EarningMode, rate: numb
   return "Dein Team vergibt Punkte manuell an der Kasse. Die Menge wird dort bei jeder Vergabe eingegeben.";
 }
 
-/** Who confirms is a separate question from how points are earned. */
-export function confirmSentence(type: ProgramKind, mode: EarningMode) {
+/** Who confirms is a separate question from how points are earned. The NFC sign is named only where the deployment offers it. */
+export function confirmSentence(type: ProgramKind, mode: EarningMode, nfc: boolean) {
   const base = "Kunden können sich nichts selbst gutschreiben: Jede Vergabe bestätigt dein Team an der Kasse per QR-Scan oder Kartencode.";
-  if (type === "points" && mode === "purchase") return `${base} Den Einkaufswert gibt das Team dort ein. Das NFC-Schild überträgt keinen Betrag.`;
+  if (type === "points" && mode === "purchase") return `${base} Den Einkaufswert gibt das Team dort ein.${nfc ? " Das NFC-Schild überträgt keinen Betrag." : ""}`;
   return base;
 }
 
@@ -49,6 +50,10 @@ export const EXTRA_RULES_HINT = "Wie Kunden Punkte sammeln, steht automatisch au
 /** The same field in setup and on a new location, where the earning rule is set in the fields above it (Marketing). */
 export const SETUP_EXTRA_RULES_HINT = "Die Sammelregel legst du oben fest, sie steht automatisch auf der Karte. Schreib hier nur, was dazukommt. Ändern kannst du sie nur oben.";
 export const SHORT_RULE = "Der Regeltext braucht mindestens 10 Zeichen.";
+/** Reward and name errors (Marketing F10): the imperative, one wording in every file. */
+export const REWARD_NAME_MISSING = "Gib der Prämie einen Namen.";
+export const SHORT_NAME = "Der Name braucht mindestens 2 Zeichen.";
+export const WHOLE_NUMBER = "Gib eine ganze Zahl ab 1 ein.";
 
 /** Smallest purchase (in minor units) that earns at least `cost` points, using the server's own rounding. */
 export function minimumSpendMinor(cost: number, rate: number): number | null {
@@ -124,6 +129,6 @@ export const QUESTIONS = {
 export type Question = keyof typeof QUESTIONS;
 export const isQuestion = (value: string): value is Question => Object.hasOwn(QUESTIONS, value);
 
-const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-/** A calendar day (YYYY-MM-DD) as owner screens say it, „24. November“ (the card and the chips: cardDay, „24.11.“). */
-export const longDay = (iso: string) => `${Number(iso.slice(8, 10))}.\u00a0${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
+/** A calendar day (YYYY-MM-DD) as owner screens say it, „24. November“, with the year when it isn't this one (the shared
+ *  date helper's long form; the card and the chips: cardDay, „24.11.“). */
+export const longDay = (iso: string) => germanDate(iso, "long");

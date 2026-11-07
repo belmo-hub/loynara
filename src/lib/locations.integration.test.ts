@@ -65,6 +65,8 @@ describe("additional merchant locations", () => {
       { tenantId: a.tenantId, userId: cashier, role: "cashier", locationId: a.locationId },
       { tenantId: a.tenantId, userId: manager, role: "manager", locationId: a.locationId },
     ]);
+    // The owner works at every location, as Mehr's Team count says (fault 15): owner, cashier and manager here, the owner alone at the second.
+    expect(Object.fromEntries((await listMerchantLocations(ownerA)).locations.map(location => [location.id, location.activeStaff]))).toEqual({ [a.locationId]: 3, [second.locationId]: 1 });
     expect((await getMerchantContext(cashier, second.locationId))?.locationId).toBe(a.locationId);
     expect((await getMerchantContext(manager, second.locationId))?.locationId).toBe(a.locationId);
     await expect(lookupCard({ userId: cashier, locationId: a.locationId, scanCode: card.scanCode })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -90,6 +92,7 @@ describe("additional merchant locations", () => {
     await expect(createAdditionalLocation(ownerId, { ...data, name: "synthetic NEW counter" })).rejects.toMatchObject({ code: "LOCATION_EXISTS" });
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong country", country: "MA" })).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
     await expect(createAdditionalLocation(ownerId, { ...data, name: "Wrong timezone", timezone: "Not/A_Timezone" })).rejects.toMatchObject({ code: "INVALID_TIMEZONE" });
+    await expect(createAdditionalLocation(ownerId, { ...data, name: "Tobacco reward", rewardTitle: "Zigaretten gratis" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
     expect((await listMerchantLocations(ownerId)).totals.locations).toBe(2);
   });
 

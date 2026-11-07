@@ -8,7 +8,7 @@ const data = vi.hoisted(() => {
   // The read's buckets: four full weeks from the period's start, then the two days left over.
   const week = (index: number, checkouts: number, days = 7) => ({ from: new Date(from + index * 7 * DAY).toISOString(), to: new Date(from + (index * 7 + days) * DAY).toISOString(), newCards: 0, checkouts });
   const report = {
-    windowDays: 30, from: "2026-09-28T15:00:00Z", asOf: "2026-10-28T15:00:00Z", timezone: "UTC",
+    windowDays: 30, from: "2026-09-28T15:00:00Z", asOf: "2026-10-28T15:00:00Z", timezone: "Europe/Berlin",
     currentActiveCards: 3, newCards: 1, qualifyingCheckouts: 3, participatingCards: 2, repeatCards: 1, wonBack: 0,
     issued: { stampUnits: 0, pointUnits: 3, awardActions: 3 }, rewards: { redemptions: 0, topTitles: [] as Array<{ title: string; count: number }> }, referrals: { attributed: 0, qualified: 0, reversed: 0 },
     campaignAttempts: { total: 0, complete: 0, suppressed: 0, retry: 0, failed: 0, blocked: 0 },

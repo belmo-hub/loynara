@@ -86,7 +86,7 @@ test("a failed new location says what to do and never leaves a created location 
   await signIn(page);
   await page.goto("/merchant/locations/new");
   const form = page.locator("#ow-main form"), alert = page.locator('.ow-notice[role="alert"]');
-  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Teilnahmebedingungen", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
+  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Regel auf der Karte", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
     await form.getByLabel(label, { exact: true }).fill(value);
   const createWith = (answer: ReturnType<typeof fail>) => page.route("**/api/merchant/locations", route => route.request().method() === "POST" ? route.fulfill(answer) : route.fallback());
 

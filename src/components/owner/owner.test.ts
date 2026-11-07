@@ -47,8 +47,9 @@ describe("input parsing", () => {
 
 describe("rule wording keeps earning and confirmation apart", () => {
   it("never suggests NFC knows an amount", () => {
-    expect(confirmSentence("points", "purchase")).toContain("Das NFC-Schild überträgt keinen Betrag.");
-    expect(confirmSentence("stamp", "manual")).not.toContain("Betrag");
+    expect(confirmSentence("points", "purchase", true)).toContain("Das NFC-Schild überträgt keinen Betrag.");
+    expect(confirmSentence("points", "purchase", false)).not.toContain("NFC"); // no sign where the deployment hides NFC
+    expect(confirmSentence("stamp", "manual", true)).not.toContain("Betrag");
   });
   it("describes only supported modes", () => {
     expect(earningSentence("points", "purchase", 2, "EUR")).toBe("2 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
@@ -88,5 +89,11 @@ describe("navigation", () => {
   });
   it("links each destination to a page its role can open", () => {
     for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers"]).toContain(groupHref(group, "manager"));
+  });
+});
+
+describe("points expiry wording (Legal, 7 Nov)", () => {
+  it("keeps „Alle Punkte davor verfallen nie.“: a change of period restarts the rule, so older points never expire", () => {
+    for (const file of ["program-extras.tsx", "program-rule-changes.tsx"]) expect(readFileSync(join(__dirname, file), "utf8")).toContain("Alle Punkte davor verfallen nie.");
   });
 });

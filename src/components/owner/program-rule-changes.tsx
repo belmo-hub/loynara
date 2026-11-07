@@ -11,6 +11,8 @@ import { Choices, QuestionForm, useQuestion, useReview } from "./question-form";
 const UPDATE = "/api/merchant/program/update";
 export const SEES_TODAY = "Deine Kunden sehen die Änderung ab heute auf ihrer Karte.";
 const SEES = "Deine Kunden sehen die Änderung auf ihrer Karte.";
+/** „Nach Einkaufswert“ → „nach Einkaufswert“: only the first letter, the noun keeps its capital. */
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 export const datedToast = (iso: string) => `Gespeichert. Gilt ab ${longDay(iso)}.`;
 
 /** What each rule save posts (S1b's update route). The owner's „Schlechter“ alone sends worse: true; a change of rate
@@ -77,7 +79,7 @@ export function RuleWaiting({ slug, program, pending, label }: { slug: string; p
       </QuestionForm>
     );
   }
-  const heading = item === "mode" ? `${modeName(pending.earningMode)} statt ${modeName(old.earningMode).toLowerCase()}`
+  const heading = item === "mode" ? `${modeName(pending.earningMode)} statt ${lowerFirst(modeName(old.earningMode))}`
     : item === "rate" ? `Punkte pro €: ${pending.pointsPerCurrencyUnit} statt ${old.pointsPerCurrencyUnit}` : `Neue Regel ab ${on}`;
   const until = item === "rate" ? `Bis dahin bleibt es bei ${perEuro(old.pointsPerCurrencyUnit)}.` : item === "mode" ? "Bis dahin bleibt es bei der bisherigen Regel, auch an der Kasse." : old.rulesText.trim() ? "Bis dahin gilt die bisherige Regel." : "Bis dahin gibt es keine weiteren Regeln.";
   return (

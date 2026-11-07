@@ -36,7 +36,7 @@ describe("owner heading weight", () => {
     const heads = rules.filter(rule => rule.selector.includes(".owner-app .ow-section-head,"));
     const style = Object.fromEntries(heads.map(rule => [rule.property, rule.value]));
     expect(style).toMatchObject({ "font-size": "var(--text-14)", "font-weight": "var(--weight-heavy)", "letter-spacing": "0", color: "var(--color-ink-muted)" });
-    for (const head of [".ow-prog h2", ".owner-app .ow-tiles-title", ".ow-diary h2", ".ow-group > legend", ".ow-qlegend", ".ow-q .ow-qsub", ".ow-q .ow-qlabel", ".ow-cardline-label"]) {
+    for (const head of [".ow-prog h2:where(:not(dialog *))", ".owner-app .ow-tiles-title", ".ow-diary h2", ".ow-group > legend", ".ow-qlegend", ".ow-q .ow-qsub", ".ow-q .ow-qlabel", ".ow-cardline-label"]) {
       expect(heads[0].selector.split(",").map(part => part.trim())).toContain(head);
     }
   });

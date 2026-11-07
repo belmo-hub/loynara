@@ -49,7 +49,7 @@ const de = {
   // „Bedingungen“ link to the rules is Legal's condition for leaving the exclusions out of this line.
   winback: (points: boolean, bonus: number, day: string) => `Willkommen zurück! Bis zum ${day} gibt's bei deinem nächsten Besuch ${points ? `${bonus} ${bonus === 1 ? "Punkt" : "Punkte"}` : "1 Stempel"} extra.`,
   conditions: "Bedingungen",
-  happyHour: (until: string) => `Doppelte Punkte bis ${until}`, rules: "Programmregeln", news: "Neuigkeiten", review: "Hat es dir gefallen? Hinterlass uns eine Bewertung.", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
+  happyHour: (until: string) => `Doppelte Punkte bis ${until}`, rules: "Programmregeln", news: "Neuigkeiten", review: "Auf Google bewerten", terms: "Weitere Teilnahmebedingungen", privacy: "Datenschutz", export: "Meine Kartendaten exportieren",
   closeCard: "Karte schließen", confirmClose: "Schließung verbindlich bestätigen", closing: "Wird geschlossen …",
   closeMessage: (wallet: boolean): string => wallet
     ? "Exportiere deine Kartendaten zuerst. Danach funktionieren dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte nicht mehr; das Guthaben ist nicht mehr nutzbar. Kontakt- und Wiederherstellungsdaten werden entfernt. Buchungen und Einlösungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."

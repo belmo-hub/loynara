@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, CalendarClock, Gift, PenLine, RotateCcw, ThumbsDown
 import type { PublicProgram } from "@/components/client-api";
 import { rewardChangeLine } from "@/lib/change-lines";
 import { CardLinePreview, NumberStepper } from "./owner-ui";
-import { longDay, unitDative, unitName } from "./program-helpers";
+import { longDay, REWARD_NAME_MISSING, SHORT_NAME, unitDative, unitName, WHOLE_NUMBER } from "./program-helpers";
 import { Choices, FieldError, QuestionForm, useQuestion, useReview, type Choice } from "./question-form";
 
 const REWARDS = "/api/merchant/program/rewards";
@@ -48,8 +48,8 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
   const [title, setTitle] = useState(reward.title), [worse, setWorse] = useState("");
   const cost = pick === "other" ? Number(custom) || 0 : Number(pick), name = title.trim();
   const named = name !== reward.title, priced = cost !== reward.cost;
-  const nameProblem = !name ? "Bitte die Prämie benennen." : name.length < 2 ? "Der Name braucht mindestens 2 Zeichen." : "";
-  const costProblem = cost >= 1 && cost <= COST_MAX ? "" : "Bitte eine ganze Zahl größer 0 eingeben.";
+  const nameProblem = !name ? REWARD_NAME_MISSING : name.length < 2 ? SHORT_NAME : "";
+  const costProblem = cost >= 1 && cost <= COST_MAX ? "" : WHOLE_NUMBER;
   const q = useQuestion("program-reward", priced || named, step.step === "name" ? { "reward-name": nameProblem } : step.step === "other" ? { "reward-cost": costProblem } : {});
   const back = { label: reward.title, onClick: step.back };
   const preview = (line: string) => (
