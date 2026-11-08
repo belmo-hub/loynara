@@ -35,6 +35,7 @@ describe("retention signals in rule-based advice", () => {
   it("replaces the generic reward-path hint with waiting rewards when cards already qualify", () => {
     const waiting = buildRuleBasedAdvice(active, retention({ rewardReady: 2 })).map(item => item.id);
     expect(waiting).toContain("reward_waiting");
+    expect(buildRuleBasedAdvice(active, retention({ rewardReady: 2 })).find(item => item.id === "reward_waiting")).toMatchObject({ title: "Prämie verdient: 2\u00a0Karten", link: { label: "Karten ansehen" } });
     expect(waiting).not.toContain("reward_path");
     expect(buildRuleBasedAdvice(active, retention()).map(item => item.id)).toContain("reward_path");
   });
@@ -42,7 +43,7 @@ describe("retention signals in rule-based advice", () => {
   it("points at the counter process when many sign-ups were never stamped, and never claims a cause", () => {
     const advice = buildRuleBasedAdvice(active, retention({ neverAfterWeek: 6, openCards: 20 }));
     const item = advice.find(entry => entry.id === "signup_not_stamped");
-    expect(item?.missingInformation.join(" ")).toContain("nicht unterscheidbar");
+    expect(item?.missingInformation.join(" ")).toContain("sehen wir nicht");
     expect(item?.link?.href).toBe("/merchant/customers?activity=never&minAgeDays=7&scope=all");
     expect(buildRuleBasedAdvice(active, retention({ neverAfterWeek: 3, openCards: 40 })).map(entry => entry.id)).not.toContain("signup_not_stamped");
   });

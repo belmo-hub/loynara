@@ -1,30 +1,27 @@
 "use client";
 
-import { ChevronLeft, Megaphone } from "lucide-react";
+import { Check, ChevronLeft, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
-import { BackToActions, messageRoom, reopenDay, sendNote } from "@/components/owner/actions-list";
+import { BackToActions, reopenDay, sendNote } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
 import { FieldError, useReview } from "@/components/owner/question-form";
 import { useLoad } from "@/components/owner/use-load";
-import { AlmostCard, BirthdayCard, type Birthday, type Winback } from "@/components/owner/winback-card";
+import { SentMessages, type SentRow } from "@/components/owner/sent-messages";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 
-type Row = { id: string; text: string; status: "queued" | "sending" | "complete" | "stopped"; createdAt: string; audience: number; sent: number; failed: number; skipped: number; removed: number; warn: boolean };
-type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: Row[]; winback: Winback; birthday: Birthday };
+type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: SentRow[] };
 
 const DRAFT = "loynara-wallet-message-draft";
-const stamp = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
-const STATUS = { queued: "Wartet", sending: "Läuft", complete: "Gesendet", stopped: "Gestoppt" } as const;
-const people = (n: number) => `${n} Kundinnen und Kunden`;
+const clock = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
 const arrow = <ChevronLeft size={20} aria-hidden="true" />;
 
 /** The question pages' frame (Wegweiser): back link, the question as the heading; the heading takes the focus on each new step. */
-function Frame({ back, title, children }: { back: ReactNode; title: string; children: ReactNode }) {
+function Frame({ back, title, lead, children }: { back: ReactNode; title: string; lead?: string; children: ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null), shown = useRef(title);
   // A new step starts at the top, also after Back, whose restored scroll lands after this effect (so the next frame).
   useEffect(() => {
@@ -35,7 +32,7 @@ function Frame({ back, title, children }: { back: ReactNode; title: string; chil
   }, [title]);
   return (
     <div className="ow-page ow-qpage">
-      <header className="ow-pagehead"><div className="ow-qhead">{back}<h1 ref={heading} tabIndex={-1}>{title}</h1></div></header>
+      <header className="ow-pagehead"><div className="ow-qhead">{back}<h1 ref={heading} tabIndex={-1}>{title}</h1>{lead && <p>{lead}</p>}</div></header>
       {children}
     </div>
   );
@@ -55,7 +52,8 @@ function LockScreen({ shop, text }: { shop: string; text: string }) {
   );
 }
 
-/** Nachricht (ENG-122d, screens 10 and 11): one question with the lock-screen preview, then the send confirmation as a screen. */
+/** Nachricht senden (ENG-122d, Design 6 Nov): the composer with the lock-screen preview and the sent messages, then the send
+ *  confirmation as a screen. Erinnerung vor der Prämie and Geburtstags-Bonus moved to Programm. */
 export default function WalletMessagesPage() {
   const { me } = useOwner();
   const slug = me?.programSlug ?? "";
@@ -66,14 +64,16 @@ export default function WalletMessagesPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [receipt, setReceipt] = useState<{ audience: number; at: string; text: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ audience: number; at: string } | null>(null);
+  // The receipt is a short confirmation, so a toast (Design decision 4).
+  useEffect(() => { if (!receipt) return; const timer = window.setTimeout(() => setReceipt(null), 4000); return () => window.clearTimeout(timer); }, [receipt]);
 
   const edit = (value: string) => { setText(value); setReceipt(null); try { localStorage.setItem(DRAFT, value); } catch { /* optional */ } };
   const toActions = <BackToActions />;
-  const question = "Was sollen deine Stammkunden lesen?";
+  const question = "Nachricht senden";
 
   if (!me) return null;
-  if (me.role !== "owner") return <Frame back={toActions} title={question}><Notice tone="warn" role="alert">Nur Inhaber:innen können Nachrichten senden.</Notice></Frame>;
+  if (me.role !== "owner") return <Frame back={toActions} title={question}><Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Nachrichten senden.</Notice></Frame>;
   if (data.state === "error") return <Frame back={toActions} title={question}><ErrorNotice message={data.message} onRetry={reload} /></Frame>;
   if (data.state !== "ok") return <Frame back={toActions} title={question}><LoadingBlock /></Frame>;
   const d = data.data;
@@ -108,7 +108,7 @@ export default function WalletMessagesPage() {
     setBusy(true); setError("");
     try {
       const result = await postJson<{ id: string; audience: number }>("/api/merchant/wallet-messages", { programSlug: slug, text });
-      setReceipt({ audience: result.audience, at: new Date().toISOString(), text });
+      setReceipt({ audience: result.audience, at: new Date().toISOString() });
       setText(""); try { localStorage.removeItem(DRAFT); } catch { /* optional */ }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Nachricht konnte nicht gesendet werden."); }
     finally { setBusy(false); review.back(); reload(); }
@@ -135,12 +135,14 @@ export default function WalletMessagesPage() {
     </Frame>
   );
 
+  const free = d.remaining > 0 ? `Noch ${d.remaining}\u00a0frei` : undefined;
+  // Happy Hour books only purchase-amount points (loyalty.ts): other shops get the first sentence alone.
+  const happyHour = me.programType === "points" && me.earningMode === "purchase";
   return (
-    <Frame back={toActions} title={question}>
+    <Frame back={toActions} title={question} lead={free}>
       <div className="ow-q">
-        {receipt && <Notice tone="ok" role="status"><strong>Gesendet.</strong> An {people(receipt.audience)} um {stamp(receipt.at, d.timezone)} Uhr. {messageRoom(d) && `${messageRoom(d)}.`}</Notice>}
         {error && <Notice tone="danger" role="alert">{error} Dein Text ist noch da.</Notice>}
-        {d.history.some(row => row.warn) && <Notice tone="warn" role="status">Nach einer deiner letzten Nachrichten haben ungewöhnlich viele Kundinnen und Kunden ihre Karte aus der Wallet entfernt. Prüfe, ob du zu oft oder zu werblich geschrieben hast.</Notice>}
+        {d.history.some(row => row.warn) && <Notice tone="warn" role="status">Nach einer deiner letzten Nachrichten haben ungewöhnlich viele Kundinnen und Kunden ihre Karte aus der Wallet entfernt. Schreibe seltener.</Notice>}
         {capped && <Notice tone="warn">Du hast diese Woche schon {SHOP_WEEKLY_CAP} Nachrichten gesendet.{d.nextAllowedAt ? ` Die nächste geht wieder ab ${germanWhen(new Date(d.nextAllowedAt), d.timezone)}.` : ""}</Notice>}
         {d.quietNow && <Notice tone="info">{QUIET_HOURS_REFUSAL}</Notice>}
         {empty && <Notice tone="info">Noch kann niemand deine Nachrichten bekommen. Deine Kundinnen und Kunden stimmen auf ihrer Karte zu, wenn sie sie in Apple Wallet haben. Tipp für die Kasse: „Leg dir die Karte in die Wallet und schalte Nachrichten ein, dann sagen wir dir Bescheid, wenn&apos;s was gibt.“</Notice>}
@@ -150,24 +152,13 @@ export default function WalletMessagesPage() {
           <p id="wm-hint" className="ow-qcount"><span>Konkret, für heute, mit deinem eigenen Angebot.</span><span className="ow-num">{Array.from(text).length}/{MESSAGE_MAX}</span></p>
           <FieldError id="wm-error">{inlineError}</FieldError>
         </div>
-        {needsActionHint(text) && <Notice tone="warn">{ACTION_HINT} <Link className="ow-link" href="/merchant/program">Zur Aktion (Happy Hour)</Link></Notice>}
+        {needsActionHint(text) && <Notice tone="warn">{ACTION_HINT}{happyHour && <> <Link className="ow-link" href="/merchant/program/happy-hour?von=aktionen">Happy Hour einstellen</Link></>}</Notice>}
         <LockScreen shop={d.shopName} text={text} />
         <p className="ow-hint">Nachrichten gehen vorerst nur an Karten in Apple Wallet. Du siehst nur Zahlen, nie Namen.</p>
-        <div className="ow-qactions"><button type="button" className="ow-btn ow-btn--primary" disabled={!canContinue} onClick={() => review.open("confirm")}>{d.quietNow ? "Ab 8 Uhr senden" : "Weiter"}</button></div>
+        <SentMessages rows={d.history} timeZone={d.timezone} onStop={id => void stop(id)} />
+        <div className="ow-qsave"><button type="button" className="ow-btn ow-btn--primary" disabled={!canContinue} onClick={() => review.open("confirm")}>Weiter</button></div>
       </div>
-      <AlmostCard slug={slug} initial={d.winback} />
-      <BirthdayCard slug={slug} type={d.winback.type} initial={d.birthday} />
-      <section className="ow-card ow-stack" aria-labelledby="wm-history">
-        <h2 id="wm-history">Gesendete Nachrichten</h2>
-        {d.history.length === 0 ? <p className="ow-muted">Noch keine Nachricht gesendet.</p> : (
-          <table className="ow-table"><thead><tr><th>Zeit</th><th>Text</th><th>Status</th><th>Erreicht</th><th></th></tr></thead>
-            <tbody>{d.history.map(row => <tr key={row.id}>
-              <td data-label="Zeit">{stamp(row.createdAt, d.timezone)}</td><td data-label="Text">{row.text}</td><td data-label="Status">{STATUS[row.status]}</td>
-              <td data-label="Erreicht">{row.sent} von {row.audience}{row.failed ? `, ${row.failed} fehlgeschlagen` : ""}{row.skipped ? `, ${row.skipped} übersprungen` : ""}{row.sent > 0 ? <><br /><span className="ow-muted">Karten entfernt (nur Apple Wallet): {row.removed} innerhalb von 48 Stunden</span></> : null}</td>
-              <td>{row.status === "queued" || row.status === "sending" ? <Button size="sm" variant="secondary" onClick={() => void stop(row.id)}>Stoppen</Button> : null}</td>
-            </tr>)}</tbody></table>
-        )}
-      </section>
+      <div className="ow-toast-region" role="status">{receipt && <span className="ow-toast"><Check size={20} aria-hidden="true" />Geht raus an {receipt.audience}{"\u00a0"}Kunden, {clock(receipt.at, d.timezone)}{"\u00a0"}Uhr{d.remaining > 0 ? `. Noch ${d.remaining}\u00a0frei diese Woche` : ""}</span>}</div>
     </Frame>
   );
 }

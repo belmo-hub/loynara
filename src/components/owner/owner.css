@@ -181,9 +181,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
 :is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: none; box-shadow: none; border-radius: 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-line); }
 .ow-notice--warn > span:first-child { color: var(--color-warning); }
-.ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
+/* One failure notice (Design decision 19): the icon and a strong title in danger, the body in ink, on the tint. */
+.ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-ink); }
 .ow-notice--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
-.ow-notice:is(.ow-notice--danger, .ow-notice--ok) > span:first-child { color: inherit; }
+.ow-notice--ok > span:first-child { color: inherit; }
+.ow-notice--danger > span:first-child, .ow-notice--danger strong { color: var(--color-danger); }
+.ow-notice--danger strong { display: block; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .ow-muted { color: var(--color-ink-muted); }
 /* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
@@ -208,7 +211,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 /* A number or date answer is as wide as its value, not the column (SF-7). */
 .ow-field--narrow { max-width: 12rem; }
-.ow-field > label, .ow-label { font-weight: 700; font-size: var(--text-14); }
+/* One field label (Design decision 20): ink, 14, strong, on every field and stepper. Grey is for panel heads only. */
+:is(.ow-field > label, .ow-label, .ow-qcontrol label, .ow-qnumber > label:not(.ow-sr), .ow-times label) { color: var(--color-ink); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-hint { font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-more { font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Body text runs at most 65 characters a line (SF-6). */
@@ -509,7 +513,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
 /* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
 .ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
-.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-raised); box-shadow: var(--shadow-hairline); transition: transform var(--dur-ui) var(--ease-out); }
+.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-knob); box-shadow: none; transition: transform var(--dur-ui) var(--ease-out); }
 .ow-check input[role="switch"]:checked { background: var(--color-action); }
 .ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
 .ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
@@ -719,10 +723,12 @@ div.ow-prog-row:active { transform: none; }
 .ow-qbar i[data-on] { background: var(--color-ink); }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
 .ow-qpanel { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
-.ow-qpanel.ow-field > label { color: var(--color-ink-muted); }
 .ow-qpanel .ow-input { min-height: 52px; }
-/* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. */
-.ow-qpanel .ow-cardline-shop i { box-shadow: 0 0 0 1px var(--color-line-strong); }
+/* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. On a panel the preview is one
+   surface with a round mark (Design, 6 Nov). */
+.ow-qpanel .ow-cardline-shop i { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-qpanel .ow-cardline-ground { padding: 0; background: none; }
+.ow-qpanel .ow-cardline-card { padding: 0; background: none; box-shadow: none; }
 .ow-qcount { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-qcount span:last-child { flex: none; }
 .ow-qerror { display: flex; align-items: flex-start; gap: var(--space-2); }
@@ -737,13 +743,10 @@ div.ow-prog-row:active { transform: none; }
 .ow-qnumber .ow-number-value input { height: auto; padding: 0; text-align: center; }
 .ow-qnumber .ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-strong); color: var(--color-ink-muted); letter-spacing: 0; }
 /* Points move in tens, so their number wears the input outline: any other value is typed (the keypad opens on tap). */
-.ow-qnumber[data-typed] .ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-5)); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
+.ow-qnumber[data-typed] .ow-number-value input { width: calc(max(var(--ow-number-chars), 3) * 1ch + var(--space-5)); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
 /* Below 360 px six digits still fit beside the buttons. */
 @media (max-width: 359px) { .ow-qnumber .ow-number { gap: var(--space-2); } .ow-qnumber .ow-number button { width: 56px; height: 56px; } }
 /* Save failed (screen 19): what failed in the danger colour, what is kept in ink. */
-.ow-qfail .ow-notice { color: var(--color-ink); }
-.ow-qfail :is(svg, strong) { color: var(--color-danger); }
-.ow-qfail strong { display: block; }
 .ow-qsave { margin-top: var(--space-3); }
 .ow-qsave .ow-btn { width: 100%; min-height: 52px; }
 /* The same button carries every step: a tap must not leave it in its hover colour on a phone. */
@@ -765,7 +768,9 @@ div.ow-prog-row:active { transform: none; }
 /* The picked answer is DESIGN.md's selected row in both themes: the neutral fill, a 2 px ink ring and an ink check at the
    row's end, so the choice never rests on colour alone; the button stays the one solid green (Design, 30 Oct). */
 .ow-qchoice:has(:checked) { background: var(--color-fill); box-shadow: inset 0 0 0 2px var(--color-ink); }
-.ow-qchoice-check { flex: none; margin-left: auto; color: var(--color-ink); }
+/* The check stands over the right edge, so a card keeps its size and wrap when picked. */
+.ow-qchoice { position: relative; padding-right: var(--target); }
+.ow-qchoice-check { position: absolute; top: 50%; right: var(--space-4); translate: 0 -50%; color: var(--color-ink); }
 @media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
 @media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
 .ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }
@@ -773,7 +778,6 @@ div.ow-prog-row:active { transform: none; }
 .ow-qswitch:has(:focus-visible) { outline: none; }
 .ow-qcontrol { display: grid; gap: var(--space-2); }
 .ow-qcontrol > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
-.ow-qcontrol :is(label, .ow-label) { font-size: var(--text-16); font-weight: var(--weight-strong); }
 /* „Bonus“ and its two answers share the line while they fit; each answer stays one line. */
 .ow-qcontrol .ow-seg { width: auto; }
 .ow-qcontrol .ow-seg button { flex: 1 1 auto; white-space: nowrap; }
@@ -821,7 +825,7 @@ div.ow-prog-row:active { transform: none; }
 /* Nachricht (ENG-122d, screens 10 and 11): the lock screen on the board's dark green in both themes, the send warning, and
    the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
 .ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4) var(--space-3) var(--space-5); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
-.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; } /* display text: no tabular gap in 9:41 */
 .ow-lock-note { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
 .ow-lock-note b { display: flex; justify-content: space-between; gap: var(--space-3); }
 .ow-lock-note b span + span { flex: none; color: var(--color-on-board-muted); font-weight: var(--weight-label); }
@@ -915,8 +919,8 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-qsave--pair { display: grid; gap: var(--space-2); }
 .ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-danger); }
 @media (max-width: 1023px) {
-  .ow-content:has(.ow-qsave--pair) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); }
-  .ow-content:has(.ow-qsave--pair) .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 136px + var(--space-3)); } /* two pinned buttons */
+  .ow-content:has(.ow-qsave .ow-btn + .ow-btn) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); }
+  .ow-content:has(.ow-qsave .ow-btn + .ow-btn) .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 136px + var(--space-3)); } /* two pinned buttons */
 }
 /* Team, Abrechnung, Empfehlungen: the band's arrow, a back step inside a page, the price card's note, a price per month. */
 .ow-band-arrow { flex: none; }
@@ -949,4 +953,83 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-qpage[data-aside] .ow-q > * { grid-column: 1; }
   .ow-qpage[data-aside] .ow-q > .ow-qaside { grid-column: 2; grid-row: 1 / span 20; position: sticky; top: var(--space-6); align-self: start; margin: 0; }
   .ow-qpage[data-aside] .ow-qsave .ow-btn { width: auto; min-width: 12rem; }
+}
+
+/* ───────────── Owner pages on a phone (ENG-180): the shared layer of Design's 6 Nov set (proposed.css) ───────────── */
+/* Rows (decision 1): each section is one panel, rows split by hairlines, 56 px minimum, one padding. Every list of rows. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) { gap: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-surface); }
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) > li + li { border-top: 1px solid var(--color-line); }
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background: none; }
+/* Inside a grid .ow-prog the parent's gap is the space above. */
+.ow-prog > .ow-rows { margin-top: 0; }
+/* A number on a row is a label's partner, not a headline (spec rule 6): the board keeps the only big number. */
+.ow-rows .ow-prog-value:is([data-big], [data-pair]) { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.2; }
+/* Rows with no arrow anywhere need no arrow-sized gap at the edge. */
+.ow-rows:not(:has(a.ow-prog-row, button.ow-prog-row)) div.ow-prog-row::after { display: none; }
+/* Weekdays (decision 28): seven 44 px chips with 3 px gaps fill the panel's 326 px at 390; narrower, two rows. Ink when
+   on, no green: green stays the one Speichern. The 1.5 px edge is live's .ow-number button and .ow-qchoice hover. */
+.ow-days { display: grid; grid-template-columns: repeat(7, minmax(var(--target), 1fr)); gap: calc(var(--space-1) - 1px); }
+@media (max-width: 389px) { .ow-days { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); } }
+.ow-days button { min-width: 0; min-height: var(--target); padding: 0; border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: var(--weight-strong); cursor: pointer; }
+.ow-days button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-bg); }
+.ow-days button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The house date and time field (rule 4): iOS shrinks a bare date or time input and centres its value, so it needs
+   appearance none, min-width 0 and the value on the left. */
+.ow-input:is([type="date"], [type="time"], [type="datetime-local"]) { box-sizing: border-box; min-width: 0; appearance: none; -webkit-appearance: none; text-align: left; font-variant-numeric: tabular-nums; }
+.ow-input:is([type="date"], [type="time"], [type="datetime-local"])::-webkit-date-and-time-value { text-align: left; }
+.ow-input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
+/* From and until: two equal columns, the label above. */
+.ow-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.ow-times label { display: grid; gap: var(--space-1); min-width: 0; }
+/* A time window: the sentence is the heading, remove sits beside it. */
+.ow-window { position: relative; display: grid; gap: var(--space-3); min-width: 0; }
+.ow-window-title { display: flex; align-items: center; min-height: calc(var(--space-6) + var(--space-1)); padding-right: var(--target); font-size: var(--text-16); font-weight: var(--weight-strong); }
+.ow-window-title[data-problem] { gap: var(--space-2); color: var(--color-danger); }
+.ow-window-title svg { flex: none; }
+.ow-window .ow-sent-warn { color: var(--color-danger); }
+.ow-iconbtn { position: absolute; top: var(--space-1); right: var(--space-2); display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); cursor: pointer; }
+.ow-iconbtn svg { width: 20px; height: 20px; }
+.ow-add { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.ow-add svg { width: 18px; height: 18px; }
+/* Sent messages (rule 5): the message first, one quiet line under it. Replaces the table. */
+.ow-sent { list-style: none; margin: 0; padding: 0; }
+.ow-sent li { display: grid; gap: var(--space-1); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
+.ow-sent li:first-child { border-top: 0; padding-top: 0; }
+.ow-sent li:last-child { padding-bottom: 0; }
+.ow-sent-text { margin: 0; overflow-wrap: anywhere; }
+.ow-sent-meta { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-sent-warn { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-warning); font-size: var(--text-14); font-weight: var(--weight-strong); }
+.ow-sent-warn svg { flex: none; height: 1lh; }
+.ow-sent-live { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
+.ow-sent-live .ow-btn { margin-left: auto; }
+/* With .ow-q's 8 px gap, 24 px under the composer. */
+.ow-history { margin-top: var(--space-4); }
+/* Advice: what to do, one button, one fold, on the same panel as every other form. */
+.ow-advice { display: grid; gap: var(--space-2); }
+.ow-advice h2 { margin: 0; font-size: var(--text-18); text-wrap: balance; }
+.ow-advice p { margin: 0; }
+.ow-advice .ow-btn { justify-self: start; margin-top: var(--space-1); }
+/* The closed fold's 44 px target reaches into the card's padding, so the space under „Mehr dazu“ matches the space above
+   the title. Open, the last line does. */
+.ow-advice .ow-more:not([open]) { margin-bottom: calc(var(--space-3) * -1); }
+.ow-advice .ow-more-body { padding-bottom: 0; }
+/* Fold: one drawn chevron instead of the browser triangle. */
+.ow-more > summary { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); list-style: none; cursor: pointer; }
+.ow-more > summary::-webkit-details-marker { display: none; }
+.ow-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; }
+.ow-more[open] > summary::after { translate: 0 2px; rotate: -135deg; }
+/* A stepper or segment beside other fields (decision 12): label over it, the control across the panel, one hint under all.
+   Number and unit are one group centred between the buttons; the digits' box stays a 44 px target but takes only the
+   digits' width in the line. The big centred .ow-qnumber stays only where the number is the whole page. */
+.ow-qstack { gap: var(--space-3); }
+.ow-qstack > div { flex-direction: column; align-items: stretch; gap: var(--space-1); }
+.ow-qstack .ow-number { display: flex; justify-content: space-between; }
+.ow-qstack .ow-seg { width: 100%; }
+.ow-qstack .ow-number-value { flex: 1 1 0; min-width: 0; }
+.ow-qstack .ow-number-value input { width: var(--target); margin-inline: min(0px, (var(--ow-number-chars) * 1ch - var(--target)) / 2); padding: 0; text-align: center; }
+/* Light only: the owner app follows the system, and these stay as live in dark. A picked card stays on the white surface:
+   the dark edge and the check carry the choice. The danger notice is solid, so it reads the same on the grey page. */
+@media (prefers-color-scheme: light) {
+  .ow-qchoice:has(:checked) { background: var(--color-surface); }
+  .ow-notice--danger { background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)); }
 }

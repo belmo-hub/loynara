@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, ArrowUpDown, BadgePlus, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
@@ -16,7 +16,7 @@ import type { Winback } from "./winback-card";
 
 type Row = { href: string; icon: LucideIcon; title: string; sub?: string; value?: string; big?: boolean; pair?: boolean; off?: boolean; /** ENG-100: a change waiting for its date (W29, W59). */ pending?: string };
 /** `referrals` is the latest referrals read (empty when it failed); only those waiting for review count. */
-export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean; /** Rewards no longer live (owner read). */ archived?: number };
+export type ListData = { me: MeResponse; program: PublicProgram; winback: Winback | null; referrals: Array<{ status: string }>; nfc: boolean; logo: boolean; /** Rewards no longer live (owner read). */ archived?: number; /** Wallet messages offered: the birthday and reminder rows. */ messages?: boolean };
 
 const ask = (question: Question) => ({ href: `/merchant/program/${question}`, title: QUESTIONS[question] });
 const off = (value: string) => ({ value, off: true });
@@ -40,7 +40,7 @@ export function rewardChip(type: PublicProgram["programType"], reward: PublicPro
 }
 
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
-export function programSections({ me, program, winback, referrals, nfc, logo, archived = 0 }: ListData) {
+export function programSections({ me, program, winback, referrals, nfc, logo, archived = 0, messages = false }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
   const reviews = referrals.filter(item => item.status === "review").length;
   const tap = ALL_MODES.find(mode => mode.id !== "disabled" && mode.id === me.tapMode);
@@ -67,6 +67,11 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
     { title: "Extras", note: EXCLUDED_GOODS, rows: [
       { ...ask("welcome-bonus"), icon: BadgePlus, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) },
       { ...ask("winback"), icon: RefreshCw, ...(winback && { sub: `Nach ${winback.days} Tagen ohne Buchung`, ...(!winback.enabled ? off("Aus") : winback.bonus ? big(`+${winback.bonus}`) : off("Kein Bonus")) }) },
+      // Moved here from Nachricht (Design, 6 Nov); both live on the Wallet-message surface.
+      ...(messages ? [
+        { ...ask("birthday"), icon: Cake, sub: "In der Geburtstagswoche", ...(me.birthdayEnabled ? { value: "An" } : off("Aus")) },
+        { ...ask("almost"), icon: Bell, sub: "Wenn nur noch wenig fehlt", ...(winback?.almost ? { value: "An" } : off("Aus")) },
+      ] : []),
       { ...ask("challenge"), icon: CalendarCheck, sub: "Bonus für viele Buchungen in einem Monat", ...(me.challengeVisits ? big(`+${me.challengeBonus ?? 1}`) : off("Aus")) },
       { ...ask("levels"), icon: Medal, sub: "Bronze, Silber, Gold nach Buchungstagen", ...(me.levelsEnabled ? { value: "An" } : off("Aus")) },
       // Referrals waiting for the owner's review replace the bonus with their count.
@@ -130,7 +135,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
   }, [ready, toast]);
 
   const sections = program.state === "ok" && ready ? programSections({
-    me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"),
+    me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"), messages: !owner.hiddenSurfaces.includes("walletMessages"),
     referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
   return (

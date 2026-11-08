@@ -123,7 +123,7 @@ export function parseGermanMoney(raw: string): number | null {
 /** Programm rows that open a page of their own, /merchant/program/<question> (ENG-099), with the row's title. */
 export const QUESTIONS = {
   rule: "Regel auf der Karte", earning: "So entstehen Punkte", "points-expiry": "Punkte verfallen", nfc: "NFC-Tap",
-  "welcome-bonus": "Startbonus", winback: "Willkommen zurück", challenge: "Monats-Challenge", levels: "Kundenlevel", "happy-hour": "Happy Hour",
+  "welcome-bonus": "Startbonus", winback: "Willkommen zurück", birthday: "Geburtstags-Bonus", almost: "Erinnerung vor der Prämie", challenge: "Monats-Challenge", levels: "Kundenlevel", "happy-hour": "Happy Hour",
   news: "Neuigkeit", "review-link": "Google-Bewertung", "average-spend": "Durchschnittsbon",
 } as const;
 export type Question = keyof typeof QUESTIONS;

@@ -5,6 +5,8 @@
   --color-bg: #EEF0EF;
   --color-surface: #FFFFFF;
   --color-raised: #FFFFFF;
+  /* A switch's knob: light in both themes, so it never reads as a hole in the track. */
+  --color-knob: #FFFFFF;
   --color-ink: #17291F;
   --color-ink-muted: #58645C;
   --color-ink-faint: #76827A;
@@ -65,6 +67,8 @@
   --space-12: 48px;
   --gutter: 16px;
   --target: 44px;
+  /* A row in a panel (Design decision 1). */
+  --row-min: 56px;
   --target-cashier: 56px;
 
   --radius-sm: 8px;
@@ -100,6 +104,7 @@
   --color-bg: #0F1713;
   --color-surface: #16201B;
   --color-raised: #1D2923;
+  --color-knob: #F4F7F5;
   --color-ink: #E9EFEA;
   --color-ink-muted: #A6B3AA;
   --color-ink-faint: #7F8E85;
@@ -132,6 +137,7 @@
     --color-bg: #0F1713;
     --color-surface: #16201B;
     --color-raised: #1D2923;
+  --color-knob: #F4F7F5;
     --color-ink: #E9EFEA;
     --color-ink-muted: #A6B3AA;
     --color-ink-faint: #7F8E85;

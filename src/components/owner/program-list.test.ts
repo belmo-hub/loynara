@@ -140,3 +140,17 @@ describe("archived rewards (Design, ENG-100 U1)", () => {
     expect(rows.at(-1)).toMatchObject({ title: "Archivierte Prämien", value: "2", off: true, href: "/merchant/program/rewards/archived" });
   });
 });
+
+describe("Wallet-message settings on Programm (ENG-180)", () => {
+  it("lists Geburtstags-Bonus and Erinnerung vor der Prämie after Willkommen zurück, only where messages are offered", () => {
+    expect(Object.keys(rows({}))).not.toContain("Geburtstags-Bonus");
+    const winback = { enabled: false, days: 30, bonus: 1, bonusMax: 1, type: "stamp", almost: true } as const;
+    const extras = programSections({ ...base, messages: true, winback, me: { ...me, birthdayEnabled: false } }).find(section => section.title === "Extras")!.rows;
+    expect(extras.slice(1, 4).map(row => [row.title, row.sub, row.value, row.href])).toEqual([
+      ["Willkommen zurück", "Nach 30 Tagen ohne Buchung", "Aus", "/merchant/program/winback"],
+      ["Geburtstags-Bonus", "In der Geburtstagswoche", "Aus", "/merchant/program/birthday"],
+      ["Erinnerung vor der Prämie", "Wenn nur noch wenig fehlt", "An", "/merchant/program/almost"],
+    ]);
+    expect(isQuestion("birthday") && isQuestion("almost")).toBe(true);
+  });
+});

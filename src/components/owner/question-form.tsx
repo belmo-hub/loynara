@@ -12,6 +12,8 @@ import { markSaved } from "./program-list";
 /** The list a question belongs to: Programm by default; Geschäft's sender screens (ENG-164) go back there. */
 export type QuestionHome = { href: string; label: string; list?: string };
 export const PROGRAM_HOME: QuestionHome = { href: "/merchant/program", label: "Programm" };
+/** Happy Hour opened from the Aktionen row goes back there (Design decision 5): both rows open the same page. */
+export const ACTIONS_HOME: QuestionHome = { href: "/merchant/actions", label: "Aktionen", list: "owner-aktionen-return" };
 
 /** After a save: fresh account values, then back on the list with `row` outlined (Design rule 10), by default this page's,
  *  and the toast's words if the save was more than a save. */
@@ -139,8 +141,8 @@ export const SwitchRow = ({ label, sub, checked, disabled, onChange }: { label: 
   <label className="ow-qpanel ow-check ow-qswitch"><span className="ow-prog-text"><strong>{label}</strong>{sub && <small>{sub}</small>}</span><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /></label>;
 
 /** A labelled value on a panel: the label and its control share a line while they fit, the limit or the error under them. */
-export const Control = ({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error: string; children: ReactNode }) => (
-  <div className="ow-qpanel ow-qcontrol">
+export const Control = ({ id, label, hint, error, stack, children }: { id: string; label: string; hint?: string; error: string; /** Label over the control, which spans the panel (Design decision 12). */ stack?: boolean; children: ReactNode }) => (
+  <div className={`ow-qpanel ow-qcontrol${stack ? " ow-qstack" : ""}`}>
     <div><label htmlFor={id}>{label}</label>{children}</div>
     {error ? <FieldError id={`${id}-hint`}>{error}</FieldError> : hint && <p id={`${id}-hint`} className="ow-hint">{hint}</p>}
   </div>

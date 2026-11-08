@@ -1,14 +1,16 @@
 "use client";
 
-import { ChartColumn, ChevronLeft, Clock, Mail, Megaphone, Star, Workflow } from "lucide-react";
+import { ChartColumn, Check, ChevronLeft, Clock, Mail, Megaphone, Star, Workflow } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { CAP_WINDOW_DAYS, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
 import type { HiddenSurfaces } from "./nav";
 import { useOwner } from "./owner-context";
 import { GuardedLink } from "./owner-shell";
 import { PageHead } from "./owner-ui";
+import { readReturn, writeReturn } from "./program-list";
+import { ACTIONS_HOME } from "./question-form";
 import { useLoad } from "./use-load";
 import { Rows, RowSection, type ValueRow } from "./value-rows";
 import { germanDate } from "@/lib/german-date";
@@ -56,7 +58,7 @@ export function actionSections({ me, hidden, room }: { me: MeResponse; hidden: H
   const regulars: ValueRow[] = [
     ...(offered("walletMessages") ? [{ key: "message", icon: Megaphone, title: "Nachricht an deine Stammkunden", sub: room ? messageRoom(room) : undefined, href: "/merchant/wallet-messages" }] : []),
     // Double points need amounts, so only points programmes have it; its page stays the Programm question (ENG-099).
-    ...(me.programType === "points" ? [{ key: "happy-hour", icon: Clock, title: "Happy Hour", sub: "Doppelte Punkte zu ruhigen Zeiten", value: happyHourOn ? "An" : "Aus", off: !happyHourOn, href: "/merchant/program/happy-hour" }] : []),
+    ...(me.programType === "points" ? [{ key: "happy-hour", icon: Clock, title: "Happy Hour", sub: "Doppelte Punkte zu ruhigen Zeiten", value: happyHourOn ? "An" : "Aus", off: !happyHourOn, href: "/merchant/program/happy-hour?von=aktionen" }] : []),
     ...(offered("campaigns") ? [{ key: "campaigns", icon: Mail, title: "Kampagnen", href: "/merchant/campaigns" }] : []),
     ...(offered("automations") ? [{ key: "automations", icon: Workflow, title: "Automationen", href: "/merchant/automations" }] : []),
   ];
@@ -75,6 +77,9 @@ export function ActionsList() {
   const owner = me?.role === "owner";
   const messages = owner && me.programSlug && !hiddenSurfaces.includes("walletMessages");
   const [wallet] = useLoad<MessageRoom>(messages ? `/api/merchant/wallet-messages?programSlug=${encodeURIComponent(me.programSlug)}` : null);
+  // Back from Happy Hour after a save: the same toast as on Programm.
+  const [saved, setSaved] = useState(() => readReturn(ACTIONS_HOME.list)?.saved === true);
+  useEffect(() => { writeReturn(null, ACTIONS_HOME.list); if (!saved) return; const timer = window.setTimeout(() => setSaved(false), 4000); return () => window.clearTimeout(timer); }, [saved]);
   // The area is the owner's (nav.ts); a manager who opens the address lands on the Übersicht.
   useEffect(() => { if (me && !owner) router.replace("/merchant"); }, [me, owner, router]);
   if (!me || !owner) return null;
@@ -83,6 +88,7 @@ export function ActionsList() {
       <PageHead title="Aktionen" />
       {actionSections({ me, hidden: hiddenSurfaces, room: wallet.state === "ok" ? wallet.data : null }).map(section =>
         <RowSection key={section.title} title={section.title}><Rows rows={section.rows} /></RowSection>)}
+      <div className="ow-toast-region" role="status">{saved && <span className="ow-toast"><Check size={20} aria-hidden="true" />Gespeichert</span>}</div>
     </div>
   );
 }

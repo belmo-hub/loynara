@@ -22,3 +22,7 @@ export function germanDate(value: string | Date, form: GermanDateForm = "short",
   // The day stays with its month on a line break („24.\u00a0November“), as owner screens always wrote it.
   return new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }), timeZone: zone }).format(date).replace(". ", ".\u00a0");
 }
+
+/** A number keeps its unit on a line break (Design decision 29): „10\u00a0Punkte“, „15.\u00a0November“, „23\u00a0Uhr“. For text
+ *  shown to the owner only; what customers receive is sent as written. */
+export const keepUnits = (text: string) => text.replace(/(\d\.?) (?=\S)/g, "$1\u00a0");

@@ -30,7 +30,7 @@ export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => s
 export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
 export const joinConsentText = (shop: string, location: string) => CONSENT_TEXTS[JOIN_CONSENT_TEXT_VERSION](shop, location);
 
-export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
+export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr wird nichts gesendet. Ab 8 Uhr geht es wieder.";
 
 // A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in
 // plain German. Narrow on purpose (Legal, 1 Nov): a legally required exclusion, a crayfish salad or a double espresso shot
@@ -68,7 +68,7 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */
 export const needsActionHint = (text: string) => /punkte|stempel|doppelt/i.test(text);
-export const ACTION_HINT = "Versprich nur, was an der Kasse auch gilt: Schalte die Aktion für diese Zeit ein.";
+export const ACTION_HINT = "Versprich nur, was an der Kasse gilt.";
 
 /** „Montag, 27. Oktober, 10:14 Uhr“ in the shop's timezone. */
 export function germanWhen(date: Date, timeZone: string) {
