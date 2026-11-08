@@ -84,6 +84,9 @@ const GROUPS: Array<{ activity: Activity; icon: LucideIcon; count: (s: Retention
  * Kunden 01: the six groups with the read's counts (as on the Übersicht), R1's sub-lines with its days, the live rules
  * in the „?“ sheet. „Alle Karten“ counts the open cards, so it lists them; its screen can show the closed ones too.
  */
+/** An owner's search covers every location (fault 18); the segment narrows it to one. A manager's scope is the server's. */
+export const searchHref = (q: string, role: string) => q.trim() ? `/merchant/customers?${new URLSearchParams({ q: q.trim(), ...(role === "owner" ? { scope: "all" } : {}) })}` : "/merchant/customers";
+
 export function groupTiles(s: RetentionSummary, unit: string): Tile[] {
   return GROUPS.map(({ activity, icon, count, sub }) => ({
     key: activity, icon, label: groupName(activity), value: nf.format(count(s)), note: sub?.(s.inactiveDays), help: activityRule(activity, s.inactiveDays, unit),
@@ -127,7 +130,7 @@ function GroupsScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   const short = q.trim().length > 0 && q.trim().length < 3 && parseCardLocator(q) === null;
   function submit(event: FormEvent) {
     event.preventDefault();
-    router.push(q.trim() ? `/merchant/customers?${new URLSearchParams({ q: q.trim() })}` : "/merchant/customers");
+    router.push(searchHref(q, me.role));
   }
   return (
     <div className="ow-page">

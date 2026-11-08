@@ -58,9 +58,9 @@ test("a new points location takes optional extra rules, a stamp location still n
       await page.getByLabel("Programmname").fill("Synthetic rules card");
       await page.getByLabel("Erste Prämie").fill("Kaffee");
       const create = page.getByRole("button", { name: "Standort und Programm anlegen" });
-      await page.getByLabel("Teilnahmebedingungen").fill("Zu kurz.");
+      await page.getByLabel("Regel auf der Karte").fill("Zu kurz.");
       await create.click();
-      expect(await page.getByLabel("Teilnahmebedingungen").evaluate(field => (field as HTMLTextAreaElement).validity.tooShort)).toBe(true);
+      expect(await page.getByLabel("Regel auf der Karte").evaluate(field => (field as HTMLTextAreaElement).validity.tooShort)).toBe(true);
       expect(posts).toHaveLength(0);
       // Points earn by the purchase amount here: the card states that rule, so the field is for optional extra rules.
       await page.getByLabel("Programmtyp").selectOption("points");
@@ -101,7 +101,7 @@ test("owner creates and selects a second location without crossing card or staff
       await page.getByLabel("Standortname").fill("Synthetic Berlin Counter");
       await page.getByLabel("Stadt").fill("Berlin");
       await page.getByLabel("Programmname").fill("Synthetic Berlin card");
-      await page.getByLabel("Teilnahmebedingungen").fill("Ein Stempel pro bestätigtem synthetischem Kassenvorgang.");
+      await page.getByLabel("Regel auf der Karte").fill("Ein Stempel pro bestätigtem synthetischem Kassenvorgang.");
       await page.getByLabel("Erste Prämie").fill("Berlin coffee");
       await page.getByRole("button", { name: "Standort und Programm anlegen" }).click();
       await expect(page.getByRole("status").filter({ hasText: "Standort mit eigenem Programm" })).toBeVisible();

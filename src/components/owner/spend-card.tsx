@@ -41,9 +41,9 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
   );
 }
 
-/** Money when any booking of the period is priced, else „ohne Betrag“ (no average entered yet). */
+/** Money when any booking of the period is priced, else „ohne Betrag“ (no average entered yet); no booking at all is 0. */
 function amount(f: SpendFigures, money: (minor: number) => string) {
-  return f.averagePerVisitMinor === null ? C.unpriced : money(f.spentMinor);
+  return f.averagePerVisitMinor === null && f.visits > 0 ? C.unpriced : money(f.spentMinor);
 }
 const estimateMark = (f: SpendFigures) => f.estimatedMinor === 0 ? "" : f.realMinor === 0 ? C.estimated : C.partlyEstimated;
 const value = (f: SpendFigures, money: (minor: number) => string) => `${amount(f, money)}${estimateMark(f) ? ` (${estimateMark(f)})` : ""}`;

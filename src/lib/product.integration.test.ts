@@ -30,6 +30,13 @@ describe("merchant and customer journey", () => {
     expect(subscription).toMatchObject({ status: "manual_pending", currency: "EUR", priceMinor: 4900 });
   });
 
+  it("refuses a first reward that advertises tobacco, with the Wallet message line, and saves nothing", async () => {
+    const userId = await createUser();
+    await expect(createMerchant({ userId, businessName: "Synthetic Kiosk", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kioskkarte", programType: "stamp", rulesText: "Ein Stempel pro Einkauf.", rewardTitle: "E-Zigarette gratis", rewardCost: 8 }))
+      .rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
+  });
+
   it("stores the configured draft EUR price shown on the homepage", async () => {
     const previous = process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR;
     process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR = "5900";

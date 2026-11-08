@@ -40,7 +40,7 @@ test("guided setup walks four questions, validates inline and previews the card 
   await page.getByText("Manuell", { exact: true }).click();
   await page.getByLabel("Regeltext für Kunden").fill("Kurz");
   await weiter(page);
-  await expect(page.getByText("Der Regeltext braucht mindestens 10 Zeichen.")).toBeVisible();
+  await expect(page.getByText("Die Regel braucht mindestens 10 Zeichen.")).toBeVisible();
   await page.getByText("Stempelkarte", { exact: true }).click();
   await page.getByLabel("Regeltext für Kunden").fill("Ein Stempel pro Heißgetränk.");
   await weiter(page);
@@ -51,7 +51,7 @@ test("guided setup walks four questions, validates inline and previews the card 
   await expect(page.getByLabel("Einlösbar ab")).toHaveValue("8");
   await page.getByLabel("Einlösbar ab").fill("");
   await weiter(page);
-  await expect(page.getByText("Bitte eine ganze Zahl größer 0 eingeben.")).toBeVisible();
+  await expect(page.getByText("Gib eine ganze Zahl ab 1 ein.")).toBeVisible();
   await page.getByLabel("Einlösbar ab").fill("8");
   await weiter(page);
 

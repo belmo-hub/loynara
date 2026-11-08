@@ -3,15 +3,15 @@
 import { CreditCard, Euro, FileText, FlaskConical, MapPin } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { postJson } from "@/components/client-api";
-import { billingStatus, money, perMonth, type BillingOverview as Overview } from "@/components/owner/billing-copy";
+import { billingStatus, liveStatusSub, money, perMonth, type BillingOverview as Overview } from "@/components/owner/billing-copy";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { MORE_HREF } from "@/components/owner/nav";
 import { useOwner } from "@/components/owner/owner-context";
 import { Band, MoreLabel, NumberCard, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { ErrorNotice, LoadingBlock, Notice } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { germanDate as date } from "@/lib/german-date";
 
-const date = (value: string) => new Date(value).toLocaleDateString("de-DE");
 const count = (value: number) => value.toLocaleString("de-DE");
 
 /**
@@ -27,7 +27,7 @@ export default function MerchantBillingPage() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Abrechnung" lead="Preise und Nutzung pro Standort." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können Abrechnungsdaten sehen.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Abrechnungsdaten sehen.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
   if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const o = data.data;
@@ -119,7 +119,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
       <div className="ow-prog">
         <Rows title="Status">
-          <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.` : o.currentPeriodEnd ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined} />
+          <Row key="status" icon={Euro} title={billingStatus(o)} sub={liveStatusSub(o, date)} />
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
         <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>

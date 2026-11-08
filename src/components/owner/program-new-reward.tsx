@@ -6,7 +6,7 @@ import { ClientApiError, postJson, type PublicProgram } from "@/components/clien
 import { useDirtyGuard } from "./owner-context";
 import { GuardedLink } from "./owner-shell";
 import { CardLinePreview, nf, Notice, NumberStepper, OwnerIcon } from "./owner-ui";
-import { minimumSpendText, otherRewardsHint, parseWholeNumber, unitDative, unitName } from "./program-helpers";
+import { minimumSpendText, otherRewardsHint, parseWholeNumber, REWARD_NAME_MISSING, SHORT_NAME, unitDative, unitName, WHOLE_NUMBER } from "./program-helpers";
 
 const TITLE_MAX = 180, COST_MAX = 100_000; // the server's limits for a reward's name and threshold
 
@@ -28,7 +28,7 @@ export function NewReward({ slug, program, onSaved }: { slug: string; program: P
   const name = title.trim(), amount = parseWholeNumber(cost);
   const reach = name.length < 2 ? 1 : amount === null ? 2 : 3; // the furthest step the input allows
   // The server takes names from 2 characters on (rewards route).
-  const problem = step === 1 && !name ? "Bitte die Prämie benennen." : step === 1 && reach < 2 ? "Der Name braucht mindestens 2 Zeichen." : step === 2 && reach < 3 ? "Bitte eine ganze Zahl größer 0 eingeben." : "";
+  const problem = step === 1 && !name ? REWARD_NAME_MISSING : step === 1 && reach < 2 ? SHORT_NAME : step === 2 && reach < 3 ? WHOLE_NUMBER : "";
   const field = step === 1 ? "new-reward-name" : "new-reward-cost";
   const shown = tried && problem;
   const others = otherRewardsHint(type, program.rewards.map(reward => reward.cost));

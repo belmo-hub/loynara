@@ -47,6 +47,24 @@ async function pastReward(f: Fixture, history: Array<{ cost: number; createdDays
   return { rewardId: reward.id, ids };
 }
 
+describe("reward titles follow the Wallet content rules (Legal, 7 Nov)", () => {
+  it("refuses a tobacco title on create and on rename with the existing line, and leaves a stored title alone", async () => {
+    const { f, coffee, owner, versions } = await setup();
+    const refusal = { code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." };
+    await expect(createReward({ ...owner, title: "Zigaretten gratis", cost: 5 })).rejects.toMatchObject(refusal);
+    await expect(editReward({ ...owner, rewardId: coffee.rewardId, title: "E-Liquid nach Wahl", worse: false })).rejects.toMatchObject(refusal);
+    await expect(editReward({ ...owner, rewardId: coffee.rewardId, title: "Tabak 10 % günstiger", worse: true })).rejects.toMatchObject(refusal);
+    expect(await versions(coffee.rewardId)).toBe(1);
+    expect((await getMerchantRewards(owner)).map(row => row.title)).toEqual(["Coffee", "Cake"]);
+    // An exclusion names tobacco without advertising it, as in Wallet messages.
+    await expect(createReward({ ...owner, title: "Kaffee, außer Tabak", cost: 5 })).resolves.toMatchObject({ rewardId: expect.any(String) });
+    // A title stored before the rule keeps working: a price change does not re-check it.
+    const [stored] = await db.insert(rewards).values({ tenantId: f.tenant.id, programId: f.program.id, sortOrder: 9 }).returning();
+    await db.insert(rewardVersions).values({ tenantId: f.tenant.id, rewardId: stored.id, version: 1, title: "Zigaretten", cost: 4 });
+    await expect(editReward({ ...owner, rewardId: stored.id, cost: 3 })).resolves.toMatchObject({ rewardId: stored.id });
+  });
+});
+
 describe("dated reward changes (ENG-100 S1a)", () => {
   it("keeps the old cost redeemable and shown while a raise waits for its date", async () => {
     const { f, coffee, owner, redeemVersion, merchantRow } = await setup();

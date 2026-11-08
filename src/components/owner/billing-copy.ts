@@ -17,3 +17,8 @@ export const money = (minor: number, currency: string) => new Intl.NumberFormat(
 export const perMonth = (locations: number, totalMinor: number, currency: string) => `${locations} ${locations === 1 ? "Standort" : "Standorte"} · ${money(totalMinor, currency)} im Monat`;
 
 export const billingStatus =(o: Pick<BillingOverview, "liveBilling" | "status">) => (o.liveBilling ? LIVE_STATUS : STATUS)[o.status] ?? o.status;
+
+/** The live status row's sub: the end once cancelled, a next charge only while the subscription runs and charges (fault 1). */
+export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd">, date: (value: string) => string) =>
+  o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.`
+    : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined;

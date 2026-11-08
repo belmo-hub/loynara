@@ -10,7 +10,9 @@ export async function POST(request: Request) {
     const user = await sessionUser(request);
     const body = await jsonBody(request, 3000) as Record<string, unknown>;
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context || context.locationId !== body.locationId) throw new DomainError("NOT_FOUND", "Bitte wähle zuerst einen Standort.");
+    // Any of the owner's locations, not only the active one (ENG-179, fault 18): createStaffInvite checks the owner role
+    // and that the location belongs to the owner's tenant.
+    if (!context) throw new DomainError("NOT_FOUND", "Bitte wähle zuerst einen Standort.");
     const result = await createStaffInvite({ ...body, actorUserId: user.id } as Parameters<typeof createStaffInvite>[0]);
     return Response.json(result, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }

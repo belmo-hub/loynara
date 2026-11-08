@@ -7,6 +7,7 @@ import { useOwner } from "@/components/owner/owner-context";
 import { Band, Confirm, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { ErrorNotice, LoadingBlock, nf, Notice, NumberStepper } from "@/components/owner/owner-ui";
 import { Control, QuestionForm, rangeError, SwitchRow, useReview, wholeIn } from "@/components/owner/question-form";
+import { reviewNotice } from "@/components/owner/referral-summary";
 import { useLoad } from "@/components/owner/use-load";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -41,7 +42,7 @@ export default function MerchantReferralsPage() {
   const [list, reloadList] = useLoad<{ referrals: Referral[] }>(owner && slug ? `/api/merchant/referrals?programSlug=${slug}` : null);
   if (!me) return null;
   const head = <PageTitle back={BACK} title="Empfehlungen" lead="Geteilt ist noch nicht gewonnen: Ein Bonus fließt erst, wenn die neue Karte zum ersten Mal an deiner Kasse bestätigt wird." />;
-  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Empfehlungen können nur von Inhaber:innen verwaltet werden.</Notice></div>;
+  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Empfehlungen verwalten.</Notice></div>;
   if (rule.state === "error") return <div className="ow-page">{head}<ErrorNotice message={rule.message} onRetry={reloadRule} /></div>;
   if (rule.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={2} height={64} /></div>;
   return <Loaded slug={me.programSlug} head={head} settings={rule.data} list={list} reloadList={reloadList} />;
@@ -55,13 +56,14 @@ function Loaded({ slug, head, settings, list, reloadList }: { slug: string; head
   const [saved, setSaved] = useState(settings);
   const [switching, setSwitching] = useState(false);
   const [notice, setNotice] = useState("");
+  const [noticeTone, setNoticeTone] = useState<"ok" | "warn">("ok");
   const [error, setError] = useState("");
   const step = useReview<string>();
   const unit = saved.programType === "points" ? { one: "Punkt", many: "Punkte" } : { one: "Stempel", many: "Stempel" };
 
   async function post(next: Settings) {
     const result = await postJson<Settings>("/api/merchant/referrals/settings", { programSlug: slug, enabled: next.enabled, referrerBonus: next.referrerBonus, referredBonus: next.referredBonus });
-    setSaved(result); setNotice(SAVED);
+    setSaved(result); setNotice(SAVED); setNoticeTone("ok");
   }
   async function toggle(enabled: boolean) {
     setNotice(""); setError("");
@@ -80,14 +82,14 @@ function Loaded({ slug, head, settings, list, reloadList }: { slug: string; head
     return <BonusQuestion which={which} saved={saved} unit={unit} onBack={step.back} save={async value => { await post({ ...saved, [which]: value }); step.leave(which); }} />;
   }
   const reviewing = referrals.find(item => `review:${item.id}` === step.step);
-  if (reviewing) return <ReviewStep referral={reviewing} onBack={step.back} onDone={message => { reloadList(); setNotice(message); step.leave(`review:${reviewing.id}`); }} />;
+  if (reviewing) return <ReviewStep referral={reviewing} onBack={step.back} onDone={(message, tone) => { reloadList(); setNotice(message); setNoticeTone(tone); step.leave(`review:${reviewing.id}`); }} />;
 
   // Off and nothing happened yet: an empty history only pushes the switch down the page.
   const untouched = !saved.enabled && list.state === "ok" && referrals.length === 0;
   return (
     <div className="ow-page">
       {head}
-      {notice && <div role="status"><Notice tone="ok">{notice}</Notice></div>}
+      {notice && <div role="status"><Notice tone={noticeTone}>{notice}</Notice></div>}
       {error && <ErrorNotice message={error} />}
       <div className="ow-prog">
         {reviews.length > 0 && <Band icon={Users} title={`${nf.format(reviews.length)} ${reviews.length === 1 ? "Empfehlung braucht" : "Empfehlungen brauchen"} deine Prüfung`} sub="Ohne deine Entscheidung wird nichts gutgeschrieben." onClick={() => open(`review:${reviews[0].id}`)} />}
@@ -136,7 +138,7 @@ function BonusQuestion({ which, saved, unit, onBack, save }: { which: Bonus; sav
 }
 
 /** A referral held for the owner's decision, as a step: the reason, then reject with a note or retry the bonus correction. */
-function ReviewStep({ referral, onBack, onDone }: { referral: Referral; onBack: () => void; onDone: (message: string) => void }) {
+function ReviewStep({ referral, onBack, onDone }: { referral: Referral; onBack: () => void; onDone: (message: string, tone: "ok" | "warn") => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -145,7 +147,8 @@ function ReviewStep({ referral, onBack, onDone }: { referral: Referral; onBack: 
     setBusy(true); setError("");
     try {
       const outcome = await postJson<{ status: string }>(`/api/merchant/referrals/${encodeURIComponent(referral.id)}/review`, action === "reject" ? { action, reason: note.trim() } : { action });
-      onDone(outcome.status === "review" ? "Die Bonus-Korrektur ist noch nicht möglich. Der Vorgang bleibt zur Prüfung offen." : "Prüfentscheidung gespeichert.");
+      const shown = reviewNotice(outcome.status);
+      onDone(shown.text, shown.tone);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Prüfung konnte nicht gespeichert werden."); setBusy(false); }
   }
   return (

@@ -135,7 +135,7 @@ describe("owner-only merchant analytics", () => {
     await expect(getMerchantAnalytics(formerCashier, { windowDays: 30, asOf })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  it.each([30, 90] as const)("reports persisted transaction locations and exact UTC boundaries for %i days", async windowDays => {
+  it.each([30, 90] as const)("reports persisted transaction locations and exact Berlin-day boundaries for %i days", async windowDays => {
     const owner = await user();
     const reassignedCashier = await user();
     const foreignOwner = await user();
@@ -148,7 +148,8 @@ describe("owner-only merchant analytics", () => {
     const foreignCard = await enroll({ slug: b.programSlug, acceptedTerms: true });
     await db.insert(staffRoles).values({ tenantId: a.tenantId, userId: reassignedCashier, role: "cashier", locationId: second.locationId, active: false });
     const asOf = new Date("2030-01-31T00:00:00.000Z");
-    const from = new Date(asOf.getTime() - windowDays * 86_400_000);
+    // Today (31 January, Berlin) and the days before it, from Berlin midnight: 23:00 UTC the evening before, in winter.
+    const from = new Date(Date.UTC(2030, 0, 31) - (windowDays - 1) * 86_400_000 - 3_600_000);
     const base = { tenantId: a.tenantId, locationId: a.locationId, membershipId: stampCard.id, actorUserId: owner, createdAt: from };
     const insert = (extra: Partial<typeof ledgerEntries.$inferInsert> = {}) => db.insert(ledgerEntries).values({ ...base, requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1, ...extra }).returning();
     const shared = randomUUID();
@@ -178,6 +179,30 @@ describe("owner-only merchant analytics", () => {
     expect(report.staffActivity.find(row => row.userId === reassignedCashier)).toMatchObject({ awardActions: 1, stampUnits: 3, pointUnits: 0 });
     expect(report.qualifyingCheckouts).toBe(4);
     expect((await getMerchantAnalytics(foreignOwner, { windowDays, asOf })).locationActivity.map(row => row.locationId)).toEqual([b.locationId]);
+  });
+
+  it("dates „30 Tage“ as today and the 29 days before, and draws the same Monday weeks on 30 and 90 Tage", async () => {
+    const owner = await user();
+    const shop = await merchant(owner, "Synthetic Week Report");
+    const asOf = new Date("2026-11-06T15:00:00Z"); // a Friday
+    // Sunday 18 Oct 23:30 UTC is Monday 19 Oct 00:30 in Berlin: it belongs to the week of the 19th, not the UTC day's week.
+    const card = await enroll({ slug: shop.programSlug, acceptedTerms: true });
+    await db.insert(ledgerEntries).values({ tenantId: shop.tenantId, locationId: shop.locationId, membershipId: card.id, actorUserId: owner, createdAt: new Date("2026-10-18T22:30:00Z"),
+      requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1 });
+    const short = await getMerchantAnalytics(owner, { windowDays: 30, asOf });
+    const long = await getMerchantAnalytics(owner, { windowDays: 90, asOf });
+    expect(short.from).toBe("2026-10-07T22:00:00.000Z"); // 8 October, 00:00 in Berlin (summer time)
+    expect(long.from).toBe("2026-08-08T22:00:00.000Z");
+    const full = (report: typeof short) => report.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= 7 * 86_400_000 - 3_600_000).map(week => week.from);
+    // Monday 00:00 in Berlin; the week of 19 October is an hour longer (the clock went back on the 25th).
+    expect(full(short)).toEqual(["2026-10-11T22:00:00.000Z", "2026-10-18T22:00:00.000Z", "2026-10-25T23:00:00.000Z"]);
+    expect(full(long).slice(-3)).toEqual(full(short));
+    const checkouts = (report: typeof short) => Object.fromEntries(report.series.map(week => [week.from, week.checkouts]));
+    expect(checkouts(short)).toMatchObject({ "2026-10-11T22:00:00.000Z": 0, "2026-10-18T22:00:00.000Z": 1 });
+    expect(checkouts(long)).toMatchObject({ "2026-10-11T22:00:00.000Z": 0, "2026-10-18T22:00:00.000Z": 1 });
+    expect(long.series).toHaveLength(14); // the cut week of 3 August through this week, none missing
+    expect(short.series.at(-1)).toMatchObject({ from: "2026-11-01T23:00:00.000Z", to: asOf.toISOString() }); // this week so far
+    expect(short.series[0]).toMatchObject({ from: short.from, to: "2026-10-11T22:00:00.000Z" });
   });
 
   it("keeps points separate from stamps for recorded purchase awards", async () => {
@@ -310,12 +335,13 @@ it("rolls back a failed reporting read and releases a clean reusable client", as
   expect((await getMerchantAnalytics(owner, { windowDays: 30 })).issued.awardActions).toBe(0);
 });
 
-it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact %i-day UTC boundaries", async windowDays => {
+it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact %i-day Berlin-day boundaries", async windowDays => {
   const owner = await user(); const foreignOwner = await user();
   const shop = await merchant(owner, "Synthetic Referral Boundary");
   const foreign = await merchant(foreignOwner, "Synthetic Foreign Referral Boundary");
   const asOf = new Date("2030-01-31T00:00:00.000Z");
-  const from = new Date(asOf.getTime() - windowDays * 86_400_000);
+  // Berlin midnight of today − (windowDays − 1): 23:00 UTC the evening before, in winter.
+  const from = new Date(Date.UTC(2030, 0, 31) - (windowDays - 1) * 86_400_000 - 3_600_000);
   const before = new Date(from.getTime() - 1); const last = new Date(asOf.getTime() - 1);
   const seed = async (actor: string, target: typeof shop, createdAt: Date, qualifiedAt: Date, reversedAt: Date) => {
     await configureReferrals({ actorUserId: actor, programSlug: target.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
@@ -339,7 +365,7 @@ it.each([30, 90] as const)("counts referral lifecycle event timestamps at exact 
   await seed(owner, shop, before, from, asOf);
   await seed(foreignOwner, foreign, from, from, from);
   const report = await getMerchantAnalytics(owner, { windowDays, asOf });
-  expect(report.timezone).toBe("UTC");
+  expect(report.timezone).toBe("Europe/Berlin");
   expect(report.referrals).toEqual({ attributed: 2, qualified: 3, reversed: 2 });
   expect((await getMerchantAnalytics(foreignOwner, { windowDays, asOf })).referrals).toEqual({ attributed: 1, qualified: 1, reversed: 1 });
 });

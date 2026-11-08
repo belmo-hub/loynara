@@ -60,7 +60,7 @@ export function WinbackQuestion({ me, program, initial, reminders }: { me: MeRes
             {CARD.winback(initial.type === "points", last.bonus, exampleDay)} <u>{CARD.conditions}</u>
           </CardLinePreview>}</div>}
         {/* When the reminder goes out (WINBACK_SEND_WINDOW, once per card). */}
-        {reminders && <p className="ow-hint">Geht höchstens einmal raus, wenn eine Karte {last.days} Tage lang keine Buchung hatte, Mo–Sa zwischen 10 und 18 Uhr. Nur an Kunden mit Apple Wallet, die Nachrichten erlaubt haben.</p>}
+        {reminders && <p className="ow-hint">Höchstens einmal je Pause von {last.days} Tagen ohne Buchung, Mo–Sa 10–18 Uhr. Nur an Kunden mit Apple Wallet, die Nachrichten erlaubt haben.</p>}
         {/* The reminder is not the card, so with reminders the rules keep their own line. */}
         {reminders && rules && <p className="ow-hint">Steht auf der Karte: {rules}</p>}
       </>}
@@ -83,7 +83,7 @@ export function AlmostCard({ slug, initial }: { slug: string; initial: Winback }
     <section className="ow-card ow-stack" aria-labelledby="almost-title">
       <h2 id="almost-title">Fast geschafft</h2>
       <label className="ow-check"><input type="checkbox" role="switch" checked={enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} /> Eingeschaltet</label>
-      <p className="ow-hint">Fehlt einer Karte nach einem Besuch nur noch {initial.type === "stamp" ? "1 Stempel" : "wenige Punkte (bis 10)"} bis zur nächsten Prämie, bekommt sie einmal eine Erinnerung, sofern Nachrichten erlaubt sind. Nicht zwischen 21 und 8 Uhr.</p>
+      <p className="ow-hint">{initial.type === "stamp" ? "Fehlt" : "Fehlen"} einer Karte nach einem Besuch nur noch {initial.type === "stamp" ? "1 Stempel" : "wenige Punkte (bis 10)"} bis zur nächsten Prämie, bekommt sie einmal eine Erinnerung, sofern Nachrichten erlaubt sind. Nicht zwischen 21 und 8 Uhr.</p>
       <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{almostText(initial.type, 10, "[Prämie]")}</p></div>
       {error && <p role="alert" className="ow-error">{error}</p>}
     </section>

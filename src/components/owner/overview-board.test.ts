@@ -138,6 +138,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain('<p class="ow-board-news">Seit über 90 Tagen keine Buchung.</p>');
     expect(html).toContain("<b>Seit über 90 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
     expect(html).not.toContain("keine Buchung</p>"); // no diary gap without a known last booking
+    expect(html).not.toContain("Die letzten Tage am Tresen"); // and no diary heading over nothing
     expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-05", today: "2026-11-04" })).toBe("over90"); // 91 days
     expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-06", today: "2026-11-04" })).toBeNull(); // 90 days: every booking would be in the read
     expect(quietOf({ lastBookingOn: null, programStartedOn: null, today: "2026-11-04" })).toBeNull();
@@ -257,7 +258,10 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     const points = (revenue: BroughtCustomers["revenue"], patch: Partial<BroughtCustomers> = {}) => block(showing([row("loc-1", { ...stamps, revenue, ...patch }, { visits: 9, realMinor: 31_200, spentMinor: 35_000, estimatedMinor: 3_800 })]));
     const some = points({ amountMinor: 4_150, pricedBookings: 2 });
     expect(some).toContain(`<dt>Umsatz dieser Buchungen</dt><dd>41,50${NBSP}€</dd><dd>2 von 3 Buchungen mit Kassenbetrag</dd>`);
-    expect(some).toContain(`Alle Kunden mit Karte: <span>312,00${NBSP}€</span>.`); // till amounts only, without the board's estimate
+    // The board shows 350 € partly estimated; a second euro total (312 € till amounts) would contradict it (fault 17).
+    expect(some).toContain("Alle Kunden mit Karte: <span>9 Buchungen</span>.");
+    const exact = block(showing([row("loc-1", { ...stamps, revenue: { amountMinor: 4_150, pricedBookings: 2 } }, { visits: 9, realMinor: 31_200, spentMinor: 31_200 })]));
+    expect(exact).toContain(`Alle Kunden mit Karte: <span>312,00${NBSP}€</span>.`); // exact till amounts: the board's own figure
     expect(points({ amountMinor: 4_150, pricedBookings: 3 })).toContain("<dd>aus 3 Buchungen mit Kassenbetrag</dd>");
     expect(points({ amountMinor: 0, pricedBookings: 0 })).toContain("<dd>–</dd><dd>0 von 3 Buchungen mit Kassenbetrag</dd>");
     const one = points({ amountMinor: 900, pricedBookings: 1 }, { customers: 1, winback: 0, referral: 1, bookings: 1 });
@@ -381,7 +385,7 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).toMatch(/<a class="ow-band" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">[^]*<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><span class="ow-band-go">Anmeldelink öffnen<svg/);
     expect(html.indexOf('class="ow-band"')).toBeLessThan(html.indexOf("Pflichtschritte erledigt")); // the card holds the count and the strip
     expect(html).toContain("Hier siehst du bald jeden Tag am Tresen.");
-    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit dem Anmeldelink oder dem Tresenschild.", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
+    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit Anmeldelink oder Tresenschild", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
     expect(html).not.toContain("NFC am Tresen");
     expect(html).not.toContain("Kundenkarte gestaltet");
     expect(html).not.toContain("Wenn du magst");

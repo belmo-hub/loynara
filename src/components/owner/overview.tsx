@@ -16,7 +16,7 @@ import { downloadCounterSign, joinUrlOf } from "./join-card";
 import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { nf } from "./owner-ui";
+import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 /*
@@ -105,20 +105,22 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
   const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
   const quiet = a ? quietOf(a) : null;
+  const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
-  // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact.
+  // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact. Euros only while
+  // the board's are exact: with part estimated, the board's total and the till amounts would be two totals (fault 17).
   const owned = isOwner && !failed && spend.state === "ok" ? spend.data : null;
   const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
   const brought = !owned || !here || !a ? null
-    : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
+    : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
       : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
-  const signFailed = signError && <p className="ow-error" role="alert">{signError}</p>;
+  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{signError}</p>;
 
   return (
     <div className="ow-page ow-dash">
@@ -149,7 +151,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
           : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
-      {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
+      {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
+      {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
         {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
       </Diary>}
     </div>
@@ -270,7 +273,7 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   // The step's evidence is its action sentence (#129); its title stays on the steps list.
   const setup = readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly));
   if (setup) return { kind: `setup:${setup.id}`, title: setup.evidence, action: setup.action ?? undefined };
-  const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
+  const insight = buildInsights({ summary: retention.data, isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
@@ -296,7 +299,7 @@ function ErrorCard({ reload }: { reload: () => void }) {
 /** The rail's steps and their sentences (copy E7). Karte gestalten and Team stay where they are today (Programm, Team). */
 const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: string }> = {
   programme: () => ({ title: "Programm und Prämie" }),
-  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit dem Anmeldelink oder dem Tresenschild." }),
+  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit Anmeldelink oder Tresenschild" }),
   first_award: me => ({ title: "Erste Buchung an der Kasse", text: me.programType === "points" ? "Ein paar Punkte auf deine eigene Karte." : "Ein Stempel auf deine eigene Karte." }),
   first_redemption: () => ({ title: "Einlösung einmal durchspielen", text: "Zeigt deinem Team die Bestätigung." }),
 };

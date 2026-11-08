@@ -11,7 +11,7 @@ import { useDirtyGuard, useOwner } from "./owner-context";
 import { CardLinePreview, Notice, NumberStepper } from "./owner-ui";
 import { quoteStart } from "./program-list";
 import { Choices, Control, FieldError } from "./question-form";
-import { confirmSentence, draftRules, euro, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, RULE_PLACEHOLDER, ruleKind, SETUP_EXTRA_RULES_HINT, SHORT_RULE, unitDative, unitName, type EarningMode, type ProgramKind } from "./program-helpers";
+import { confirmSentence, draftRules, euro, EXTRA_RULES_LABEL, MAX_POINTS_PER_CURRENCY_UNIT, minimumSpendMinor, MIN_SPEND_LABEL, noMinSpendNote, parseWholeNumber, purchaseExample, REWARD_NAME_MISSING, RULE_PLACEHOLDER, ruleKind, SETUP_EXTRA_RULES_HINT, SHORT_NAME, SHORT_RULE, unitDative, unitName, WHOLE_NUMBER, type EarningMode, type ProgramKind } from "./program-helpers";
 
 type Preset = { id: string; label: string; type: ProgramKind; reward: string; cost: number };
 // Editable starting points only. They are examples, not approved or recommended commercial programmes.
@@ -67,8 +67,8 @@ export function ProgramSetup() {
 
   const problems: Array<Record<string, string>> = [
     { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
-    { rate: rateValid ? "" : `Bitte eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} eingeben.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
-    { rewardName: f.rewardName.trim().length < 2 ? "Bitte die Prämie benennen." : "", cost: cost === null ? "Bitte eine ganze Zahl größer 0 eingeben." : "" },
+    { rate: rateValid ? "" : `Gib eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} ein.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
+    { rewardName: !f.rewardName.trim() ? REWARD_NAME_MISSING : f.rewardName.trim().length < 2 ? SHORT_NAME : "", cost: cost === null ? WHOLE_NUMBER : "" },
     { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", logo: f.logoError, ...reviewValidation.problems },
   ];
   const stepProblems = Object.entries(problems[step]).filter(([, message]) => message);
@@ -195,7 +195,7 @@ export function ProgramSetup() {
           <Field panel id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? SETUP_EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
             <textarea id="su-rules" className="ow-textarea" rows={4} value={rulesText} maxLength={3000} placeholder={RULE_PLACEHOLDER[kind]} onChange={event => set({ rules: event.target.value, rulesEdited: true })} {...invalid("rules")} />
           </Field>
-          <p className="ow-hint"><strong>Wer bestätigt?</strong> {confirmSentence(f.type, effectiveMode)}</p>
+          <p className="ow-hint"><strong>Wer bestätigt?</strong> {confirmSentence(f.type, effectiveMode, !owner.hiddenSurfaces.includes("nfc"))}</p>
           <p className="ow-hint">Die Kartenart kannst du nach der Einrichtung nicht mehr ändern.</p>
         </>}
         {step === 2 && <>

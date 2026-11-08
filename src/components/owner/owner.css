@@ -273,7 +273,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
-.ow-savestate-label { flex: 1 1 12rem; min-width: 0; }
+.ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
+.ow-savestate-label { flex: 1 1 min(12rem, calc(100% - 8px - var(--space-2))); min-width: 0; } /* never on a line without its dot */
 .ow-savestate-detail { font-weight: var(--weight-body); }
 .ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */
 .ow-savestate[data-state="dirty"] { color: var(--color-warning); }
@@ -451,13 +452,14 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog { max-width: 40rem; }
 /* One section head (SF-4): 14/800 muted on the grey, on the rows' left edge, 8 above its rows and 20 below the block
    above. Every label over a group wears it; its margins come from where it stands. */
-.owner-app .ow-section-head, .ow-prog h2, .owner-app .ow-tiles-title, .ow-diary h2, .ow-group > legend, .ow-qlegend, .ow-q .ow-qsub, .ow-q .ow-qlabel, .ow-cardline-label {
+.owner-app .ow-section-head, .ow-prog h2:where(:not(dialog *)), .owner-app .ow-tiles-title, .ow-diary h2, .ow-group > legend, .ow-qlegend, .ow-q .ow-qsub, .ow-q .ow-qlabel, .ow-cardline-label {
   padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.3; letter-spacing: 0; color: var(--color-ink-muted);
 }
 .owner-app .ow-section-head { margin: 0 0 var(--space-2); } /* the page's 24 gap is the space above */
 .owner-app .ow-stack > .ow-section-head { margin-bottom: 0; } /* the stack's gap is the 8 */
-.ow-prog h2 { margin: var(--space-5) 0 0; }
-.ow-prog > div:first-child h2 { margin-top: 0; }
+/* Not a Sheet's own title, which keeps the Sheet's style. */
+.ow-prog h2:where(:not(dialog *)) { margin: var(--space-5) 0 0; }
+.ow-prog > div:first-child h2:where(:not(dialog *)) { margin-top: 0; }
 .ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
 /* 12/16 with gap 12 (SF-7). Long titles („Google-Bewertung“, „Durchschnittsbon“) stay whole at 360 because the value
    wraps under the text instead of splitting a word (.ow-prog-text min-width, Design FIX 1). */
@@ -478,6 +480,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
 .ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .ow-prog-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
@@ -911,7 +914,10 @@ button.ow-prog-row:disabled { cursor: progress; }
 /* A confirmation's two answers at the thumb (Programm 28/30): the destructive one filled, „Abbrechen“ under it. */
 .ow-qsave--pair { display: grid; gap: var(--space-2); }
 .ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-danger); }
-@media (max-width: 1023px) { .ow-content:has(.ow-qsave--pair) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); } }
+@media (max-width: 1023px) {
+  .ow-content:has(.ow-qsave--pair) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); }
+  .ow-content:has(.ow-qsave--pair) .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 136px + var(--space-3)); } /* two pinned buttons */
+}
 /* Team, Abrechnung, Empfehlungen: the band's arrow, a back step inside a page, the price card's note, a price per month. */
 .ow-band-arrow { flex: none; }
 button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }

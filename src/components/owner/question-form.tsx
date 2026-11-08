@@ -110,7 +110,8 @@ export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, bu
 export const FieldError = ({ id, children }: { id: string; children: string }) =>
   children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{children}</p> : null;
 
-export type Choice = { value: string; label: string; sub?: string; icon: LucideIcon };
+/** `icon` is left out where every row would repeat the same one (decision 2). */
+export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon };
 /**
  * One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is
  * saved (W25); without a `saved` answer (Kunden 05) it says neither, and the question shows as the group's label.
@@ -124,7 +125,7 @@ export function Choices({ name, label, lead, options, value, saved, onChange }: 
         const sub = option.sub ?? (option.value !== value || saved === undefined ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
         return <label key={option.value} className="ow-qchoice">
           <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} />
-          <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
+          {Icon && <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>}
           <span className="ow-prog-text"><strong>{option.label}</strong>{sub && <small>{sub}</small>}</span>
           {option.value === value && <Check className="ow-qchoice-check" size={22} aria-hidden="true" />}
         </label>;

@@ -15,9 +15,9 @@ export function ProgramView({ me }: { me: MeResponse }) {
   return (
     <div className="ow-page">
       {head}
-      <Notice>Nur Inhaber:innen können Regeln und Prämien ändern.</Notice>
-      <section className="ow-card ow-stack"><h2>So sammeln Kunden</h2><p>{earningSentence(data.programType, data.earningMode ?? "manual", data.pointsPerCurrencyUnit ?? 1, data.currency)}</p><p className="ow-muted">{confirmSentence(data.programType, data.earningMode ?? "manual")}</p></section>
-      <section className="ow-card ow-stack"><h2>Aktive Prämien</h2><ul className="ow-feed">{data.rewards.map(reward => <li key={reward.id}><strong>{reward.title}</strong><span className="ow-num">{reward.cost} {unitName(data.programType)}</span></li>)}</ul></section>
+      <Notice>Nur die Inhaberin oder der Inhaber kann Regeln und Prämien ändern.</Notice>
+      <section className="ow-card ow-stack"><h2>So sammeln Kunden</h2><p>{earningSentence(data.programType, data.earningMode ?? "manual", data.pointsPerCurrencyUnit ?? 1, data.currency)}</p><p className="ow-muted">{confirmSentence(data.programType, data.earningMode ?? "manual", !(me.hiddenSurfaces ?? []).includes("nfc"))}</p></section>
+      <section className="ow-card ow-stack"><h2>Aktive Prämien</h2><ul className="ow-feed">{data.rewards.map(reward => <li key={reward.id}><strong>{reward.title}</strong><span className="ow-num">{reward.cost} {unitName(data.programType, reward.cost)}</span></li>)}</ul></section>
     </div>
   );
 }

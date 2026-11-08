@@ -80,11 +80,7 @@ export function Notice({ tone = "info", children, actions, role }: { tone?: "inf
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }
 
 export const nf = new Intl.NumberFormat("de-DE");
-export function germanDate(value: string, withTime = false) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("de-DE", withTime ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
-}
+export { germanDate } from "@/lib/german-date";
 
 /** Secondary detail behind one tap, so the page leads with its action. Text inside stays word for word. */
 export function MoreInfo({ summary = "Mehr dazu", children }: { summary?: string; children: ReactNode }) {

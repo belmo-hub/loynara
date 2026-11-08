@@ -18,7 +18,7 @@ import { useLoad } from "./use-load";
 type Entry = MerchantMemberDetail["timeline"][number];
 const NBSP = " ";
 
-const when = (value: string | null) => value ? germanDate(value, true) : "Noch kein bestätigter Vorgang";
+const when = (value: string | null) => value ? germanDate(value, "feed") : "Noch kein bestätigter Vorgang";
 function eligibilityLabel(value: MerchantMember["eligibility"]) {
   return ({ eligible: "Prämie einlösbar", not_yet: "Noch nicht einlösbar", not_configured: "Keine aktive Prämie", closed: "Karte geschlossen", not_checked: "Noch nicht geprüft", unavailable: "Nicht verfügbar" } as const)[value];
 }
@@ -130,10 +130,10 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
               return <div className="ow-day" key={entry.id}>
                 <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
                 <div>
-                  <h3><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, true)}</time></h3>
+                  <h3><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, "feed")}</time></h3>
                   <p className="ow-day-sum"><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : entry.kind === "expiry" ? "Verfallen" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong>
                     {` · ${entry.delta > 0 ? "+" : ""}${entry.delta} ${unitWord(entry.delta, kind)}`}{entry.kind !== "reversal" && ` · ${sourceLabel(entry.source)}`}{entry.reversed && " · später korrigiert"}
-                    {entry.kind === "reversal" && entry.reversalOfId && (original ? ` · hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, true)} auf` : " · hebt einen älteren Vorgang auf")}</p>
+                    {entry.kind === "reversal" && entry.reversalOfId && (original ? ` · hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, "feed")} auf` : " · hebt einen älteren Vorgang auf")}</p>
                   {entry.reason && <p className="ow-day-sum">Grund: {entry.reason}</p>}
                   {canAct && correctable(entry) && <button type="button" className="ow-qlink" onClick={() => openStep(`correct:${entry.id}`)}>Korrigieren</button>}
                 </div>

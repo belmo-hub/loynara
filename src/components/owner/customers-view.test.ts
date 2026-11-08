@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 import { progressLine } from "./card-screen";
-import { groupTiles } from "./customers-view";
+import { groupTiles, searchHref } from "./customers-view";
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
   nearReward: 3, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 3, nearRewardId: null, programCount: 1, rules: RETENTION_RULES, ...patch });
@@ -44,5 +44,13 @@ describe("Kunden 03: the card's „Aktueller Stand“ (ENG-122a)", () => {
     expect(grid(2)).toMatch(/data-reward="true"[^>]*><svg[^>]*lucide-gift/);
     expect(grid(4)).not.toContain("data-reward");
     expect(renderToStaticMarkup(createElement(StampGrid, { earned: 2, total: 4 }))).not.toContain("data-reward"); // the guest's card and the Kasse
+  });
+});
+
+describe("card search (ENG-179, fault 18)", () => {
+  it("searches every location for an owner and leaves a manager's scope to the server", () => {
+    expect(searchHref(" K-39BVGN ", "owner")).toBe("/merchant/customers?q=K-39BVGN&scope=all");
+    expect(searchHref("K-39BVGN", "manager")).toBe("/merchant/customers?q=K-39BVGN");
+    expect(searchHref("  ", "owner")).toBe("/merchant/customers");
   });
 });
