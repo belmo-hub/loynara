@@ -269,7 +269,7 @@ describe("quiet hours 21:00 to 08:00 Berlin, including the DST change of 25 Oct 
     const s = await shop(); await customer(s);
     if (allowed) await expect(go(s, T(iso))).resolves.toMatchObject({ audience: 1 });
     else {
-      await expect(go(s, T(iso))).rejects.toMatchObject({ code: "QUIET_HOURS", message: expect.stringContaining("Zwischen 21 und 8 Uhr senden wir keine Nachrichten") });
+      await expect(go(s, T(iso))).rejects.toMatchObject({ code: "QUIET_HOURS", message: expect.stringContaining("Zwischen 21 und 8 Uhr wird nichts gesendet") });
       expect((await pool.query("SELECT count(*)::int AS n FROM wallet_messages")).rows[0].n).toBe(0); // refused, not queued
     }
   });
