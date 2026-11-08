@@ -212,7 +212,7 @@ describe("caps", () => {
     await go(s, T("2026-10-21T10:00:00Z"));
     const refused = await go(s, T("2026-10-22T10:00:00Z")).catch(error => error);
     expect(refused).toMatchObject({ code: "SHOP_CAP" });
-    expect(refused.message).toMatch(/Dienstag, 27\. Oktober, 11:00 Uhr/); // 20 Oct 12:00 CEST + 7 days = 11:00 CET (clocks went back on 25 Oct)
+    expect(refused.message).toMatch(/Dienstag, 27\.\u00a0Oktober, 11:00\u00a0Uhr/); // 20 Oct 12:00 CEST + 7 days = 11:00 CET (clocks went back on 25 Oct)
     expect(await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-22T10:00:00Z"))).toMatchObject({ remaining: 0, nextAllowedAt: new Date("2026-10-27T10:00:00Z") });
     // The first message is 7 days + 1 minute old: only one message is left in the window.
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-27T10:01:00Z"))).remaining).toBe(1);
@@ -224,7 +224,7 @@ describe("caps", () => {
     await go(s, T("2026-10-21T10:00:00Z"));
     // +7 days is 07:00 CET, inside quiet hours: the earliest real send time is 08:00 CET.
     const refused = await go(s, T("2026-10-22T10:00:00Z")).catch(error => error);
-    expect(refused.message).toMatch(/Dienstag, 27\. Oktober, 0?8:00 Uhr\./);
+    expect(refused.message).toMatch(/Dienstag, 27\.\u00a0Oktober, 0?8:00\u00a0Uhr senden\./);
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, T("2026-10-22T10:00:00Z"))).nextAllowedAt).toEqual(new Date("2026-10-27T07:00:00Z"));
     await expect(go(s, T("2026-10-27T07:00:00Z"))).resolves.toMatchObject({ audience: 1 });
   });
