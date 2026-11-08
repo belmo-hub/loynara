@@ -19,6 +19,8 @@ export type SetupDraft = { businessName: string; locationName: string; city: str
 type OwnerValue = {
   /** Surfaces withheld on this deployment, known even before an account has a merchant (see lib/pilot-surfaces). */
   hiddenSurfaces: readonly PilotSurface[];
+  /** The role the server read for the first paint; `me.role` replaces it once /api/me answers. */
+  role: MeResponse["role"];
   status: Status;
   me: MeResponse | null;
   /** Set when the shop's programme has ended: the owner area is then only the export. */
@@ -84,7 +86,7 @@ async function fetchAccount(): Promise<AccountResult> {
   }
 }
 
-export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: ReactNode; hiddenSurfaces?: readonly PilotSurface[] }) {
+export function OwnerProvider({ children, hiddenSurfaces = [], role = "owner" }: { children: ReactNode; hiddenSurfaces?: readonly PilotSurface[]; role?: MeResponse["role"] }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -185,9 +187,9 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
   }, [apply, guard, load, me?.locationId, switching]);
 
   const value = useMemo<OwnerValue>(() => ({
-    hiddenSurfaces, status, me, ended, setupDraft, error, locations, switching, switchError, epoch,
+    hiddenSurfaces, role, status, me, ended, setupDraft, error, locations, switching, switchError, epoch,
     refresh: () => load("silent"), reload: () => { setStatus("loading"); setError(""); void load("initial"); }, resetAfterSignOut, setDirty, guard, switchLocation, announce: setMessage,
-  }), [hiddenSurfaces, status, me, ended, setupDraft, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
+  }), [hiddenSurfaces, role, status, me, ended, setupDraft, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
 
   return (
     <OwnerContext.Provider value={value}>
