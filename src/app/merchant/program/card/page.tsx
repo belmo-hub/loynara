@@ -19,7 +19,7 @@ export default function CardStudioPage() {
   if (!me) return null;
   // A Programm row's page (Design, 28 Oct): back to the list instead of an eyebrow; the page keeps its own save bar.
   const head = <header className="ow-pagehead"><div><GuardedLink href="/merchant/program" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Programm</GuardedLink><h1>Kundenkarte</h1><p>{me.hiddenSurfaces?.includes("walletPreviews") ? "Gestalte, wie deine Karte im Browser aussieht." : "Gestalte, wie deine Karte im Browser und in den Wallets aussieht."} Nichts wird gespeichert, bis du es bestätigst.</p></div></header>;
-  if (!isOwner) return <div className="ow-page">{head}<Notice tone="warn">Die Kundenkarte kann nur von Inhaber:innen gestaltet werden.</Notice></div>;
+  if (!isOwner) return <div className="ow-page">{head}<Notice>Die Kundenkarte kann nur von Inhaber:innen gestaltet werden.</Notice></div>;
   if (brand.state === "error" || program.state === "error") {
     return <div className="ow-page">{head}<Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { reloadBrand(); reloadProgram(); }}>Erneut laden</button>}>{brand.state === "error" ? brand.message : program.state === "error" ? program.message : ""}</Notice></div>;
   }

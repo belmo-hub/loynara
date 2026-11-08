@@ -78,8 +78,15 @@ export function ActionsList() {
   const messages = owner && me.programSlug && !hiddenSurfaces.includes("walletMessages");
   const [wallet] = useLoad<MessageRoom>(messages ? `/api/merchant/wallet-messages?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   // Back from Happy Hour after a save: the same toast as on Programm.
-  const [saved, setSaved] = useState(() => readReturn(ACTIONS_HOME.list)?.saved === true);
-  useEffect(() => { writeReturn(null, ACTIONS_HOME.list); if (!saved) return; const timer = window.setTimeout(() => setSaved(false), 4000); return () => window.clearTimeout(timer); }, [saved]);
+  // The status region mounts empty and fills a frame later, so the toast is announced (Design, 8 Nov).
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    const back = readReturn(ACTIONS_HOME.list)?.saved === true;
+    writeReturn(null, ACTIONS_HOME.list);
+    if (!back) return;
+    const frame = requestAnimationFrame(() => setSaved(true)), timer = window.setTimeout(() => setSaved(false), 4000);
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer); };
+  }, []);
   // The area is the owner's (nav.ts); a manager who opens the address lands on the Übersicht.
   useEffect(() => { if (me && !owner) router.replace("/merchant"); }, [me, owner, router]);
   if (!me || !owner) return null;

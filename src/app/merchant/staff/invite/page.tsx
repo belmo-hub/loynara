@@ -40,7 +40,7 @@ export default function InvitePage() {
   const locationId = chosenLocation || me.locationId;
   const locationName = locations.find(location => location.id === locationId)?.name ?? me.locationName;
   const head = <PageTitle back={BACK} title="Wen lädst du ein?" lead={`Zugriff gilt für ${locationName}.`} />;
-  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Teamzugänge verwalten.</Notice></div>;
+  if (!owner) return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann Teamzugänge verwalten.</Notice></div>;
   const inviteUrl = invite && me.publicBaseUrl ? new URL(`/invite/${encodeURIComponent(invite.token)}`, me.publicBaseUrl).toString() : "";
 
   async function create() {

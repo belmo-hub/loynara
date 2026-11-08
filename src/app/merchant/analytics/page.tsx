@@ -35,7 +35,7 @@ export default function MerchantAnalyticsPage() {
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? "/api/merchant/retention?days=30" : null);
   if (!me) return null;
   const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann die Ergebnisse sehen.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   // The read's bars are Monday weeks; the cut first and current week would read as a drop, so only full weeks show.
   const weeks = r?.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= FULL_WEEK_MS) ?? [];

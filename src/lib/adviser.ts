@@ -58,19 +58,19 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     observed: [{ label: "Aktive Karten", value: 0 }, { label: "Neue Karten", value: m.newCards }],
     reasoning: "Noch gibt es keine aktive Karte.",
     missingInformation: ["Papierkarten zählen hier nicht."],
-    nextAction: "Meld dich selbst an und geh die Kasse einmal mit deinem Team durch.",
+    nextAction: "Lege dir selbst eine Karte an und gehe den Ablauf an der Kasse einmal mit deinem Team durch.",
   });
   else if (m.qualifyingCheckouts === 0) suggestions.push({
     id: "checkout_flow", title: "Erste Buchung testen",
     observed: [{ label: "Aktive Karten", value: m.currentActiveCards }, { label: "Bestätigte Buchungen", value: 0 }],
     reasoning: "Es gibt Karten, aber noch keine bestätigte Buchung.",
     missingInformation: ["Papierkäufe und nicht erfasste Besuche sind unbekannt."],
-    nextAction: "Leg dir selbst eine Karte an, lass eine Buchung bestätigen und schau, ob der neue Stand stimmt.",
+    nextAction: "Lege dir selbst eine Karte an, lasse eine Buchung bestätigen und prüfe, ob der neue Stand stimmt.",
   });
   if (r && r.rewardReady > 0) suggestions.push({
     id: "reward_waiting", title: `Prämie verdient: ${cardCount(r.rewardReady)}`,
     observed: [{ label: "Karten mit verdienter Prämie", value: r.rewardReady }, { label: "Einlösungen im Zeitraum", value: m.redemptions }],
-    reasoning: "Ihr Stand reicht schon für die günstigste Prämie.",
+    reasoning: "Der Stand dieser Karten reicht schon für die günstigste Prämie.",
     missingInformation: ["Ob jemand bewusst spart, sehen wir nicht."],
     nextAction: "Bitte dein Team, die Prämie beim nächsten Besuch anzubieten.",
     link: { label: "Karten ansehen", href: retentionCustomerHref(r, "reward_ready") },
@@ -79,8 +79,8 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     id: "lapsed_growing", title: "Mehr Karten bleiben weg",
     observed: [{ label: `Ohne Buchung seit ${r.inactiveDays}+ Tagen`, value: r.drifting }, { label: "Vor einer Woche", value: r.driftingWeekAgo }],
     reasoning: `Mehr Karten als vor einer Woche sind seit über ${r.inactiveDays} Tagen weg.`,
-    missingInformation: ["Warum, wissen wir nicht.", "Käufe ohne Karte fehlen hier."],
-    nextAction: "Schau dir die Karten an und entscheide, ob der Willkommen-zurück-Bonus passt.",
+    missingInformation: ["Warum, wissen wir nicht.", "Verkäufe ohne Karte fehlen hier."],
+    nextAction: "Sieh dir die Karten an und entscheide, ob der Willkommen-zurück-Bonus passt.",
     link: { label: "Länger nicht da", href: retentionCustomerHref(r, "drifting") },
   });
   if (r && r.neverAfterWeek >= 3 && r.neverAfterWeek * 4 >= r.openCards) suggestions.push({
@@ -96,14 +96,14 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     observed: [{ label: "Zustellversuche", value: m.campaignAttempts }, { label: "Fehlgeschlagen oder blockiert", value: m.failedOrBlockedAttempts }],
     reasoning: "Mindestens ein Versand ist fehlgeschlagen.",
     missingInformation: ["Angenommen heißt nicht, dass die E-Mail im Postfach ankam."],
-    nextAction: "Prüf in den Kampagnen, was nicht rausging, bevor du neu sendest.",
+    nextAction: "Prüfe in den Kampagnen, was nicht rausging, bevor du neu sendest.",
   });
   if (m.participatingCards >= 5 && m.repeatCards * 4 < m.participatingCards) suggestions.push({
     id: "repeat_participation", title: "Wenige Karten mit zweiter Buchung",
     observed: [{ label: "Karten mit Buchung", value: m.participatingCards }, { label: "Mit mindestens zwei Buchungen", value: m.repeatCards }],
     reasoning: "Weniger als ein Viertel der Karten hatte im Zeitraum zwei oder mehr Buchungen.",
-    missingInformation: ["Käufe ohne Karte und die Gründe kennt Loynara nicht."],
-    nextAction: "Prüf, ob die erste Prämie zu weit weg ist, und frag dein Team, ob jede Karte gescannt wird.",
+    missingInformation: ["Verkäufe ohne Karte und die Gründe kennen wir nicht."],
+    nextAction: "Prüfe, ob die erste Prämie zu weit weg ist, und frage dein Team, ob jede Karte gescannt wird.",
     link: PROGRAM_LINK,
   });
   if (m.qualifyingCheckouts >= 3 && m.redemptions === 0 && !(r && r.rewardReady > 0)) suggestions.push({
@@ -112,15 +112,15 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     // Without the retention read nobody knows whether a card already has enough: the live line says so.
     reasoning: r ? "Noch hat keine Karte genug. Der Weg zur Prämie könnte zu lang sein." : "Mindestens drei bestätigte Buchungen, aber im Zeitraum keine eingelöste Prämie.",
     missingInformation: [r ? "Warum, wissen wir nicht." : "Der Bericht zeigt nicht, ob einzelne Karten bereits genug Guthaben für eine Prämie haben."],
-    nextAction: "Schau im Programm, ob die günstigste Prämie zu teuer ist.",
+    nextAction: "Prüfe im Programm, ob die günstigste Prämie zu teuer ist.",
     link: PROGRAM_LINK,
   });
   if (suggestions.length === 0) suggestions.push({
     id: "monitor_trend", title: "Gerade fällt nichts auf",
     observed: [{ label: "Bestätigte Buchungen", value: m.qualifyingCheckouts }, { label: "Einlösungen", value: m.redemptions }],
     reasoning: "Im Zeitraum gibt es nichts zu tun.",
-    missingInformation: ["Verkäufe ohne Karte und die Wirkung der Karte auf deinen Umsatz kennt Loynara nicht."],
-    nextAction: "Schau nächste Woche wieder rein.",
+    missingInformation: ["Verkäufe ohne Karte und die Wirkung der Karte auf deinen Umsatz kennen wir nicht."],
+    nextAction: "Sieh nächste Woche wieder nach.",
   });
   // E-mail campaigns are withheld on the pilot (pilot-surfaces), so their delivery hint ranks last (Design, 6 Nov).
   const email = suggestions.filter(item => item.id === "delivery_failures");

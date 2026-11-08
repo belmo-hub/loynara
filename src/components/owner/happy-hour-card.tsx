@@ -15,7 +15,7 @@ export const HAPPY_HOUR_PROBLEM = {
   NONE: "Lege mindestens ein Zeitfenster fest oder schalte Happy Hour aus.",
   SHAPE: "Keine Tage gewählt",
   TIME: "Bitte Beginn und Ende angeben.",
-  MIDNIGHT: "Das Ende muss nach dem Beginn liegen. Über Mitternacht geht nicht: leg zwei Zeitfenster an.",
+  MIDNIGHT: "Das Ende muss nach dem Beginn liegen. Für eine Zeit über Mitternacht lege zwei Zeitfenster an.",
 } as const;
 
 export type HappyHourDraft = { enabled: boolean; windows: HappyHourWindow[] };
@@ -59,20 +59,20 @@ export function HappyHourQuestion({ me, home = PROGRAM_HOME }: { me: MeResponse;
       <SwitchRow label="Doppelte Punkte" sub="Zu ruhigen Zeiten, automatisch" checked={draft.enabled} onChange={enabled => setDraft(switchHappyHour(draft, enabled))} />
       {draft.enabled && <>
         {draft.windows.map((w, index) => {
-          const own = problem?.window === index ? problem.problem : null, label = happyHourSentence(w);
+          const own = problem?.window === index ? problem.problem : null, label = happyHourSentence(w), error = own === "TIME" || own === "MIDNIGHT" ? `hh-error-${index}` : undefined;
           return (
             // A group, not a fieldset: WebKit draws a fieldset's legend outside a grid panel.
             <div key={index} className="ow-qpanel ow-window" role="group" aria-labelledby={`hh-window-${index}`}>
-              {own === "SHAPE" ? <p id={`hh-window-${index}`} className="ow-window-title" data-problem><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM.SHAPE}</p> : <p id={`hh-window-${index}`} className="ow-window-title">{label}</p>}
-              {draft.windows.length > 1 && <button type="button" className="ow-iconbtn" aria-label={`Zeitfenster ${label} entfernen`} onClick={() => setDraft({ ...draft, windows: draft.windows.filter((_, i) => i !== index) })}><Trash2 aria-hidden="true" /></button>}
+              {own === "SHAPE" ? <p id={`hh-window-${index}`} className="ow-window-title" data-problem aria-live="polite"><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM.SHAPE}</p> : <p id={`hh-window-${index}`} className="ow-window-title" aria-live="polite">{label}</p>}
+              {draft.windows.length > 1 && <button type="button" className="ow-iconbtn" aria-label={`Zeitfenster ${index + 1} entfernen`} onClick={() => setDraft({ ...draft, windows: draft.windows.filter((_, i) => i !== index) })}><Trash2 aria-hidden="true" /></button>}
               <div className="ow-days" role="group" aria-label="Wochentage">
                 {DAYS.map((name, d) => <button key={name} type="button" aria-pressed={w.days.includes(d + 1)} onClick={() => toggleDay(index, d + 1)}>{name}</button>)}
               </div>
               <div className="ow-times">
-                <label>Von<input className="ow-input" type="time" value={w.start} aria-invalid={own === "TIME" || undefined} onChange={event => setWindow(index, { start: event.target.value })} /></label>
-                <label>Bis<input className="ow-input" type="time" value={w.end} aria-invalid={own === "TIME" || own === "MIDNIGHT" || undefined} onChange={event => setWindow(index, { end: event.target.value })} /></label>
+                <label>Von<input className="ow-input" type="time" value={w.start} aria-invalid={own === "TIME" || undefined} aria-describedby={own === "TIME" ? error : undefined} onChange={event => setWindow(index, { start: event.target.value })} /></label>
+                <label>Bis<input className="ow-input" type="time" value={w.end} aria-invalid={own === "TIME" || own === "MIDNIGHT" || undefined} aria-describedby={error} onChange={event => setWindow(index, { end: event.target.value })} /></label>
               </div>
-              {(own === "TIME" || own === "MIDNIGHT") && <p className="ow-sent-warn" role="alert"><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM[own]}</p>}
+              {(own === "TIME" || own === "MIDNIGHT") && <p id={error} className="ow-sent-warn" role="alert"><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM[own]}</p>}
             </div>
           );
         })}

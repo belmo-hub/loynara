@@ -493,6 +493,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* „Gespeichert“ after a row's page saved: one toast above the bottom bar; the region keeps role="status" so it is read out. */
 .ow-toast-region { position: fixed; inset: auto 0 calc(var(--ow-tabbar) + var(--space-6)); z-index: var(--z-toast); display: flex; justify-content: center; padding-inline: var(--space-4); pointer-events: none; }
 @media (min-width: 1024px) { .ow-toast-region { left: var(--ow-sidebar); bottom: var(--space-6); } }
+/* Above the pinned bar where a page has one, so a toast never covers its button. */
+@media (max-width: 1023px) { .ow-content:has(.ow-qsave) .ow-toast-region { bottom: calc(var(--ow-tabbar) + 76px + var(--space-3)); } }
 .ow-toast { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 10px 18px 10px 14px; border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg); font-weight: var(--weight-strong); box-shadow: var(--shadow-overlay); animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
 .ow-toast svg { flex: none; color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
 
@@ -960,6 +962,10 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) { gap: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-surface); }
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) > li + li { border-top: 1px solid var(--color-line); }
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background: none; }
+/* A list with no row (an empty, loading or failed state) has no panel: its text stands on the ground, as before. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)):not(:has(.ow-prog-row, .ow-check)) { background: none; border-radius: 0; overflow: visible; }
+/* The panel clips; the ring goes inside the row, as on the tab bar. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row:focus-visible { outline-offset: -2px; }
 /* Inside a grid .ow-prog the parent's gap is the space above. */
 .ow-prog > .ow-rows { margin-top: 0; }
 /* A number on a row is a label's partner, not a headline (spec rule 6): the board keeps the only big number. */

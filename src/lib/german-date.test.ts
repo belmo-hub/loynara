@@ -26,8 +26,9 @@ describe("germanDate", () => {
     expect(germanDate("2027-01-04", "long", { now: new Date("2026-12-31T22:30:00Z") })).toBe("4.\u00a0Januar 2027");
   });
 
-  it("feed: day, month and time, unchanged", () => {
+  it("feed: day, month and time, no leading zero on day or month", () => {
     expect(germanDate("2026-10-29T12:43:00", "feed")).toBe("29.10., 12:43"); // the viewer's clock, as live
     expect(germanDate("2026-10-29T11:43:00Z", "feed", { timeZone: "Europe/Berlin" })).toBe("29.10., 12:43");
+    expect(germanDate("2026-10-09T06:05:00Z", "feed", { timeZone: "Europe/Berlin" })).toBe("9.10., 08:05");
   });
 });

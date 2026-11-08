@@ -17,7 +17,6 @@ import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint
 type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: SentRow[] };
 
 const DRAFT = "loynara-wallet-message-draft";
-const clock = (iso: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
 const arrow = <ChevronLeft size={20} aria-hidden="true" />;
 
 /** The question pages' frame (Wegweiser): back link, the question as the heading; the heading takes the focus on each new step. */
@@ -64,7 +63,7 @@ export default function WalletMessagesPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [receipt, setReceipt] = useState<{ audience: number; at: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ audience: number } | null>(null);
   // The receipt is a short confirmation, so a toast (Design decision 4).
   useEffect(() => { if (!receipt) return; const timer = window.setTimeout(() => setReceipt(null), 4000); return () => window.clearTimeout(timer); }, [receipt]);
 
@@ -73,7 +72,7 @@ export default function WalletMessagesPage() {
   const question = "Nachricht senden";
 
   if (!me) return null;
-  if (me.role !== "owner") return <Frame back={toActions} title={question}><Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Nachrichten senden.</Notice></Frame>;
+  if (me.role !== "owner") return <Frame back={toActions} title={question}><Notice>Nur die Inhaberin oder der Inhaber kann Nachrichten senden.</Notice></Frame>;
   if (data.state === "error") return <Frame back={toActions} title={question}><ErrorNotice message={data.message} onRetry={reload} /></Frame>;
   if (data.state !== "ok") return <Frame back={toActions} title={question}><LoadingBlock /></Frame>;
   const d = data.data;
@@ -108,7 +107,7 @@ export default function WalletMessagesPage() {
     setBusy(true); setError("");
     try {
       const result = await postJson<{ id: string; audience: number }>("/api/merchant/wallet-messages", { programSlug: slug, text });
-      setReceipt({ audience: result.audience, at: new Date().toISOString() });
+      setReceipt({ audience: result.audience });
       setText(""); try { localStorage.removeItem(DRAFT); } catch { /* optional */ }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Nachricht konnte nicht gesendet werden."); }
     finally { setBusy(false); review.back(); reload(); }
@@ -119,7 +118,9 @@ export default function WalletMessagesPage() {
   }
 
   // The confirmation is a screen of its own (Programm 28/30), only for a text that may still be sent.
-  if (review.step === "confirm" && canContinue) return (
+  // One status region for the page, mounted before the receipt fills it, so the confirmation is announced (Design, 8 Nov).
+  const toast = <div className="ow-toast-region" role="status">{receipt && <span className="ow-toast"><Check size={20} aria-hidden="true" />Geht raus an {receipt.audience}{"\u00a0"}Kunden</span>}</div>;
+  if (review.step === "confirm" && canContinue) return (<>
     <Frame back={<button type="button" className="ow-back" onClick={review.back}>{arrow}Nachricht</button>} title={`An ${d.reach} Kunden senden?`}>
       <div className="ow-q">
         <div className="ow-qpanel ow-qnote"><Megaphone size={24} aria-hidden="true" /><div><strong>Gesendet ist gesendet.</strong><p>{sendNote(d.reach, d.remaining, reopenDay(d.history, d.timezone))}</p></div></div>
@@ -133,12 +134,13 @@ export default function WalletMessagesPage() {
         </div>
       </div>
     </Frame>
-  );
+    {toast}
+  </>);
 
   const free = d.remaining > 0 ? `Noch ${d.remaining}\u00a0frei` : undefined;
   // Happy Hour books only purchase-amount points (loyalty.ts): other shops get the first sentence alone.
   const happyHour = me.programType === "points" && me.earningMode === "purchase";
-  return (
+  return (<>
     <Frame back={toActions} title={question} lead={free}>
       <div className="ow-q">
         {error && <Notice tone="danger" role="alert">{error} Dein Text ist noch da.</Notice>}
@@ -158,7 +160,7 @@ export default function WalletMessagesPage() {
         <SentMessages rows={d.history} timeZone={d.timezone} onStop={id => void stop(id)} />
         <div className="ow-qsave"><button type="button" className="ow-btn ow-btn--primary" disabled={!canContinue} onClick={() => review.open("confirm")}>Weiter</button></div>
       </div>
-      <div className="ow-toast-region" role="status">{receipt && <span className="ow-toast"><Check size={20} aria-hidden="true" />Geht raus an {receipt.audience}{"\u00a0"}Kunden, {clock(receipt.at, d.timezone)}{"\u00a0"}Uhr{d.remaining > 0 ? `. Noch ${d.remaining}\u00a0frei diese Woche` : ""}</span>}</div>
     </Frame>
-  );
+    {toast}
+  </>);
 }

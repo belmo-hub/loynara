@@ -51,7 +51,7 @@ export function ProgramQuestion({ question, from }: { question: Question; /** �
   useEffect(() => { if (!offered) router.replace("/merchant/program"); }, [offered, router]);
   if (!me || !offered) return null;
   const title = question === "rule" && me.programType === "points" && me.earningMode === "purchase" ? EXTRA_RULES : QUESTIONS[question];
-  if (me.role !== "owner") return <Frame title={title}><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
+  if (me.role !== "owner") return <Frame title={title}><Notice>{OWNER_ONLY}</Notice></Frame>;
   if (question === "happy-hour") return <HappyHourQuestion me={me} home={from === "aktionen" ? ACTIONS_HOME : undefined} />;
   // NFC stays on its page after saving: „Mit Bestätigung“ goes on to activating a plate there.
   if (question === "nfc") return <Frame title={title} quiet><TapPolicyCard me={me} /></Frame>;
@@ -74,7 +74,7 @@ export function RewardQuestion({ reward }: { reward: string }) {
   const done = useBackToList();
   const [program, reload] = useLoad<PublicProgram>(me ? `/api/program/${encodeURIComponent(me.programSlug)}` : null);
   if (!me) return null;
-  if (me.role !== "owner") return <Frame title="Prämien"><Notice tone="warn">{OWNER_ONLY}</Notice></Frame>;
+  if (me.role !== "owner") return <Frame title="Prämien"><Notice>{OWNER_ONLY}</Notice></Frame>;
   if (program.state === "error") return <Frame title="Prämien"><ErrorNotice message={program.message} onRetry={reload} /></Frame>;
   if (program.state !== "ok") return <Frame><LoadingBlock /></Frame>;
   if (reward === "archived") return <Frame title="Archivierte Prämien"><ArchivedRewards slug={me.programSlug} program={program.data} /></Frame>;

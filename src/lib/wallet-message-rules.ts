@@ -30,7 +30,7 @@ export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => s
 export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
 export const joinConsentText = (shop: string, location: string) => CONSENT_TEXTS[JOIN_CONSENT_TEXT_VERSION](shop, location);
 
-export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr wird nichts gesendet. Ab 8 Uhr geht es wieder.";
+export const QUIET_HOURS_REFUSAL = "Zwischen 21\u00a0und 8\u00a0Uhr geht nichts raus. Ab 8\u00a0Uhr kannst du wieder senden.";
 
 // A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in
 // plain German. Narrow on purpose (Legal, 1 Nov): a legally required exclusion, a crayfish salad or a double espresso shot
