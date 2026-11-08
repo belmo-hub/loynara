@@ -64,7 +64,7 @@ export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: Rete
     id: "checkout_flow", title: "Erste Buchung testen",
     observed: [{ label: "Aktive Karten", value: m.currentActiveCards }, { label: "Bestätigte Buchungen", value: 0 }],
     reasoning: "Es gibt Karten, aber noch keine bestätigte Buchung.",
-    missingInformation: ["Papierkäufe und nicht erfasste Besuche sind unbekannt."],
+    missingInformation: ["Papierkarten und Verkäufe ohne Karte zählen hier nicht."],
     nextAction: "Lege dir selbst eine Karte an, lasse eine Buchung bestätigen und prüfe, ob der neue Stand stimmt.",
   });
   if (r && r.rewardReady > 0) suggestions.push({

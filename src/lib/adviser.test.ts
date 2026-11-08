@@ -54,7 +54,7 @@ describe("rule-based merchant advice", () => {
     const advice = buildRuleBasedAdvice(report({ currentActiveCards: 2, newCards: 2 }));
     expect(advice[0]).toMatchObject({ id: "checkout_flow", observed: [{ label: "Aktive Karten", value: 2 }, { label: "Bestätigte Buchungen", value: 0 }] });
     expect(advice[0].reasoning).toContain("noch keine bestätigte Buchung");
-    expect(advice[0].missingInformation.join(" ")).toContain("nicht erfasste Besuche");
+    expect(advice[0].missingInformation.join(" ")).toContain("Verkäufe ohne Karte");
     expect(advice[0].nextAction).toContain("Buchung bestätigen");
     expect(JSON.stringify(advice)).not.toContain("KI");
   });

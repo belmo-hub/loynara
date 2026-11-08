@@ -14,7 +14,7 @@ import { googleDirectEnv } from "./wallet/google-classes";
 import { googleDirectConfig } from "./wallet/google-direct";
 import { passFastEnv } from "./wallet/template-bindings";
 import {
-  CAP_WINDOW_DAYS, checkMessageText, germanWhen, CONSENT_TEXT_VERSION, consentText, CUSTOMER_WEEKLY_CAP, OWNER_TEXT_VERSION, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP, WALLET_QUIET_HOURS,
+  CAP_WINDOW_DAYS, checkMessageText, germanWhen, shopCapText, CONSENT_TEXT_VERSION, consentText, CUSTOMER_WEEKLY_CAP, OWNER_TEXT_VERSION, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP, WALLET_QUIET_HOURS,
 } from "./wallet-message-rules";
 
 // Wallet messages (ENG-043). A message is the `message` field of one Apple pass: through PassFast, or on a native pass
@@ -203,7 +203,7 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
     await lock(tx, program.tenantId);
     const window = await shopWindow(tx, program.tenantId, program.id, now);
     if (window.length >= SHOP_WEEKLY_CAP) {
-      throw new DomainError("SHOP_CAP", `Du hast diese Woche schon ${SHOP_WEEKLY_CAP} Nachrichten gesendet. Die nächste geht wieder ab ${germanWhen(reopensAt(window, timezone), timezone)}.`);
+      throw new DomainError("SHOP_CAP", shopCapText(germanWhen(reopensAt(window, timezone), timezone)));
     }
     const [done] = rows<{ n: number }>(await tx.execute(sql`SELECT count(*)::int AS n FROM wallet_message_owner_confirmations WHERE tenant_id = ${program.tenantId}::uuid AND version = ${OWNER_TEXT_VERSION}`));
     if (!done.n) throw new DomainError("CONFIRM_REQUIRED", "Bitte lies zuerst die Hinweise und bestätige sie.");

@@ -12,7 +12,7 @@ import { useLoad } from "@/components/owner/use-load";
 import { SentMessages, type SentRow } from "@/components/owner/sent-messages";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, SHOP_WEEKLY_CAP } from "@/lib/wallet-message-rules";
+import { ACTION_HINT, checkMessageText, germanWhen, MESSAGE_MAX, needsActionHint, OWNER_CONFIRM_TEXT, OWNER_GUIDANCE, QUIET_HOURS_REFUSAL, shopCapText } from "@/lib/wallet-message-rules";
 
 type Overview = { shopName: string; reach: number; remaining: number; nextAllowedAt: string | null; quietNow: boolean; timezone: string; guidanceConfirmed: boolean; history: SentRow[] };
 
@@ -145,7 +145,7 @@ export default function WalletMessagesPage() {
       <div className="ow-q">
         {error && <Notice tone="danger" role="alert">{error} Dein Text ist noch da.</Notice>}
         {d.history.some(row => row.warn) && <Notice tone="warn" role="status">Nach einer deiner letzten Nachrichten haben ungewöhnlich viele Kundinnen und Kunden ihre Karte aus der Wallet entfernt. Schreibe seltener.</Notice>}
-        {capped && <Notice tone="warn">Du hast diese Woche schon {SHOP_WEEKLY_CAP} Nachrichten gesendet.{d.nextAllowedAt ? ` Die nächste geht wieder ab ${germanWhen(new Date(d.nextAllowedAt), d.timezone)}.` : ""}</Notice>}
+        {capped && <Notice tone="warn">{shopCapText(d.nextAllowedAt ? germanWhen(new Date(d.nextAllowedAt), d.timezone) : undefined)}</Notice>}
         {d.quietNow && <Notice tone="info">{QUIET_HOURS_REFUSAL}</Notice>}
         {empty && <Notice tone="info">Noch kann niemand deine Nachrichten bekommen. Deine Kundinnen und Kunden stimmen auf ihrer Karte zu, wenn sie sie in Apple Wallet haben. Tipp für die Kasse: „Leg dir die Karte in die Wallet und schalte Nachrichten ein, dann sagen wir dir Bescheid, wenn&apos;s was gibt.“</Notice>}
         <div className="ow-qpanel ow-field">

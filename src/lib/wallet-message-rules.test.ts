@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EXCLUDED_GOODS } from "./card-extras";
-import { almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, CONSENT_TEXT_VERSION, CONSENT_TEXTS, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
+import { shopCapText, almostText, birthdayCashierLine, birthdayRule, birthdayText, birthdayWeek, checkMessageText, CONSENT_TEXT_VERSION, CONSENT_TEXTS, consentText, needsActionHint, winbackCashierLine, winbackRule, winbackText } from "./wallet-message-rules";
 
 describe("message text rules", () => {
   it("accepts the founder's example and counts characters, not bytes", () => {
@@ -134,5 +134,12 @@ describe("contentRefusal, shared with email campaigns and automations (ENG-163, 
   it("applies only the content rules to email: long text with a link passes", async () => {
     const { contentRefusal } = await import("./wallet-message-rules");
     expect(contentRefusal(`Herbstkarte ab Montag, alle Details auf https://example.test. ${"Kaffee und Kuchen. ".repeat(20)}`)).toBeNull();
+  });
+});
+
+describe("shop cap sentence (Marketing G16)", () => {
+  it("names the rolling 7 days and when the next message may go, numbers held to their units", () => {
+    expect(shopCapText("Sonntag, 15. November, 13:45 Uhr")).toBe("Du hast in den letzten 7\u00a0Tagen schon 2\u00a0Nachrichten gesendet. Die nächste kannst du ab Sonntag, 15.\u00a0November, 13:45\u00a0Uhr senden.");
+    expect(shopCapText()).toBe("Du hast in den letzten 7\u00a0Tagen schon 2\u00a0Nachrichten gesendet.");
   });
 });

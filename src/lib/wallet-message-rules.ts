@@ -1,6 +1,7 @@
 // Wallet messages (ENG-043): the pure rules and the verbatim texts. No database, so client code may import it.
 // Rules are Product's (2026-10-22-spec-wallet-messages.md), texts are Legal's draft of 22 Oct 2026 (not legal advice).
 import { EXCLUDED_GOODS } from "./card-extras";
+import { keepUnits } from "./german-date";
 
 export const MESSAGE_MAX = 140;
 /** Messages per programme and per customer in any rolling window of this many days (the consent text promises „höchstens 2 pro Woche“). */
@@ -67,6 +68,9 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
 }
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */
+/** Marketing G16: the shop cap counts a rolling 7 days, so the page and the server refusal say it the same way. `when` is
+ *  germanWhen of the moment the shop may send again; without one the first sentence stands alone. */
+export const shopCapText = (when?: string) => keepUnits(`Du hast in den letzten ${CAP_WINDOW_DAYS} Tagen schon ${SHOP_WEEKLY_CAP} Nachrichten gesendet.${when ? ` Die nächste kannst du ab ${when} senden.` : ""}`);
 export const needsActionHint = (text: string) => /punkte|stempel|doppelt/i.test(text);
 export const ACTION_HINT = "Versprich nur, was an der Kasse gilt.";
 
