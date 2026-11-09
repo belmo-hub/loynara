@@ -94,9 +94,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
       const program = completed.program;
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
-    const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
-    const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
-    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+    const { tenant, location } = await insertShop(tx, input, logoData);
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
@@ -105,6 +103,14 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
 }
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** The shop and its first location, as the setup creates them. `slug` is the demo's own (lib/demo); otherwise generated. */
+export async function insertShop(tx: Transaction, input: z.output<typeof merchantInput>, logoData: string | null, slug?: string) {
+  const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: slug ?? `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
+  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+  return { tenant, location };
+}
 
 /** A reward title reaches every pass holder (pass front, reminders), so it follows the Wallet message content rules (Legal,
  *  7 Nov): checked when a title is created or changed; titles already stored are left as they are. */
@@ -123,7 +129,7 @@ async function awaitsSetup(tx: Transaction | typeof db, tenantId: string) {
   return row?.waiting === true;
 }
 
-async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
+export async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
   requireAllowedRewardTitle(input.rewardTitle);
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
   // Never backdated (Legal, ENG-099 3c): a card maps to the rule version in force when it joined. A start date that has

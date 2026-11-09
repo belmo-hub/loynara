@@ -1,6 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { shopErasures } from "@/db/schema";
+import { demoEnvironment } from "./demo-environment";
 import { mailgunConfig } from "./email-configuration";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
@@ -270,6 +271,18 @@ export async function shopErasure(input: { actorUserId: string; env: Env; tenant
       contract, rowCounts: rows, external, confirmationName: owner?.name ?? null, confirmationEmail: owner?.email ?? null, erasedAt: now, confirmationSendableAt: now,
     });
     return { result: "erased" as const, tenantId: input.tenantId, ...state, rows, external };
+  });
+}
+
+/**
+ * The demo environment's end of a demo (design v3): every row of the shop goes, nothing kept, no contract record, no
+ * provider clean-up (that environment has no Mailgun or Google). Plates go back to stock, the operator's login stays.
+ */
+export async function eraseDemoShop(tenantId: string, env: Env = process.env) {
+  if (!demoEnvironment(env)) throw new DomainError("FORBIDDEN", "Demo-Geschäfte werden nur in der Demo-Umgebung gelöscht.");
+  return db.transaction(async tx => {
+    const { rows } = await tx.execute(sql`SELECT id FROM tenants WHERE id = ${tenantId} FOR UPDATE`);
+    return rows.length ? eraseRows(tx, tenantId, [], env) : {};
   });
 }
 

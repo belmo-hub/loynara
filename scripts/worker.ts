@@ -30,6 +30,7 @@ let billingCheckedAt = 0;
 let suppressionsPrunedAt = 0;
 let googleClassesSyncedAt = 0;
 let erasureCheckedAt = 0;
+let demosEndedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -426,6 +427,18 @@ async function main() {
         } catch (error) {
           if (shutdown.signal.aborted) return;
           console.error(`Erasure check failed (${error instanceof Error ? error.name : "error"}); retrying tomorrow`);
+        }
+      }
+      if (Date.now() - demosEndedAt >= 60 * 60_000) {
+        demosEndedAt = Date.now();
+        try {
+          // Demo environment only (design v3; a no-op elsewhere): passes of demos past 24 hours are voided, demos past 25 hours erased.
+          const { endDemos } = await import("../src/lib/demo");
+          const { voided, erased } = await endDemos();
+          if (voided || erased) console.log(`Demo: ${voided} card(s) voided, ${erased} demo shop(s) erased`);
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          console.error(`Demo end failed (${error instanceof Error ? error.name : "error"}); retrying in an hour`);
         }
       }
       let processed = 0;
