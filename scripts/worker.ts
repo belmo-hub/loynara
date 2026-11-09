@@ -5,6 +5,7 @@ import { guardPoolErrors } from "../src/db/pool-errors";
 import { claimOutboxJob, completeWalletOutboxJob, deferOutboxJob, markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
+import { demoEnvironment } from "../src/lib/demo-environment";
 import { appleCredentialStartupIssues } from "./apple-wallet-credential";
 import { googleServiceAccountStartupIssues } from "./google-wallet-credential";
 import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
@@ -429,10 +430,11 @@ async function main() {
           console.error(`Erasure check failed (${error instanceof Error ? error.name : "error"}); retrying tomorrow`);
         }
       }
-      if (Date.now() - demosEndedAt >= 60 * 60_000) {
+      // Demo environment only (design v3): production never loads the module. endDemos checks the same again.
+      if (demoEnvironment() && Date.now() - demosEndedAt >= 60 * 60_000) {
         demosEndedAt = Date.now();
         try {
-          // Demo environment only (design v3; a no-op elsewhere): passes of demos past 24 hours are voided, demos past 25 hours erased.
+          // Passes of demos past 24 hours are voided, demos past 25 hours erased.
           const { endDemos } = await import("../src/lib/demo");
           const { voided, erased } = await endDemos();
           if (voided || erased) console.log(`Demo: ${voided} card(s) voided, ${erased} demo shop(s) erased`);

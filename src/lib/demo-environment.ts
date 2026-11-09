@@ -11,6 +11,16 @@ export function demoEnvironment(env: Env = process.env): boolean {
   return env.DEMO_ENVIRONMENT === "true" && !isProductionDeployment(env);
 }
 
+/** A demo shop's slug: the client key of „Demo starten“. A shop from the setup never has it (slugOf(name)-5 characters). */
+export const DEMO_SLUG_SQL = "^demo-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
+export const DEMO_SLUG = new RegExp(DEMO_SLUG_SQL);
+
+/** The ledger sources the owner's board counts as visits (SQL list). In the demo environment its sample visits
+ *  (synthetic_seed, „Demo-Daten“) count too, so a fresh demo does not read as a dead shop; elsewhere unchanged. */
+export function visitSources(env: Env = process.env): string {
+  return demoEnvironment(env) ? "'staff_online','staff_offline','synthetic_seed'" : "'staff_online','staff_offline'";
+}
+
 /** A demo lasts this long; the worker voids its passes then, and erases it an hour later. */
 export const DEMO_HOURS = 24;
 

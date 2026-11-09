@@ -14,34 +14,44 @@ function parsedUrl(value?: string): URL | null {
   try { return new URL(value); } catch { return null; }
 }
 
-export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
-  // The demo environment (demo-mode design v3) runs the production image without the production marker, so its own checks
-  // replace these; DEMO_ENVIRONMENT next to the marker is refused there. Absent or "false" changes nothing.
-  if (env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false") return [...demoConfigIssues(env), ...demoHardeningIssues(env)];
-  if (env.NODE_ENV !== "production") return [];
-  const issues: string[] = [];
+/**
+ * `demo`: the demo environment (demo-mode design v3, DEMO_ENVIRONMENT set and not "false") runs the production image
+ * without the production marker. It gets these same rules, minus the few that name production itself (its identity and
+ * approved origin, the database name rule, the billing fixture refusals), plus its own refusals (demoConfigIssues).
+ */
+export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false" } = {}): string[] {
+  const issues: string[] = demo ? demoConfigIssues(env) : [];
+  if (env.NODE_ENV !== "production") return issues;
   const database = parsedUrl(env.DATABASE_URL);
   const auth = parsedUrl(env.BETTER_AUTH_URL);
   const base = parsedUrl(env.PUBLIC_BASE_URL);
-  const approved = parsedUrl(env.PRODUCTION_APPROVED_ORIGIN);
+  // The demo has no approved production origin: its own, the one origin both URLs share, takes that place.
+  const approved = demo ? (base && auth?.origin === base.origin ? parsedUrl(base.origin) : null) : parsedUrl(env.PRODUCTION_APPROVED_ORIGIN);
   // pg-connection-string gives these parameters priority over the URL fields.
   const databaseOverride = database && (["host", "port", "user", "password"].some(name => database.searchParams.has(name)) || Boolean(database.hash));
+  const databaseIdentity = database ? `${database.hostname}/${database.pathname}/${database.username}` : "";
 
   if (!database || !["postgres:", "postgresql:"].includes(database.protocol) || localHosts.has(database.hostname) || database.password === "looplocal_local_only" || databaseOverride
-    || /preview|device[-_]?test|demo/i.test(`${database.hostname}/${database.pathname}/${database.username}`)) {
+    || (!demo && /preview|device[-_]?test|demo/i.test(databaseIdentity))) {
     issues.push("Production database must use a remote PostgreSQL target and unique credentials");
   }
+  // Mirror of production's rule: the demo database names itself, so a copied production DATABASE_URL cannot start a demo.
+  if (demo && database && (!/demo/i.test(databaseIdentity) || /preview|device[-_]?test/i.test(databaseIdentity))) issues.push("The demo database must name itself demo (host, database or user), never production, preview or device test");
   if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) {
     issues.push("Production application URLs must use HTTPS and nonlocal hosts");
   }
-  if (env.PRODUCTION_ENVIRONMENT !== "loynara-production") {
-    issues.push("Production environment identity is missing or incorrect");
-  }
-  if (!approved || approved.protocol !== "https:" || approved.origin !== env.PRODUCTION_APPROVED_ORIGIN
-    || approved.hostname.startsWith("preview.") || approved.hostname.endsWith(".pages.dev")
-    || auth?.origin !== approved.origin || base?.origin !== approved.origin
-    || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) {
-    issues.push("Production origin must be the exact approved HTTPS app origin, never preview");
+  if (demo) {
+    if (!approved || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) issues.push("The demo's auth and base URL must be the same HTTPS origin");
+  } else {
+    if (env.PRODUCTION_ENVIRONMENT !== "loynara-production") {
+      issues.push("Production environment identity is missing or incorrect");
+    }
+    if (!approved || approved.protocol !== "https:" || approved.origin !== env.PRODUCTION_APPROVED_ORIGIN
+      || approved.hostname.startsWith("preview.") || approved.hostname.endsWith(".pages.dev")
+      || auth?.origin !== approved.origin || base?.origin !== approved.origin
+      || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) {
+      issues.push("Production origin must be the exact approved HTTPS app origin, never preview");
+    }
   }
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 || env.BETTER_AUTH_SECRET.startsWith("replace-")) {
     issues.push("Production auth secret is missing, short, or a placeholder");
@@ -64,7 +74,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");
   if (env.TRUST_PROXY_CLIENT_IP !== undefined && env.TRUST_PROXY_CLIENT_IP !== "false") issues.push("Generic proxy client-IP trust is forbidden; use the reviewed ingress policy");
   if (env.TRUSTED_INGRESS !== "cloudflare_tunnel") issues.push("Production requires TRUSTED_INGRESS=cloudflare_tunnel and a private origin with no public bypass");
-  if (env.BILLING_FIXTURE_SECRET) issues.push("Billing fixture secret is forbidden in production");
+  if (!demo && env.BILLING_FIXTURE_SECRET) issues.push("Billing fixture secret is forbidden in production");
   if ([env.MAILGUN_EU_API_KEY, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET]
     .some(value => value && /replace|placeholder|example|test-secret/i.test(value))) {
     issues.push("Placeholder provider credentials are forbidden in production");
@@ -119,24 +129,11 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   // page is withheld on production (pilot-surfaces), but the operator enters e-mailed cancellations, so the email lane decides.
   if (externalEmailRequested && !(env.OPERATOR_NAME?.trim() && env.OPERATOR_ADDRESS?.trim())) issues.push("OPERATOR_NAME and OPERATOR_ADDRESS (the operator's name and postal address for owner emails) must both be set");
   if (erasureDelayDays(env) === null) issues.push("SHOP_ERASURE_DELAY_DAYS must be a whole number of days from 7 to 3650");
-  if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
+  if (!demo && env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
   issues.push(...walletConfigIssues(env, approved));
-  return issues;
-}
-
-/** The demo is public on the internet too: the login and NFC rules that apply there whatever the environment. */
-function demoHardeningIssues(env: NodeJS.ProcessEnv): string[] {
-  if (env.NODE_ENV !== "production") return [];
-  const issues: string[] = [];
-  const auth = parsedUrl(env.BETTER_AUTH_URL), base = parsedUrl(env.PUBLIC_BASE_URL);
-  if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) issues.push("Demo application URLs must use HTTPS and nonlocal hosts");
-  if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 || placeholder.test(env.BETTER_AUTH_SECRET)) issues.push("Demo auth secret is missing, short, or a placeholder");
-  if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for the demo environment");
-  if (env.NFC_ADMIN_MASTER_KEY) issues.push("The NFC administrative master key must stay on the operator machine");
-  if (env.TAP_SYNTHETIC_KEY_FILE) issues.push("Synthetic NFC development keys are forbidden in the demo environment");
   return issues;
 }
 
