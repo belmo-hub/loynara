@@ -69,9 +69,11 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 function ActiveBusiness({ me }: { me: MeResponse }) {
   const { locations } = useOwner();
   const isOwner = me.role === "owner";
+  // The demo environment withholds the euro board (pilot-surfaces „revenue“): the board leads with the card stock instead.
+  const spendShown = isOwner && !me.hiddenSurfaces?.includes("revenue");
   const [analytics, reloadAnalytics] = useLoad<LocationAnalytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
   // Euros are owner-only (the spend read refuses everyone else); the Leitung's board leads with their card stock.
-  const [spend, reloadSpend] = useLoad<MerchantSpend>(isOwner ? "/api/merchant/spend" : null);
+  const [spend, reloadSpend] = useLoad<MerchantSpend>(spendShown ? "/api/merchant/spend" : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
   const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
@@ -82,7 +84,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
   const a = analytics.state === "ok" ? analytics.data : null;
   const r = retention.state === "ok" ? retention.data : null;
-  const live = a && (isOwner ? spend.state === "ok" : r) ? boardOf(a, isOwner && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
+  const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
   useEffect(() => { if (liveJson) writeBoardCache(cacheKey, { at: new Date().toISOString(), board: JSON.parse(liveJson) as BoardData }); }, [cacheKey, liveJson]);
@@ -114,7 +116,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
   // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact. Euros only while
   // the board's are exact: with part estimated, the board's total and the till amounts would be two totals (fault 17).
-  const owned = isOwner && !failed && spend.state === "ok" ? spend.data : null;
+  const owned = spendShown && !failed && spend.state === "ok" ? spend.data : null;
   const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
   const brought = !owned || !here || !a ? null
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
@@ -131,7 +133,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
-          : <Board label={!isOwner ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board}>
+          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board}>
             {!board ? <BoardPlaceholder /> : <>
               {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
                 <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>

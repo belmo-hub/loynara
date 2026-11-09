@@ -6,6 +6,7 @@ import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 import { stripeConfigIssues } from "../src/lib/stripe-config";
 import { erasureDelayDays } from "../src/lib/programme-end-date";
+import { demoConfigIssues } from "../src/lib/demo-environment";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -14,6 +15,9 @@ function parsedUrl(value?: string): URL | null {
 }
 
 export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
+  // The demo environment (demo-mode design v3) runs the production image without the production marker, so its own checks
+  // replace these; DEMO_ENVIRONMENT next to the marker is refused there. Absent or "false" changes nothing.
+  if (env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false") return [...demoConfigIssues(env), ...demoHardeningIssues(env)];
   if (env.NODE_ENV !== "production") return [];
   const issues: string[] = [];
   const database = parsedUrl(env.DATABASE_URL);
@@ -120,6 +124,19 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
   issues.push(...walletConfigIssues(env, approved));
+  return issues;
+}
+
+/** The demo is public on the internet too: the login and NFC rules that apply there whatever the environment. */
+function demoHardeningIssues(env: NodeJS.ProcessEnv): string[] {
+  if (env.NODE_ENV !== "production") return [];
+  const issues: string[] = [];
+  const auth = parsedUrl(env.BETTER_AUTH_URL), base = parsedUrl(env.PUBLIC_BASE_URL);
+  if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) issues.push("Demo application URLs must use HTTPS and nonlocal hosts");
+  if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 || placeholder.test(env.BETTER_AUTH_SECRET)) issues.push("Demo auth secret is missing, short, or a placeholder");
+  if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for the demo environment");
+  if (env.NFC_ADMIN_MASTER_KEY) issues.push("The NFC administrative master key must stay on the operator machine");
+  if (env.TAP_SYNTHETIC_KEY_FILE) issues.push("Synthetic NFC development keys are forbidden in the demo environment");
   return issues;
 }
 

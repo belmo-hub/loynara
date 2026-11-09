@@ -1,4 +1,5 @@
 import { isProductionDeployment } from "./pilot-policy";
+import { demoEnvironment } from "./demo-environment";
 import { nfcCapability } from "./nfc-keys";
 import { anyWalletAvailable } from "./wallet/capability";
 
@@ -26,9 +27,12 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   environment name: it is withheld wherever no verification-key provider is configured (lib/nfc-keys), so nothing is
  *   offered that could not work, and it appears automatically once production NFC is configured.
  *
+ * - revenue: the owner board's „Umsatz deiner Loynara-Kunden“, withheld in the demo environment (design v3): its sample data
+ *   carries no amounts, and a demo must not show an owner invented money.
+ *
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
-export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages";
+export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages" | "revenue";
 export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "audiences", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
@@ -40,6 +44,7 @@ export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
   const hidden: PilotSurface[] = production ? PILOT_HIDDEN_SURFACES.filter(surface => !switchedOn(surface)) : [];
   if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
+  if (demoEnvironment(env)) hidden.push("revenue");
   return hidden;
 }
 

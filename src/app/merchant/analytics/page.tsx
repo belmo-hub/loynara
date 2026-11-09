@@ -95,7 +95,8 @@ export default function MerchantAnalyticsPage() {
             .map(([key, title]) => ({ key, icon: Megaphone, title, value: nf.format(r.campaignAttempts[key]) }))} />
         </RowSection>}
       </>}
-      <SpendCard multiLocation={locations.length > 1} />
+      {/* Withheld in the demo environment (pilot-surfaces „revenue“). */}
+      {!me.hiddenSurfaces?.includes("revenue") && <SpendCard multiLocation={locations.length > 1} />}
     </div>
   );
 }

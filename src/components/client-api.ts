@@ -12,6 +12,8 @@ export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ADDRESS_R
   "MESSAGE_REFUSED", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE", "QUIET_HOURS",
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
+  // The demo environment (design v3): its refusals are German.
+  "NO_DEMO",
   // German since ENG-152 (the shared codes many routes send).
   "BILLING_STATE", "CONTACT_DISABLED", "FORBIDDEN", "INVALID_INPUT", "NOT_FOUND", "PLAN_UNAVAILABLE",
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.
@@ -113,7 +115,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "revenue">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
