@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { consentLines, panelShown, SwitchedOff, SwitchedOn } from "./card-wallet-messages";
+import { ConsentLabel, consentLines, panelShown, SwitchedOff, SwitchedOn } from "./card-wallet-messages";
 import { markJoinAsked } from "./wallet-step";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
@@ -127,7 +127,7 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
     // The heading stands on every visit; only the placement under the card is once (Design, 30 Oct).
     expect(panel).toContain("<h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>");
-    expect(panel).toContain("<p>Von {shop} · Höchstens 2 pro Woche · aus</p>");
+    expect(panel).toContain("`Von ${shop} · Höchstens 2 pro Woche · aus`");
   });
   it("offers no Apple add button once a device holds the pass, and keeps the re-add notice", () => {
     const card = readFileSync("src/components/customer/customer-card.tsx", "utf8");
@@ -155,5 +155,19 @@ describe("activity dates on the card (G-M3)", () => {
   });
   it("gives French cards the plain date, with no new French words", () => {
     expect(activityDay("2026-10-31T07:00:00Z", "fr-FR", now)).toBe(new Date("2026-10-31T07:00:00Z").toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }));
+  });
+});
+
+describe("demo environment (Legal follow-up, 9 Nov)", () => {
+  const props = { shop: "Salon Aziz", givenAt: null, busy: false, onSwitchOff: () => {}, available: true, off: "", onSwitchOn: () => {} };
+  it("the status lines name Loynara as sender, for the shop, and the demo's cap", () => {
+    expect(renderToStaticMarkup(h(SwitchedOn, { ...props, demo: true }))).toContain("<p>Von Loynara für Salon Aziz · Höchstens 2 in der Demo · an</p>");
+    expect(renderToStaticMarkup(h(SwitchedOff, { ...props, demo: true }))).toContain("<p>Von Loynara für Salon Aziz · Höchstens 2 in der Demo · aus</p>");
+    expect(renderToStaticMarkup(h(SwitchedOn, props))).toContain("<p>Von Salon Aziz · Höchstens 2 pro Woche · an</p>");
+    expect(renderToStaticMarkup(h(SwitchedOff, props))).toContain("<p>Von Salon Aziz · Höchstens 2 pro Woche · aus</p>");
+  });
+  it("the consent box keeps its privacy link: to the demo notice in the demo, unchanged elsewhere", () => {
+    expect(renderToStaticMarkup(h(ConsentLabel, { lead: "Ja, Loynara darf …", demo: true }))).toBe('Ja, Loynara darf … <a href="/datenschutz">Datenschutzhinweise zur Demo</a>');
+    expect(renderToStaticMarkup(h(ConsentLabel, { lead: "Ja, Café … ab. " }))).toBe('Ja, Café … ab. <a href="/datenschutz">Mehr in den Datenschutzhinweisen.</a>');
   });
 });

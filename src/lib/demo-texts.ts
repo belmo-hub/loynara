@@ -22,6 +22,10 @@ export const demoNoticeLine = (shop: string, end: DemoEnd) => `Demo von Loynara 
 export const DEMO_JOIN_PRIVACY = "Datenschutzhinweisen zur Demo";
 export const demoJoinLine = (button: string) => `Mit „${button}“ legst du eine Demo-Karte an. Mehr in den ${DEMO_JOIN_PRIVACY}.`;
 
+/** Legal follow-up (a) and (d): the card's consent status line and its privacy link in the demo. */
+export const demoConsentStatus = (shop: string, on: boolean) => `Von Loynara für ${shop} · Höchstens 2 in der Demo · ${on ? "an" : "aus"}`;
+export const DEMO_PRIVACY_LINK = "Datenschutzhinweise zur Demo";
+
 /** Legal change 5: next to every count that includes the sample visits. */
 export const DEMO_DATA_NOTE = "Demo-Daten: erfundene Beispiele, keine Prognose.";
 
