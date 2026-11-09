@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import styles from "./customer/panels.module.css";
 
-type Consent = { available: boolean; granted: boolean; givenAt: string | null; shop: string; text: string };
+type Consent = { available: boolean; granted: boolean; givenAt: string | null; shop: string; text: string; /** Demo environment: Legal's demo wording, Loynara as the sender. */ demo?: boolean };
 const LINK = "Mehr in den Datenschutzhinweisen.";
 
 /** The lines around Legal's box; points programmes with an expiry rule (in force or pending) name the expiry notice, which needs no tick (Legal, ENG-130). */
@@ -82,8 +82,8 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   return <section className={styles.panel} aria-label="Nachrichten auf deiner Wallet-Karte">
     {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}
     {state.granted ? <SwitchedOn shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
-      <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>
-      <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}<Link href="/datenschutz">{LINK}</Link></Checkbox>
+      {!state.demo && <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>}
+      <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}{!state.demo && <Link href="/datenschutz">{LINK}</Link>}</Checkbox>
       <p className={styles.muted}>{lines.under}</p>
     </>}
     {error && <p role="alert" className={styles.error}>{error}</p>}

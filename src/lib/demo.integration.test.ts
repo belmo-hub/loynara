@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
@@ -14,8 +14,12 @@ vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: async () => session.us
 
 import { activeDemo, createDemo, demoPlateLive, demoStatus, endDemos } from "./demo";
 import { eraseDemoShop } from "./shop-erasure";
-import { createMerchant, enroll } from "./product";
-import { acknowledgeWalletGuidance, queueCardWalletMessage, sendWalletMessage, setWalletConsent } from "./wallet-messages";
+import { createMerchant, enroll, getCard, getPublicProgram } from "./product";
+import { appleFixture, withEnv } from "./wallet/test-support";
+import { walletCardSnapshot } from "./wallet/data";
+import { DEMO_CONSENT_TEXT_VERSION } from "./demo-texts";
+import { JOIN_CONSENT_TEXT_VERSION } from "./wallet-message-rules";
+import { acknowledgeWalletGuidance, getWalletConsent, queueCardWalletMessage, sendWalletMessage, setWalletConsent } from "./wallet-messages";
 import { queueWinbackMessages } from "./winback";
 import { queueBirthdayMessages } from "./birthday";
 import { queueAlmostMessages } from "./almost-there";
@@ -342,4 +346,51 @@ describe("Demo-Modus review round (R-1 to R-4, Design 3)", () => {
     expect((await getLocationAnalytics(operator, { locationId: demo.locationId })).current.qualifyingCheckouts).toBe(0);
     expect((await getRetentionSummary(operator, { locationId: demo.locationId })).never).toBe(6);
   });
+});
+
+describe("Legal's demo texts (9 Nov): consent version, notice line, no terms, production unchanged", () => {
+  let apple: ReturnType<typeof appleFixture>;
+  beforeAll(() => { apple = appleFixture(); });
+  afterAll(() => apple.cleanup());
+
+  it("a demo join stores the demo consent version; the card toggle shows and stores it; the card and join page carry the line", () => withEnv(apple.env, async () => {
+    await start();
+    const demo = (await activeDemo())!;
+    const [program] = await db.select().from(programs).where(eq(programs.id, demo.programId));
+    const page = await getPublicProgram(program.slug);
+    expect(page.demo).toMatchObject({ consentVersion: DEMO_CONSENT_TEXT_VERSION, notice: expect.stringMatching(/^Demo von Loynara für Salon Aziz\. Diese Karte endet am .+ um \d\d:\d\d\. Stempel und Prämien gelten nicht\.$/) });
+    expect(page.demo!.consentText).toMatch(/^Ja, Loynara darf mir in dieser Demo Nachrichten im Namen von Salon Aziz/);
+    // The production wording is refused in a demo, the demo wording accepted and stored with its own version.
+    expect(await code(() => enroll({ slug: program.slug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION }))).toBe("CONSENT_TEXT_CHANGED");
+    const card = await enroll({ slug: program.slug, acceptedTerms: true, walletConsentVersion: DEMO_CONSENT_TEXT_VERSION });
+    expect((await pool.query("SELECT text_version FROM wallet_message_consents WHERE membership_id = $1", [card.id])).rows).toEqual([{ text_version: DEMO_CONSENT_TEXT_VERSION }]);
+    expect((await getCard(card.cardToken)).demoNotice).toBe(page.demo!.notice);
+    const other = await enroll({ slug: program.slug, acceptedTerms: true });
+    await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'apple', $3, 'created')", [demo.tenantId, other.id, `passfast:${randomUUID()}`]);
+    expect(await getWalletConsent(other.cardToken)).toMatchObject({ version: DEMO_CONSENT_TEXT_VERSION, demo: true, text: page.demo!.consentText });
+    await setWalletConsent(other.cardToken, true);
+    expect((await pool.query("SELECT text_version FROM wallet_message_consents WHERE membership_id = $1", [other.id])).rows).toEqual([{ text_version: DEMO_CONSENT_TEXT_VERSION }]);
+    // The pass back carries the line.
+    const snapshot = await walletCardSnapshot(card.id);
+    expect(snapshot.open && snapshot.pass.demoNotice).toBe(page.demo!.notice);
+  }));
+
+  it("outside the demo environment the same shop gets production texts, unchanged", () => withEnv(apple.env, async () => {
+    await start();
+    const demo = (await activeDemo())!;
+    const [program] = await db.select().from(programs).where(eq(programs.id, demo.programId));
+    delete process.env.DEMO_ENVIRONMENT;
+    const page = await getPublicProgram(program.slug);
+    expect(page.demo).toBeUndefined();
+    expect(await code(() => enroll({ slug: program.slug, acceptedTerms: true, walletConsentVersion: DEMO_CONSENT_TEXT_VERSION }))).toBe("CONSENT_TEXT_CHANGED");
+    const card = await enroll({ slug: program.slug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION });
+    expect((await pool.query("SELECT text_version FROM wallet_message_consents WHERE membership_id = $1", [card.id])).rows).toEqual([{ text_version: JOIN_CONSENT_TEXT_VERSION }]);
+    expect((await getCard(card.cardToken)).demoNotice).toBeUndefined();
+    const snapshot = await walletCardSnapshot(card.id);
+    expect(snapshot.open && snapshot.pass.demoNotice).toBeUndefined();
+    const real = await realShop();
+    process.env.DEMO_ENVIRONMENT = "true";
+    // A real shop in the demo environment keeps production's texts too.
+    expect((await getPublicProgram(real.programSlug)).demo).toBeUndefined();
+  }));
 });

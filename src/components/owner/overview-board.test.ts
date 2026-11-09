@@ -69,6 +69,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).not.toContain("Umsatz deiner Loynara-Kunden");
     expect(state.urls.some(url => url.startsWith("/api/merchant/spend"))).toBe(false);
     expect(html).toContain('aria-label="Karten an deinem Standort, letzte 30 Tage"');
+    expect(html).toContain("Demo-Daten: erfundene Beispiele, keine Prognose.");
+    state.me = me();
+    expect(render()).not.toContain("Demo-Daten");
   });
 
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {

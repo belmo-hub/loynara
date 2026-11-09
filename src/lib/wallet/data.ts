@@ -1,3 +1,4 @@
+import { shopDemo } from "../demo-texts";
 import { createHash } from "node:crypto";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -99,6 +100,7 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
       balance: row.member.balance,
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
+      ...(() => { const demo = shopDemo(row.tenant, row.location.timezone); return demo ? { demoNotice: demo.line } : {}; })(),
       ...(target ? { reward: { title: target.title, cost: target.cost, pending: target.pending, endsOn: target.endsOn } } : {}),
       rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
       // ENG-100: the dated lines come first, the whole new rule quoted (W46, W58), then the rules in force.

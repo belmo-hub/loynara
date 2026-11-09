@@ -6,6 +6,18 @@ import TeilnahmebedingungenPage from "./teilnahmebedingungen/page";
 
 // Customers tick a checkbox linking to these pages when they create a card.
 describe("customer legal pages", () => {
+  it("the demo environment serves Legal's demo privacy notice instead; elsewhere the normal one", () => {
+    const saved = process.env.DEMO_ENVIRONMENT;
+    process.env.DEMO_ENVIRONMENT = "true";
+    try {
+      const html = renderToStaticMarkup(createElement(DatenschutzPage));
+      expect(html).toContain("<h1>Datenschutzhinweise zur Demo</h1>");
+      expect(html).toContain("Das Geschäft, dessen Name und Logo du siehst, betreibt diese Demo nicht.");
+      expect(html).toContain("In der Demo gibt es keine E-Mails, keine Zahlungen und kein Google.");
+    } finally { if (saved === undefined) delete process.env.DEMO_ENVIRONMENT; else process.env.DEMO_ENVIRONMENT = saved; }
+    expect(renderToStaticMarkup(createElement(DatenschutzPage))).not.toContain("zur Demo");
+  });
+
   const pages = [["Datenschutz", DatenschutzPage], ["Teilnahmebedingungen", TeilnahmebedingungenPage]] as const;
 
   it.each(pages)("%s is final text that names the operator", (_name, Page) => {

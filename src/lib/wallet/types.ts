@@ -55,6 +55,8 @@ export type WalletPassData = WalletBrand & {
   /** ENG-100: a waiting rule or expiry change (YYYY-MM-DD, location time), data only until the pass back shows them. */
   pending?: RulePending | null;
   pendingExpiry?: { effectiveOn: string; months: number; before: number | null } | null;
+  /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für … endet am … Stempel und Prämien gelten nicht.“ on the back. */
+  demoNotice?: string;
 };
 
 /** What a revoked pass may still show: who issued it and why it no longer works. No balance, QR code or locator. */

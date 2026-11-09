@@ -174,6 +174,8 @@ export type PublicProgram = {
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
   /** The day a change to customers' disadvantage saved now would take effect (four weeks on). */
   noticeOn?: string;
+  /** Demo environment only (Legal, 9 Nov): the notice line and the demo consent wording with its version. */
+  demo?: { notice: string; consentVersion: string; consentText: string };
   /** ENG-100: a rule change waiting for its day (the rule in force is above), and a waiting expiry with the months before it. */
   pending?: { effectiveOn: string; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string; old: { earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string } } | null;
   pendingExpiry?: { effectiveOn: string; months: number; before: number | null } | null;
@@ -189,6 +191,8 @@ export type PublicProgram = {
 };
 
 export type CardResponse = {
+  /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für …“ at the top of the card. */
+  demoNotice?: string;
   scanCode: string;
   cardLocator: string;
   balance: number;

@@ -68,7 +68,9 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   it("hides the notice on a closed programme, where nothing can be accepted, and every new tap starts in the form", async () => {
     const page = await source();
     expect(page).toContain('const notice = locale !== "fr" && program.active !== false;');
-    expect(page).toContain('{notice && <p id="join-notice"');
+    expect(page).toContain('{notice && !program.demo && <p id="join-notice"');
+    // Demo environment (Legal, 9 Nov): the same place, the demo line instead of the terms acceptance.
+    expect(page).toContain('{notice && program.demo && <p id="join-notice"');
     expect(page).toContain('aria-describedby={notice ? "join-notice" : undefined}');
     expect(page).toContain('setError(""); setErrorSpot("form");');
   });
@@ -78,7 +80,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     expect(joinConsent(false, true)).toEqual({});
     const page = await source();
     expect(page).toContain("const [messagesTicked, setMessagesTicked] = useState(false);");
-    expect(page).toContain("...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked)");
+    expect(page).toContain("...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion)");
   });
   it("names the button after a stale join on German pages; French pages keep their line", async () => {
     expect(staleLine("de", "Meine Karte erstellen")).toBe("Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „Meine Karte erstellen“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.");
@@ -93,7 +95,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();
-    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '{notice && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
+    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '{notice && !program.demo && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
     expect(order.every(at => at > 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');
