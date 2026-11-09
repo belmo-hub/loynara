@@ -20,6 +20,7 @@ import { StampGrid } from "./ui/stamp-grid";
 import { iphoneDevice, walletPlatform } from "./wallet-preparation";
 import { afterJoin, iphoneJoin, markJoinAsked, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
+import cardStyles from "./customer/customer-card.module.css";
 
 const copy = {
   de: {
@@ -253,7 +254,8 @@ export function JoinClient({ slug }: { slug: string }) {
         </div>}
         {errorLine("form")}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
-        {program.demo && <p className={styles.notice}>{program.demo.notice}</p>}
+        {/* The same tinted panel as the notice on the card. */}
+        {program.demo && <div className={cardStyles.ending}><p>{program.demo.notice}</p></div>}
         {/* A demo card accepts no terms (Legal): the demo line and its privacy notice instead. */}
         {notice && program.demo && <p id="join-notice" className={styles.notice}>{demoJoinLine(existing ? t.anotherSubmit : t.submit).replace(`${DEMO_JOIN_PRIVACY}.`, "")}<Link href="/datenschutz" target="_blank">{DEMO_JOIN_PRIVACY}</Link>.</p>}
         {notice && !program.demo && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}

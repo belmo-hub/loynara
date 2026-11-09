@@ -20,7 +20,7 @@ const NBSP = "\u00a0";
  * and its sub-line says what it counts and over which days; `label` names the card for screen readers.
  */
 export function Board({ label, busy = false, demo = false, children }: { label: string; busy?: boolean; /** Demo environment: its numbers include the sample visits. */ demo?: boolean; children: ReactNode }) {
-  return <section className="ow-board" aria-label={label} aria-busy={busy}>{demo ? <p><DemoDataChip /></p> : null}{children}</section>;
+  return <section className="ow-board" aria-label={label} aria-busy={busy}>{demo ? <p style={{ marginBottom: "var(--space-3)" }}><DemoDataChip /></p> : null}{children}</section>;
 }
 
 /** The demo environment's sample visits count in these numbers (lib/demo-environment visitSources); Legal's line (9 Nov). */

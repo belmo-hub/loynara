@@ -5,8 +5,8 @@ const demo = { name: "Salon Aziz", slug: "demo-0b5e7c1a-3d2f-4c8e-9a71-5f6d4e3c2
 
 describe("Legal's demo texts (9 Nov)", () => {
   it("names the demo's end, 24 hours on, in the shop's time zone", () => {
-    expect(demoEnd(demo.createdAt, "Europe/Berlin")).toEqual({ date: "10. November 2026", time: "15:30" });
-    expect(shopDemo(demo, "Europe/Berlin", { DEMO_ENVIRONMENT: "true" })?.line).toBe("Demo von Loynara für Salon Aziz. Diese Karte endet am 10. November 2026 um 15:30. Stempel und Prämien gelten nicht.");
+    expect(demoEnd(demo.createdAt, "Europe/Berlin")).toEqual({ date: "10.\u00a0November 2026", time: "15:30" });
+    expect(shopDemo(demo, "Europe/Berlin", { DEMO_ENVIRONMENT: "true" })?.line).toBe("Demo von Loynara für Salon Aziz. Diese Karte endet am 10.\u00a0November 2026 um 15:30. Stempel und Prämien gelten nicht.");
   });
 
   it("only in the demo environment and only for a demo shop", () => {

@@ -10,7 +10,8 @@ export type DemoEnd = { date: string; time: string };
 export function demoEnd(createdAt: Date, timeZone: string): DemoEnd {
   const at = new Date(createdAt.getTime() + DEMO_HOURS * 60 * 60_000);
   return {
-    date: new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone }).format(at),
+    // A no-break space after the day, so „10.“ never stands alone at the end of a line.
+    date: new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone }).format(at).replace(". ", ".\u00a0"),
     time: new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(at),
   };
 }

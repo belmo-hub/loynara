@@ -116,7 +116,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
     <div className={styles.lead}>
-      {demoNotice ? <p className={styles.ending}>{demoNotice}</p> : null}
+      {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
       {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
         <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
         <p>{t.endsWindow(programType === "points")}</p>
