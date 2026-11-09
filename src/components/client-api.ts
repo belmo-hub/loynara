@@ -13,7 +13,7 @@ export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ADDRESS_R
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
   // The demo environment (design v3): its refusals are German.
-  "NO_DEMO",
+  "NO_DEMO", "DEMO_ENDED",
   // German since ENG-152 (the shared codes many routes send).
   "BILLING_STATE", "CONTACT_DISABLED", "FORBIDDEN", "INVALID_INPUT", "NOT_FOUND", "PLAN_UNAVAILABLE",
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.

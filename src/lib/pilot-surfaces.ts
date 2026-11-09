@@ -27,6 +27,8 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   environment name: it is withheld wherever no verification-key provider is configured (lib/nfc-keys), so nothing is
  *   offered that could not work, and it appears automatically once production NFC is configured.
  *
+ * - walletMessages stays open in the demo environment (founder, 9 Nov: the pitch shows a message landing on the owner's
+ *   card). The send path takes it only from the active demo (lib/wallet-messages); the automatic reminders stay off there.
  * - revenue: the owner board's „Umsatz deiner Loynara-Kunden“, withheld in the demo environment (design v3): its sample data
  *   carries no amounts, and a demo must not show an owner invented money.
  *

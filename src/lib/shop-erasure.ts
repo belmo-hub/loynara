@@ -1,7 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { shopErasures } from "@/db/schema";
-import { demoEnvironment } from "./demo-environment";
+import { DEMO_SLUG, demoEnvironment } from "./demo-environment";
 import { mailgunConfig } from "./email-configuration";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
@@ -281,8 +281,11 @@ export async function shopErasure(input: { actorUserId: string; env: Env; tenant
 export async function eraseDemoShop(tenantId: string, env: Env = process.env) {
   if (!demoEnvironment(env)) throw new DomainError("FORBIDDEN", "Demo-Geschäfte werden nur in der Demo-Umgebung gelöscht.");
   return db.transaction(async tx => {
-    const { rows } = await tx.execute(sql`SELECT id FROM tenants WHERE id = ${tenantId} FOR UPDATE`);
-    return rows.length ? eraseRows(tx, tenantId, [], env) : {};
+    const { rows } = await tx.execute(sql`SELECT slug FROM tenants WHERE id = ${tenantId} FOR UPDATE`);
+    if (!rows.length) return {};
+    // Only a shop „Demo starten“ made: any other shop in the database is refused, whatever the environment says.
+    if (!DEMO_SLUG.test((rows[0] as { slug: string }).slug)) throw new DomainError("FORBIDDEN", "Das ist kein Demo-Geschäft.");
+    return eraseRows(tx, tenantId, [], env);
   });
 }
 

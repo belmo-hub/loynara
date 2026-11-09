@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { ownerProgram } from "./automations";
 import { DomainError } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { activeDemo } from "./demo";
+import { demoEnvironment } from "./demo-environment";
 import { quietHoursDeferral } from "./promotion-policy";
 import { assertPassFastBinding, isPassFastObjectId, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
@@ -195,6 +197,8 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
   available();
   const input = sendInput.parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
+  // Demo environment (founder, 9 Nov): a message only from the running demo, so it only reaches that demo's cards.
+  if (demoEnvironment() && (await activeDemo(db, now))?.tenantId !== program.tenantId) throw new DomainError("DEMO_ENDED", "Nachrichten gehen nur aus der laufenden Demo.");
   const checked = checkMessageText(input.text);
   if (!checked.ok) throw new DomainError("MESSAGE_REFUSED", checked.error);
   const [{ timezone }] = rows<{ timezone: string }>(await db.execute(sql`SELECT timezone FROM locations WHERE id = ${program.locationId}::uuid AND tenant_id = ${program.tenantId}::uuid`));
@@ -224,7 +228,7 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
  * consent (Product/Legal 22 Oct). At most one of this kind per card within `onceWithinDays`. False = not queued.
  */
 export async function queueCardWalletMessage(input: { tenantId: string; programId: string; membershipId: string; kind: "expiry"; text: string; onceWithinDays: number }, now = new Date()) {
-  if (surfaceHidden("walletMessages")) return false;
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return false; // automatic: off in the demo environment
   return db.transaction(async tx => {
     await lock(tx, input.tenantId);
     const [recent] = rows<{ id: string }>(await tx.execute(sql`SELECT m.id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id

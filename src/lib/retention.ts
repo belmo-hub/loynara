@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { visitSources } from "./demo-environment";
 import { liveReward, notSuperseded } from "./reward-versions";
 
 /**
@@ -54,7 +55,7 @@ export function parseRetentionDays(raw: string | null | undefined, fallback: Ret
 }
 
 const QUALIFYING = (alias: string, asOf: string) => `
-  ${alias}.kind = 'award' AND ${alias}.source in ('staff_online','staff_offline') AND ${alias}.created_at <= ${asOf}
+  ${alias}.kind = 'award' AND ${alias}.source in (${visitSources()}) AND ${alias}.created_at <= ${asOf}
   AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = ${alias}.tenant_id AND undo.reversal_of_id = ${alias}.id AND undo.created_at <= ${asOf})`;
 
 /** Lateral joins over a memberships row `m`: `q.last_at` (last qualifying checkout) and `rw.cost` (cheapest active reward). */

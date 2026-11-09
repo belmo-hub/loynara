@@ -14,6 +14,13 @@ vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: async () => session.us
 
 import { activeDemo, createDemo, demoPlateLive, demoStatus, endDemos } from "./demo";
 import { eraseDemoShop } from "./shop-erasure";
+import { createMerchant, enroll } from "./product";
+import { acknowledgeWalletGuidance, sendWalletMessage, setWalletConsent } from "./wallet-messages";
+import { queueWinbackMessages } from "./winback";
+import { queueBirthdayMessages } from "./birthday";
+import { queueAlmostMessages } from "./almost-there";
+import { getLocationAnalytics } from "./merchant-analytics";
+import { getRetentionSummary } from "./retention";
 import { POST as demoRoute } from "@/app/api/operator/demo/route";
 import { GET as tapGet } from "@/app/api/tap/[ref]/route";
 import TapPage from "@/app/tap/[ref]/page";
@@ -24,7 +31,6 @@ if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Ded
 const ORIGIN = "https://demo.example-pilot.test";
 const VERIFY = parseMaster("7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a");
 const ADMIN = parseMaster("c4e1a07b93d25f68b0a1c3e5d7f9021b4a6c8e0d2f4b6a8c0e1d3f5a7b9c2d4e");
-const UID = "04de5f1eacc042";
 const HOUR = 60 * 60_000;
 const code = async (fn: () => Promise<unknown>) => { try { await fn(); } catch (error) { return (error as { code?: string }).code ?? "OTHER"; } return "NONE"; };
 const ENV_KEYS = ["DEMO_ENVIRONMENT", "PRODUCTION_ENVIRONMENT", "PLATE_OPERATOR_USER_IDS", "PUBLIC_BASE_URL", "NFC_KEY_PROVIDER", "NFC_VERIFY_MASTER_KEY"] as const;
@@ -48,7 +54,7 @@ afterEach(() => { for (const key of ENV_KEYS) { if (saved[key] === undefined) de
 afterAll(async () => { await pool.end(); });
 
 /** An unlinked plate registered through the real path, and a signed tap for any counter. */
-async function plate(label = "D-001") {
+async function plate(label = "D-001", UID = "04de5f1eacc042") {
   const keyRef = `dv1_${randomBytes(9).toString("base64url")}`;
   const publicRef = randomBytes(18).toString("base64url");
   const keys = deriveTagKeys({ verifyMaster: VERIFY, adminMaster: ADMIN, ref: keyRef, uid: UID });
@@ -200,5 +206,128 @@ describe("Demo-Modus (design v3)", () => {
     await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'apple', $3, 'active')", [demo.tenantId, card.id, `synthetic-${randomUUID()}`]);
     expect(await endDemos(env, new Date(Date.now() + 48.1 * HOUR))).toEqual({ voided: 1, erased: 1 });
     expect(await db.select().from(tenants)).toHaveLength(0);
+  });
+});
+
+/** A shop made by the real setup, not a demo: an owner, a card with a live pass, a linked plate, 30 days old. */
+async function realShop() {
+  const owner = await user();
+  const merchant = await createMerchant({ userId: owner, businessName: "Echtes Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 });
+  const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'apple', $3, 'created')", [merchant.tenantId, card.id, `passfast:${randomUUID()}`]);
+  const p = await plate("R-001", "04de5f1eacc0aa");
+  await pool.query("UPDATE secure_tags SET tenant_id = $1, location_id = $2, program_id = $3, status = 'active' WHERE public_ref = $4", [merchant.tenantId, merchant.locationId, merchant.programId, p.publicRef]);
+  await pool.query("UPDATE tenants SET created_at = now() - interval '30 days' WHERE id = $1", [merchant.tenantId]);
+  return { owner, ...merchant, card, publicRef: p.publicRef };
+}
+const age = (tenantId: string, hours: number) => pool.query(`UPDATE tenants SET created_at = now() - make_interval(hours => $2) WHERE id = $1`, [tenantId, hours]);
+/** A card of the shop with a live pass that can carry a message, with or without the customer's consent. */
+async function messageCard(slug: string, tenantId: string, consent: boolean) {
+  const card = await enroll({ slug, acceptedTerms: true });
+  const passId = randomUUID();
+  await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, $3, 'apple', $4, 'created')", [passId, tenantId, card.id, `passfast:${passId}`]);
+  if (consent) await setWalletConsent(card.cardToken, true);
+  return passId;
+}
+// Daytime in Berlin, so quiet hours never refuse a send.
+const daytime = () => { const at = new Date(); at.setUTCHours(11, 0, 0, 0); return at; };
+
+describe("Demo-Modus review round (R-1 to R-4, Design 3)", () => {
+  it("only demo shops count: a real shop's plate, card, pass and owner are left alone by start, end and erase", async () => {
+    const real = await realShop();
+    await plate();
+    await start();
+    const demo = (await activeDemo())!;
+    expect((await db.select().from(secureTags).where(eq(secureTags.publicRef, real.publicRef)))[0]).toMatchObject({ tenantId: real.tenantId, programId: real.programId });
+    expect(await db.select({ tenantId: plateLinkEvents.newTenantId }).from(plateLinkEvents)).toEqual([{ tenantId: demo.tenantId }]);
+    await age(demo.tenantId, 50);
+    expect(await endDemos(env, new Date(Date.now() + HOUR))).toEqual({ voided: 0, erased: 1 });
+    expect(await db.select().from(tenants).where(eq(tenants.id, real.tenantId))).toHaveLength(1);
+    expect((await pool.query("SELECT status, revoked_at FROM wallet_passes WHERE tenant_id = $1", [real.tenantId])).rows).toEqual([{ status: "created", revoked_at: null }]);
+    expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, real.owner))).toHaveLength(1);
+    expect(await code(() => eraseDemoShop(real.tenantId, env))).toBe("FORBIDDEN");
+    expect(await db.select().from(memberships).where(eq(memberships.tenantId, real.tenantId))).toHaveLength(1);
+    // A real shop made a minute ago is still never the active demo.
+    await age(real.tenantId, 0);
+    expect(await activeDemo()).toBeNull();
+  });
+
+  it("outside the demo environment the hourly end does nothing, even to a 50-hour-old demo with a live pass", async () => {
+    await start();
+    const demo = (await activeDemo())!;
+    const [card] = await db.select().from(memberships).where(eq(memberships.tenantId, demo.tenantId)).limit(1);
+    await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'apple', $3, 'active')", [demo.tenantId, card.id, `synthetic-${randomUUID()}`]);
+    expect(await demoStatus({})).toBeNull(); // a running demo is not shown outside the demo environment
+    await age(demo.tenantId, 50);
+    for (const outside of [{}, { DEMO_ENVIRONMENT: "false" }, { DEMO_ENVIRONMENT: "true", PRODUCTION_ENVIRONMENT: "loynara-production" }]) {
+      expect(await endDemos(outside)).toEqual({ voided: 0, erased: 0 });
+      expect(await demoStatus(outside)).toBeNull();
+    }
+    expect((await pool.query("SELECT status FROM wallet_passes")).rows).toEqual([{ status: "active" }]);
+    expect(await db.select().from(tenants)).toHaveLength(1);
+    // The same shop in the demo environment: proves the data would have gone.
+    expect(await endDemos(env)).toEqual({ voided: 1, erased: 1 });
+  });
+
+  it("checks the operator before the input, clamps sample cards below the reward, and a revoked plate shows the sample card", async () => {
+    expect(await code(async () => start(randomUUID(), { businessName: "" }, await user()))).toBe("FORBIDDEN");
+    const p = await plate();
+    await start(randomUUID(), { templateId: "nails" });
+    const demo = (await activeDemo())!;
+    const cards = await db.select().from(memberships).where(eq(memberships.tenantId, demo.tenantId));
+    expect(Math.max(...cards.map(card => card.balance))).toBe(5); // nails: 6 stamps, the sample's 6 visits capped at 5
+    expect(await demoPlateLive(p.publicRef)).toBe(true);
+    await db.update(secureTags).set({ status: "revoked", revokedAt: new Date() });
+    expect(await demoPlateLive(p.publicRef)).toBe(false);
+    // A retry hours later reports the time actually left.
+    const key = randomUUID();
+    await start(key);
+    await age((await activeDemo())!.tenantId, 5);
+    expect(await start(key)).toMatchObject({ hoursLeft: 19 });
+  });
+
+  it("an owner message goes out only from the running demo, and only to its consenting passes", async () => {
+    const real = await realShop();
+    await acknowledgeWalletGuidance({ actorUserId: real.owner, programSlug: real.programSlug });
+    await messageCard(real.programSlug, real.tenantId, true);
+    await start();
+    const demo = (await activeDemo())!;
+    const [program] = await db.select().from(programs).where(eq(programs.id, demo.programId));
+    await acknowledgeWalletGuidance({ actorUserId: operator, programSlug: program.slug });
+    const consenting = await messageCard(program.slug, demo.tenantId, true);
+    await messageCard(program.slug, demo.tenantId, false);
+    const sent = await sendWalletMessage({ actorUserId: operator, programSlug: program.slug, text: "Heute Kaffee aufs Haus, nur bis 17 Uhr." }, daytime());
+    expect(sent.audience).toBe(1);
+    expect((await pool.query("SELECT pass_id FROM wallet_message_recipients")).rows).toEqual([{ pass_id: consenting }]);
+    expect(await code(() => sendWalletMessage({ actorUserId: real.owner, programSlug: real.programSlug, text: "Heute Kaffee aufs Haus, nur bis 17 Uhr." }, daytime()))).toBe("DEMO_ENDED");
+    await age(demo.tenantId, 40); // ended, also measured from today's 11:00 the test sends at
+    expect(await code(() => sendWalletMessage({ actorUserId: operator, programSlug: program.slug, text: "Morgen wieder offen ab 8 Uhr, bis bald." }, daytime()))).toBe("DEMO_ENDED");
+    expect((await pool.query("SELECT count(*)::int AS n FROM wallet_messages")).rows[0].n).toBe(1);
+    // Outside the demo environment the real shop sends as before.
+    delete process.env.DEMO_ENVIRONMENT;
+    expect((await sendWalletMessage({ actorUserId: real.owner, programSlug: real.programSlug, text: "Heute Kaffee aufs Haus, nur bis 17 Uhr." }, daytime())).audience).toBe(1);
+  });
+
+  it("the automatic reminders queue nothing in the demo environment and run as before outside it", async () => {
+    const spy = vi.spyOn(db, "execute");
+    expect([await queueWinbackMessages(), await queueBirthdayMessages(), await queueAlmostMessages()]).toEqual([0, 0, 0]);
+    expect(spy).not.toHaveBeenCalled();
+    delete process.env.DEMO_ENVIRONMENT;
+    await queueWinbackMessages(); await queueBirthdayMessages(); await queueAlmostMessages();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("the owner board counts the sample visits in the demo environment, and only there", async () => {
+    await start();
+    const demo = (await activeDemo())!;
+    const board = await getLocationAnalytics(operator, { locationId: demo.locationId });
+    const retention = await getRetentionSummary(operator, { locationId: demo.locationId });
+    expect(board.current.qualifyingCheckouts).toBeGreaterThan(0);
+    expect(board.days.some(day => day.bookings > 0)).toBe(true);
+    expect(retention.never).toBe(0);
+    delete process.env.DEMO_ENVIRONMENT;
+    expect((await getLocationAnalytics(operator, { locationId: demo.locationId })).current.qualifyingCheckouts).toBe(0);
+    expect((await getRetentionSummary(operator, { locationId: demo.locationId })).never).toBe(6);
   });
 });

@@ -1,9 +1,9 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, memberships, plateLinkEvents, programs, secureTags, staffPushSubscriptions, staffRoles, tenants } from "@/db/schema";
 import { draftRules } from "@/components/owner/program-helpers";
-import { DEMO_HOURS, demoEnvironment } from "./demo-environment";
+import { DEMO_HOURS, DEMO_SLUG_SQL, demoEnvironment } from "./demo-environment";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { REWARD_COST_MAX } from "./points";
@@ -28,10 +28,14 @@ function requireDemo(env: Env) {
   if (!demoEnvironment(env)) throw new DomainError("FORBIDDEN", "Den Demo-Modus gibt es nur in der Demo-Umgebung.");
 }
 
+/** Only shops „Demo starten“ made (slug demo-<key>) are ever treated as demos, whatever else the database holds. */
+const isDemo = sql`${tenants.slug} ~ ${DEMO_SLUG_SQL}`;
+const hoursLeft = (createdAt: Date, now: Date) => Math.max(1, Math.ceil((createdAt.getTime() + DEMO_HOURS * HOUR - now.getTime()) / HOUR));
+
 export async function activeDemo(reader: Reader = db, now = new Date()) {
   const [row] = await reader.select({ tenantId: tenants.id, name: tenants.name, createdAt: tenants.createdAt, programId: programs.id, locationId: programs.locationId })
     .from(tenants).innerJoin(programs, and(eq(programs.tenantId, tenants.id), eq(programs.status, "active")))
-    .where(gt(tenants.createdAt, new Date(now.getTime() - DEMO_HOURS * HOUR))).orderBy(desc(tenants.createdAt)).limit(1);
+    .where(and(isDemo, gt(tenants.createdAt, new Date(now.getTime() - DEMO_HOURS * HOUR)))).orderBy(desc(tenants.createdAt)).limit(1);
   return row ?? null;
 }
 
@@ -39,7 +43,7 @@ export async function activeDemo(reader: Reader = db, now = new Date()) {
 export async function demoStatus(env: Env = process.env, now = new Date()) {
   if (!demoEnvironment(env)) return null;
   const demo = await activeDemo(db, now);
-  return demo && { name: demo.name, hoursLeft: Math.max(1, Math.ceil((demo.createdAt.getTime() + DEMO_HOURS * HOUR - now.getTime()) / HOUR)) };
+  return demo && { name: demo.name, hoursLeft: hoursLeft(demo.createdAt, now) };
 }
 
 /** A plate opens the active demo only; any other plate (unlinked, or still on an ended demo) shows the sample card. */
@@ -57,6 +61,8 @@ export type DemoInput = { actorUserId: string; env: Env; key: unknown; templateI
  */
 export async function createDemo(raw: DemoInput) {
   requireDemo(raw.env);
+  // Before the input: a non-operator learns nothing from a refusal of what was sent.
+  await db.transaction(tx => assertPlateOperator(tx, raw.actorUserId, raw.env));
   if (typeof raw.key !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw.key)) throw INVALID("Bitte lade die Seite neu.");
   const template = SHOP_TEMPLATES.find(t => t.id === raw.templateId);
   if (!template) throw INVALID("Bitte wähle die Art des Geschäfts.");
@@ -64,10 +70,10 @@ export async function createDemo(raw: DemoInput) {
   if (businessName.length < 2 || businessName.length > 180) throw INVALID("Bitte gib den Namen des Geschäfts ein.");
   const brandColor = raw.brandColor ?? template.colours[0];
   if (typeof brandColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(brandColor)) throw INVALID("Bitte wähle eine Farbe.");
-  const rewardTitle = typeof raw.rewardTitle === "string" && raw.rewardTitle.trim() ? raw.rewardTitle.trim() : template.rewardTitle;
+  const rewardTitle = typeof raw.rewardTitle === "string" ? raw.rewardTitle.trim() : template.rewardTitle;
   if (rewardTitle.length < 2 || rewardTitle.length > 180) throw INVALID("Bitte gib die Prämie ein.");
   const rewardCost = raw.rewardCost ?? template.cost;
-  if (!Number.isInteger(rewardCost) || (rewardCost as number) < 1 || (rewardCost as number) > REWARD_COST_MAX) throw INVALID(`${template.programType === "points" ? "Punkte" : "Stempel"} bis zur Prämie: Gib eine ganze Zahl von 1 bis ${REWARD_COST_MAX} ein.`);
+  if (!Number.isInteger(rewardCost) || (rewardCost as number) < 1 || (rewardCost as number) > REWARD_COST_MAX) throw INVALID(`${template.programType === "points" ? "Punkte" : "Stempel"} bis zur Prämie: Gib eine ganze Zahl von 1 bis ${REWARD_COST_MAX.toLocaleString("de-DE")} ein.`);
   if (raw.logoData !== undefined && typeof raw.logoData !== "string") throw INVALID("Dieses Logo können wir nicht verwenden.");
   const programme = templateProgramme(template);
   const input = merchantInput.parse({
@@ -80,8 +86,9 @@ export async function createDemo(raw: DemoInput) {
     await assertPlateOperator(tx, raw.actorUserId, raw.env);
     // Serializes this operator's starts, so a retry waits for the first try and then finds its shop.
     await tx.execute(sql`SELECT id FROM "user" WHERE id = ${raw.actorUserId} FOR UPDATE`);
-    const [existing] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.slug, slug));
-    if (existing) return { name: existing.name, hoursLeft: DEMO_HOURS };
+    // shortcut: the same key with other form values returns the first demo as it is (the form sends a new key after any edit).
+    const [existing] = await tx.select({ name: tenants.name, createdAt: tenants.createdAt }).from(tenants).where(eq(tenants.slug, slug));
+    if (existing) return { name: existing.name, hoursLeft: hoursLeft(existing.createdAt, new Date()) };
     const { tenant, location } = await insertShop(tx, input, logoData, slug);
     // One role per login (staff_roles_user_id_uq): the operator's role leaves the previous demo for this one.
     await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: raw.actorUserId, role: "owner" })
@@ -96,9 +103,10 @@ export async function createDemo(raw: DemoInput) {
   });
 }
 
-/** Every plate in the demo database is a demo plate: each one moves to the new demo, with its audit row. */
+/** The plates in stock and those on an earlier demo move to the new demo, each with its audit row. A plate on any other shop stays. */
 async function linkPlates(tx: Transaction, target: { tenantId: string; locationId: string; programId: string }, actorUserId: string) {
-  const tags = await tx.select().from(secureTags).where(and(isNotNull(secureTags.plateLabel), inArray(secureTags.status, ["unlinked", "active"]))).for("update");
+  const tags = await tx.select().from(secureTags).where(and(isNotNull(secureTags.plateLabel), or(eq(secureTags.status, "unlinked"),
+    and(eq(secureTags.status, "active"), sql`${secureTags.tenantId} IN (SELECT id FROM tenants WHERE slug ~ ${DEMO_SLUG_SQL})`)))).for("update");
   for (const tag of tags) {
     await tx.update(secureTags).set({ ...target, status: "active", activatedAt: new Date() }).where(eq(secureTags.id, tag.id));
     await tx.insert(plateLinkEvents).values({ tagId: tag.id, plateLabel: tag.plateLabel!, action: tag.programId ? "relink" : "link", actorUserId,
@@ -133,11 +141,16 @@ export async function endDemos(env: Env = process.env, now = new Date()) {
   if (!demoEnvironment(env)) return { voided: 0, erased: 0 };
   const ended = new Date(now.getTime() - DEMO_HOURS * HOUR), gone = new Date(now.getTime() - (DEMO_HOURS + 1) * HOUR);
   const cards = await db.execute(sql`SELECT DISTINCT p.tenant_id AS "tenantId", p.membership_id AS "membershipId" FROM wallet_passes p JOIN tenants t ON t.id = p.tenant_id
-    WHERE p.revoked_at IS NULL AND t.created_at <= ${ended.toISOString()}::timestamptz`);
+    WHERE p.revoked_at IS NULL AND t.slug ~ ${DEMO_SLUG_SQL} AND t.created_at <= ${ended.toISOString()}::timestamptz`);
   for (const card of cards.rows as Array<{ tenantId: string; membershipId: string }>) await db.transaction(tx => revokeCardWalletPasses(tx, card.tenantId, card.membershipId, "closed"));
   // Not before the voided pass reached the phones (a pass still waiting for its push would freeze instead); a day later anyway.
-  const shops = (await db.execute(sql`SELECT t.id FROM tenants t WHERE t.created_at <= ${gone.toISOString()}::timestamptz
+  const shops = (await db.execute(sql`SELECT t.id FROM tenants t WHERE t.slug ~ ${DEMO_SLUG_SQL} AND t.created_at <= ${gone.toISOString()}::timestamptz
     AND (t.created_at <= ${new Date(now.getTime() - 2 * DEMO_HOURS * HOUR).toISOString()}::timestamptz OR NOT EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = t.id AND p.status <> 'revoked'))`)).rows as Array<{ id: string }>;
-  for (const shop of shops) await eraseDemoShop(shop.id, env);
-  return { voided: cards.rows.length, erased: shops.length };
+  let erased = 0;
+  for (const shop of shops) {
+    // One shop that cannot be erased must not hold up the others; it is tried again next hour.
+    try { await eraseDemoShop(shop.id, env); erased++; }
+    catch (error) { console.error(`Demo erase failed for ${shop.id} (${error instanceof Error ? error.name : "error"})`); }
+  }
+  return { voided: cards.rows.length, erased };
 }
