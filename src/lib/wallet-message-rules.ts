@@ -1,5 +1,6 @@
 // Wallet messages (ENG-043): the pure rules and the verbatim texts. No database, so client code may import it.
 // Rules are Product's (2026-10-22-spec-wallet-messages.md), texts are Legal's draft of 22 Oct 2026 (not legal advice).
+import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, type DemoEnd } from "./demo-texts";
 import { EXCLUDED_GOODS } from "./card-extras";
 import { keepUnits } from "./german-date";
 
@@ -23,9 +24,11 @@ export const OWNER_GUIDANCE = "Du bist für deine Nachrichten verantwortlich. Bi
  * The consent wording by version, the single source for the card and the exports (ENG-174b, Legal). The stored row keeps only
  * the version, so a published text never changes: a new wording gets a new version here.
  */
-export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => string> = {
+export const CONSENT_TEXTS: Record<string, (shop: string, location: string, demoEnd?: DemoEnd) => string> = {
   "wallet-consent-2026-10-22-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
   "wallet-consent-join-2026-11-06-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
+  // Demo environment only (Legal, 9 Nov): Loynara is the sender there, there are no reminders, and the demo's end is named.
+  [DEMO_CONSENT_TEXT_VERSION]: (shop, _location, demoEnd) => demoConsentText(shop, demoEnd),
 };
 
 export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);

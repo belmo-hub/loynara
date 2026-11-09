@@ -257,6 +257,13 @@ describe("Apple pass", () => {
     expect(json.storeCard.backFields.map(field => field.key)).not.toContain("rewardTitle");
   });
 
+  it("demo environment only: Legal's demo line leads the back as a plain field, never with a change message (Legal, 9 Nov)", () => {
+    const line = "Demo von Loynara für Kaffeeclub. Diese Karte endet am 10. November 2026 um 15:30. Stempel und Prämien gelten nicht.";
+    const back = applePassJson({ ...pass, demoNotice: line }, serial, appleConfig).storeCard.backFields;
+    expect(back[0]).toEqual({ key: "demo", label: "", value: line, dataDetectorTypes: [] });
+    expect(applePassJson(pass, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("demo");
+  });
+
   it("puts the rules first on the back, then the full reward name, programme, location, card, update and note", () => {
     const rules = ["Ein Stempel pro Heißgetränk.", "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben."];
     const long = "Gratisgetränk 0,3 l, nur Mo–Fr außer Feiertage";

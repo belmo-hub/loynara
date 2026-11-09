@@ -12,6 +12,8 @@ export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ADDRESS_R
   "MESSAGE_REFUSED", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE", "QUIET_HOURS",
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
+  // The demo environment (design v3): its refusals are German.
+  "NO_DEMO", "DEMO_ENDED",
   // German since ENG-152 (the shared codes many routes send).
   "BILLING_STATE", "CONTACT_DISABLED", "FORBIDDEN", "INVALID_INPUT", "NOT_FOUND", "PLAN_UNAVAILABLE",
   // Logo pipeline (ENG-134): every server line is German and names the actual fix.
@@ -113,7 +115,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "revenue">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
@@ -172,6 +174,8 @@ export type PublicProgram = {
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
   /** The day a change to customers' disadvantage saved now would take effect (four weeks on). */
   noticeOn?: string;
+  /** Demo environment only (Legal, 9 Nov): the notice line and the demo consent wording with its version. */
+  demo?: { notice: string; consentVersion: string; consentText: string };
   /** ENG-100: a rule change waiting for its day (the rule in force is above), and a waiting expiry with the months before it. */
   pending?: { effectiveOn: string; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string; old: { earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; rulesText: string } } | null;
   pendingExpiry?: { effectiveOn: string; months: number; before: number | null } | null;
@@ -187,6 +191,8 @@ export type PublicProgram = {
 };
 
 export type CardResponse = {
+  /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für …“ at the top of the card. */
+  demoNotice?: string;
   scanCode: string;
   cardLocator: string;
   balance: number;

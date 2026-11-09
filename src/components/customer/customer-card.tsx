@@ -34,6 +34,8 @@ export type CustomerCardProps = {
   rulesText?: string;
   /** The shop's short news line, plain text; absent = no panel. */
   news?: string;
+  /** Demo environment only: Legal's demo line, at the top of the card. */
+  demoNotice?: string;
   /** The shop's review link; a plain link, never tied to a reward. */
   reviewUrl?: string;
   /** End time of the running happy hour; one plain line, absent = none running. */
@@ -87,7 +89,7 @@ export type CustomerCardProps = {
  * on the left and the sections run on the right.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
+  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, demoNotice, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
     <div className={styles.lead}>
+      {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
       {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
         <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
         <p>{t.endsWindow(programType === "points")}</p>

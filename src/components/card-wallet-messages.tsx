@@ -1,5 +1,6 @@
 "use client";
 
+import { DEMO_PRIVACY_LINK, demoConsentStatus } from "@/lib/demo-texts";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiJson, postJson } from "./client-api";
@@ -7,7 +8,7 @@ import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import styles from "./customer/panels.module.css";
 
-type Consent = { available: boolean; granted: boolean; givenAt: string | null; shop: string; text: string };
+type Consent = { available: boolean; granted: boolean; givenAt: string | null; shop: string; text: string; /** Demo environment: Legal's demo wording, Loynara as the sender. */ demo?: boolean };
 const LINK = "Mehr in den Datenschutzhinweisen.";
 
 /** The lines around Legal's box; points programmes with an expiry rule (in force or pending) name the expiry notice, which needs no tick (Legal, ENG-130). */
@@ -21,18 +22,22 @@ export function consentLines(expiry: boolean) {
 export const panelShown = (available: boolean, switchedOff: boolean) => available || switchedOff;
 
 /** On: also what a guest who ticked at the join sees, before any pass exists, so the off switch is always here (Legal, Art. 7(3)). */
-export function SwitchedOn({ shop, givenAt, busy, onSwitchOff }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void }) {
+/** The consent box's text and its privacy link; in the demo Legal's link to the demo notice (follow-up d). */
+export const ConsentLabel = ({ lead, demo = false }: { lead: string; demo?: boolean }) =>
+  demo ? <>{lead} <Link href="/datenschutz">{DEMO_PRIVACY_LINK}</Link></> : <>{lead}<Link href="/datenschutz">{LINK}</Link></>;
+
+export function SwitchedOn({ shop, givenAt, busy, onSwitchOff, demo = false }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void; demo?: boolean }) {
   return <>
-    <p>Von {shop} · Höchstens 2 pro Woche · an</p>
+    <p>{demo ? demoConsentStatus(shop, true) : `Von ${shop} · Höchstens 2 pro Woche · an`}</p>
     {givenAt && <p className={styles.muted}>Erlaubt am {new Date(givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
     <Button variant="secondary" size="sm" loading={busy} onClick={onSwitchOff}>Abschalten</Button>
   </>;
 }
 
 /** Just switched off. The off line and „Einschalten“ only while the card still offers consent: an unreachable pass gets neither (Design, ENG-162). */
-export function SwitchedOff({ shop, available, off, onSwitchOn }: { shop: string; available: boolean; off: string; onSwitchOn: () => void }) {
+export function SwitchedOff({ shop, available, off, onSwitchOn, demo = false }: { shop: string; available: boolean; off: string; onSwitchOn: () => void; demo?: boolean }) {
   return <>
-    <p>Von {shop} · Höchstens 2 pro Woche · aus</p>
+    <p>{demo ? demoConsentStatus(shop, false) : `Von ${shop} · Höchstens 2 pro Woche · aus`}</p>
     {available && <p className={styles.muted}>{off}</p>}
     {available && <Button variant="secondary" size="sm" onClick={onSwitchOn}>Einschalten</Button>}
   </>;
@@ -81,9 +86,9 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   const lines = consentLines(expiry);
   return <section className={styles.panel} aria-label="Nachrichten auf deiner Wallet-Karte">
     {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}
-    {state.granted ? <SwitchedOn shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
-      <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>
-      <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}>{lead}<Link href="/datenschutz">{LINK}</Link></Checkbox>
+    {state.granted ? <SwitchedOn demo={state.demo} shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff demo={state.demo} shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
+      {!state.demo && <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>}
+      <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}><ConsentLabel lead={lead} demo={state.demo} /></Checkbox>
       <p className={styles.muted}>{lines.under}</p>
     </>}
     {error && <p role="alert" className={styles.error}>{error}</p>}

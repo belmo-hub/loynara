@@ -6,6 +6,7 @@ import { validCardToken } from "./card-lifecycle";
 import { activeHappyHour } from "./happy-hour";
 import { DomainError } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { demoEnvironment } from "./demo-environment";
 import { eligible, lock } from "./wallet-messages";
 import { BIRTHDAY_FIELD_TEXT, birthdayText, birthdayWeek, germanDay, WINBACK_SEND_WINDOW } from "./wallet-message-rules";
 import { bonusMax, queueBatch } from "./winback";
@@ -93,7 +94,8 @@ export async function updateBirthday(input: { actorUserId: string; programSlug: 
 // ---- Reminder: once in the birthday week, Mon–Sat 10–18 local, consented holders inside the per-customer cap -------------
 
 export async function queueBirthdayMessages(now = new Date()) {
-  if (surfaceHidden("walletMessages")) return 0;
+  // Off in the demo environment: only the owner's own message may reach a demo card (founder, 9 Nov).
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return 0;
   const programs = rows<{ tenantId: string; programId: string; type: "stamp" | "points"; bonus: number; timezone: string; today: string }>(await db.execute(sql`
     SELECT p.tenant_id AS "tenantId", p.id AS "programId", p.type, p.birthday_bonus AS bonus, l.timezone, (${now}::timestamptz AT TIME ZONE l.timezone)::date::text AS today
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id WHERE p.birthday_enabled AND p.status = 'active'`));

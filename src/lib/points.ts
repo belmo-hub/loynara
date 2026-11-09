@@ -23,6 +23,8 @@ export function checkRulesText(type: string, mode: string, rulesText: string) {
 }
 export const MAX_PURCHASE_AMOUNT_MINOR = 10_000_000;
 export const MAX_POINTS_PER_CURRENCY_UNIT = 1_000;
+/** The highest threshold a reward may have, in stamps or points. */
+export const REWARD_COST_MAX = 100_000;
 
 export class PointsError extends Error {
   constructor(public code: "INVALID_PURCHASE_AMOUNT" | "INVALID_POINTS_RATE" | "NO_POINTS") {

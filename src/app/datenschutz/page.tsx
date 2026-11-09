@@ -1,6 +1,11 @@
 import { AuthShell } from "@/components/ui/auth-shell";
 import { LegalContents } from "@/components/ui/legal-links";
 import styles from "@/components/ui/legal-text.module.css";
+import { DemoPrivacy } from "@/components/demo-privacy";
+import { demoEnvironment } from "@/lib/demo-environment";
+
+// Decided per request: the demo environment serves its own notice (Legal, 9 Nov) from the same image.
+export const dynamic = "force-dynamic";
 
 // „Inhalt“ (G-26): the sections in page order; legal-sections.test.ts keeps them equal to the headings below.
 const SECTIONS = [
@@ -18,6 +23,7 @@ const SECTIONS = [
 ] as const;
 
 export default function DatenschutzPage() {
+  if (demoEnvironment()) return <DemoPrivacy />;
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Datenschutzhinweise</h1>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { signUpRules } from "@/lib/card-extras";
 import { JOIN_CONSENT_TEXT_VERSION, joinConsentText } from "@/lib/wallet-message-rules";
+import { DEMO_JOIN_PRIVACY, demoJoinLine } from "@/lib/demo-texts";
 import { changeLines } from "@/lib/change-lines";
 import { withUnit } from "@/lib/units";
 import { consentLines } from "./card-wallet-messages";
@@ -19,6 +20,7 @@ import { StampGrid } from "./ui/stamp-grid";
 import { iphoneDevice, walletPlatform } from "./wallet-preparation";
 import { afterJoin, iphoneJoin, markJoinAsked, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
+import cardStyles from "./customer/customer-card.module.css";
 
 const copy = {
   de: {
@@ -67,7 +69,7 @@ const CONSENT_CHANGED = "Der Text zum Häkchen hat sich geändert. Bitte lade di
 /** ENG-173: the Wallet-message box shows on an iPhone (not a touch iPad) where a pass can follow, while the walletMessages surface is on and the programme is open. */
 export const joinOffersMessages = (iphone: boolean, program: Pick<PublicProgram, "active" | "appleWallet" | "locale" | "walletMessages">) => iphone && iphoneJoin("ios", program) && program.walletMessages === true && program.active !== false;
 /** What the join sends for that box: only a shown, ticked box sends the version of the text it showed. */
-export const joinConsent = (offered: boolean, ticked: boolean) => offered && ticked ? { walletConsentVersion: JOIN_CONSENT_TEXT_VERSION } : {};
+export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CONSENT_TEXT_VERSION) => offered && ticked ? { walletConsentVersion: version } : {};
 /** W58 on German pages names the button, whose next tap accepts the reloaded rules (Legal, 6 Nov); French pages tick again. */
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
@@ -128,7 +130,7 @@ export function JoinClient({ slug }: { slug: string }) {
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked) });
+        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -244,13 +246,19 @@ export function JoinClient({ slug }: { slug: string }) {
         {(existing || returning.state === "stale") && <Checkbox id="join-confirm" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}>{t.anotherConfirm}</Checkbox>}
         {errorLine("confirm")}
         {joinOffersMessages(onIphone, program) && <div className={styles.messages}>
-          <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>
-          <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>
+          {/* A demo names Loynara as the sender (Legal): no heading that names the shop, the demo wording as the server sent it. */}
+          {!program.demo && <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>}
+          {program.demo ? <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{program.demo.consentText}</Checkbox>
+            : <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>}
           <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
         </div>}
         {errorLine("form")}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
-        {notice && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
+        {/* The same tinted panel as the notice on the card. */}
+        {program.demo && <div className={cardStyles.ending}><p>{program.demo.notice}</p></div>}
+        {/* A demo card accepts no terms (Legal): the demo line and its privacy notice instead. */}
+        {notice && program.demo && <p id="join-notice" className={styles.notice}>{demoJoinLine(existing ? t.anotherSubmit : t.submit).replace(`${DEMO_JOIN_PRIVACY}.`, "")}<Link href="/datenschutz" target="_blank">{DEMO_JOIN_PRIVACY}</Link>.</p>}
+        {notice && !program.demo && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>

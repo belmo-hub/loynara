@@ -4,7 +4,7 @@ import { ArrowRight, Check, Gift, MapPin, Megaphone, Plus, RefreshCw, Undo2, Use
 import { useState } from "react";
 import { BackToActions } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
-import { Board, BoardPlaceholder } from "@/components/owner/overview-board";
+import { Board, BoardPlaceholder, DemoDataChip } from "@/components/owner/overview-board";
 import { ErrorNotice, LoadingBlock, nf, Notice, PageHead } from "@/components/owner/owner-ui";
 import { ALL_LOCATIONS_NOTE } from "@/components/owner/period-bar";
 import { SpendCard } from "@/components/owner/spend-card";
@@ -34,7 +34,7 @@ export default function MerchantAnalyticsPage() {
   const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? "/api/merchant/retention?days=30" : null);
   if (!me) return null;
-  const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
+  const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} actions={me?.hiddenSurfaces?.includes("revenue") ? <DemoDataChip /> : undefined} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   // The read's bars are Monday weeks; the cut first and current week would read as a drop, so only full weeks show.
@@ -95,7 +95,8 @@ export default function MerchantAnalyticsPage() {
             .map(([key, title]) => ({ key, icon: Megaphone, title, value: nf.format(r.campaignAttempts[key]) }))} />
         </RowSection>}
       </>}
-      <SpendCard multiLocation={locations.length > 1} />
+      {/* Withheld in the demo environment (pilot-surfaces „revenue“). */}
+      {!me.hiddenSurfaces?.includes("revenue") && <SpendCard multiLocation={locations.length > 1} />}
     </div>
   );
 }

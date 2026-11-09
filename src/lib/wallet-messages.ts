@@ -5,6 +5,9 @@ import { db } from "@/db";
 import { ownerProgram } from "./automations";
 import { DomainError } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { activeDemo } from "./demo";
+import { demoEnvironment } from "./demo-environment";
+import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
 import { quietHoursDeferral } from "./promotion-policy";
 import { assertPassFastBinding, isPassFastObjectId, PassFastClient, passFastConfig, passFastData, passFastSerial } from "./wallet/passfast";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
@@ -47,8 +50,8 @@ export const messagePass = () => sql`(((p.provider = 'apple' AND p.provider_obje
 
 async function cardOf(cardToken: string) {
   if (!cardToken.startsWith("card_") || cardToken.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
-    SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location,
+  const [card] = rows<{ tenantId: string; membershipId: string; shop: string; location: string; slug: string; createdAt: Date; timezone: string; walletPass: boolean; granted: boolean }>(await db.execute(sql`
+    SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, l.name AS location, t.slug, t.created_at AS "createdAt", l.timezone,
       EXISTS (SELECT 1 FROM wallet_passes p WHERE p.tenant_id = m.tenant_id AND p.membership_id = m.id AND ${messagePass()}
         AND p.revoked_at IS NULL AND ${reachable}) AS "walletPass",
       EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL) AS granted
@@ -58,13 +61,18 @@ async function cardOf(cardToken: string) {
   if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return card;
 }
+/** The consent wording a card shows and stores: Legal's demo version on a demo card in the demo environment, else today's. */
+function cardConsent(card: Awaited<ReturnType<typeof cardOf>>) {
+  const demo = shopDemo({ name: card.shop, slug: card.slug, createdAt: new Date(card.createdAt) }, card.timezone);
+  return demo ? { text: demoConsentText(card.shop, demo.end), version: DEMO_CONSENT_TEXT_VERSION, demo: true } : { text: consentText(card.shop, card.location), version: CONSENT_TEXT_VERSION };
+}
 
 /** What the card page shows: the unticked box with Legal's text, only for a card that holds a pass that can get messages. */
 export async function getWalletConsent(cardToken: string) {
   available();
   const card = await cardOf(cardToken);
   const [given] = rows<{ givenAt: Date }>(await db.execute(sql`SELECT given_at AS "givenAt" FROM wallet_message_consents WHERE tenant_id = ${card.tenantId}::uuid AND membership_id = ${card.membershipId}::uuid AND withdrawn_at IS NULL`));
-  return { available: card.walletPass || card.granted, granted: card.granted, givenAt: given ? new Date(given.givenAt).toISOString() : null, shop: card.shop, text: consentText(card.shop, card.location), version: CONSENT_TEXT_VERSION };
+  return { available: card.walletPass || card.granted, granted: card.granted, givenAt: given ? new Date(given.givenAt).toISOString() : null, shop: card.shop, ...cardConsent(card) };
 }
 
 export async function setWalletConsent(cardToken: string, granted: boolean) {
@@ -72,7 +80,7 @@ export async function setWalletConsent(cardToken: string, granted: boolean) {
   const card = await cardOf(cardToken);
   if (granted) {
     if (!card.walletPass) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-    await db.execute(sql`INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES (${card.tenantId}::uuid, ${card.membershipId}::uuid, ${CONSENT_TEXT_VERSION})
+    await db.execute(sql`INSERT INTO wallet_message_consents (tenant_id, membership_id, text_version) VALUES (${card.tenantId}::uuid, ${card.membershipId}::uuid, ${cardConsent(card).version})
       ON CONFLICT (membership_id) WHERE withdrawn_at IS NULL DO NOTHING`);
   } else {
     await db.execute(sql`UPDATE wallet_message_consents SET withdrawn_at = clock_timestamp()
@@ -195,6 +203,8 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
   available();
   const input = sendInput.parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
+  // Demo environment (founder, 9 Nov): a message only from the running demo, so it only reaches that demo's cards.
+  if (demoEnvironment() && (await activeDemo(db, now))?.tenantId !== program.tenantId) throw new DomainError("DEMO_ENDED", "Nachrichten gehen nur aus der laufenden Demo.");
   const checked = checkMessageText(input.text);
   if (!checked.ok) throw new DomainError("MESSAGE_REFUSED", checked.error);
   const [{ timezone }] = rows<{ timezone: string }>(await db.execute(sql`SELECT timezone FROM locations WHERE id = ${program.locationId}::uuid AND tenant_id = ${program.tenantId}::uuid`));
@@ -224,7 +234,7 @@ export async function sendWalletMessage(raw: z.input<typeof sendInput>, now = ne
  * consent (Product/Legal 22 Oct). At most one of this kind per card within `onceWithinDays`. False = not queued.
  */
 export async function queueCardWalletMessage(input: { tenantId: string; programId: string; membershipId: string; kind: "expiry"; text: string; onceWithinDays: number }, now = new Date()) {
-  if (surfaceHidden("walletMessages")) return false;
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return false; // automatic: off in the demo environment
   return db.transaction(async tx => {
     await lock(tx, input.tenantId);
     const [recent] = rows<{ id: string }>(await tx.execute(sql`SELECT m.id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id

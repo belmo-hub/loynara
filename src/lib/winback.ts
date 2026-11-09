@@ -5,6 +5,7 @@ import { ownerProgram } from "./automations";
 import { activeHappyHour } from "./happy-hour";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { demoEnvironment } from "./demo-environment";
 import { currentRewards } from "./product";
 import { eligible, lock } from "./wallet-messages";
 import { WINBACK_DAYS, WINBACK_SEND_WINDOW, WINBACK_WINDOW_DAYS, germanDay, winbackBonusMax, winbackText } from "./wallet-message-rules";
@@ -78,7 +79,8 @@ export async function queueBatch(tx: Pick<typeof db, "execute">, p: { tenantId: 
  * confirmed stamp gets one recipient row. One message row per deadline date, because the date is in the text.
  */
 export async function queueWinbackMessages(now = new Date()) {
-  if (surfaceHidden("walletMessages")) return 0;
+  // Off in the demo environment: only the owner's own message may reach a demo card (founder, 9 Nov).
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return 0;
   const programs = rows<{ tenantId: string; programId: string; type: "stamp" | "points"; days: number; bonus: number; timezone: string }>(await db.execute(sql`
     SELECT p.tenant_id AS "tenantId", p.id AS "programId", p.type, p.winback_days AS days, p.winback_bonus AS bonus, l.timezone
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id WHERE p.winback_enabled AND p.status = 'active'`));

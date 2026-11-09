@@ -1,0 +1,66 @@
+{
+  "status": "draft",
+  "templates": [
+    {
+      "id": "barber",
+      "label": "Friseur / Barbershop",
+      "programType": "stamp",
+      "earningMode": "manual",
+      "cost": 8,
+      "rewardTitle": "Haarschnitt gratis",
+      "headline": "Deine Schnitt-Karte",
+      "colours": ["#23282B", "#2B4A66", "#1F4A3A"],
+      "suggestions": { "winback": { "days": 35, "bonus": 1 }, "birthday": { "bonus": 1 }, "happyHour": null },
+      "exampleMessage": "Zeit für einen frischen Schnitt? Komm gern vorbei, wir freuen uns auf dich."
+    },
+    {
+      "id": "nails",
+      "label": "Nagelstudio",
+      "programType": "stamp",
+      "earningMode": "manual",
+      "cost": 6,
+      "rewardTitle": "Nageldesign gratis",
+      "headline": "Deine Nagel-Karte",
+      "colours": ["#6B3A6F", "#A8492C", "#23282B"],
+      "suggestions": { "winback": { "days": 42, "bonus": 1 }, "birthday": { "bonus": 1 }, "happyHour": null },
+      "exampleMessage": "Lust auf neue Nägel? Wir freuen uns auf deinen nächsten Besuch bei uns."
+    },
+    {
+      "id": "pizzeria",
+      "label": "Pizzeria / Imbiss",
+      "programType": "points",
+      "earningMode": "purchase",
+      "pointsPerCurrencyUnit": 1,
+      "cost": 100,
+      "rewardTitle": "Pizza aufs Haus",
+      "headline": "Deine Punktekarte",
+      "colours": ["#A8492C", "#C99A2E", "#1F4A3A"],
+      "suggestions": { "winback": { "days": 21, "bonus": 10 }, "birthday": { "bonus": 10 }, "happyHour": { "days": [1, 2, 3, 4], "start": "14:00", "end": "17:00" } },
+      "exampleMessage": "Hunger? Komm vorbei, wir freuen uns auf deinen nächsten Besuch."
+    },
+    {
+      "id": "cafe",
+      "label": "Café / Bäckerei",
+      "programType": "stamp",
+      "earningMode": "manual",
+      "cost": 10,
+      "rewardTitle": "Kaffee aufs Haus",
+      "headline": "Deine Kaffeekarte",
+      "colours": ["#2F6B58", "#A8492C", "#C99A2E"],
+      "suggestions": { "winback": { "days": 14, "bonus": 1 }, "birthday": { "bonus": 1 }, "happyHour": null },
+      "exampleMessage": "Zeit für eine kleine Pause? Komm auf einen Kaffee vorbei, wir freuen uns auf dich."
+    },
+    {
+      "id": "other",
+      "label": "Anderes Geschäft",
+      "programType": "stamp",
+      "earningMode": "manual",
+      "cost": 10,
+      "rewardTitle": "Dankeschön aufs Haus",
+      "headline": "Deine Treuekarte",
+      "colours": ["#1F4A3A", "#2B4A66", "#23282B"],
+      "suggestions": { "winback": { "days": 30, "bonus": 1 }, "birthday": { "bonus": 1 }, "happyHour": null },
+      "exampleMessage": "Danke, dass du bei uns sammelst. Wir freuen uns auf deinen nächsten Besuch."
+    }
+  ]
+}

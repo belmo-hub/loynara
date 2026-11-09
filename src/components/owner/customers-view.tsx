@@ -14,7 +14,7 @@ import { BROUGHT_COPY } from "@/lib/spend-copy";
 import { unitWord } from "@/lib/units";
 import { CardScreen } from "./card-screen";
 import { InviteRows } from "./join-card";
-import { Tiles, type Tile } from "./overview-board";
+import { DemoDataChip, Tiles, type Tile } from "./overview-board";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LoadingBlock, nf, OwnerIcon, PageHead } from "./owner-ui";
 import { WINBACK_HREF } from "./retention-insights";
@@ -135,6 +135,8 @@ function GroupsScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   return (
     <div className="ow-page">
       <PageHead title="Kundenkarten" actions={me.role === "owner" && isLocalOrigin(me.publicBaseUrl) ? <Link className="ow-btn ow-btn--ghost" href="/merchant/customers/import">CSV-Vorschau</Link> : undefined} />
+      {/* Demo environment (pilot-surfaces „revenue“ is withheld only there): the groups below include the sample visits. */}
+      {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
       <form className="ow-search" role="search" onSubmit={submit} noValidate>
         <label htmlFor="cu-q" className="ow-sr">Kartennummer suchen</label>
         <Search size={20} aria-hidden="true" />

@@ -27,7 +27,7 @@ const cards = async () => (await pool.query("SELECT count(*)::int AS n FROM memb
 
 describe("Wallet-message consent on the join page (ENG-173)", () => {
   it("keeps a version for each text, and the join text says „auf meiner Karte“ without „hier“", () => {
-    expect(Object.keys(CONSENT_TEXTS)).toEqual([CONSENT_TEXT_VERSION, JOIN_CONSENT_TEXT_VERSION]);
+    expect(Object.keys(CONSENT_TEXTS)).toEqual([CONSENT_TEXT_VERSION, JOIN_CONSENT_TEXT_VERSION, "wallet-consent-demo-2026-11-09-v1"]);
     expect(joinConsentText("Tick Café", "Mitte")).toBe("Ja, Tick Café, Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.");
   });
   it("creates the card with no tick and no consent row", async () => {

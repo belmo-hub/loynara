@@ -33,10 +33,13 @@ describe("texts and hints", () => {
     const published: Record<string, string> = {
       "wallet-consent-2026-10-22-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
       "wallet-consent-join-2026-11-06-v1": "Ja, Café Kurz, Kassel Mitte, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.",
+      "wallet-consent-demo-2026-11-09-v1": "Ja, Loynara darf mir in dieser Demo Nachrichten im Namen von Café Kurz auf meine Wallet-Karte schicken (höchstens 2), bis die Demo am {Datum} um {Uhrzeit} endet. Das ist freiwillig. Ich kann es jederzeit auf meiner Karte abschalten.",
     };
     expect(Object.keys(CONSENT_TEXTS).sort()).toEqual(Object.keys(published).sort());
     for (const [version, text] of Object.entries(published)) expect(CONSENT_TEXTS[version]("Café Kurz", "Kassel Mitte")).toBe(text);
     expect(consentText("Café Kurz", "Kassel Mitte")).toBe(CONSENT_TEXTS[CONSENT_TEXT_VERSION]("Café Kurz", "Kassel Mitte"));
+    expect(CONSENT_TEXTS["wallet-consent-demo-2026-11-09-v1"]("Café Kurz", "Kassel Mitte", { date: "10. November 2026", time: "15:30" }))
+      .toBe("Ja, Loynara darf mir in dieser Demo Nachrichten im Namen von Café Kurz auf meine Wallet-Karte schicken (höchstens 2), bis die Demo am 10. November 2026 um 15:30 endet. Das ist freiwillig. Ich kann es jederzeit auf meiner Karte abschalten.");
   });
   it("shows the action hint for Punkte, Stempel or doppelt in any case, never otherwise", () => {
     for (const text of ["Doppelte Punkte heute", "STEMPEL extra", "heute doppelt", "punkte"]) expect(needsActionHint(text), text).toBe(true);

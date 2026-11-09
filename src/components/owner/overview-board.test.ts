@@ -63,6 +63,17 @@ beforeEach(() => {
 });
 
 describe("Übersicht direction D (ENG-085)", () => {
+  it("demo environment (pilot-surfaces revenue): no „Umsatz deiner Loynara-Kunden“, the spend read is never made, the card stock leads", () => {
+    state.me = me({ hiddenSurfaces: ["revenue"] });
+    const html = render();
+    expect(html).not.toContain("Umsatz deiner Loynara-Kunden");
+    expect(state.urls.some(url => url.startsWith("/api/merchant/spend"))).toBe(false);
+    expect(html).toContain('aria-label="Karten an deinem Standort, letzte 30 Tage"');
+    expect(html).toContain("Demo-Daten: erfundene Beispiele, keine Prognose.");
+    state.me = me();
+    expect(render()).not.toContain("Demo-Daten");
+  });
+
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
     expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena\.<\/h1>/); // the visible heading, outside the card

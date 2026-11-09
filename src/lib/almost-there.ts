@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ownerProgram } from "./automations";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { demoEnvironment } from "./demo-environment";
 import { quietHoursDeferral } from "./promotion-policy";
 import { eligible, lock } from "./wallet-messages";
 import { almostGap, almostText, WALLET_QUIET_HOURS } from "./wallet-message-rules";
@@ -27,7 +28,8 @@ export async function setAlmostThere(input: { actorUserId: string; programSlug: 
 
 /** Called by the worker every few minutes, outside quiet hours (21–8 local) only. One message row per reward and gap. */
 export async function queueAlmostMessages(now = new Date()) {
-  if (surfaceHidden("walletMessages")) return 0;
+  // Off in the demo environment: only the owner's own message may reach a demo card (founder, 9 Nov).
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return 0;
   const programs = rows<{ tenantId: string; programId: string; type: "stamp" | "points"; timezone: string }>(await db.execute(sql`
     SELECT p.tenant_id AS "tenantId", p.id AS "programId", p.type, l.timezone
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id WHERE p.almost_enabled AND p.status = 'active'`));

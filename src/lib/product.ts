@@ -8,7 +8,7 @@ import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loy
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
-import { byPurchase, checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT, purchaseRuleSentence } from "./points";
+import { byPurchase, checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT, purchaseRuleSentence, REWARD_COST_MAX } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
@@ -26,9 +26,10 @@ import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
+import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
 
 const shortText = z.string().trim().min(2).max(180);
-const merchantInput = z.object({
+export const merchantInput = z.object({
   userId: z.string().min(1),
   businessName: shortText,
   locationName: shortText.optional(),
@@ -43,7 +44,7 @@ const merchantInput = z.object({
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
   rulesText: z.string().trim().max(3000), // its minimum depends on the earning: checkRulesText
   rewardTitle: shortText,
-  rewardCost: z.number().int().min(1).max(100000),
+  rewardCost: z.number().int().min(1).max(REWARD_COST_MAX),
   contactEmail: z.email().optional(),
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   latitude: z.number().min(-90).max(90).optional(),
@@ -94,9 +95,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
       const program = completed.program;
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
-    const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
-    const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
-    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+    const { tenant, location } = await insertShop(tx, input, logoData);
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
@@ -105,6 +104,14 @@ export async function createMerchant(raw: z.input<typeof merchantInput>) {
 }
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** The shop and its first location, as the setup creates them. `slug` is the demo's own (lib/demo); otherwise generated. */
+export async function insertShop(tx: Transaction, input: z.output<typeof merchantInput>, logoData: string | null, slug?: string) {
+  const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: slug ?? `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
+  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+  return { tenant, location };
+}
 
 /** A reward title reaches every pass holder (pass front, reminders), so it follows the Wallet message content rules (Legal,
  *  7 Nov): checked when a title is created or changed; titles already stored are left as they are. */
@@ -123,7 +130,7 @@ async function awaitsSetup(tx: Transaction | typeof db, tenantId: string) {
   return row?.waiting === true;
 }
 
-async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
+export async function startProgramme(tx: Transaction, tenantId: string, location: typeof locations.$inferSelect, input: z.output<typeof merchantInput>, earningMode: "manual" | "purchase") {
   requireAllowedRewardTitle(input.rewardTitle);
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
   // Never backdated (Legal, ENG-099 3c): a card maps to the rule version in force when it joined. A start date that has
@@ -404,9 +411,11 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
       || (shownRewards !== undefined && shownRewards !== (await newestRewardVersionIds(tx, program.tenantId, program.id)).sort().join())) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     if (input.walletConsentVersion !== undefined) {
       // A tick counts only for the text shown today, on the German join page, while the surface is on and the location has Apple Wallet.
-      const [tenant] = await tx.select({ locale: tenants.locale }).from(tenants).where(eq(tenants.id, program.tenantId));
+      const [tenant] = await tx.select({ locale: tenants.locale, name: tenants.name, slug: tenants.slug, createdAt: tenants.createdAt }).from(tenants).where(eq(tenants.id, program.tenantId));
       const appleWallet = walletAvailability(await passFastEnv(program.tenantId, program.locationId, tx), program.tenantId, program.locationId, program.id).apple === "available";
-      if (input.walletConsentVersion !== JOIN_CONSENT_TEXT_VERSION || tenant.locale === "fr" || surfaceHidden("walletMessages") || !appleWallet) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
+      // A demo shows Legal's demo wording (demo-texts): only its version counts there, and only there.
+      const shown = shopDemo(tenant, "UTC") ? DEMO_CONSENT_TEXT_VERSION : JOIN_CONSENT_TEXT_VERSION;
+      if (input.walletConsentVersion !== shown || tenant.locale === "fr" || surfaceHidden("walletMessages") || !appleWallet) throw new DomainError("CONSENT_TEXT_CHANGED", "Der Text zum Häkchen hat sich geändert. Bitte lade die Seite neu und lies ihn. Das Häkchen ist freiwillig; deine Karte bekommst du auch ohne.");
     }
     const [plan] = await tx.select().from(billingLocationPlans).where(and(eq(billingLocationPlans.tenantId, program.tenantId), eq(billingLocationPlans.locationId, program.locationId))).for("update");
     if (!plan) throw new DomainError("PLAN_UNAVAILABLE", "Für dieses Geschäft kannst du gerade keine Karte erstellen. Bitte frage im Geschäft nach.");
@@ -679,7 +688,8 @@ export async function getCard(token: string, explicitNow?: Date) {
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
     // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
     const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
-    return { programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    const demo = shopDemo(row.tenant, row.location.timezone);
+    return { ...(demo ? { demoNotice: demo.line } : {}), programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -743,7 +753,9 @@ export async function getPublicProgram(slug: string) {
   // ENG-130: the join page has no card yet, so Apple Wallet is asked of the location (the same check a card's wallet status makes).
   const appleWallet = walletAvailability(await passFastEnv(row.tenant.id, row.location.id), row.tenant.id, row.location.id, row.program.id).apple === "available";
   // The join sends back the newest rule and reward versions it showed (D7); owner screens read pending ?? in force.
-  return { noticeOn, appleWallet, walletMessages: !surfaceHidden("walletMessages"), businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  // Demo environment only (Legal, 9 Nov): the notice line, the demo consent wording with its version, and no terms to accept.
+  const demo = shopDemo(row.tenant, row.location.timezone);
+  return { ...(demo ? { demo: { notice: demo.line, consentVersion: DEMO_CONSENT_TEXT_VERSION, consentText: demoConsentText(row.tenant.name, demo.end) } } : {}), noticeOn, appleWallet, walletMessages: !surfaceHidden("walletMessages"), businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {
