@@ -57,9 +57,9 @@ describe("happyHourProblem", () => {
 
 describe("happyHourSentence", () => {
   it("names the days and the times", () => {
-    expect(happyHourSentence(weekdays)).toBe("Mo–Fr 14:00–17:00: doppelte Punkte");
-    expect(happyHourSentence({ days: [2, 4], start: "09:00", end: "11:30" })).toBe("Di, Do 09:00–11:30: doppelte Punkte");
-    expect(happyHourSentence({ days: [6, 7], start: "10:00", end: "12:00" })).toBe("Sa, So 10:00–12:00: doppelte Punkte");
-    expect(happyHourSentence({ days: [1, 2, 3, 4, 5, 6, 7], start: "14:00", end: "17:00" })).toBe("täglich 14:00–17:00: doppelte Punkte");
+    expect(happyHourSentence(weekdays)).toBe("Mo–Fr 14:00–17:00");
+    expect(happyHourSentence({ days: [2, 4], start: "09:00", end: "11:30" })).toBe("Di, Do 09:00–11:30");
+    expect(happyHourSentence({ days: [6, 7], start: "10:00", end: "12:00" })).toBe("Sa, So 10:00–12:00");
+    expect(happyHourSentence({ days: [1, 2, 3, 4, 5, 6, 7], start: "14:00", end: "17:00" })).toBe("täglich 14:00–17:00");
   });
 });

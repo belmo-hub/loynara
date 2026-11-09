@@ -22,7 +22,7 @@ export default function MerchantSettingsPage() {
   const { me, locations, hiddenSurfaces } = useOwner();
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Geschäft" lead="Name, Standort und Zugang für deine Kunden." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn">Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
   const active = locations.find(location => location.id === me.locationId);
   const programName = active?.programName;
   const sender = senderOffered(hiddenSurfaces) && active ? <SenderRows me={me} locations={locations} active={active} /> : null;

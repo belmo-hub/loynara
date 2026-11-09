@@ -35,7 +35,7 @@ export default function StaffPage() {
   const [message, setMessage] = useState("");
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Team" lead="Gib jeder Person einen eigenen Zugang und sperre ihn bei Bedarf." />;
-  if (!owner) return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Teamzugänge verwalten.</Notice></div>;
+  if (!owner) return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann Teamzugänge verwalten.</Notice></div>;
   if (staff.state === "error") return <div className="ow-page">{head}<ErrorNotice message={staff.message} onRetry={reloadStaff} /></div>;
 
   const people = staff.state === "ok" ? staff.data.staff : [];

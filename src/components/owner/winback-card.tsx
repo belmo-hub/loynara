@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { postJson, type MeResponse, type PublicProgram } from "@/components/client-api";
-import { useDirtyGuard } from "./owner-context";
-import { CardLinePreview, NumberStepper, SaveBar, type SaveState } from "./owner-ui";
+import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { germanDate, keepUnits } from "@/lib/german-date";
+import { CardLinePreview, MoreInfo, NumberStepper } from "./owner-ui";
 import { copyFor } from "@/components/customer/customer-card-copy";
 import { Control, QuestionForm, rangeError, SwitchRow, useQuestion, wholeIn } from "./question-form";
-import { almostText, birthdayText, WINBACK_DAYS, winbackRule, winbackText } from "@/lib/wallet-message-rules";
+import { almostGap, almostText, birthdayText, WINBACK_DAYS, winbackRule, winbackText } from "@/lib/wallet-message-rules";
 
 export type Winback = { enabled: boolean; days: number; bonus: number; bonusMax: number; type: "stamp" | "points"; almost: boolean };
 const DAY = { one: "Tag", many: "Tage" }, POINT = { one: "Punkt", many: "Punkte" };
@@ -68,64 +68,71 @@ export function WinbackQuestion({ me, program, initial, reminders }: { me: MeRes
   );
 }
 
-/** „Fast geschafft“ (ENG-045): one switch; the text is fixed. Saved at once, like the card's consent box. */
-export function AlmostCard({ slug, initial }: { slug: string; initial: Winback }) {
-  const [enabled, setEnabled] = useState(initial.almost);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function toggle(next: boolean) {
-    setBusy(true); setError("");
-    try { await postJson("/api/merchant/wallet-messages", { programSlug: slug, almost: next }); setEnabled(next); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt. Versuche es noch einmal."); }
-    finally { setBusy(false); }
-  }
+export type Birthday = { enabled: boolean; bonus: number; bonusMax: number; cards: number };
+/** The wallet-messages read these two pages need: the switch of „Erinnerung vor der Prämie“ and the birthday set-up. */
+export type MessageSettings = { winback: Winback; birthday: Birthday };
+
+const SAVE = "/api/merchant/wallet-messages";
+/** The reward a reminder names: the cheapest one on the card, as the server picks it. */
+const cheapest = (program: PublicProgram) => [...program.rewards].sort((a, b) => a.cost - b.cost)[0]?.title ?? "";
+const cards = (n: number) => `${n}\u00a0${n === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.`;
+
+/** Geburtstags-Bonus (ENG-049, `birthday-draft`): switch, bonus, the reminder and the consent line; the facts in the fold.
+ *  The owner sees how many cards have a birthday, never which or when. */
+export function BirthdayQuestion({ me, program, initial }: { me: MeResponse; program: PublicProgram; initial: MessageSettings }) {
+  const { type } = initial.winback, birthday = initial.birthday;
+  const saved = { enabled: birthday.enabled, bonus: String(birthday.bonus) };
+  const [draft, setDraft] = useState(saved);
+  const valid = wholeIn(draft.bonus, 0, birthday.bonusMax);
+  const q = useQuestion("birthday", JSON.stringify(draft) !== JSON.stringify(saved), draft.enabled && !valid ? { "birthday-bonus": rangeError(0, birthday.bonusMax) } : {});
+  // A real example instead of a placeholder: the end of a birthday week that starts today.
+  const [day] = useState(() => germanDate(new Date(Date.now() + 6 * 86_400_000), "long"));
+  const bonus = valid ? Number(draft.bonus) : birthday.bonus;
   return (
-    <section className="ow-card ow-stack" aria-labelledby="almost-title">
-      <h2 id="almost-title">Fast geschafft</h2>
-      <label className="ow-check"><input type="checkbox" role="switch" checked={enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} /> Eingeschaltet</label>
-      <p className="ow-hint">{initial.type === "stamp" ? "Fehlt" : "Fehlen"} einer Karte nach einem Besuch nur noch {initial.type === "stamp" ? "1 Stempel" : "wenige Punkte (bis 10)"} bis zur nächsten Prämie, bekommt sie einmal eine Erinnerung, sofern Nachrichten erlaubt sind. Nicht zwischen 21 und 8 Uhr.</p>
-      <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{almostText(initial.type, 10, "[Prämie]")}</p></div>
-      {error && <p role="alert" className="ow-error">{error}</p>}
-    </section>
+    <QuestionForm title="Geburtstags-Bonus" busy={q.busy} failed={q.failed}
+      onSubmit={() => void q.save(SAVE, { programSlug: me.programSlug, birthday: { enabled: draft.enabled, bonus } })}>
+      <SwitchRow label="Bonus in der Geburtstagswoche" sub="Kommt an der Kasse dazu" checked={draft.enabled} onChange={enabled => setDraft({ ...draft, enabled })} />
+      {draft.enabled && <>
+        {type === "stamp"
+          ? <div className="ow-qpanel ow-qcontrol ow-qstack"><div><span id="birthday-bonus-label" className="ow-label">Bonus</span>
+            <div className="ow-seg" role="group" aria-labelledby="birthday-bonus-label">
+              <button type="button" aria-pressed={draft.bonus === "0"} onClick={() => setDraft({ ...draft, bonus: "0" })}>Kein Bonus</button>
+              <button type="button" aria-pressed={draft.bonus === "1"} onClick={() => setDraft({ ...draft, bonus: "1" })}>+1{"\u00a0"}Stempel</button>
+            </div></div>
+            <p className="ow-hint">{cards(birthday.cards)}</p>
+          </div>
+          : <Control id="birthday-bonus" stack label="Bonus" hint={keepUnits(`Höchstens ${points(birthday.bonusMax)}. ${cards(birthday.cards)}`)} error={q.error("birthday-bonus")}>
+            <NumberStepper id="birthday-bonus" value={draft.bonus} onChange={value => setDraft({ ...draft, bonus: value })} min={0} max={birthday.bonusMax} unit={POINT} bonus offAtZero invalid={Boolean(q.error("birthday-bonus"))} describedBy="birthday-bonus-hint" />
+          </Control>}
+        <div className="ow-qpanel"><CardLinePreview label="So sieht die Erinnerung aus" shop={program.businessName} brandColor={program.brandColor}>{keepUnits(birthdayText(type, bonus, day))}</CardLinePreview></div>
+        {/* Legal (7 Nov): all three facts stay; the consent sentence stays visible, the other two may fold. */}
+        <p className="ow-hint">Wer Nachrichten erlaubt hat, bekommt eine Erinnerung.</p>
+        <MoreInfo>
+          <p>Kunden können Tag und Monat ihres Geburtstags auf ihrer Karte eintragen. In ihrer Geburtstagswoche kommt der Bonus bei der nächsten Buchung dazu, einmal im Jahr.</p>
+          {type === "points" && <p>Der Bonus ist höchstens ein Viertel deiner günstigsten Prämie.</p>}
+        </MoreInfo>
+      </>}
+    </QuestionForm>
   );
 }
 
-export type Birthday = { enabled: boolean; bonus: number; bonusMax: number; cards: number };
-
-/** Geburtstags-Bonus (ENG-049): switch and bonus; the owner sees how many cards have a birthday, never which or when. */
-export function BirthdayCard({ slug, type, initial }: { slug: string; type: "stamp" | "points"; initial: Birthday }) {
-  const [saved, setSaved] = useState({ enabled: initial.enabled, bonus: String(initial.bonus) });
-  const [draft, setDraft] = useState(saved);
-  const [state, setState] = useState<SaveState>("clean");
-  const [error, setError] = useState("");
-  const bonus = Number(draft.bonus);
-  const bonusValid = /^\d+$/.test(draft.bonus) && bonus <= initial.bonusMax;
-  const changed = JSON.stringify(draft) !== JSON.stringify(saved);
-  const shown: SaveState = state === "saving" || state === "error" ? state : changed ? "dirty" : state === "saved" ? "saved" : "clean";
-  useDirtyGuard("birthday", changed);
-  const edit = (patch: Partial<typeof draft>) => { setDraft({ ...draft, ...patch }); if (state === "saved" || state === "error") setState("clean"); };
-  async function save() {
-    setState("saving"); setError("");
-    try { await postJson("/api/merchant/wallet-messages", { programSlug: slug, birthday: { enabled: draft.enabled, bonus } }); setSaved(draft); setState("saved"); }
-    catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die Einstellungen konnten nicht gespeichert werden."); }
-  }
+/** Erinnerung vor der Prämie (ENG-045, `almost-draft`): one switch, the reminder, the consent line; rule and quiet hours in
+ *  the fold. Retiring the reminder waits for the founder (Q-97): the send itself is unchanged. */
+export function AlmostQuestion({ me, program, initial }: { me: MeResponse; program: PublicProgram; initial: MessageSettings }) {
+  const { type, almost } = initial.winback;
+  const [enabled, setEnabled] = useState(almost);
+  const q = useQuestion("almost", enabled !== almost);
   return (
-    <section className="ow-card ow-stack" aria-labelledby="birthday-title">
-      <h2 id="birthday-title">Geburtstags-Bonus</h2>
-      <label className="ow-check"><input type="checkbox" role="switch" checked={draft.enabled} onChange={event => edit({ enabled: event.target.checked })} /> Eingeschaltet</label>
-      {type === "stamp"
-        ? <fieldset className="ow-stack" style={{ border: 0, padding: 0, margin: 0 }}><legend>Bonus</legend>
-          <label><input type="radio" name="birthday-bonus" checked={bonus === 0} onChange={() => edit({ bonus: "0" })} /> Kein Bonus</label>
-          <label><input type="radio" name="birthday-bonus" checked={bonus === 1} onChange={() => edit({ bonus: "1" })} /> +1 Stempel</label>
-        </fieldset>
-        : <div className="ow-field">
-          <label htmlFor="birthday-bonus">Bonus in Punkten (0 = kein Bonus)</label>
-          <input id="birthday-bonus" className="ow-input ow-field--narrow" inputMode="numeric" value={draft.bonus} aria-invalid={!bonusValid} onChange={event => edit({ bonus: event.target.value.replace(/[^0-9]/g, "") })} />
-          <p className="ow-hint">{bonusRange(initial.bonusMax)}: höchstens ein Viertel deiner günstigsten Prämie.</p>
-        </div>}
-      <p className="ow-hint">Kundinnen und Kunden können auf ihrer Karte Tag und Monat ihres Geburtstags eintragen. In ihrer Geburtstagswoche wird der Bonus beim Bestätigen eines Besuchs mitgebucht, einmal im Jahr. Mit Wallet-Nachrichten bekommen sie dazu eine Erinnerung. {initial.cards} {initial.cards === 1 ? "Karte hat" : "Karten haben"} einen Geburtstag eingetragen.</p>
-      <div className="ow-card" role="group" aria-label="Vorschau der Erinnerung"><p>{birthdayText(type, bonusValid ? bonus : 0, "[Datum]")}</p></div>
-      <SaveBar section="Geburtstags-Bonus" state={shown} onSave={() => void save()} onDiscard={() => { setDraft(saved); setState("clean"); }} canSave={changed && bonusValid} saveLabel="Speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
-    </section>
+    <QuestionForm title="Erinnerung vor der Prämie" busy={q.busy} failed={q.failed} onSubmit={() => void q.save(SAVE, { programSlug: me.programSlug, almost: enabled })}>
+      <SwitchRow label="Erinnerung senden" sub="Wenn nur noch wenig fehlt" checked={enabled} onChange={setEnabled} />
+      {enabled && <>
+        <div className="ow-qpanel"><CardLinePreview label="So sieht die Erinnerung aus" shop={program.businessName} brandColor={program.brandColor}>{keepUnits(almostText(type, almostGap(type), cheapest(program)))}</CardLinePreview></div>
+        {/* Legal (7 Nov): the consent clause stays visible; the quiet hours may move to the help. */}
+        <p className="ow-hint">Nur an Kunden, die Nachrichten erlaubt haben.</p>
+        <MoreInfo><p>{keepUnits(type === "stamp"
+          ? "Fehlt nach einer Buchung nur noch 1 Stempel, kommt eine Erinnerung, höchstens einmal bis zur nächsten Einlösung. Nicht zwischen 21 und 8 Uhr."
+          : "Fehlen nach einer Buchung nur noch bis zu 10 Punkte, kommt eine Erinnerung, höchstens einmal bis zur nächsten Einlösung. Nicht zwischen 21 und 8 Uhr.")}</p></MoreInfo>
+      </>}
+    </QuestionForm>
   );
 }

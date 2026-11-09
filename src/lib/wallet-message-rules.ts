@@ -1,6 +1,7 @@
 // Wallet messages (ENG-043): the pure rules and the verbatim texts. No database, so client code may import it.
 // Rules are Product's (2026-10-22-spec-wallet-messages.md), texts are Legal's draft of 22 Oct 2026 (not legal advice).
 import { EXCLUDED_GOODS } from "./card-extras";
+import { keepUnits } from "./german-date";
 
 export const MESSAGE_MAX = 140;
 /** Messages per programme and per customer in any rolling window of this many days (the consent text promises „höchstens 2 pro Woche“). */
@@ -30,7 +31,7 @@ export const CONSENT_TEXTS: Record<string, (shop: string, location: string) => s
 export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
 export const joinConsentText = (shop: string, location: string) => CONSENT_TEXTS[JOIN_CONSENT_TEXT_VERSION](shop, location);
 
-export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
+export const QUIET_HOURS_REFUSAL = "Zwischen 21\u00a0und 8\u00a0Uhr geht nichts raus. Ab 8\u00a0Uhr kannst du wieder senden.";
 
 // A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in
 // plain German. Narrow on purpose (Legal, 1 Nov): a legally required exclusion, a crayfish salad or a double espresso shot
@@ -67,8 +68,11 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
 }
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */
+/** Marketing G16: the shop cap counts a rolling 7 days, so the page and the server refusal say it the same way. `when` is
+ *  germanWhen of the moment the shop may send again; without one the first sentence stands alone. */
+export const shopCapText = (when?: string) => keepUnits(`Du hast in den letzten ${CAP_WINDOW_DAYS} Tagen schon ${SHOP_WEEKLY_CAP} Nachrichten gesendet.${when ? ` Die nächste kannst du ab ${when} senden.` : ""}`);
 export const needsActionHint = (text: string) => /punkte|stempel|doppelt/i.test(text);
-export const ACTION_HINT = "Versprich nur, was an der Kasse auch gilt: Schalte die Aktion für diese Zeit ein.";
+export const ACTION_HINT = "Versprich nur, was an der Kasse gilt.";
 
 /** „Montag, 27. Oktober, 10:14 Uhr“ in the shop's timezone. */
 export function germanWhen(date: Date, timeZone: string) {

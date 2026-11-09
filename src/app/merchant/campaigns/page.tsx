@@ -12,6 +12,6 @@ export default function MerchantCampaignsPage() {
   const unprovisioned = status === "unprovisioned" || Boolean(me && !me.programSlug);
   useEffect(() => { if (unprovisioned) router.replace("/merchant/program"); }, [unprovisioned, router]);
   if (!me || unprovisioned) return null;
-  if (me.role !== "owner") return <div className="ow-page"><Notice tone="warn" role="alert">Nur Inhaber:innen können Kampagnen verwalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page"><Notice>Nur Inhaber:innen können Kampagnen verwalten.</Notice></div>;
   return <CampaignsView />;
 }

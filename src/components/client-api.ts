@@ -122,6 +122,8 @@ export type MeResponse = {
   /** The shop's Google review link, or null. */
   reviewUrl?: string | null;
   happyHourEnabled?: boolean;
+  /** Geburtstags-Bonus on (ENG-049), for its Programm row. */
+  birthdayEnabled?: boolean;
   happyHourWindows?: HappyHourWindow[];
   pointsExpiryMonths?: number | null;
   challengeVisits?: number | null;

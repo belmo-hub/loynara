@@ -20,7 +20,7 @@ export default function MerchantLocationsPage() {
   useEffect(() => { clearFlash(); }, []);
   if (!me) return null;
   const head = <PageTitle back={{ href: MORE_HREF, label: <MoreLabel /> }} title="Standorte" lead="Jeder Standort hat sein eigenes Programm und eigene Karten." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Standorte verwalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (list.state !== "ok") return <div className="ow-page">{head}<LoadingBlock rows={3} height={64} /></div>;
   const l = list.data;

@@ -29,7 +29,7 @@ test("actual adviser reflects duplicate, legitimate reversal and established 30/
     const future = new Date(Date.now() + 45 * 86_400_000);
     expect((await getMerchantAdvice(a.user, { windowDays: 30, asOf: future })).metrics.qualifyingCheckouts).toBe(0);
     expect((await getMerchantAdvice(a.user, { windowDays: 90, asOf: future })).metrics.qualifyingCheckouts).toBe(1);
-    for (const days of ["90", "30"]) { await page.getByLabel("Zeitraum", { exact: true }).selectOption(days); await expect(page.getByRole("heading", { name: "Erste Buchung testen", exact: true })).toHaveCount(0); expect((await read(owner, Number(days))).metrics.qualifyingCheckouts).toBe(1); }
+    for (const days of ["90", "30"]) { await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: `${days} Tage` }).click(); await expect(page.getByRole("heading", { name: "Erste Buchung testen", exact: true })).toHaveCount(0); expect((await read(owner, Number(days))).metrics.qualifyingCheckouts).toBe(1); }
     const other = await read(foreign); expect(other.metrics).toMatchObject({ currentActiveCards: 1, qualifyingCheckouts: 0 }); expect(other.recommendations.map((r: { id: string }) => r.id)).toContain("checkout_flow"); expect(JSON.stringify(other)).not.toContain(a.membership); expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE tenant_id=$1", [b.tenantId])).rows[0].n).toBe(0);
     const anonymous = await browser.newContext({ baseURL }); try { expect((await anonymous.request.get("/api/merchant/adviser")).status()).toBe(401); } finally { await anonymous.close(); }
   } finally { await owner.close(); await foreign.close(); }

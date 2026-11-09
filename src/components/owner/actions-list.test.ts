@@ -21,7 +21,7 @@ describe("Aktionen list (ENG-122d, screen 08)", () => {
 
   it("shows Happy Hour's state as on the Programm list", () => {
     const row = (on: boolean, earningMode: "manual" | "purchase" = "purchase") => actionSections({ me: me({ programType: "points", earningMode, happyHourEnabled: on }), hidden: [], room: null })[0].rows.find(item => item.title === "Happy Hour");
-    expect(row(false)).toMatchObject({ value: "Aus", off: true, href: "/merchant/program/happy-hour" });
+    expect(row(false)).toMatchObject({ value: "Aus", off: true, href: "/merchant/program/happy-hour?von=aktionen" });
     expect(row(true)).toMatchObject({ value: "An", off: false });
     expect(row(true, "manual")).toMatchObject({ value: "Aus", off: true }); // the server applies it to purchase awards only
   });

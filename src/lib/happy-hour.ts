@@ -37,11 +37,11 @@ export function activeHappyHour(windows: HappyHourWindow[], at: Date, timeZone: 
 
 const DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-/** „Mo–Fr 14:00–17:00: doppelte Punkte“ */
+/** „Mo–Fr 14:00–17:00“: the window's own heading on the Happy Hour page (Design, 6 Nov). */
 export function happyHourSentence(w: HappyHourWindow): string {
   const days = [...w.days].sort((a, b) => a - b);
   const runs: number[][] = [];
   for (const d of days) { const last = runs[runs.length - 1]; if (last && d === last[last.length - 1] + 1) last.push(d); else runs.push([d]); }
   const label = days.length === 7 ? "täglich" : runs.map(r => r.length >= 3 ? `${DAY_NAMES[r[0] - 1]}–${DAY_NAMES[r[r.length - 1] - 1]}` : r.map(d => DAY_NAMES[d - 1]).join(", ")).join(", ");
-  return `${label} ${w.start}–${w.end}: doppelte Punkte`;
+  return `${label} ${w.start}–${w.end}`;
 }

@@ -41,7 +41,7 @@ export default function NewLocationPage() {
   if (!me) return null;
   const currency = list.state === "ok" ? list.data.currency : null;
   const head = <PageTitle back={BACK} title="Standort hinzufügen" lead={currency && `Der neue Standort startet ohne Karten. Währung und Land bleiben: ${currency}\u00a0· ${currency === "EUR" ? "Deutschland" : "Marokko"}.`} />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur die Inhaberin oder der Inhaber kann Standorte verwalten.</Notice></div>;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann Standorte verwalten.</Notice></div>;
   if (list.state === "error") return <div className="ow-page">{head}<ErrorNotice message={list.message} onRetry={reload} /></div>;
   if (!currency) return <div className="ow-page">{head}<LoadingBlock rows={3} /></div>;
   const set = (patch: Partial<Draft>) => setDraft(current => ({ ...current, ...patch }));
