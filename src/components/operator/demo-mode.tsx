@@ -1,83 +1,120 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useReducer, useRef, useState, type FormEvent } from "react";
 import { ClientApiError, imageToDataUrl, newRequestId, postJson } from "@/components/client-api";
-import { Choices } from "@/components/owner/question-form";
+import { FieldError } from "@/components/owner/question-form";
+import { swatchName } from "@/components/owner/swatches";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { SHOP_TEMPLATES } from "@/lib/shop-templates";
+import { costProblem, demoForm, initialDemoForm } from "./demo-form";
 
 export type DemoRunning = { name: string; hoursLeft: number };
 
 const OFFLINE = "Keine Verbindung. Bitte noch einmal tippen.";
+const NBSP = " ";
+const runningText = (running: DemoRunning) => `Demo läuft: ${running.name}, noch ${running.hoursLeft}${NBSP}Std.`;
 
 /** Demo-Modus on /operator, demo environment only (design v3 and section 6). One column, built for the phone. */
 export function DemoMode({ running: initial }: { running: DemoRunning | null }) {
   const router = useRouter();
   const [running, setRunning] = useState(initial);
-  const [templateId, setTemplateId] = useState(SHOP_TEMPLATES[0].id);
-  const template = SHOP_TEMPLATES.find(t => t.id === templateId)!;
-  const [name, setName] = useState("");
-  const [colour, setColour] = useState(template.colours[0]);
-  const [reward, setReward] = useState(template.rewardTitle);
-  const [cost, setCost] = useState(String(template.cost));
-  const [logoData, setLogoData] = useState<string | undefined>();
-  const [logoError, setLogoError] = useState("");
-  const fields = useFormCheck({ "op-demo-name": "Bitte gib den Namen des Geschäfts ein." });
+  const [formOpen, setFormOpen] = useState(!initial);
+  const [f, dispatch] = useReducer(demoForm, undefined, initialDemoForm);
+  const [costError, setCostError] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  // Kept until the server answered: a retry after a lost answer sends the same key and gets the same demo back.
-  const [key, setKey] = useState<string | null>(null);
+  const [announced, setAnnounced] = useState("");
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  const logoPick = useRef(0);
+  const fields = useFormCheck({ "op-demo-name": "Bitte gib den Namen des Geschäfts ein.", "op-demo-reward": "Bitte gib die Prämie ein." });
+  const template = SHOP_TEMPLATES.find(t => t.id === f.templateId)!;
   const unit = template.programType === "points" ? "Punkte" : "Stempel";
+  const busy = f.sending || f.logoBusy;
 
-  const pickTemplate = (id: string) => {
-    const next = SHOP_TEMPLATES.find(t => t.id === id)!;
-    setTemplateId(id); setColour(next.colours[0]); setReward(next.rewardTitle); setCost(String(next.cost)); setKey(null);
-  };
   const pickLogo = (file: File | undefined) => {
-    setKey(null);
-    if (!file) { setLogoData(undefined); setLogoError(""); return; }
-    imageToDataUrl(file).then(data => { setLogoData(data); setLogoError(""); }, (cause: Error) => { setLogoData(undefined); setLogoError(cause.message); });
+    const pick = ++logoPick.current;
+    if (!file) { dispatch({ type: "logo" }); return; }
+    dispatch({ type: "logo", logoData: f.logoData, logoBusy: true });
+    imageToDataUrl(file).then(logoData => pick === logoPick.current && dispatch({ type: "logo", logoData }), (cause: Error) => pick === logoPick.current && dispatch({ type: "logo", logoError: cause.message }));
   };
-  const edit = <T,>(setter: (value: T) => void) => (value: T) => { setter(value); setKey(null); };
 
   async function start(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!fields.check(event.currentTarget)) return;
-    setError(""); setBusy(true);
-    const sent = key ?? newRequestId();
-    setKey(sent);
+    // A second tap while a start is on its way, or while the logo is read, does nothing: no second shop.
+    if (busy) return;
+    const checked = fields.check(event.currentTarget);
+    const cost = costProblem(f.cost);
+    setCostError(cost);
+    if (checked && cost) document.getElementById("op-demo-cost")?.focus();
+    if (!checked || cost) return;
+    setError("");
+    const key = f.key ?? newRequestId();
+    dispatch({ type: "send", key });
     try {
-      const result = await postJson<DemoRunning>("/api/operator/demo", { key: sent, templateId, businessName: name.trim(), logoData, brandColor: colour, rewardTitle: reward.trim(), rewardCost: Number(cost) });
-      setRunning(result); setKey(null); router.refresh();
+      const result = await postJson<DemoRunning>("/api/operator/demo", { key, templateId: f.templateId, businessName: f.name.trim(), logoData: f.logoData, brandColor: f.colour, rewardTitle: f.reward.trim(), rewardCost: Number(f.cost) });
+      dispatch({ type: "started" }); logoPick.current++;
+      setRunning(result); setFormOpen(false); setAnnounced(runningText(result));
+      requestAnimationFrame(() => { statusLine.current?.focus(); statusLine.current?.scrollIntoView({ block: "start" }); });
+      router.refresh();
     } catch (cause) {
+      dispatch({ type: "failed" });
       setError(cause instanceof ClientApiError && cause.status !== 0 ? cause.message : OFFLINE);
-    } finally { setBusy(false); }
+    }
   }
 
   return <Card as="section" aria-labelledby="op-demo">
     <CardHeader id="op-demo" title="Demo-Modus" description="Ein Geschäft für 24 Stunden, mit Karte im Wallet. Danach wird alles gelöscht." />
-    {running ? <div className="ow-stack ow-stack--tight">
-      <p role="status">Demo läuft: {running.name}, noch {running.hoursLeft} Std.</p>
-      <a className={buttonClassName({ variant: "secondary", block: true })} href="/cashier">Kasse öffnen</a>
-      <a className={buttonClassName({ variant: "secondary", block: true })} href="/merchant">App des Geschäfts öffnen</a>
-    </div> : null}
-    <form onSubmit={start} onInput={fields.onInput} noValidate className="ow-stack">
-      <Choices name="op-demo-type" label="Art des Geschäfts" value={templateId} onChange={pickTemplate}
-        options={SHOP_TEMPLATES.map(t => ({ value: t.id, label: t.label }))} />
-      <TextField id="op-demo-name" label="Name des Geschäfts" value={name} required minLength={2} maxLength={180} autoComplete="off" error={fields.error("op-demo-name")} onChange={event => edit(setName)(event.target.value)} />
-      <TextField id="op-demo-logo" label="Logo (optional)" type="file" accept="image/png,image/jpeg,image/webp" error={logoError} hint="Foto vom Schild oder ein Bild aus Instagram." onChange={event => pickLogo(event.target.files?.[0])} />
-      <div>
-        <p id="op-demo-colour">Farbe</p>
-        <div className="ow-swatches" role="group" aria-labelledby="op-demo-colour">{template.colours.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={colour === hex} onClick={() => edit(setColour)(hex)} />)}</div>
-      </div>
-      <TextField id="op-demo-reward" label="Prämie" value={reward} maxLength={180} autoComplete="off" onChange={event => edit(setReward)(event.target.value)} />
-      <TextField id="op-demo-cost" label={`${unit} bis zur Prämie`} value={cost} inputMode="numeric" autoComplete="off" onChange={event => edit(setCost)(event.target.value)} />
-      {error ? <p role="alert">{error}</p> : null}
-      <Button type="submit" block loading={busy} disabled={busy}>{running ? "Neu starten" : "Demo starten"}</Button>
-    </form>
+    {/* Always rendered: iOS announces a live region reliably only when it exists before its text changes. */}
+    <p className="ow-sr" role="status">{announced}</p>
+    <div className="ow-stack">
+      {running ? <div className="ow-stack ow-stack--tight">
+        <p ref={statusLine} tabIndex={-1} className="ow-label">{runningText(running)}</p>
+        <a className={buttonClassName({ variant: "primary", block: true })} href="/cashier">Kasse öffnen</a>
+        <a className={buttonClassName({ variant: "secondary", block: true })} href="/merchant">App des Geschäfts öffnen</a>
+        {!formOpen ? <Button variant="quiet" block onClick={() => setFormOpen(true)}>Neue Demo</Button> : null}
+      </div> : null}
+      {formOpen ? <form onSubmit={start} onInput={fields.onInput} noValidate className="ow-stack">
+        <div className="ow-field">
+          <span className="ow-label" id="op-demo-type">Art des Geschäfts</span>
+          <div className="ow-seg" role="group" aria-labelledby="op-demo-type">
+            {SHOP_TEMPLATES.map(t => <button key={t.id} type="button" aria-pressed={t.id === f.templateId} onClick={() => dispatch({ type: "template", id: t.id })}>{t.label}</button>)}
+          </div>
+        </div>
+        <div className="ow-field">
+          <label htmlFor="op-demo-name">Name des Geschäfts</label>
+          <input id="op-demo-name" className="ow-input" value={f.name} required minLength={2} maxLength={180} autoComplete="off" enterKeyHint="go" {...fields.aria("op-demo-name")} onChange={event => dispatch({ type: "edit", patch: { name: event.target.value } })} />
+          <FieldError id="op-demo-name-error">{fields.error("op-demo-name") ?? ""}</FieldError>
+        </div>
+        <div className="ow-field">
+          <span className="ow-label" id="op-demo-colour">Farbe</span>
+          <div className="ow-swatches" role="group" aria-labelledby="op-demo-colour">{template.colours.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={swatchName(hex) ?? hex} aria-pressed={f.colour === hex} onClick={() => dispatch({ type: "edit", patch: { colour: hex } })} />)}</div>
+        </div>
+        <div className="ow-field">
+          <span className="ow-label">Logo (optional)</span>
+          <div className="ow-logo-row">
+            {f.logoData && <Image unoptimized className="ow-logo-thumb" src={f.logoData} width={112} height={35} alt="Ausgewähltes Logo" style={{ backgroundColor: f.colour }} />}
+            <label htmlFor="op-demo-logo" className="ow-btn ow-btn--secondary ow-filebtn">{f.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="op-demo-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => pickLogo(event.target.files?.[0])} /></label>
+            {f.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => pickLogo(undefined)}>Logo entfernen</button>}
+          </div>
+          <span className="ow-hint">Foto vom Schild oder ein Bild aus Instagram.</span>
+          {f.logoError && <span className="ow-error" role="alert">{f.logoError}</span>}
+        </div>
+        <div className="ow-field">
+          <label htmlFor="op-demo-reward">Prämie</label>
+          <input id="op-demo-reward" className="ow-input" value={f.reward} required minLength={2} maxLength={180} autoComplete="off" {...fields.aria("op-demo-reward")} onChange={event => dispatch({ type: "edit", patch: { reward: event.target.value } })} />
+          <FieldError id="op-demo-reward-error">{fields.error("op-demo-reward") ?? ""}</FieldError>
+        </div>
+        <div className="ow-field">
+          <label htmlFor="op-demo-cost">{unit} bis zur Prämie</label>
+          <input id="op-demo-cost" className="ow-input" value={f.cost} inputMode="numeric" autoComplete="off" aria-invalid={costError ? true : undefined} aria-describedby={costError ? "op-demo-cost-error" : undefined} onChange={event => { setCostError(""); dispatch({ type: "edit", patch: { cost: event.target.value } }); }} />
+          <FieldError id="op-demo-cost-error">{costError}</FieldError>
+        </div>
+        {error ? <p className="ow-error" role="alert">{error}</p> : null}
+        <Button type="submit" block loading={busy}>{running ? "Neu starten" : "Demo starten"}</Button>
+      </form> : null}
+    </div>
   </Card>;
 }

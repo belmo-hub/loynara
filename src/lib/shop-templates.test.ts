@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import data from "@/content/shop-templates.json";
 import { draftRules } from "@/components/owner/program-helpers";
+import { swatchName } from "@/components/owner/swatches";
 import { setupReviewValidation } from "@/components/owner/program-setup-validation";
 import { checkRulesText } from "./points";
 import { merchantInput, requireAllowedRewardTitle } from "./product";
@@ -12,6 +13,10 @@ describe("shop templates", () => {
   it("is marked as draft and keeps the five types in order", () => {
     expect(data.status).toBe("draft");
     expect(SHOP_TEMPLATES.map(t => t.label)).toEqual(["Friseur / Barbershop", "Nagelstudio", "Pizzeria / Imbiss", "Café / Bäckerei", "Anderes Geschäft"]);
+  });
+
+  it("names every template colour from the house swatches, so the demo form never reads out a hex value", () => {
+    for (const t of SHOP_TEMPLATES) for (const hex of t.colours) expect(swatchName(hex), `${t.id} ${hex}`).toBeTruthy();
   });
 
   it.each(SHOP_TEMPLATES.map(t => [t.id, t] as const))("%s passes every limit", (_, t) => {
