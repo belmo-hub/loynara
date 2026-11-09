@@ -77,7 +77,11 @@ echo '<envelope>' | base64 -d | openssl pkeyutl -decrypt -inkey transport-privat
 - **Retry:** re-running with the same e-mail is safe and reports `existing`; it issues no new credential.
 - **Lost envelope or forgotten password:** use the operator-assisted reset, `npm run operator:reset-credential -- --target loynara-production --email …`, described in [pilot-recovery-runbook.md](pilot-recovery-runbook.md) section B. The provisioning tool itself never re-issues. Do not delete rows to "start over". Any deletion is a production write that needs its own explicit approval, and the earlier synthetic-cleanup exception does not apply to real merchant data (X-006).
 
-## 7. Local rehearsal (no production)
+## 7. Demo environment (`--target loynara-demo`)
+
+The same tools run in the separate demo environment's worker console (Railway project `loynara-demo`) with `--target loynara-demo`. The guard accepts it only with `DEMO_ENVIRONMENT=true`, no production marker, and a private Railway database that names itself demo; the production target keeps refusing there. Demo identities are the operator's own pitch login, not merchant accounts.
+
+## 8. Local rehearsal (no production)
 
 ```bash
 DATABASE_URL=postgresql://looplocal:…@localhost:<port>/looplocal BETTER_AUTH_URL=http://localhost:3000 PUBLIC_BASE_URL=http://localhost:3000 NODE_ENV=development \
