@@ -8,7 +8,7 @@ import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loy
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
-import { byPurchase, checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT, purchaseRuleSentence } from "./points";
+import { byPurchase, checkRulesText, MAX_POINTS_PER_CURRENCY_UNIT, purchaseRuleSentence, REWARD_COST_MAX } from "./points";
 import { publicReferralTerms, recordReferralAttribution } from "./referrals";
 import { automaticTapAllowed } from "./pilot-policy";
 import { activeHappyHour, happyHourProblem, type HappyHourWindow } from "./happy-hour";
@@ -28,7 +28,7 @@ import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
 
 const shortText = z.string().trim().min(2).max(180);
-const merchantInput = z.object({
+export const merchantInput = z.object({
   userId: z.string().min(1),
   businessName: shortText,
   locationName: shortText.optional(),
@@ -43,7 +43,7 @@ const merchantInput = z.object({
   pointsPerCurrencyUnit: z.number().int().min(1).max(MAX_POINTS_PER_CURRENCY_UNIT).optional(),
   rulesText: z.string().trim().max(3000), // its minimum depends on the earning: checkRulesText
   rewardTitle: shortText,
-  rewardCost: z.number().int().min(1).max(100000),
+  rewardCost: z.number().int().min(1).max(REWARD_COST_MAX),
   contactEmail: z.email().optional(),
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   latitude: z.number().min(-90).max(90).optional(),
