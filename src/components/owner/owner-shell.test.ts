@@ -2,8 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ hidden: [] as string[] }));
-vi.mock("./owner-context", () => ({ useOwner: () => ({ status: "loading", me: null, locations: [], hiddenSurfaces: state.hidden, guard: (run: () => void) => run(), resetAfterSignOut: () => {} }) }));
+const state = vi.hoisted(() => ({ hidden: [] as string[], role: "owner" as "owner" | "manager" }));
+vi.mock("./owner-context", () => ({ useOwner: () => ({ status: "loading", me: null, locations: [], hiddenSurfaces: state.hidden, role: state.role, guard: (run: () => void) => run(), resetAfterSignOut: () => {} }) }));
 vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), usePathname: () => "/merchant/customers", useRouter: () => ({ push: () => {} }) }));
 
 import { OwnerShell } from "./owner-shell";
@@ -18,5 +18,15 @@ describe("the owner shell before /api/me has answered", () => {
     state.hidden = [];
     expect(html()).toContain("Zielgruppen");
     expect(html()).toContain("ow-subnav");
+  });
+
+  it("uses the role the server read, so a manager never sees the owner-only areas flash up (ENG-184)", () => {
+    state.role = "manager";
+    expect(html()).not.toContain("Aktionen");
+    expect(html()).not.toContain("Einstellungen");
+    expect(html()).not.toContain("/merchant/actions");
+    state.role = "owner";
+    expect(html()).toContain("Aktionen");
+    expect(html()).toContain("Einstellungen");
   });
 });

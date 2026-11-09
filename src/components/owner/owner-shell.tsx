@@ -54,7 +54,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   }
 
   const me = owner.me;
-  const role = me?.role ?? "owner";
+  const role = me?.role ?? owner.role;
   const hidden = me?.hiddenSurfaces ?? owner.hiddenSurfaces;
   const group = activeGroup(pathname, role, hidden);
   const subItems = group ? visibleItems(group, role, hidden) : [];
