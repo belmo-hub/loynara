@@ -133,7 +133,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
-          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board}>
+          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
             {!board ? <BoardPlaceholder /> : <>
               {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
                 <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>

@@ -18,9 +18,12 @@ const NBSP = "\u00a0";
  * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
  * and its sub-line says what it counts and over which days; `label` names the card for screen readers.
  */
-export function Board({ label, busy = false, children }: { label: string; busy?: boolean; children: ReactNode }) {
-  return <section className="ow-board" aria-label={label} aria-busy={busy}>{children}</section>;
+export function Board({ label, busy = false, demo = false, children }: { label: string; busy?: boolean; /** Demo environment: its numbers include the sample visits. */ demo?: boolean; children: ReactNode }) {
+  return <section className="ow-board" aria-label={label} aria-busy={busy}>{demo ? <p><DemoDataChip /></p> : null}{children}</section>;
 }
+
+/** The demo environment's sample visits count in these numbers (lib/demo-environment visitSources). */
+export const DemoDataChip = () => <span className="ow-chip ow-chip--info">Demo-Daten</span>;
 
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
 export function BigMoney({ text }: { text: string }) {

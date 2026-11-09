@@ -53,7 +53,7 @@ const WEEK_BUCKET = (column: string) => `((((${column}) AT TIME ZONE '${BERLIN}'
 // demo environment's sample visits (demo-environment visitSources).
 const checkoutCte = () => `
   WITH accepted_awards AS (
-    SELECT e.membership_id, e.request_id, e.created_at, e.delta, e.actor_user_id, e.location_id, p.type
+    SELECT e.membership_id, e.request_id, e.created_at, e.delta, e.actor_user_id, e.location_id, p.type, e.source
     FROM ledger_entries e
     JOIN memberships m ON m.tenant_id = e.tenant_id AND m.id = e.membership_id
     JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
@@ -192,6 +192,8 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
           coalesce(sum(a.delta) FILTER (WHERE a.type = 'stamp'), 0)::int AS "stampUnits",
           coalesce(sum(a.delta) FILTER (WHERE a.type = 'points'), 0)::int AS "pointUnits"
         FROM accepted_awards a JOIN "user" u ON u.id = a.actor_user_id
+        -- The demo's sample visits count in the totals, never as a person's bookings.
+        WHERE a.source <> 'synthetic_seed'
         GROUP BY a.actor_user_id, u.name ORDER BY u.name, a.actor_user_id
       `, params),
       client.query<MerchantAnalytics["locationActivity"][number]>(`${checkoutCte()}, activity AS (

@@ -21,22 +21,23 @@ function parsedUrl(value?: string): URL | null {
  */
 export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false" } = {}): string[] {
   const issues: string[] = demo ? demoConfigIssues(env) : [];
-  if (env.NODE_ENV !== "production") return issues;
   const database = parsedUrl(env.DATABASE_URL);
+  const databaseIdentity = database ? `${database.hostname}/${database.pathname}/${database.username}` : "";
+  // Mirror of production's rule, whatever NODE_ENV says (the worker may run without it): the demo database names itself,
+  // so a copied production DATABASE_URL cannot start a demo.
+  if (demo && env.DATABASE_URL && (!database || !/demo/i.test(databaseIdentity) || /preview|device[-_]?test/i.test(databaseIdentity))) issues.push("The demo database must name itself demo (host, database or user), never production, preview or device test");
+  if (env.NODE_ENV !== "production") return issues;
   const auth = parsedUrl(env.BETTER_AUTH_URL);
   const base = parsedUrl(env.PUBLIC_BASE_URL);
   // The demo has no approved production origin: its own, the one origin both URLs share, takes that place.
   const approved = demo ? (base && auth?.origin === base.origin ? parsedUrl(base.origin) : null) : parsedUrl(env.PRODUCTION_APPROVED_ORIGIN);
   // pg-connection-string gives these parameters priority over the URL fields.
   const databaseOverride = database && (["host", "port", "user", "password"].some(name => database.searchParams.has(name)) || Boolean(database.hash));
-  const databaseIdentity = database ? `${database.hostname}/${database.pathname}/${database.username}` : "";
 
   if (!database || !["postgres:", "postgresql:"].includes(database.protocol) || localHosts.has(database.hostname) || database.password === "looplocal_local_only" || databaseOverride
     || (!demo && /preview|device[-_]?test|demo/i.test(databaseIdentity))) {
     issues.push("Production database must use a remote PostgreSQL target and unique credentials");
   }
-  // Mirror of production's rule: the demo database names itself, so a copied production DATABASE_URL cannot start a demo.
-  if (demo && database && (!/demo/i.test(databaseIdentity) || /preview|device[-_]?test/i.test(databaseIdentity))) issues.push("The demo database must name itself demo (host, database or user), never production, preview or device test");
   if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) {
     issues.push("Production application URLs must use HTTPS and nonlocal hosts");
   }

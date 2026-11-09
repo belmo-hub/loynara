@@ -41,16 +41,22 @@ export function DemoMode({ running: initial }: { running: DemoRunning | null }) 
     imageToDataUrl(file).then(logoData => pick === logoPick.current && dispatch({ type: "logo", logoData }), (cause: Error) => pick === logoPick.current && dispatch({ type: "logo", logoError: cause.message }));
   };
 
+  // „Neue Demo“: the form opens where the next choice is, the pressed type chip.
+  const openForm = () => {
+    setFormOpen(true);
+    requestAnimationFrame(() => (document.querySelector<HTMLElement>('#op-demo-types [aria-pressed="true"]') ?? document.getElementById("op-demo-name"))?.focus());
+  };
+
   async function start(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // A second tap while a start is on its way, or while the logo is read, does nothing: no second shop.
     if (busy) return;
+    setError("");
     const checked = fields.check(event.currentTarget);
     const cost = costProblem(f.cost);
     setCostError(cost);
     if (checked && cost) document.getElementById("op-demo-cost")?.focus();
     if (!checked || cost) return;
-    setError("");
     const key = f.key ?? newRequestId();
     dispatch({ type: "send", key });
     try {
@@ -70,16 +76,17 @@ export function DemoMode({ running: initial }: { running: DemoRunning | null }) 
     {/* Always rendered: iOS announces a live region reliably only when it exists before its text changes. */}
     <p className="ow-sr" role="status">{announced}</p>
     <div className="ow-stack">
-      {running ? <div className="ow-stack ow-stack--tight">
+      {running ? <div className="ow-group ow-stack ow-stack--tight">
         <p ref={statusLine} tabIndex={-1} className="ow-label">{runningText(running)}</p>
         <a className={buttonClassName({ variant: "primary", block: true })} href="/cashier">Kasse öffnen</a>
         <a className={buttonClassName({ variant: "secondary", block: true })} href="/merchant">App des Geschäfts öffnen</a>
-        {!formOpen ? <Button variant="quiet" block onClick={() => setFormOpen(true)}>Neue Demo</Button> : null}
+        {!formOpen ? <Button variant="quiet" block onClick={openForm}>Neue Demo</Button> : null}
       </div> : null}
-      {formOpen ? <form onSubmit={start} onInput={fields.onInput} noValidate className="ow-stack">
+      {formOpen ? <form onSubmit={start} onInput={fields.onInput} noValidate className="ow-group ow-stack" aria-labelledby={running ? "op-demo-next" : undefined}>
+        {running ? <h3 id="op-demo-next" className="ow-label">Neue Demo</h3> : null}
         <div className="ow-field">
           <span className="ow-label" id="op-demo-type">Art des Geschäfts</span>
-          <div className="ow-seg" role="group" aria-labelledby="op-demo-type">
+          <div id="op-demo-types" className="ow-seg ow-seg--chips" role="group" aria-labelledby="op-demo-type">
             {SHOP_TEMPLATES.map(t => <button key={t.id} type="button" aria-pressed={t.id === f.templateId} onClick={() => dispatch({ type: "template", id: t.id })}>{t.label}</button>)}
           </div>
         </div>
@@ -113,7 +120,7 @@ export function DemoMode({ running: initial }: { running: DemoRunning | null }) 
           <FieldError id="op-demo-cost-error">{costError}</FieldError>
         </div>
         {error ? <p className="ow-error" role="alert">{error}</p> : null}
-        <Button type="submit" block loading={busy}>{running ? "Neu starten" : "Demo starten"}</Button>
+        <Button type="submit" variant={running ? "secondary" : "primary"} block loading={busy}>{running ? "Neu starten" : "Demo starten"}</Button>
       </form> : null}
     </div>
   </Card>;

@@ -440,6 +440,10 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ow-seg { max-width: 100%; flex-wrap: wrap; }
+/* Chips (the demo form's shop types): no track, each label whole on its own ring, wrapping onto new rows. */
+.ow-seg.ow-seg--chips { padding: 0; gap: var(--space-2); background: none; border-radius: 0; flex-wrap: wrap; }
+.ow-seg.ow-seg--chips button { flex: 0 0 auto; white-space: nowrap; min-height: 44px; box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-seg.ow-seg--chips button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--color-ink); }
 .ow-studio-preview > * { max-width: 100%; }
 
 /* Icon+label segmented buttons */

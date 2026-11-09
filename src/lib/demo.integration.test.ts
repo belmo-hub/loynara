@@ -15,11 +15,11 @@ vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: async () => session.us
 import { activeDemo, createDemo, demoPlateLive, demoStatus, endDemos } from "./demo";
 import { eraseDemoShop } from "./shop-erasure";
 import { createMerchant, enroll } from "./product";
-import { acknowledgeWalletGuidance, sendWalletMessage, setWalletConsent } from "./wallet-messages";
+import { acknowledgeWalletGuidance, queueCardWalletMessage, sendWalletMessage, setWalletConsent } from "./wallet-messages";
 import { queueWinbackMessages } from "./winback";
 import { queueBirthdayMessages } from "./birthday";
 import { queueAlmostMessages } from "./almost-there";
-import { getLocationAnalytics } from "./merchant-analytics";
+import { getLocationAnalytics, getMerchantAnalytics } from "./merchant-analytics";
 import { getRetentionSummary } from "./retention";
 import { POST as demoRoute } from "@/app/api/operator/demo/route";
 import { GET as tapGet } from "@/app/api/tap/[ref]/route";
@@ -209,10 +209,10 @@ describe("Demo-Modus (design v3)", () => {
   });
 });
 
-/** A shop made by the real setup, not a demo: an owner, a card with a live pass, a linked plate, 30 days old. */
+/** A shop made by the real setup, not a demo, though its name starts with Demo (slug demo-bar-xxxxx): an owner, a card with a live pass, a linked plate, 30 days old. */
 async function realShop() {
   const owner = await user();
-  const merchant = await createMerchant({ userId: owner, businessName: "Echtes Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 });
+  const merchant = await createMerchant({ userId: owner, businessName: "Demo Bar", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   await pool.query("INSERT INTO wallet_passes (tenant_id, membership_id, provider, provider_object_id, status) VALUES ($1, $2, 'apple', $3, 'created')", [merchant.tenantId, card.id, `passfast:${randomUUID()}`]);
   const p = await plate("R-001", "04de5f1eacc0aa");
@@ -308,14 +308,26 @@ describe("Demo-Modus review round (R-1 to R-4, Design 3)", () => {
     expect((await sendWalletMessage({ actorUserId: real.owner, programSlug: real.programSlug, text: "Heute Kaffee aufs Haus, nur bis 17 Uhr." }, daytime())).audience).toBe(1);
   });
 
-  it("the automatic reminders queue nothing in the demo environment and run as before outside it", async () => {
-    const spy = vi.spyOn(db, "execute");
-    expect([await queueWinbackMessages(), await queueBirthdayMessages(), await queueAlmostMessages()]).toEqual([0, 0, 0]);
+  it("the automatic reminders (win-back, birthday, Fast geschafft, expiry) queue nothing in the demo environment and run as before outside it", async () => {
+    const spy = vi.spyOn(db, "execute"), transactions = vi.spyOn(db, "transaction");
+    const expiry = () => queueCardWalletMessage({ tenantId: randomUUID(), programId: randomUUID(), membershipId: randomUUID(), kind: "expiry", text: "Deine Punkte verfallen bald.", onceWithinDays: 30 }).catch(() => "ran");
+    expect([await queueWinbackMessages(), await queueBirthdayMessages(), await queueAlmostMessages(), await expiry()]).toEqual([0, 0, 0, false]);
     expect(spy).not.toHaveBeenCalled();
+    expect(transactions).not.toHaveBeenCalled();
     delete process.env.DEMO_ENVIRONMENT;
-    await queueWinbackMessages(); await queueBirthdayMessages(); await queueAlmostMessages();
+    await queueWinbackMessages(); await queueBirthdayMessages(); await queueAlmostMessages(); await expiry();
     expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+    expect(transactions).toHaveBeenCalled();
+    spy.mockRestore(); transactions.mockRestore();
+  });
+
+  it("Ergebnisse: the totals count the sample visits in the demo environment, the Team rows never do", async () => {
+    await start();
+    const report = await getMerchantAnalytics(operator, { windowDays: 30 });
+    expect(report.qualifyingCheckouts).toBeGreaterThan(0);
+    expect(report.staffActivity).toEqual([]);
+    delete process.env.DEMO_ENVIRONMENT;
+    expect((await getMerchantAnalytics(operator, { windowDays: 30 })).qualifyingCheckouts).toBe(0);
   });
 
   it("the owner board counts the sample visits in the demo environment, and only there", async () => {

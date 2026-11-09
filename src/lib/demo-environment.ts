@@ -27,8 +27,10 @@ export const DEMO_HOURS = 24;
 const offOrUnset = ["EXTERNAL_EMAIL_ENABLED", "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "WALLET_MESSAGES_ENABLED", "LIVE_BILLING_ENABLED", "GOOGLE_WALLET_ENABLED"];
 
 /**
- * Why a demo environment must not start: anything that could reach people beyond the owner's own Wallet card. The keys
- * for email, Wallet messages, Stripe and Google are not allowed to exist there. Names settings, never values.
+ * Why a demo environment must not start: email, Stripe and Google keys are not allowed to exist there, and billing runs
+ * on the local fixture. Owner messages do reach the running demo's consenting cards (founder, 9 Nov; the send path in
+ * lib/wallet-messages scopes them); WALLET_MESSAGES_ENABLED is still refused, harmless since only production reads it.
+ * Names settings, never values.
  */
 export function demoConfigIssues(env: Env): string[] {
   const issues: string[] = [];

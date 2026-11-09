@@ -61,6 +61,13 @@ describe("demo environment (design v3)", () => {
   const apple = { APPLE_WALLET_ENABLED: "true", WALLET_PRODUCTION_APPROVED: "true", APPLE_SIGNING_CERT_PATH: "/run/wallet/cert.pem", APPLE_SIGNING_KEY_PATH: "/run/wallet/key.pem", APPLE_WWDR_CERT_PATH: "/run/wallet/wwdr.pem",
     APPLE_PASS_TYPE_ID: "pass.com.getloynara.showcase", APPLE_TEAM_ID: "ABCDE12345", APPLE_WALLET_AUTH_SECRET: "c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5g6h7", APPLE_WALLET_WEB_SERVICE_URL: "https://demo.getloynara.com/api/apple" };
 
+  it("refuses a database that does not name itself demo, whatever NODE_ENV says (a worker without it)", () => {
+    for (const NODE_ENV of [undefined, "development", "test"]) {
+      expect(productionConfigIssues({ ...safe, NODE_ENV, DATABASE_URL: "postgresql://merchant:unique-value@db.railway.internal/loynara" } as unknown as NodeJS.ProcessEnv), String(NODE_ENV)).toEqual([expect.stringMatching(/must name itself demo/)]);
+      expect(productionConfigIssues({ ...safe, NODE_ENV, DATABASE_URL: "postgresql://loynara:unique-value@db.railway.internal/loynara_demo" } as unknown as NodeJS.ProcessEnv), String(NODE_ENV)).toEqual([]);
+    }
+  });
+
   it("a correctly deployed demo starts, with Apple Wallet and the billing fixture", () => {
     expect(productionConfigIssues(deployed)).toEqual([]);
     expect(productionConfigIssues({ ...deployed, ...apple })).toEqual([]);
