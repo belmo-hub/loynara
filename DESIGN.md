@@ -160,7 +160,7 @@ or nothing).
 | Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
 | Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui` and the old one leaves at once; „Gespeichert“ wears a check that draws itself and stays until the next edit | instant label swap |
 
-No hover lift on cards and no scale on hover. An arrival plays once, on a screen's first paint; a re-render, a refresh, polling or a return (Back from a card, Back in the history, a page's own back link such as „‹ Programm“) never replays it. Content takes a tap from the first frame of a first paint: entrances fill backwards only and nothing is hidden until JavaScript runs. A fact (a price, a date, a code, a balance) may arrive with its row or block, never on its own: no count-up, no roll on arrival. The top bar, the tab bar, the sidebar and a field being typed in stay still. A keyboard-triggered action shows the same change at once. The only loops are the skeleton shimmer and a spinner once an action has waited 300 ms; under reduced motion loops stop and the spinner turns at 2 s.
+No hover lift on cards, no animation on keyboard-triggered actions. A screen's first paint and navigation in follow Arrive and List arrive; a return (Back, a back link, a cached screen) plays nothing. A fact (a price, a date, a code, a balance) may arrive with its row or block, never on its own: no count-up, no roll on arrival. Under reduced motion loops stop and the spinner turns at 2 s.
 
 ## Layout patterns
 

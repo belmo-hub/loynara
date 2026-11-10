@@ -1181,6 +1181,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-check input[role="switch"]::before { forced-color-adjust: none; background: CanvasText; }
   .ow-check input[role="switch"]:checked { background: Highlight; }
   .ow-check input[role="switch"]:checked::before { background: HighlightText; }
+  .ow-check input[role="switch"]:disabled { border-color: GrayText; }
+  .ow-check input[role="switch"]:disabled::before { background: GrayText; }
+  /* A pick shown by a fill or a ring alone would vanish too: it gets an outline. */
+  .ow-seg button:is([aria-pressed="true"], [aria-selected="true"]) { outline: 2px solid Highlight; outline-offset: -2px; }
+  .ow-swatch[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
