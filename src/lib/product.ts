@@ -66,7 +66,8 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
-  const logoData = input.logoData ? await checkedLogoUpload(input.logoData) : null;
+  // Decoding a large logo costs real memory, so it waits until the account may set up this shop.
+  const logo = async () => input.logoData ? checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
     // Serialize retries for this authenticated identity, including the first
     // request before a staff row exists. No provisioning happens in auth hooks.
@@ -82,6 +83,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
       if (await awaitsSetup(tx, tenant.id)) {
         // A shop the operator created (ENG-047): the owner's answers replace the operator's draft, then the programme starts.
+        const logoData = await logo();
         await tx.update(tenants).set({ name: input.businessName, currency: input.currency, locale: input.locale }).where(eq(tenants.id, tenant.id));
         const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude })
           .where(and(eq(locations.id, location.id), eq(locations.tenantId, tenant.id))).returning();
@@ -97,7 +99,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
     if (!newShop) throw new DomainError("FORBIDDEN", "Mit diesem Konto kannst du kein Geschäft einrichten. Nimm zuerst deine Einladung an.");
-    const { tenant, location } = await insertShop(tx, input, logoData);
+    const { tenant, location } = await insertShop(tx, input, await logo());
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
@@ -377,7 +379,7 @@ export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>
   });
 }
 
-const enrollInput = z.object({
+export const enrollInput = z.object({
   slug: z.string().min(1).max(120),
   acceptedTerms: z.literal(true),
   referralCode: z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/).optional(),
