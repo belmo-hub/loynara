@@ -155,7 +155,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
     try { success(await call() as never); }
     catch (cause) {
       const info = failure(cause);
-      if (info.code === "STALE" || info.code === "NOT_FOUND") { onDone(actionError(info), "info"); return; }
+      if (info.code === "STALE" || info.code === "STALE_RULE" || info.code === "NOT_FOUND") { onDone(actionError(info), "info"); return; }
       if (info.code === "SLOT_TAKEN") setPicked(null);
       setError(actionError(info, appointment, zone));
     } finally { setBusy(false); }

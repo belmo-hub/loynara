@@ -7,6 +7,7 @@ import { formatDay, formatTime } from "@/components/booking/booking-format";
 import { DomainError } from "@/lib/loyalty";
 import type { OutboxJob, OutboxStatus } from "@/lib/outbox";
 import { quietHoursDeferral } from "@/lib/promotion-policy";
+import { demoEnvironment } from "../demo-environment";
 import { pushCapability, sendStaffMessage, subscriptionInput, vapidDetails, type PushEnv } from "@/lib/staff-push";
 import { CAP_WINDOW_DAYS, CUSTOMER_WEEKLY_CAP, WALLET_QUIET_HOURS } from "@/lib/wallet-message-rules";
 import { lock, rebookPushesWithin } from "@/lib/wallet-messages";
@@ -288,6 +289,8 @@ const candidates = (now: Date) => sql`
 
 /** Called by the worker with the win-back scan. Idempotent: each appointment is claimed once under the Wallet-message tenant lock. */
 export async function queueRebookPushes(now = new Date()) {
+  // A rebook push is marketing: the demo environment sends none (as win-back and Wallet messages).
+  if (demoEnvironment()) return 0;
   const { rows: found } = await db.execute<{ id: string; tenant_id: string }>(sql`
     SELECT DISTINCT ON (a.membership_id) a.id, a.tenant_id ${candidates(now)} ORDER BY a.membership_id, lower(a.during) DESC LIMIT 500`);
   let queued = 0;
