@@ -142,9 +142,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
+              {/* ENG-210: the week in words, as the strip's heading (Design, 10 Nov). Facts: no motion of their own. */}
+              {!failed && a?.week && <p className="ow-week-line">{weekLine(a.week)}</p>}
               <Strip days={board.days} caption={STRIP_CAPTION} />
               {news && <p className="ow-board-news">{news}</p>}
-              {!failed && a?.week && <p className="ow-board-news">{weekLine(a.week)}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
           </Board>}
