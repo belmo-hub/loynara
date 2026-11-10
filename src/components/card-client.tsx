@@ -17,13 +17,13 @@ import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
 import { joinedPill, peekJoined, takeJoined } from "./customer/booking-moment";
+import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
+import { joinAsked, markWalletStep, readWalletStep } from "./wallet-step";
+import { cardChanges } from "@/lib/change-lines";
 
 const never = () => () => {};
 /** A return shows the bare ground this long; a read slower than that gets the placeholder. */
 export const RETURN_WAIT_MS = 300;
-import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
-import { joinAsked, markWalletStep, readWalletStep } from "./wallet-step";
-import { cardChanges } from "@/lib/change-lines";
 
 type WalletAvailability = { apple: "available" | "unavailable"; google: "available" | "test_only" | "unavailable"; appleReAdd?: boolean; appleSaved?: boolean };
 

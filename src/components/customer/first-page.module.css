@@ -53,6 +53,7 @@
 /* The way back reads as one line with its question, also where it wraps. */
 .blocks .recover { margin-top: calc(var(--space-1) - var(--space-4)); font-size: var(--text-14); line-height: calc(20 / 14); }
 .blocks .recover a { display: inline; min-height: 0; padding-block: var(--space-3); }
+.blocks .recover span, .foot2 { line-height: calc(20 / 14); }
 .blocks[data-leaving] { opacity: 0; pointer-events: none; }
 /* The rules, word for word, set compact under a hairline. */
 .rules { display: grid; gap: var(--space-1); padding-top: var(--space-4); border-top: 1px solid var(--color-line); }

@@ -268,7 +268,8 @@ const cardSkeleton = {
   header: <div className={styles.merchant}><Skeleton width={36} height={36} radius={14} /><Skeleton width="45%" height={40} /></div>,
   main: <>
     <div className={styles.lead}>
-      <div className={styles.goal}><Skeleton height={64} width="85%" /></div>
+      {/* Three lines of the goal line's own size, so the card below stands where the loaded card stands at every width. */}
+      <div className={styles.goal}><Skeleton className={styles.goalLine} height="3lh" width="85%" /></div>
       <div className={styles.cardGroup}><Skeleton height={420} radius={28} /></div>
     </div>
     <div className={styles.rest}>
