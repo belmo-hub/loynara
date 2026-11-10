@@ -33,5 +33,5 @@
 .status { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 .dock { animation: dock-in var(--dur-ui) var(--ease-out) backwards; }
 @keyframes appear { from { opacity: 0; } }
-@keyframes dock-in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .status { transition: none; animation: none; } .dock { animation: none; } }

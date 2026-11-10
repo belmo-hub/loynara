@@ -17,7 +17,7 @@
 .item:nth-child(3) { animation-delay: 60ms; }
 .item:nth-child(n + 4) { animation-delay: 90ms; }
 .error { animation: appear var(--dur-ui) var(--ease-out) backwards; }
-.state, .rejected { transition: color var(--dur-press) ease; }
+.state, .rejected { transition: color var(--dur-press) var(--ease-out); }
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
 @keyframes appear { from { opacity: 0; } }

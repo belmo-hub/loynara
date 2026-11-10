@@ -4,7 +4,7 @@
   width: 100%; min-width: 0; min-height: 48px; padding: 0 var(--space-4);
   border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink);
   font: var(--weight-body) var(--text-16)/1.4 var(--font-sans);
-  transition: border-color var(--dur-press) ease, background-color var(--dur-press) ease, outline-color var(--dur-press) ease;
+  transition: border-color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), outline-color var(--dur-press) var(--ease-out);
 }
 /* The focus ring fades in from a transparent one; forced colours would draw that, so it stays out there. */
 @media (forced-colors: none) { .input { outline: 2px solid transparent; outline-offset: 2px; } }

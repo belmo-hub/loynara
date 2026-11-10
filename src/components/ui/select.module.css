@@ -3,7 +3,7 @@
   width: 100%; min-height: 48px; padding: 0 calc(var(--space-4) + 24px) 0 var(--space-4); appearance: none;
   border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink);
   font: var(--weight-body) var(--text-16)/1.4 var(--font-sans); cursor: pointer;
-  transition: border-color var(--dur-press) ease, outline-color var(--dur-press) ease;
+  transition: border-color var(--dur-press) var(--ease-out), outline-color var(--dur-press) var(--ease-out);
 }
 @media (forced-colors: none) { .select { outline: 2px solid transparent; outline-offset: 2px; } }
 .select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }

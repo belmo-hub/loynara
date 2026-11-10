@@ -16,7 +16,7 @@ objects and CSS inside strings. Each exception names the exact rule and its reas
 2. **Facts never move.** Balances, codes and prices do not animate in ways that hide their value; numbers use tabular figures.
 3. **The stamp is the reward moment.** Coral (`--color-stamp`) appears only where something was earned or is redeemable. It is decorative, never text.
 4. **Merchant colour, guaranteed contrast.** Every shop picks its colour; the system derives readable companions automatically.
-5. **Calm by default.** Motion answers an action or marks a reward. No idle loops, no scroll theatre.
+5. **Alive, never busy.** Every screen arrives and every change is shown, in the house durations. No idle loops, no scroll theatre, no motion on facts, and nothing waits on an animation.
 
 ## Surfaces
 
@@ -135,21 +135,21 @@ or nothing).
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
 | Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
 | Crossfade | cashier status bar colour (scanning → open → done), dashboard tab content (React `ViewTransition`) | `--dur-ui` | instant |
-| Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
+| Shake | failed code entry or rejected amount, field only | 2 × 4 px, `--dur-ui` `--ease-in-out` | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
-| Arrive | first paint of sign-in, invite, system pages, empty states, the Kasse question | opacity 0 → 1 with an 8 px rise, `--dur-ui`, 40 ms apart, at most 3 to 4 blocks; once per first paint | one instant paint |
-| List arrive | Kasse reward rows, table rows, NFC requests, offline queue | 6 px rise, 30 ms apart, from the 7th together | instant |
-| Card arrive (Kasse) | card preview and opened card | the surface scales .98 → 1 and fades, `--dur-ui`; card number and balance stand still; stamps 30 ms apart | instant |
-| Kasse states | dock, status strip, booked, camera | dock rises 12 px; strip fades; the booked badge lands with one ring inside `--dur-reward`; one ring on the sight when a code is read | colour change only |
+| Arrive | first paint of sign-in, invite and system pages; the Kasse question on the counter's first paint only | opacity 0 → 1 with an 8 px rise, `--dur-ui` `--ease-out`, 40 ms apart, at most 3 to 4 blocks; once per first paint | one instant paint |
+| List arrive | Kasse reward rows, table rows, offline queue | 6 px rise, `--dur-ui` `--ease-out`, 30 ms apart; reward rows and the offline queue group from the 4th row, tables from the 7th. NFC requests fade in as they arrive | instant |
+| Card arrive (the Kasse extension) | card preview and opened card | the surface scales .98 → 1 and fades, `--dur-ui`; card number, balance and stamps stand still | instant |
+| Kasse states | dock, status strip, booked, camera | dock rises 8 px; strip fades; the booked badge lands with one ring and the tick draws; one ring on the sight when a code is read | colour change only |
 | Field error | fields, form alerts, Kasse outcome | fade and 4 px down, `--dur-ui`; border colour over `--dur-press` | fade only |
 | Toggle | checkbox | box fills over `--dur-press`, tick draws over `--dur-ui` | colour change only |
 | Indicator slide | segmented control | the pill moves, `--dur-ui` `--ease-in-out` | instant |
-| Bars grow | stat trend | scaleY from the base, `--dur-reward`, 30 ms apart, at most 8 | final state at once |
-| Loading | every loading button, the Kasse redeem band | spinner fades in after 300 ms of waiting; the label keeps its place | slower spin |
-| Hover | links, tabs, menu button | colour over `--dur-press`; nothing lifts | same |
+| Bars grow | stat trend | scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, at most 8; first paint only | final state at once |
+| Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
+| Hover | links, tabs, menu button; pointer only | colour over `--dur-press`; nothing lifts | same |
 
-No hover lift on cards, no stagger on page load, no animation on keyboard-triggered actions.
+No hover lift on cards, no animation on keyboard-triggered actions; arrivals follow Arrive and List arrive.
 
 ## Layout patterns
 
