@@ -3,6 +3,7 @@ import { afterAll, beforeEach, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { locations, programs, staffAuditEvents, staffInvites, staffRoles, tenants } from "@/db/schema";
+import { POST as onboardRoute } from "@/app/api/merchant/onboard/route";
 import { POST as shopRoute } from "@/app/api/operator/shop/route";
 import { auth } from "./auth";
 import { pendingInvite } from "./invite-signup";
@@ -168,4 +169,19 @@ it("keeps owner invitations apart from other shops and from staff invitations", 
   // The new owner's Team page lists no owner invitation, while the audit shows who created it.
   expect(await listStaffInvites(invited)).toEqual([]);
   expect((await listStaffAudit(invited)).map(e => [e.action, e.role])).toEqual(expect.arrayContaining([["invite_created", "owner"], ["invite_accepted", "owner"]]));
+});
+
+it("gives an account without a role no shop of its own while registration is closed; the invited owner still sets up theirs", async () => {
+  const shop = await create();
+  // The invitation lets this person create an account. Before accepting it, the account belongs to no shop.
+  const invited = await identity("inhaber@example.test", shop.token);
+  const setup = { businessName: "Barbier Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Haarschnittkarte", programType: "stamp", rulesText: "Ein Stempel pro Haarschnitt.", rewardTitle: "Haarschnitt gratis", rewardCost: 10 };
+  const onboard = () => onboardRoute(new Request(origin + "/api/merchant/onboard", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json", cookie: invited.cookie }, body: JSON.stringify(setup) }));
+  const refused = await onboard();
+  expect(refused.status).toBe(403);
+  expect(await db.select().from(tenants)).toHaveLength(1); // only the shop the operator created
+  expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, invited.userId))).toEqual([]);
+  await acceptStaffInvite({ userId: invited.userId, token: shop.token });
+  expect((await onboard()).status).toBe(201);
+  expect(await db.select().from(tenants)).toHaveLength(1);
 });
