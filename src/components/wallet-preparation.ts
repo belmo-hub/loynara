@@ -7,6 +7,8 @@ export type WalletStatus = {
   appleReAdd?: boolean;
   /** ENG-130: a device registered the card's live Apple pass. */
   appleSaved?: boolean;
+  /** ENG-172: the card's live Apple pass left the server at least once. */
+  appleDownloaded?: boolean;
 };
 async function walletRequest<T>(path: string, token: string, signal: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -43,6 +45,17 @@ export async function prepareAppleWallet(token: string, signal: AbortSignal): Pr
     return result.url;
   } catch (error) { if (!signal.aborted && controller.signal.aborted) throw unavailable(); throw error; }
   finally { clearTimeout(timeout); signal.removeEventListener("abort", abort); }
+}
+/** ENG-172: the server handed the pass out, so Safari fetched it and Apple's sheet had its chance; that doesn't prove the sheet showed. A failed read counts as no. */
+export const sheetOpened = (token: string, signal: AbortSignal) => readWalletStatus(token, signal).then(status => status.appleDownloaded === true, () => false);
+const SHEET_READ_MS = 4_000, SHEET_READS = 8;
+/** Reads every 4 s for about 30 s, so a late sheet still ends on the card; false when it never came or `signal` stopped it. */
+export async function waitForSheet(token: string, signal: AbortSignal) {
+  for (let read = 0; read < SHEET_READS; read++) {
+    try { await wait(SHEET_READ_MS, signal); } catch { return false; }
+    if (await sheetOpened(token, signal)) return !signal.aborted;
+  }
+  return false;
 }
 /** ENG-172: iPads pass as "ios" for the Wallet step, but only an iPhone or iPod opens the sheet by itself (founder: iPhone). */
 export const iphoneDevice = () => /iPhone|iPod/.test(navigator.userAgent);

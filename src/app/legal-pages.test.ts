@@ -53,8 +53,8 @@ describe("customer legal pages", () => {
     expect(html).toContain("Wenn du deine Karte zu Google Wallet hinzufügst, übermitteln wir an Google: deine Kartennummer, den QR-Kartencode für die Kasse, deinen Stempel- oder Punktestand, den Fortschritt zur nächsten Prämie sowie Name, Logo, Farbe und gegebenenfalls Standort des Geschäfts. Dein Name, deine E-Mail-Adresse, deine Telefonnummer und dein privater Kartenlink werden nicht übermittelt. Google erstellt und aktualisiert den Pass über die Google Wallet API; die weitere Verarbeitung in deinem Google-Konto richtet sich nach Googles eigenen Bedingungen.");
     expect(html).toContain("Schließt du die Karte oder wird sie neu ausgestellt, werden gespeicherte Pässe nicht aus der Ferne gelöscht. Ein Apple-Wallet-Pass wird als ungültig markiert und sein QR-Code entfernt. Ein Google-Wallet-Pass wird deaktiviert; Kartennummer, QR-Code und Stand werden entfernt. Du kannst den Pass danach selbst aus deiner Wallet löschen.");
     expect(html).toContain("Bei Apple-Wallet-Karten erhält Apple für Aktualisierungen den Push-Token deines Geräts, aber keine Karteninhalte.");
-    expect(html).toContain("erstellen wir den Pass mit deinem Kartenstand selbst, und dein Gerät lädt ihn von unserem Server.");
     expect(html).not.toContain("PassFast");
+    expect(html).toContain("Für Apple Wallet erstellen wir selbst einen Pass mit deinem Kartenstand. Auf dem iPhone bieten wir ihn dir gleich nach dem Anlegen der Karte an; dein Gerät lädt ihn dafür von unserem Server. Ob du ihn hinzufügst, entscheidest du. Fügst du ihn hinzu, meldet dein Gerät uns eine Gerätekennung und einen Push-Token, damit der Pass aktuell bleibt.");
     expect(html).toContain("Stand: 6. November 2026.");
   });
 

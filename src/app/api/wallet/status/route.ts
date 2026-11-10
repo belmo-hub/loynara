@@ -4,7 +4,7 @@ import { walletJsonBody } from "@/lib/wallet/body";
 import { WALLET_HTTP_MS, withWalletDatabase } from "@/lib/wallet/database";
 import { walletCardEligibility } from "@/lib/wallet/eligibility";
 import { cardTokenFrom, noStore, walletIssueError } from "@/lib/wallet/http";
-import { applePreparation, appleReAddRequested, appleSaved } from "@/lib/wallet/preparation";
+import { appleDownloaded, applePreparation, appleReAddRequested, appleSaved } from "@/lib/wallet/preparation";
 
 /** Unauthenticated deployment-wide capability grants no customer action. */
 export async function GET() {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       await enforcePeerLimit(request,"wallet_status_peer",600,15*60,client);
       await enforceRateLimit({scope:"wallet_status_token",identity:token,max:90,windowSeconds:15*60},client);
       const eligibility = await walletCardEligibility(token,database);
-      return Response.json({...eligibility.availability,applePass:await applePreparation(eligibility,database),appleReAdd:await appleReAddRequested(eligibility,database),appleSaved:await appleSaved(eligibility,database)},{headers:noStore});
+      return Response.json({...eligibility.availability,applePass:await applePreparation(eligibility,database),appleReAdd:await appleReAddRequested(eligibility,database),appleSaved:await appleSaved(eligibility,database),appleDownloaded:await appleDownloaded(eligibility,database)},{headers:noStore});
     },deadline-Date.now());
   } catch(error) { return walletIssueError(error); }
 }

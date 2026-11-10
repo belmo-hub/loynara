@@ -171,7 +171,7 @@ export function JoinClient({ slug }: { slug: string }) {
   if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
-    <WalletStep token={walletStep} program={program} />
+    <WalletStep token={walletStep} program={program} auto={iphoneDevice()} />
   </CustomerShell>;
   const iphone = iphoneJoin(platform, program);
   const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p> : null;

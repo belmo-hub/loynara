@@ -1,7 +1,8 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { afterJoin, iphoneJoin, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
+import { ClientApiError } from "./client-api";
+import { afterJoin, iphoneJoin, tapAsksForWalletStep, tapWalletStep, WalletStep, walletStepError } from "./wallet-step";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
@@ -110,5 +111,44 @@ describe("the pages wire the decisions (ENG-130 review N-3)", () => {
   it("the tap page writes the decision's mark and shows the band only when the decision says so", async () => {
     const source = (await import("node:fs")).readFileSync("src/components/tap-client.tsx", "utf8");
     expect(source).toContain("const step = tapWalletStep(value);\n      markWalletStep(recoveryCard, step.mark);\n      if (step.show) setWalletProgram(value);");
+  });
+});
+
+describe("Apple's sheet straight after the join (ENG-172)", () => {
+  const read = async (file: string) => (await import("node:fs")).readFileSync(file, "utf8");
+  it("the join's step and the tap band open by themselves, on an iPhone only", async () => {
+    expect(await read("src/components/join-client.tsx")).toContain("<WalletStep token={walletStep} program={program} auto={iphoneDevice()} />");
+    const bands = (await read("src/components/tap-client.tsx")).split("\n").filter(line => line.includes("<WalletStep"));
+    expect(bands).toHaveLength(1);
+    expect(bands[0]).toContain("<WalletStep band auto={iphoneDevice()} stay={!done}");
+  });
+  it("brings the auto step's heading to the top and focuses it before starting", async () => {
+    const step = await read("src/components/wallet-step.tsx");
+    expect(step).toContain('if (!band) {\n      heading.current?.scrollIntoView({ block: "start" });\n      heading.current?.focus({ preventScroll: true });\n    }\n    void addRef.current(true);');
+    expect(step).toContain("tabIndex={auto && !band ? -1 : undefined}");
+    expect(step).not.toContain("scrollTo(");
+  });
+  it("the unprompted run ends busy at the hand-over and only watches; a press takes over, and a pressed run never reads the status", async () => {
+    const step = await read("src/components/wallet-step.tsx");
+    expect(step).toContain("async function add(unprompted = false) {");
+    expect(step).toContain("onClick={() => void add()}");
+    expect(step).toContain("if (unprompted) {\n        operation.current = null; watching.current = controller; setBusy(false);\n        if (!await waitForSheet(token, controller.signal)) return;\n        onAdd?.();\n        // As after a press: the waiting tap page stays until the stamp lands.\n        if (stayRef.current) setBack(true); else router.replace(cardHref);\n        return;\n      }");
+    expect(step).toContain("watching.current?.abort();\n    const controller = new AbortController(); operation.current = controller;");
+    expect(step.match(/waitForSheet\(/g)).toHaveLength(1);
+    expect(step).not.toContain("sheetOpened");
+  });
+  it("leaves „Zu viele Versuche“ for a real press; other errors show on the unprompted run too", () => {
+    const limited = new ClientApiError(429, "x", "RATE_LIMIT");
+    expect(walletStepError(limited, true)).toBe("");
+    expect(walletStepError(limited, false)).toBe("Zu viele Versuche. Bitte warte kurz und versuche es dann erneut.");
+    expect(walletStepError(new ClientApiError(503, "x", "WALLET_UNAVAILABLE"), true)).toBe("Wallet ist gerade nicht verfügbar. Deine Karte funktioniert weiterhin hier im Browser.");
+  });
+  it("the auto step renders the same fallback screen, and the join's mark stops a second offer", () => {
+    const html = renderToStaticMarkup(h(WalletStep, { token: "card_x", program: { businessName: "Café Lindenblatt", programType: "stamp" }, auto: true }));
+    expect(html).toContain("Hinzufügen zu Apple Wallet");
+    expect(html).toContain("Später, zuerst meine Karte ansehen");
+    expect(html).toContain('tabindex="-1"');
+    expect(afterJoin({ continuation: null, offer: true, mark: null })).toEqual({ go: "step", mark: "shown" });
+    expect(afterJoin({ continuation: null, offer: true, mark: "shown" })).toEqual({ go: "card" });
   });
 });
