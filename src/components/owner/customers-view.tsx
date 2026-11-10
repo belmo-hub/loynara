@@ -16,7 +16,7 @@ import { CardScreen } from "./card-screen";
 import { InviteRows } from "./join-card";
 import { DemoDataChip, Tiles, type Tile } from "./overview-board";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, LoadingBlock, nf, OwnerIcon, PageHead } from "./owner-ui";
+import { ErrorNotice, LinkPending, LoadingBlock, nf, OwnerIcon, PageHead } from "./owner-ui";
 import { WINBACK_HREF } from "./retention-insights";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
@@ -176,6 +176,7 @@ function GroupScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
         <span className="ow-band-icon"><RefreshCw size={22} aria-hidden="true" /></span>
         <span className="ow-band-text"><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
         <ArrowRight className="ow-band-arrow" size={22} aria-hidden="true" />
+        <LinkPending />
       </Link>}
       {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-seg" role="group" aria-label="Zeitraum">
         {DAYS.map(days => <button key={days} type="button" aria-pressed={filters.days === days} onClick={() => replaceParams(params, { days: String(days) })}>{days} Tage</button>)}
@@ -250,6 +251,7 @@ function CardList({ filters, fresh }: { filters: Filters; fresh: Record<string, 
               <span className="ow-prog-value" data-pair="">{member.balance}<small> {unitWord(member.balance, member.programType)}</small></span>
             </span>
             <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
+            <LinkPending />
           </Link></li>;
         })}</ul>}
       {moreError && <ErrorNotice message={moreError} onRetry={() => void loadMore()} />}

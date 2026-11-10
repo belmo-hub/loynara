@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compute, series, parseField, EXAMPLE, LIMITS, euro, signedEuro, ratioText, compactEuro, niceScale, formatNumber, type Inputs, type FieldKey } from '../src/calc.js';
+import { compute, wholeEuros, series, parseField, EXAMPLE, LIMITS, euro, signedEuro, ratioText, compactEuro, niceScale, formatNumber, type Inputs, type FieldKey } from '../src/calc.js';
 import { SITE } from '../src/site.js';
 
 const FEE = SITE.price.amount;
 const with_ = (patch: Partial<Inputs>): Inputs => ({ ...EXAMPLE, ...patch });
+
+test('whole euros: the net is taken from the rounded extra, so the two lines the page shows add up', () => {
+  assert.deepEqual(wholeEuros(compute(with_({ visits: 5, basket: 5, gain: 1 }), FEE)), { additional: 7, net: -42 });
+  assert.deepEqual(wholeEuros(compute(EXAMPLE, FEE)), { additional: 910, net: 861 });
+});
 
 test('the fee comes from the single site configuration', () => { assert.equal(FEE, 49); });
 

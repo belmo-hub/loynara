@@ -45,7 +45,7 @@ export async function deliverRecoveryNotice(job: { id: string; tenantId: string;
     .orderBy(desc(cardSecurityEvents.createdAt)).limit(1);
   if (!rotation) return { status: "suppressed" as const, reason: "Recovery rotation unavailable" };
   const occurredAt = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(rotation.createdAt);
-  const message = { to: contact.email, subject: "Deine Loynara-Karte wurde wiederhergestellt", body: `Der Zugang zu deiner Loynara-Karte wurde am ${occurredAt} UTC wiederhergestellt.\nDer bisherige private Kartenlink ist nicht mehr gültig.\n\nFalls du das nicht selbst veranlasst hast, kläre den Vorgang direkt mit dem Geschäft.`, jobId: job.id };
+  const message = { to: contact.email, subject: "Deine Loynara-Karte wurde wiederhergestellt", body: `Der Zugang zu deiner Loynara-Karte wurde am ${occurredAt} UTC wiederhergestellt.\nDer bisherige private Kartenlink und der bisherige QR-Code sind nicht mehr gültig. Eine in deinem Wallet gespeicherte Karte füge bitte über deinen neuen Kartenlink erneut hinzu.\n\nFalls du das nicht selbst veranlasst hast, kläre den Vorgang direkt mit dem Geschäft.`, jobId: job.id };
   if (send) await send(message);
   else {
     const result = await sendTransactional(message);
