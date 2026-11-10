@@ -345,7 +345,7 @@ describe("the card after the join page (ENG-205)", () => {
     const css = await read("src/components/customer/customer-card.module.css");
     expect(css).toContain(".returning > :is(header, main, footer) { animation: return-in var(--dur-ui) var(--ease-out) backwards; }");
     expect(css).not.toMatch(/\.lead\[data-return\][^{]*\{ animation: return-in/);
-    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \.returning > :is\(header, main, footer\), \.late > :is\(header, main, footer\) \{ animation: none; \} \}/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \.returning > :is\(header, main, footer\), \.late > footer \{ animation: none; \} \}/);
   });
   it("on a return whose read is slow the placeholder comes in after 300 ms and the content takes its place under it", async () => {
     const { renderToStaticMarkup } = await import("react-dom/server");
@@ -356,7 +356,7 @@ describe("the card after the join page (ENG-205)", () => {
     const source = (await import("node:fs")).readFileSync("src/components/card-client.tsx", "utf8");
     expect(source).toContain("useEffect(() => { if (!(pendingReturn && loading)) return; const timer = setTimeout(() => setWaited(true), RETURN_WAIT_MS); return () => clearTimeout(timer); }, [pendingReturn, loading]);");
     expect(source).toContain('pendingReturn && !waited ? <CustomerCardReturning label="Deine Karte wird geladen." /> : <CustomerCardLoading label="Deine Karte wird geladen." late={pendingReturn} />');
-    // The late placeholder fades in; an ordinary load's placeholder does not.
+    // The late placeholder is marked (its footer fades in; header and main fade by the loading rules they have); an ordinary load's is not.
     expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "x", late: true }))).toMatch(/class="[^"]*late[^"]*"/);
     expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "x" }))).not.toMatch(/class="[^"]*late[^"]*"/);
     // After a wait the content comes under the placeholder's cover (Skeleton to content), with no fade of its own; the card still does not arrive.
