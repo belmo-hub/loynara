@@ -138,6 +138,16 @@ or nothing).
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
+| Arrive | first paint of sign-in, invite, system pages, empty states, the Kasse question | opacity 0 → 1 with an 8 px rise, `--dur-ui`, 40 ms apart, at most 3 to 4 blocks; once per first paint | one instant paint |
+| List arrive | Kasse reward rows, table rows, NFC requests, offline queue | 6 px rise, 30 ms apart, from the 7th together | instant |
+| Card arrive (Kasse) | card preview and opened card | the surface scales .98 → 1 and fades, `--dur-ui`; card number and balance stand still; stamps 30 ms apart | instant |
+| Kasse states | dock, status strip, booked, camera | dock rises 12 px; strip fades; the booked badge lands with one ring inside `--dur-reward`; one ring on the sight when a code is read | colour change only |
+| Field error | fields, form alerts, Kasse outcome | fade and 4 px down, `--dur-ui`; border colour over `--dur-press` | fade only |
+| Toggle | checkbox | box fills over `--dur-press`, tick draws over `--dur-ui` | colour change only |
+| Indicator slide | segmented control | the pill moves, `--dur-ui` `--ease-in-out` | instant |
+| Bars grow | stat trend | scaleY from the base, `--dur-reward`, 30 ms apart, at most 8 | final state at once |
+| Loading | every loading button, the Kasse redeem band | spinner fades in after 300 ms of waiting; the label keeps its place | slower spin |
+| Hover | links, tabs, menu button | colour over `--dur-press`; nothing lifts | same |
 
 No hover lift on cards, no stagger on page load, no animation on keyboard-triggered actions.
 
