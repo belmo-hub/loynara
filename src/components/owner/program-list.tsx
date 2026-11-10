@@ -6,7 +6,7 @@ import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck,
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, LoadingBlock, nf, PageHead } from "./owner-ui";
+import { ErrorNotice, LinkPending, LoadingBlock, nf, PageHead } from "./owner-ui";
 import { cardDay } from "@/lib/change-lines";
 import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
@@ -154,6 +154,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
                   {row.pending && <span className="ow-prog-pend"><span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span></span>}
                 </span>
                 <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
+                <LinkPending />
               </Link>
             </li>)}</ul>
             {section.note && <p className="ow-prog-note">{section.note}</p>}

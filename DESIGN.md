@@ -135,7 +135,7 @@ or nothing).
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
 | Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
-| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` ease-in, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay | cut |
+| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay | cut |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
