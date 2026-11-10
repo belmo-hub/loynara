@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CalendarClock, Check, CheckCircle2, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -17,6 +17,7 @@ import styles from "./customer-card.module.css";
 import { copyText } from "@/components/copy-text";
 import { stampAnnouncement, tapCopy } from "@/components/tap-client";
 import { MOMENT_PILL_MS } from "./booking-moment";
+import { withUnit } from "@/lib/units";
 
 type Reward = CardReward;
 export type CardActivity = { id: string; label: string; date: string; change: number };
@@ -140,7 +141,8 @@ export function CustomerCard(props: CustomerCardProps) {
           </section>
         </CardFace>
         {/* The band sits right under the card, before the refresh row (mock 24). */}
-        {readyCount > 0 ? <p className={styles.band} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
+        {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
+        {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
         {props.onRefresh ? <div className={styles.refresh}>
           <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -358,17 +360,25 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
 
 /**
  * The booking moment: „Stempel erhalten“ with what was added, floating over the shop header so nothing below moves.
- * It is never a target and leaves by itself. Screen readers hear one sentence through the page's status region.
+ * It is never a target and leaves by itself. Screen readers hear one sentence: the status region is the hidden line
+ * alone, mounted empty and filled a frame later, because a region that arrives with its text is often not read out.
  */
 function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
   const { live, announce } = useCardStatus("moment");
-  // No new French copy for now: a French card shows the check and the amount without the German words.
-  const said = locale === "fr" ? `+${credited}` : stampAnnouncement("confirmed", balance, points, credited) ?? "";
-  useEffect(() => { announce(said); }, [announce, said]);
-  return <div className={styles.pill} role={live ? "status" : undefined} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
-    <span className={styles.pillCheck} aria-hidden="true"><CheckCircle2 size={24} /></span>
-    {locale === "fr" ? <span className={styles.pillGap} /> : <strong aria-hidden="true">{tapCopy("confirmed", undefined, points).title}</strong>}
+  // No new French copy for now: a French card says what was added in the unit words the card already uses.
+  const french = locale === "fr" ? withUnit(credited, points ? "points" : "stamps", "fr") : null;
+  const title = french ?? tapCopy("confirmed", undefined, points).title;
+  const said = french ?? stampAnnouncement("confirmed", balance, points, credited) ?? "";
+  const [spoken, setSpoken] = useState("");
+  useEffect(() => {
+    announce(said);
+    const frame = requestAnimationFrame(() => setSpoken(said));
+    return () => cancelAnimationFrame(frame);
+  }, [announce, said]);
+  return <div className={styles.pill} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
+    <span className={styles.pillCheck} aria-hidden="true"><Check size={22} strokeWidth={3} /></span>
+    <strong aria-hidden="true">{title}</strong>
     <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
-    <span className={styles.srOnly}>{said}</span>
+    <span className={styles.srOnly} role={live ? "status" : undefined}>{spoken}</span>
   </div>;
 }

@@ -25,10 +25,27 @@ export function unseenAwards(activity: ActivityEntry[], seenAt: string | null, n
 
 const key = (cardLocator: string) => `loynara_seen:${cardLocator}`;
 
-/** Stored under the card number, not the private link token. Without storage (private mode) there is no record. */
-export function readSeen(cardLocator: string) {
-  try { return localStorage.getItem(key(cardLocator)); } catch { return null; }
+/** Stored under the card number, not the private link token. `null`: nothing recorded yet. `undefined`: storage is blocked (private mode). */
+export function readSeen(cardLocator: string): string | null | undefined {
+  try { return localStorage.getItem(key(cardLocator)); } catch { return undefined; }
 }
+
+/**
+ * What one read of the card may celebrate. Only bookings this device has not shown count, so a correction or an undone
+ * redemption (the balance grows, but no booking was made) plays nothing. While the card is open the moment never claims
+ * more than the balance grew. On the first read there is no balance to compare: the record decides alone, and without
+ * storage nothing plays, because a reload could not tell that it already did.
+ */
+export function momentFor(read: { activity: ActivityEntry[]; balance: number }, before: { balance: number | null; seenAt: string | null | undefined }, now: number) {
+  const run = unseenAwards(read.activity, before.seenAt ?? null, now);
+  const credited = before.balance === null
+    ? (before.seenAt === undefined ? 0 : run.credited)
+    : Math.max(0, Math.min(run.credited, read.balance - before.balance));
+  return { credited, newest: run.newest };
+}
+
+/** The later of two marks, either of which may be missing. */
+export const laterMark = (a: string | null | undefined, b: string | null | undefined) => (a && b ? (Date.parse(a) >= Date.parse(b) ? a : b) : a ?? b ?? null);
 
 /** Only ever moves forward. */
 export function markSeen(cardLocator: string, iso: string) {

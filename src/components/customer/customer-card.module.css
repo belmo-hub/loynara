@@ -171,23 +171,38 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .newRule { display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The booking moment (card-moment spec): a pill over the shop header, so nothing below moves. Never a target; it
-   leaves by itself after --pill-stay. Reduced motion keeps it in place. */
+   leaves by itself after --pill-stay, faster than it came. Inside it the check settles, then draws, then „+n“ rises.
+   Reduced motion keeps everything in place. */
 .pill {
   --pill-shift: -12px;
   position: fixed; z-index: var(--z-toast); top: calc(env(safe-area-inset-top) + var(--space-2)); left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: var(--space-3); width: min(408px, calc(100% - 2 * var(--gutter))); min-height: 56px;
   padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2); border-radius: var(--radius-pill);
   background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line), var(--shadow-overlay); pointer-events: none;
-  animation: pill-in var(--dur-ui) var(--ease-out) both, pill-out var(--dur-ui) ease-in calc(var(--pill-stay) - var(--dur-ui)) forwards;
+  animation: pill-in var(--dur-ui) var(--ease-out) both, pill-out 160ms var(--ease-out) calc(var(--pill-stay) - 160ms) forwards;
 }
-.pill strong, .pillGap { flex: 1; font-size: var(--text-18); font-weight: var(--weight-heavy); white-space: nowrap; }
-.pillCheck { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in oklab, var(--color-success) 16%, transparent); color: var(--color-success); }
-.pillChip { flex: none; padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: var(--color-success); color: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; }
+/* The title may wrap: at large text sizes the amount stays inside the pill. */
+.pill strong { flex: 1; min-width: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.2; }
+.pillCheck { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in oklab, var(--color-success) 16%, transparent); color: var(--color-success); animation: pill-settle var(--dur-ui) var(--ease-out) 60ms both; }
+.pillCheck path { stroke-dasharray: 24; animation: pill-draw 320ms var(--ease-out) 200ms both; }
+/* Tinted like the tap page's amount, not filled: the green band below stays the one green surface. */
+.pillChip { flex: none; padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); font-size: var(--text-16); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; animation: pill-rise var(--dur-ui) var(--ease-out) 360ms both; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-/* A reward this booking made ready: its band arrives after the stamps have landed, not with them. */
-.band[data-arrive] { animation: band-in var(--dur-ui) var(--ease-out) var(--dur-reward) both; }
-@keyframes band-in { from { opacity: 0; transform: translateY(8px); } }
+/* The reward band's slot. When this booking made the reward ready, the slot stays closed while the stamps land and
+   then opens together with the band, so nothing below drops into an empty space first. Closed, a negative margin takes
+   back the group's gap. */
+.bandSlot { display: grid; grid-template-rows: 1fr; }
+.bandSlot > div { min-height: 0; overflow: hidden; }
+.bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
+.bandSlot[data-arrive] .band { animation: band-in var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
+@keyframes slot-open { from { grid-template-rows: 0fr; margin-top: calc(-1 * var(--space-3)); } }
+@keyframes band-in { from { opacity: 0; } }
 @keyframes pill-in { from { opacity: 0; transform: translateY(var(--pill-shift)); } }
 @keyframes pill-out { to { opacity: 0; transform: translateY(var(--pill-shift)); } }
-@media (prefers-reduced-motion: reduce) { .pill { --pill-shift: 0px; } .band[data-arrive] { animation: none; } }
-
+@keyframes pill-settle { from { opacity: 0; transform: scale(.6); } }
+@keyframes pill-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes pill-rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .pill { --pill-shift: 0px; }
+  .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band { animation: none; }
+}

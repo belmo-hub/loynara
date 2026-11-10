@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
 import { CustomerCard } from "./customer/customer-card";
-import { markSeen, MOMENT_PILL_MS, MOMENT_STEP_MS, readSeen, unseenAwards } from "./customer/booking-moment";
+import { laterMark, markSeen, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen } from "./customer/booking-moment";
 import { CustomerCardLoading, CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { EmailOffer, EmailSheet, emailRow, useEmailStatus } from "./card-email";
@@ -95,6 +95,8 @@ export function CardClient({ token }: { token: string }) {
   }, []);
   useEffect(() => { const timers = momentTimers.current; return () => timers.forEach(clearTimeout); }, []);
   const balanceSeen = useRef<number | null>(null);
+  // The newest entry any read has brought: bookings up to it are shown or were never a moment.
+  const newestShown = useRef<string | null>(null);
   const [closeError, setCloseError] = useState("");
   const [closed, setClosed] = useState(false);
   const gate = useRef(createRefreshGate(REFRESH_INTERVAL_MS));
@@ -105,7 +107,7 @@ export function CardClient({ token }: { token: string }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { balanceSeen.current = result.balance; const unseen = unseenAwards(result.activity, readSeen(result.cardLocator), Date.now()); if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const unseen = momentFor(result, { balance: null, seenAt: readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
   }, [token, playMoment]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
@@ -124,7 +126,10 @@ export function CardClient({ token }: { token: string }) {
         .then(result => {
           if (!mounted || !live.current) return "stop" as const;
           const grew = balanceSeen.current !== null && result.balance > balanceSeen.current;
-          if (grew) { playMoment(result.balance - balanceSeen.current!); if (result.activity[0]) markSeen(result.cardLocator, result.activity[0].createdAt); }
+          // The record may have moved since the last read (the tap page marks its own moment), so both marks count.
+          const unseen = momentFor(result, { balance: balanceSeen.current, seenAt: laterMark(newestShown.current, readSeen(result.cardLocator)) }, Date.now());
+          if (unseen.credited > 0) playMoment(unseen.credited);
+          if (unseen.newest) { newestShown.current = unseen.newest; markSeen(result.cardLocator, unseen.newest); }
           balanceSeen.current = result.balance;
           setCard(result); setRefreshFailed(false);
           return grew ? "grew" as const : "ok" as const;
