@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
+  // The tab and the task switcher name the Kasse, in the words its home-screen icon already carries.
+  title: "Loynara Kasse",
   manifest: "/cashier.webmanifest",
   icons: { apple: "/cashier-icon-192.png" },
   appleWebApp: { capable: true, title: "Loynara Kasse", statusBarStyle: "default" },
