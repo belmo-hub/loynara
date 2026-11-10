@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
-import { EXCLUDED_GOODS } from "@/lib/card-extras";
+import { EXCLUDED_GOODS, HEAD_START_COPY } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LinkPending, LoadingBlock, nf, PageHead } from "./owner-ui";
 import { cardDay } from "@/lib/change-lines";
 import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
+import { withUnit } from "@/lib/units";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -65,7 +66,10 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       ...(nfc ? [{ ...ask("nfc"), icon: Nfc, ...(tap ? { sub: tap.label } : off("Aus")) }] : []),
     ] },
     { title: "Extras", note: EXCLUDED_GOODS, rows: [
-      { ...ask("welcome-bonus"), icon: BadgePlus, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) },
+      // ENG-207 (Design § 4): with the flag the sub-line names the time and the amount, or the row says „Aus“.
+      me.welcomeBonusAt === undefined
+        ? { ...ask("welcome-bonus"), icon: BadgePlus, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) }
+        : { ...ask("welcome-bonus"), icon: BadgePlus, ...(me.welcomeBonus ? { sub: `${HEAD_START_COPY[me.welcomeBonusAt === "enrollment" ? "enrollment" : "firstAward"].label} · +${withUnit(me.welcomeBonus, type)}` } : off("Aus")) },
       { ...ask("winback"), icon: RefreshCw, ...(winback && { sub: `Nach ${winback.days} Tagen ohne Buchung`, ...(!winback.enabled ? off("Aus") : winback.bonus ? big(`+${winback.bonus}`) : off("Kein Bonus")) }) },
       // Moved here from Nachricht (Design, 6 Nov); both live on the Wallet-message surface.
       ...(messages ? [

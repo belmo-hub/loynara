@@ -25,7 +25,7 @@ export function useBackToList(home: QuestionHome = PROGRAM_HOME) {
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
 // German checks of a challenge or levels name the field to fix, and a change already waiting (ENG-100) says so. Anything
 // else is the live W25 text.
-export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING" || cause.code === "INVALID_SENDER")
+export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_HEAD_START" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING" || cause.code === "INVALID_SENDER")
   ? cause.message : "Die Einstellungen konnten nicht gespeichert werden.";
 
 /** The setup's own wording for a whole number out of range („Bitte eine ganze Zahl von 1 bis 1000 eingeben.“). */
@@ -113,7 +113,7 @@ export const FieldError = ({ id, children }: { id: string; children: string }) =
   children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{children}</p> : null;
 
 /** `icon` is left out where every row would repeat the same one (decision 2). */
-export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon };
+export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon; /** An answer this shop cannot pick; its sub says why. */ disabled?: boolean };
 /**
  * One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is
  * saved (W25); without a `saved` answer (Kunden 05) it says neither, and the question shows as the group's label.
@@ -126,7 +126,7 @@ export function Choices({ name, label, lead, options, value, saved, onChange }: 
       {options.map(({ icon: Icon, ...option }) => {
         const sub = option.sub ?? (option.value !== value || saved === undefined ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
         return <label key={option.value} className="ow-qchoice">
-          <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} />
+          <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} disabled={option.disabled} onChange={() => onChange(option.value)} />
           {Icon && <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>}
           <span className="ow-prog-text"><strong>{option.label}</strong>{sub && <small>{sub}</small>}</span>
           {option.value === value && <Check className="ow-qchoice-check" size={22} aria-hidden="true" />}

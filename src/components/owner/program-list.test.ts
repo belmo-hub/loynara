@@ -134,6 +134,14 @@ describe("rule, earning and expiry chips while a change waits (ENG-100, W45, W59
 });
 
 describe("archived rewards (Design, ENG-100 U1)", () => {
+  it("ENG-207: the Startbonus row names the time and the amount while the flag sends the owner's choice, and stays as it was without it", () => {
+    expect(rows({ me: { ...me, welcomeBonus: 2 } }).Startbonus).toMatchObject({ sub: "Mit der ersten Buchung, einmal pro Karte", value: "+2", big: true });
+    expect(rows({ me: { ...me, welcomeBonus: 2, welcomeBonusAt: "enrollment" } }).Startbonus).toMatchObject({ sub: "Bei der Anmeldung · +2 Stempel" });
+    expect(rows({ me: { ...me, welcomeBonus: 1, welcomeBonusAt: "first_award" } }).Startbonus).toMatchObject({ sub: "Mit der ersten Buchung · +1 Stempel" });
+    expect(rows({ me: { ...me, welcomeBonus: 0, welcomeBonusAt: "enrollment" } }).Startbonus).toMatchObject({ value: "Aus", off: true });
+    expect(rows({ me: { ...me, welcomeBonus: 0, welcomeBonusAt: "enrollment" } }).Startbonus.sub).toBeUndefined();
+  });
+
   it("adds a quiet row with the count at the end of Prämien, only once a reward is archived", () => {
     expect(programSections(base)[0].rows.map(row => row.title)).not.toContain("Archivierte Prämien");
     const rows = programSections({ ...base, archived: 2 })[0].rows;
