@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, ViewTransition, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
-import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
+import { activeGroup, groupHref, MORE_HREF, routeMove, visibleGroups, visibleItems } from "./nav";
 import { useOwner, type OwnerLocation } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
@@ -27,6 +27,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
+  // The direction of the last screen change, for the screen transition in owner.css.
+  const [trail, setTrail] = useState({ path: pathname, move: "none" });
+  if (trail.path !== pathname) setTrail({ path: pathname, move: routeMove(trail.path, pathname) });
 
   // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
   useEffect(() => {
@@ -100,7 +103,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <main id="ow-main" className="ow-content" tabIndex={-1} aria-busy={owner.switching || !me}>
           {owner.switching || !me
             ? <div className="ow-page" aria-label="Standort wird gewechselt"><Skeleton height={32} width={240} /><Skeleton height={120} /><Skeleton height={220} /></div>
-            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{children}</div>}
+            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body" data-move={trail.move}><ViewTransition key={pathname} enter="ow-screen" exit="ow-screen" update="ow-screen" default="none">{children}</ViewTransition></div>}
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
