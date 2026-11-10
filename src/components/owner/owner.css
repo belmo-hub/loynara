@@ -45,7 +45,7 @@
 @media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
 .ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
 .ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
@@ -78,7 +78,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner[data-end="true"] { mask-image: linear-gradient(to left, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
-.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
+.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-subnav a:hover { color: var(--color-ink); }
 /* As in the tab bar: the tapped sub-tab looks current from the tap, and the one before no longer does. */
 .ow-subnav:not(:has([data-pending])) a[aria-current="page"], .ow-subnav a[data-pending] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
@@ -153,7 +153,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
     border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: 600; line-height: 1.1;
     text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-    transition: transform var(--dur-press) var(--ease-out), color var(--dur-press);
+    transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   }
   /* The current tab is marked by more than colour (I-10): the neutral pill behind the icon (as the sidebar), a heavier icon and 800. */
   .ow-tab-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: var(--radius-pill); transition: background var(--dur-press) var(--ease-out); }
@@ -187,7 +187,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-card :is(h2, h3) { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: var(--space-1); }
-.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
 .ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
@@ -257,7 +257,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-more-body::after { content: ""; display: block; height: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
-.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
+.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press) var(--ease-out); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input[type="file"] { padding-block: var(--space-2); }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
@@ -274,7 +274,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-grid-2--end { align-items: end; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
-.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
+.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { color: var(--color-ink); }
 /* The picked segment's pill is its ::before, so it can slide over from the segment picked before (Indicator slide,
    owner-shell). The picked segment sits under its neighbours, so the pill never covers a label on its way. Chips have no
@@ -285,7 +285,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-seg:not(.ow-seg--chips) button:is([aria-pressed="true"], [aria-selected="true"])::before { content: ""; position: absolute; inset: 0; z-index: calc(var(--z-sticky) * -1); border-radius: inherit; transform-origin: 0 0; background: var(--color-raised); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-seg--chips button[aria-pressed="true"] { background: var(--color-raised); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
-.ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
+.ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out); }
 .ow-radio-card:has(input:checked) { border-color: var(--color-ink); background: var(--color-fill); }
 .ow-radio-card:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-radio-card input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
@@ -534,7 +534,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
 /* Two bonuses („+20 · +10“) one step smaller, so they stay beside „Empfehlungen“ at 375 px. */
 .ow-prog-value[data-pair] { font-size: var(--text-22); }
-.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
 .ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
@@ -646,7 +646,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
 /* The next step: the one green thing on the page, the whole band one action. */
-.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 a.ow-band, button.ow-band { cursor: pointer; }
 a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 @media (hover: hover) { a.ow-band:hover, button.ow-band:hover { background: var(--color-action-hover); } }
@@ -741,7 +741,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
 .ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
-.ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+.ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .ow-number button:hover:not(:disabled) { background: var(--color-fill); }
 .ow-number button:active:not(:disabled) { transform: scale(.97); }
 .ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
@@ -819,7 +819,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
