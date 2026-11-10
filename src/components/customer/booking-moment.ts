@@ -62,9 +62,10 @@ export function markSeen(cardLocator: string, iso: string) {
 /**
  * Where „Karte empfehlen“ stands (ENG-206). Without the server's field (flag off): in the panels below, as it always
  * did. With it: under the card group once the read brings the share (from the second team-confirmed booking on, in a
- * shop with referrals on), and otherwise nowhere, so it is neither rendered nor fetched.
+ * shop with referrals on), and otherwise nowhere, so it is neither rendered nor fetched. `awaited` (ENG-218): the block
+ * became due on a timed re-read, which brings no share; it then stands shut in its place and asks for the share itself.
  */
-export const referralPlace = (field: { referralDue: boolean; referral?: object } | undefined) => !field ? "below" as const : field.referral ? "card" as const : null;
+export const referralPlace = (field: { referralDue: boolean; referral?: object } | undefined, awaited = false) => !field ? "below" as const : field.referral || (awaited && field.referralDue) ? "card" as const : null;
 /**
  * ENG-218: the open card's timed re-reads bring no share (the server skips that transaction). While the block is due the
  * card keeps the share an earlier read brought, so the block neither vanishes nor asks again.
@@ -74,6 +75,7 @@ export function keepShare<T extends { stampMoment?: { referralDue: boolean; refe
 }
 /** Due with a booking whose moment is playing, the block is held shut until the stamp has landed, then opens. */
 export type ReferralHold = "none" | "held" | "released";
-/** Only the visit whose booking is the second opens the block; on every later visit it stands in the first paint. */
-export const referralHoldFor = (field: { referralNew: boolean } | undefined, moment: { stepped: boolean } | null): ReferralHold =>
-  !moment || !field?.referralNew ? "none" : moment.stepped ? "released" : "held";
+/** Only the visit whose booking is the second opens the block; on every later visit it stands in the first paint.
+ * A block whose share is still on its way (`awaited`) is never "none": it opens once, when the share is there. */
+export const referralHoldFor = (field: { referralNew: boolean } | undefined, moment: { stepped: boolean } | null, awaited = false): ReferralHold =>
+  !moment || !field?.referralNew ? awaited ? "released" : "none" : moment.stepped ? "released" : "held";

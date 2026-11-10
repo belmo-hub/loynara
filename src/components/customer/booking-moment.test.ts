@@ -105,5 +105,13 @@ describe("the referral block while the flag is on", () => {
     expect(referralHoldFor({ referralNew: false }, { stepped: false })).toBe("none");
     expect(referralHoldFor({ referralNew: true }, null)).toBe("none");
     expect(referralHoldFor(undefined, { stepped: false })).toBe("none");
+    // ENG-218: due on a timed re-read, the share is still on its way. The block stands shut in its place and opens once,
+    // with the stamp or when the share is there, never in a single frame.
+    expect(referralPlace({ referralDue: true }, true)).toBe("card");
+    expect(referralPlace({ referralDue: false }, true)).toBeNull();
+    expect(referralPlace(undefined, true)).toBe("below");
+    expect(referralHoldFor({ referralNew: true }, { stepped: false }, true)).toBe("held");
+    expect(referralHoldFor({ referralNew: false }, { stepped: false }, true)).toBe("released");
+    expect(referralHoldFor({ referralNew: true }, null, true)).toBe("released");
   });
 });
