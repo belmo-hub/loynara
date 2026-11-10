@@ -681,10 +681,10 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 
 .ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
-/* ENG-210, with the weekly line: Monday to today in full colour, the days before muted, and a hairline in the gap
-   before Monday, so the week is not marked by colour alone. Today keeps its outline (its count is not final). */
-.ow-strip[data-week] .ow-strip-bar:not([data-today], [data-empty]) { background: var(--color-line-strong); }
-.ow-strip[data-week] .ow-strip-day[data-in-week] .ow-strip-bar:not([data-today], [data-empty]) { background: var(--color-ink); }
+/* ENG-210, with the weekly line: this week's days with bookings are lit (the lit bar's own rule, also in dark), every
+   other bar is muted, and a hairline stands in the gap before Monday, so the week is not marked by colour alone.
+   Today keeps its outline (its count is not final). */
+.ow-strip[data-week] .ow-strip-bar:not([data-today], [data-empty], [data-lit]) { background: var(--color-line-strong); }
 .ow-strip-day[data-week-start] { position: relative; }
 .ow-strip-day[data-week-start]::before { content: ""; position: absolute; inset-block: 0; left: calc(-1 * var(--space-1) - .5px); width: 1px; background: var(--color-line-strong); }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
@@ -1207,6 +1207,9 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-strip-bar[data-today] { background: Canvas; border-color: CanvasText; }
   .ow-strip-bar[data-lit] { background: CanvasText; }
   .ow-strip-bar[data-empty] { border-color: GrayText; }
+  /* The week's marks keep their meaning: muted bars in GrayText, the hairline drawn in CanvasText. */
+  .ow-strip[data-week] .ow-strip-bar:not([data-today], [data-empty], [data-lit]) { background: GrayText; }
+  .ow-strip-day[data-week-start]::before { forced-color-adjust: none; background: CanvasText; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input) { appearance: auto; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input)::before { content: none; }
   /* The switch is drawn too and would vanish the same way: it takes the system colours itself. */

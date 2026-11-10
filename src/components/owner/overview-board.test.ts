@@ -128,7 +128,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     const monday = (() => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ week: { from: monday, bookings: 12, returning: 8, newCards: 3 } }));
     const html = render();
-    const line = "Diese Woche: 12 Buchungen, 8 davon von Karten mit früherer Buchung, und 3 neue Karten.";
+    const line = `Diese Woche: 12${NBSP}Buchungen, 8${NBSP}davon von Karten mit früherer Buchung, und 3${NBSP}neue Karten.`;
     expect(html).toContain(`<p class="ow-week-line">${line}</p><div class="ow-strip" data-week="" role="img" aria-label="${line} `);
     const days = [...html.matchAll(/<div class="ow-strip-day"([^>]*)>/g)].map(match => match[1]);
     expect(days).toHaveLength(7);
@@ -137,6 +137,12 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(inWeek.at(-1)).toBe(true);
     expect(inWeek.indexOf(true)).toBe(inWeek.lastIndexOf(false) + 1);
     expect(days.filter(attrs => attrs.includes("data-week-start"))).toHaveLength(inWeek[0] ? 0 : 1);
+    // A day of this week is lit only if it had bookings and is over: a 0-booking Monday is not the darkest mark, and today keeps its outline alone.
+    const bars = [...html.matchAll(/<span class="ow-strip-n">([^<]*)<\/span><span class="ow-strip-bar"([^>]*)>/g)].map(match => ({ count: match[1], attrs: match[2] }));
+    expect(bars).toHaveLength(7);
+    bars.forEach((bar, index) => expect(bar.attrs.includes("data-lit"), `bar ${index}`).toBe(inWeek[index] && bar.count !== "" && !bar.attrs.includes("data-today")));
+    expect(bars.at(-1)!.attrs).toContain("data-today");
+    expect(bars.at(-1)!.attrs).not.toContain("data-lit");
     // Without the field (flag off) the strip is #253's: no week marks, the caption leads the label.
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     const plain = render();
