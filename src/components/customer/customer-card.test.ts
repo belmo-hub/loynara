@@ -338,9 +338,33 @@ describe("the card after the join page (ENG-205)", () => {
     expect(bare).not.toMatch(/skeleton/i);
     expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "Deine Karte wird geladen." }))).toMatch(/skeleton/i);
     const read = (path: string) => import("node:fs").then(fs => fs.readFileSync(path, "utf8"));
-    expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && !quiet ? cardSkeleton : undefined}");
+    expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? styles.returning : undefined}");
     // Read hydration-safely: the server never knows about a return and renders the placeholder.
     expect(await read("src/components/card-client.tsx")).toContain("const pendingReturn = useSyncExternalStore(never, () => peekJoined(), () => false);");
-    expect(await read("src/components/customer/customer-card.module.css")).toContain(".lead[data-return], .lead[data-return] ~ * { animation: return-in var(--dur-ui) var(--ease-out) backwards; }");
+    // The fade is on the shell's own boxes (.lead is display: contents on a phone and paints nothing itself).
+    const css = await read("src/components/customer/customer-card.module.css");
+    expect(css).toContain(".returning > :is(header, main, footer) { animation: return-in var(--dur-ui) var(--ease-out) backwards; }");
+    expect(css).not.toMatch(/\.lead\[data-return\][^{]*\{ animation: return-in/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \.returning > :is\(header, main, footer\), \.late > :is\(header, main, footer\) \{ animation: none; \} \}/);
+  });
+  it("on a return whose read is slow the placeholder comes in after 300 ms and the content takes its place under it", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { CustomerCard, CustomerCardLoading } = await import("./customer-card");
+    const { RETURN_WAIT_MS } = await import("../card-client");
+    expect(RETURN_WAIT_MS).toBe(300);
+    const source = (await import("node:fs")).readFileSync("src/components/card-client.tsx", "utf8");
+    expect(source).toContain("useEffect(() => { if (!(pendingReturn && loading)) return; const timer = setTimeout(() => setWaited(true), RETURN_WAIT_MS); return () => clearTimeout(timer); }, [pendingReturn, loading]);");
+    expect(source).toContain('pendingReturn && !waited ? <CustomerCardReturning label="Deine Karte wird geladen." /> : <CustomerCardLoading label="Deine Karte wird geladen." late={pendingReturn} />');
+    // The late placeholder fades in; an ordinary load's placeholder does not.
+    expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "x", late: true }))).toMatch(/class="[^"]*late[^"]*"/);
+    expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "x" }))).not.toMatch(/class="[^"]*late[^"]*"/);
+    // After a wait the content comes under the placeholder's cover (Skeleton to content), with no fade of its own; the card still does not arrive.
+    const waited = renderToStaticMarkup(createElement(CustomerCard, { ...card, quiet: true, waited: true }));
+    const direct = renderToStaticMarkup(createElement(CustomerCard, { ...card, quiet: true }));
+    expect(waited).not.toMatch(/class="[^"]*returning[^"]*"/);
+    expect(direct).toMatch(/class="[^"]*returning[^"]*"/);
+    expect(waited).toContain('data-return="true"');
+    expect(waited.length).toBeGreaterThan(direct.length); // the cover's placeholder is in the markup
   });
 });

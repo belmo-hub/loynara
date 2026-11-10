@@ -247,10 +247,13 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
 }
 /* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no
-   placeholder stands in between. The page's content fades in once, over --dur-ui. */
+   placeholder stands in between unless its read is slow. The page fades in once, over --dur-ui. */
 .lead[data-return] .object::before { animation: none; }
-.lead[data-return], .lead[data-return] ~ * { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
+/* The fade sits on the shell's own boxes: .lead is display: contents on a phone and paints nothing itself. */
+.returning > :is(header, main, footer) { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
 @keyframes return-in { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .lead[data-return], .lead[data-return] ~ * { animation: none; } }
+/* A return whose read takes longer than 300 ms: the placeholder fades in over the bare ground. */
+.late > :is(header, main, footer) { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
+@media (prefers-reduced-motion: reduce) { .returning > :is(header, main, footer), .late > :is(header, main, footer) { animation: none; } }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }

@@ -127,9 +127,9 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(source).toContain("{top || preview}");
   });
   it("draws nothing before the server has created the card, then holds 220 ms for the Wallet step or 400 ms for the card page, and not at all under reduced motion", async () => {
-    // Reduced motion keeps the hold before the card page (without fades), so the status line is heard before the page changes.
-    expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 0, 400]);
-    expect([firstTapHold(true, false, true), firstTapHold(false, false, true), firstTapHold(true, true, true), firstTapHold(false, true, true)]).toEqual([820, 820, 0, 400]);
+    // Reduced motion keeps the 400 ms hold on both ways (without fades), so the status line is heard before the focus or the page moves.
+    expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 400, 400]);
+    expect([firstTapHold(true, false, true), firstTapHold(false, false, true), firstTapHold(true, true, true), firstTapHold(false, true, true)]).toEqual([820, 820, 400, 400]);
     const source = await read("src/components/join-client.tsx"), created = source.indexOf("setCreated(true)");
     expect(source.match(/setCreated\(/g)).toHaveLength(1);
     expect(created).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));

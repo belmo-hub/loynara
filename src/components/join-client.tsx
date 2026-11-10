@@ -79,20 +79,20 @@ export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CO
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
 /** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
- *  220 ms later, the card page after a 400 ms hold, in whose last 160 ms the card and the footer fade out. With a
- *  Startbonus (ENG-207) both wait 820 ms, so the credited places are seen landing. Reduced motion: the Wallet step at
- *  once; the card page after the 400 ms hold, without fades, so the status line is heard before the page changes. */
+ *  220 ms later, the card page after a 400 ms hold, in whose last 160 ms the card fades out (the footer goes with
+ *  the form). With a Startbonus (ENG-207) both wait 820 ms, so the credited places are seen landing. Reduced motion:
+ *  both after the 400 ms hold, without fades, so the status line is heard before the focus or the page moves. */
 export const FIRST_TAP_FADE_MS = 160;
 /** ENG-207: the credited places land this long after the answer, once the card has pressed; until then they stay rings. */
 export const FIRST_TAP_STEP_MS = 300;
-export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? (step ? 0 : 400) : bonus ? 820 : step ? 220 : 400;
-/** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
+export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 400 : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
 export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
   if (program?.programType === "points" || (program && program.rewardCost > STAMP_GRID_MAX)) return 120;
   const rows = program ? Math.ceil(program.rewardCost / stampColumns(program.rewardCost)) : 2;
   return 16 + rows * 32 + (rows - 1) * 12 + 12 + 20 + 16;
 }
+/** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
 export const firstPage = (flag: boolean, locale: "de" | "fr") => flag && locale === "de";
 export const joinNeedsTick = (locale: "de" | "fr", accepted: boolean) => locale === "fr" && !accepted;
 
@@ -123,7 +123,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [credited, setCredited] = useState(0);
   // The step: the promised rings become the booked places (the press first, then the landing; never both at once).
   const [landedBonus, setLandedBonus] = useState(false);
-  // The last 160 ms before the card page: the card and the footer fade out, so the page changes over the bare ground.
+  // The last 160 ms before the card page: the card fades out, so the page changes over the bare ground.
   const [leavingPage, setLeavingPage] = useState(false);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
   const [covered, setCovered] = useState(true);

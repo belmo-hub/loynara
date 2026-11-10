@@ -45,19 +45,19 @@ export function momentFor(read: { activity: ActivityEntry[]; balance: number }, 
 }
 
 // ENG-205: the join page showed a card being created (and, with a Startbonus, its places landing), then opened the
-// card page. That first read is a return: nothing is celebrated a second time. The mark is only a time, in this tab:
-// it names no card and holds no card link, which is the whole credential (ENG-214). It counts for a few seconds.
-const JOINED = "loynara_joined";
+// card page. That first read is a return: nothing is celebrated a second time. The mark is a time in this page's
+// memory: it outlives the soft change to the card page, but not a reload or another tab, names no card and holds no
+// card link (ENG-214). It counts for a few seconds.
 export const JOINED_WINDOW_MS = 15_000;
-const joinedAt = () => { try { return Number(sessionStorage.getItem(JOINED)); } catch { return NaN; } };
-const fresh = (now: number) => { const at = joinedAt(); return Number.isFinite(at) && at > 0 && now - at >= 0 && now - at < JOINED_WINDOW_MS; };
-export function markJoined(now = Date.now()) { try { sessionStorage.setItem(JOINED, String(now)); } catch { /* no storage: the card page may show the moment once */ } }
+let joinedAt = 0;
+const fresh = (now: number) => joinedAt > 0 && now - joinedAt >= 0 && now - joinedAt < JOINED_WINDOW_MS;
+export function markJoined(now = Date.now()) { joinedAt = now; }
 /** The card page's paint before its first read: asks without using the mark up. */
 export function peekJoined(now = Date.now()) { return fresh(now); }
 /** The first read: true once, then the mark is gone. */
 export function takeJoined(now = Date.now()) {
   if (!fresh(now)) return false;
-  try { sessionStorage.removeItem(JOINED); } catch { /* it runs out by itself */ }
+  joinedAt = 0;
   return true;
 }
 
