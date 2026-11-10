@@ -248,3 +248,5 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }
+/* Forced colours take the fills and shadows these shapes are drawn with: a line gives each its edge back. */
+@media (forced-colors: active) { .object, .ticket, .band { border: 1px solid CanvasText; } }

@@ -74,3 +74,5 @@
 .panel:has(.cardNumber) { --arrive-shift: 0px; }
 @keyframes arrive { from { opacity: 0; transform: translateY(var(--arrive-shift, 8px)); } }
 @media (prefers-reduced-motion: reduce) { .hero, .panel { animation: none; } }
+/* Forced colours take the card's fill: a line gives it its edge back. */
+@media (forced-colors: active) { .hero { border: 1px solid CanvasText; } }
