@@ -8,7 +8,8 @@ import styles from "./points-ladder.module.css";
 
 type Reward = { title: string; cost: number };
 /** `titles`: each marker names its reward under the cost (the guest's card and the join preview, G-04). */
-type Props = { balance: number; rewards: Reward[]; locale?: "de" | "fr"; titles?: boolean; className?: string };
+/** `landedFrom`: the balance before a booking just shown; every mark the booking crossed presses once, like a stamp. */
+type Props = { balance: number; rewards: Reward[]; landedFrom?: number; locale?: "de" | "fr"; titles?: boolean; className?: string };
 
 const MIN_LABEL_GAP = 0.14;
 /** Markers this close to the start align their labels to it (as the last one does to the end). */
@@ -79,7 +80,7 @@ export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, tr
 }
 
 /** One track to the most expensive reward; a marker per reward becomes a pressed mark once affordable. */
-export function PointsLadder({ balance, rewards, locale = "de", titles = false, className }: Props) {
+export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titles = false, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<{ track: number; needs: number[] } | null>(null);
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
@@ -119,7 +120,7 @@ export function PointsLadder({ balance, rewards, locale = "de", titles = false, 
   const label = locale === "fr" ? `${withUnit(balance, "points", "fr")} sur ${max}` : `${balance} von ${withUnit(max, "points", "de", "dat")}`;
   return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
-    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
+    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-new={(m.reached && landedFrom !== undefined && m.cost > landedFrom) || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={14} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{m.cost}</small>
       {titles ? <small className={styles.title} data-title style={{ "--room": `${layout?.titles[i]?.width ?? 0}px`, "--shift": `${layout?.titles[i]?.shift ?? 0}px` } as CSSProperties} data-title-hidden={!layout?.titles[i] || undefined}>{m.title}</small> : null}

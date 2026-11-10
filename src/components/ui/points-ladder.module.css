@@ -19,4 +19,7 @@
 .mark[data-end] { justify-items: end; transform: translateX(calc(-100% + 14px)); }
 /* An early marker mirrors that at the track's start, so a cheap reward's long name stays inside the card. */
 .mark[data-start] { justify-items: start; transform: translateX(-14px); }
-@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+/* A mark the booking just crossed presses like a landing stamp, once the fill has started towards it. */
+.mark[data-new] .dot { animation: land var(--dur-reward) var(--ease-out) var(--dur-ui) both; }
+@keyframes land { from { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .mark[data-new] .dot { animation: none; } }

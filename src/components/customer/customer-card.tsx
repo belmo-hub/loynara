@@ -122,7 +122,7 @@ export function CustomerCard(props: CustomerCardProps) {
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
     <div className={styles.lead}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
-      {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} /> : null}
+      {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
       {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
         <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
@@ -140,7 +140,7 @@ export function CustomerCard(props: CustomerCardProps) {
           </section>
         </CardFace>
         {/* The band sits right under the card, before the refresh row (mock 24). */}
-        {readyCount > 0 ? <p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
+        {readyCount > 0 ? <p className={styles.band} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
         {props.onRefresh ? <div className={styles.refresh}>
           <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -360,13 +360,14 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
  * The booking moment: „Stempel erhalten“ with what was added, floating over the shop header so nothing below moves.
  * It is never a target and leaves by itself. Screen readers hear one sentence through the page's status region.
  */
-function BookingPill({ points, credited, balance }: { points: boolean; credited: number; balance: number }) {
+function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
   const { live, announce } = useCardStatus("moment");
-  const said = stampAnnouncement("confirmed", balance, points, credited) ?? "";
+  // No new French copy for now: a French card shows the check and the amount without the German words.
+  const said = locale === "fr" ? `+${credited}` : stampAnnouncement("confirmed", balance, points, credited) ?? "";
   useEffect(() => { announce(said); }, [announce, said]);
   return <div className={styles.pill} role={live ? "status" : undefined} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
     <span className={styles.pillCheck} aria-hidden="true"><CheckCircle2 size={24} /></span>
-    <strong aria-hidden="true">{tapCopy("confirmed", undefined, points).title}</strong>
+    {locale === "fr" ? <span className={styles.pillGap} /> : <strong aria-hidden="true">{tapCopy("confirmed", undefined, points).title}</strong>}
     <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
     <span className={styles.srOnly}>{said}</span>
   </div>;
