@@ -172,7 +172,7 @@ describe("Startbonus at sign-up (ENG-207)", () => {
     const further = await post(s.programSlug, cookiesOf(first), { additionalCard: true });
     expect(further.status).toBe(201);
     const body = await further.json();
-    expect(Object.keys(body)).toEqual(["cardToken"]);
+    expect(Object.keys(body)).toEqual(["cardToken", "cardLocator"]); // no headStart field without a Startbonus
     const [card] = await db.select().from(memberships).where(eq(memberships.cardToken, body.cardToken));
     expect(card.balance).toBe(0);
     expect(await rows(card.id)).toEqual([]);
@@ -226,11 +226,11 @@ describe("Startbonus at sign-up (ENG-207)", () => {
     const s = await headStartShop(2);
     delete process.env.HEAD_START_ENABLED;
     const card = await join(s.programSlug);
-    expect(card).toEqual({ id: card.id, programId: s.programId, cardToken: card.cardToken, scanCode: card.scanCode });
+    expect(card).toEqual({ id: card.id, programId: s.programId, cardToken: card.cardToken, cardLocator: card.cardLocator, scanCode: card.scanCode });
     expect(await balanceOf(card.id)).toBe(0);
     expect(await rows(card.id)).toEqual([]);
     const response = await post(s.programSlug);
-    expect(Object.keys(await response.json())).toEqual(["cardToken"]);
+    expect(Object.keys(await response.json())).toEqual(["cardToken", "cardLocator"]);
     expect(await getPublicProgram(s.programSlug)).not.toHaveProperty("headStart");
     expect(await getMerchantContext(s.owner)).not.toHaveProperty("welcomeBonusAt");
     expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId, welcomeBonus: 3 })).not.toHaveProperty("welcomeBonusAt");
@@ -244,7 +244,7 @@ describe("Startbonus at sign-up (ENG-207)", () => {
     const s = await headStartShop(2);
     const other = await user();
     await shop(other);
-    await expect(updateProgramExtras({ actorUserId: other, programId: s.programId, welcomeBonusAt: "first_award" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateProgramExtras({ actorUserId: other, programId: s.programId, welcomeBonusAt: "first_award" })).rejects.toMatchObject({ code: "NOT_FOUND" }); // another business's programme does not exist for them (ENG-197)
     expect(await getMerchantContext(s.owner)).toMatchObject({ welcomeBonusAt: "enrollment" });
     await updateProgram({ actorUserId: s.owner, programSlug: s.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee.", programType: "points", earningMode: "manual" });
     expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId })).toMatchObject({ welcomeBonus: 0, welcomeBonusAt: "first_award" });
