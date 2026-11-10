@@ -6,6 +6,7 @@ import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { BROUGHT_COPY } from "@/lib/spend-copy";
+import { LinkPending } from "./owner-ui";
 
 /** One signpost row (Wegweiser): the value at the right edge in ink, muted when it says „off“ (`off`), an arrow only with `href`. */
 export type ValueRow = { key: string; icon: LucideIcon; title: string; sub?: string; value?: string; off?: boolean; href?: string };
@@ -43,6 +44,6 @@ export function Rows({ rows }: { rows: ValueRow[] }) {
         <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}</span>
       </span>
     </>;
-    return <li key={key}>{href ? <Link className="ow-prog-row" href={href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /></Link> : <div className="ow-prog-row">{body}</div>}</li>;
+    return <li key={key}>{href ? <Link className="ow-prog-row" href={href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /><LinkPending /></Link> : <div className="ow-prog-row">{body}</div>}</li>;
   })}</ul>;
 }

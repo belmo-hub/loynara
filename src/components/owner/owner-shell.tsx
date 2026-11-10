@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
@@ -10,13 +10,27 @@ import { useOwner, type OwnerLocation } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
 
+// The link tapped last. Two taps in a row on a slow connection join one transition, so each link's own pending state
+// stays true until both screens are through; only the last tapped one may look pending.
+let tapped: string | null = null;
+const tapWatchers = new Set<() => void>();
+const tap = (href: string) => { tapped = href; for (const watcher of tapWatchers) watcher(); };
+const useTapped = () => useSyncExternalStore(watcher => { tapWatchers.add(watcher); return () => { tapWatchers.delete(watcher); }; }, () => tapped, () => null);
+
+/**
+ * A link inside the owner area. It asks first when there are unsaved changes, and it carries `data-pending` from the tap
+ * until the next screen is shown: the screen in view stays that long, so the tapped tab or row takes its selected look
+ * at once (owner.css).
+ */
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
   const { guard } = useOwner();
-  return <Link href={href} {...rest} onClick={event => {
+  const [pending, startNavigation] = useTransition();
+  const last = useTapped();
+  return <Link href={href} {...rest} data-pending={(pending && last === href) || undefined} onClick={event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    guard(() => router.push(href));
+    guard(() => { tap(href); startNavigation(() => router.push(href)); });
     rest.onClick?.(event);
   }}>{children}</Link>;
 }
@@ -27,6 +41,53 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
+  const locationId = owner.me?.locationId;
+
+  // A new screen names itself: the document title follows its heading, so a screen reader announces the change. After a
+  // row or a back link (the tapped link left the page) focus moves to the content; a tab keeps it, so the bar stays
+  // under the keyboard.
+  const arrived = useRef(false);
+  useEffect(() => {
+    const main = document.getElementById("ow-main");
+    if (!main) return;
+    if (arrived.current && (document.activeElement === document.body || main.contains(document.activeElement))) main.focus({ preventScroll: true });
+    arrived.current = true;
+    const name = () => {
+      const heading = main.querySelector("h1")?.innerText.trim();
+      if (heading) document.title = `${heading} \u2013 Loynara`;
+      return Boolean(heading);
+    };
+    if (name()) return;
+    // A screen that starts with its loading frame gets its heading a moment later.
+    const waiting = new MutationObserver(() => { if (name()) waiting.disconnect(); });
+    waiting.observe(main, { childList: true, subtree: true });
+    return () => waiting.disconnect();
+  }, [pathname, locationId]);
+
+  // The bars are captured for the screen change and take no taps while it runs (about a quarter of a second). A tap in
+  // that time ends the change at once and goes to the bar link under the finger, so a quick second tab tap still lands.
+  useEffect(() => {
+    let meant: HTMLElement | null = null;
+    const down = (event: PointerEvent) => {
+      const running = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"));
+      if (!running.length) { meant = null; return; }
+      for (const animation of running) animation.finish();
+      meant = [...document.querySelectorAll<HTMLElement>(".ow-tabs a, .ow-topbar a, .ow-subnav a")].find(link => {
+        const box = link.getBoundingClientRect();
+        return event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+      }) ?? null;
+    };
+    const click = (event: MouseEvent) => {
+      const link = meant;
+      meant = null;
+      if (!link || !event.isTrusted || link.contains(event.target as Node)) return;
+      event.preventDefault(); event.stopPropagation();
+      link.click();
+    };
+    document.addEventListener("pointerdown", down, true);
+    document.addEventListener("click", click, true);
+    return () => { document.removeEventListener("pointerdown", down, true); document.removeEventListener("click", click, true); };
+  }, []);
 
   // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
   useEffect(() => {
@@ -100,7 +161,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <main id="ow-main" className="ow-content" tabIndex={-1} aria-busy={owner.switching || !me}>
           {owner.switching || !me
             ? <div className="ow-page" aria-label="Standort wird gewechselt"><Skeleton height={32} width={240} /><Skeleton height={120} /><Skeleton height={220} /></div>
-            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{children}</div>}
+            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{/* One element that stays for the whole screen: a page that swaps its own root (loading frame, then form) would end the transition early. */}<ViewTransition key={pathname} enter="ow-screen" exit="ow-screen" default="none"><div className="ow-screen">{children}</div></ViewTransition></div>}
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">

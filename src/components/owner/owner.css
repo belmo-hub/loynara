@@ -37,9 +37,10 @@
 .ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-nav a:hover:not([aria-current]) { background: color-mix(in oklab, var(--color-fill) 55%, transparent); color: var(--color-ink); }
 /* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
-.ow-nav a[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
+/* From the tap until its screen shows, the tapped entry already carries this look and the one before no longer does. */
+.ow-nav:not(:has([data-pending])) a[aria-current="page"], .ow-nav a[data-pending] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
 /* The same current-item cue as the tab bar: fill, 800 and the heavier stroke. */
-.ow-nav a[aria-current="page"] svg { stroke-width: 2.5; }
+.ow-nav:not(:has([data-pending])) a[aria-current="page"] svg, .ow-nav a[data-pending] svg { stroke-width: 2.5; }
 /* 36 px rows suit a mouse; a touch screen at 1024 px and up (iPad landscape) gets 44 px targets. */
 @media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
@@ -78,7 +79,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
 .ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
 .ow-subnav a:hover { color: var(--color-ink); }
-.ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
+/* As in the tab bar: the tapped sub-tab looks current from the tap, and the one before no longer does. */
+.ow-subnav:not(:has([data-pending])) a[aria-current="page"], .ow-subnav a[data-pending] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
 
 @media (max-width: 1023px) {
   .ow-shell { grid-template-columns: minmax(0, 1fr); }
@@ -95,6 +97,32 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Screen change (owner-shell, DESIGN.md Motion): the screen in view stays until the next one is ready (the area has no
+   loading route). Then the old one fades out over --dur-press and the new one fades in over --dur-ui, starting half a
+   --dur-press later. For those 60 ms both show faintly. One fade everywhere.
+   Browsers without view transitions swap as before. */
+::view-transition { pointer-events: none; }
+::view-transition-old(.ow-screen) { animation: ow-fade-out var(--dur-press) var(--ease-out) both; }
+@keyframes ow-fade-out { to { opacity: 0; } }
+::view-transition-new(.ow-screen) { animation: ow-fade var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) both; }
+/* The bars stay: each is captured on its own layer above the screens and shows its new state at once, without the
+   browser's own crossfade. */
+.ow-topbar { view-transition-name: ow-topbar; }
+.ow-subnav { view-transition-name: ow-subnav; }
+.ow-tabs { view-transition-name: ow-tabs; }
+::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
+::view-transition-old(ow-topbar), ::view-transition-old(ow-subnav), ::view-transition-old(ow-tabs) { display: none; }
+::view-transition-new(ow-topbar), ::view-transition-new(ow-subnav), ::view-transition-new(ow-tabs) { animation: none; }
+/* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
+::view-transition-old(root) { display: none; }
+::view-transition-new(root) { animation: none; }
+/* Reduced motion: a cut. Without the old screen there is no frame with both. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  ::view-transition-old(.ow-screen) { display: none; }
+}
+/* The content takes focus after a row or a back link so the new screen is read from its top; it is not a control. */
+.ow-content:focus { outline: none; }
 /* A full-page notice (programme ended) rises in once. */
 .ow-arrive { animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
 @keyframes ow-arrive { from { opacity: 0; transform: translateY(8px); } }
@@ -122,9 +150,10 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   }
   /* The current tab is marked by more than colour (I-10): the neutral pill behind the icon (as the sidebar), a heavier icon and 800. */
   .ow-tab-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: var(--radius-pill); transition: background var(--dur-press) var(--ease-out); }
-  .ow-tab[aria-current="page"] { color: var(--color-ink); font-weight: var(--weight-heavy); }
-  .ow-tab[aria-current="page"] .ow-tab-icon { background: var(--color-fill); }
-  .ow-tab[aria-current="page"] svg { stroke-width: 2.5; }
+  /* From the tap until its screen shows, the tapped tab already carries this look and the one before no longer does. */
+  .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"], .ow-tab[data-pending] { color: var(--color-ink); font-weight: var(--weight-heavy); }
+  .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] .ow-tab-icon, .ow-tab[data-pending] .ow-tab-icon { background: var(--color-fill); }
+  .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] svg, .ow-tab[data-pending] svg { stroke-width: 2.5; }
   /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
   /* 1.34 (the 12/16 token) leaves room for descenders: WebKit clips the „g“ of „Programm“ at 1.1 under overflow: hidden. */
   .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.34; }
@@ -474,6 +503,10 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
 .ow-prog-row:active { transform: scale(.985); }
 .ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
+/* A tapped row holds the selected fill until its screen shows. */
+.ow-prog-row[data-pending], .ow-prog-row:has([data-pending]) { background-image: linear-gradient(var(--color-fill), var(--color-fill)); }
+/* A tapped band is already a filled surface: it dims a little for the same time. */
+.ow-band:has([data-pending]), .ow-brought-off:has([data-pending]) { opacity: .8; }
 .ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
 /* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
 .ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
@@ -965,7 +998,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* Rows (decision 1): each section is one panel, rows split by hairlines, 56 px minimum, one padding. Every list of rows. */
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) { gap: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-surface); }
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) > li + li { border-top: 1px solid var(--color-line); }
-:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background: none; }
+/* background-color, not the shorthand: the pending fill above is a background-image and has to survive this rule. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background-color: transparent; }
 /* A list with no row (an empty, loading or failed state) has no panel: its text stands on the ground, as before. */
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)):not(:has(.ow-prog-row, .ow-check)) { background: none; border-radius: 0; overflow: visible; }
 /* The panel clips; the ring goes inside the row, as on the tab bar. */
