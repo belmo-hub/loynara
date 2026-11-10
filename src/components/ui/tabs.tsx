@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cx } from "./cx";
 import styles from "./tabs.module.css";
 
@@ -9,7 +9,8 @@ type Option<T extends string> = { value: T; label: ReactNode };
 
 /** Small set of mutually exclusive views or ranges (30 / 90 Tage, Bearbeiten / Vorschau). */
 export function Segmented<T extends string>({ label, value, onChange, options, className }: { label: string; value: T; onChange: (value: T) => void; options: Array<Option<T>>; className?: string }) {
-  return <div role="group" aria-label={label} className={cx(styles.segmented, className)}>
+  const at = options.findIndex((option) => option.value === value);
+  return <div role="group" aria-label={label} className={cx(styles.segmented, className)} data-none={at < 0 || undefined} style={{ "--at": at, "--count": options.length } as CSSProperties}>
     {options.map((option) => <button key={option.value} type="button" aria-pressed={option.value === value} className={styles.segment} onClick={() => onChange(option.value)}>{option.label}</button>)}
   </div>;
 }

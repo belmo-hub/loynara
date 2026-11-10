@@ -67,6 +67,8 @@ export default function CashierPage() {
   const [camera, setCamera] = useState<"off" | "on" | "sleeping">("off");
   const [status, setStatus] = useState<"idle" | "success" | "pending" | "rejected" | "offline">("idle");
   const [message, setMessage] = useState("");
+  // A typed card number the server rejected as unknown or malformed; the field answers for it until it is edited.
+  const [codeRejected, setCodeRejected] = useState(false);
   const [actorUserId, setActorUserId] = useState("");
   const [offlineLease, setOfflineLease] = useState<OfflineLease | null>(null);
   const [offlineEvents, setOfflineEvents] = useState<OfflineQueuedEvent[]>([]);
@@ -159,7 +161,8 @@ export default function CashierPage() {
     });
   }, [router]);
 
-  const lookup = useCallback(async (code: string, confirm = false) => {
+  const lookup = useCallback(async (code: string, confirm = false, typed = false) => {
+    setCodeRejected(false);
     lookupRunning.current = true;
     lastCameraActivity.current = Date.now();
     cancelReset(); setBooked(null); lastBooking.current = null;
@@ -216,6 +219,7 @@ export default function CashierPage() {
       setCard(null); setPreview(null);
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
       setStatus(isNetworkFailure(cause) ? "offline" : "rejected");
+      setCodeRejected(typed && cause instanceof ClientApiError && (cause.code === "NOT_FOUND" || cause.code === "INVALID_CODE"));
       const fr = locale === "fr";
       setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code ; les numéros ne contiennent ni 0/O ni 1/I/L." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code und achte auf 0/O und 1/I/L: Kartennummern enthalten diese Zeichen nicht."
         : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Numéro de carte non reconnu. Il ressemble à K-7QX2MA et ne contient ni 0, O, 1, I ni L. Sinon, scannez le QR code avec la caméra." : "Kartennummer nicht erkannt. Sie sieht aus wie K-7QX2MA und enthält weder 0, O, 1, I noch L. Oder den QR-Code mit der Kamera scannen."
@@ -434,13 +438,13 @@ export default function CashierPage() {
 
   if (accessState !== "ready") return <CashierAccessState state={accessState} message={accessMessage} logoutControl={<LogoutButton className={buttonClassName({ variant: "secondary", size: "lg", block: true })} />} />;
   const cameraNode = camera === "on"
-    ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
+    ? <QrScanner locale={locale} paused={Boolean(card || preview)} reading={busy && !typedEntry && !booked} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
     : camera === "sleeping"
       ? <SleepingCamera locale={locale} hidden={Boolean(card || preview)} onWake={startCamera} onClose={stopCamera} />
       : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
+  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {
