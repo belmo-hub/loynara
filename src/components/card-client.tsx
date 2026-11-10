@@ -2,10 +2,10 @@
 
 import { CreditCard } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
-import { CustomerCard, CustomerCardLoading } from "./customer/customer-card";
+import { CustomerCard, CustomerCardLoading, CustomerCardReturning } from "./customer/customer-card";
 import { laterMark, markSeen, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen } from "./customer/booking-moment";
 import { CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
@@ -16,7 +16,9 @@ import { CardWalletMessages } from "./card-wallet-messages";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
-import { takeJoined } from "./customer/booking-moment";
+import { peekJoined, takeJoined } from "./customer/booking-moment";
+
+const never = () => () => {};
 import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
 import { joinAsked, markWalletStep, readWalletStep } from "./wallet-step";
 import { cardChanges } from "@/lib/change-lines";
@@ -88,6 +90,8 @@ export function CardClient({ token }: { token: string }) {
   // opened) shows the pill, and the card steps from the balance last seen to the new one, so the new stamps land.
   // ENG-205: this card was created on the join page a moment ago; its first read here is a return.
   const [returned, setReturned] = useState(false);
+  // Before that read answers: the bare ground instead of the placeholder. The server never knows, so it renders the placeholder.
+  const pendingReturn = useSyncExternalStore(never, () => peekJoined(token), () => false);
   const [moment, setMoment] = useState<{ credited: number; stepped: boolean } | null>(null);
   const momentTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const playMoment = useCallback((credited: number) => {
@@ -235,7 +239,7 @@ export function CardClient({ token }: { token: string }) {
   }
 
   if (closed) return <CardState title="Karte geschlossen" message={wallet && (wallet.apple !== "unavailable" || wallet.google !== "unavailable") ? "Dieser Kartenlink, der QR-Code und eine in Wallet gespeicherte Karte sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht." : "Dieser Kartenlink und der QR-Code sind nicht mehr nutzbar. Frühere Buchungen bleiben vorerst unter einer pseudonymen Karten-ID gespeichert, bis eine geprüfte Aufbewahrungsregel feststeht."} />;
-  if (loading) return <CustomerCardLoading label="Deine Karte wird geladen." />;
+  if (loading) return pendingReturn ? <CustomerCardReturning label="Deine Karte wird geladen." /> : <CustomerCardLoading label="Deine Karte wird geladen." />;
   if (!card) return <CardState title="Karte nicht erreichbar" message={error} tone="error" icon={<CreditCard size={24} />}>
     <Link className={buttonClassName({ block: true })} href="/recover">Karte wiederfinden</Link>
   </CardState>;

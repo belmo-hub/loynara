@@ -127,7 +127,8 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(source).toContain("{top || preview}");
   });
   it("draws nothing before the server has created the card, then holds 220 ms for the Wallet step or 400 ms for the card page, and not at all under reduced motion", async () => {
-    expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 0, 0]);
+    // Reduced motion keeps the hold before the card page (without fades), so the status line is heard before the page changes.
+    expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 0, 400]);
     const source = await read("src/components/join-client.tsx"), created = source.indexOf("setCreated(true)");
     expect(source.match(/setCreated\(/g)).toHaveLength(1);
     expect(created).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
@@ -153,9 +154,16 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(source.match(/role="status">\{created \? /g)).toHaveLength(1);
     expect(source).toContain('<WalletStep token={walletStep} program={program} heading="h2" />');
   });
+  it("fades the card and the footer out in the last 160 ms before the card page, and never before the Wallet step", async () => {
+    const source = await read("src/components/join-client.tsx");
+    expect(source).toContain('if (next.go !== "step") { router.prefetch(cardHref); if (!still) setTimeout(() => setLeavingPage(true), hold - FIRST_TAP_FADE_MS); }');
+    expect(source).toContain("<div className={first.top} data-leaving={leavingPage || undefined}>");
+    const css = await read("src/components/customer/first-page.module.css");
+    expect(css).toContain(".top[data-leaving], .foot2[data-leaving] { opacity: 0; }");
+  });
   it("gives every motion of the page a reduced-motion rule, within the house durations", async () => {
     const css = await read("src/components/customer/first-page.module.css");
-    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.step, \.card\[data-created\]::before \{ animation: none; \}\s*\.blocks \{ transition: none; \}/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.step, \.card\[data-created\]::before \{ animation: none; \}\s*\.blocks, \.top, \.foot2 \{ transition: none; \}/);
     // Skeleton to content: the loaded row and card do not rise; the placeholder fades over them (the shell's cover).
     expect(css).not.toMatch(/\.top \{[^}]*animation/);
     expect(css.match(/animation: [a-z]+ ([^;]+);/g)!.every(rule => /var\(--dur-(press|ui|reward)\)/.test(rule))).toBe(true);

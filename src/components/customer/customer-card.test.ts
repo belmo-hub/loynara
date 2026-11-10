@@ -329,5 +329,18 @@ describe("the card after the join page (ENG-205)", () => {
     expect(css).toContain(".lead[data-return] .object::before { animation: none; }");
     expect(css.indexOf(".lead[data-return] .object::before")).toBeGreaterThan(css.indexOf(".lead[data-arriving] .object::before"));
   });
+  it("has no placeholder on a return: the bare ground with its heading while the read is pending, then the content fades in once", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { CustomerCardLoading, CustomerCardReturning } = await import("./customer-card");
+    const bare = renderToStaticMarkup(createElement(CustomerCardReturning, { label: "Deine Karte wird geladen." }));
+    expect(bare).toMatch(/<h1 class="[^"]*srOnly[^"]*" aria-busy="true">Deine Karte wird geladen\.<\/h1>/);
+    expect(bare).not.toMatch(/skeleton/i);
+    expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "Deine Karte wird geladen." }))).toMatch(/skeleton/i);
+    const read = (path: string) => import("node:fs").then(fs => fs.readFileSync(path, "utf8"));
+    expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && !quiet ? cardSkeleton : undefined}");
+    // Read hydration-safely: the server never knows about a return and renders the placeholder.
+    expect(await read("src/components/card-client.tsx")).toContain("const pendingReturn = useSyncExternalStore(never, () => peekJoined(token), () => false);");
+    expect(await read("src/components/customer/customer-card.module.css")).toContain(".lead[data-return], .lead[data-return] ~ * { animation: return-in var(--dur-ui) var(--ease-out) backwards; }");
+  });
 });
-

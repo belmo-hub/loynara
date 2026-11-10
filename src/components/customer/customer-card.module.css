@@ -246,7 +246,11 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
   .lead[data-arriving] .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
 }
-/* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again. */
+/* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no
+   placeholder stands in between. The page's content fades in once, over --dur-ui. */
 .lead[data-return] .object::before { animation: none; }
+.lead[data-return], .lead[data-return] ~ * { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
+@keyframes return-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lead[data-return], .lead[data-return] ~ * { animation: none; } }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }
