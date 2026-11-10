@@ -6,6 +6,7 @@ import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
 import { CardFace, nearestReward } from "./customer/card-face";
+import { markSeen, TAP_MARK_SLACK_MS } from "./customer/booking-moment";
 import { CustomerState, StateLink } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
 import styles from "./customer/tap.module.css";
@@ -171,6 +172,9 @@ export function TapClient({ refId }: { refId: string }) {
     return () => { active = false; };
   }, [preview, recoveryCard, done, waiting]);
 
+  // The card page plays its own booking moment for bookings this device has not shown; this page just showed this one.
+  const cardLocator = preview?.cardLocator;
+  useEffect(() => { if (done && cardLocator) markSeen(cardLocator, new Date(Date.now() + TAP_MARK_SLACK_MS).toISOString()); }, [done, cardLocator]);
   const celebrate = moment && done;
   const cardRef = useRef<HTMLDivElement>(null);
   // Apple's sheet opened from the band (ENG-160): the band, not this page, then follows the stamp to the card.
