@@ -26,6 +26,7 @@ import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
+import { ownerTenant } from "./billing";
 import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
 
 const shortText = z.string().trim().min(2).max(180);
@@ -194,10 +195,10 @@ const EXPIRY_FINAL = () => new DomainError("CHANGE_PENDING", "Diese Änderung ka
 export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
   const input = updateProgramInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).for("update");
+    // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const name = input.name ?? program.name, rulesText = input.rulesText ?? program.rulesText;
     const nextType = input.programType ?? program.type;
     const earningMode = input.earningMode ?? program.earningMode;
@@ -309,10 +310,9 @@ async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect
 export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>, now = new Date()) {
   const input = programExtrasInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (input.welcomeBonus !== undefined && input.welcomeBonus > (program.type === "stamp" ? 3 : 50)) throw new DomainError("INVALID_WELCOME_BONUS", "Welcome bonus is 0 to 3 stamps or 0 to 50 points");
     const cardNews = input.cardNews?.trim();
     if (cardNews !== undefined && cardNewsProblem(cardNews)) throw new DomainError("INVALID_CARD_NEWS", "Card news is plain text, at most 140 characters, without links");
@@ -368,10 +368,9 @@ const happyHourInput = z.object({
 export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>) {
   const input = happyHourInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (happyHourProblem(input.happyHourWindows)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour: up to 3 weekly windows with weekdays, start and end time (HH:MM), each ending after it starts the same day (midnight-crossing windows are not supported)");
     if (input.happyHourEnabled && (program.type !== "points" || input.happyHourWindows.length === 0)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour needs a points programme and at least one window");
     const [updated] = await tx.update(programs).set({ happyHourEnabled: input.happyHourEnabled, happyHourWindows: input.happyHourWindows as HappyHourWindow[] }).where(eq(programs.id, program.id)).returning();
@@ -473,10 +472,10 @@ const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).
 const rewardTarget = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() });
 
 async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
-  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
+  // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+  const tenantId = await ownerTenant(actorUserId, tx);
+  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
   if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-  const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 
