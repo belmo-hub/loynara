@@ -122,7 +122,11 @@ p{text-wrap:pretty}
 .hero h1 .g{color:var(--action)}
 @media (min-width:1024px){.hero h1{font-size:clamp(60px,5.9vw,86px);line-height:.96}.hero h1 .ln{white-space:nowrap}}
 .hero-stage{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:48px;margin-top:20px}
-.hero .phone{--pw:268px;--m:var(--tone-terra);--m2:var(--tone-terra-2);z-index:2;margin:0 auto}
+/* The sign follows the phone's width, and both shrink on a short desktop screen, so the sign never reaches the side
+   buttons and the whole hero fits the first screen. */
+.hero{--hero-pw:268px}
+@media (min-width:1024px) and (max-height:860px){.hero{--hero-pw:228px}}
+.hero .phone{--pw:var(--hero-pw);--m:var(--tone-terra);--m2:var(--tone-terra-2);z-index:2;margin:0 auto}
 .hero .side{padding-bottom:40px}
 .hero .side .lede{font-size:19px}
 .hero .side .btn{margin-top:28px}
@@ -131,7 +135,7 @@ p{text-wrap:pretty}
 .hero .side.r p b{color:var(--ink);font-weight:720}
 .tapzone{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-150px;z-index:3;pointer-events:none}
 .tapzone .tap{pointer-events:auto}
-.tap{position:relative;border:0;background:transparent;cursor:pointer;padding:0;border-radius:40px 40px 0 0;--plw:420px;font:inherit;color:inherit}
+.tap{position:relative;border:0;background:transparent;cursor:pointer;padding:0;border-radius:40px 40px 0 0;--plw:min(420px,calc(var(--hero-pw) + 96px));font:inherit;color:inherit}
 .tap .pl b{color:#FCD9C8;font-weight:800}
 .tap .ring{position:absolute;left:50%;top:50%;width:calc(100% + 26px);height:calc(100% + 26px);transform:translate(-50%,-50%);border-radius:50%;border:3px solid var(--stamp);pointer-events:none;animation:breathe 2.4s var(--ease-io) 3}
 .tap.done .ring{animation:none;opacity:.55}
@@ -326,7 +330,7 @@ section.block{padding:var(--section) 0 0}
 .sl input{width:100%;margin-top:12px;accent-color:var(--action);height:44px}
 .sl small{display:block;color:var(--muted);font-size:14px}
 .result{background:var(--field);color:var(--on-field);display:flex;flex-direction:column;gap:12px}
-.result .n{font-size:clamp(64px,7vw,104px);font-weight:800;letter-spacing:-.045em;line-height:.9;font-variant-numeric:tabular-nums}
+.result .n{font-size:clamp(64px,7vw,104px);font-weight:800;letter-spacing:-.04em;line-height:.9;font-variant-numeric:tabular-nums}
 .result dl{margin-top:24px;display:grid;grid-template-columns:1fr auto;gap:10px 24px;padding-top:24px;border-top:1px solid rgba(233,239,234,.18)}
 .result dt{color:var(--on-field-2)}.result dd{font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
 .result .fine{font-size:14px;color:var(--on-field-2);margin-top:12px}
@@ -336,7 +340,7 @@ section.block{padding:var(--section) 0 0}
 .price{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:stretch}
 .pcard,.incl{border-radius:var(--r-xl);padding:40px;background:var(--surface);box-shadow:0 0 0 1px var(--line)}
 .pcard{display:flex;flex-direction:column}
-.pcard .amt{font-size:clamp(88px,10vw,144px);font-weight:800;letter-spacing:-.05em;line-height:.85;font-variant-numeric:tabular-nums}
+.pcard .amt{font-size:clamp(88px,10vw,144px);font-weight:800;letter-spacing:-.04em;line-height:.85;font-variant-numeric:tabular-nums}
 .pcard .per{font-size:20px;font-weight:720;margin-top:12px}
 .free{margin-top:28px;display:flex;gap:16px;align-items:center;padding:20px;border-radius:var(--r-lg);background:var(--bg)}
 .free .ck{width:40px;height:40px;flex:none;border-radius:50%;background:var(--action);position:relative}

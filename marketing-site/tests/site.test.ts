@@ -51,6 +51,8 @@ test('every action leads to the request form with its wish; there is no sign-up 
 test('nothing covers a control or a jump target: hero buttons take clicks, the header and the bar leave room, no long label from 1024 to 1119 px', () => {
   const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
   assert.match(css, /\.tapzone\{[^}]*pointer-events:none\}\n\.tapzone \.tap\{pointer-events:auto\}/, 'the tap zone lies over the hero side buttons');
+  assert.match(css, /\.tap\{[^}]*--plw:min\(420px,calc\(var\(--hero-pw\) \+ 96px\)\)/, 'the sign follows the phone, so it never reaches the side buttons');
+  assert.match(css, /@media \(min-width:1024px\) and \(max-height:860px\)\{\.hero\{--hero-pw:228px\}\}/);
   assert.match(css, /@media \(min-width:1024px\)\{html\{scroll-padding-top:96px\}\}/); assert.match(css, /@media \(max-width:1023px\)\{html\{scroll-padding-bottom:calc\(var\(--bar\) \+ 16px\)\}\}/);
   assert.match(css, /@media \(min-width:1024px\) and \(max-width:1119px\)\{\.long\{display:none\}\.short\{display:inline\}\}/);
   assert.match(css, /\.shops \.shop:not\(\.show\)\{display:none\}/, 'a chip hides every other shop card, the large one too');

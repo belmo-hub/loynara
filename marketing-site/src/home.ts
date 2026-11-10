@@ -1,5 +1,6 @@
 /** Home page body (website set, 10 Nov 2026): static HTML, German only. Every drawing is HTML and CSS (design/home.css);
  *  the starting state works without script, src/home-browser.ts adds the tap, the scroll scene, the calculator and the request draft. */
+import { RECOVERY_COPY } from './claims.js';
 import { SITE, industries, industryKeys } from './site.js';
 
 const price = `${SITE.price.amount} €`;
@@ -188,7 +189,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
       <details><summary>Und wenn ein Handy kein NFC kann?</summary><p>Dann scannt dein Kunde den QR-Code. Er öffnet dieselbe Karte und bleibt immer als Alternative.</p></details>
       <details><summary>Was kostet Loynara?</summary><p>${price} pro Monat und Standort. Der erste Monat ist gratis, Zahlungsdaten brauchen wir erst ab dem zweiten Monat. Hörst du im ersten Monat auf, kostet es nichts. Sonst läuft es Monat für Monat weiter. Kündigen kannst du zum Ende jedes Abrechnungsmonats, spätestens 14 Tage vorher. Eine Einrichtungsgebühr gibt es nicht, und Kunden, Karten und dein Team kosten nichts extra.</p></details>
       <details><summary>Bekommen meine Kunden Werbung per E-Mail?</summary><p>Nein. Werbung bekommen deine Kunden nur auf Wunsch über Apple Wallet, und nur, wenn sie zugestimmt haben. Wer möchte, hinterlegt eine E-Mail-Adresse. Sie dient nur dazu, eine verlorene Karte wiederzufinden.</p></details>
-      <details><summary>Was passiert, wenn jemand seine Karte nicht mehr findet?</summary><p>Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat, kommt jederzeit wieder zu seiner Karte. Ist er verloren, stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr.</p></details>
+      <details><summary>Was passiert, wenn jemand seine Karte nicht mehr findet?</summary><p>${RECOVERY_COPY.lostAnswer}</p></details>
       <details><summary>Was passiert bei einem falsch gebuchten Stempel?</summary><p>Eine falsche Buchung korrigierst du oder deine Leitung mit Begründung. Die ursprüngliche Buchung und die Korrektur bleiben im Verlauf nachvollziehbar.</p></details>
     </div>
   </div>

@@ -44,6 +44,7 @@ test('post-RC copy: lost link means reissue with the same balance, history and c
   for (const text of [visible(rendered.home), pagesOnly(rendered)]) {
     assert.match(text, /stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft\. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr\./);
     assert.match(text, /findet dein Team die Karte über ihre kurze Kartennummer/);
+    assert.match(text, /über „Karte wiederfinden“ selbst zurück\. Der alte Link funktioniert danach nicht mehr\./, 'self-recovery replaces the link only; it claims nothing about the QR code');
   }
   assert.match(pagesOnly(rendered), /Per QR-Code/, 'the RC gate alone does not switch the entry claim');
 });
