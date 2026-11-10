@@ -34,6 +34,8 @@ export type CustomerCardProps = {
   landedCount?: number;
   /** A booking this device has not shown yet: the pill over the header says what was added and the balance it led to, until the page takes it away. */
   moment?: { credited: number; balance: number };
+  /** ENG-205: the join page just showed this card being created. It opens as a return: no Card arrive, focus on its heading. */
+  quiet?: boolean;
   rewards: Reward[];
   cardLocator?: string;
   qrSrc?: string;
@@ -108,6 +110,9 @@ export function CustomerCard(props: CustomerCardProps) {
   // ladder fill grows. A later re-read (the page reads itself every few seconds) finds this off and replays nothing.
   const [arriving, setArriving] = useState(true);
   useEffect(() => { const timer = setTimeout(() => setArriving(false), ARRIVE_MS); return () => clearTimeout(timer); }, []);
+  // After the join page the guest is told where they are: the card's heading takes the focus.
+  const quiet = props.quiet === true;
+  useEffect(() => { if (!quiet) return; const heading = document.querySelector<HTMLElement>("main h1"); if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); } }, [quiet]);
   // The icon answers each press with one turn, whatever the read takes.
   const [turn, setTurn] = useState(0);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
@@ -137,7 +142,7 @@ export function CustomerCard(props: CustomerCardProps) {
   </div>;
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving ? cardSkeleton : undefined}>
-    <div className={styles.lead} data-arriving={arriving || undefined}>
+    <div className={styles.lead} data-arriving={arriving || undefined} data-return={quiet || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}

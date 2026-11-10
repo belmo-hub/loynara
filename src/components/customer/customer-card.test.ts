@@ -316,3 +316,18 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
     expect(css).toContain(".walletButton[data-badge]:disabled { opacity: 1; }");
   });
 });
+
+describe("the card after the join page (ENG-205)", () => {
+  const card = { businessName: "Café", locationName: "Kassel", programType: "stamps" as const, balance: 0, rewards: [{ id: "a", title: "Kaffee", cost: 8 }] };
+  it("opens as a return only when told: marked on the card group, and its ground does not arrive again", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { CustomerCard } = await import("./customer-card");
+    expect(renderToStaticMarkup(createElement(CustomerCard, card))).not.toContain("data-return");
+    expect(renderToStaticMarkup(createElement(CustomerCard, { ...card, quiet: true }))).toContain('data-return="true"');
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".lead[data-return] .object::before { animation: none; }");
+    expect(css.indexOf(".lead[data-return] .object::before")).toBeGreaterThan(css.indexOf(".lead[data-arriving] .object::before"));
+  });
+});
+
