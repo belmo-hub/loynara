@@ -11,6 +11,8 @@ export type BoardData = {
   timezone: string;
   today: string;
   days: DayCount[];
+  /** Today's bookings so far, for the strip's last column; absent in numbers stored before the strip showed today. */
+  todayBookings?: number;
   lastBookingOn: string | null;
   fullTwoWeeks: boolean;
   /** No booking in the read's 90 days although the programme ran longer (the „vor über 90 Tagen“ headline). */

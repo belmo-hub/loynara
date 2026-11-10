@@ -14,7 +14,7 @@ import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, NextBandPlaceholder, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
@@ -39,11 +39,19 @@ const MILESTONE_KEY = "loynara:milestones-seen";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
-/** The signed-in person's first name, if the account has one (never the shop's name). */
-function useFirstName(): string {
+// The last answer, so a return to the Übersicht greets at once; per user, so the next person never gets this name.
+let greeted: { userId: string; name: string } | null = null;
+/**
+ * The signed-in person's first name, if the account has one (never the shop's name); null until the account read has
+ * answered, so the greeting is written once and never rewritten with the name.
+ */
+function useFirstName(userId: string): string | null {
   const [session] = useLoad<{ user?: { name?: string | null } } | null>("/api/auth/get-session");
+  const answered = session.state !== "loading";
   const name = session.state === "ok" ? session.data?.user?.name?.trim() ?? "" : "";
-  return name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  const first = name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  useEffect(() => { if (answered) greeted = { userId, name: first }; }, [answered, userId, first]);
+  return answered ? first : greeted?.userId === userId ? greeted.name : null;
 }
 
 const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
@@ -78,13 +86,22 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
   const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const firstName = useFirstName();
+  const firstName = useFirstName(me.userId);
   const [signError, setSignError] = useState("");
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
-  const a = analytics.state === "ok" ? analytics.data : null;
-  const r = retention.state === "ok" ? retention.data : null;
+  // The cold load: the board and the rows wait for their own three reads; the band waits for every read it is chosen
+  // from. Its place is kept by a band-shaped placeholder meanwhile, so a band that comes later pushes nothing down.
+  const ready = [analytics, spend, retention].every(state => state.state !== "loading");
+  const answered = ready && [referrals, readiness].every(state => state.state !== "loading");
+  const a = ready && analytics.state === "ok" ? analytics.data : null;
+  const r = ready && retention.state === "ok" ? retention.data : null;
+  // The band's slot: there from a cold load's first paint, taken away 250 ms after the reads answered without a band
+  // (it closes in place meanwhile). A screen that opens with its reads already answered never shows it.
+  const [slot, setSlot] = useState(!answered && !failed);
+  const slotCloses = answered || failed;
+  useEffect(() => { if (!slot || !slotCloses) return; const timer = setTimeout(() => setSlot(false), 250); return () => clearTimeout(timer); }, [slot, slotCloses]);
   const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
@@ -111,7 +128,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
-  const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+  const next = failed || !answered ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
@@ -129,9 +146,13 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     <div className="ow-page ow-dash">
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
-      <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>
+      {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
+      {firstName === null ? <div className="ow-hello" aria-hidden="true">{NBSP}</div> : <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>}
       {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
-      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
+      {next ? <NextBand {...next}>{signFailed}</NextBand> : <>
+        {slot && <NextBandPlaceholder closing={slotCloses} />}
+        {signFailed}
+      </>}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
           : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
@@ -141,7 +162,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
-              <Strip days={board.days} caption={STRIP_CAPTION} />
+              <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} />
               {news && <p className="ow-board-news">{news}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
@@ -154,10 +175,9 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
           : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
+      {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
       {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
-      {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
-        {!a && <p className="ow-muted ow-loading" aria-busy="true">Lädt …</p>}
-      </Diary>}
+      {!failed && a && (a.diary.length > 0 || gap) && <Diary diary={a.diary} today={a.today} unit={unitOf(me)} gap={gap} />}
     </div>
   );
 }
@@ -165,7 +185,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 /** The board's numbers, the only part of the page kept on this device (board-cache.ts). */
 export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: RetentionSummary | null, locationId: string): BoardData {
   return {
-    timezone: a.timezone, today: a.today, days: a.days, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
+    // Today's count comes from the diary of the same read (it reaches to now); the day series ends yesterday by rule.
+    timezone: a.timezone, today: a.today, days: a.days, todayBookings: a.diary.find(day => day.date === a.today)?.bookings ?? 0, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
     spend: spend ? { currency: spend.currency, figures: locationSpend(spend, locationId) } : undefined,
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };

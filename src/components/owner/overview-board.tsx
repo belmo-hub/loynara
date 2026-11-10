@@ -40,21 +40,27 @@ export function BoardPlaceholder() {
   return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
 
-/** The last 7 local days ending yesterday; only yesterday lights up, and only if it had bookings. */
-export function Strip({ days, caption }: { days: DayCount[]; caption: string }) {
-  const week = days.slice(-7);
+/**
+ * The last six complete local days and today. Yesterday lights up if it had bookings; today's bar is an outline, since
+ * its count is not final. `days` end yesterday and stay the headline's only source. Without `today` (numbers this device
+ * kept before today's count was stored) the strip is the seven complete days.
+ */
+export function Strip({ days, caption, today }: { days: DayCount[]; caption: string; today?: DayCount }) {
+  const week = today ? [...days.slice(-6), today] : days.slice(-7);
   const max = Math.max(1, ...week.map(day => day.bookings));
-  const label = (index: number) => index === week.length - 1 ? "gestern" : weekdayShort(week[index].date);
+  const label = (day: DayCount) => day === today ? "heute" : day === days.at(-1) ? "gestern" : weekdayShort(day.date);
   return (
     <>
-      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map((day, index) => `${label(index)} ${bookingsText(day.bookings)}`).join(", ")}`}>
-        {week.map((day, index) => {
-          const yesterday = index === week.length - 1;
+      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map(day => `${label(day)} ${bookingsText(day.bookings)}`).join(", ")}`}>
+        {week.map(day => {
+          const yesterday = day === days.at(-1);
           return (
             <div className="ow-strip-day" key={day.date} aria-hidden="true">
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
-              <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{label(index)}</span>
+              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
+              {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
+              {/* Beside „heute“ nothing is bold: a bold weekday next to it reads as today (Design, 10 Nov). */}
+              <span className="ow-strip-d" data-yesterday={yesterday && !today ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
             </div>
           );
         })}
@@ -188,6 +194,22 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
 export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
 /** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
 /** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
+/**
+ * The band's slot while the reads it is chosen from load (ENG-203): the band's own structure, hidden, so the slot is as
+ * tall as a band with a title and an action line and the board stands where it will stay. A band takes its place;
+ * without one it closes in place (owner.css, .ow-next-ph).
+ */
+// shortcut: sized by a title of usual length (two lines on a phone, one from about 500 px) with its action line; a shorter title or a band with an extra text line still moves the board 20 to 45 px, size the slot from the band itself once the reads can say which band comes
+/** Sizing only, never shown or read out: as long as a usual band title, so it wraps where one does. */
+export const BAND_SIZER = "00 Karten können jetzt eine Prämie einlösen.";
+export function NextBandPlaceholder({ closing }: { closing: boolean }) {
+  return (
+    <div className="ow-next ow-next-ph" data-closing={closing || undefined} aria-hidden="true">
+      <span><span className="ow-band ow-ph"><span className="ow-band-icon" /><span className="ow-band-text"><b>{BAND_SIZER}</b><span className="ow-band-go">{NBSP}</span></span></span></span>
+    </div>
+  );
+}
+
 export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
   const body = <>
     <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
