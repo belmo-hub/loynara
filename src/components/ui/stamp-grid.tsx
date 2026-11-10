@@ -5,7 +5,9 @@ import { cx } from "./cx";
 import styles from "./stamp-grid.module.css";
 
 /** `reward`: the icon the last slot shows in an ink ring until it is earned (the owner's card view, ENG-122a). */
-type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string };
+type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string;
+  /** A long programme's track grows from the start, once (the guest card page's first paint). */
+  grow?: boolean };
 
 /** Above this many stamps a card of marks stops being readable (and buries the code below it); a track replaces it. */
 export const STAMP_GRID_MAX = 30;
@@ -24,11 +26,11 @@ export function stampColumns(total: number) {
  * `landed` play the landing motion once, 90 ms apart (DESIGN.md, "Pop in"). Programmes longer than STAMP_GRID_MAX stamps get one progress
  * track instead, so the card keeps its height whatever the merchant sets.
  */
-export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className }: Props) {
+export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, grow = false }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
   const label = locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
   if (total > STAMP_GRID_MAX) {
-    return <div className={cx(styles.track, className)} role="img" aria-label={label}>
+    return <div className={cx(styles.track, className)} role="img" aria-label={label} data-grow={grow || undefined}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />
     </div>;
   }

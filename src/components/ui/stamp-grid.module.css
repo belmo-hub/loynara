@@ -19,3 +19,8 @@
    every merchant colour (asserted in merchant-color.test.ts). */
 .track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
 .trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }
+/* Bars grow: only where the page asks (the guest card's first paint) the fill grows from the start; a later change
+   moves from the old value to the new. */
+.track[data-grow] .trackFill { animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .track[data-grow] .trackFill { animation: none; } }

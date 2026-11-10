@@ -128,14 +128,23 @@ or nothing).
 
 | Motion (vocabulary name) | Where | Spec | Reduced motion |
 |---|---|---|---|
-| Press / tap feedback | every button and pressable row | scale .97, `--dur-press` `--ease-out`, transform only | none |
+| Press / tap feedback | every button and pressable row | scale .97, `--dur-press` `--ease-out`, transform only; „Karte aktualisieren“ also turns its icon once per press, `--dur-ui` `--ease-out` | none |
 | Fade in + scale in | dialogs (centred origin), menus (origin-aware) | from opacity 0, scale .96; exit 160 ms | fade only |
-| Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; swipe to dismiss | fade only |
+| Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; exit 160 ms `--ease-out`; the backdrop fades with the panel, 260 ms in and 160 ms out, `--ease-out`; swipe to dismiss | fade only |
 | Slide in + fade | toasts from the bottom edge; exit faster than enter | `--dur-ui` | fade only |
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
+| Skeleton to content (card) | customer card page | the placeholder lies over the loaded page in the same frame and fades out, `--dur-ui` `--ease-out`; the page under it takes taps from the first frame | page at once |
+| Card arrive | customer card object, first paint | the card's ground scales .98 → 1 and fades, `--dur-ui`, once; ticket, number and balance stand still | instant |
+| List arrive (guest) | rows opened by „Alle anzeigen“ and rows a later read adds; rows under the page's placeholder don't rise | 6 px rise and fade, 30 ms apart, at most 8 rows, done by 420 ms | instant |
+| Arrive (guest) | guest state screens, join preview card and panel (each as one block) | 8 px rise and fade, `--dur-ui`, 40 ms apart; blocks that hold a fact only fade | instant |
+| Bars grow (guest) | points ladder fill and long-programme track, on the card page's first paint only | scaleX from 0, `--dur-reward` `--ease-in-out`; outside the 420 ms budget, done by 700 ms; a later change grows from the old value to the new | final state |
+| Waiting (after 300 ms) | a state screen still asking; a button's spinner | nothing for 300 ms, then the words fade in over `--dur-ui` or the spinner turns; a quicker answer replaces them unseen | the 300 ms hold stays; no fade, a slow spinner (2 s) |
+| Disclosure (guest) | notices, close confirmation, „Alle anzeigen“ | open: rows 0fr → 1fr over `--dur-ui`, fade after `--dur-press`; close: fade `--dur-press` and rows 160 ms, together | instant |
+| Field error (guest) | message lines on guest pages | fade and 4 px down, `--dur-ui` | instant |
 | Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-ui`; the first value stands still (no count-up, no roll on arrival) | instant |
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
 | Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay. A tap during it ends it: on a bar link it lands at once; on the content it lands from `--dur-press` on, on what is under the finger on the new screen, and is dropped before | cut |
+| Screen change, in place | title and message of a guest state screen (tap page: waiting, booked, rejected, expired) | the old words leave the layout at once and fade out over `--dur-press`; the new fade in over `--dur-ui` after `--dur-press`/2 | instant swap |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, `--dur-ui` `--ease-in-out` | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | a still placeholder |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
@@ -160,7 +169,7 @@ or nothing).
 | Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
 | Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui` and the old one leaves at once; „Gespeichert“ wears a check that draws itself and stays until the next edit | instant label swap |
 
-No hover lift on cards, no animation on keyboard-triggered actions. A screen's first paint and navigation in follow Arrive and List arrive; a return (Back, a back link, a cached screen) plays nothing. A fact (a price, a date, a code, a balance) may arrive with its row or block, never on its own: no count-up, no roll on arrival. Under reduced motion loops stop and the spinner turns at 2 s.
+No hover lift on cards, no animation on keyboard-triggered actions. A screen's first paint and navigation in follow Arrive and List arrive; a return (Back, a back link, a cached screen) plays nothing.
 
 ## Layout patterns
 

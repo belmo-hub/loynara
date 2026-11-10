@@ -22,4 +22,8 @@
 /* A mark the booking just crossed presses like a landing stamp, once the fill has started towards it. */
 .mark[data-new] .dot { animation: land var(--dur-reward) var(--ease-out) var(--dur-ui) both; }
 @keyframes land { from { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .mark[data-new] .dot { animation: none; } }
+/* Bars grow: only where the page asks (the guest card's first paint) the fill grows from the start. Anywhere else, and
+   on every later change, it moves from the old value to the new, never from 0. */
+.ladder[data-grow] .fill { animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .ladder[data-grow] .fill, .mark[data-new] .dot { animation: none; } }
