@@ -1176,6 +1176,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 @media (forced-colors: active) {
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input) { appearance: auto; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input)::before { content: none; }
+  /* The switch is drawn too and would vanish the same way: it takes the system colours itself. */
+  .ow-check input[role="switch"] { forced-color-adjust: none; border: 1px solid CanvasText; background: Canvas; }
+  .ow-check input[role="switch"]::before { forced-color-adjust: none; background: CanvasText; }
+  .ow-check input[role="switch"]:checked { background: Highlight; }
+  .ow-check input[role="switch"]:checked::before { background: HighlightText; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
