@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import pg from "pg";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries } from "@/db/schema";
@@ -101,5 +102,42 @@ describe("review link on the card", () => {
     const view = await getCard(card.cardToken);
     expect(view).toMatchObject({ reviewUrl: REVIEW, balance: 3 });
     expect(await ledgerCount(card.id)).toBe(before);
+  });
+});
+
+describe("the stamp moment's field on the card (ENG-206)", () => {
+  const visit = (userId: string, locationId: string, membershipId: string) => award({ userId, locationId, membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  it("STAMP_ANIMATION_ENABLED off: the card read carries no field and runs no query for it", async () => {
+    const owner = await user();
+    const merchant = await shop(owner);
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await visit(owner, merchant.locationId, card.id);
+    await visit(owner, merchant.locationId, card.id);
+    const queries = vi.spyOn(pg.Client.prototype, "query");
+    vi.stubEnv("STAMP_ANIMATION_ENABLED", "false");
+    expect(await getCard(card.cardToken)).not.toHaveProperty("stampMoment");
+    const off = queries.mock.calls.length;
+    queries.mockClear();
+    vi.stubEnv("STAMP_ANIMATION_ENABLED", "true");
+    expect(await getCard(card.cardToken)).toMatchObject({ stampMoment: { referralDue: true } });
+    // On, the one count of team-confirmed bookings is the only read added.
+    expect(queries.mock.calls.length).toBe(off + 1);
+  });
+
+  it("on: the referral block is due from the second team-confirmed booking; the Startbonus and an undone booking do not count", async () => {
+    vi.stubEnv("STAMP_ANIMATION_ENABLED", "true");
+    const owner = await user();
+    const merchant = await shop(owner);
+    await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, welcomeBonus: 3 });
+    const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    expect((await getCard(card.cardToken)).stampMoment).toEqual({ referralDue: false });
+    await visit(owner, merchant.locationId, card.id);
+    expect((await getCard(card.cardToken)).stampMoment).toEqual({ referralDue: false });
+    const second = await visit(owner, merchant.locationId, card.id);
+    expect((await getCard(card.cardToken)).stampMoment).toEqual({ referralDue: true });
+    await reverseEntry({ userId: owner, locationId: merchant.locationId, entryId: second.entryId, reason: "Versehentlich gebucht", idempotencyKey: randomUUID(), requestId: randomUUID() });
+    expect((await getCard(card.cardToken)).stampMoment).toEqual({ referralDue: false });
   });
 });

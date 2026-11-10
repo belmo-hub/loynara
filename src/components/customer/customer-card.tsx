@@ -78,6 +78,8 @@ export type CustomerCardProps = {
   walletError?: string;
   exportUrl?: string;
   contactPanel?: ReactNode;
+  /** ENG-206: „Karte empfehlen“ under the card group, from the card's second team-confirmed booking. */
+  referral?: ReactNode;
   /** ENG-165: the „E-Mail“ (or, while marketing mail is off, „Karte sichern“) row in „Deine Karte“ and the sheet it opens. */
   email?: { title: string; sub: string; sheet: (open: boolean, onClose: () => void) => ReactNode };
   /** With a confirmed address, „So findest du deine Karte wieder“ names the recovery page as a fourth way (E39). */
@@ -120,6 +122,12 @@ export function CustomerCard(props: CustomerCardProps) {
   const toldSelected = rewards.find((reward) => reward.id === selectedId) ?? nearestReward(rewards, told);
   const toldReady = rewards.filter((reward) => told >= reward.cost).length;
   const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
+  // The reward moment (ENG-206): this booking made a reward ready. Its headline has two lines from the first frame
+  // (Marketing, 10 Nov): the phrase, then the reward's title alone. It keeps them for this view, so nothing wraps anew
+  // when the pill leaves. The card presses once the stamps have landed (CSS).
+  const rewardMoment = Boolean(moment && rewards.some((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited));
+  const [titleAlone, setTitleAlone] = useState(false);
+  if (rewardMoment && !titleAlone) setTitleAlone(true);
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
@@ -137,7 +145,7 @@ export function CustomerCard(props: CustomerCardProps) {
   </div>;
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving ? cardSkeleton : undefined}>
-    <div className={styles.lead} data-arriving={arriving || undefined}>
+    <div className={styles.lead} data-arriving={arriving || undefined} data-card-press={(rewardMoment && landed !== undefined) || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
@@ -146,7 +154,7 @@ export function CustomerCard(props: CustomerCardProps) {
         <p>{t.endsWindow(programType === "points")}</p>
       </section> : null}
 
-      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />
+      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} titleAlone={titleAlone} />
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
@@ -168,6 +176,7 @@ export function CustomerCard(props: CustomerCardProps) {
       </div>
 
       {notices}
+      {props.referral}
 
     </div>
 
@@ -297,7 +306,7 @@ function Signpost({ icon: Icon, title, sub, onOpen }: { icon: LucideIcon; title:
 }
 
 /** The one progress statement: how many are missing for which reward, or which reward is ready. */
-function Goal({ t, number, programType, balance, selected, readyCount, nextGoal }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward }) {
+function Goal({ t, number, programType, balance, selected, readyCount, nextGoal, titleAlone }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward; titleAlone?: boolean }) {
   if (!selected) return null;
   const unitFor = (n: number) => t.unit(n, programType);
   const remaining = Math.max(0, selected.cost - balance);
@@ -305,7 +314,7 @@ function Goal({ t, number, programType, balance, selected, readyCount, nextGoal 
     : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
   return <div className={styles.goal}>
     <h1 className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
-      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`}>{selected.title}</span></h1>
+      : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`} data-alone={(titleAlone && remaining === 0) || undefined}>{selected.title}</span></h1>
     {sub ? <p className={styles.goalSub}>{sub}</p> : null}
   </div>;
 }

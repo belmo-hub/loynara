@@ -191,6 +191,9 @@ export type PublicProgram = {
 };
 
 export type CardResponse = {
+  /** Present only while STAMP_ANIMATION_ENABLED is on (ENG-206): the card page plays the booking moment, and shows the
+   *  referral block once the card has two team-confirmed bookings. Absent: no moment, the referral block as before. */
+  stampMoment?: { referralDue: boolean };
   /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für …“ at the top of the card. */
   demoNotice?: string;
   scanCode: string;

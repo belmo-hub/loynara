@@ -316,3 +316,38 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
     expect(css).toContain(".walletButton[data-badge]:disabled { opacity: 1; }");
   });
 });
+
+describe("the reward moment (ENG-206)", () => {
+  const ready = { ...base, balance: 5, moment: { credited: 1, balance: 5 } };
+  it("names the reward on its own line from the first frame, and presses the card only once the last stamp has landed", () => {
+    // Marketing (10 Nov): the live phrase, then the owner's title alone on its own line, nothing added.
+    const headline = /Deine Prämie ist bereit: <span class="goal-reward[^"]*" data-alone="true">Kaffee<\/span><\/h1>/;
+    const waiting = renderToStaticMarkup(h(CustomerCard, { ...ready, balance: 4 }));
+    expect(waiting).toMatch(headline);
+    expect(waiting).not.toContain("data-card-press");
+    const out = renderToStaticMarkup(h(CustomerCard, { ...ready, landed: 5, landedCount: 1 }));
+    expect(out).toMatch(headline);
+    expect(out).toContain('data-card-press="true"');
+    expect(out).toMatch(/data-arrive="true"[^>]*>.*Prämie verfügbar/);
+  });
+  it("names the reward the goal line named when one booking makes two rewards ready", () => {
+    const rewards = [{ id: "r2", title: "Kuchen", cost: 100 }, { id: "r1", title: "Kaffee", cost: 50 }];
+    const goal = (out: string) => out.match(/<span class="goal-reward[^>]*>([^<]*)</)?.[1];
+    expect(goal(renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards, balance: 40 })))).toBe("Kaffee");
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards, balance: 110, landed: 110, landedCount: 70, moment: { credited: 70, balance: 110 } }));
+    expect(out).toContain('data-card-press="true"');
+    expect(goal(out)).toBe("Kaffee");
+  });
+  it("is not played by a booking that reaches no reward, nor again for a reward that was ready before", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3, landed: 3, moment: { credited: 1, balance: 3 } }))).not.toContain("data-card-press");
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 6, landed: 6, moment: { credited: 1, balance: 6 } }))).not.toContain("data-card-press");
+  });
+  it("without a moment (STAMP_ANIMATION_ENABLED off) the card shows its state: no pill, no landing, no sequence", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5 }));
+    expect(out).not.toContain("Stempel erhalten");
+    expect(out).not.toContain("data-card-press");
+    expect(out).not.toContain("data-arrive=");
+    expect(out).not.toContain("data-alone");
+    expect(out).toContain("Prämie verfügbar");
+  });
+});

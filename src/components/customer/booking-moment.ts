@@ -7,6 +7,8 @@ export const FIRST_OPEN_WINDOW_MS = 10 * 60_000;
 export const TAP_MARK_SLACK_MS = 2 * 60_000;
 /** The card shows the balance last seen for this long, then steps to the new one. */
 export const MOMENT_STEP_MS = 420;
+/** The stamp's landing (Pop in) takes --dur-reward. */
+export const MOMENT_LAND_MS = 480;
 export const MOMENT_PILL_MS = 6000;
 
 /**
@@ -34,9 +36,11 @@ export function readSeen(cardLocator: string): string | null | undefined {
  * What one read of the card may celebrate. Only bookings this device has not shown count, so a correction or an undone
  * redemption (the balance grows, but no booking was made) plays nothing. While the card is open the moment never claims
  * more than the balance grew. On the first read there is no balance to compare: the record decides alone, and without
- * storage nothing plays, because a reload could not tell that it already did.
+ * storage nothing plays, because a reload could not tell that it already did. The server sends `stampMoment` only while
+ * STAMP_ANIMATION_ENABLED is on (ENG-206): without it nothing plays and nothing is recorded.
  */
-export function momentFor(read: { activity: ActivityEntry[]; balance: number }, before: { balance: number | null; seenAt: string | null | undefined }, now: number) {
+export function momentFor(read: { activity: ActivityEntry[]; balance: number; stampMoment?: object }, before: { balance: number | null; seenAt: string | null | undefined }, now: number) {
+  if (!read.stampMoment) return { credited: 0, newest: null };
   const run = unseenAwards(read.activity, before.seenAt ?? null, now);
   const credited = before.balance === null
     ? (before.seenAt === undefined ? 0 : run.credited)
@@ -54,3 +58,12 @@ export function markSeen(cardLocator: string, iso: string) {
     if (!had || Date.parse(iso) > Date.parse(had)) localStorage.setItem(key(cardLocator), iso);
   } catch { /* no storage: a booking made while the card is open still plays, keyed on the balance growing */ }
 }
+
+/**
+ * Where „Karte empfehlen“ stands (ENG-206). Without the server's field (flag off): in the panels below, as it always
+ * did. With it: under the card group from the second team-confirmed booking on, and before that nowhere, so it is
+ * neither rendered nor fetched.
+ */
+export const referralPlace = (field: { referralDue: boolean } | undefined) => !field ? "below" as const : field.referralDue ? "card" as const : null;
+/** Due with a booking whose moment is playing, the block is held shut until the stamp has landed, then opens. */
+export type ReferralHold = "none" | "held" | "released";

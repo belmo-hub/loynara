@@ -9,6 +9,7 @@ import { previewSecureTap, processSecureTap, settleUnlinkedTap, tapCardToken, ta
 import { dispatchTapPushNow } from "@/lib/staff-push";
 import { demoPlateLive } from "@/lib/demo";
 import { demoEnvironment } from "@/lib/demo-environment";
+import { experienceFlag } from "@/lib/experience-flags";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 function fields(request: Request) {
@@ -40,7 +41,8 @@ export async function GET(request: Request, context: { params: Promise<{ ref: st
     const session = tapMemberSession(request, programId);
     const other = returningMemberSession(request, programId);
     const shared = session?.shared === true || (other?.token === session?.token && other?.shared === true);
-    return Response.json({ ...info, requiresSelection: shared, recoveryRequired: !info.hasMembership && cookieValue(request, tapCookieName(programId)) !== undefined }, { headers: responseHeaders });
+    // ENG-206: the tap page records its booking for the card page's moment only while the moment is switched on.
+    return Response.json({ ...info, ...(experienceFlag("STAMP_ANIMATION_ENABLED") ? { stampMoment: true } : {}), requiresSelection: shared, recoveryRequired: !info.hasMembership && cookieValue(request, tapCookieName(programId)) !== undefined }, { headers: responseHeaders });
   }
   catch (error) { return respondError(error); }
 }

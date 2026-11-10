@@ -13,7 +13,7 @@ import styles from "./customer/tap.module.css";
 import { walletPlatform } from "./wallet-preparation";
 import { markWalletStep, readWalletStep, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
 
-type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
+type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string; /** Present only while STAMP_ANIMATION_ENABLED is on (ENG-206). */ stampMoment?: true };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
 type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string; requestId?: string; statusRef?: string; credited?: number };
 /** States in which the server also returns the card number, so the cashier can match the right request. */
@@ -173,7 +173,7 @@ export function TapClient({ refId }: { refId: string }) {
   }, [preview, recoveryCard, done, waiting]);
 
   // The card page plays its own booking moment for bookings this device has not shown; this page just showed this one.
-  const cardLocator = preview?.cardLocator;
+  const cardLocator = preview?.stampMoment ? preview.cardLocator : undefined;
   useEffect(() => { if (done && cardLocator) markSeen(cardLocator, new Date(Date.now() + TAP_MARK_SLACK_MS).toISOString()); }, [done, cardLocator]);
   const celebrate = moment && done;
   const cardRef = useRef<HTMLDivElement>(null);
