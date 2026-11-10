@@ -52,27 +52,39 @@ test("the milestone card stays once it is shown", async () => {
   await expect(card).toBeVisible();
 });
 
-test("a cold load of the Übersicht paints the band and the numbers together and writes the greeting once", async () => {
+test("a cold load of the Übersicht keeps the band's place, never pushes the numbers down and writes the greeting once", async () => {
   // The reads the greeting and the band wait for answer last: before, „Guten Abend.“ was rewritten with the name and
-  // the band landed after the board and pushed it down the screen.
+  // the band landed after the board and pushed it down the screen. Now the band's place is held by a placeholder from
+  // the first paint; a band takes it without moving anything, and without a band the slot closes in place, once.
   const late = /\/api\/(auth\/get-session|merchant\/readiness)/;
   await page.route(late, async route => { await new Promise(done => setTimeout(done, 400)); await route.continue(); });
   await page.goto("/merchant");
-  const seen = await page.evaluate(() => new Promise<Array<{ hello: string | null; top: number | null; band: boolean }>>(done => {
-    const frames: Array<{ hello: string | null; top: number | null; band: boolean }> = [];
+  type Frame = { hello: string | null; top: number | null; slot: boolean; band: boolean; diary: boolean; rows: boolean };
+  const seen = await page.evaluate(() => new Promise<Frame[]>(done => {
+    const frames: Frame[] = [];
     const end = performance.now() + 2500;
     const look = () => {
-      frames.push({ hello: document.querySelector<HTMLElement>(".ow-content h1")?.innerText ?? null, top: document.querySelector(".ow-content .ow-board-big")?.getBoundingClientRect().top ?? null, band: document.querySelector(".ow-content .ow-next") !== null });
+      const board = document.querySelector(".ow-content .ow-board");
+      frames.push({
+        hello: document.querySelector<HTMLElement>(".ow-content h1")?.innerText ?? null, top: board?.getBoundingClientRect().top ?? null,
+        slot: document.querySelector(".ow-content .ow-next-ph") !== null, band: document.querySelector(".ow-content .ow-next:not(.ow-next-ph)") !== null,
+        diary: document.querySelector(".ow-content .ow-diary") !== null, rows: document.querySelector(".ow-content .ow-diary li") !== null,
+      });
       if (performance.now() < end) requestAnimationFrame(look); else done(frames);
     };
     look();
   }));
   await page.unroute(late);
-  const withNumber = seen.filter(frame => frame.top !== null);
-  expect(withNumber.length, "the board's number showed").toBeGreaterThan(0);
+  const withBoard = seen.filter(frame => frame.top !== null);
+  expect(withBoard.length, "the board showed").toBeGreaterThan(0);
   expect(new Set(seen.map(frame => frame.hello).filter(Boolean)).size, "the greeting is written once").toBe(1);
-  expect(new Set(withNumber.map(frame => frame.top)).size, "the number never moves once it is shown").toBe(1);
-  expect(new Set(withNumber.map(frame => frame.band)).size, "a band is there from the number's first frame, or never").toBe(1);
+  expect(withBoard[0].slot || withBoard[0].band, "the band's place is held from the board's first frame").toBe(true);
+  const tops = withBoard.map(frame => frame.top!);
+  expect(tops.every((top, index) => index === 0 || top <= tops[index - 1] + 0.5), "the board is never pushed down").toBe(true);
+  // With a band the board stands still; without one it rises once, by the closing slot, and then stays.
+  if (seen.some(frame => frame.band)) expect(new Set(tops.map(Math.round)).size, "a band takes its place without moving the board").toBe(1);
+  else expect(Math.round(tops.at(-1)!), "the closed slot leaves no jump behind").toBe(Math.round(tops.filter((_, index) => !withBoard[index].slot)[0] ?? tops.at(-1)!));
+  expect(seen.every(frame => !frame.diary || frame.rows), "the diary comes with its data, never as a heading over a wait line").toBe(true);
 });
 
 test("a cold load does not arrive; a screen that is navigated to arrives once", async () => {

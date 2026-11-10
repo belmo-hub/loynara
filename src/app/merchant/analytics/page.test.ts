@@ -39,10 +39,11 @@ describe("Ergebnisse as Wegweiser rows (ENG-122b)", () => {
     expect(html.match(/class="ow-strip-day"/g)).toHaveLength(5);
     expect(html.match(/data-today=""/g)).toHaveLength(1);
     expect(html).toContain("19.10. bis 26.10. 15 Buchungen, 26.10. bis heute 30 Buchungen");
-    expect(html).toContain(">bis heute</span>");
     expect(html).toContain("Bestätigte Buchungen je Woche: 28.09. bis 05.10. 9 Buchungen, 05.10. bis 12.10. 11 Buchungen, 12.10. bis 19.10. 13 Buchungen, 19.10. bis 26.10. 15 Buchungen");
     expect(html.match(/data-lit=""/g)).toHaveLength(1);
-    expect(html).toMatch(/data-lit=""[^>]*><\/span><span class="ow-strip-d" data-yesterday="">19\.10\.<\/span>/);
+    // Beside „bis heute“ no label is bold (Design, 10 Nov): the lit bar and the outline carry the emphasis.
+    expect(html).not.toContain("data-yesterday");
+    expect(html).toContain('<span class="ow-strip-d" data-running="">bis heute</span>');
     expect(html).toContain("Die meisten Buchungen gab es letzte Woche.");
   });
 

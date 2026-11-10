@@ -147,7 +147,7 @@ function Weeks({ weeks, running }: { weeks: Week[]; running?: Week }) {
           <div className="ow-strip-day" key={week.from} aria-hidden="true">
             <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
             <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} data-today={week === running ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
-            <span className="ow-strip-d" data-yesterday={latest ? "" : undefined}>{many && (bars.length - 1 - index) % 3 !== 0 ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
+            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && (bars.length - 1 - index) % 3 !== 0 ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
           </div>
         );
       })}

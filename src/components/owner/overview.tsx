@@ -91,11 +91,17 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
-  // One paint for the cold load: the band stands above the board and the rows, so nothing shows before every read the
-  // band is chosen from has answered. A band that came later pushed the numbers down the screen.
-  const answered = [analytics, spend, retention, referrals, readiness].every(state => state.state !== "loading");
-  const a = answered && analytics.state === "ok" ? analytics.data : null;
-  const r = answered && retention.state === "ok" ? retention.data : null;
+  // The cold load: the board and the rows wait for their own three reads; the band waits for every read it is chosen
+  // from. Its place is kept by a band-shaped placeholder meanwhile, so a band that comes later pushes nothing down.
+  const ready = [analytics, spend, retention].every(state => state.state !== "loading");
+  const answered = ready && [referrals, readiness].every(state => state.state !== "loading");
+  const a = ready && analytics.state === "ok" ? analytics.data : null;
+  const r = ready && retention.state === "ok" ? retention.data : null;
+  // The band's slot: there from a cold load's first paint, taken away 200 ms after the reads answered without a band
+  // (it closes in place meanwhile). A screen that opens with its reads already answered never shows it.
+  const [slot, setSlot] = useState(!answered && !failed);
+  const slotCloses = answered || failed;
+  useEffect(() => { if (!slot || !slotCloses) return; const timer = setTimeout(() => setSlot(false), 200); return () => clearTimeout(timer); }, [slot, slotCloses]);
   const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
@@ -143,7 +149,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
       {firstName === null ? <div className="ow-hello" aria-hidden="true">{NBSP}</div> : <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>}
       {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
-      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
+      {next ? <NextBand {...next}>{signFailed}</NextBand> : <>
+        {slot && <div className="ow-next ow-next-ph" data-closing={slotCloses || undefined} aria-hidden="true"><span><span className="ow-band ow-ph" /></span></div>}
+        {signFailed}
+      </>}
       <div className="ow-dash-lead ow-stack">
         {failed && !board ? <ErrorCard reload={reload} />
           : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
@@ -153,7 +162,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
-              <Strip days={board.days} caption={STRIP_CAPTION} today={board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} />
+              <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} />
               {news && <p className="ow-board-news">{news}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
@@ -166,10 +175,9 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
           : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
+      {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
       {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
-      {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
-        {!a && <p className="ow-muted ow-loading" aria-busy="true">Lädt …</p>}
-      </Diary>}
+      {!failed && a && (a.diary.length > 0 || gap) && <Diary diary={a.diary} today={a.today} unit={unitOf(me)} gap={gap} />}
     </div>
   );
 }

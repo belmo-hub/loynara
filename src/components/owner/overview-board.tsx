@@ -59,7 +59,8 @@ export function Strip({ days, caption, today }: { days: DayCount[]; caption: str
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
               <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
               {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
-              <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
+              {/* Beside „heute“ nothing is bold: a bold weekday next to it reads as today (Design, 10 Nov). */}
+              <span className="ow-strip-d" data-yesterday={yesterday && !today ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
             </div>
           );
         })}
