@@ -67,8 +67,10 @@ case "$*" in
   *) exec "$REAL_PSQL" "$@";;
 esac''',
             'aws': 'printf "transport\\n" >> "$TEST_TRACE"; printf "synthetic ciphertext" > "$6"',
-            'age': 'printf "decrypt\\n" >> "$TEST_TRACE"; printf "synthetic dump"',
-            'pg_restore': 'printf "restore\\n" >> "$TEST_TRACE"',
+            # Records whether the decrypted dump goes into a pipe or a file: only a pipe leaves no plaintext a kill
+            # could strand on disk.
+            'age': 'python3 -c "import os, stat; print(\\"decrypt\\", \\"pipe\\" if stat.S_ISFIFO(os.fstat(1).st_mode) else \\"file\\", file=open(os.environ[\\"TEST_TRACE\\"], \\"a\\"))"; printf "synthetic dump"',
+            'pg_restore': 'cat > /dev/null; printf "restore\\n" >> "$TEST_TRACE"',
         }
         for tool, body in bodies.items():
             path = cls.bin / tool
@@ -124,7 +126,7 @@ esac''',
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Isolated restore PASS', result.stdout)
-        self.assertEqual(self.trace.read_text().splitlines(), ['transport', 'decrypt', 'restore', 'restore'])
+        self.assertEqual(self.trace.read_text().splitlines(), ['transport', 'decrypt pipe', 'restore', 'decrypt pipe', 'restore'])
 
     def test_public_populated_table_rejected(self):
         self.reject_fixture('CREATE TABLE public.occupied(id integer); INSERT INTO public.occupied VALUES (1)')

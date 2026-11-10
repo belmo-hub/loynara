@@ -48,12 +48,12 @@ SELECT
         OR extnamespace <> 'pg_catalog'::regnamespace)")"
 [[ "$existing" == "0" ]] || { echo "Restore target is not empty; no changes made." >&2; exit 1; }
 encrypted="$(mktemp)"
-decrypted="$(mktemp)"
-trap 'rm -f "$encrypted" "$decrypted"' EXIT
+trap 'rm -f "$encrypted"' EXIT
 aws --endpoint-url "$BACKUP_S3_ENDPOINT" s3 cp "s3://$BACKUP_S3_BUCKET/$BACKUP_OBJECT_KEY" "$encrypted" --only-show-errors
-age -d -i "$BACKUP_AGE_IDENTITY_FILE" "$encrypted" > "$decrypted"
-pg_restore --list "$decrypted" >/dev/null
-pg_restore --exit-on-error --no-owner --no-acl --dbname="$PGDATABASE" "$decrypted"
+# The decrypted dump only ever goes through a pipe, decrypted once to check it and once to restore: a kill can leave
+# no plaintext copy on disk. The backup job writes the dump through a pipe too, so pg_restore reads it in order.
+age -d -i "$BACKUP_AGE_IDENTITY_FILE" "$encrypted" | pg_restore --list >/dev/null
+age -d -i "$BACKUP_AGE_IDENTITY_FILE" "$encrypted" | pg_restore --exit-on-error --no-owner --no-acl --dbname="$PGDATABASE"
 schema="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT CASE WHEN to_regclass('public.user') IS NOT NULL AND to_regclass('public.tenants') IS NOT NULL AND to_regclass('public.locations') IS NOT NULL AND to_regclass('public.memberships') IS NOT NULL AND to_regclass('public.ledger_entries') IS NOT NULL AND to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AND (SELECT count(*) FROM pg_trigger WHERE tgname = 'ledger_append_only' AND NOT tgisinternal) = 1 AND (SELECT count(*) FROM pg_constraint WHERE conname IN ('ledger_entries_tenant_id_membership_id_memberships_tenant_id_id_fk','memberships_tenant_id_program_id_programs_tenant_id_id_fk')) = 2 THEN 'ok' ELSE 'incomplete' END")"
 [[ "$schema" == "ok" ]] || { echo "Restore schema/append-only trigger check failed." >&2; exit 1; }
 counts="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT 'tenants=' || (SELECT count(*) FROM tenants) || ', locations=' || (SELECT count(*) FROM locations) || ', memberships=' || (SELECT count(*) FROM memberships) || ', ledger_entries=' || (SELECT count(*) FROM ledger_entries) || ', migrations=' || (SELECT count(*) FROM drizzle.__drizzle_migrations)")"
