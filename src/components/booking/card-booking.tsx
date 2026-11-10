@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiJson } from "../client-api";
 import { buttonClassName } from "../ui/button";
-import styles from "../customer/customer-card.module.css";
+import styles from "./customer-flow.module.css";
 import { formatWhen, type BookingView } from "./booking-format";
 
 /** „Nächster Termin“ and „Termin buchen“ under the balance; renders nothing while the shop has booking off or the read fails. */

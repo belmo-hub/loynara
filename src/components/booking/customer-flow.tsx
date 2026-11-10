@@ -218,25 +218,25 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
     <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
 
-    {view.blocked ? null : step === "done" && result ? <section className={card.panel} aria-labelledby="booking-step-title">
-      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{result.status === "requested"
+    {view.blocked ? null : step === "done" && result ? <section className={styles.panel} aria-labelledby="booking-step-title">
+      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested"
         ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit. Ohne Bestätigung verfällt die Anfrage nach dem Termin." : "Angefragt: der Shop bestätigt dir den Termin. Ohne Bestätigung verfällt die Anfrage nach dem Termin.")
         : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
       <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
       <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>
-    </section> : <section className={`booking-flow ${card.panel}`} aria-labelledby="booking-step-title">
+    </section> : <section className={`booking-flow ${styles.panel}`} aria-labelledby="booking-step-title">
       <div className={styles.head}>
-        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={card.panelTitle}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
+        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
         <p className={styles.step}>{index} von {total}</p>
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
       {service && step !== "service" && !moving ? <p className={card.muted}>{service.name} · {service.durationMin} Min. · {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
 
-      {step === "service" ? view.services.length ? <div className={card.rewardList}>
-        {view.services.map(s => <button key={s.id} type="button" className={card.rewardRow} onClick={() => chooseService(s)}>
-          <span className={card.rewardText}><strong>{s.name}</strong><small>{s.durationMin} Min.</small></span>
+      {step === "service" ? view.services.length ? <div className={styles.rewardList}>
+        {view.services.map(s => <button key={s.id} type="button" className={styles.rewardRow} onClick={() => chooseService(s)}>
+          <span className={styles.rewardText}><strong>{s.name}</strong><small>{s.durationMin} Min.</small></span>
           <span>{formatPrice(s.priceMinor, s.priceFrom)}</span>
         </button>)}
       </div> : <p className={card.muted}>Der Shop hat noch keine Leistungen online. Ruf kurz an.</p> : null}
@@ -308,8 +308,8 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
     finally { setBusy(false); }
   }
 
-  return <section className={`booking-mine ${card.panel}`} aria-labelledby="booking-mine-title">
-    <h2 id="booking-mine-title" className={card.panelTitle}>Meine Termine</h2>
+  return <section className={`booking-mine ${styles.panel}`} aria-labelledby="booking-mine-title">
+    <h2 id="booking-mine-title" className={styles.panelTitle}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
     {view.upcoming.length ? <ul className={styles.list}>{view.upcoming.map(a => {
       return <li key={a.id}>
