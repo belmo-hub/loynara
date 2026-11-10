@@ -1,4 +1,4 @@
-.shell { --merchant-text: var(--merchant-text-light); flex: 1 0 auto; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); font: var(--weight-body) var(--text-16)/var(--leading-body) var(--font-sans); -webkit-font-smoothing: antialiased; }
+.shell { --merchant-text: var(--merchant-text-light); position: relative; flex: 1 0 auto; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); font: var(--weight-body) var(--text-16)/var(--leading-body) var(--font-sans); -webkit-font-smoothing: antialiased; }
 @media (prefers-color-scheme: dark) { .shell { --merchant-text: var(--merchant-text-dark); } }
 .header, .main, .footer { width: 100%; max-width: 440px; margin: 0 auto; padding-inline: max(var(--gutter), env(safe-area-inset-left)) max(var(--gutter), env(safe-area-inset-right)); }
 .header { padding-top: calc(var(--space-3) + env(safe-area-inset-top)); }
@@ -10,3 +10,8 @@
   .shell[data-wide] :is(.header, .main, .footer) { max-width: 960px; }
   .shell[data-wide] .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-8); align-items: start; }
 }
+/* Skeleton to content: the placeholder lies over the loaded page in the page's own frame and fades away, so the page
+   is there and tappable underneath from the first frame. Reduced motion paints the page at once. */
+.cover { position: absolute; inset: 0; background: var(--color-bg); pointer-events: none; animation: cover-out var(--dur-ui) var(--ease-out) forwards; }
+@keyframes cover-out { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .cover { display: none; } }

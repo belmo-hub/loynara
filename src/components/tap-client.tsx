@@ -194,7 +194,7 @@ export function TapClient({ refId }: { refId: string }) {
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
   const number = result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) ? result.cardLocator : null;
   // Mock 27–29 (G-07): the tap states on the guest state screen; an error carries the danger tile.
-  return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live
+  return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live loading={state === "loading"}
     icon={state === "error" ? <TriangleAlert size={24} /> : undefined}
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
@@ -214,7 +214,9 @@ export function TapClient({ refId }: { refId: string }) {
       <p className={styles.muted}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p>
       <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </div>}
-    {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
+    {/* Keyed by where it stands: under the waiting words, under the state's blocks, or as the green next step under
+        the booked card. In each place it arrives instead of jumping there. */}
+    {preview?.cardPath && state !== "needs_enrollment" && <StateLink key={done ? "booked" : state === "loading" ? "wait" : "open"} href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     {walletProgram && recoveryCard && <WalletStep band stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}

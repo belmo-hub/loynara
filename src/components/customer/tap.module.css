@@ -12,6 +12,8 @@
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; }
 .card { width: 100%; }
+/* Facts arrive without moving: the card number, the balance and what was added only fade in (customer-state.module.css). */
+.number, .balance, .credited, .card { --arrive-shift: 0px; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* The stamp moment, once per booked stamp: the card rises and its new stamp lands. Only opacity and transform move,
