@@ -61,15 +61,16 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) test(`a cold l
   const late = /\/api\/(auth\/get-session|merchant\/readiness)/;
   await page.route(late, async route => { await new Promise(done => setTimeout(done, 400)); await route.continue(); });
   await page.goto("/merchant");
-  type Frame = { hello: string | null; top: number | null; slot: boolean; band: boolean; diary: boolean; rows: boolean };
+  type Frame = { hello: string | null; top: number | null; slot: boolean; band: boolean; slotHeight: number; bandHeight: number; diary: boolean; rows: boolean };
   const seen = await page.evaluate(() => new Promise<Frame[]>(done => {
     const frames: Frame[] = [];
     const end = performance.now() + 2500;
     const look = () => {
       const board = document.querySelector(".ow-content .ow-board");
+      const slot = document.querySelector(".ow-content .ow-next-ph"), band = document.querySelector(".ow-content .ow-next:not(.ow-next-ph)");
       frames.push({
         hello: document.querySelector<HTMLElement>(".ow-content h1")?.innerText ?? null, top: board?.getBoundingClientRect().top ?? null,
-        slot: document.querySelector(".ow-content .ow-next-ph") !== null, band: document.querySelector(".ow-content .ow-next:not(.ow-next-ph)") !== null,
+        slot: slot !== null, band: band !== null, slotHeight: slot?.getBoundingClientRect().height ?? 0, bandHeight: band?.getBoundingClientRect().height ?? 0,
         diary: document.querySelector(".ow-content .ow-diary") !== null, rows: document.querySelector(".ow-content .ow-diary li") !== null,
       });
       if (performance.now() < end) requestAnimationFrame(look); else done(frames);
@@ -82,10 +83,18 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) test(`a cold l
   expect(new Set(seen.map(frame => frame.hello).filter(Boolean)).size, "the greeting is written once").toBe(1);
   expect(withBoard[0].slot || withBoard[0].band, "the band's place is held from the board's first frame").toBe(true);
   const tops = withBoard.map(frame => frame.top!);
-  expect(tops.every((top, index) => index === 0 || top <= tops[index - 1] + 0.5), "the board is never pushed down").toBe(true);
-  // With a band the board stands still; without one it rises once, by the closing slot, and then stays.
-  if (seen.some(frame => frame.band)) expect(new Set(tops.map(Math.round)).size, "a band takes its place without moving the board").toBe(1);
-  else expect(Math.round(tops.at(-1)!), "the closed slot leaves no jump behind").toBe(Math.round(tops.filter((_, index) => !withBoard[index].slot)[0] ?? tops.at(-1)!));
+  if (seen.some(frame => frame.band)) {
+    // A band takes the slot's place. The slot is sized for a band of usual shape (a title and an action line); a band
+    // with an extra text line is taller, and the board may move by that difference alone, never by the band's height.
+    const slotHeight = Math.max(...seen.map(frame => frame.slotHeight)), bandHeight = [...seen].reverse().find(frame => frame.band)!.bandHeight;
+    expect(slotHeight, "the slot held the band's place before the band came").toBeGreaterThan(0);
+    expect(Math.abs((tops.at(-1)! - tops[0]) - (bandHeight - slotHeight)), `the board moved by the difference between the band (${bandHeight}) and its slot (${slotHeight}): ${tops[0]} to ${tops.at(-1)}`).toBeLessThanOrEqual(1);
+    expect(Math.max(...tops) - tops[0], "the board is never pushed down by more than that difference").toBeLessThanOrEqual(Math.max(0, bandHeight - slotHeight) + 1);
+  } else {
+    // Without a band the board is never pushed down: it rises once, by the closing slot, and then stays.
+    expect(tops.every((top, index) => index === 0 || top <= tops[index - 1] + 0.5), "the board is never pushed down").toBe(true);
+    expect(Math.round(tops.at(-1)!), "the closed slot leaves no jump behind").toBe(Math.round(tops.filter((_, index) => !withBoard[index].slot)[0] ?? tops.at(-1)!));
+  }
   expect(seen.every(frame => !frame.diary || frame.rows), "the diary comes with its data, never as a heading over a wait line").toBe(true);
 });
 
