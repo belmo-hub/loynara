@@ -98,7 +98,8 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   await page.waitForTimeout(600);
   const arrived = await started("ow-arrive", "ow-rise", "ow-row");
   expect(await started("ow-arrive", "ow-rise"), "the blocks arrived").toBeGreaterThan(0);
-  expect(await started("ow-row"), "the rows arrived").toBeGreaterThan(0);
+  // Rows inside an arriving block do not List-arrive: a second motion on top of the block's left a near-blank frame (Design, 10 Nov).
+  expect(await started("ow-row"), "the rows come with their block").toBe(0);
   // What a refresh of the page's data looks like to the page: the same nodes, drawn again.
   await page.evaluate(() => { window.dispatchEvent(new Event("online")); window.dispatchEvent(new Event("resize")); document.dispatchEvent(new Event("visibilitychange")); });
   await page.waitForTimeout(600);
