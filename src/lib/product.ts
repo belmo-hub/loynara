@@ -26,7 +26,6 @@ import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
-import { experienceFlag } from "./experience-flags";
 import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
 
 const shortText = z.string().trim().min(2).max(180);
@@ -758,7 +757,7 @@ export async function getPublicProgram(slug: string) {
   // The join sends back the newest rule and reward versions it showed (D7); owner screens read pending ?? in force.
   // Demo environment only (Legal, 9 Nov): the notice line, the demo consent wording with its version, and no terms to accept.
   const demo = shopDemo(row.tenant, row.location.timezone);
-  return { ...(experienceFlag("FIRST_TAP_HOOK_ENABLED") ? { firstTap: true as const } : {}), ...(demo ? { demo: { notice: demo.line, consentVersion: DEMO_CONSENT_TEXT_VERSION, consentText: demoConsentText(row.tenant.name, demo.end) } } : {}), noticeOn, appleWallet, walletMessages: !surfaceHidden("walletMessages"), businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
+  return { ...(demo ? { demo: { notice: demo.line, consentVersion: DEMO_CONSENT_TEXT_VERSION, consentText: demoConsentText(row.tenant.name, demo.end) } } : {}), noticeOn, appleWallet, walletMessages: !surfaceHidden("walletMessages"), businessName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, pointsPerCurrencyUnit: program.pointsPerCurrencyUnit, currency: row.tenant.currency, ...publicRules(program, row.tenant), ownerRulesText: program.rulesText, pending: program.pending, pendingExpiry: program.pendingExpiry, ruleVersionId: program.newestRuleVersionId, rewardVersionIds: await newestRewardVersionIds(db, row.tenant.id, row.program.id), rewards: rewardList, rewardTitle: reward?.title, rewardCost: reward?.cost, brandColor: row.location.brandColor, active: row.active, referral: await publicReferralTerms(row.tenant.id, row.program.id) };
 }
 
 export async function getMerchantContext(userId: string, selectedLocationId?: string | null) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { firstTapWait, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
+import { firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -48,21 +48,21 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts the required confirm tick before the optional box, and ties the button to the notice", async () => {
     const page = await source();
-    expect(page.indexOf('<Checkbox id="join-confirm"')).toBeLessThan(page.indexOf("{!program.firstTap && messages}"));
+    expect(page.indexOf('<Checkbox id="join-confirm"')).toBeLessThan(page.indexOf("{messagesBox}", page.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}")));
     expect(page).toContain('aria-describedby={notice ? "join-notice" : undefined}');
     expect(page).toContain('<p id="join-notice" className={styles.notice}>');
   });
   it("keeps a German stale line with the rules: under them, outside the block, both scrolled into view", async () => {
     const page = await source();
     expect(page).toContain('if (locale !== "fr") { setErrorSpot("rules"); document.getElementById("join-rules")?.scrollIntoView({ block: "start" }); }');
-    expect(page).toContain('})()}</div>\n      {errorLine("rules")}');
+    expect(page).toContain('{rulesBlock}\n      {errorLine("rules")}');
     expect((await import("node:fs")).readFileSync("src/components/customer/join.module.css", "utf8")).toMatch(/\.rules \{[^}]*scroll-margin-top/);
   });
   it("puts the additional-card error under its tick, focuses that tick and ties them together", async () => {
     const page = await source();
     expect(page).toContain('setError(t.anotherConfirmError); setErrorSpot("confirm"); document.getElementById("join-confirm")?.focus(); return;');
     expect(page).toContain('aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}');
-    expect(page.indexOf('{errorLine("confirm")}')).toBeLessThan(page.indexOf("{!program.firstTap && messages}"));
+    expect(page.indexOf('{errorLine("confirm")}')).toBeLessThan(page.indexOf("{messagesBox}", page.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}")));
     expect(page.indexOf("{t.anotherConfirm}</Checkbox>")).toBeLessThan(page.indexOf('{errorLine("confirm")}'));
   });
   it("hides the notice on a closed programme, where nothing can be accepted, and every new tap starts in the form", async () => {
@@ -95,7 +95,12 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();
-    const order = ["<h3>{t.rules}</h3>", "{!program.firstTap && messages}", '{notice && !program.demo && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
+    // Today's page is the last return; its pieces are named above it so the new first page (ENG-205) shows the same words.
+    const today = page.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}");
+    const order = ["{rulesBlock}", "{messagesBox}", "{noticeLine}", '<Button type="submit"'].map(mark => page.indexOf(mark, today));
+    expect(page).toContain("<h3>{t.rules}</h3>");
+    expect(page).toContain("const messagesBox = joinOffersMessages(onIphone, program) && <div className={styles.messages}>");
+    expect(page).toContain('{notice && !program.demo && <p id="join-notice" className={styles.notice}>');
     expect(order.every(at => at > 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');
@@ -103,28 +108,46 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
 });
 
-describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205)", () => {
+describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec of 10 Nov)", () => {
   const read = async (path: string) => (await import("node:fs")).readFileSync(path, "utf8");
-  it("lets the created card settle for --dur-reward, and not at all under reduced motion", async () => {
-    expect(firstTapWait(true)).toBe(0);
-    expect((await read("src/styles/tokens.css")).match(/--dur-reward: (\d+)ms/)?.[1]).toBe(String(firstTapWait(false)));
-    expect(await read("src/components/customer/join.module.css")).toMatch(/prefers-reduced-motion: reduce\) \{ [^}]*\.hero\[data-built\][^}]*animation: none/);
-  });
-  it("draws the build only after the server has created the card, and only with the flag's field", async () => {
+  it("is chosen by the server's flag, for German programmes only; without it every case renders today's page", async () => {
+    expect(firstPage(false, "de")).toBe(false);
+    expect(firstPage(true, "fr")).toBe(false);
+    expect(firstPage(true, "de")).toBe(true);
+    expect(await read("src/app/join/[slug]/page.tsx")).toContain('<JoinClient slug={slug} firstTap={experienceFlag("FIRST_TAP_HOOK_ENABLED")} />');
     const source = await read("src/components/join-client.tsx");
-    const built = source.indexOf("setBuilt(true)");
-    expect(built).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
-    expect(built).toBeGreaterThan(source.indexOf("if (!result) return;"));
-    expect(source.slice(source.lastIndexOf("if (program?.firstTap) {"), built)).not.toContain("\n      }");
-    expect(source.match(/setBuilt\(/g)).toHaveLength(1);
+    expect(source).toContain("export function JoinClient({ slug, firstTap = false }");
+    expect(source).toContain("const newPage = firstPage(firstTap, locale);");
+    // Every new branch hangs on newPage (or plain, which needs it), or on the flag itself while loading.
+    expect(source).toContain('const plain = newPage && !existing && returning.state !== "stale" && program?.active !== false && !program?.demo;');
+    expect(source).toContain("const top = newPage && <div");
+    expect(source).toContain("if (loading && firstTap) return");
+    expect(source).toContain("if (walletStep && newPage) return");
+    expect(source).toContain("if (plain) return <CustomerShell");
+    expect(source).toContain("{top || preview}");
   });
-  it("keeps today's page without the field; with it the box sits below the button and locks once the request is sent (Legal, 10 Nov)", async () => {
-    const source = await read("src/components/join-client.tsx"), button = source.indexOf('<Button type="submit"');
-    expect(source.indexOf("{!program.firstTap && messages}")).toBeGreaterThan(source.indexOf('id="join-rules"'));
-    expect(source.indexOf("{!program.firstTap && messages}")).toBeLessThan(source.indexOf('<p id="join-notice"'));
-    expect(source.indexOf("{program.firstTap && messages}")).toBeGreaterThan(button);
-    expect(source.match(/disabled=\{program\.firstTap && busy\}/g)).toHaveLength(2);
-    expect(source).toContain("{!program.firstTap && <p className={styles.lead}>");
-    expect(source).toContain("{program.firstTap ? <div className={styles.brand}>");
+  it("draws nothing before the server has created the card, then holds 220 ms for the Wallet step or 400 ms for the card page, and not at all under reduced motion", async () => {
+    expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 0, 0]);
+    const source = await read("src/components/join-client.tsx"), created = source.indexOf("setCreated(true)");
+    expect(source.match(/setCreated\(/g)).toHaveLength(1);
+    expect(created).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
+    expect(created).toBeGreaterThan(source.indexOf("if (!result) return;"));
+    expect(source.slice(source.lastIndexOf('if (plain && next.go !== "tap") {', created), created)).not.toContain("\n      }");
+    // The preview holds no stamp: nothing lands that the server has not booked.
+    expect(source).toContain('<StampGrid earned={0} total={program.rewardCost} locale="de" size="sm"');
+    expect(source).not.toMatch(/first\.card[^\n]*landed/);
+  });
+  it("keeps the rules above the terms sentence and the button, and puts the optional tick below the button, locked once sent (Legal, 10 Nov)", async () => {
+    const source = await read("src/components/join-client.tsx"), page = source.indexOf("if (plain) return <CustomerShell"), end = source.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}");
+    const order = ["{rulesBlock}", '{errorLine("rules")}', "{noticeLine}", '{errorLine("form")}', '<Button type="submit"', "{messagesBox}"].map(mark => source.indexOf(mark, page));
+    expect(order.every(at => at > page && at < end)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(source.match(/disabled=\{plain && busy\}/g)).toHaveLength(2);
+  });
+  it("gives every motion of the page a reduced-motion rule, within the house durations", async () => {
+    const css = await read("src/components/customer/first-page.module.css");
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.top, \.step, \.card\[data-created\]::before \{ animation: none; \}\s*\.blocks \{ transition: none; \}/);
+    expect(css.match(/animation: [a-z]+ ([^;]+);/g)!.every(rule => /var\(--dur-(press|ui|reward)\)/.test(rule))).toBe(true);
+    expect(css).not.toContain("infinite");
   });
 });

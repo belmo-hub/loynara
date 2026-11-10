@@ -1,0 +1,50 @@
+/* ENG-205, the first page behind FIRST_TAP_HOOK_ENABLED (Head of Design's spec, 10 Nov): the shop on the page ground,
+   the card as the only object, then the rules, the terms and one button, with no panel around them. */
+.top { display: grid; gap: var(--space-4); animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+.wait { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.shop { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
+.shop > div { display: grid; gap: var(--space-1); flex: 1; min-width: 0; }
+/* Fixed box, so nothing shifts: the shop's initial on its colour, the same in both themes. */
+.tile { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); }
+.name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: anywhere; }
+.location { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
+
+/* The card. Its ground is a layer of its own, so a press moves the ground and the places stand still. */
+.card { position: relative; isolation: isolate; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); color: var(--merchant-ink); }
+.card::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
+/* Press (card object): the server has created the card. 1 to .985 over --dur-press, back over --dur-ui, no fade. */
+.card[data-created]::before { animation: press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out); }
+@keyframes press { 35% { transform: scale(.985); } }
+/* 32 px places, spread across the card. */
+.stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: space-between; }
+.stamps li { width: 32px; }
+.foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.4; }
+.foot svg { flex: none; }
+.foot strong { font-weight: var(--weight-heavy); }
+
+/* Blocks 3 to 8. After the server's answer they fade and stay in the layout until the next step takes their place. */
+.blocks { display: grid; gap: var(--space-3); transition: opacity 160ms var(--ease-out); }
+.blocks[data-leaving] { opacity: 0; pointer-events: none; }
+/* The rules, word for word, set compact under a hairline. */
+.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.rules > div { padding-top: 0; border-top: 0; }
+.rules h2 { margin: 0; font-size: var(--text-14); font-weight: 650; line-height: 20px; }
+.rules > div p { line-height: 20px; }
+.rules > div p + p { margin-top: var(--space-1); }
+.rules > p { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.form { display: grid; gap: var(--space-3); }
+.form a, .rules a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
+.terms { margin-bottom: calc(var(--space-2) - var(--space-3)); }
+.terms p { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+/* The optional message tick below the button: no box, a small heading. */
+.tick > div { padding-block: 0; border: 0; }
+.tick h3 { font-size: var(--text-14); font-weight: 650; }
+/* The Wallet step arrives where the blocks stood. */
+.step { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .top, .step, .card[data-created]::before { animation: none; }
+  .blocks { transition: none; }
+}
