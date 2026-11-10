@@ -63,7 +63,8 @@
 .ow-main { min-width: 0; display: flex; flex-direction: column; }
 .ow-topbar { display: none; }
 .ow-content { flex: 1; padding-bottom: var(--space-12); }
-.ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
+/* A solid bar: a blurred one is captured into the screen change's layer and smears a halo behind the incoming title. */
+.ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--color-bg); border-bottom: 1px solid var(--color-line); }
 /* Next.js keeps the old scroll offset on navigation while the new page's top is "in view", and otherwise scrolls the page
    top to the window top. Telling it the sticky bars cover the top makes every owner page open at the top, title visible. */
 html:has(.ow-subnav) { scroll-padding-top: 49px; }
