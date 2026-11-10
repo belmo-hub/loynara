@@ -52,7 +52,9 @@ test("the milestone card stays once it is shown", async () => {
   await expect(card).toBeVisible();
 });
 
-test("a cold load of the Übersicht keeps the band's place, never pushes the numbers down and writes the greeting once", async () => {
+// Twice: with motion, and under reduced motion, where taking the slot away once left the page 16 px off for a frame.
+for (const reducedMotion of ["no-preference", "reduce"] as const) test(`a cold load of the Übersicht keeps the band's place, never pushes the numbers down and writes the greeting once (motion: ${reducedMotion})`, async () => {
+  await page.emulateMedia({ reducedMotion, forcedColors: "none" });
   // The reads the greeting and the band wait for answer last: before, „Guten Abend.“ was rewritten with the name and
   // the band landed after the board and pushed it down the screen. Now the band's place is held by a placeholder from
   // the first paint; a band takes it without moving anything, and without a band the slot closes in place, once.
@@ -129,20 +131,43 @@ test("a page's own back link is a return: the screen it leads to does not arrive
 });
 
 test("a content tap after a tab tap is dropped before 120 ms and lands from 120 ms on", async () => {
-  for (const [wait, lands] of [[60, false], [130, true]] as const) {
+  // The row's place, read before the change: during it every round trip pushes the tap later.
+  await page.goto("/merchant/more");
+  const box = (await team().boundingBox())!;
+  // In ms, read the way the shell reads it: the built CSS may write the token as ".12s".
+  const token = () => page.evaluate(() => {
+    const value = getComputedStyle(document.documentElement).getPropertyValue("--dur-press").trim();
+    return Math.round(parseFloat(value) * (value.endsWith("ms") ? 1 : 1000));
+  });
+  expect(await token(), "the drop window is --dur-press").toBe(120);
+  // A runner's round trips alone take a tap about 130 ms into the change, so the window and the fade are stretched for
+  // this test: the shell reads its window from --dur-press, and the change outlasts the late tap. Same code path, same rule.
+  const [press, ui] = [400, 1200];
+  for (const [wait, lands] of [[0, false], [press + 100, true]] as const) {
     await page.goto("/merchant/program");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.addStyleTag({ content: `html:root { --dur-press: ${press}ms; --dur-ui: ${ui}ms; }` });
+    expect(await token()).toBe(press);
     await page.waitForTimeout(500);
+    // How far into the change the tap came, by the shell's own clock.
+    await page.evaluate(() => window.addEventListener("pointerdown", () => {
+      const starts = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")).map(animation => Number(animation.startTime ?? Infinity));
+      (window as unknown as { tapSince: number }).tapSince = performance.now() - Math.min(...starts);
+    }, true));
     await tab("Mehr").click();
     await changeStarted();
-    const box = (await team().boundingBox())!;
-    await page.waitForTimeout(wait);
+    if (wait) await page.waitForTimeout(wait);
     // A raw tap at the row's place: the new screen is captured for the change and takes no hit tests while it runs.
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    if (lands) await expect(page, `a tap about ${wait} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
-    else {
+    const since = Math.round(await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince));
+    if (lands) {
+      expect(since, "the late tap came after the window and while the change ran").toBeGreaterThanOrEqual(press);
+      expect(since).toBeLessThan(press / 2 + ui);
+      await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
+    } else {
+      expect(since, "the early tap came inside the window").toBeLessThan(press);
       await page.waitForTimeout(700);
-      await expect(page, `a tap about ${wait} ms into the change is dropped`).toHaveURL(/\/merchant\/more$/);
+      await expect(page, `a tap ${since} ms into the change is dropped`).toHaveURL(/\/merchant\/more$/);
       await expect(team(), "the change ended at the tap").toBeVisible();
     }
   }

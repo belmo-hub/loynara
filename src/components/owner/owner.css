@@ -614,7 +614,12 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-next-ph .ow-band :is(.ow-band-icon, .ow-band-text) { visibility: hidden; }
 .ow-next-ph[data-closing] { grid-template-rows: 0fr; opacity: 0; }
 .ow-next-ph[data-closing] ~ * { transform: translateY(calc(-1 * var(--space-4))); transition: transform 160ms var(--ease-out) 60ms; }
-@media (prefers-reduced-motion: reduce) { .ow-next-ph, .ow-next-ph[data-closing] ~ * { transition: none; } }
+/* A block that mounts while the slot is closing (the diary, with its data) starts where it would stand and rides up
+   with the others, instead of appearing already shifted. */
+@starting-style { .ow-next-ph[data-closing] ~ * { transform: none; } }
+/* Reduced motion: nothing here may transition, also not on the way back when the slot is taken away, or the page
+   stands 16 px off for a frame. */
+@media (prefers-reduced-motion: reduce) { .ow-next-ph, .ow-next-ph[data-closing] ~ *, .ow-dash > * { transition: none; } }
 .ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
 .ow-filebtn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -1208,6 +1213,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-strip-bar { forced-color-adjust: none; background: CanvasText; }
   .ow-strip-bar[data-today] { background: Canvas; border-color: CanvasText; }
   .ow-strip-bar[data-lit] { background: CanvasText; }
+  /* The dark theme's softer lit bar would be the dimmest one here. */
+  :is(.ly-theme-dark, .ly-theme-auto) .ow-strip-bar[data-lit] { background: CanvasText; }
   .ow-strip-bar[data-empty] { border-color: GrayText; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input) { appearance: auto; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input)::before { content: none; }
