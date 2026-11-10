@@ -20,8 +20,8 @@
 /* Press (card object): the server has created the card. 1 to .985 over --dur-press, back over --dur-ui, no fade. */
 .card[data-created]::before { animation: press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out); }
 @keyframes press { 35% { transform: scale(.985); } }
-/* 32 px places spread across the card's width, as on the card page (Design, 10 Nov); rows 12 apart. */
-.card .stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: space-between; row-gap: var(--space-3); }
+/* 32 px places packed left with one 12 px gap in both directions, so the rows read as one grid (Design, 10 Nov). */
+.card .stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: start; gap: var(--space-3); }
 .card .stamps li { width: 32px; }
 .foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.4; }
 .foot svg { flex: none; }
