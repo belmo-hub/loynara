@@ -44,14 +44,21 @@ export function momentFor(read: { activity: ActivityEntry[]; balance: number }, 
   return { credited, newest: run.newest };
 }
 
-// ENG-205: the join page showed this card being created (and, with a Startbonus, its places landing), then opened the
-// card page. That first read is a return: nothing is celebrated a second time. One tab, one use.
+// ENG-205: the join page showed a card being created (and, with a Startbonus, its places landing), then opened the
+// card page. That first read is a return: nothing is celebrated a second time. The mark is only a time, in this tab:
+// it names no card and holds no card link, which is the whole credential (ENG-214). It counts for a few seconds.
 const JOINED = "loynara_joined";
-export function markJoined(cardToken: string) { try { sessionStorage.setItem(JOINED, cardToken); } catch { /* no storage: the card page may show the moment once */ } }
-/** The same question without using the mark up: the card page's paint before its first read. */
-export function peekJoined(cardToken: string) { try { return sessionStorage.getItem(JOINED) === cardToken; } catch { return false; } }
-export function takeJoined(cardToken: string) {
-  try { if (sessionStorage.getItem(JOINED) !== cardToken) return false; sessionStorage.removeItem(JOINED); return true; } catch { return false; }
+export const JOINED_WINDOW_MS = 15_000;
+const joinedAt = () => { try { return Number(sessionStorage.getItem(JOINED)); } catch { return NaN; } };
+const fresh = (now: number) => { const at = joinedAt(); return Number.isFinite(at) && at > 0 && now - at >= 0 && now - at < JOINED_WINDOW_MS; };
+export function markJoined(now = Date.now()) { try { sessionStorage.setItem(JOINED, String(now)); } catch { /* no storage: the card page may show the moment once */ } }
+/** The card page's paint before its first read: asks without using the mark up. */
+export function peekJoined(now = Date.now()) { return fresh(now); }
+/** The first read: true once, then the mark is gone. */
+export function takeJoined(now = Date.now()) {
+  if (!fresh(now)) return false;
+  try { sessionStorage.removeItem(JOINED); } catch { /* it runs out by itself */ }
+  return true;
 }
 
 /** The later of two marks, either of which may be missing. */

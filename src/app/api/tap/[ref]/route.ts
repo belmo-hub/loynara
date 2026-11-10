@@ -21,8 +21,9 @@ function fields(request: Request) {
 }
 async function input(request: Request, ref: string) {
   await enforcePeerLimit(request, "tap_peer", 120, 15 * 60);
-  await enforceRateLimit({ scope: "tap_ref", identity: ref, max: 600, windowSeconds: 15 * 60 });
+  // The chip data's form is checked before the plate's shared limit, so malformed links cannot use it up.
   const dynamic = fields(request);
+  await enforceRateLimit({ scope: "tap_ref", identity: ref, max: 600, windowSeconds: 15 * 60 });
   // Demo environment: a plate opens only the active demo; otherwise nothing is verified, written or booked.
   if (demoEnvironment() && !(await demoPlateLive(ref))) throw new DomainError("NO_DEMO", "Gerade läuft keine Demo.");
   const programId = await tapProgramId(ref).catch(async error => {

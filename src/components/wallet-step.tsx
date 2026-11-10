@@ -11,24 +11,24 @@ import styles from "./customer/wallet-step.module.css";
 /**
  * ENG-130: the Wallet step is offered once per card on this device. "pending" = the join handed over to a tap
  * continuation and the tap page offers it while the team confirms or after the stamp (ENG-160); "shown" = offered; "saved" = the card page has shown its
- * return from Wallet (screen 08).
+ * return from Wallet (screen 08). Kept under the card number, never the private card link, which is the whole credential (F-2).
  */
 export type WalletStepMark = "pending" | "shown" | "saved";
-const key = (token: string) => `loynara_wallet_step:${token}`;
-export function readWalletStep(token: string): WalletStepMark | null {
-  try { return localStorage.getItem(key(token)) as WalletStepMark | null; } catch { return null; }
+const key = (cardLocator: string) => `loynara_wallet_step:${cardLocator}`;
+export function readWalletStep(cardLocator: string): WalletStepMark | null {
+  try { return localStorage.getItem(key(cardLocator)) as WalletStepMark | null; } catch { return null; }
 }
-export function markWalletStep(token: string, mark: WalletStepMark) {
-  try { localStorage.setItem(key(token), mark); } catch { /* private mode: the step may show again, nothing breaks */ }
+export function markWalletStep(cardLocator: string, mark: WalletStepMark) {
+  try { localStorage.setItem(key(cardLocator), mark); } catch { /* private mode: the step may show again, nothing breaks */ }
 }
 
 /** ENG-173: the join showed this card's message box, so the return from Wallet doesn't ask again under the card (once per card on this device). */
-const joinAskedKey = (token: string) => `loynara_wallet_join_asked:${token}`;
-export function markJoinAsked(token: string) {
-  try { localStorage.setItem(joinAskedKey(token), "1"); } catch { /* private mode: the panel may move up once, nothing breaks */ }
+const joinAskedKey = (cardLocator: string) => `loynara_wallet_join_asked:${cardLocator}`;
+export function markJoinAsked(cardLocator: string) {
+  try { localStorage.setItem(joinAskedKey(cardLocator), "1"); } catch { /* private mode: the panel may move up once, nothing breaks */ }
 }
-export function joinAsked(token: string) {
-  try { return localStorage.getItem(joinAskedKey(token)) !== null; } catch { return false; }
+export function joinAsked(cardLocator: string) {
+  try { return localStorage.getItem(joinAskedKey(cardLocator)) !== null; } catch { return false; }
 }
 
 /** ENG-130 (01): on an iPhone where this location has Apple Wallet, the join names the iPhone and offers the Wallet step (German shops only). */

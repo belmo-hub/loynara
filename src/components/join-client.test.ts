@@ -44,7 +44,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     const page = await source();
     expect(page).toContain("const onIphone = useSyncExternalStore(noSubscription, iphoneDevice, serverIphone);");
     expect(page.match(/joinOffersMessages\(onIphone, program\)/g)).toHaveLength(3);
-    expect(page).toContain("if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);");
+    expect(page).toContain("if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardLocator);");
   });
   it("puts the required confirm tick before the optional box, and ties the button to the notice", async () => {
     const page = await source();

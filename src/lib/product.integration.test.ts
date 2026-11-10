@@ -20,6 +20,13 @@ async function createUser() {
 }
 
 describe("merchant and customer journey", () => {
+  it("refuses an account that may not set up a shop before it decodes the logo", async () => {
+    const userId = await createUser();
+    const setup = { userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10, logoData: "not-a-logo" } as const;
+    await expect(createMerchant(setup, { newShop: false })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // A shop owner's own setup still checks the logo.
+    await expect(createMerchant(setup)).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  });
   it("persists a merchant, its first location, program, and owner assignment", async () => {
     const userId = await createUser();
     const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 });

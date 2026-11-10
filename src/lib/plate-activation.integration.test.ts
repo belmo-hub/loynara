@@ -76,8 +76,8 @@ it("links the plate to the owner's programme once, audited with the owner as act
   await db.update(programs).set({ tapCooldownSeconds: 60 }).where(eq(programs.id, off.program.id)); // a wait time alone is not „Mit Bestätigung“
   const [{ code: plain }, { code: second }] = await issue("P-001", "P-002");
   expect(await code(() => activatePlate({ userId: off.userId, programId: off.program.id, plateLabel: "P-001", code: plain }))).toBe("STAFF_CONFIRMATION_REQUIRED");
-  // Tenant scope: another shop's programme, or an account without the owner role there, links nothing.
-  expect(await code(() => activatePlate({ userId: off.userId, programId: shop.program.id, plateLabel: "P-001", code: plain }))).toBe("FORBIDDEN");
+  // Tenant scope: another shop's programme reads as not there, and an account without the owner role links nothing.
+  expect(await code(() => activatePlate({ userId: off.userId, programId: shop.program.id, plateLabel: "P-001", code: plain }))).toBe("NOT_FOUND");
   expect(await code(() => activatePlate({ userId: stranger.userId, programId: shop.program.id, plateLabel: "P-001", code: plain }))).toBe("FORBIDDEN");
   expect((await tag("P-001")).status).toBe("unlinked");
 
