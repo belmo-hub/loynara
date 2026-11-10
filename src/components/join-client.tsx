@@ -146,7 +146,13 @@ export function JoinClient({ slug }: { slug: string }) {
       if (next.mark) markWalletStep(result.cardToken, next.mark);
       if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
       // Only after the server's answer: no card is drawn that does not exist.
-      if (program?.firstTap) { setBuilt(true); await new Promise(done => setTimeout(done, firstTapWait(matchMedia("(prefers-reduced-motion: reduce)").matches))); }
+      if (program?.firstTap) {
+        // The button sits a screen below the card: bring the card into view, then let it settle.
+        const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        document.querySelector(".join-hero")?.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+        setBuilt(true);
+        await new Promise(done => setTimeout(done, firstTapWait(reduced)));
+      }
       leaving = next.go !== "step";
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);

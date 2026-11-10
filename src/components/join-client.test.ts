@@ -115,7 +115,7 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205)", () => {
     const built = source.indexOf("setBuilt(true)");
     expect(built).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
     expect(built).toBeGreaterThan(source.indexOf("if (!result) return;"));
-    expect(source.slice(source.lastIndexOf("\n", built), built)).toContain("if (program?.firstTap)");
+    expect(source.slice(source.lastIndexOf("if (program?.firstTap) {"), built)).not.toContain("\n      }");
     expect(source.match(/setBuilt\(/g)).toHaveLength(1);
   });
   it("keeps Legal's order of 6 Nov with the field too: only the shop's mark and the build are new", async () => {
