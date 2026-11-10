@@ -34,7 +34,7 @@ const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done =
   let most = 0;
   const end = performance.now() + time;
   const look = () => {
-    most = Math.max(most, document.getAnimations().filter(animation => /^ow-(arrive|row)$/.test((animation as CSSAnimation).animationName ?? "") && animation.playState === "running").length);
+    most = Math.max(most, document.getAnimations().filter(animation => /^ow-(arrive|rise|row)$/.test((animation as CSSAnimation).animationName ?? "") && animation.playState === "running").length);
     if (performance.now() < end) requestAnimationFrame(look); else done(most);
   };
   look();
@@ -79,25 +79,25 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.waitForTimeout(800);
-  expect(await started("ow-arrive", "ow-row", "ow-fade"), "nothing rises, staggers or fades in on a cold load").toBe(0);
+  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "nothing rises, staggers or fades in on a cold load").toBe(0);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
   await page.waitForTimeout(600);
-  const arrived = await started("ow-arrive", "ow-row");
-  expect(await started("ow-arrive"), "the blocks arrived").toBeGreaterThan(0);
+  const arrived = await started("ow-arrive", "ow-rise", "ow-row");
+  expect(await started("ow-arrive", "ow-rise"), "the blocks arrived").toBeGreaterThan(0);
   expect(await started("ow-row"), "the rows arrived").toBeGreaterThan(0);
   // What a refresh of the page's data looks like to the page: the same nodes, drawn again.
   await page.evaluate(() => { window.dispatchEvent(new Event("online")); window.dispatchEvent(new Event("resize")); document.dispatchEvent(new Event("visibilitychange")); });
   await page.waitForTimeout(600);
-  expect(await started("ow-arrive", "ow-row"), "nothing arrives a second time").toBe(arrived);
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing arrives a second time").toBe(arrived);
   expect(await page.evaluate(() => [...document.querySelectorAll(".ow-content *")].filter(node => getComputedStyle(node).transform !== "none" && !node.closest("svg")).length), "no transform is left behind").toBe(0);
 
   // Back in the history is a return to a screen shown before: it does not arrive again.
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
   await page.waitForTimeout(600);
-  expect(await started("ow-arrive", "ow-row"), "nothing arrives on the way back").toBe(arrived);
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing arrives on the way back").toBe(arrived);
 });
 
 test("a page's own back link is a return: the screen it leads to does not arrive", async () => {
@@ -107,12 +107,12 @@ test("a page's own back link is a return: the screen it leads to does not arrive
   await shop.click();
   await expect(page).toHaveURL(/\/merchant\/settings$/);
   await page.waitForTimeout(600);
-  const opened = await started("ow-arrive", "ow-row");
+  const opened = await started("ow-arrive", "ow-rise", "ow-row");
   expect(opened, "the screen a row opens arrives").toBeGreaterThan(0);
   await page.locator(".ow-content a.ow-back").click();
   await expect(team()).toBeVisible();
   await page.waitForTimeout(600);
-  expect(await started("ow-arrive", "ow-row"), "the screen its back link leads to does not, and its rows do not stagger").toBe(opened);
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "the screen its back link leads to does not, and its rows do not stagger").toBe(opened);
 });
 
 test("a content tap after a tab tap is dropped before 120 ms and lands from 120 ms on", async () => {
@@ -145,20 +145,20 @@ test("data that takes a placeholder's place stands there at once, and a new peri
   const board = page.locator(".ow-content .ow-board");
   await expect(board).toHaveAttribute("aria-busy", "true");
   await page.waitForTimeout(600);
-  expect(await started("ow-arrive"), "the title arrived with the screen").toBeGreaterThan(0);
+  expect(await started("ow-arrive", "ow-rise"), "the title arrived with the screen").toBeGreaterThan(0);
   expect(await board.evaluate(node => node.closest(".ow-page > *")?.hasAttribute("data-arrive")), "the block with the placeholder did not").toBe(false);
-  const before = await started("ow-arrive", "ow-row", "ow-fade");
+  const before = await started("ow-arrive", "ow-rise", "ow-row", "ow-fade");
   release();
   await expect(page.locator(".ow-content .ow-board-big")).toBeVisible();
   expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
   await page.waitForTimeout(400);
-  expect(await started("ow-arrive", "ow-row", "ow-fade"), "no rise, no stagger and no fade from nothing").toBe(before);
+  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "no rise, no stagger and no fade from nothing").toBe(before);
   await page.unroute(/\/api\/merchant\/analytics\?/);
 
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   expect(await entrances(), "the 90 days do not arrive").toBe(0);
   await expect(page.locator(".ow-content .ow-board-sub")).toContainText("90 Tage");
-  expect(await started("ow-arrive", "ow-row", "ow-fade")).toBe(before);
+  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade")).toBe(before);
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {
@@ -229,5 +229,5 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
   await page.locator('.ow-content a[href="/merchant/analytics"]').click();
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   await page.waitForTimeout(600);
-  for (const name of ["ow-arrive", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer", "ow-pulse"]) expect(await started(name), name).toBe(0);
+  for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer"]) expect(await started(name), name).toBe(0);
 });

@@ -35,7 +35,7 @@ export function BigMoney({ text }: { text: string }) {
   return <p className="ow-board-big"><NumberRoll value={digits(text)}>{split ? <>{split[1]}<small>{split[2]}</small></> : text}</NumberRoll></p>;
 }
 
-/** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
+/** Still placeholders while the board's numbers load. */
 export function BoardPlaceholder() {
   return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
@@ -57,7 +57,7 @@ export function Strip({ days, caption, today }: { days: DayCount[]; caption: str
           return (
             <div className="ow-strip-day" key={day.date} aria-hidden="true">
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
+              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
               {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
               <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
             </div>

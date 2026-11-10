@@ -698,8 +698,6 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 /* The board's placeholder: number, sub-line, then the strip 20 lower. */
 .ow-board-ph { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
 .ow-board-ph > :last-child { margin-top: var(--space-3); }
-@media (prefers-reduced-motion: no-preference) { .ow-board[aria-busy="true"] .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
-@keyframes ow-pulse { 50% { opacity: .45; } }
 
 /* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
 .ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
@@ -1104,6 +1102,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    first frame, entrances only fill backwards (no transform stays behind, which would unpin a fixed child), and under
    reduced motion none of the entrances exists and no loop runs (the placeholder is still). A fact (a price, a date, a
    balance) may arrive with its row or block, never on its own; the bars stay still. */
+@keyframes ow-rise { from { transform: translateY(8px); } }
 @keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
 @keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
@@ -1115,15 +1114,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-skel { animation: ow-shimmer 1.4s linear infinite; }
   /* Arrive: the blocks of a screen that is navigated to and paints at once rise in once, top to bottom, 40 ms apart, the
      sixth and later together (5 × 40 + 220 = 420 ms). Inside the shell only the blocks owner-shell marks arrive: never a
-     placeholder, a block that holds one, or what comes later. A question page's column holds the pinned button, so its
-     children are the blocks, not itself. */
+     placeholder, a block that holds one, or what comes later. There the screen change already fades the whole screen in,
+     so the blocks only rise (a second fade on top left a near-blank frame) and their rows come with them. A page outside
+     the shell has no screen fade, so its blocks fade as they rise. A question page's column holds the pinned button, so
+     its children are the blocks, not itself. */
   :is(.ow-page, .ow-q) > * { --ow-i: 5; }
   .ow-page > :nth-child(1) { --ow-i: 0; }
   .ow-page > :nth-child(2), .ow-q > :nth-child(1) { --ow-i: 1; }
   .ow-page > :nth-child(3), .ow-q > :nth-child(2) { --ow-i: 2; }
   .ow-page > :nth-child(4), .ow-q > :nth-child(3) { --ow-i: 3; }
   .ow-page > :nth-child(5), .ow-q > :nth-child(4) { --ow-i: 4; }
-  .ow-screen :is(.ow-page, .ow-q) > [data-arrive]:not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog), :is(.ow-page, .ow-q):not(.ow-screen *) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
+  .ow-screen :is(.ow-page, .ow-q) > [data-arrive]:not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-rise var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
+  :is(.ow-page, .ow-q):not(.ow-screen *) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
   /* List arrive: the rows of a list come in 30 ms apart, 6 px, the eighth and later together and all within 420 ms. */
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary):where(:not(dialog *)) > :is(li, tr, .ow-goal, .ow-day) { --ow-r: 7; animation: ow-row var(--dur-ui) var(--ease-out) min(var(--ow-r) * 30ms, 200ms) backwards; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(1) { --ow-r: 0; }
@@ -1135,14 +1137,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(7) { --ow-r: 6; }
   /* Skeleton to content: what takes a placeholder's place (owner-shell marks it data-swap) stands there at once. Neither
      it nor its rows or notices rise, fade or stagger; a fade from nothing would show an empty frame. A screen come back
-     to through the history (data-return) is treated the same, and its bars do not grow again. */
-  .ow-content :is([data-swap], [data-return]):is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock) { animation: none; }
+     to through the history (data-return) is treated the same, and its bars do not grow again. Nor do the bars of a new
+     period (data-switched): they would grow from 0, not from the value before. */
+  .ow-content :is([data-swap], [data-return]):is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
+  /* The rows of a block that arrives come with their block. */
+  .ow-content [data-arrive]:is(li, tr, .ow-goal, .ow-day), .ow-content [data-arrive] :is(li, tr, .ow-goal, .ow-day) { animation: none; }
   /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
-     is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no measure. */
+     is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no
+     measure, and a day without a booking has nothing to grow. */
   .ow-strip-day { --ow-r: 7; }
   .ow-strip-day:nth-child(1) { --ow-r: 0; } .ow-strip-day:nth-child(2) { --ow-r: 1; } .ow-strip-day:nth-child(3) { --ow-r: 2; } .ow-strip-day:nth-child(4) { --ow-r: 3; }
   .ow-strip-day:nth-child(5) { --ow-r: 4; } .ow-strip-day:nth-child(6) { --ow-r: 5; } .ow-strip-day:nth-child(7) { --ow-r: 6; }
-  .ow-strip-bar:not([data-empty]) { transform-origin: 50% 100%; animation: ow-grow var(--dur-reward) var(--ease-in-out) calc(var(--ow-r) * 30ms) backwards; }
+  .ow-strip-bar:not([data-empty], [data-zero]) { transform-origin: 50% 100%; animation: ow-grow var(--dur-reward) var(--ease-in-out) calc(var(--ow-r) * 30ms) backwards; }
   .ow-stock { animation: ow-wipe var(--dur-reward) var(--ease-in-out) backwards; }
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
