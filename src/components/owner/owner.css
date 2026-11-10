@@ -99,7 +99,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Screen change (owner-shell, DESIGN.md Motion): the screen in view stays until the next one is ready (the area has no
    loading route). Then the old one fades out over --dur-press and the new one fades in over --dur-ui, starting half a
-   --dur-press later. For those 60 ms both show faintly, the price of never showing an empty frame. One fade everywhere.
+   --dur-press later. For those 60 ms both show faintly. One fade everywhere.
    Browsers without view transitions swap as before. */
 ::view-transition { pointer-events: none; }
 ::view-transition-old(.ow-screen) { animation: ow-fade-out var(--dur-press) var(--ease-out) both; }
@@ -113,6 +113,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 ::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
 ::view-transition-old(ow-topbar), ::view-transition-old(ow-subnav), ::view-transition-old(ow-tabs) { display: none; }
 ::view-transition-new(ow-topbar), ::view-transition-new(ow-subnav), ::view-transition-new(ow-tabs) { animation: none; }
+/* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
+::view-transition-old(root) { display: none; }
+::view-transition-new(root) { animation: none; }
 /* Reduced motion: a cut. Without the old screen there is no frame with both. */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
@@ -995,7 +998,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* Rows (decision 1): each section is one panel, rows split by hairlines, 56 px minimum, one padding. Every list of rows. */
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) { gap: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-surface); }
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)) > li + li { border-top: 1px solid var(--color-line); }
-:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background: none; }
+/* background-color, not the shorthand: the pending fill above is a background-image and has to survive this rule. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background-color: transparent; }
 /* A list with no row (an empty, loading or failed state) has no panel: its text stands on the ground, as before. */
 :is(.ow-rows, .ow-prog ul):where(:not(dialog *)):not(:has(.ow-prog-row, .ow-check)) { background: none; border-radius: 0; overflow: visible; }
 /* The panel clips; the ring goes inside the row, as on the tab bar. */

@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useTransition, ViewTransition, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
 import { useOwner, type OwnerLocation } from "./owner-context";
 import { OwnerIcon, Skeleton } from "./owner-ui";
 import { ProgrammeEndedPage } from "./programme-ended-page";
+
+// The link tapped last. Two taps in a row on a slow connection join one transition, so each link's own pending state
+// stays true until both screens are through; only the last tapped one may look pending.
+let tapped: string | null = null;
+const tapWatchers = new Set<() => void>();
+const tap = (href: string) => { tapped = href; for (const watcher of tapWatchers) watcher(); };
+const useTapped = () => useSyncExternalStore(watcher => { tapWatchers.add(watcher); return () => { tapWatchers.delete(watcher); }; }, () => tapped, () => null);
 
 /**
  * A link inside the owner area. It asks first when there are unsaved changes, and it carries `data-pending` from the tap
@@ -19,10 +26,11 @@ function GuardedLink({ href, children, ...rest }: { href: string; children: Reac
   const router = useRouter();
   const { guard } = useOwner();
   const [pending, startNavigation] = useTransition();
-  return <Link href={href} {...rest} data-pending={pending || undefined} onClick={event => {
+  const last = useTapped();
+  return <Link href={href} {...rest} data-pending={(pending && last === href) || undefined} onClick={event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    guard(() => startNavigation(() => router.push(href)));
+    guard(() => { tap(href); startNavigation(() => router.push(href)); });
     rest.onClick?.(event);
   }}>{children}</Link>;
 }
