@@ -215,7 +215,7 @@ function Wizard({ initial }: { initial: Setup }) {
           </li>
         ))}
       </ol>
-      <form className="ow-card ow-stack" style={{ gap: "var(--space-5)" }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
+      <form className="ow-card ow-stack ow-prog" style={{ gap: "var(--space-5)" }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
         {step === 0 && <>
           <div><h2 ref={heading} tabIndex={-1}>Was für ein Betrieb bist du?</h2><p className="ow-hint">{returning ? "Ändert nur die Art. Deine Leistungen und Zeiten bleiben." : "Füllt Leistungen und Zeiten mit Beispielen vor. Alles bleibt änderbar."}</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Betriebsart" aria-describedby={err("bs-type-nagelstudio") ? "bs-type-error" : undefined}>

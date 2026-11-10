@@ -94,7 +94,7 @@ export function dayTotals(appointments: OwnerAppointment[]) {
   const requests = live.filter(a => a.status === "requested").length;
   const done = live.filter(a => a.status === "done");
   const count = `${live.length === 1 ? "1 Termin" : `${live.length} Termine`}${requests ? `, davon ${requests === 1 ? "1 Anfrage" : `${requests} Anfragen`}` : ""}`;
-  return done.length ? `${count} · ${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} Listenpreis (geschätzt, nicht kassiert)` : count;
+  return done.length ? `${count} · ${done.length} erledigt: ${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} nach Listenpreis, nicht kassiert` : count;
 }
 
 /** The open-requests line: which day the next one is on, phrased from today. */
