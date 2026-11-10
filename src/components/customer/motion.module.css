@@ -1,0 +1,23 @@
+/* Motion the guest pages share (Design's motion vocabulary, 10 Nov 2026). Opacity and transform only, heights through
+   grid-template-rows. Nothing here delays a control: every block is in place and tappable from its first frame. */
+
+/* Field error: a line that appears beside its control fades in and settles 4 px down. Other classes compose it. */
+.message { animation: message var(--dur-ui) var(--ease-out) backwards; }
+@keyframes message { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Disclosure and Row add / remove (reveal.tsx). Opening: the height, then the fade. Closing: the fade and, a little
+   slower, the height, both faster than they came and at once, so a block opening beside it never pushes the page out
+   and back. --reveal-gap is the parent grid's gap: it opens and closes inside the block, so nothing jumps by it. */
+.reveal { display: grid; grid-template-rows: 0fr; min-width: 0; margin-top: calc(-1 * var(--reveal-gap, 0px)); transition: grid-template-rows 160ms var(--ease-out); }
+.reveal > div { min-width: 0; min-height: 0; overflow: hidden; padding-top: var(--reveal-gap, 0px); opacity: 0; transition: opacity var(--dur-press) var(--ease-out); }
+.reveal[data-open] { grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
+.reveal[data-open] > div { opacity: 1; transition: opacity var(--dur-ui) var(--ease-out) var(--dur-press); }
+@starting-style {
+  .reveal[data-open] { grid-template-rows: 0fr; }
+  .reveal[data-open] > div { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message { animation: none; }
+  .reveal, .reveal > div, .reveal[data-open], .reveal[data-open] > div { transition: none; }
+}

@@ -119,6 +119,8 @@ export function JoinClient({ slug }: { slug: string }) {
     if (joinNeedsTick(locale, acceptedTerms)) { setError(copy.fr.acceptError); document.getElementById("join-consent")?.focus(); return; }
     if ((existing || returning.state === "stale") && !confirmAnother) { setError(t.anotherConfirmError); setErrorSpot("confirm"); document.getElementById("join-confirm")?.focus(); return; }
     setBusy(true);
+    // On the way to the card the button stays busy, so the page does not fall back to its idle state before it goes.
+    let leaving = false;
     try {
       if (program?.active === false) throw new Error(t.inactiveError);
       // The server recognises this browser only once its card cookie exists, so two tabs (or the counter QR scanned again
@@ -139,6 +141,7 @@ export function JoinClient({ slug }: { slug: string }) {
       const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
       if (next.mark) markWalletStep(result.cardToken, next.mark);
       if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
+      leaving = next.go !== "step";
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
       else router.push(`/card/${encodeURIComponent(result.cardToken)}`);
@@ -162,13 +165,13 @@ export function JoinClient({ slug }: { slug: string }) {
         setError(CONSENT_CHANGED);
       } else setError(t.submitError);
     }
-    finally { setBusy(false); }
+    finally { if (!leaving) setBusy(false); }
   }
 
   const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
-  if (loading) return <CustomerState title={t.loadingTitle} message={t.loadingText} locale={locale} />;
+  if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />
@@ -183,26 +186,27 @@ export function JoinClient({ slug }: { slug: string }) {
     <h1 className={styles.business}>{program.businessName}</h1>
     <p className={styles.location}>{program.locationName}</p>
     {program.programType === "points"
-      ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles />
-      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} />}
+      ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles draw />
+      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} draw />}
     {rewardLine}
   </section>;
 
   return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>}>
     {preview}
-    {returning.state === "stale" && !wantsAnother ? <section className={styles.panel}>
+    {/* Keyed: a panel that takes another's place arrives, instead of changing under the guest. */}
+    {returning.state === "stale" && !wantsAnother ? <section key="stale" className={styles.panel}>
       <h2 className={styles.title}>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2>
       <p className={styles.muted}>{t.staleNote}</p>
       <p className={styles.muted}>{locale === "fr" ? "Ouvrez votre lien privé actuel. Le numéro de carte seul ne prouve pas que la carte vous appartient." : "Öffne deinen aktuellen privaten Kartenlink. Die Kartennummer allein ist kein Eigentumsnachweis."}</p>
       <Link className={buttonClassName({ block: true })} href="/recover">{locale === "fr" ? "Récupération sécurisée" : "Karte wiederfinden"}</Link>
       <Button variant="quiet" onClick={() => setWantsAnother(true)}>{t.anotherLink}</Button>
-    </section> : existing && !wantsAnother ? <section className={`join-returning ${styles.panel}`}>
+    </section> : existing && !wantsAnother ? <section key="returning" className={`join-returning ${styles.panel}`}>
       <h2 className={styles.title}>{t.welcomeBack}</h2>
       <p className={styles.muted}>{t.savedHere}</p>
       {cardNumber}
       <a className={buttonClassName({ size: "lg", block: true })} href={openHref}>{t.openCard}</a>
       <Button variant="quiet" className="join-another-link" onClick={() => { setWantsAnother(true); setError(""); }}>{t.anotherLink}</Button>
-    </section> : <section className={styles.panel}>
+    </section> : <section key="join" className={styles.panel}>
       {existing ? <>
         <h2 className={styles.title}>{t.anotherTitle}</h2>
         <p className={`join-another-warning ${styles.warning}`} role="note">{locale === "fr" ? `Une nouvelle carte commence à ${withUnit(0, program.programType, locale)}. Vos ${unit} actuels restent sur la carte ${existing.cardLocator} et ne sont pas transférés.` : `Eine weitere Karte startet bei ${withUnit(0, program.programType, locale, "dat")}. Deine bisherigen ${unit} bleiben auf Karte ${existing.cardLocator} und werden nicht übertragen.`}</p>

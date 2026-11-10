@@ -1,6 +1,8 @@
 /* Guest card (DESIGN.md, "Customer card"). Budget: merchant, balance and the QR fit a 360 × 800 screen. */
 .merchant { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
-.headerWallet { display: grid; place-items: center; flex: none; width: 48px; height: 48px; margin-left: auto; border: 0; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); cursor: pointer; }
+.headerWallet { display: grid; place-items: center; flex: none; width: 48px; height: 48px; margin-left: auto; border: 0; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.headerWallet:active { transform: scale(.97); }
+@media (hover: hover) { .headerWallet:hover { background: color-mix(in oklab, var(--color-surface), var(--color-ink) 7%); } }
 .headerWallet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
 .merchantText { display: grid; flex: 1; min-width: 0; }
@@ -14,10 +16,10 @@
 /* The reward is a name: inline in the sentence, it wraps at spaces only, very long single words may still break. */
 .rewardName { hyphens: manual; overflow-wrap: anywhere; }
 /* ENG-130 (08): a muted line under the goal, once, after the pass is saved in Apple Wallet. */
-.saved { display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.saved { composes: message from "./motion.module.css"; display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 
-.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
+.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); --card-ground: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); background: var(--card-ground); box-shadow: var(--shadow-object); }
 .objectTop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .business { display: grid; margin: 0; min-width: 0; }
 .business strong { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
@@ -58,11 +60,14 @@
 @media (max-width: 359px) { .ticket { grid-template-columns: minmax(0, 1fr); } .qr { justify-self: start; width: 128px; } }
 
 .cardGroup { display: grid; gap: var(--space-3); }
-.alert { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.alert { composes: message from "./motion.module.css"; margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .refresh { display: grid; justify-items: center; gap: var(--space-1); }
 /* Not green: the one next step is the band (Design, 31 Oct). */
 .refresh .refreshButton { color: var(--color-ink-muted); }
 @media (hover: hover) { .refresh .refreshButton:hover { background: var(--color-fill); color: var(--color-ink); } }
+/* „Karte aktualisieren“ answers the press with one full turn of its icon, whatever the read takes; never a loop. */
+.turn { animation: turn var(--dur-reward) var(--ease-in-out); }
+@keyframes turn { to { transform: rotate(360deg); } }
 
 /* Phone: one column in source order. From 960 px the shell runs two columns and these become them (G-34). */
 .lead, .rest { display: contents; }
@@ -81,8 +86,10 @@
 button.row { cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 button.row:active { transform: scale(.985); }
 button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-/* The reward the goal and the card refer to: the neutral fill, not green (D-020). */
-.row[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-line-strong); }
+/* The reward the goal and the card refer to: a neutral ring, not green (D-020). The ring fades between rows (Select fill). */
+.row[aria-pressed] { position: relative; }
+.row[aria-pressed]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--color-line-strong); opacity: 0; pointer-events: none; transition: opacity var(--dur-press) var(--ease-out); }
+.row[aria-pressed="true"]::after { opacity: 1; }
 .rowIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); color: var(--color-ink); }
 .rowIcon[data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
 /* A value sits beside the words while they fit, else on a line of its own. */
@@ -94,7 +101,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .rowText > small { margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
 .ink { color: var(--color-ink); font-weight: var(--weight-strong); }
 .rowValue { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rowArrow { flex: none; margin-left: auto; color: var(--color-ink-muted); }
+.rowArrow { flex: none; margin-left: auto; color: var(--color-ink-muted); transition: color var(--dur-press) var(--ease-out); }
 @media (hover: hover) { button.row:hover .rowArrow { color: var(--color-ink); } }
 /* „Einlösbar“ stands on its own line under the reward's text. */
 .chipLine { flex-basis: 100%; padding-left: 52px; }
@@ -106,7 +113,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .band small { display: block; margin-top: 2px; font-size: var(--text-16); line-height: 1.4; }
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .rowIcon, .bandIcon { display: none; } .chipLine { padding-left: 0; } }
-@media (prefers-reduced-motion: reduce) { button.row:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { button.row:active, .headerWallet:active, .showAll:active { transform: none; } .turn { animation: none; } .closeToggle svg, .activityMore { transition: none; } }
 .sheetBody { display: grid; gap: var(--space-3); }
 .newsText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
@@ -127,18 +134,24 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* One day column for all rows (subgrid), so labels after „Gestern“ and „Mi“ start on one edge. */
-.activity { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }
+/* One day column for all rows (subgrid), so labels after „Gestern“ and „Mi“ start on one edge. The first three rows and
+   the rows behind „Alle anzeigen“ are two lists on that one grid; the second opens in place (Disclosure). */
+.activity { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; }
+.activityRows, .activityMore { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; margin: 0; padding: 0; list-style: none; }
+.activityMore { grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
+.activityMore > ul { min-height: 0; overflow: hidden; }
+@starting-style { .activityMore { grid-template-rows: 0fr; } }
 /* The day first as a muted column, the label, the value in ink (G-21: no green here). */
 .activity li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
-.activity li:first-child { border-top: 0; }
+.activity > ul:first-child > li:first-child { border-top: 0; }
 .activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
 /* Hyphenate only long words, and leave at least three letters on each side („Kauf erfasst“ stays whole). */
 .activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 8 3 3; -webkit-hyphenate-limit-before: 3; -webkit-hyphenate-limit-after: 3; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Below 360 the rows give the label more room, so „Gesammelt“ stays on one line. */
 @media (max-width: 359px) { .card:has(> .activity) { padding-inline: var(--space-4); } .activity li { column-gap: var(--space-2); } }
-.showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+.showAll:active { transform: scale(.97); }
 
 .rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin: 0; }
@@ -151,6 +164,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 /* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */
 .close { display: grid; justify-items: start; gap: var(--space-3); margin-top: var(--space-2); }
 .closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
+.closeToggle svg { transition: transform var(--dur-ui) var(--ease-out); }
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .closeConfirm { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
@@ -168,7 +182,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 
 /* ENG-100: a change waiting for its date is a „Gut zu wissen“ row (mock 25); a long new rule opens under its line. */
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
-.newRule { display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+.newRule { composes: message from "./motion.module.css"; display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The booking moment (card-moment spec): a pill over the shop header, so nothing below moves. Never a target; it
    leaves by itself after --pill-stay, faster than it came. Inside it the check settles, then draws, then „+n“ rises.
@@ -206,3 +220,29 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
   .pill { --pill-shift: 0px; }
   .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band { animation: none; }
 }
+
+/* The placeholder's two columns are the page's own (.lead, .rest), so its wrapper takes no box. Its blocks fade in, so
+   the page a guest comes from (the join page) does not cut to grey blocks. */
+.loading { display: contents; }
+.loadingHead, .loading :is(.goal, .cardGroup, .section) { animation: fade-in var(--dur-ui) var(--ease-out) backwards; }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .loadingHead, .loading :is(.goal, .cardGroup, .section) { animation: none; } }
+
+/* First paint only (data-arriving, taken away after half a second, so a re-read replays nothing).
+   Card arrive: the card's ground settles from .98 and fades in while the code, the number and the balance stay still;
+   for that moment ::before paints the ground. List arrive: rows come in 30 ms apart, at most 8, done by 420 ms; the rows
+   behind „Alle anzeigen“ arrive the same way when they open. */
+.rows > :nth-child(2), .activityRows > :nth-child(2) { --row: 1; }
+.rows > :nth-child(3), .activityRows > :nth-child(3) { --row: 2; }
+.rows > :nth-child(4), .activityRows > :nth-child(4) { --row: 3; }
+.rows > :nth-child(5), .activityRows > :nth-child(5) { --row: 4; }
+.rows > :nth-child(6), .activityRows > :nth-child(6) { --row: 5; }
+.rows > :nth-child(7), .activityRows > :nth-child(7) { --row: 6; }
+.rows > :nth-child(n + 8), .activityRows > :nth-child(n + 8) { --row: 7; }
+@media (prefers-reduced-motion: no-preference) {
+  .lead[data-arriving] .object { isolation: isolate; background: none; box-shadow: none; }
+  .lead[data-arriving] .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
+  .rest[data-arriving] .rows > *, .rest[data-arriving] .activityRows > li, .activityMore li { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
+}
+@keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
+@keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }

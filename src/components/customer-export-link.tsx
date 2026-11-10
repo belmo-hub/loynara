@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CustomerExportError, readCustomerExport, type CustomerExportFailure } from "./customer-export-download";
+import motion from "./customer/motion.module.css";
 
 const messages: Record<CustomerExportFailure, { de: string; fr: string }> = {
   "invalid-card": { de: "Dieser Kartenlink gilt nicht mehr. Öffne deinen aktuellen Kartenlink, um deine Daten zu exportieren.", fr: "Ce lien de carte n’est plus valable. Ouvrez votre lien actuel pour exporter vos données." },
@@ -43,5 +44,5 @@ export function CustomerExportLink({ url, locale, children }: { url: string; loc
       if (operation.current === controller) { operation.current = null; setBusy(false); }
     }
   }
-  return <div className="customer-export"><a className="terms-link" href={url} download aria-disabled={busy || undefined} aria-busy={busy} onClick={event => { event.preventDefault(); void download(); }}>{busy ? locale === "fr" ? "Préparation de l’export …" : "Export wird vorbereitet …" : children}</a>{error && <p className="auth-error" role="alert">{error}</p>}</div>;
+  return <div className="customer-export"><a className="terms-link" href={url} download aria-disabled={busy || undefined} aria-busy={busy} onClick={event => { event.preventDefault(); void download(); }}>{busy ? locale === "fr" ? "Préparation de l’export …" : "Export wird vorbereitet …" : children}</a>{error && <p className={`auth-error ${motion.message}`} role="alert">{error}</p>}</div>;
 }

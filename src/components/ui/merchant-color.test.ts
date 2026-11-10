@@ -89,7 +89,7 @@ describe("points ladder on the card", () => {
   let track = "", fill = "", tint: RegExpExecArray | null = null, share = NaN;
   beforeAll(() => {
     track = rule(".track", ["position", "left", "right", "top", "height", "overflow", "border-radius", "background"])("background");
-    fill = rule(".fill", ["position", "inset", "transform-origin", "background", "transition"])("background");
+    fill = rule(".fill", ["position", "inset", "transform-origin", "background", "transition", "animation"])("background");
     tint = TINT.exec(track);
     share = !tint ? NaN : (tint[3] ? Number(tint[3]) : tint[4] ? 100 - Number(tint[4]) : 50) / 100;
   });
@@ -102,7 +102,9 @@ describe("points ladder on the card", () => {
     expect(selectors).toEqual([".ladder", ".track", ".fill", ".mark", ".dot", ".mark[data-reached] .dot", ".cost", ".mark[data-label-hidden] .cost", ".mark[data-label-hidden] .title", ".title[data-title-hidden]", ".mark[data-price-hidden] .cost",
       ".ladder[data-titles]", ".ladder[data-titles] .mark", ".title", ".ladder[data-titles] .title", ".mark[data-end]", ".mark[data-start]",
       // The booking moment: a crossed mark presses once (transform and opacity only, no colour).
-      ".mark[data-new] .dot", "from", "60%", ".fill", ".mark[data-new] .dot"]);
+      ".mark[data-new] .dot", "from", "60%",
+      // First paint: the fill grows from the start and the join preview's markers draw in (transform, scale and opacity only, no colour).
+      "from", ".ladder[data-draw] .mark", "from", ".fill", ".mark[data-new] .dot", ".ladder[data-draw] .mark"]);
   });
 
   it("reads a supported track and fill", () => {

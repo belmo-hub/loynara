@@ -6,12 +6,17 @@
 }
 .sheet:not([open]) { display: none; transform: translateY(100%); transition-duration: 200ms; }
 @starting-style { .sheet[open] { transform: translateY(100%); } }
-.sheet::backdrop { background: rgba(15, 23, 19, .48); }
+/* The backdrop fades with the panel, in and out, instead of cutting. */
+.sheet::backdrop { background: rgba(15, 23, 19, .48); opacity: 0; transition: opacity 200ms var(--ease-drawer), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+.sheet[open]::backdrop { opacity: 1; transition-duration: 260ms; }
+@starting-style { .sheet[open]::backdrop { opacity: 0; } }
 .handle { display: grid; place-items: center; min-height: 28px; cursor: grab; touch-action: none; }
 .handle span { width: 40px; height: 5px; border-radius: var(--radius-pill); background: var(--color-line-strong); opacity: .6; }
 .header { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3) var(--space-2) var(--space-5); }
 .title { flex: 1; margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
-.close { display: grid; place-items: center; width: var(--target); height: var(--target); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); cursor: pointer; }
+.close { display: grid; place-items: center; width: var(--target); height: var(--target); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
+.close:active { transform: scale(.97); }
+@media (hover: hover) { .close:hover { background: var(--color-fill); color: var(--color-ink); } }
 .close:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .content { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 var(--space-5) var(--space-5); }
 .footer { padding: var(--space-3) var(--space-5) calc(var(--space-3) + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-line); background: var(--color-raised); }
@@ -26,4 +31,4 @@
   .sheet:is([data-side="end"], [data-side="auto"]) .handle { display: none; }
   .sheet:is([data-side="end"], [data-side="auto"]) .header { padding-top: var(--space-4); }
 }
-@media (prefers-reduced-motion: reduce) { .sheet, .sheet:not([open]) { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet:not([open]), .sheet::backdrop, .sheet[open]::backdrop { transition: none; } .close:active { transform: none; } }

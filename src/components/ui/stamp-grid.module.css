@@ -14,8 +14,15 @@
   60% { transform: scale(.94) rotate(var(--r)); opacity: 1; }
   100% { transform: scale(1) rotate(var(--r)); }
 }
-@media (prefers-reduced-motion: reduce) { .slot[data-new] { animation: none; } }
+/* Slots draw (the join page's preview card, first paint): the slots draw in 30 ms apart and the goal slot last, done by
+   420 ms. `scale`, not `transform`, so an earned stamp keeps its resting rotation. */
+.grid[data-draw] .slot { animation: draw var(--dur-ui) var(--ease-out) min(calc(var(--i, 0) * 30ms), 150ms) backwards; }
+.grid[data-draw] .slot[data-reward] { animation-delay: 200ms; }
+@keyframes draw { from { opacity: 0; scale: .6; } }
+@media (prefers-reduced-motion: reduce) { .slot[data-new], .grid[data-draw] .slot, .trackFill { animation: none; } }
 /* Long programmes: one track. The fill is the card's ink and the rest 22 % of it, so the boundary keeps 3:1 or more on
    every merchant colour (asserted in merchant-color.test.ts). */
 .track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
-.trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }
+.trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+/* Bars grow: on first paint the fill grows from the start; a later change moves from the old value to the new. */
+@keyframes grow { from { transform: scaleX(0); } }

@@ -24,5 +24,23 @@
 .rowArrow { flex: none; opacity: .72; }
 @media (max-width: 359px) { .rowIcon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .row:active { transform: none; } }
-.loading { display: grid; gap: var(--space-4); padding-top: var(--space-3); }
-.hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Arrive (first paint): the state's blocks come in top to bottom, 40 ms apart, done by 420 ms. A block a later state
+   adds arrives the same way. A block that holds a fact (a card number, a balance) sets --arrive-shift: 0px and only fades. */
+.state > :not(.body), .body > * { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+.state > :nth-child(2) { animation-delay: 40ms; }
+.state > :nth-child(3), .body > :nth-child(1) { animation-delay: 80ms; }
+.body > :nth-child(2) { animation-delay: 120ms; }
+.body > :nth-child(3) { animation-delay: 160ms; }
+.body > :nth-child(n + 4) { animation-delay: 200ms; }
+@keyframes arrive { from { opacity: 0; transform: translateY(var(--arrive-shift, 8px)); } }
+/* Still asking: nothing for the first 300 ms, then a fade, so a quick answer never flashes the waiting words. */
+.state[data-loading] > * { animation: appear var(--dur-ui) var(--ease-out) 300ms backwards; }
+@keyframes appear { from { opacity: 0; } }
+/* State change (the tap page waiting, booked, rejected, expired): the old words fade out under the new ones. */
+.swap { display: grid; }
+.swap > * { grid-area: 1 / 1; }
+.out { animation: swap-out var(--dur-press) var(--ease-out) forwards; }
+.in { animation: appear var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) backwards; }
+@keyframes swap-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .state > :not(.body), .body > *, .state[data-loading] > *, .in { animation: none; } }

@@ -5,7 +5,9 @@ import { cx } from "./cx";
 import styles from "./stamp-grid.module.css";
 
 /** `reward`: the icon the last slot shows in an ink ring until it is earned (the owner's card view, ENG-122a). */
-type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string };
+type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string;
+  /** First paint: the slots draw in one after another, the goal slot last (the join page's preview card). */
+  draw?: boolean };
 
 /** Above this many stamps a card of marks stops being readable (and buries the code below it); a track replaces it. */
 export const STAMP_GRID_MAX = 30;
@@ -24,7 +26,7 @@ export function stampColumns(total: number) {
  * `landed` play the landing motion once, 90 ms apart (DESIGN.md, "Pop in"). Programmes longer than STAMP_GRID_MAX stamps get one progress
  * track instead, so the card keeps its height whatever the merchant sets.
  */
-export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className }: Props) {
+export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, draw = false }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
   const label = locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
   if (total > STAMP_GRID_MAX) {
@@ -32,11 +34,11 @@ export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />
     </div>;
   }
-  return <ol className={cx(styles.grid, styles[size], className)} aria-label={label} style={{ "--cols": stampColumns(total) } as CSSProperties}>
+  return <ol className={cx(styles.grid, styles[size], className)} aria-label={label} data-draw={draw || undefined} style={{ "--cols": stampColumns(total) } as CSSProperties}>
     {Array.from({ length: total }, (_, index) => {
       const isEarned = index < filled, goal = !isEarned && index === total - 1 ? reward : undefined;
       const order = landed === undefined ? -1 : index - (landed - landedCount), isNew = isEarned && order >= 0 && index < landed!;
-      return <li key={index} className={styles.slot} data-earned={isEarned || undefined} data-reward={goal ? true : undefined} data-new={isNew || undefined} style={{ "--r": `${((index * 47) % 17) - 8}deg`, ...(isNew && order > 0 && { "--land-stagger": `${order * 90}ms` }) } as CSSProperties} aria-hidden="true">
+      return <li key={index} className={styles.slot} data-earned={isEarned || undefined} data-reward={goal ? true : undefined} data-new={isNew || undefined} style={{ "--r": `${((index * 47) % 17) - 8}deg`, ...(draw && { "--i": index }), ...(isNew && order > 0 && { "--land-stagger": `${order * 90}ms` }) } as CSSProperties} aria-hidden="true">
         {isEarned ? mark ?? <Check size={size === "sm" ? 16 : 22} strokeWidth={3} /> : goal ?? null}
       </li>;
     })}

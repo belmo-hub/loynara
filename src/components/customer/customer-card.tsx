@@ -14,9 +14,11 @@ import { CardFace, nearestReward, type CardReward } from "./card-face";
 import type { ChangeLine } from "@/lib/change-lines";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
-import { copyText } from "@/components/copy-text";
+import { CopyLabel, useCopy } from "@/components/copy-text";
 import { stampAnnouncement, tapCopy } from "@/components/tap-client";
 import { MOMENT_PILL_MS } from "./booking-moment";
+import { Reveal } from "./reveal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { withUnit } from "@/lib/units";
 
 type Reward = CardReward;
@@ -102,6 +104,12 @@ export function CustomerCard(props: CustomerCardProps) {
   const [sheet, setSheet] = useState<"wallet" | "rules" | "return" | "email" | null>(null);
   const [allActivity, setAllActivity] = useState(false);
   const closeSheet = () => setSheet(null);
+  // The first paint only: the placeholder fades off the page, the card settles and the rows arrive. A later re-read
+  // (the page reads itself every few seconds) finds this off and replays nothing.
+  const [arriving, setArriving] = useState(true);
+  useEffect(() => { const timer = setTimeout(() => setArriving(false), ARRIVE_MS); return () => clearTimeout(timer); }, []);
+  // One full turn of the icon per press, whatever the read takes.
+  const [turn, setTurn] = useState(0);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
@@ -110,7 +118,10 @@ export function CustomerCard(props: CustomerCardProps) {
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
-  const shown = allActivity ? activity : activity.slice(0, ACTIVITY_ROWS);
+  const activityRow = (item: CardActivity) => <li key={item.id}>
+    <small className={styles.activityDay}>{item.date}</small><strong>{item.label}</strong>
+    <b data-sign={item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b>
+  </li>;
   // The goal is the page's heading; a programme without a reward has none, so the shop's name takes the h1.
   const Name = selected ? "p" : "h1";
 
@@ -120,8 +131,8 @@ export function CustomerCard(props: CustomerCardProps) {
     {wallets.length ? <button type="button" className={styles.headerWallet} aria-haspopup="dialog" aria-label={t.walletTitle} onClick={() => setSheet("wallet")}><WalletIcon size={22} aria-hidden="true" /></button> : null}
   </div>;
 
-  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
-    <div className={styles.lead}>
+  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving ? cardSkeleton : undefined}>
+    <div className={styles.lead} data-arriving={arriving || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
@@ -144,7 +155,7 @@ export function CustomerCard(props: CustomerCardProps) {
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
         {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
         {props.onRefresh ? <div className={styles.refresh}>
-          <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
+          <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw key={turn} size={16} className={turn ? styles.turn : undefined} />} onClick={() => { setTurn(turn + 1); props.onRefresh?.(); }} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
         </div> : null}
       </div>
@@ -153,7 +164,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     </div>
 
-    <div className={styles.rest}>
+    <div className={styles.rest} data-arriving={arriving || undefined}>
       {notes.length ? <Section name="notes" title={t.goodToKnow}>
         <ul className={styles.rows}>{notes.map(({ key, icon: Icon, warn, body }) => <li key={key} className={styles.row}>
           <span className={styles.rowIcon} data-tone={warn ? "warn" : undefined}><Icon size={22} aria-hidden="true" /></span>
@@ -183,11 +194,12 @@ export function CustomerCard(props: CustomerCardProps) {
 
       <Section name="activity" title={t.activity} className="customer-activity">
         <div className={styles.card}>
-          {activity.length ? <ul className={`customer-activity-list ${styles.activity}`}>{shown.map((item) => <li key={item.id}>
-            <small className={styles.activityDay}>{item.date}</small><strong>{item.label}</strong>
-            <b data-sign={item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b>
-          </li>)}</ul> : <p className={styles.muted}>{t.activityEmpty}</p>}
-          {activity.length > ACTIVITY_ROWS && !allActivity ? <button type="button" className={styles.showAll} onClick={() => setAllActivity(true)}>{t.showAll}</button> : null}
+          {/* Two lists on one column grid: the later rows open in place under the first three (Disclosure). */}
+          {activity.length ? <div className={styles.activity}>
+            <ul className={`customer-activity-list ${styles.activityRows}`}>{activity.slice(0, ACTIVITY_ROWS).map(activityRow)}</ul>
+            {allActivity ? <div className={styles.activityMore}><ul className={styles.activityRows}>{activity.slice(ACTIVITY_ROWS).map(activityRow)}</ul></div> : null}
+          </div> : <p className={styles.muted}>{t.activityEmpty}</p>}
+          <Reveal open={activity.length > ACTIVITY_ROWS && !allActivity} gap="var(--space-3)"><button type="button" className={styles.showAll} onClick={() => setAllActivity(true)}>{t.showAll}</button></Reveal>
         </div>
       </Section>
 
@@ -214,7 +226,7 @@ export function CustomerCard(props: CustomerCardProps) {
           <p className={styles.links}><a href="/teilnahmebedingungen" target="_blank" rel="noopener">{t.terms}</a></p>
         </div>
       </Sheet> : null}
-      <ReturnSteps t={t} cardLocator={cardLocator} recoverUrl={locale === "de" ? props.recoverUrl : undefined} open={sheet === "return"} onClose={closeSheet} />
+      <ReturnSteps t={t} french={locale === "fr"} cardLocator={cardLocator} recoverUrl={locale === "de" ? props.recoverUrl : undefined} open={sheet === "return"} onClose={closeSheet} />
       {props.email?.sheet(sheet === "email", closeSheet)}
 
       {props.onCloseCard ? <CloseCard {...props} t={t} /> : null}
@@ -224,6 +236,31 @@ export function CustomerCard(props: CustomerCardProps) {
 
 /** Rows of activity before „Alle anzeigen“ (G-21). */
 const ACTIVITY_ROWS = 3;
+/** How long the first paint's motion may run (List arrive ends at 420 ms). */
+const ARRIVE_MS = 480;
+
+/** The card page's placeholder, in the card's own classes, so it has the card's shape and columns. */
+const cardSkeleton = {
+  header: <div className={styles.merchant}><Skeleton width={36} height={36} radius={14} /><Skeleton width="45%" height={40} /></div>,
+  main: <>
+    <div className={styles.lead}>
+      <div className={styles.goal}><Skeleton height={64} width="85%" /></div>
+      <div className={styles.cardGroup}><Skeleton height={420} radius={28} /></div>
+    </div>
+    <div className={styles.rest}>
+      <div className={styles.section}><Skeleton height={20} width="40%" /><Skeleton height={64} radius={20} /></div>
+      <div className={styles.section}><Skeleton height={20} width="30%" /><Skeleton height={200} radius={20} /></div>
+    </div>
+  </>,
+};
+
+/** The card page while it loads: the placeholder alone, in the frame the card then takes. */
+export function CustomerCardLoading({ label }: { label: string }) {
+  return <CustomerShell wide header={<div className={styles.loadingHead}>{cardSkeleton.header}</div>} footer={<LegalLinks locale="de" />}>
+    <div className={styles.loading} aria-busy="true" aria-label={label}>{cardSkeleton.main}</div>
+    <h1 className={styles.srOnly}>{label}</h1>
+  </CustomerShell>;
+}
 
 /** A section head on the grey and what it heads. */
 function Section({ name, title, className, children }: { name: string; title: string; className?: string; children: ReactNode }) {
@@ -326,10 +363,11 @@ function Wallet({ buttons, walletBusy = null, googleTestOnly, walletError, local
   </Sheet>;
 }
 
-function ReturnSteps({ t, cardLocator, recoverUrl, open, onClose }: { t: Copy; cardLocator?: string; recoverUrl?: string; open: boolean; onClose: () => void }) {
+function ReturnSteps({ t, french, cardLocator, recoverUrl, open, onClose }: { t: Copy; french: boolean; cardLocator?: string; recoverUrl?: string; open: boolean; onClose: () => void }) {
   const { text: status, live, announce: setStatus } = useCardStatus("return");
+  const { copied, copy } = useCopy();
   async function copyLink() {
-    setStatus(await copyText(new URL(window.location.pathname, window.location.origin).href) ? t.copied : t.copyFailed);
+    setStatus(await copy(new URL(window.location.pathname, window.location.origin).href) ? t.copied : t.copyFailed);
   }
   return <Sheet open={open} onClose={onClose} title={t.save}>
     <div className={`customer-wallet ${styles.sheetBody}`}>
@@ -340,7 +378,7 @@ function ReturnSteps({ t, cardLocator, recoverUrl, open, onClose }: { t: Copy; c
         {recoverUrl ? <li>Oder gib unter {recoverUrl} deine bestätigte E-Mail-Adresse ein.</li> : null}
       </ol>
       <p className={styles.muted}>{t.linkWarning}</p>
-      <Button variant="secondary" size="sm" onClick={copyLink}>{t.copyLink}</Button>
+      <Button variant="secondary" size="sm" onClick={copyLink}><CopyLabel copied={copied} label={t.copyLink} done={french ? "Copié" : undefined} /></Button>
       <CardStatusLine text={status} live={live} className={styles.muted} />
     </div>
   </Sheet>;
@@ -350,11 +388,11 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
   const [open, setOpen] = useState(false);
   return <section className={styles.close}>
     <button type="button" className={styles.closeToggle} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{t.closeCard}<ChevronRight size={16} aria-hidden="true" /></button>
-    {open ? <div className={`customer-close-confirm ${styles.closeConfirm}`}>
+    <Reveal open={open} gap="var(--space-3)"><div className={`customer-close-confirm ${styles.closeConfirm}`}>
       <p>{t.closeMessage(Boolean(onAppleWallet || onGoogleWallet))}</p>
       <Button variant="danger" size="sm" onClick={() => void onCloseCard?.()} loading={closeBusy}>{closeBusy ? t.closing : t.confirmClose}</Button>
       {closeError ? <p className={styles.alert} role="alert">{closeError}</p> : null}
-    </div> : null}
+    </div></Reveal>
   </section>;
 }
 
