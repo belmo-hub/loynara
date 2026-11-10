@@ -25,7 +25,6 @@ objects and CSS inside strings. Each exception names the exact rule and its reas
 | Customer: /join, /card, /tap, /recover, /verify-email, /unsubscribe | `CustomerShell` | single column, max 440 px | light + dark (system) |
 | Cashier: /cashier | `CashierShell` | single column, max 560 px | always dark (`.ly-theme-dark`) |
 | Owner: /merchant/* | `OwnerShell` (src/components/owner) | sidebar ≥ 1024 px; top bar + bottom bar + "Mehr" sheet below | light + dark (system) |
-| Sign-in, invite, legal, system pages | `AuthShell` | centred column, max 480 px (legal 720 px) | light + dark (system) |
 
 Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers-color-scheme`) or `.ly-theme-dark`
 (forced). Pages that are not migrated yet stay light.
@@ -149,9 +148,6 @@ or nothing).
 | Hover (pointer only) | rows, tiles, links | fill or underline over `--dur-press`; no lift, no scale, no shadow growth | same |
 | Field error | inline validation, notices and error blocks that appear | the message fades in and settles 4 px down over `--dur-ui`; the field's border changes over `--dur-press` | instant |
 | Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui`; „Gespeichert“ wears a check that draws itself | instant label swap |
-| Card arrive | customer card page, first open | the card object scales .98 → 1 and fades over `--dur-ui`, once; the code ticket and number stay still | instant |
-| Scan success ring | cashier camera frame after a successful scan | one ring pulse, `--dur-reward`, once | colour change only |
-| Sign-in and auth | `AuthShell` pages | Arrive for the form block (at most 3 items); the button's loading state after 300 ms | instant |
 
 No hover lift on cards and no scale on hover. An arrival plays once, on a screen's first paint (navigation in or page load); a re-render, a refresh or polling never replays it. Content takes a tap from the first frame: entrances fill backwards only and nothing is hidden until JavaScript runs. Facts (prices, dates, codes, a balance on arrival), the top bar, the tab bar, the sidebar and a field being typed in stay still. A keyboard-triggered action shows the same change at once. The only loops are the skeleton shimmer and a spinner once an action has waited 300 ms.
 
