@@ -14,7 +14,7 @@
 /* Fixed box, so nothing shifts: the shop's initial on its colour, the same in both themes. */
 .tile { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); line-height: 1; overflow: hidden; }
 .name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
-.location { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
+.location { margin: 0; font-size: var(--text-14); line-height: calc(20 / 14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
 
 /* The card. Its ground is a layer of its own, so a press moves the ground and the places stand still. */
 /* The same object as on the card page, so the same radius. */
@@ -26,7 +26,7 @@
 /* 32 px places packed left with one 12 px gap in both directions, so the rows read as one grid (Design, 10 Nov). */
 .card .stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: start; gap: var(--space-3); }
 .card .stamps li { width: 32px; }
-.foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.4; }
+.foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: calc(20 / 14); }
 .foot svg { flex: none; }
 .foot strong { font-weight: var(--weight-heavy); }
 

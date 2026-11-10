@@ -62,14 +62,16 @@ describe("what one read of the card may celebrate", () => {
 });
 
 describe("the card page after the join page (ENG-205)", () => {
-  it("opens as a return once, within a few seconds of the join, keeps no card link, and stays quiet without storage", () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal("sessionStorage", { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); }, removeItem: (key: string) => { store.delete(key); } });
+  it("opens as a return once, within a few seconds of the join, and keeps the mark in the page's memory only", () => {
+    const stored: string[] = [];
+    const spy = { getItem: () => null, setItem: (key: string) => { stored.push(key); }, removeItem: () => {} };
+    vi.stubGlobal("sessionStorage", spy);
+    vi.stubGlobal("localStorage", spy);
     const at = Date.parse("2026-11-10T12:00:00Z");
     expect(peekJoined(at)).toBe(false);
     markJoined(at);
-    // The mark is a time and nothing else: no card link, no card number (ENG-214).
-    expect([...store.entries()]).toEqual([["loynara_joined", String(at)]]);
+    // Nothing is written to the browser's storage: no card link, no card number, not even the time (ENG-214).
+    expect(stored).toEqual([]);
     // Peeking (the card page's paint before its read) does not use the mark up.
     expect([peekJoined(at + 500), peekJoined(at + 900)]).toEqual([true, true]);
     expect(takeJoined(at + 1000)).toBe(true);
@@ -77,9 +79,7 @@ describe("the card page after the join page (ENG-205)", () => {
     // A mark older than the window (the tab was left open, another card is opened later) no longer counts.
     markJoined(at);
     expect([peekJoined(at + JOINED_WINDOW_MS), takeJoined(at + JOINED_WINDOW_MS)]).toEqual([false, false]);
-    vi.stubGlobal("sessionStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
-    expect(() => markJoined(at)).not.toThrow();
-    expect([peekJoined(at), takeJoined(at)]).toEqual([false, false]);
+    expect(takeJoined(at + 1)).toBe(true); // leave no mark behind for the next test
     vi.unstubAllGlobals();
   });
   it("celebrates nothing on that first read: a booking made before the join page's mark counts as seen", () => {
