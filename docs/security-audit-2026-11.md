@@ -36,6 +36,23 @@ Full review of the Loynara application at `railway-rc` `1b77eeca`: web app, work
 | L-12 | Low | Runtime image still carries the whole source tree (open since October) | Read |
 | L-13 | Low | 403 or 404 reveals whether a foreign id exists | Read |
 
+## Tickets and fixes
+
+Opened after the report; none is merged at the time of writing.
+
+| Finding | Ticket | Pull request |
+| --- | --- | --- |
+| M-1 dependency upgrade | ENG-187 | #243 |
+| M-1 advisory check in CI | ENG-195 | not started |
+| M-2 NFC master rotation | none (operator step) | #234 is the re-key tool |
+| M-3 recovery replaces QR code and Wallet passes | ENG-191 | #242 |
+| M-4 at most ten devices per Apple pass | ENG-190 | #241 |
+| M-4 push token per registration (schema change) | ENG-196 | not started |
+| M-5 no self-created shop while registration is closed | ENG-188 | #239 |
+| M-6 pace limits on bookings | ENG-189 | #240 |
+| L-1 to L-13 | ENG-197 | not started |
+| This report | ENG-192 | #235 |
+
 ## Medium findings
 
 ### M-1. Dependencies with published critical advisories
