@@ -1,6 +1,7 @@
 import { customerCookieAttributes, LEGACY_CUSTOMER_SESSION_DEADLINE } from "@/lib/customer-session";
 import { bindTapCard } from "@/lib/secure-tap";
 import { getCard } from "@/lib/product";
+import { withReferralShare } from "@/lib/referrals";
 import { respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { clearLegacyReturningCardCookieHeader, returningCardCookieName, returningMemberSession } from "@/lib/returning-card";
@@ -14,7 +15,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     else await enforcePeerLimit(request, "card_read_peer", 240, 15 * 60);
     const { token } = await context.params;
     await enforceRateLimit({ scope: "card_read_token", identity: token, max: 90, windowSeconds: 15 * 60 });
-    const { programId, ...card } = await getCard(token);
+    const { programId, ...card } = await withReferralShare(await getCard(token), token);
     const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
     // Preserve legacy ownership before binding, but never bootstrap/renew a signed session on GET.
     // This path cannot see /api/tap cookies. Only the binding POST can reconcile both scopes safely,

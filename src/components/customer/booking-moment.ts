@@ -61,9 +61,12 @@ export function markSeen(cardLocator: string, iso: string) {
 
 /**
  * Where „Karte empfehlen“ stands (ENG-206). Without the server's field (flag off): in the panels below, as it always
- * did. With it: under the card group from the second team-confirmed booking on, and before that nowhere, so it is
- * neither rendered nor fetched.
+ * did. With it: under the card group once the read brings the share (from the second team-confirmed booking on, in a
+ * shop with referrals on), and otherwise nowhere, so it is neither rendered nor fetched.
  */
-export const referralPlace = (field: { referralDue: boolean } | undefined) => !field ? "below" as const : field.referralDue ? "card" as const : null;
+export const referralPlace = (field: { referralDue: boolean; referral?: object } | undefined) => !field ? "below" as const : field.referral ? "card" as const : null;
 /** Due with a booking whose moment is playing, the block is held shut until the stamp has landed, then opens. */
 export type ReferralHold = "none" | "held" | "released";
+/** Only the visit whose booking is the second opens the block; on every later visit it stands in the first paint. */
+export const referralHoldFor = (field: { referralNew: boolean } | undefined, moment: { stepped: boolean } | null): ReferralHold =>
+  !moment || !field?.referralNew ? "none" : moment.stepped ? "released" : "held";
