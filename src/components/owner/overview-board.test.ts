@@ -76,7 +76,7 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
-    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena\.<\/h1>/); // the visible heading, outside the card
+    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena<\/h1>/); // the visible heading, outside the card
     expect(html).not.toContain("Café Lindenblatt.");
     expect(html).toContain('aria-label="Umsatz deiner Loynara-Kunden, letzte 30 Tage"'); // no kicker: the sub-line says the days
     expect(html).not.toContain("ow-board-kicker");
@@ -136,7 +136,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     state.loads["/api/auth/get-session"] = ok({ user: { name: "Lena Berger" } });
     const there = render();
     expect(there).not.toContain("ow-board-ph");
-    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena\.<\/h1>/);
+    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena<\/h1>/);
   });
 
   it("a shop without till amounts leads with bookings (Q-81 switch off), whatever the average says", () => {
@@ -187,14 +187,14 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
     state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
-    expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
+    expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen</b>`);
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
     expect(render()).toMatch(/<a class="ow-band" href="\/merchant\/program\/winback">[^]*<span class="ow-band-go">Willkommen-zurück-Bonus einschalten<svg/);
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
-    expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen.</b>`);
+    expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen</b>`);
     expect(html).toMatch(/<a class="ow-band" href="[^"]+">[^]*<span class="ow-band-go">Ansehen<svg/);
     expect(html.indexOf('class="ow-next"')).toBeLessThan(html.indexOf('class="ow-board"')); // in the flow, under the greeting
   });

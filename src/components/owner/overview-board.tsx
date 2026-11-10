@@ -184,7 +184,7 @@ export function BonusOffBand({ href }: { href: string }) {
 export function Milestone({ cards, action }: { cards: number; action: () => void }) {
   return (
     <section className="ow-card ow-row" style={{ justifyContent: "space-between", alignItems: "center" }} aria-label="Meilenstein">
-      <h2>Deine {nf.format(cards)}. Karte.</h2>
+      <h2>Deine {nf.format(cards)}. Karte</h2>
       <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={action}>Tresenschild laden</button>
     </section>
   );

@@ -117,7 +117,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   // A failed read shows the last numbers this device loaded, with their „Stand …“; the error card only without them.
   const board = failed ? cached?.board ?? null : live;
   const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
-  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
+  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}`;
   const quiet = a ? quietOf(a) : null;
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
@@ -284,7 +284,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
 const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}Karte ${one}` : `${nf.format(n)}${NBSP}Karten ${many}`;
 
 /**
- * „Als Nächstes“: one line, one verb (copy N1–N3), status by exception. A quiet week (7+ days without a booking) first,
+ * „Als Nächstes“: one line, one verb (copy N1–N3), no final period on the one-line title, status by exception. A quiet week (7+ days without a booking) first,
  * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
  * ending, the end-date card leads instead.
  */
@@ -301,10 +301,10 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen", "fehlen seit über 30 Tagen"), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
-  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
-  if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen", "können jetzt eine Prämie einlösen"), action: { label: "Ansehen", href: insight.actions[0].href } };
+  if (insight) return { kind: insight.id, title: insight.title, text: insight.next, action: insight.actions.at(-1) };
   return null;
 }
 
