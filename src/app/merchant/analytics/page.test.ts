@@ -32,9 +32,14 @@ const render = () => renderToStaticMarkup(createElement(MerchantAnalyticsPage));
 const rowOf = (html: string, title: string) => html.match(new RegExp(`<li><(?:a|div) class="ow-prog-row"[^>]*>(?:(?!</li>).)*<strong>${title}</strong>(?:(?!</li>).)*</li>`))?.[0] ?? "";
 
 describe("Ergebnisse as Wegweiser rows (ENG-122b)", () => {
-  it("draws the full weeks only, labels each with its first day and lights the latest", () => {
+  it("draws the full weeks and the week still running, labels each with its first day and lights the latest full one", () => {
     const html = render();
-    expect(html.match(/class="ow-strip-day"/g)).toHaveLength(4); // the two left-over days get no bar of their own
+    // ENG-203: four full weeks, then the running week as an outline („bis heute“), so the bars hold today's bookings
+    // like the number above them. The cut first week still gets no bar.
+    expect(html.match(/class="ow-strip-day"/g)).toHaveLength(5);
+    expect(html.match(/data-today=""/g)).toHaveLength(1);
+    expect(html).toContain("19.10. bis 26.10. 15 Buchungen, 26.10. bis heute 30 Buchungen");
+    expect(html).toContain(">bis heute</span>");
     expect(html).toContain("Bestätigte Buchungen je Woche: 28.09. bis 05.10. 9 Buchungen, 05.10. bis 12.10. 11 Buchungen, 12.10. bis 19.10. 13 Buchungen, 19.10. bis 26.10. 15 Buchungen");
     expect(html.match(/data-lit=""/g)).toHaveLength(1);
     expect(html).toMatch(/data-lit=""[^>]*><\/span><span class="ow-strip-d" data-yesterday="">19\.10\.<\/span>/);
