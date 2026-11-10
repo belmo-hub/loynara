@@ -81,6 +81,8 @@ export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr
 /** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
  *  220 ms later, the card page after a 400 ms hold. With a Startbonus (ENG-207) both wait 820 ms, so the credited
  *  places are seen landing. Reduced motion: at once. */
+/** ENG-207: the credited places land this long after the answer, once the card has pressed; until then they stay rings. */
+export const FIRST_TAP_STEP_MS = 300;
 export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 0 : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
@@ -117,6 +119,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [created, setCreated] = useState(false);
   // ENG-207: the Startbonus the server booked with the card; nothing is filled before this is known.
   const [credited, setCredited] = useState(0);
+  // The step: the promised rings become the booked places (the press first, then the landing; never both at once).
+  const [landedBonus, setLandedBonus] = useState(false);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
   const [covered, setCovered] = useState(true);
   useEffect(() => { if (loading) return; const timer = setTimeout(() => setCovered(false), 400); return () => clearTimeout(timer); }, [loading]);
@@ -173,11 +177,12 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       if (plain && next.go !== "tap") {
         // Nothing is drawn before this point: the card exists. A tap return goes on at once, without this.
         const cardHref = `/card/${encodeURIComponent(result.cardToken)}`;
-        const bonus = result.headStart ?? 0;
+        const bonus = result.headStart ?? 0, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
         setCredited(bonus);
         setCreated(true);
+        if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }
         if (next.go !== "step") router.prefetch(cardHref);
-        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", matchMedia("(prefers-reduced-motion: reduce)").matches, bonus > 0)));
+        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", still, bonus > 0)));
         leaving = next.go !== "step";
         // The card page opens as a return after this page: it celebrates nothing a second time.
         markJoined(result.cardToken);
@@ -226,6 +231,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   // ENG-207: what the button on screen gives the new card (the owner's Startbonus at sign-up, as the server caps it).
   // Shown once the returning check has answered, and only on the plain join: a further card gets none.
   const offer = plain ? program.headStart ?? 0 : 0, offerShown = offer > 0 && returning.state !== "checking";
+  // Filled places are what the server booked, from the step on; before it they are rings.
+  const filled = landedBonus ? credited : 0;
   // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
   const top = newPage && <div className={first.top}>
     <div className={first.shop}>
@@ -233,10 +240,10 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
     </div>
     {/* Promised places are rings; a place is filled only with what the server booked (credited). */}
-    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined} data-promised={(!created && offerShown && Math.min(offer, 2)) || undefined}>
+    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined} data-promised={(!landedBonus && offerShown && Math.min(offer, 2)) || undefined}>
       {program.programType === "points"
-        ? <PointsLadder balance={credited} landedFrom={credited > 0 ? 0 : undefined} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
-        : <StampGrid earned={credited} landed={credited > 0 ? credited : undefined} landedCount={credited || 1} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
+        ? <PointsLadder balance={filled} landedFrom={filled > 0 ? 0 : undefined} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
+        : <StampGrid earned={filled} landed={filled > 0 ? filled : undefined} landedCount={filled || 1} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
       <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}{(offerShown || credited > 0) && <span className={first.bonus}> · Startbonus</span>}</span></p>
     </section>
   </div>;

@@ -27,8 +27,8 @@
 .foot svg { flex: none; }
 .foot strong { font-weight: var(--weight-heavy); }
 /* ENG-207, the Startbonus the owner gives at sign-up. Promised places are rings at full ink: no coral before the
-   server has booked them. The credited places land with the answer, as the card presses: a delay would leave the
-   promised rings' places empty until then. */
+   server has booked them. They stay rings while the card presses; 300 ms after the answer the page swaps them to the
+   booked places, which land at once (no delay, so no place stands empty). */
 .card[data-promised="1"] .stamps li:nth-child(-n + 1), .card[data-promised="2"] .stamps li:nth-child(-n + 2) { border-color: var(--merchant-ink); }
 .bonus { font-weight: var(--weight-label); }
 .start { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; color: var(--color-ink); text-wrap: balance; }

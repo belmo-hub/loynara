@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { firstCardHeight, firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
+import { FIRST_TAP_STEP_MS, firstCardHeight, firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -135,8 +135,7 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(created).toBeGreaterThan(source.indexOf("if (!result) return;"));
     expect(source.slice(source.lastIndexOf('if (plain && next.go !== "tap") {', created), created)).not.toContain("\n      }");
     // The preview holds no stamp: nothing lands that the server has not booked.
-    expect(source).toContain('<StampGrid earned={credited} landed={credited > 0 ? credited : undefined}');
-    expect(source).not.toMatch(/first\.card[^\n]*landed/);
+    expect(source).toContain('<StampGrid earned={filled} landed={filled > 0 ? filled : undefined}');
   });
   it("keeps the rules above the terms sentence and the button, and puts the optional tick below the button, locked once sent (Legal, 10 Nov)", async () => {
     const source = await read("src/components/join-client.tsx"), page = source.indexOf("if (plain) return <CustomerShell"), end = source.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}");
@@ -176,8 +175,12 @@ describe("the Startbonus on the first page (ENG-207)", () => {
   it("fills a place only with what the server booked: rings before, the credited amount after", async () => {
     const source = await read("src/components/join-client.tsx");
     expect(source.match(/setCredited\(/g)).toHaveLength(1);
-    expect(source).toContain("const bonus = result.headStart ?? 0;\n        setCredited(bonus);");
-    expect(source).toContain("data-promised={(!created && offerShown && Math.min(offer, 2)) || undefined}");
+    expect(source).toContain("const bonus = result.headStart ?? 0, still = matchMedia(\"(prefers-reduced-motion: reduce)\").matches;\n        setCredited(bonus);");
+    expect(source).toContain("data-promised={(!landedBonus && offerShown && Math.min(offer, 2)) || undefined}");
+    // The rings stay through the card's press; the booked places take their place at the step and land with no delay.
+    expect(source).toContain("const filled = landedBonus ? credited : 0;");
+    expect(source).toContain("if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }");
+    expect(FIRST_TAP_STEP_MS).toBe(300);
     const css = await read("src/components/customer/first-page.module.css");
     expect(css).toContain('.card[data-promised="1"] .stamps li:nth-child(-n + 1), .card[data-promised="2"] .stamps li:nth-child(-n + 2) { border-color: var(--merchant-ink); }');
     expect(css).not.toMatch(/data-promised[^{]*\{[^}]*(--color-stamp|background)/);
