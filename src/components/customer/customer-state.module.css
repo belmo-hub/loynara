@@ -41,6 +41,8 @@
 /* Screen change, in place (the tap page waiting, booked, rejected, expired): the old words leave the layout at once
    and fade out over the new ones, so nothing below waits for them or moves a second time. */
 .swap { display: grid; position: relative; }
+/* The words' boxes span the column, so the old words keep their own line breaks while they fade over shorter new ones. */
+.title, .message { justify-self: stretch; }
 .out { position: absolute; inset: 0 0 auto 0; animation: swap-out var(--dur-press) var(--ease-out) forwards; }
 .in { animation: appear var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) backwards; }
 @keyframes swap-out { to { opacity: 0; } }
