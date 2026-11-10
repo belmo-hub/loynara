@@ -7,6 +7,7 @@ import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 import { stripeConfigIssues } from "../src/lib/stripe-config";
 import { erasureDelayDays } from "../src/lib/programme-end-date";
 import { demoConfigIssues } from "../src/lib/demo-environment";
+import { EXPERIENCE_FLAGS } from "../src/lib/experience-flags";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -135,6 +136,7 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
   issues.push(...walletConfigIssues(env, approved));
+  for (const name of EXPERIENCE_FLAGS) if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
   return issues;
 }
 
