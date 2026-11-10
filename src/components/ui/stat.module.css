@@ -8,3 +8,14 @@
 .trend { display: block; width: 100%; max-width: 160px; height: 28px; }
 .past { fill: var(--color-line-strong); }
 .current { fill: var(--color-action); }
+/* Bars grow: the trend rises from its baseline once, 30 ms apart; from the eighth bar on they rise together. */
+.trend rect { transform-box: fill-box; transform-origin: bottom; animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+.trend rect:nth-child(2) { animation-delay: 30ms; }
+.trend rect:nth-child(3) { animation-delay: 60ms; }
+.trend rect:nth-child(4) { animation-delay: 90ms; }
+.trend rect:nth-child(5) { animation-delay: 120ms; }
+.trend rect:nth-child(6) { animation-delay: 150ms; }
+.trend rect:nth-child(7) { animation-delay: 180ms; }
+.trend rect:nth-child(n + 8) { animation-delay: 210ms; }
+@keyframes grow { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .trend rect { animation: none; } }

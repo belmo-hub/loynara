@@ -6,6 +6,7 @@ import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
 import { buttonClassName } from "./ui/button";
+import { NumberRoll } from "./ui/number-roll";
 import { TextField } from "./ui/field";
 
 export type TapPanelLocale = "de" | "fr";
@@ -380,7 +381,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
     <section className={styles.panel} aria-label={t.title}>
       <div className={styles.header}>
         <h2 className={styles.title}>{t.title}</h2>
-        {openCount > 0 && <span className={styles.count}>{openCount}</span>}
+        {openCount > 0 && <span className={styles.count}><NumberRoll value={openCount} /></span>}
         {loaded && openCount === 0 && <p className={styles.emptyInline}>{t.empty}</p>}
       </div>
       {offline && <p className={styles.notice} role="status">{t.offline}</p>}

@@ -6,3 +6,7 @@
 .empty[data-size="compact"] { justify-items: start; gap: var(--space-1); padding: var(--space-3) 0; text-align: left; }
 .empty[data-size="compact"] .title { font-size: var(--text-16); }
 .empty[data-size="compact"] .action { margin-top: var(--space-2); }
+/* One fade when it first shows: it often replaces a skeleton, and nothing arrives on top of that. */
+.empty { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .empty { animation: none; } }

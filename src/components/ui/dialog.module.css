@@ -6,7 +6,9 @@
 }
 .dialog:not([open]) { opacity: 0; transform: scale(.96); transition-duration: 160ms; }
 @starting-style { .dialog[open] { opacity: 0; transform: scale(.96); } }
-.dialog::backdrop { background: rgba(15, 23, 19, .48); }
+.dialog::backdrop { background: rgba(15, 23, 19, .48); opacity: 1; transition: opacity var(--dur-ui) var(--ease-out), overlay var(--dur-ui) allow-discrete, display var(--dur-ui) allow-discrete; }
+.dialog:not([open])::backdrop { opacity: 0; transition-duration: 160ms; }
+@starting-style { .dialog[open]::backdrop { opacity: 0; } }
 .body { display: grid; gap: var(--space-3); padding: var(--space-6); }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
 .description { margin: 0; color: var(--color-ink-muted); }
