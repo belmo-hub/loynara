@@ -217,6 +217,11 @@ const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind 
     : entry.kind === "correction" ? { mark: "", text: "Einlösung rückgängig", label: `Einlösung rückgängig gemacht, ${nf.format(entry.amount)} ${entry.amount === 1 && unit === "Punkte" ? "Punkt" : unit} wieder auf der Karte` }
     : { mark: "", text: "Prämie eingelöst", label: "Prämie eingelöst" };
 
+/** A busy day's first entries; the rest is one „… weitere“ count, so thirty bookings are not a wall of thirty pills. */
+const DAY_ENTRIES = 8;
+/** The entries not shown: those the read left out and those beyond the first eight. */
+const rest = (day: DiaryDay) => day.more + Math.max(0, day.entries.length - DAY_ENTRIES);
+
 /** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */
 export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]; today: string; unit: string; gap?: { from: string; to: string } | null; children?: ReactNode }) {
   const yesterday = today ? new Date(new Date(`${today}T12:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10) : "";
@@ -233,8 +238,8 @@ export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]
             <h3>{title(day.date)}</h3>
             {day.bookings > 0 && <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>}
             <ul className="ow-pills">
-              {day.entries.map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
-              {day.more > 0 && <li className="ow-pill" data-kind="more">{nf.format(day.more)}{NBSP}weitere</li>}
+              {day.entries.slice(0, DAY_ENTRIES).map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
+              {rest(day) > 0 && <li className="ow-pill" data-kind="more">{nf.format(rest(day))}{NBSP}weitere</li>}
             </ul>
           </div>
         </div>

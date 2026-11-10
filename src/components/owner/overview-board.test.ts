@@ -264,6 +264,12 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html.match(/data-kind="redemption"/g)).toHaveLength(1);
     expect(html).toContain(`3${NBSP}weitere`);
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);
+    // A busy day shows its first eight entries; the others join the read's own rest in the one count.
+    const busy = { date: "2026-11-03", bookings: 30, units: 30, more: 2, entries: Array.from({ length: 30 }, () => ({ kind: "award" as const, amount: 1 })) };
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [busy] }));
+    const wall = render();
+    expect(wall.match(/data-kind="award"/g)).toHaveLength(8);
+    expect(wall).toContain(`24${NBSP}weitere`);
   });
 
   it("leaves the invite link and Tresenschild to Kunden (ENG-122a)", () => {
