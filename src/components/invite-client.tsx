@@ -63,13 +63,13 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
 
   // An owner invitation from the operator: the shop exists, the owner sets up the programme next.
   if (done && invite?.role === "owner") return <AuthShell>
-    <div className={`invite-card ${styles.page}`}>
+    <div key="done" className={`invite-card ${styles.page}`}>
       <PageHeader title="Willkommen bei Loynara." description={`Dein Konto für ${invite.businessName} ist aktiv. Jetzt richtest du deine Treuekarte ein: Programm, Prämie und Farbe.`} />
       <Link href="/merchant/program" className={buttonClassName({ size: "lg", block: true })}>Treuekarte einrichten</Link>
     </div>
   </AuthShell>;
   if (done) return <AuthShell>
-    <div className={`invite-card ${styles.page}`}>
+    <div key="done" className={`invite-card ${styles.page}`}>
       <PageHeader title="Willkommen im Team." description={`${invite ? `Dein Zugang für ${invite.locationName} ist aktiv.` : "Dein Teamzugang ist aktiv."} An der Kasse buchst du ab jetzt Besuche und Prämien.`} />
       <Link href="/cashier" className={buttonClassName({ size: "lg", block: true })}>Zur Kasse</Link>
     </div>

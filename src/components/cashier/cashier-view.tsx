@@ -141,6 +141,10 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   // Points shops: the amount is typed in a bottom sheet, next to the keyboard and the thumb.
   const [amountOpen, setAmountOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward } | null>(null);
+  // The booking on its way: its own button shows that it is working (and keeps its colour) while the others step back.
+  const [working, setWorking] = useState<"award" | "redeem" | null>(null);
+  const awarding = busy && working === "award", redeeming = busy && working === "redeem";
+  const award = (selected: CashierCard, what: CashierAward) => { setWorking("award"); return onAward(selected, what); };
   // Each card (and each booking) starts from a clean form. Reset during render instead of remounting the view, which
   // would also restart the counter camera.
   const formKey = `${card?.id ?? (preview ? "preview" : "empty")}:${resetToken}`;
@@ -187,16 +191,15 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
       : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
   function awardQuantity(selected: CashierCard) {
-    const award = { quantity: awardCount };
-    if (awardCount === 1 && !offlineChoice) onAward(selected, award);
-    else setConfirm({ kind: "award", award });
+    if (awardCount === 1 && !offlineChoice) award(selected, { quantity: awardCount });
+    else setConfirm({ kind: "award", award: { quantity: awardCount } });
   }
   const purchaseAward = purchaseMode && purchasePreview ? { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } : null;
   // The sheet closes on the tap, so the outcome (or an error) shows on the counter; the amount stays for a retry.
   function bookPurchase(offline: boolean) {
     if (!card || !purchaseAward) return;
     setAmountOpen(false);
-    if (offline) onQueueOffline?.(card, purchaseAward); else onAward(card, purchaseAward);
+    if (offline) onQueueOffline?.(card, purchaseAward); else award(card, purchaseAward);
   }
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
@@ -208,7 +211,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
     first?.scrollIntoView({ block: "center" }); first?.focus();
   }
-  function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") onAward(card, confirm.award); else onRedeem(card, confirm.reward); setConfirm(null); }
+  function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") award(card, confirm.award); else { setWorking("redeem"); onRedeem(card, confirm.reward); } setConfirm(null); }
 
   const shellState: CashierState = booked ? booked.tone === "pending" ? "busy" : "done"
     : status === "rejected" || status === "offline" ? "error"
@@ -238,21 +241,21 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
   const dock = card ? <>
     {purchaseMode
-      ? <Button {...earnLook} block disabled={busy}
+      ? <Button {...earnLook} block loading={awarding} disabled={busy && !awarding}
         // Opened and focused inside the tap, so phones raise the number keyboard at once.
         onClick={() => { flushSync(() => setAmountOpen(true)); document.getElementById("purchase-amount")?.focus(); }}>{t.enterAmount}</Button>
       : <>
         <div className={cx("quantity-row", styles.stepper)}>
           <Button variant="secondary" size="lg" className={styles.step} aria-label={t.decrease} onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1 || busy}><Minus size={22} aria-hidden="true" /></Button>
-          <output aria-live="polite">{quantity}</output>
+          <output aria-live="polite"><NumberRoll value={quantity} /></output>
           <Button variant="secondary" size="lg" className={styles.step} aria-label={t.increase} onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity || busy}><Plus size={22} aria-hidden="true" /></Button>
         </div>
-        <Button {...earnLook} block className="cashier-award-now" onClick={() => awardQuantity(card)} disabled={busy}>{awardLabel}</Button>
+        <Button {...earnLook} block className="cashier-award-now" onClick={() => awardQuantity(card)} loading={awarding} disabled={busy && !awarding}>{awardLabel}</Button>
       </>}
-    {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeemReady} disabled={busy}>
+    {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeeming ? undefined : redeemReady} disabled={busy && !redeeming} aria-busy={redeeming || undefined}>
       <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
       <span className={styles.bandText}><b>{t.redeem}</b>{readyLine && <small>{readyLine}</small>}</span>
-      <ArrowRight size={22} aria-hidden="true" />
+      {redeeming ? <span className={styles.bandWait} aria-hidden="true" /> : <ArrowRight size={22} aria-hidden="true" />}
     </button>}
   </> : undefined;
 
@@ -263,13 +266,13 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={card || preview || booked ? styles.srOnly : styles.title}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
-      {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
+      {status !== "idle" && !booked && <div key={status} className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <span>{message}</span>}</span>
       </div>}
       {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={56} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
+        <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={56} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
         <h2>{booked.title}</h2>
         {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
         {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
@@ -295,7 +298,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
     </section> : !card ? <section className={styles.ready} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
-      <form className={styles.stack} onSubmit={lookup} onInput={fields.onInput} noValidate>
+      <form className={cx(styles.stack, status === "rejected" && styles.rejected)} onSubmit={lookup} onInput={fields.onInput} noValidate>
         <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
           autoFocus={focusCodeInput} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           placeholder={locale === "fr" ? "p. ex. K-7QX2MA" : "z. B. K-7QX2MA"} required />

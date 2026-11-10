@@ -82,7 +82,7 @@ describe("Stat", () => {
     const out = html(h(StatGroup, { label: "Kennzahlen" }, h(Stat, { label: "Aktive Karten", value: 10, note: "10 neu in 30 Tagen" })));
     expect(out).toMatch(/^<dl[^>]*aria-label="Kennzahlen"/);
     expect(out).toMatch(/<dt[^>]*>Aktive Karten<\/dt>/);
-    expect(out).toMatch(/<dd[^>]*>10<\/dd>/);
+    expect(out).toMatch(/<dd[^>]*><span[^>]*>10<\/span><\/dd>/);
   });
   it("summarises a trend in words for screen readers", () => {
     const out = html(h(Stat, { label: "Besuche", value: 36, trend: [{ label: "KW 38", value: 0 }, { label: "KW 41", value: 36 }] }));

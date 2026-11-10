@@ -6,5 +6,5 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { children?: 
 
 /** Checkbox whose whole row (label included) is the touch target. */
 export function Checkbox({ children, description, className, ...input }: Props) {
-  return <label className={cx(styles.row, className)}><input type="checkbox" className={styles.box} {...input} /><span className={styles.text}>{children}{description ? <small className={styles.description}>{description}</small> : null}</span></label>;
+  return <label className={cx(styles.row, className)}><input type="checkbox" className={styles.box} {...input} /><svg className={styles.check} viewBox="0 0 22 22" aria-hidden="true"><path d="M5.5 11.5l3.8 3.8 7.2-8" /></svg><span className={styles.text}>{children}{description ? <small className={styles.description}>{description}</small> : null}</span></label>;
 }

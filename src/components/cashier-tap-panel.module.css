@@ -223,3 +223,10 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+
+/* A request arrives once when it first shows (rows are keyed by request, so a poll never replays it); notices fade in. */
+.item { animation: row-in var(--dur-ui) var(--ease-out) backwards; }
+.notice, .outcome { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .item, .notice, .outcome { animation: none; } }

@@ -434,7 +434,7 @@ export default function CashierPage() {
 
   if (accessState !== "ready") return <CashierAccessState state={accessState} message={accessMessage} logoutControl={<LogoutButton className={buttonClassName({ variant: "secondary", size: "lg", block: true })} />} />;
   const cameraNode = camera === "on"
-    ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
+    ? <QrScanner locale={locale} paused={Boolean(card || preview)} reading={busy && !typedEntry && !booked} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
     : camera === "sleeping"
       ? <SleepingCamera locale={locale} hidden={Boolean(card || preview)} onWake={startCamera} onClose={stopCamera} />
       : undefined;

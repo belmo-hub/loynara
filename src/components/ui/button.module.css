@@ -9,7 +9,7 @@
 .button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .button:disabled { cursor: not-allowed; }
 .icon { display: inline-grid; place-items: center; }
-.label { overflow: hidden; text-overflow: ellipsis; }
+.label { overflow: hidden; text-overflow: ellipsis; transition: opacity var(--dur-press) ease; }
 
 .primary { background: var(--color-action); color: var(--color-on-action); }
 .secondary { background: transparent; border-color: var(--color-line-strong); color: var(--color-ink); }
@@ -36,6 +36,10 @@
 .go[aria-busy="true"] { background: var(--color-success); color: var(--color-raised); }
 .button[aria-busy="true"] { cursor: progress; }
 .button[aria-busy="true"] .label { opacity: .8; }
-.progress { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
+/* Loading: the spinner shows only once the action has waited 300 ms, so a fast answer never flashes it. */
+.progress { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite, wait var(--dur-ui) var(--ease-out) 300ms backwards; }
+/* In a full-width button it sits in the padding beside the label, so the label keeps its place. */
+.block .progress { margin-inline-end: calc(-16px - var(--space-2)); }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes wait { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .progress { animation-duration: 2s; } .button:active:not(:disabled) { transform: none; } }

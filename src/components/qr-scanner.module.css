@@ -19,3 +19,10 @@
 .state[data-state="error"] { color: var(--color-ink); font-weight: var(--weight-label); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin-inline: calc(-1 * var(--space-3)); }
 .sleeping { padding: var(--space-4); border: 1.5px dashed var(--color-line-strong); border-radius: var(--radius-xl); }
+/* Kasse states: the camera fades in when it comes back for the next card; a read card code answers with one ring on
+   the sight (--dur-reward, once) while the card is looked up. */
+.camera { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+.sight[data-read]::after { content: ""; position: absolute; inset: calc(-1 * var(--space-2)); border: var(--w) solid var(--c); border-radius: var(--radius-md); opacity: 0; animation: read var(--dur-reward) var(--ease-out); }
+@keyframes appear { from { opacity: 0; } }
+@keyframes read { from { opacity: .9; transform: scale(.94); } to { opacity: 0; transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .camera, .sight[data-read]::after { animation: none; } }

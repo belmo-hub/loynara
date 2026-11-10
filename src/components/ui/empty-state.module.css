@@ -6,3 +6,10 @@
 .empty[data-size="compact"] { justify-items: start; gap: var(--space-1); padding: var(--space-3) 0; text-align: left; }
 .empty[data-size="compact"] .title { font-size: var(--text-16); }
 .empty[data-size="compact"] .action { margin-top: var(--space-2); }
+/* Arrive: icon, title, text and action come in in reading order, once, when the empty state first shows. */
+.empty > * { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+.empty > :nth-child(2) { animation-delay: 40ms; }
+.empty > :nth-child(3) { animation-delay: 80ms; }
+.empty > :nth-child(n + 4) { animation-delay: 120ms; }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .empty > * { animation: none; } }
