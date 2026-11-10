@@ -253,7 +253,6 @@ function CardList({ filters, fresh }: { filters: Filters; fresh: Record<string, 
           const href = new URLSearchParams(list);
           href.set("card", member.id);
           return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={() => { listY = { list: list.toString(), y: window.scrollY }; }}>
-            <span className="ow-prog-icon"><Users size={22} aria-hidden="true" /></span>
             <span className="ow-prog-main">
               <span className="ow-prog-text"><strong>{member.cardLocator}</strong>{member.closedAt ? <span className="ow-chip">Geschlossen</span>
                 : <small>{sinceLast(member.lastQualifyingAt)}{multi && allLocations ? ` · ${member.locationName}` : ""}</small>}</span>
