@@ -1,0 +1,14 @@
+  html{scroll-behavior:auto}
+  .tap .ring,.cashier .ok:after,.st.pop{animation:none!important}
+  .scene{height:auto}
+  .stage{position:relative;height:auto;background:none!important;overflow:visible}
+  .stage>.wrap{display:block;height:auto}
+  .track,.objs{display:none}
+  .steps{min-height:0;display:grid;gap:var(--section)}
+  .step{position:static;opacity:1!important;transform:none!important;display:grid;grid-template-columns:5fr 6fr;gap:48px;align-items:center}
+  .step h2,.step>div:first-child p{color:inherit!important}
+  .still{display:flex;justify-content:center;align-items:flex-end;gap:16px;min-height:0}
+  .still .phone{position:relative;left:auto;top:auto;transform:none}
+  .step.dark{background:var(--field);color:var(--on-field);border-radius:var(--r-xl);padding:48px}
+  .step.dark>div:first-child p{color:var(--on-field-2)!important}
+@media (max-width:1023px){.step{grid-template-columns:1fr;gap:28px}.step.dark{padding:28px 20px}.chips{display:none}.shops .shop:not(.show){display:flex}}

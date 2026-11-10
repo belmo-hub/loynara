@@ -1,5 +1,6 @@
 "use client";
 
+import { useLinkStatus } from "next/link";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Check, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, TriangleAlert, Users, X, type LucideIcon } from "lucide-react";
 import type { NavIconName } from "./nav";
@@ -80,6 +81,11 @@ export function Notice({ tone = "info", children, actions, role }: { tone?: "inf
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }
 
 export const nf = new Intl.NumberFormat("de-DE");
+
+/** Inside a plain `Link` row: marks the row from the tap until its screen shows, as `GuardedLink` does by itself (owner.css). */
+export function LinkPending() {
+  return useLinkStatus().pending ? <span data-pending="" hidden /> : null;
+}
 export { germanDate } from "@/lib/german-date";
 
 /** Secondary detail behind one tap, so the page leads with its action. Text inside stays word for word. */

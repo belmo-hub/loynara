@@ -9,7 +9,7 @@ import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
 import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
-import { nf } from "./owner-ui";
+import { LinkPending, nf } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
@@ -127,7 +127,7 @@ function TileRow({ tile }: { tile: Tile }) {
     </span>
   </>;
   return tile.href
-    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /></Link>
+    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /><LinkPending /></Link>
     : <div className="ow-prog-row">{body}</div>;
 }
 
@@ -195,6 +195,7 @@ export function BonusOffBand({ href }: { href: string }) {
       <span><RefreshCw size={22} aria-hidden="true" focusable="false" /></span>
       <span><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
       <ArrowRight size={22} aria-hidden="true" focusable="false" />
+      <LinkPending />
     </Link>
   );
 }
@@ -223,7 +224,7 @@ export function NextBand({ title, text, action, children }: { title: string; tex
   return (
     <section className="ow-next" aria-label="Als Nächstes">
       {!action ? <div className="ow-band">{body}</div>
-        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
+        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}<LinkPending /></Link>
           : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
       {children}
     </section>

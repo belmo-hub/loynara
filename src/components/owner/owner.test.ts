@@ -79,9 +79,11 @@ describe("navigation", () => {
     const rules = cssDeclarations(readFileSync(join(__dirname, "owner.css"), "utf8"));
     const style = (selector: string) => Object.fromEntries(rules.filter(rule => rule.selector === selector).map(rule => [rule.property, rule.value]));
     expect(style(".ow-tab-icon")).toMatchObject({ width: "56px", height: "32px", "border-radius": "var(--radius-pill)" });
-    expect(style('.ow-tab[aria-current="page"] .ow-tab-icon')).toMatchObject({ background: "var(--color-fill)" });
-    expect(style('.ow-tab[aria-current="page"] svg')).toMatchObject({ "stroke-width": "2.5" });
-    expect(style('.ow-tab[aria-current="page"]')).toMatchObject({ "font-weight": "var(--weight-heavy)" });
+    // The same look marks the tab that was just tapped, until its screen shows; the tab before drops it for that time.
+    const current = '.ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"]';
+    expect(style(`${current} .ow-tab-icon, .ow-tab[data-pending] .ow-tab-icon`)).toMatchObject({ background: "var(--color-fill)" });
+    expect(style(`${current} svg, .ow-tab[data-pending] svg`)).toMatchObject({ "stroke-width": "2.5" });
+    expect(style(`${current}, .ow-tab[data-pending]`)).toMatchObject({ "font-weight": "var(--weight-heavy)" });
   });
   it("maps every existing merchant URL to a destination", () => {
     const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/more", "/merchant/settings", "/merchant/settings/cancel", "/merchant/locations", "/merchant/locations/new", "/merchant/locations/x", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];

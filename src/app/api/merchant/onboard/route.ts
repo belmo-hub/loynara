@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const user = await sessionUser(request);
     const data = await jsonBody(request);
     if (!data || typeof data !== "object") return Response.json({ error: "Invalid input" }, { status: 400 });
-    const result = await createMerchant({ ...data, userId: user.id } as Parameters<typeof createMerchant>[0]);
+    const result = await createMerchant({ ...data, userId: user.id } as Parameters<typeof createMerchant>[0], { newShop: process.env.PUBLIC_REGISTRATION_ENABLED === "true" });
     return Response.json(result, { status: 201 });
   } catch (error) { return respondError(error); }
 }
