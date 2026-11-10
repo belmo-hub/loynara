@@ -54,6 +54,11 @@ async function configured() {
 }
 
 describe("secure tap ledger boundary", () => {
+  it("answers a foreign shop's programme as not there, and a missing one the same way", async () => {
+    const mine = await fixture(), theirs = await fixture();
+    await expect(setTapPolicy({ actorUserId: mine.userId, programId: theirs.program.id, mode: "staff_confirmed", cooldownSeconds: 60 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(setTapPolicy({ actorUserId: mine.userId, programId: randomUUID(), mode: "staff_confirmed", cooldownSeconds: 60 })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
   it("uses the bounded HTTP tap route and an HttpOnly membership binding without accepting a cross-origin POST", async () => {
     const f = await configured();
     const directory = await mkdtemp(join(tmpdir(), "loynara-sdm-"));

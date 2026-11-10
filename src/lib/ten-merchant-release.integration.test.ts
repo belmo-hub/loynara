@@ -82,7 +82,7 @@ it("keeps ten simultaneous merchants isolated through real sessions, checkout re
     await updateMerchantBrand(brand);
     expect(await getMerchantBrand({ actorUserId: f.owner.userId, programSlug: f.merchant.programSlug })).toMatchObject({ businessName: `Cohort verified ${index}`, locationName: `Counter ${index}`, brandColor: "#32634d" });
     await expect(updateMerchantBrand({ ...brand, actorUserId: foreign.owner.userId })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(getMerchantRewards({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(getMerchantRewards({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const returning = await returningRoute(new Request(`${origin}/api/enroll/existing?slug=${f.merchant.programSlug}`, { headers: { cookie: f.cookie } }));
     expect(await returning.json()).toMatchObject({ existing: true });
     const duplicateJoin = await enrollRoute(request("/api/enroll", { slug: f.merchant.programSlug, acceptedTerms: true }, f.cookie));

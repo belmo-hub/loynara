@@ -68,7 +68,7 @@ describe("level settings", () => {
     const other = await shop("Other Synthetic Shop");
     await expect(levels(s, {}, await staff(s, "cashier"))).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(levels(s, {}, await staff(s, "manager"))).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(levels(s, {}, other.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(levels(s, {}, other.owner)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(levels(s, { levelSilverVisits: 5, levelGoldVisits: 5 })).rejects.toMatchObject({ code: "INVALID_LEVELS" });
     await expect(levels(s, { levelGoldPerk: "Mehr auf www.example.de" })).rejects.toMatchObject({ code: "INVALID_LEVELS" });
     await expect(levels(s, { levelGoldPerk: "x".repeat(61) })).rejects.toMatchObject({ code: "INVALID_LEVELS" });
