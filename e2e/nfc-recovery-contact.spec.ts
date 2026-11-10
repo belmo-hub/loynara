@@ -56,7 +56,11 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const verificationPage = await verifier.newPage();
     await verificationPage.goto(verification);
     expect((await sql("SELECT email_verified FROM membership_contacts WHERE membership_id=$1", [original.id]))[0].email_verified).toBe(false);
+    // next dev serves the button before React hydrates it; the page scrubs #token only once its effect has run, so a click before that is lost.
+    await expect(verificationPage).toHaveURL(/\/verify-email$/);
+    const verified = verificationPage.waitForResponse(r => new URL(r.url()).pathname === "/api/contact/verify");
     await verificationPage.getByRole("button", { name: "E-Mail-Adresse bestätigen", exact: true }).click();
+    expect((await verified).status()).toBe(200);
     await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt" })).toBeVisible();
     const verifyToken = new URLSearchParams(new URL(verification).hash.slice(1)).get("token");
     expect((await verifier.request.post("/api/contact/verify", { headers: origin, data: { token: verifyToken } })).status()).toBe(400);
@@ -109,6 +113,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await secondSetup.getByRole("button", { name:"Bestätigungslink schicken" }).click();
     await expect(secondSetup.getByText("Wir haben dir einen Link geschickt.")).toBeVisible();
     await verificationPage.goto(await deliveredLink(email,"/verify-email"));
+    await expect(verificationPage).toHaveURL(/\/verify-email$/);
     await verificationPage.getByRole("button", { name:"E-Mail-Adresse bestätigen",exact:true }).click();
     await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();
     const fresh = await newDevice.newPage();

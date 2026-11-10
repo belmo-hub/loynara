@@ -129,7 +129,8 @@ export async function ledgerRowsFor(cardToken: string) {
 
 /** The cashier's open NFC list as the API returns it. */
 export async function pendingOf(api: APIRequestContext) {
-  const response = await api.get("/api/cashier/tap/pending");
+  // Playwright's shared keep-alive pool can hand out a socket the dev server has just dropped; a read is safe to resend once, and maxRetries resends only on ECONNRESET.
+  const response = await api.get("/api/cashier/tap/pending", { maxRetries: 1 });
   expect(response.status()).toBe(200);
   return await response.json() as Array<{ id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string }>;
 }
