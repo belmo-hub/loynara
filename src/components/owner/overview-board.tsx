@@ -106,14 +106,14 @@ export type Tile = { key: string; icon: LucideIcon; label: string; value: string
  * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
  * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
  */
-export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
+export function Tiles({ title, note, tiles }: { title: string; /** Said once after the title, for all rows („zweite Woche“). */ note?: string; tiles: Tile[] }) {
   const [help, setHelp] = useState(false);
   const titleId = useId();
   const close = () => setHelp(false);
   return (
     <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
       <div className="ow-rows-head">
-        <h2 id={titleId} className="ow-tiles-title">{title}</h2>
+        <h2 id={titleId} className="ow-tiles-title">{title}{note && ` · ${note}`}</h2>
         <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
       </div>
       <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>

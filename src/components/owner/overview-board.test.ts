@@ -21,7 +21,7 @@ vi.mock("./use-load", () => ({
   },
 }));
 
-import { boardOf, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
+import { boardOf, firstWeeks, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
 
 const ok = (data: unknown): Load => ({ state: "ok", data, at: 0 });
 const NBSP = "\u00a0";
@@ -359,10 +359,18 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
 });
 
 describe("the four tiles (spec §1.3, copy T1–T5)", () => {
-  it("say „erste Woche“ and „zweite Woche“ after the programme start, „vorher N“ with a full previous period, else what was counted", () => {
+  it("say „vorher N“ with a full previous period, else what was counted; the first two weeks are named once, in the head", () => {
     const notes = (patch: Partial<LocationAnalytics>) => tilesOf(analytics(patch), { owner: true, bookingsHref: null, bonusHref: "/merchant/wallet-messages#winback-title" }).map(tile => typeof tile.note === "string" ? tile.note : "link");
-    expect(notes({ programStartedOn: "2026-10-29", previous: null })).toEqual(["erste Woche", "erste Woche", "erste Woche", "erste Woche"]);
-    expect(notes({ programStartedOn: "2026-10-22", previous: null })).toEqual(["zweite Woche", "zweite Woche", "zweite Woche", "zweite Woche"]);
+    const counted = ["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"];
+    expect(notes({ programStartedOn: "2026-10-29", previous: null })).toEqual(counted);
+    expect(notes({ programStartedOn: "2026-10-22" })).toEqual(counted); // never „vorher“ against days before the programme
+    expect(firstWeeks({ programStartedOn: "2026-10-29", today: "2026-11-04" })).toBe("erste Woche");
+    expect(firstWeeks({ programStartedOn: "2026-10-22", today: "2026-11-04" })).toBe("zweite Woche");
+    expect(firstWeeks({ programStartedOn: "2026-10-21", today: "2026-11-04" })).toBeUndefined();
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ programStartedOn: "2026-10-22", previous: null }));
+    const html = render();
+    expect(html).toContain(">Letzte 30 Tage an diesem Standort · zweite Woche</h2>");
+    expect(html.match(/zweite Woche/g)).toHaveLength(1);
     expect(notes({})).toEqual(["vorher 10", "vorher 0", "vorher 1", "vorher 1"]);
     expect(notes({ previous: null })).toEqual(["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"]);
   });
