@@ -52,7 +52,9 @@ test("the milestone card stays once it is shown", async () => {
   await expect(card).toBeVisible();
 });
 
-test("a cold load of the Übersicht keeps the band's place, never pushes the numbers down and writes the greeting once", async () => {
+// Twice: with motion, and under reduced motion, where taking the slot away once left the page 16 px off for a frame.
+for (const reducedMotion of ["no-preference", "reduce"] as const) test(`a cold load of the Übersicht keeps the band's place, never pushes the numbers down and writes the greeting once (motion: ${reducedMotion})`, async () => {
+  await page.emulateMedia({ reducedMotion, forcedColors: "none" });
   // The reads the greeting and the band wait for answer last: before, „Guten Abend.“ was rewritten with the name and
   // the band landed after the board and pushed it down the screen. Now the band's place is held by a placeholder from
   // the first paint; a band takes it without moving anything, and without a band the slot closes in place, once.
