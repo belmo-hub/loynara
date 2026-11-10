@@ -106,13 +106,13 @@ As built (ENG-207, with Legal's and Marketing's answers of 10 Nov):
 - Owner only, once per card: the key is `headstart:<membershipId>`, and the entry has no actor (like the automatic tap and the expiry job), so `ledger_nfc_actor_valid` is widened with `ledger_source_valid`.
 - Never both, by the card and not by the setting: a card with a `head_start` entry (corrected or not) never gets `welcome_bonus`. A card without one still gets the Startbonus with its first team-confirmed booking, also while the owner's choice is sign-up. That covers cards from before the switch and further cards.
 - A further card on the same device („Weitere Karte erstellen“, `additionalCard: true`) gets no Startbonus at sign-up. The join page must not show the sentence on that path; `headStart` in the public programme data does not know the path.
-- The owner corrects it with the existing correction, under the correction's own key like any directly corrected booking. `headstart-reversal:` is reserved and unused.
+- The owner or the Leitung corrects it with the existing correction, under the correction's own key like any directly corrected booking. `headstart-reversal:` is reserved and unused.
 - The Teilnahmebedingungen carry Legal's edits (b) and (d) and the Startbonus paragraph. They are not behind the flag and must be live before the flag goes on.
 
 What stops abuse:
 - A guest can open the link on a second device and get a second card with its own Startbonus. Cards cannot be merged and stamps cannot be moved, so two cards with 2 stamps each are worth less than one. The existing limits on card creation per network and per programme stay.
 - The Kasse cannot grant it. Changing the setting does not touch existing cards.
-- The owner reverses it like any booking, with a reason (the existing correction, which writes a reversal entry).
+- The owner or the Leitung reverses it like any booking, with a reason (the existing correction, which writes a reversal entry).
 - It is not a visit: it does not count as a booking in the Übersicht, does not qualify a referral, does not start the Willkommen-zurück clock and does not trigger the first-purchase automation. Each of those is pinned by a test.
 
 ## 6. Surprise bonus (ENG-208)
