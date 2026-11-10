@@ -63,7 +63,8 @@
 .ow-main { min-width: 0; display: flex; flex-direction: column; }
 .ow-topbar { display: none; }
 .ow-content { flex: 1; padding-bottom: var(--space-12); }
-.ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
+/* A solid bar: a blurred one is captured into the screen change's layer and smears a halo behind the incoming title. */
+.ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--color-bg); border-bottom: 1px solid var(--color-line); }
 /* Next.js keeps the old scroll offset on navigation while the new page's top is "in view", and otherwise scrolls the page
    top to the window top. Telling it the sticky bars cover the top makes every owner page open at the top, title visible. */
 html:has(.ow-subnav) { scroll-padding-top: 49px; }
@@ -597,6 +598,17 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
   .ow-metrics--three .ow-metric dd:not(.ow-metric-note) { grid-column: 2; grid-row: 1 / span 2; }
 }
 .ow-next { display: grid; gap: var(--space-3); justify-items: start; }
+/* The band's slot while the reads load (ENG-203): the band's own structure, hidden, on the placeholder ground, so the
+   board stands where it will stay. When no band follows it closes in place within --dur-ui: the fade, then the row
+   (Row remove, an exit). The closed row still holds one grid gap until the slot is taken away, so what follows rides
+   up over that gap meanwhile (a transform, gone with the slot): taking the slot away moves nothing. */
+.ow-next-ph { grid-template-rows: 1fr; justify-items: stretch; transition: opacity var(--dur-press) var(--ease-out), grid-template-rows 160ms var(--ease-out) 60ms; }
+.ow-next-ph > span { display: block; min-height: 0; overflow: hidden; }
+.ow-next-ph .ow-band { display: flex; border-radius: var(--radius-lg); }
+.ow-next-ph .ow-band :is(.ow-band-icon, .ow-band-text) { visibility: hidden; }
+.ow-next-ph[data-closing] { grid-template-rows: 0fr; opacity: 0; }
+.ow-next-ph[data-closing] ~ * { transform: translateY(calc(-1 * var(--space-4))); transition: transform 160ms var(--ease-out) 60ms; }
+@media (prefers-reduced-motion: reduce) { .ow-next-ph, .ow-next-ph[data-closing] ~ * { transition: none; } }
 .ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
 .ow-filebtn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -669,6 +681,12 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 
 .ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
+/* ENG-210, with the weekly line: Monday to today in full colour, the days before muted, and a hairline in the gap
+   before Monday, so the week is not marked by colour alone. Today keeps its outline (its count is not final). */
+.ow-strip[data-week] .ow-strip-bar:not([data-today], [data-empty]) { background: var(--color-line-strong); }
+.ow-strip[data-week] .ow-strip-day[data-in-week] .ow-strip-bar:not([data-today], [data-empty]) { background: var(--color-ink); }
+.ow-strip-day[data-week-start] { position: relative; }
+.ow-strip-day[data-week-start]::before { content: ""; position: absolute; inset-block: 0; left: calc(-1 * var(--space-1) - .5px); width: 1px; background: var(--color-line-strong); }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: color-mix(in oklab, var(--color-ink) 28%, var(--color-surface)); }
 .ow-strip-bar[data-lit] { background: var(--color-ink); }
@@ -676,9 +694,15 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ly-theme-dark .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
 @media (prefers-color-scheme: dark) { .ly-theme-auto .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); } }
 .ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-line-strong); }
+/* Today, or the week still running: an outline, since its count is not final. */
+.ow-strip-bar[data-today] { background: none; border: 2px solid var(--color-action); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
 .ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
 .ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-ink); }
+/* „bis heute“ under a narrow last bar ends at the card's edge instead of running past it. */
+.ow-weeks .ow-strip-d[data-running] { align-self: flex-end; }
+/* And the first of many narrow bars starts its date at the card's edge. */
+.ow-weeks[data-many] .ow-strip-day:first-child .ow-strip-d { align-self: flex-start; }
 /* Under 360 the columns are about 30 px and „gestern“ at 14 px touches the label before it; at 12 px they keep a gap. */
 @media (max-width: 359px) { .ow-strip-d { font-size: var(--text-12); } }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
@@ -693,7 +717,7 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 /* The board's placeholder: number, sub-line, then the strip 20 lower. */
 .ow-board-ph { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
 .ow-board-ph > :last-child { margin-top: var(--space-3); }
-@media (prefers-reduced-motion: no-preference) { .ow-board[aria-busy="true"] .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
+@media (prefers-reduced-motion: no-preference) { :is(.ow-board[aria-busy="true"], .ow-next-ph:not([data-closing])) .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
 /* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
@@ -1178,6 +1202,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 :is(.ow-check, .ow-radio-card) input:disabled { border-color: var(--color-line-strong); cursor: not-allowed; }
 /* Forced colours paint backgrounds as the canvas, so a drawn check or dot would vanish: the native controls come back. */
 @media (forced-colors: active) {
+  /* The strip keeps its bars: every day a solid bar, today an outlined one. */
+  .ow-strip-bar { forced-color-adjust: none; background: CanvasText; }
+  .ow-strip-bar[data-today] { background: Canvas; border-color: CanvasText; }
+  .ow-strip-bar[data-lit] { background: CanvasText; }
+  .ow-strip-bar[data-empty] { border-color: GrayText; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input) { appearance: auto; }
   :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input)::before { content: none; }
   /* The switch is drawn too and would vanish the same way: it takes the system colours itself. */

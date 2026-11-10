@@ -111,6 +111,71 @@ describe("Übersicht direction D (ENG-085)", () => {
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
+  it("the strip ends on today, drawn as not final from the same read's diary; the headline stays on the complete days", () => {
+    expect(render()).toMatch(new RegExp(`letzte 7 Tage: [^"]*gestern 3${NBSP}Buchungen, heute 0${NBSP}Buchungen"`)); // no entry today: a true 0
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [{ date: "2026-11-04", bookings: 29, units: 29, more: 0, entries: [] }, ...analytics().diary] }));
+    const html = render();
+    expect(html).toMatch(new RegExp(`letzte 7 Tage: [^"]*gestern 3${NBSP}Buchungen, heute 29${NBSP}Buchungen"`));
+    expect(html.match(/class="ow-strip-day"/g)).toHaveLength(7); // six complete days and today
+    expect(html).toContain('<span class="ow-strip-n">29</span><span class="ow-strip-bar" data-today="" style="height:72px">');
+    expect(html.match(/data-lit=""/g)).toHaveLength(1); // yesterday, as before
+    expect(html).not.toContain('data-yesterday=""'); // beside „heute“ no label is bold (Design, 10 Nov)
+    expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
+  });
+
+  it("with the weekly line the strip marks the same days: Monday to today, a hairline before Monday, the sentence first in the spoken label (ENG-210)", () => {
+    const today = analytics().today; // the fixture's day
+    const monday = (() => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ week: { from: monday, bookings: 12, returning: 8, newCards: 3 } }));
+    const html = render();
+    const line = "Diese Woche: 12 Buchungen, 8 davon von Karten mit früherer Buchung, und 3 neue Karten.";
+    expect(html).toContain(`<p class="ow-week-line">${line}</p><div class="ow-strip" data-week="" role="img" aria-label="${line} `);
+    const days = [...html.matchAll(/<div class="ow-strip-day"([^>]*)>/g)].map(match => match[1]);
+    expect(days).toHaveLength(7);
+    // Monday to today are in the week; the days before are not; exactly one column starts the week unless Monday is the first.
+    const inWeek = days.map(attrs => attrs.includes("data-in-week"));
+    expect(inWeek.at(-1)).toBe(true);
+    expect(inWeek.indexOf(true)).toBe(inWeek.lastIndexOf(false) + 1);
+    expect(days.filter(attrs => attrs.includes("data-week-start"))).toHaveLength(inWeek[0] ? 0 : 1);
+    // Without the field (flag off) the strip is #253's: no week marks, the caption leads the label.
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
+    const plain = render();
+    expect(plain).not.toContain("data-week");
+    expect(plain).not.toContain("data-in-week");
+    expect(plain).not.toContain("ow-week-line");
+  });
+
+  it("a cold load keeps the band's place, paints the board with its own reads, brings the diary with its data, and writes the greeting once", () => {
+    state.me = me({ userId: "first-visit" }); // no greeting kept from an earlier screen
+    const analyticsRead = state.loads["/api/merchant/analytics/location"];
+    delete state.loads["/api/merchant/analytics/location"];
+    delete state.loads["/api/merchant/readiness"];
+    delete state.loads["/api/auth/get-session"];
+    const waiting = render();
+    expect(waiting).toContain("ow-board-ph");
+    expect(waiting).not.toContain("ow-prog-row");
+    expect(waiting).not.toContain("ow-diary"); // no heading over „Lädt …“ a screen above where the diary lands
+    // The band's place is held by a band-shaped placeholder, so the board stands where it will stay.
+    expect(waiting).toContain(`<div class="ow-next ow-next-ph" aria-hidden="true"><span><span class="ow-band ow-ph"><span class="ow-band-icon"></span><span class="ow-band-text"><b>00 Karten können jetzt eine Prämie einlösen.</b><span class="ow-band-go">${NBSP}</span></span></span></span></div>`);
+    expect(waiting.indexOf("ow-next-ph")).toBeLessThan(waiting.indexOf("ow-board-ph"));
+    expect(waiting).not.toContain('aria-label="Als Nächstes"');
+    expect(waiting).not.toContain("<h1");
+    expect(waiting).toContain('<div class="ow-hello" aria-hidden="true">'); // the greeting's line is kept free
+    // The board's own reads are in, the band's are not: the numbers and rows show, the slot still holds the band's place.
+    state.loads["/api/merchant/analytics/location"] = analyticsRead;
+    const numbers = render();
+    expect(numbers).not.toContain("ow-board-ph");
+    expect(numbers).toContain("ow-prog-row");
+    expect(numbers).toContain("ow-next-ph");
+    expect(numbers).not.toContain('aria-label="Als Nächstes"');
+    state.loads["/api/merchant/readiness"] = ok(readiness());
+    state.loads["/api/auth/get-session"] = ok({ user: { name: "Lena Berger" } });
+    const there = render();
+    expect(there).not.toContain("ow-board-ph");
+    expect(there).not.toContain("ow-next-ph"); // a screen whose reads have answered never shows the slot
+    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena\.<\/h1>/);
+  });
+
   it("a shop without till amounts leads with bookings (Q-81 switch off), whatever the average says", () => {
     state.loads["/api/merchant/spend"] = ok(spend(figures({ visits: 6, spentMinor: 9_000, estimatedMinor: 9_000, averagePerVisitMinor: 1_500 })));
     const html = render();

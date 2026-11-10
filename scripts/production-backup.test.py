@@ -21,7 +21,9 @@ def run_case(fail_upload=False, schema="t"):
             "psql": "printf '%s\\n' \"$TEST_SCHEMA\"",
             "age": "cat",
             "aws": "printf 'aws %s\\n' \"$*\" >> \"$TEST_COMMANDS\"; case \"$*\" in *' s3 cp '*) if [ \"${FAIL_UPLOAD:-0}\" = 1 ]; then exit 5; fi;; esac",
-            "curl": "for arg in \"$@\"; do case \"$arg\" in https://hc-ping.com/*) printf 'ping %s\\n' \"$arg\" >> \"$TEST_COMMANDS\";; esac; done",
+            # The monitor URL is a secret: it must arrive as curl config on stdin, never as an argument.
+            "curl": "for arg in \"$@\"; do case \"$arg\" in *hc-ping.com*) printf 'argument %s\\n' \"$arg\" >> \"$TEST_COMMANDS\";; esac; done; "
+                    "case \" $* \" in *' --config - '*) sed -n 's/^url = \"\\(.*\\)\"$/ping \\1/p' >> \"$TEST_COMMANDS\";; esac",
         }.items():
             target = bin_dir / name
             target.write_text("#!/bin/sh\n" + body + "\n")
@@ -51,6 +53,7 @@ def run_case(fail_upload=False, schema="t"):
 
 success, actions = run_case()
 assert success.returncode == 0, success.stderr
+assert not any(action.startswith("argument ") for action in actions), actions
 assert actions[0] == "ping " + PING + "/start", actions
 assert any(" s3 cp " in action for action in actions), actions
 assert any("s3api head-object" in action for action in actions), actions
