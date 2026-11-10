@@ -193,6 +193,14 @@ export function JoinClient({ slug }: { slug: string }) {
   // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
   const notice = locale !== "fr" && program.active !== false;
 
+  // ENG-205: with the flag the optional box sits below the button (Legal, 10 Nov: the rules stay above the notice).
+  const messages = joinOffersMessages(onIphone, program) && <div className={styles.messages}>
+    {/* A demo names Loynara as the sender (Legal): no heading that names the shop, the demo wording as the server sent it. */}
+    {!program.demo && <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>}
+    {program.demo ? <Checkbox checked={messagesTicked} disabled={program.firstTap && busy} onChange={e => setMessagesTicked(e.target.checked)}>{program.demo.consentText}</Checkbox>
+      : <Checkbox checked={messagesTicked} disabled={program.firstTap && busy} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>}
+    <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
+  </div>;
   const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview} data-built={built || undefined}>
     {program.firstTap ? <div className={styles.brand}>
       <span className={styles.logo} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
@@ -236,7 +244,7 @@ export function JoinClient({ slug }: { slug: string }) {
         </ol>
       </> : <>
         <h2 className={styles.headline}>{t.headline(program.programType === "points")}</h2>
-        <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>
+        {!program.firstTap && <p className={styles.lead}>{t.intro} {unit} {t.introEnd}</p>}
       </>}
       {returning.state === "stale" && <p className={styles.muted} role="status">{t.staleNote}</p>}
       {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{withUnit(item.cost, program.programType, locale)}</span></li>)}</ul>}
@@ -266,13 +274,7 @@ export function JoinClient({ slug }: { slug: string }) {
         {locale === "fr" && <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === copy.fr.acceptError || undefined} aria-describedby={error === copy.fr.acceptError ? "join-error" : undefined}>{copy.fr.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{copy.fr.terms}</Link> {copy.fr.and} <Link href="/datenschutz" target="_blank">{copy.fr.privacy}</Link>.</Checkbox>}
         {(existing || returning.state === "stale") && <Checkbox id="join-confirm" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}>{t.anotherConfirm}</Checkbox>}
         {errorLine("confirm")}
-        {joinOffersMessages(onIphone, program) && <div className={styles.messages}>
-          {/* A demo names Loynara as the sender (Legal): no heading that names the shop, the demo wording as the server sent it. */}
-          {!program.demo && <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>}
-          {program.demo ? <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{program.demo.consentText}</Checkbox>
-            : <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>}
-          <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
-        </div>}
+        {!program.firstTap && messages}
         {errorLine("form")}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
         {/* The same tinted panel as the notice on the card. */}
@@ -281,6 +283,7 @@ export function JoinClient({ slug }: { slug: string }) {
         {notice && program.demo && <p id="join-notice" className={styles.notice}>{demoJoinLine(existing ? t.anotherSubmit : t.submit).replace(`${DEMO_JOIN_PRIVACY}.`, "")}<Link href="/datenschutz" target="_blank">{DEMO_JOIN_PRIVACY}</Link>.</p>}
         {notice && !program.demo && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
+        {program.firstTap && messages}
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
       <p className={styles.link}>{locale === "fr" ? <Link href="/recover">Vous avez déjà une carte ? Récupération sécurisée</Link> : <><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></>}</p>

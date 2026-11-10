@@ -48,7 +48,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts the required confirm tick before the optional box, and ties the button to the notice", async () => {
     const page = await source();
-    expect(page.indexOf('<Checkbox id="join-confirm"')).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
+    expect(page.indexOf('<Checkbox id="join-confirm"')).toBeLessThan(page.indexOf("{!program.firstTap && messages}"));
     expect(page).toContain('aria-describedby={notice ? "join-notice" : undefined}');
     expect(page).toContain('<p id="join-notice" className={styles.notice}>');
   });
@@ -62,7 +62,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     const page = await source();
     expect(page).toContain('setError(t.anotherConfirmError); setErrorSpot("confirm"); document.getElementById("join-confirm")?.focus(); return;');
     expect(page).toContain('aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}');
-    expect(page.indexOf('{errorLine("confirm")}')).toBeLessThan(page.indexOf("<div className={styles.messages}>"));
+    expect(page.indexOf('{errorLine("confirm")}')).toBeLessThan(page.indexOf("{!program.firstTap && messages}"));
     expect(page.indexOf("{t.anotherConfirm}</Checkbox>")).toBeLessThan(page.indexOf('{errorLine("confirm")}'));
   });
   it("hides the notice on a closed programme, where nothing can be accepted, and every new tap starts in the form", async () => {
@@ -95,7 +95,7 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
   });
   it("puts rules, message box, notice and button in that order, with Legal's notice", async () => {
     const page = await source();
-    const order = ["<h3>{t.rules}</h3>", "<div className={styles.messages}>", '{notice && !program.demo && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
+    const order = ["<h3>{t.rules}</h3>", "{!program.firstTap && messages}", '{notice && !program.demo && <p id="join-notice" className={styles.notice}>', '<Button type="submit"'].map(mark => page.indexOf(mark));
     expect(order.every(at => at > 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');
@@ -118,9 +118,13 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205)", () => {
     expect(source.slice(source.lastIndexOf("if (program?.firstTap) {"), built)).not.toContain("\n      }");
     expect(source.match(/setBuilt\(/g)).toHaveLength(1);
   });
-  it("keeps Legal's order of 6 Nov with the field too: only the shop's mark and the build are new", async () => {
-    const source = await read("src/components/join-client.tsx");
+  it("keeps today's page without the field; with it the box sits below the button and locks once the request is sent (Legal, 10 Nov)", async () => {
+    const source = await read("src/components/join-client.tsx"), button = source.indexOf('<Button type="submit"');
+    expect(source.indexOf("{!program.firstTap && messages}")).toBeGreaterThan(source.indexOf('id="join-rules"'));
+    expect(source.indexOf("{!program.firstTap && messages}")).toBeLessThan(source.indexOf('<p id="join-notice"'));
+    expect(source.indexOf("{program.firstTap && messages}")).toBeGreaterThan(button);
+    expect(source.match(/disabled=\{program\.firstTap && busy\}/g)).toHaveLength(2);
+    expect(source).toContain("{!program.firstTap && <p className={styles.lead}>");
     expect(source).toContain("{program.firstTap ? <div className={styles.brand}>");
-    expect(source.match(/program\??\.firstTap/g)).toHaveLength(2);
   });
 });
