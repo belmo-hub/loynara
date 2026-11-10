@@ -66,6 +66,21 @@ test("on a slow connection the tapped tab looks current at once and the screen i
   await page.unroute(/\/merchant\/more(\?|$)/);
 });
 
+test("on a slow connection a tapped row holds the selected look until its screen shows", async () => {
+  await tab("Programm").click();
+  await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
+  await settled();
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  await page.route(/\/merchant\/program\/rule(\?|$)/, async route => { await held; await route.continue(); });
+  await page.getByRole("link", { name: /Regel auf der Karte/ }).click();
+  await expect(page.locator(".ow-prog-row:has([data-pending])")).toHaveCount(1);
+  await expect(page).toHaveURL(/\/merchant\/program$/);
+  release();
+  await expect(page).toHaveURL(/\/merchant\/program\/rule$/);
+  await page.unroute(/\/merchant\/program\/rule(\?|$)/);
+});
+
 test("reduced motion: the change is a cut", async () => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await tab("Programm").click();

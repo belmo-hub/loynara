@@ -195,6 +195,7 @@ export function BonusOffBand({ href }: { href: string }) {
       <span><RefreshCw size={22} aria-hidden="true" focusable="false" /></span>
       <span><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
       <ArrowRight size={22} aria-hidden="true" focusable="false" />
+      <LinkPending />
     </Link>
   );
 }
@@ -223,7 +224,7 @@ export function NextBand({ title, text, action, children }: { title: string; tex
   return (
     <section className="ow-next" aria-label="Als Nächstes">
       {!action ? <div className="ow-band">{body}</div>
-        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
+        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}<LinkPending /></Link>
           : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
       {children}
     </section>
