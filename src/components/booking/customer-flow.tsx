@@ -13,8 +13,9 @@ import { CustomerState } from "../customer/customer-state";
 import card from "../customer/customer-card.module.css";
 import notice from "../customer/customer-notice.module.css";
 import legal from "../customer/customer-state.module.css";
+import { LegalLinks } from "../ui/legal-links";
 import styles from "./customer-flow.module.css";
-import { defaultTerms, missedPhrase } from "../owner/booking-setup-helpers";
+import { defaultTerms, durationLabel, missedPhrase } from "../owner/booking-setup-helpers";
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
 import { attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
@@ -25,9 +26,8 @@ type Problem = { text: string; nextFree?: string; retry?: boolean; pick?: boolea
 type Failure = { status: number; code?: string; nextFree?: string };
 
 const CONTACT = "loynara_booking_contact";
-const PAUSED = "Online-Buchung bei diesem Shop ist pausiert. Ruf kurz an.";
-const IMPRESSUM = "https://getloynara.com/impressum/";
-const PAST: Record<string, string> = { done: "erledigt", no_show: "nicht erschienen", cancelled_by_customer: "abgesagt", cancelled_by_shop: "vom Shop abgesagt", requested: "vorbei", confirmed: "vorbei" };
+const PAUSED = "Online-Buchung in diesem Geschäft ist pausiert. Ruf kurz an.";
+const PAST: Record<string, string> = { done: "erledigt", no_show: "nicht erschienen", cancelled_by_customer: "abgesagt", cancelled_by_shop: "vom Geschäft abgesagt", requested: "vorbei", confirmed: "vorbei" };
 // The slots route serves at most 14 days per request; "Weitere Tage" asks for the next 14.
 const WINDOW = 14;
 const COUNT = ["keine", "einen offenen Termin", "zwei offene Termine", "drei offene Termine"];
@@ -50,11 +50,11 @@ function problemFor(cause: unknown, view: Enabled): Problem {
   if (code === "BLOCKED_CUSTOMER") return { text: PAUSED };
   if (code === "TOO_MANY_OPEN") return { text: `Mehr als ${COUNT[view.shop.maxOpenPerCard] ?? `${view.shop.maxOpenPerCard} offene Termine`} gleichzeitig geht hier nicht. Sag einen ab, dann geht ein neuer.` };
   if (code === "RESCHEDULE_LIMIT") return { text: `Diesen Monat hast du schon ${view.shop.maxReschedulesPerMonth}-mal verschoben. Sag ab und buch neu.` };
-  if (code === "TOO_LATE") return { text: "Dafür ist es jetzt zu spät. Ruf kurz im Shop an." };
+  if (code === "TOO_LATE") return { text: "Dafür ist es jetzt zu spät. Ruf kurz im Geschäft an." };
   if (code === "OWN_OVERLAP") return { text: "Du hast zu dieser Zeit schon einen Termin. Such dir eine andere Zeit aus.", pick: true };
   if (code === "STALE") return { text: "Der Termin hat sich inzwischen geändert. Schau oben nach." };
   if (code === "RATE_LIMIT") return { text: "Zu viele Versuche. Warte kurz und versuch es dann noch mal.", retry: true };
-  if (code === "NOT_FOUND") return { text: "Online-Buchung geht hier gerade nicht. Ruf kurz im Shop an." };
+  if (code === "NOT_FOUND") return { text: "Online-Buchung geht hier gerade nicht. Ruf kurz im Geschäft an." };
   return { text: "Das hat nicht geklappt. Versuch es noch mal.", retry: true };
 }
 
@@ -83,14 +83,14 @@ export function CustomerFlow({ token }: { token: string }) {
   const base = `/api/card/${encodeURIComponent(token)}/booking`;
   const [view, setView] = useState<BookingView | null>(null);
   const [loadError, setLoadError] = useState("");
-  const load = useCallback(() => apiJson<BookingView>(base).then(result => { setView(result); setLoadError(""); }, () => setLoadError("Lad die Seite gleich noch mal. Wenn es nicht geht, ruf kurz im Shop an.")), [base]);
+  const load = useCallback(() => apiJson<BookingView>(base).then(result => { setView(result); setLoadError(""); }, () => setLoadError("Lad die Seite gleich noch mal. Wenn es nicht geht, ruf kurz im Geschäft an.")), [base]);
   useEffect(() => { void load(); }, [load]);
 
   if (loadError && !view) return <CustomerState title="Termine nicht erreichbar." message={loadError} tone="error"><Button onClick={() => void load()}>Noch mal laden</Button></CustomerState>;
-  if (!view) return <CustomerShell footer={<Legal />}><div className={legal.loading} aria-busy="true" aria-label="Termine werden geladen.">
-    <Skeleton height={48} width="60%" radius={12} /><Skeleton height={140} radius={20} /><Skeleton height={280} radius={20} />
+  if (!view) return <CustomerShell footer={<LegalLinks newTab />}><div className={legal.loading} aria-busy="true" aria-label="Termine werden geladen.">
+    <Skeleton height={48} width="60%" radius={14} /><Skeleton height={140} radius={20} /><Skeleton height={280} radius={20} />
   </div></CustomerShell>;
-  if (!view.enabled) return <CustomerState title="Hier gibt es keine Online-Termine." message="Frag im Shop nach einem Termin."><Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ variant: "secondary" })}>Zur Karte</Link></CustomerState>;
+  if (!view.enabled) return <CustomerState title="Hier gibt es keine Online-Termine." message="Frag im Geschäft nach einem Termin."><Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ variant: "secondary" })}>Zur Karte</Link></CustomerState>;
   return <Flow token={token} base={base} view={view} reload={load} />;
 }
 
@@ -183,7 +183,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
   async function submit(start: string, attempt: string) {
     if (!service) return;
-    if (!moving && !contact.name.trim()) { setNameError("Trag deinen Namen ein."); return; }
+    if (!moving && !contact.name.trim()) { setNameError("Trag deinen Namen ein."); document.getElementById("booking-name")?.focus(); return; }
     setBusy(true); setProblem(null); setNameError("");
     try {
       const appointment = moving
@@ -213,15 +213,14 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     <div className={card.merchantText}><h1 className={card.merchantName}>{view.shop.name}</h1><span>Termine</span></div>
   </div>;
 
-  return <CustomerShell header={header} footer={<Legal />}>
+  return <CustomerShell brandColor={view.shop.brandColor} header={header} footer={<LegalLinks newTab />}>
     {view.blocked ? <p className={notice.notice} role="status">{PAUSED}</p> : null}
 
     <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
 
     {view.blocked ? null : step === "done" && result ? <section className={styles.panel} aria-labelledby="booking-step-title">
-      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested"
-        ? (moving ? "Verschoben und angefragt: der Shop bestätigt dir die neue Zeit. Ohne Bestätigung verfällt die Anfrage nach dem Termin." : "Angefragt: der Shop bestätigt dir den Termin. Ohne Bestätigung verfällt die Anfrage nach dem Termin.")
-        : `${moving ? "Verschoben" : "Dein Termin ist fix"}: ${formatWhen(result.start, tz)} bei ${result.staff.name}`}</h2>
+      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
+      {result.status === "requested" ? <p className={card.muted}>Das Geschäft bestätigt dir {moving ? "die neue Zeit" : "den Termin"}. Ohne Bestätigung verfällt die Anfrage nach dem Termin.</p> : null}
       <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
@@ -232,23 +231,23 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         <p className={styles.step}>{index} von {total}</p>
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
-      {service && step !== "service" && !moving ? <p className={card.muted}>{service.name} · {service.durationMin} Min. · {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
+      {service && step !== "service" && !moving ? <p className={card.muted}>{service.name} · {durationLabel(service.durationMin)} · {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
 
       {step === "service" ? view.services.length ? <div className={styles.rewardList}>
         {view.services.map(s => <button key={s.id} type="button" className={styles.rewardRow} onClick={() => chooseService(s)}>
-          <span className={styles.rewardText}><strong>{s.name}</strong><small>{s.durationMin} Min.</small></span>
-          <span>{formatPrice(s.priceMinor, s.priceFrom)}</span>
+          <span className={styles.rewardText}><strong>{s.name}</strong><small>{durationLabel(s.durationMin)}</small></span>
+          <span className={styles.price}>{formatPrice(s.priceMinor, s.priceFrom)}</span>
         </button>)}
-      </div> : <p className={card.muted}>Der Shop hat noch keine Leistungen online. Ruf kurz an.</p> : null}
+      </div> : <p className={card.muted}>Das Geschäft hat noch keine Leistungen online. Ruf kurz an.</p> : null}
 
       {step === "day" ? <>
         {showStaff ? <div className={styles.staff} role="group" aria-label="Bei wem?">
           {[{ id: "", name: "Egal wer" }, ...staffForService].map(s => <button key={s.id} type="button" className={styles.chip} aria-pressed={staffId === s.id} onClick={() => chooseStaff(s.id)}>{s.name}</button>)}
         </div> : null}
         {slotsError ? <><p className={card.alert} role="alert">{slotsError}</p><Button variant="secondary" size="sm" onClick={() => service && void loadSlots(service, staffId, moving?.id)}>Noch mal laden</Button></>
-          : !days ? <div className={styles.chips} aria-busy="true" aria-label="Freie Tage werden geladen.">{[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} height={44} radius={12} />)}</div>
+          : !days ? <div className={styles.chips} aria-busy="true" aria-label="Freie Tage werden geladen.">{[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} height={44} radius={14} />)}</div>
           : !days.length ? <>
-            <p className={card.muted}>{showStaff && staffId && staffName(staffId) ? `Bei ${staffName(staffId)} ist in den nächsten ${range?.span ?? WINDOW} Tagen nichts frei. Wähl „Egal wer“.` : `In den nächsten ${range?.span ?? WINDOW} Tagen ist online nichts frei.${moreDays ? "" : " Ruf kurz im Shop an."}`}</p>
+            <p className={card.muted}>{showStaff && staffId && staffName(staffId) ? `Bei ${staffName(staffId)} ist in den nächsten ${range?.span ?? WINDOW} Tagen nichts frei. Wähl „Egal wer“.` : `In den nächsten ${range?.span ?? WINDOW} Tagen ist online nichts frei.${moreDays ? "" : " Ruf kurz im Geschäft an."}`}</p>
             {moreDays}
           </>
           : <>
@@ -260,13 +259,13 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
       {step === "time" && day ? <>
         <p className={card.muted}>{formatDay(day.date)}{staffId && staffName(staffId) ? ` bei ${staffName(staffId)}` : ""}</p>
-        <div className={styles.chips}>{day.slots.map(s => <button key={s.start + s.staffId} type="button" className={styles.chip} aria-pressed={slot?.start === s.start} onClick={() => chooseSlot(s)}>{formatTime(s.start, tz)}</button>)}</div>
+        <div className={styles.chips}>{day.slots.map(s => <button key={s.start + s.staffId} type="button" className={`${styles.chip} ${styles.time}`} aria-pressed={slot?.start === s.start} onClick={() => chooseSlot(s)}>{formatTime(s.start, tz)}</button>)}</div>
       </> : null}
 
       {step === "confirm" && slot ? <>
-        <p><strong>{formatWhen(slot.start, tz)}</strong>{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
+        <p className={styles.when}><strong>{formatWhen(slot.start, tz)}</strong>{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
         {moving ? null : <>
-          <TextField label="Dein Name" hint="Damit der Shop weiß, wer kommt." autoComplete="name" maxLength={60} value={contact.name} error={nameError} onChange={event => setContact({ ...contact, name: event.target.value })} />
+          <TextField id="booking-name" required label="Dein Name" hint="Damit das Geschäft weiß, wer kommt." autoComplete="name" maxLength={60} value={contact.name} error={nameError} onChange={event => setContact({ ...contact, name: event.target.value })} />
           {showPhone ? <TextField label="Telefon (freiwillig)" type="tel" autoComplete="tel" maxLength={30} value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} />
             : <Button variant="quiet" size="sm" onClick={() => setShowPhone(true)}>Telefon angeben</Button>}
         </>}
@@ -274,7 +273,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
           {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
           <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
           <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
-          {view.shop.autoConfirm ? null : <p className={card.rules}>Der Shop bestätigt deinen Termin, dann ist er fix.</p>}
+          {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
           {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
         </div>
         <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>
@@ -300,29 +299,32 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const title = useRef<HTMLHeadingElement>(null);
+  // Closing the question removes the focused button; the heading takes the focus so it is not lost to the page.
+  const closeConfirm = () => { setConfirming(null); title.current?.focus(); };
 
   async function cancel(id: string) {
     setBusy(true); setError("");
-    try { await post(`${base}/appointments/${id}/cancel`, {}); setConfirming(null); await reload(); }
+    try { await post(`${base}/appointments/${id}/cancel`, {}); closeConfirm(); await reload(); }
     catch (cause) { setError(problemFor(cause, view).text); if (["STALE", "TOO_LATE"].includes((cause as Failure).code ?? "")) void reload(); }
     finally { setBusy(false); }
   }
 
   return <section className={`booking-mine ${styles.panel}`} aria-labelledby="booking-mine-title">
-    <h2 id="booking-mine-title" className={styles.panelTitle}>Meine Termine</h2>
+    <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={styles.panelTitle}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
     {view.upcoming.length ? <ul className={styles.list}>{view.upcoming.map(a => {
       return <li key={a.id}>
-        <p><strong>{formatWhen(a.start, tz)}</strong> {a.status === "requested" ? <Badge tone="warning">angefragt</Badge> : null}</p>
+        <p className={styles.when}><strong>{formatWhen(a.start, tz)}</strong> {a.status === "requested" ? <Badge tone="warning">angefragt</Badge> : null}</p>
         <p className={card.muted}>{a.service.name} bei {a.staff.name}</p>
         {confirming?.id === a.id ? <div className={card.closeConfirm}>
-          <p>{confirming.late ? "Die kostenlose Absagefrist ist vorbei. Absagen geht trotzdem, der Shop sieht es als kurzfristige Absage." : `Kostenlos, die Frist läuft bis ${formatWhen(a.cancelDeadline, tz)}.`}</p>
+          <p>{confirming.late ? "Die kostenlose Absagefrist ist vorbei. Absagen geht trotzdem, das Geschäft sieht es als kurzfristige Absage." : `Kostenlos, die Frist läuft bis ${formatWhen(a.cancelDeadline, tz)}.`}</p>
           <div className={styles.actions}>
             <Button variant="danger" size="sm" loading={busy} onClick={() => void cancel(a.id)}>Ja, absagen</Button>
-            <Button variant="secondary" size="sm" onClick={() => setConfirming(null)}>Behalten</Button>
+            <Button variant="secondary" size="sm" autoFocus onClick={closeConfirm}>Behalten</Button>
           </div>
         </div> : <>
-          {onMove && !a.canReschedule && view.shop.maxReschedulesPerMonth > 0 && passed(Date.parse(a.cancelDeadline)) && !passed(Date.parse(a.start)) ? <p className={card.muted}>Verschieben ging bis {formatWhen(a.cancelDeadline, tz)}. Ruf kurz im Shop an.</p> : null}
+          {onMove && !a.canReschedule && view.shop.maxReschedulesPerMonth > 0 && passed(Date.parse(a.cancelDeadline)) && !passed(Date.parse(a.start)) ? <p className={card.muted}>Verschieben ging bis {formatWhen(a.cancelDeadline, tz)}. Ruf kurz im Geschäft an.</p> : null}
           <div className={styles.actions}>
             {a.canReschedule && onMove ? <Button variant="secondary" size="sm" onClick={() => onMove(a)}>Verschieben</Button> : null}
             {a.canCancel ? <Button variant="quiet" size="sm" onClick={() => { setError(""); setConfirming({ id: a.id, late: Date.now() >= Date.parse(a.cancelDeadline) }); }}>Absagen</Button> : null}
@@ -333,12 +335,8 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
     {error ? <p className={card.alert} role="alert">{error}</p> : null}
     {offerPush && (view.upcoming.length || view.push.subscribed || view.push.rebookConsent) ? <BookingPush base={base} scope={scope} push={view.push} reload={reload} /> : null}
     {view.past.length ? <>
-      <h3 className={card.muted}>Zuletzt</h3>
+      <h3 className={card.sectionHead}>Zuletzt</h3>
       <ul className={styles.list}>{view.past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>
     </> : null}
   </section>;
-}
-
-function Legal() {
-  return <nav className={legal.legal} aria-label="Rechtliches"><a href={IMPRESSUM}>Impressum</a><Link href="/datenschutz">Datenschutz</Link></nav>;
 }

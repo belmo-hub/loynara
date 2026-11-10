@@ -93,9 +93,8 @@ export function dayTotals(appointments: OwnerAppointment[]) {
   const live = appointments.filter(a => a.status !== "cancelled_by_customer" && a.status !== "cancelled_by_shop");
   const requests = live.filter(a => a.status === "requested").length;
   const done = live.filter(a => a.status === "done");
-  const parts = [live.length === 1 ? "1 Termin" : `${live.length} Termine`, requests === 1 ? "1 Anfrage" : `${requests} Anfragen`];
-  if (done.length) parts.push(`${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} nach Listenpreis, geschätzt, nicht kassiert`);
-  return parts.join(" · ");
+  const count = `${live.length === 1 ? "1 Termin" : `${live.length} Termine`}${requests ? `, davon ${requests === 1 ? "1 Anfrage" : `${requests} Anfragen`}` : ""}`;
+  return done.length ? `${count} · ${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} Listenpreis (geschätzt, nicht kassiert)` : count;
 }
 
 /** The open-requests line: which day the next one is on, phrased from today. */

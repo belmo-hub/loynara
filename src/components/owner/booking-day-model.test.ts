@@ -23,8 +23,8 @@ describe("booking day model", () => {
   });
 
   it("sums the day on top and names the next request's day", () => {
-    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine · 1 Anfrage · 76\u00a0€ nach Listenpreis, geschätzt, nicht kassiert");
-    expect(dayTotals([])).toBe("0 Termine · 0 Anfragen");
+    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine, davon 1 Anfrage · 76\u00a0€ Listenpreis (geschätzt, nicht kassiert)");
+    expect(dayTotals([])).toBe("0 Termine");
     expect(requestsLine(2, "2026-10-29", "2026-10-27")).toBe("2 offene Anfragen, die nächste am Donnerstag, 29. Oktober.");
     expect(requestsLine(1, "2026-10-27", "2026-10-27")).toBe("1 offene Anfrage, die nächste heute.");
   });

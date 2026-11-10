@@ -203,7 +203,7 @@ function Wizard({ initial }: { initial: Setup }) {
   const r = form.rules;
 
   return (
-    <div className="ow-page" style={{ maxWidth: 760 }}>
+    <div className="ow-page">
       <PageHead title="Online-Buchung einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
       {data.settings && !data.settings.enabled && <Notice role="status">Online-Buchung wird mit dem Plan Termin + Treue freigeschaltet. Alles hier bleibt gespeichert.</Notice>}
       <ol className="ow-stepper" aria-label="Fortschritt">
@@ -230,12 +230,12 @@ function Wizard({ initial }: { initial: Setup }) {
         {step === 1 && <>
           <div><h2 ref={heading} tabIndex={-1}>Deine Leistungen</h2><p className="ow-hint">Kunden sehen Name, Dauer und Preis.</p></div>
           {serviceBusy && <Notice tone="warn" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={keepService} disabled={saving}>{serviceBusy.name} behalten</button>}>
-            {serviceBusy.name} hat noch {serviceBusy.count === 1 ? "1 offenen Termin" : `${serviceBusy.count} offene Termine`}. Nichts wurde gespeichert. {serviceBusy.count === 1 ? "Sag ihn erst in „Tag“ ab" : "Sag sie erst in „Tag“ ab"} oder lass die Leistung bis dahin drin.
+            {serviceBusy.name} hat noch {serviceBusy.count === 1 ? "1 offenen Termin" : `${serviceBusy.count} offene Termine`}. Nichts wurde gespeichert. {serviceBusy.count === 1 ? "Sag ihn erst in „Termine“ ab" : "Sag sie erst in „Termine“ ab"} oder lass die Leistung bis dahin drin.
           </Notice>}
           {form.services.length === 0 && <p className="ow-muted">Noch keine Leistung. Füge mindestens eine hinzu.</p>}
           <ul className="ow-rewards">
-            {form.services.map(service => (
-              <li key={service.key} className="ow-stack" style={{ gap: "var(--space-3)", padding: "var(--space-4) 0", borderTop: "1px solid var(--color-line)" }}>
+            {form.services.map((service, index) => (
+              <li key={service.key} className="ow-stack" style={{ gap: "var(--space-3)", padding: "var(--space-4) 0", borderTop: index ? "1px solid var(--color-line)" : 0 }}>
                 <Field id={`bs-sname-${service.key}`} label="Name" error={err(`bs-sname-${service.key}`)}>
                     <input id={`bs-sname-${service.key}`} className="ow-input" value={service.name} maxLength={80} aria-invalid={Boolean(err(`bs-sname-${service.key}`))} onChange={event => setService(service.key, { name: event.target.value })} />
                 </Field>
@@ -246,7 +246,7 @@ function Wizard({ initial }: { initial: Setup }) {
                       {DURATIONS.map(minutes => <option key={minutes} value={minutes}>{durationLabel(minutes)}</option>)}
                     </select>
                   </Field>
-                  <Field id={`bs-price-${service.key}`} label="Preis in €" error={err(`bs-price-${service.key}`)}>
+                  <Field id={`bs-price-${service.key}`} label="Preis in Euro" error={err(`bs-price-${service.key}`)}>
                     <input id={`bs-price-${service.key}`} className="ow-input" inputMode="decimal" value={service.price} aria-invalid={Boolean(err(`bs-price-${service.key}`))} onChange={event => setService(service.key, { price: event.target.value })} />
                   </Field>
                 </div>
@@ -281,7 +281,7 @@ function Wizard({ initial }: { initial: Setup }) {
           {busy && busy.length > 0 && <Notice tone="warn" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={keep} disabled={saving}>{busy.length === 1 ? `${busy[0].name} behalten` : "Alle behalten"}</button>}>
             {busy.length === 1
               ? `${busy[0].name} hat noch ${busy[0].count === 1 ? "1 offenen Termin" : `${busy[0].count} offene Termine`}.`
-              : `${busy.map(item => `${item.name} (${item.count})`).join(", ").replace(/, ([^,]*)$/, " und $1")} haben noch offene Termine.`} Nichts wurde gespeichert. {busy.length === 1 && busy[0].count === 1 ? "Sag ihn erst in „Tag“ ab oder verschiebe ihn." : "Sag sie erst in „Tag“ ab oder verschiebe sie."}
+              : `${busy.map(item => `${item.name} (${item.count})`).join(", ").replace(/, ([^,]*)$/, " und $1")} haben noch offene Termine.`} Nichts wurde gespeichert. {busy.length === 1 && busy[0].count === 1 ? "Sag ihn erst in „Termine“ ab oder verschiebe ihn." : "Sag sie erst in „Termine“ ab oder verschiebe sie."}
           </Notice>}
           <ul className="ow-rewards">
             {form.staff.map((member, index) => (
@@ -307,7 +307,7 @@ function Wizard({ initial }: { initial: Setup }) {
         {step === 4 && <>
           <div><h2 ref={heading} tabIndex={-1}>Deine Regeln</h2><p className="ow-hint">Kunden lesen sie vor dem Buchen.</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Neue Termine">
-            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={r.autoConfirm} onChange={() => setRules({ autoConfirm: true })} /><div><strong>Sofort fix</strong><span>Termine sind sofort fix, du siehst sie in der Tagesansicht. Jeder freie Slot ist sofort weg, du prüfst nichts vorher.</span></div></label>
+            <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={r.autoConfirm} onChange={() => setRules({ autoConfirm: true })} /><div><strong>Sofort fix</strong><span>Termine sind sofort fix, du siehst sie in der Tagesansicht. Jede freie Zeit ist sofort weg, du prüfst nichts vorher.</span></div></label>
             <label className="ow-radio-card"><input type="radio" name="bs-confirm" checked={!r.autoConfirm} onChange={() => setRules({ autoConfirm: false })} /><div><strong>Ich bestätige selbst</strong><span>Du bestätigst jede Anfrage selbst; bis dahin ist der Termin nicht fix. Anfragen, die du nicht bestätigst, verfallen nach dem Termin; der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat, sonst sieht er es auf seiner Karte.</span></div></label>
           </div>
           <div className="ow-grid-2">
@@ -331,7 +331,6 @@ function Wizard({ initial }: { initial: Setup }) {
           {!last && <button type="submit" className="ow-btn ow-btn--primary">Weiter</button>}
         </div>
       </form>
-      {returning && <p className="ow-hint"><a className="ow-link ow-link--block" href="/api/merchant/export?format=appointments" download>Termine für Excel</a> Jeder Termin dieses Standorts mit Kunde, Telefon und Status.</p>}
       {showSave && <SaveBar state={saveState} onSave={() => void save()} canSave={!saving} errorLabel={busy || serviceBusy ? "Nicht gespeichert" : undefined} detail={saveState === "dirty" && !returning ? "Erst mit Speichern ist alles übernommen." : undefined} />}
     </div>
   );

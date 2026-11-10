@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarDays } from "lucide-react";
+import { Ban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,21 +53,21 @@ export function BookingDay() {
   };
 
   return (
-    <div className="ow-page" style={{ maxWidth: 720 }}>
+    <div className="ow-page">
       <header className="ow-pagehead">
         <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-        {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
+        {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button><Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
         Gesperrt: {blockedCount === 1 ? "1 Kunde" : `${blockedCount} Kunden`}</button></div>}
 
       <nav className="ow-row" aria-label="Tag wählen" style={{ flexWrap: "nowrap", gap: "var(--space-1)" }}>
-        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => pick(shiftDate(date, -1))}>←</button>
+        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => pick(shiftDate(date, -1))}><ChevronLeft size={20} aria-hidden="true" /></button>
         <div className="ow-seg" role="group" aria-label="Schnellwahl" style={{ flex: "1 1 auto", maxWidth: 360, justifyContent: "space-between" }}>
           {[-1, 0, 1].map(offset => { const target = shiftDate(today, offset); return <button key={offset} type="button" style={{ flex: 1 }} aria-pressed={date === target} onClick={() => pick(target)}>{dayName(target, today)}</button>; })}
         </div>
-        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Nächster Tag" onClick={() => pick(shiftDate(date, 1))}>→</button>
+        <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Nächster Tag" onClick={() => pick(shiftDate(date, 1))}><ChevronRight size={20} aria-hidden="true" /></button>
       </nav>
 
       {setup.state === "ok" && !setup.data.settings && (
@@ -100,13 +100,13 @@ export function BookingDay() {
 function DayList({ day, label, onOpen, onBlock }: { day: DayResponse; label: string; onOpen: (appointment: OwnerAppointment) => void; onBlock: (block: DayBlock) => void }) {
   const rows = dayRows(day);
   const staffName = (id: string | null) => id ? day.staff.find(s => s.id === id)?.name ?? "Mitarbeiter" : "Ganzer Laden";
-  if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title={`${label} keine Termine.`}>Kunden buchen über ihre Karte.</EmptyState></section>;
+  if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title={`${/^(Heute|Morgen|Gestern)$/.test(label) ? label : `Am ${label}`} keine Termine`}>Kunden buchen über ihre Karte.</EmptyState></section>;
   return (
     <div className="ow-prog"><Rows title="Termine des Tages">{rows.map(row => row.kind === "block"
       ? <Row key={row.block.id} icon={Ban} title={`${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
       : <Row key={row.appointment.id} icon={CalendarDays} title={`${wallTime(row.appointment.start, day.timezone)} · ${row.appointment.service.name}`}
           sub={<>{row.appointment.customerName} · {row.appointment.staff.name}{row.inBlock && <><br />liegt in geblockter Zeit</>}</>}
-          chip={{ label: statusWord(row.appointment), warn: row.appointment.status === "requested" || row.appointment.status === "no_show" || row.inBlock }} onClick={() => onOpen(row.appointment)} />)}
+          chip={row.appointment.status === "confirmed" && !row.inBlock ? undefined : { label: statusWord(row.appointment), warn: row.appointment.status !== "done" }} onClick={() => onOpen(row.appointment)} />)}
     </Rows></div>
   );
 }
@@ -173,11 +173,13 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
     if (cause instanceof ClientApiError && cause.status === 204) return; throw cause;
   }), () => onDone(blocked ? `${appointment.customerName} kann wieder online buchen.` : `${appointment.customerName} kann nicht mehr online buchen.`));
 
-  const close = <button type="button" className="ow-btn ow-btn--ghost" onClick={mode === "main" ? onClose : () => { setMode("main"); setError(""); }} disabled={busy}>{mode === "main" ? "Schließen" : "Zurück"}</button>;
+  const primary = actions.includes("confirm") ? "confirm" : actions.includes("done") ? "done" : null;
+  // Without a primary action the close button takes the first focus, not the phone link.
+  const close = <button type="button" className="ow-btn ow-btn--ghost" onClick={mode === "main" ? onClose : () => { setMode("main"); setError(""); }} disabled={busy} data-autofocus={mode === "main" && !primary ? true : undefined}>{mode === "main" ? "Schließen" : "Zurück"}</button>;
   const title = `${time} · ${appointment.service.name}`;
 
   if (mode === "cancel") return (
-    <OwnerDialog key="cancel" title="Termin absagen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>Absagen</button></>}>
+    <OwnerDialog key="cancel" title={appointment.status === "requested" ? "Anfrage ablehnen?" : "Termin absagen?"} tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button></>}>
       <p>{title} · {appointment.customerName}. Der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat; sonst sieht er es auf seiner Karte.</p>
       <div className="ow-field"><label htmlFor="bd-reason">Grund (optional)</label><input id="bd-reason" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Krankheit" data-autofocus /></div>
       {error && <p className="ow-error" role="alert">{error}</p>}
@@ -213,7 +215,6 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
     </OwnerDialog>
   );
 
-  const primary = actions.includes("confirm") ? "confirm" : actions.includes("done") ? "done" : null;
   return (
     <OwnerDialog key="main" title={title} onClose={onClose} actions={<>{close}
       {primary === "confirm" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void confirm()} disabled={busy} aria-busy={busy} data-autofocus>Bestätigen</button>}
@@ -222,7 +223,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
       <p>{appointment.customerName} · <span translate="no">{appointment.cardLocator}</span> · bei {appointment.staff.name}</p>
       <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{statusWord(appointment)}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
       {actions.includes("done") && (pointsAmount
-        ? <div className="ow-field"><label htmlFor="bd-amount">Betrag in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amountInvalid || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben. Ohne Betrag gibt es keine Punkte.</span></div>
+        ? <div className="ow-field"><label htmlFor="bd-amount">Preis in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amountInvalid || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben. Ohne Betrag gibt es keine Punkte.</span></div>
         : <p className="ow-hint">Bei „Fertig“ wird 1 {programType === "stamp" ? "Stempel" : "Punkt"} gutgeschrieben.</p>)}
       {appointment.status === "confirmed" && !actions.includes("done") && <p className="ow-hint">„Fertig“ geht ab {wallTime(new Date(Date.parse(appointment.start) - 10 * 60_000).toISOString(), zone)} Uhr.</p>}
       {error && <p className="ow-error" role="alert">{error}</p>}
@@ -230,7 +231,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
         {primary === "confirm" && actions.includes("done") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void finish()} disabled={busy || amountInvalid}>Fertig</button>}
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setError(""); setMode("move"); }} disabled={busy}>Verschieben</button>
         {actions.includes("no_show") && <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { setError(""); setMode("no_show"); }} disabled={busy}>Nicht erschienen</button>}
-        <button type="button" className="ow-btn ow-btn--danger" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>Absagen</button>
+        <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button>
       </div>}
       <div className="ow-row" style={{ justifyContent: "space-between" }}>
         <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen." : `${appointment.noShowCount}× nicht erschienen, 12 Monate.`}{blocked && " Online-Buchung gesperrt."}</span>
@@ -294,13 +295,13 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
       <div className="ow-field"><label htmlFor="bd-who">Für wen</label><select id="bd-who" className="ow-select" value={staffId} onChange={event => setStaffId(event.target.value)} data-autofocus><option value="">Ganzer Laden</option>{day.staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
       <div className="ow-grid-2 ow-grid-2--end" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
         <div className="ow-field"><label htmlFor="bd-from">Von</label><input id="bd-from" type="time" step={900} className="ow-input" value={from} onChange={event => setFrom(event.target.value)} /></div>
-        <div className="ow-field"><label htmlFor="bd-to">Bis</label><input id="bd-to" type="time" step={900} className="ow-input" value={endOfDay ? "00:00" : to} onChange={event => setTo(event.target.value)} aria-invalid={!valid || undefined} aria-describedby={endOfDay ? "bd-to-hint" : undefined} />{endOfDay && <span id="bd-to-hint" className="ow-hint">Tagesende</span>}</div>
+        <div className="ow-field"><label htmlFor="bd-to">Bis</label><input id="bd-to" type="time" step={900} className="ow-input" value={endOfDay ? "00:00" : to} onChange={event => setTo(event.target.value)} aria-invalid={!valid || undefined} aria-describedby={!valid ? "bd-to-error" : endOfDay ? "bd-to-hint" : undefined} />{endOfDay && <span id="bd-to-hint" className="ow-hint">Tagesende</span>}</div>
       </div>
       <div className="ow-row" style={{ gap: "var(--space-2)" }}>
         <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { if (day.date === todayIn(day.timezone)) setFrom(nextQuarter(day.timezone)); setTo("00:00"); }}>Rest des Tages</button>
         <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => { setFrom("00:00"); setTo("00:00"); }}>Ganzer Tag</button>
       </div>
-      {!valid && <p className="ow-error">„Bis“ muss nach „Von“ liegen.</p>}
+      {!valid && <p id="bd-to-error" className="ow-error" role="alert">„Bis“ muss nach „Von“ liegen.</p>}
       <div className="ow-field"><label htmlFor="bd-why">Grund (optional)</label><input id="bd-why" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Arzttermin" /></div>
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>
