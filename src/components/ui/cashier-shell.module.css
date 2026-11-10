@@ -18,7 +18,8 @@
 .stateText { display: flex; flex: 1; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); min-width: 0; }
 .stateLabel { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.3; }
 .detail { margin-left: auto; font-size: var(--text-16); font-weight: var(--weight-heavy); letter-spacing: .02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.status[data-state="open"] .dot, .status[data-state="busy"] .dot { background: var(--color-warning); }
+/* Warning is for what waits (pending, offline): an open card is the normal state and keeps the action dot. */
+.status[data-state="busy"] .dot { background: var(--color-warning); }
 .status[data-state="done"] { background: var(--color-success); color: var(--color-bg); }
 .status[data-state="done"] .dot, .status[data-state="error"] .dot { background: currentColor; }
 .status[data-state="error"] { background: var(--color-danger); color: var(--color-on-danger); }
