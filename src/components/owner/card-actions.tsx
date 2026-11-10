@@ -30,7 +30,7 @@ export function correctable(entry: Entry) {
 }
 
 export function sourceLabel(source: string) {
-  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", happy_hour: "Happy Hour", expiry: "Verfall", winback_bonus: "Willkommen-zurück-Bonus", birthday_bonus: "Geburtstags-Bonus", challenge_bonus: "Monats-Challenge", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
+  return ({ staff_online: "Kasse", staff_offline: "Kasse, offline nachgebucht", staff_correction: "Korrektur", referral_bonus: "Empfehlungsbonus", welcome_bonus: "Startbonus", head_start: "Startbonus", happy_hour: "Happy Hour", expiry: "Verfall", winback_bonus: "Willkommen-zurück-Bonus", birthday_bonus: "Geburtstags-Bonus", challenge_bonus: "Monats-Challenge", nfc_tap: "NFC-Tap", synthetic_seed: "Demo-Daten", legacy_unclassified: "Altbestand" } as Record<string, string>)[source] ?? "Unbekannte Quelle";
 }
 
 /**

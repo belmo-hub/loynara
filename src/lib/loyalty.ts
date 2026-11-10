@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { challengeFor } from "./card-extras";
 import { challengeProgress } from "./challenges";
+import { experienceFlag } from "./experience-flags";
 import { activeHappyHour } from "./happy-hour";
 import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
@@ -53,9 +54,9 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
 }
 
 // Every ledger idempotency-key namespace the server generates itself (staff tap confirmation and automatic tap, offline
-// sync, referral bonuses and their reversals, the welcome bonus, the happy-hour extra and the win-back and birthday bonuses, each with its reversal, the expiry job, and the challenge bonus with its reversal). A client key in one of them could take
+// sync, referral bonuses and their reversals, the welcome bonus, the happy-hour extra and the win-back and birthday bonuses, each with its reversal, the expiry job, the challenge bonus with its reversal, and the Startbonus at sign-up with its reversal). A client key in one of them could take
 // a key first and block or replay a server booking. Add every new server-generated prefix here.
-export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:", "birthday:", "birthday-reversal:", "expiry:", "challenge:", "challenge-reversal:", "demo-seed:"] as const;
+export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:", "birthday:", "birthday-reversal:", "expiry:", "challenge:", "challenge-reversal:", "demo-seed:", "headstart:", "headstart-reversal:"] as const;
 const validKeyLength = (key: string) => key.length >= 8 && key.length <= 100;
 
 /** For keys that come from a client (the public award, redeem and reverse entry points). Internal callers never use it. */
@@ -215,9 +216,11 @@ const welcomeBonusKey = (awardEntryId: string) => `welcome:${awardEntryId}`;
 /** The welcome bonus the card's next staff-confirmed award books: the programme's bonus until a first award, then 0. */
 export async function welcomeBonusDue(tx: Pick<typeof db, "select">, program: { welcomeBonus: number }, card: { tenantId: string; membershipId: string }, exceptEntryId?: string): Promise<number> {
   if (program.welcomeBonus <= 0) return 0;
+  // ENG-207, never both: a card that got its Startbonus at sign-up (head_start, corrected or not) gets none here. A card
+  // without one still gets it with its first booking, whatever the owner's choice is now (Legal, 10 Nov).
   const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
     eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.membershipId), exceptEntryId ? ne(ledgerEntries.id, exceptEntryId) : undefined,
-    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
+    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus", "head_start"]))).limit(1);
   return earlier ? 0 : program.welcomeBonus;
 }
 
@@ -231,6 +234,12 @@ async function bookWelcomeBonus(tx: Transaction, input: { program: typeof progra
   });
   return program.welcomeBonus;
 }
+
+// Head start (ENG-207): the same Startbonus given at sign-up instead, as its own row (source head_start, no actor) in the
+// enrollment transaction (lib/product enroll), keyed by the card so it exists once. Not a visit: every reader of visits
+// lists the staff sources. The owner corrects it like a booking (reverseEntry, under the correction's own key).
+export const headStartKey = (membershipId: string) => `headstart:${membershipId}`;
+export const headStartOn = (program: { welcomeBonusAt: string }) => program.welcomeBonusAt === "enrollment" && experienceFlag("HEAD_START_ENABLED");
 
 // Happy hour: while a window of the programme is running (in its location's timezone), a confirmed purchase award books the
 // same points again as its own row, keyed by the award's id like the welcome bonus. Not a visit, not a purchase.

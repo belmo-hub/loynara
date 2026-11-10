@@ -120,7 +120,7 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
   if (kind === "expiry" || source === "expiry") return "Punkte verfallen";
   if (source === "staff_online") return unit;
   if (source === "staff_offline") return `${unit} (offline)`;
-  if (source === "welcome_bonus") return "Startbonus";
+  if (source === "welcome_bonus" || source === "head_start") return "Startbonus";
   if (source === "happy_hour") return "Happy Hour";
   if (source === "nfc_tap") return `${unit} (NFC automatisch)`;
   if (source === "referral_bonus") return "Empfehlungsbonus";
