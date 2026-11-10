@@ -128,6 +128,9 @@ export const programs = pgTable("programs", {
   rulesText: text("rules_text").notNull(),
   // Extra stamps or points booked once, with a card's first staff-confirmed award. 0 = off.
   welcomeBonus: integer("welcome_bonus").notNull().default(0),
+  // ENG-207: when the Startbonus is given: with the first confirmed booking (today) or at sign-up, never both. Read only
+  // while HEAD_START_ENABLED is on; the sign-up amount is capped again at grant time (lib/loyalty headStartCap).
+  welcomeBonusAt: varchar("welcome_bonus_at", { length: 12 }).notNull().default("first_award"),
   // Short plain-text news on the customer card; empty = hidden.
   cardNews: varchar("card_news", { length: 140 }).notNull().default(""),
   // The shop's Google review link, shown on the card after the third visit; never tied to a reward.
@@ -195,6 +198,7 @@ export const programs = pgTable("programs", {
   check("program_challenge_valid", sql`${t.challengeVisits} is null or (${t.challengeVisits} between 2 and 10 and ${t.challengeBonus} between 1 and (case when ${t.type} = 'stamp' then 3 else 25000 end))`),
   check("program_levels_valid", sql`(not ${t.levelsEnabled} or (${t.levelSilverVisits} is not null and ${t.levelGoldVisits} is not null)) and (${t.levelSilverVisits} is null or ${t.levelSilverVisits} between 2 and 50) and (${t.levelGoldVisits} is null or (${t.levelGoldVisits} <= 90 and (${t.levelSilverVisits} is null or ${t.levelGoldVisits} > ${t.levelSilverVisits})))`),
   check("program_welcome_bonus_valid", sql`${t.welcomeBonus} between 0 and (case when ${t.type} = 'stamp' then 3 else 50 end)`),
+  check("program_welcome_bonus_at_valid", sql`${t.welcomeBonusAt} in ('first_award','enrollment')`),
   check("program_birthday_bonus_valid", sql`${t.birthdayBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
   check("program_winback_valid", sql`${t.winbackDays} between 14 and 90 and ${t.winbackBonus} between 0 and (case when ${t.type} = 'stamp' then 1 else 10000 end)`),
 ]);
@@ -381,8 +385,9 @@ export const ledgerEntries = pgTable("ledger_entries", {
   check("ledger_kind_sign_valid", sql`(${t.kind} = 'award' and ${t.delta} > 0) or (${t.kind} in ('redeem','expiry') and ${t.delta} < 0) or ${t.kind} = 'reversal'`),
   check("ledger_expiry_source_valid", sql`(${t.kind} = 'expiry') = (${t.source} = 'expiry')`),
   check("ledger_reversal_link_valid", sql`(${t.kind} = 'reversal') = (${t.reversalOfId} is not null)`),
-  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry','challenge_bonus')`),
-  check("ledger_nfc_actor_valid", sql`(${t.source} in ('nfc_tap','expiry') and ${t.actorUserId} is null) or (${t.source} not in ('nfc_tap','expiry') and ${t.actorUserId} is not null)`),
+  check("ledger_source_valid", sql`${t.source} in ('staff_online','staff_offline','staff_correction','synthetic_seed','legacy_unclassified','referral_bonus','nfc_tap','welcome_bonus','happy_hour','winback_bonus','birthday_bonus','expiry','challenge_bonus','head_start')`),
+  // No person books these: the automatic tap, the expiry job and the Startbonus at sign-up (ENG-207).
+  check("ledger_nfc_actor_valid", sql`(${t.source} in ('nfc_tap','expiry','head_start') and ${t.actorUserId} is null) or (${t.source} not in ('nfc_tap','expiry','head_start') and ${t.actorUserId} is not null)`),
 ]);
 
 export const secureTags = pgTable("secure_tags", {

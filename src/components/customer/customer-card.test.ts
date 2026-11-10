@@ -368,3 +368,43 @@ describe("the card after the join page (ENG-205)", () => {
     expect(waited.length).toBeGreaterThan(direct.length); // the cover's placeholder is in the markup
   });
 });
+
+describe("the Startbonus pill handed over from the join page (ENG-207)", () => {
+  const read = (path: string) => import("node:fs").then(fs => fs.readFileSync(path, "utf8"));
+  it("stands still for what is left of its time and says nothing a second time", async () => {
+    const { BookingPill } = await import("./customer-card");
+    const pill = { points: false, credited: 2, balance: 2, locale: "de" as const };
+    const fresh = renderToStaticMarkup(h(BookingPill, pill));
+    expect(fresh).toContain("--pill-stay:6000ms");
+    expect(fresh).not.toContain("data-handed");
+    expect(fresh).toContain('role="status"');
+    const handed = renderToStaticMarkup(h(BookingPill, { ...pill, until: Date.now() + 4000 }));
+    expect(handed).toContain('data-handed="true"');
+    expect(handed).toContain("Stempel erhalten");
+    expect(handed).toContain("+2");
+    // No status region and no sentence: the join page's pill was read out already.
+    expect(handed).not.toContain('role="status"');
+    expect(Number(/--pill-stay:(\d+)ms/.exec(handed)![1])).toBeGreaterThan(3500);
+    expect(Number(/--pill-stay:(\d+)ms/.exec(handed)![1])).toBeLessThanOrEqual(4000);
+    // A pill whose time is over stays at 0, never a negative stay.
+    expect(renderToStaticMarkup(h(BookingPill, { ...pill, until: Date.now() - 50 }))).toContain("--pill-stay:0ms");
+    const css = await read("src/components/customer/customer-card.module.css");
+    // No pill-in: only the exit, delayed by what is left; nothing inside it moves.
+    expect(css).toContain(".pill[data-handed] { animation: pill-out 160ms var(--ease-out) calc(var(--pill-stay) - 160ms) forwards; }");
+    expect(css).toContain(".pill[data-handed] :is(.pillCheck, .pillCheck path, .pillChip) { animation: none; }");
+  });
+  it("is one element beside the page's frame from the card page's first paint, read from the join page's mark", async () => {
+    const source = await read("src/components/card-client.tsx");
+    expect(source).toContain("const handed = useSyncExternalStore(never, () => joinedPill(), () => null);");
+    expect(source).toContain('const pill = handed && <div className="ly-theme-auto"><BookingPill points={handed.points} credited={handed.credited} balance={handed.credited} locale="de" until={handed.until} /></div>;');
+    // The same first child while the read is pending and once the card is there, so it never mounts twice.
+    expect(source).toContain("if (loading) return <>{pill}{pendingReturn && !waited ?");
+    expect(source).toContain("return <>{pill}<CustomerCard changes=");
+  });
+  it("grows no bar on the card page after a join: the join page showed it", async () => {
+    expect(await read("src/components/customer/customer-card.tsx")).toContain("grow={arriving && !moment && !quiet}");
+    const points = { ...base, programType: "points" as const, balance: 20, rewards: [{ id: "r1", title: "Kaffee", cost: 80 }] };
+    expect(renderToStaticMarkup(h(CustomerCard, points))).toContain('data-grow="true"');
+    expect(renderToStaticMarkup(h(CustomerCard, { ...points, quiet: true }))).not.toContain("data-grow");
+  });
+});

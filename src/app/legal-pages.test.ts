@@ -61,7 +61,10 @@ describe("customer legal pages", () => {
   it("announces changes to the customer's disadvantage four weeks ahead (ENG-100, Legal §3 and Q-88)", () => {
     const html = renderToStaticMarkup(createElement(TeilnahmebedingungenPage));
     expect(html).toContain("Es gelten die Regeln, die auf deiner Karte angezeigt werden. Das Geschäft kann sie für die Zukunft ändern. Verbesserungen gelten sofort. Ändert das Geschäft etwas zu deinem Nachteil, zeigt deine Karte das mindestens vier Wochen vorher mit Datum an, zum Beispiel wenn eine Prämie mehr Stempel oder Punkte braucht, kleiner oder eingeschränkt wird oder wegfällt, oder wenn du für deinen Einkauf weniger bekommst. Bis dahin gilt die bisherige Regel. Deine gesammelten Stempel und Punkte bleiben erhalten. Extra-Boni wie den Willkommen-zurück- oder den Geburtstagsbonus kann das Geschäft jederzeit ändern oder beenden; schon gebuchte Boni bleiben dir.");
-    expect(html).toContain("Stand: 30. Oktober 2026.");
+    expect(html).toContain("Stand: 10. November 2026.");
+    // ENG-207 (Legal, 10 Nov): the Startbonus at sign-up is the one exception to "confirmed by the team", once per person.
+    expect(html).toContain("Stempel und Punkte werden gutgeschrieben, wenn das Team des Geschäfts deinen Besuch oder Einkauf bestätigt hat. Ausnahme ist ein Startbonus bei der Anmeldung (siehe unten). Teilen oder Öffnen allein bringt nichts.");
+    expect(html).toContain("Bietet das Geschäft einen Startbonus bei der Anmeldung an, bekommt deine neue Karte die Stempel oder Punkte, die auf der Anmeldeseite stehen, sobald sie erstellt ist. Den Startbonus gibt es einmal pro Person. Auf einer weiteren Karte derselben Person kann das Geschäft ihn mit Begründung zurückbuchen.");
     expect(html).not.toContain("die bei der Anmeldung für das gewählte Programm angezeigt werden");
   });
 });

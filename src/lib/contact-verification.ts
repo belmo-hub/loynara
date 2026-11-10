@@ -63,7 +63,7 @@ export async function contactStatus(cardToken: string): Promise<ContactStatus> {
       (SELECT c.marketing FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "pendingMarketing",
       (SELECT c.expires_at <= now() FROM contact_verification_challenges c WHERE c.tenant_id = ${member.tenantId}::uuid AND c.membership_id = ${member.id}::uuid AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1) AS "expired",
       (SELECT CASE WHEN e.granted THEN e.created_at END FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing' ORDER BY e.created_at DESC, e.id DESC LIMIT 1) AS "since",
-      EXISTS (SELECT 1 FROM ledger_entries e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.kind = 'award') AS "stamped",
+      EXISTS (SELECT 1 FROM ledger_entries e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.kind = 'award' AND e.source <> 'head_start') AS "stamped",
       EXISTS (SELECT 1 FROM consent_events e WHERE e.tenant_id = ${member.tenantId}::uuid AND e.membership_id = ${member.id}::uuid AND e.channel = 'email' AND e.purpose = 'marketing') AS "chosen"`)).rows[0] as { pendingMarketing: boolean | null; expired: boolean | null; since: Date | string | null; stamped: boolean; chosen: boolean };
   const marketingEmail = verified && await latestMarketingConsent(member.tenantId, member.id);
   const recover = new URL("/recover", process.env.PUBLIC_BASE_URL ?? "http://localhost:3000");

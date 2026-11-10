@@ -33,13 +33,14 @@ export async function POST(request: Request) {
       shared = additionalCard === true;
       if (found.state === "existing" && additionalCard !== true) throw new DomainError("CARD_EXISTS", "Auf diesem Gerät gibt es schon eine Karte für dieses Programm.");
     }
-    const result = await enroll(input as Parameters<typeof enroll>[0]);
+    const result = await enroll(input as Parameters<typeof enroll>[0], { additionalCard: shared });
     headers.append("Set-Cookie", tapCookieHeader(result.programId, result.cardToken, request.url, shared));
     const remember = returningCardCookieHeader(result.programId, result.cardToken, request.url, shared);
     if (remember) {
       headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(result.programId, request.url));
       headers.append("Set-Cookie", remember);
     }
-    return Response.json({ cardToken: result.cardToken, cardLocator: result.cardLocator }, { status: 201, headers });
+    // ENG-207: `headStart` exists only when a Startbonus was booked with this card.
+    return Response.json({ cardToken: result.cardToken, cardLocator: result.cardLocator, ...(result.headStart ? { headStart: result.headStart } : {}) }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }

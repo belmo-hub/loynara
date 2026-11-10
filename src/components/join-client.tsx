@@ -12,6 +12,8 @@ import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
 import { markJoined } from "./customer/booking-moment";
+import { BookingPill } from "./customer/customer-card";
+import { FirstCard } from "./customer/first-card";
 import { CustomerState } from "./customer/customer-state";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
@@ -79,10 +81,14 @@ export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
 /** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
  *  220 ms later, the card page after a 400 ms hold, in whose last 160 ms the card fades out (the footer goes with
- *  the form). Reduced motion: both after the 400 ms hold, without fades, so the status line is heard before the
- *  focus or the page moves. */
+ *  the form). With a Startbonus (ENG-207) both wait 820 ms, so the credited places are seen landing. Reduced motion:
+ *  both after the 400 ms hold, without fades, so the status line is heard before the focus or the page moves. */
 export const FIRST_TAP_FADE_MS = 160;
-export const firstTapHold = (step: boolean, still: boolean) => step && !still ? 220 : 400;
+/** ENG-207: the credited places land this long after the answer, once the card has pressed; until then they stay rings. */
+export const FIRST_TAP_STEP_MS = 300;
+/** ENG-207: the pill drops in this long after the answer, as the card comes back from its press; its 6 s start then. */
+export const FIRST_TAP_PILL_MS = 220;
+export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 400 : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
 export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
   if (program?.programType === "points" || (program && program.rewardCost > STAMP_GRID_MAX)) return 120;
@@ -116,6 +122,11 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [walletStep, setWalletStep] = useState<string | null>(null);
   // ENG-205: the server has created the card: the form is leaving and the card presses once.
   const [created, setCreated] = useState(false);
+  // ENG-207: the Startbonus the server booked with the card; nothing is filled before this is known.
+  const [credited, setCredited] = useState(0);
+  // The step: the promised rings become the booked places (the press first, then the landing; never both at once).
+  const [landedBonus, setLandedBonus] = useState(false);
+  const [pill, setPill] = useState(false);
   // The last 160 ms before the card page: the card fades out, so the page changes over the bare ground.
   const [leavingPage, setLeavingPage] = useState(false);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
@@ -162,7 +173,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string; cardLocator: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
+        return postJson<{ cardToken: string; cardLocator: string; headStart?: number }>("/api/enroll", { slug, acceptedTerms: true, ...(plain && program?.headStart ? { headStart: program.headStart } : {}), ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -174,13 +185,20 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       if (plain && next.go !== "tap") {
         // Nothing is drawn before this point: the card exists. A tap return goes on at once, without this.
         const cardHref = `/card/${encodeURIComponent(result.cardToken)}`;
+        const bonus = result.headStart ?? 0, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        setCredited(bonus);
         setCreated(true);
-        const still = matchMedia("(prefers-reduced-motion: reduce)").matches, hold = firstTapHold(next.go === "step", still);
+        if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }
+        // The pill's time starts when it drops in (at once under reduced motion); the card page gets that time.
+        let pillAt = 0;
+        const showPill = () => { pillAt = Date.now(); setPill(true); };
+        if (bonus > 0) { if (still) showPill(); else setTimeout(showPill, FIRST_TAP_PILL_MS); }
+        const hold = firstTapHold(next.go === "step", still, bonus > 0);
         if (next.go !== "step") { router.prefetch(cardHref); if (!still) setTimeout(() => setLeavingPage(true), hold - FIRST_TAP_FADE_MS); }
         await new Promise(done => setTimeout(done, hold));
         leaving = next.go !== "step";
-        // The card page opens as a return after this page: it celebrates nothing a second time.
-        markJoined();
+        // The card page opens as a return after this page: it celebrates nothing a second time, and keeps this pill.
+        markJoined(Date.now(), pillAt ? { credited: bonus, points: program?.programType === "points", at: pillAt } : undefined);
         if (next.go === "step") setWalletStep(result.cardToken); else router.replace(cardHref);
         return;
       }
@@ -223,22 +241,24 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   if (loading && firstTap) return <CustomerShell locale="de"><div aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>{placeholder}</div></CustomerShell>;
   if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
+  // ENG-207: what the button on screen gives the new card (the owner's Startbonus at sign-up, as the server caps it).
+  // Shown once the returning check has answered, and only on the plain join: a further card gets none.
+  const offer = plain ? program.headStart ?? 0 : 0, offerShown = offer > 0 && returning.state !== "checking";
+  // Filled places are what the server booked, from the step on; before it they are rings.
+  const filled = landedBonus ? credited : 0;
   // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
   const top = newPage && <div className={first.top} data-leaving={leavingPage || undefined}>
     <div className={first.shop}>
       <span className={first.tile} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
       <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
     </div>
-    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined}>
-      {program.programType === "points"
-        ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
-        : <StampGrid earned={0} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
-      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
-    </section>
+    {/* Promised places are rings; a place is filled only with what the server booked (credited). */}
+    <FirstCard program={program} label={t.cardPreview} created={created} promised={!landedBonus && offerShown ? offer : 0} filled={filled} bonus={offerShown || credited > 0} />
   </div>;
   // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
   // wording: Design's placeholder, Marketing confirms
-  const createdLine = newPage && <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>;
+  // With a Startbonus the pill is that line („Stempel erhalten +2“, its own status), 220 ms after the answer.
+  const createdLine = newPage && (credited > 0 ? pill && <BookingPill points={program.programType === "points"} credited={credited} balance={credited} locale="de" /> : <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>);
   if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}{createdLine}<div className={first.step}><WalletStep token={walletStep} program={program} heading="h2" /></div></CustomerShell>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />
@@ -297,6 +317,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     {top}
     {createdLine}
     <div className={first.blocks} data-leaving={created || undefined}>
+      {/* Marketing and Legal, 10 Nov. Its line is kept free while the returning check runs, so the button does not move. */}
+      {offer > 0 && <p className={first.start} data-wait={!offerShown || undefined}>Zum Start bekommst du {withUnit(offer, program.programType, "de")} geschenkt.</p>}
       {iphone && <ol className={styles.steps}>
         <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
         <li><span aria-hidden="true">2</span><p><strong>In Apple Wallet legen</strong>Dann ist sie bei deinen Karten</p></li>

@@ -51,7 +51,15 @@ export function momentFor(read: { activity: ActivityEntry[]; balance: number }, 
 export const JOINED_WINDOW_MS = 15_000;
 let joinedAt = 0;
 const fresh = (now: number) => joinedAt > 0 && now - joinedAt >= 0 && now - joinedAt < JOINED_WINDOW_MS;
-export function markJoined(now = Date.now()) { joinedAt = now; }
+// ENG-207: with a Startbonus the join page's pill is still on screen when the card page opens. The mark carries what it
+// says and when it dropped in, so the card page keeps it for the rest of its time instead of dropping a second one.
+let pill: { credited: number; points: boolean; until: number } | null = null;
+export function markJoined(now = Date.now(), shown?: { credited: number; points: boolean; at: number }) {
+  joinedAt = now;
+  pill = shown ? { credited: shown.credited, points: shown.points, until: shown.at + MOMENT_PILL_MS } : null;
+}
+/** The join page's pill while its time runs (the same object each time, so a store read stays stable); then null. */
+export function joinedPill(now = Date.now()) { return pill && now < pill.until ? pill : null; }
 /** The card page's paint before its first read: asks without using the mark up. */
 export function peekJoined(now = Date.now()) { return fresh(now); }
 /** The first read: true once, then the mark is gone. */

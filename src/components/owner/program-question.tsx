@@ -42,7 +42,8 @@ export function ProgramQuestion({ question, from }: { question: Question; /** â€
   const { me, hiddenSurfaces } = useOwner();
   const router = useRouter();
   const slug = me ? encodeURIComponent(me.programSlug) : "";
-  const [program, reload] = useLoad<PublicProgram>(me && READS_PROGRAM.has(question) ? `/api/program/${slug}` : null);
+  // ENG-207: with the flag the Startbonus page needs the rewards for the sign-up cap; without it, no read, as before.
+  const [program, reload] = useLoad<PublicProgram>(me && (READS_PROGRAM.has(question) || (question === "welcome-bonus" && me.welcomeBonusAt !== undefined)) ? `/api/program/${slug}` : null);
   const [winback, reloadWinback] = useLoad<Winback>(me && question === "winback" ? `/api/merchant/program/winback?programSlug=${slug}` : null);
   const [messages, reloadMessages] = useLoad<MessageSettings>(me && MESSAGES.has(question) ? `/api/merchant/wallet-messages?programSlug=${slug}` : null);
   // A row the list does not show this shop (an old link) leads back to the list.

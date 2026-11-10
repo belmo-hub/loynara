@@ -8,7 +8,7 @@ export class ClientApiError extends Error {
 // English) and never reaches the UI. A code goes on this list only when every message the server sends with it is German.
 export const GERMAN_SERVER_TEXT = new Set(["ACCOUNT_SWITCH_REQUIRED", "ADDRESS_REQUIRED", "ALREADY_ONBOARDED", "AUTHENTICATION_REQUIRED", "BILLING_START_TIME", "CARD_EXISTS", "CHANGE_PENDING",
   "CHOICE_REQUIRED", "CONFIRM_REQUIRED", "END_DATE_TOO_EARLY", "EXPORT_CLOSED", "INVALID_ACTIVATION", "INVALID_BIRTHDAY",
-  "INVALID_CODE_FORMAT", "INVALID_END_DATE", "INVALID_LEVELS", "INVALID_POINT", "INVALID_RECOVERY", "INVALID_SENDER", "INVALID_TEMPLATE", "INVALID_UNSUBSCRIBE",
+  "INVALID_CODE_FORMAT", "INVALID_END_DATE", "INVALID_HEAD_START", "INVALID_LEVELS", "INVALID_POINT", "INVALID_RECOVERY", "INVALID_SENDER", "INVALID_TEMPLATE", "INVALID_UNSUBSCRIBE",
   "MESSAGE_REFUSED", "NO_REACH", "OWNER_INVITE_OPEN", "PLATE_UNLINKED", "PUSH_DEVICE_IN_USE", "PUSH_UNAVAILABLE", "QUIET_HOURS",
   "RECOVERY_DISABLED", "RECOVERY_REQUIRED", "SETUP_INCOMPLETE", "SHOP_CAP", "SHOP_HAS_OWNER", "STAFF_CONFIRMATION_REQUIRED",
   "TAP_AUTOMATIC_NOT_ALLOWED", "TEMPLATE_IN_USE",
@@ -119,6 +119,8 @@ export type MeResponse = {
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
+  /** ENG-207: when the Startbonus is given. Present for the owner and the Leitung (who only reads it) while HEAD_START_ENABLED is on. */
+  welcomeBonusAt?: "first_award" | "enrollment";
   /** Short plain-text news on the customer card; empty = hidden. */
   cardNews?: string;
   /** The shop's Google review link, or null. */
@@ -170,6 +172,8 @@ export type PublicProgram = {
   pointsExpiryRule?: string;
   rewardTitle: string;
   rewardCost: number;
+  /** ENG-207: the Startbonus a new card gets at sign-up (already capped). Present only when one would be booked. */
+  headStart?: number;
   /** ENG-100: a dated change waiting for its day (YYYY-MM-DD, the shop's calendar) and the day an archive takes effect. */
   rewards: Array<{ id: string; rewardId: string; title: string; cost: number; sortOrder: number; pending?: { effectiveOn: string; title: string; cost: number } | null; endsOn?: string | null }>;
   /** The day a change to customers' disadvantage saved now would take effect (four weeks on). */

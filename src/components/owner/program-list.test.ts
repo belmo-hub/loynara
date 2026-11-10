@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { isQuestion } from "./program-helpers";
-import { programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+import { programSections, quoteStart, rewardChip, startbonusLine, type ListData } from "./program-list";
 import { ruleChips } from "./program-rule-changes";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
@@ -134,6 +135,18 @@ describe("rule, earning and expiry chips while a change waits (ENG-100, W45, W59
 });
 
 describe("archived rewards (Design, ENG-100 U1)", () => {
+  it("ENG-207: the Startbonus row names the time and the amount while the flag sends the owner's choice, and stays as it was without it", () => {
+    expect(rows({ me: { ...me, welcomeBonus: 2 } }).Startbonus).toMatchObject({ sub: "Mit der ersten Buchung, einmal pro Karte", value: "+2", big: true });
+    expect(rows({ me: { ...me, welcomeBonus: 2, welcomeBonusAt: "enrollment" } }).Startbonus).toMatchObject({ sub: "Bei der Anmeldung · +2 Stempel" });
+    expect(rows({ me: { ...me, welcomeBonus: 1, welcomeBonusAt: "first_award" } }).Startbonus).toMatchObject({ sub: "Mit der ersten Buchung · +1 Stempel" });
+    expect(rows({ me: { ...me, welcomeBonus: 0, welcomeBonusAt: "enrollment" } }).Startbonus).toMatchObject({ value: "Aus", off: true });
+    expect(rows({ me: { ...me, welcomeBonus: 0, welcomeBonusAt: "enrollment" } }).Startbonus.sub).toBeUndefined();
+    // The Leitung reads the same line on a row that is no link (program-view.tsx).
+    expect([startbonusLine({ ...me, welcomeBonus: 2, welcomeBonusAt: "enrollment" }), startbonusLine({ ...me, programType: "points", welcomeBonus: 25, welcomeBonusAt: "first_award" }), startbonusLine({ ...me, welcomeBonus: 0, welcomeBonusAt: "enrollment" })]).toEqual(["Bei der Anmeldung · +2 Stempel", "Mit der ersten Buchung · +25 Punkte", "Aus"]);
+    const view = readFileSync("src/components/owner/program-view.tsx", "utf8");
+    expect(view).toContain('{me.welcomeBonusAt !== undefined && <section className="ow-card ow-stack"><h2>Extras</h2><ul className="ow-feed"><li><strong>Startbonus</strong><span className="ow-muted">{startbonusLine(me)}</span></li></ul></section>}');
+  });
+
   it("adds a quiet row with the count at the end of Prämien, only once a reward is archived", () => {
     expect(programSections(base)[0].rows.map(row => row.title)).not.toContain("Archivierte Prämien");
     const rows = programSections({ ...base, archived: 2 })[0].rows;

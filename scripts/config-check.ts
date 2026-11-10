@@ -137,6 +137,8 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
   issues.push(...walletConfigIssues(env, approved));
   for (const name of EXPERIENCE_FLAGS) if (env[name] !== undefined && env[name] !== "true" && env[name] !== "false") issues.push(`${name} must be exactly true or false`);
+  // The Startbonus at sign-up is promised and shown on the new first page only: never that switch without this one.
+  if (env.HEAD_START_ENABLED === "true" && env.FIRST_TAP_HOOK_ENABLED !== "true") issues.push("HEAD_START_ENABLED requires FIRST_TAP_HOOK_ENABLED=true");
   return issues;
 }
 

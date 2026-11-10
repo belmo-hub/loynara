@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, CalendarClock, Gift, PenLine, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { PublicProgram } from "@/components/client-api";
+import { headStartFloor } from "@/lib/card-extras";
 import { rewardChangeLine } from "@/lib/change-lines";
 import { CardLinePreview, NumberStepper } from "./owner-ui";
 import { longDay, REWARD_NAME_MISSING, SHORT_NAME, unitDative, unitName, WHOLE_NUMBER } from "./program-helpers";
@@ -49,7 +50,9 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
   const cost = pick === "other" ? Number(custom) || 0 : Number(pick), name = title.trim();
   const named = name !== reward.title, priced = cost !== reward.cost;
   const nameProblem = !name ? REWARD_NAME_MISSING : name.length < 2 ? SHORT_NAME : "";
-  const costProblem = cost >= 1 && cost <= COST_MAX ? "" : WHOLE_NUMBER;
+  // ENG-207: costs under four times the Startbonus at sign-up are not offered; the reason names it.
+  const floor = headStartFloor(program);
+  const costProblem = !(cost >= 1 && cost <= COST_MAX) ? WHOLE_NUMBER : cost < floor.least ? floor.reason : "";
   const q = useQuestion("program-reward", priced || named, step.step === "name" ? { "reward-name": nameProblem } : step.step === "other" ? { "reward-cost": costProblem } : {});
   const back = { label: reward.title, onClick: step.back };
   const preview = (line: string) => (
@@ -138,10 +141,11 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
         onSubmit={() => { if (!q.check()) return; if (!priced) q.leave(); else if (higher) step.open("raise"); else void price(); }}>
         <div className="ow-qnumber" data-typed={points || undefined}>
           <label htmlFor="reward-cost" className="ow-sr">Einlösbar ab</label>
-          <NumberStepper id="reward-cost" value={custom} onChange={value => setCustom(value && String(Math.min(Number(value), COST_MAX)))} min={1} max={COST_MAX} stepSize={points ? 10 : 1}
+          <NumberStepper id="reward-cost" value={custom} onChange={value => setCustom(value && String(Math.min(Number(value), COST_MAX)))} min={floor.least} max={COST_MAX} stepSize={points ? 10 : 1}
             unit={{ one: unit(1), many: unit(2) }} invalid={Boolean(q.error("reward-cost"))} describedBy="reward-cost-hint" />
           <FieldError id="reward-cost-error">{q.error("reward-cost")}</FieldError>
-          <p id="reward-cost-hint" className="ow-hint">Einlösbar ab {costProblem ? "…" : amount(cost)}.</p>
+          {/* At the floor „weniger“ is disabled: the line says why (the field error says it for a typed number below). */}
+          <p id="reward-cost-hint" className="ow-hint">{floor.reason && cost === floor.least ? floor.reason : `Einlösbar ab ${costProblem ? "…" : amount(cost)}.`}</p>
         </div>
         {higher && raiseHint}
       </QuestionForm>
@@ -151,13 +155,14 @@ export function RewardPage({ program, reward, slug }: { program: PublicProgram; 
   // 03: the cost as a few choices; a lower one saves at once (26), a higher one leads to its date (27 → 28).
   const live = program.rewards.filter(item => !item.endsOn).length;
   const choices: Choice[] = [
-    ...options.map(n => ({ value: String(n), label: `${n} ${unit(n)}`, sub: n < reward.cost ? "Schneller zur Prämie" : n > reward.cost ? "Länger sammeln" : "Wie bisher", icon: n < reward.cost ? ArrowDown : n > reward.cost ? ArrowUp : Gift })),
+    ...options.map(n => ({ value: String(n), label: `${n} ${unit(n)}`, sub: n < floor.least ? "" : n < reward.cost ? "Schneller zur Prämie" : n > reward.cost ? "Länger sammeln" : "Wie bisher", icon: n < reward.cost ? ArrowDown : n > reward.cost ? ArrowUp : Gift, disabled: n < floor.least })),
     { value: "other", label: "Andere Zahl", icon: PenLine },
   ];
   return (
     <QuestionForm title={`${reward.title}: ab wie vielen ${unitDative(type)}?`} busy={q.busy} failed={q.failed} action={pick !== "other" && cost > reward.cost ? "Weiter" : "Speichern"}
       onSubmit={() => { if (pick === "other") step.open("other"); else if (!priced) q.leave(); else if (cost > reward.cost) step.open("raise"); else void price(); }}>
       <Choices name="reward-cost" label={`Einlösbar ab wie vielen ${unitDative(type)}?`} options={choices} value={pick} saved={String(reward.cost)} onChange={setPick} />
+      {options.some(n => n < floor.least) && <p className="ow-hint">{floor.reason}</p>}
       {pick !== "other" && cost < reward.cost && <p className="ow-hint">Gilt ab dem Speichern für alle Karten.</p>}
       {pick !== "other" && cost > reward.cost && raiseHint}
       {!priced && pick !== "other" && <div className="ow-row" style={{ justifyContent: "space-between" }}>

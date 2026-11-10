@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: "wer-bietet-das-programm-an", title: "Wer bietet das Programm an?" },
   { id: "teilnahme", title: "Teilnahme" },
   { id: "stempel-punkte-und-praemien", title: "Stempel, Punkte und Prämien" },
+  { id: "startbonus-und-ueberraschungsbonus", title: "Startbonus und Überraschungsbonus" },
   { id: "empfehlungen", title: "Empfehlungen" },
   { id: "karte-verloren-exportieren-und-schliessen", title: "Karte verloren, exportieren und schließen" }
 ] as const;
@@ -16,15 +17,18 @@ export default function TeilnahmebedingungenPage() {
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Teilnahmebedingungen</h1>
-    <p>Stand: 30. Oktober 2026. Diese Bedingungen gelten für die digitale Kundenkarte, die du bei einem Geschäft über Loynara anlegst.</p>
+    <p>Stand: 10. November 2026. Diese Bedingungen gelten für die digitale Kundenkarte, die du bei einem Geschäft über Loynara anlegst.</p>
     <LegalContents sections={SECTIONS} />
     <h2 id="wer-bietet-das-programm-an">Wer bietet das Programm an?</h2>
     <p>Das Programm bietet das Geschäft an, dessen Name und Standort auf deiner Karte stehen. Jedes Geschäft legt seine Regeln und Prämien selbst fest. Es gelten die Regeln, die auf deiner Karte angezeigt werden. Das Geschäft kann sie für die Zukunft ändern. Verbesserungen gelten sofort. Ändert das Geschäft etwas zu deinem Nachteil, zeigt deine Karte das mindestens vier Wochen vorher mit Datum an, zum Beispiel wenn eine Prämie mehr Stempel oder Punkte braucht, kleiner oder eingeschränkt wird oder wegfällt, oder wenn du für deinen Einkauf weniger bekommst. Bis dahin gilt die bisherige Regel. Deine gesammelten Stempel und Punkte bleiben erhalten. Extra-Boni wie den Willkommen-zurück- oder den Geburtstagsbonus kann das Geschäft jederzeit ändern oder beenden; schon gebuchte Boni bleiben dir. Die technische Plattform betreibt Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, support@getloynara.com.</p>
     <h2 id="teilnahme">Teilnahme</h2>
     <p>Die Teilnahme ist freiwillig und für dich kostenlos. Du brauchst dafür keine App und keine E-Mail-Adresse. Die Karte gehört zu einem privaten Link, den du selbst sicher aufbewahren solltest. Wer den Link kennt, kann die Karte öffnen.</p>
     <h2 id="stempel-punkte-und-praemien">Stempel, Punkte und Prämien</h2>
-    <p>Stempel und Punkte werden erst gutgeschrieben, wenn das Team des Geschäfts deinen Besuch oder Einkauf bestätigt hat. Teilen, Öffnen oder Anmelden allein bringt nichts. Jede Buchung steht mit Uhrzeit im Verlauf deiner Karte. Fehlerhafte Buchungen kann das Geschäft mit Begründung korrigieren; die ursprüngliche Buchung und die Korrektur bleiben nachvollziehbar.</p>
+    <p>Stempel und Punkte werden gutgeschrieben, wenn das Team des Geschäfts deinen Besuch oder Einkauf bestätigt hat. Ausnahme ist ein Startbonus bei der Anmeldung (siehe unten). Teilen oder Öffnen allein bringt nichts. Jede Buchung steht mit Uhrzeit im Verlauf deiner Karte. Fehlerhafte Buchungen kann das Geschäft mit Begründung korrigieren; die ursprüngliche Buchung und die Korrektur bleiben nachvollziehbar.</p>
     <p>Stempel und Punkte haben keinen Geldwert, werden nicht ausgezahlt und sind nicht auf andere Karten oder andere Geschäfte übertragbar. Die Einlösung einer Prämie wird online anhand des Kartenstands geprüft und vom Team des Geschäfts bestätigt. Danach wird der Kartenstand entsprechend den Programmregeln angepasst.</p>
+    {/* ENG-207 (Legal, 10 Nov): the Startbonus paragraph. ENG-208 adds the paragraph on the Überraschungsbonus that the heading already names. */}
+    <h2 id="startbonus-und-ueberraschungsbonus">Startbonus und Überraschungsbonus</h2>
+    <p>Bietet das Geschäft einen Startbonus bei der Anmeldung an, bekommt deine neue Karte die Stempel oder Punkte, die auf der Anmeldeseite stehen, sobald sie erstellt ist. Den Startbonus gibt es einmal pro Person. Auf einer weiteren Karte derselben Person kann das Geschäft ihn mit Begründung zurückbuchen.</p>
     <h2 id="empfehlungen">Empfehlungen</h2>
     <p>Wenn das Geschäft Empfehlungen anbietet, kannst du deinen persönlichen Link teilen. Ein Bonus wird erst gebucht, wenn das Team den ersten Besuch der geworbenen Person bestätigt hat, und nur einmal. Auffällige Fälle, etwa dieselbe verifizierte E-Mail-Adresse, werden zur Prüfung zurückgestellt. Ändert das Geschäft seine Regeln, bleibt für eine Empfehlung die Regel gültig, die bei der Anmeldung der geworbenen Person galt.</p>
     <h2 id="karte-verloren-exportieren-und-schliessen">Karte verloren, exportieren und schließen</h2>

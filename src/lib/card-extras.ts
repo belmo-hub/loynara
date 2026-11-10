@@ -1,4 +1,5 @@
 // Shared by the owner form and the server, which checks again. Pure functions only (imported by client code).
+import { withUnit } from "./units";
 
 export const CARD_NEWS_MAX = 140;
 
@@ -94,3 +95,39 @@ export function challengeFor(p: ChallengeColumns, month: string) {
 /** The pending change that has not started by `month`, if any (what the owner screen shows as „Gilt ab 1.11.“). */
 export const pendingChallenge = (p: ChallengeColumns, month: string) =>
   p.challengeNextFrom && `${month}-01` < p.challengeNextFrom ? { from: p.challengeNextFrom, visits: p.challengeNextVisits, bonus: p.challengeNextBonus } : null;
+
+// ENG-207, the Startbonus at sign-up. The most a programme may give there: 2 stamps or 50 points, and never over a
+// quarter of its cheapest reward (floor). The save checks it and the grant caps again (lib/product).
+export const headStartCap = (type: string, rewardCosts: number[]) => rewardCosts.length ? Math.min(type === "stamp" ? 2 : 50, Math.floor(Math.min(...rewardCosts) / 4)) : 0;
+
+// Owner side, Marketing's strings of 10 Nov (Legal: yes), word for word; amounts come through withUnit („2 Stempel“).
+export const HEAD_START_COPY = {
+  question: "Wann gibt es den Startbonus?",
+  enrollment: { label: "Bei der Anmeldung", sub: "Schon auf jeder neuen Karte" },
+  firstAward: { label: "Mit der ersten Buchung", sub: "Erst, wenn dein Team bucht" },
+  cost: (amount: string) => `Jede neue Karte braucht damit ${amount} weniger bis zur Prämie. Eine Karte, die nicht leer startet, wirkt näher an der Prämie.`,
+  tooSmall: "Deine kleinste Prämie ist dafür zu klein",
+  overCap: (cap: string) => `Bei der Anmeldung sind höchstens ${cap} möglich, ein Viertel deiner kleinsten Prämie.`,
+  /** Under the save button (Marketing § 6, 10 Nov): true for switching the time, changing the amount and switching it off. */
+  fromNow: "Änderungen gelten ab jetzt. Gebuchte Startboni bleiben.",
+};
+
+// wording: draft, Marketing confirms (ENG-207: the strings Marketing has not written)
+export const HEAD_START_DRAFT = {
+  howMuch: "Wie viel?",
+  /** Said after the card's count on the first page while the bonus is promised („0 von 8 Stempeln, 2 davon als Startbonus“). */
+  spoken: (amount: number) => `${amount} davon als Startbonus`,
+  /** The preview's label (Design's spec § 4, item 5). */
+  guestSees: "So sieht es der Gast",
+  /** The limit at sign-up when the fixed ceiling binds, not the quarter of the smallest reward („2 Stempel“, „20 Punkte“). */
+  overMost: (cap: string) => `Bei der Anmeldung sind höchstens ${cap} möglich.`,
+  /** A reward saved so cheap that the Startbonus at sign-up would be over a quarter of it („2 Stempel“, „8 Stempel“). */
+  rewardTooSmall: (bonus: string, least: string) => `Mit dem Startbonus bei der Anmeldung (${bonus}) braucht jede Prämie mindestens ${least}. Senke zuerst den Startbonus.`,
+};
+
+/** ENG-207: with a Startbonus at sign-up no reward may cost under four times it. The lowest cost a reward page offers
+ *  and the reason it gives for the ones below (1 and no reason without one). The server refuses the same (product.ts). */
+export function headStartFloor(program: { programType: "stamp" | "points"; headStart?: number }) {
+  const bonus = program.headStart ?? 0;
+  return { least: bonus * 4 || 1, reason: bonus ? HEAD_START_DRAFT.rewardTooSmall(withUnit(bonus, program.programType), withUnit(bonus * 4, program.programType)) : "" };
+}

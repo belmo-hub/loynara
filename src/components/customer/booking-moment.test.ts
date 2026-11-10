@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIRST_OPEN_WINDOW_MS, JOINED_WINDOW_MS, laterMark, markJoined, momentFor, peekJoined, readSeen, takeJoined, unseenAwards } from "./booking-moment";
+import { FIRST_OPEN_WINDOW_MS, JOINED_WINDOW_MS, joinedPill, laterMark, markJoined, MOMENT_PILL_MS, momentFor, peekJoined, readSeen, takeJoined, unseenAwards } from "./booking-moment";
 
 const now = Date.parse("2026-11-10T12:00:00Z");
 const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -87,5 +87,26 @@ describe("the card page after the join page (ENG-205)", () => {
     const read = { balance: 2, activity: [{ kind: "award", delta: 2, createdAt: new Date(now - 1500).toISOString() }], stampMoment: {} };
     expect(momentFor(read, { balance: null, seenAt: null }, now).credited).toBe(2);
     expect(momentFor(read, { balance: null, seenAt: new Date(now).toISOString() }, now).credited).toBe(0);
+  });
+  it("ENG-207: carries the Startbonus pill to the card page for the rest of its 6 s, in the page's memory only", () => {
+    const stored: string[] = [];
+    const spy = { getItem: () => null, setItem: (key: string) => { stored.push(key); }, removeItem: () => {} };
+    vi.stubGlobal("sessionStorage", spy);
+    vi.stubGlobal("localStorage", spy);
+    const at = Date.parse("2026-11-10T12:00:00Z");
+    // The pill dropped in 220 ms after the answer; the join page marks 600 ms later, when it leaves.
+    markJoined(at + 820, { credited: 2, points: false, at: at + 220 });
+    expect(stored).toEqual([]);
+    expect(joinedPill(at + 900)).toEqual({ credited: 2, points: false, until: at + 220 + MOMENT_PILL_MS });
+    // The same object on every read, so the card page's store read is stable; taking the return leaves the pill its time.
+    expect(joinedPill(at + 901)).toBe(joinedPill(at + 902));
+    expect(takeJoined(at + 1000)).toBe(true);
+    expect(joinedPill(at + 220 + MOMENT_PILL_MS - 1)?.credited).toBe(2);
+    expect(joinedPill(at + 220 + MOMENT_PILL_MS)).toBeNull();
+    // A join without a Startbonus hands nothing over, and clears an older pill.
+    markJoined(at + 2000);
+    expect(joinedPill(at + 2001)).toBeNull();
+    expect(takeJoined(at + 2001)).toBe(true);
+    vi.unstubAllGlobals();
   });
 });

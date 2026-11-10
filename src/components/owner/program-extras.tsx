@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState, type CSSProperties } from "react";
 import { ChevronDown, Hourglass, Plus, X } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { FirstCard } from "@/components/customer/first-card";
+import { merchantPalette } from "@/components/ui/merchant-color";
 import { CardLinePreview, NumberStepper } from "./owner-ui";
-import { CARD_NEWS_MAX, CHALLENGE_VISITS, challengeBonusRange, cardNewsProblem, LEVEL_PERK_MAX, levelPerkProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
+import { CARD_NEWS_MAX, CHALLENGE_VISITS, challengeBonusRange, cardNewsProblem, HEAD_START_COPY, HEAD_START_DRAFT, headStartCap, LEVEL_PERK_MAX, levelPerkProblem, REVIEW_URL_MAX, reviewUrlValid } from "@/lib/card-extras";
 import { POINTS_EXPIRY_MONTHS } from "@/lib/points-expiry-rules";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { AVERAGE_VISIT_SPEND_MAX_MINOR, SPEND_COPY } from "@/lib/spend-copy";
-import { unitWord } from "@/lib/units";
+import { unitWord, withUnit } from "@/lib/units";
 import { longDay, QUESTIONS, type Question } from "./program-helpers";
 import { Choices, Control, FieldError, QuestionForm, rangeError, SwitchRow, useQuestion, useReview, wholeIn } from "./question-form";
 import { datedToast, ExpiryWaiting, LinePreview, OtherWaiting, SEES_TODAY } from "./program-rule-changes";
@@ -22,7 +24,7 @@ const units = (me: MeResponse) => me.programType === "stamp" ? { one: "Stempel",
 
 /** The extras rows' questions (Wegweiser 08, 10–13, 15, 16). Each posts only its own fields to the extras API (N-3). */
 export function ExtrasQuestion({ me, question, program }: { me: MeResponse; question: Question; program: PublicProgram | null }) {
-  if (question === "welcome-bonus") return <WelcomeBonus me={me} />;
+  if (question === "welcome-bonus") return me.welcomeBonusAt === undefined ? <WelcomeBonus me={me} /> : program && <Startbonus me={me} program={program} at={me.welcomeBonusAt} />;
   if (question === "challenge") return program && <Challenge me={me} program={program} />;
   if (question === "levels") return <Levels me={me} />;
   if (question === "news") return program && <News me={me} program={program} />;
@@ -52,6 +54,70 @@ function WelcomeBonus({ me }: { me: MeResponse }) {
         </div>}
     </QuestionForm>
   );
+}
+
+type StartbonusWhen = "off" | "enrollment" | "first_award";
+
+/**
+ * 08 while HEAD_START_ENABLED is on (ENG-207, Design spec § 4): first when the Startbonus is given, then how much. What
+ * sign-up cannot give stays on the page, disabled, with the reason; the server checks the same cap again.
+ */
+function Startbonus({ me, program, at }: { me: MeResponse; program: PublicProgram; at: "first_award" | "enrollment" }) {
+  const kind = me.programType, stamp = kind === "stamp", unit = units(me), most = stamp ? 3 : 50;
+  const cap = headStartCap(kind, program.rewards.map(reward => reward.cost));
+  // Points move in fives (Design), so sign-up offers the highest five under the cap.
+  const signUpMax = stamp ? cap : Math.floor(cap / 5) * 5;
+  const savedAmount = me.welcomeBonus ?? 0, savedWhen: StartbonusWhen = savedAmount ? at : "off";
+  const [when, setWhen] = useState(savedWhen);
+  const [value, setValue] = useState(String(savedAmount || (stamp ? 1 : 5)));
+  const signUp = when === "enrollment", max = signUp ? signUpMax : most, amount = Number(value);
+  const q = useQuestion("welcome-bonus", when !== savedWhen || (when !== "off" && amount !== savedAmount), { "welcome-bonus": when === "off" || wholeIn(value, 1, max) ? "" : rangeError(1, max) });
+  const error = q.error("welcome-bonus");
+  // Switching to sign-up lowers an amount it cannot give to the highest it can.
+  const pick = (next: string) => { setWhen(next as StartbonusWhen); if (next === "enrollment" && amount > signUpMax) setValue(String(signUpMax)); };
+  // The quarter is named only when it is what binds; above it the fixed ceiling (or the points' fives) does.
+  const quarter = program.rewards.length ? Math.floor(Math.min(...program.rewards.map(reward => reward.cost)) / 4) : 0;
+  const reason = signUp && signUpMax < most ? (signUpMax === quarter ? HEAD_START_COPY.overCap : HEAD_START_DRAFT.overMost)(withUnit(signUpMax, kind)) : "";
+  // What the guest's first page promises with these picks: only a valid amount at sign-up.
+  const promised = signUp && wholeIn(value, 1, max) ? amount : 0;
+  return (
+    <QuestionForm title="Startbonus" lead={`Einmal pro Karte. Höchstens ${most} ${unit.many}.`} busy={q.busy} failed={q.failed} note={HEAD_START_COPY.fromNow} aside={<GuestCard program={program} promised={promised} />}
+      onSubmit={() => void q.save(EXTRAS, when === "off" ? { programId: me.programId, welcomeBonus: 0 } : { programId: me.programId, welcomeBonus: amount, welcomeBonusAt: when })}>
+      {/* Groups 16 px apart (ow-stack), their own parts 8 px (ow-stack--tight): when; how much with its limit and its cost. */}
+      <div className="ow-stack ow-qeven">
+        <Choices name="welcome-bonus-at" label={HEAD_START_COPY.question} value={when} onChange={pick} options={[
+          { value: "off", label: "Aus", sub: "Kein Startbonus" },
+          { value: "enrollment", ...HEAD_START_COPY.enrollment, ...(signUpMax === 0 && !signUp && { sub: HEAD_START_COPY.tooSmall, disabled: true }) },
+          { value: "first_award", ...HEAD_START_COPY.firstAward },
+        ]} />
+        {when !== "off" && <div className="ow-stack ow-stack--tight">
+          {stamp
+            ? <Choices name="welcome-bonus" label={HEAD_START_DRAFT.howMuch} value={value} onChange={setValue}
+              options={[1, 2, 3].map(n => ({ value: String(n), label: `+${n} Stempel`, disabled: n > max }))} />
+            : <div className="ow-qnumber ow-qamount" data-typed>
+              <label htmlFor="welcome-bonus">{HEAD_START_DRAFT.howMuch}</label>
+              <NumberStepper id="welcome-bonus" value={value} onChange={next => setValue(next && String(Math.min(Number(next), max)))} min={1} max={max} stepSize={5} unit={unit} bonus invalid={Boolean(error)} describedBy={error ? "welcome-bonus-hint" : reason ? "welcome-bonus-cap" : undefined} />
+              <FieldError id="welcome-bonus-hint">{error}</FieldError>
+            </div>}
+          {reason && <p id="welcome-bonus-cap" className="ow-hint">{reason}</p>}
+          {/* The cost of the sign-up option, right under the amount; the region stays so a change is read out. A new
+              amount is a new line: it fades in, the old one leaves at once (the Saved line rule). */}
+          <div className="ow-qlive" aria-live="polite">{promised > 0 && <p key={amount} className="ow-qcost">{HEAD_START_COPY.cost(withUnit(amount, kind))}</p>}</div>
+        </div>}
+      </div>
+    </QuestionForm>
+  );
+}
+
+/** „So sieht es der Gast“ (Design spec § 4, item 5): the first page's card in the shop's colour. With the bonus at
+ *  sign-up it shows the promised rings and the label; otherwise the plain card. It follows the picks. */
+function GuestCard({ program, promised }: { program: PublicProgram; promised: number }) {
+  const label = useId();
+  return <div className="ow-cardline" role="group" aria-labelledby={label}>
+    <p id={label} className="ow-cardline-label">{HEAD_START_DRAFT.guestSees}</p>
+    {/* The shop's colour and its companions, as the guest's page sets them. */}
+    <div style={merchantPalette(program.brandColor ?? "", "light").cssVars as CSSProperties}><FirstCard program={program} promised={promised} bonus={promised > 0} /></div>
+  </div>;
 }
 
 /** 10: a change to a running challenge starts with the next month (ENG-065), so the page says which terms hold now. */

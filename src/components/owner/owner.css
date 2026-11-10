@@ -881,6 +881,28 @@ div.ow-prog-row:active { transform: none; }
 .ow-when p { margin-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
 .ow-q > .ow-hint[data-later] { color: var(--color-warning); font-weight: var(--weight-label); }
 .ow-qchoices-lead { margin: 0 0 var(--space-2); }
+/* ENG-207 (Design § 4): an answer this shop cannot pick stays on the page, muted, with its reason; and the quiet panel
+   with the cost sentence under the amount. */
+.ow-qchoice:has(:disabled) { cursor: default; }
+.ow-qchoice:has(:disabled) strong { color: var(--color-ink-muted); }
+.ow-qchoice:has(:disabled) .ow-prog-icon { color: var(--color-ink-faint); }
+.ow-qchoice:has(:disabled):is(:active, :hover) { transform: none; box-shadow: none; }
+/* Two questions on one page (when, then how much; groups in .ow-stack): an answer with a sub-line and one without are the same height. */
+.ow-qeven .ow-qchoice { min-height: 72px; }
+/* A live region that takes no place of its own, so an empty one adds no gap. */
+.ow-qlive { display: contents; }
+/* A changed amount is a new line: it fades in, the old one leaves at once (the Saved line rule). */
+.ow-qcost { margin: 0; padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-fill); font-size: var(--text-16); color: var(--color-ink); animation: ow-fade var(--dur-ui) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .ow-qcost { animation: none; } }
+/* The points' „Wie viel?“ is a group label like „Wann …?“ above it: on the rows' left edge, 8 over its stepper. */
+.ow-q .ow-qamount { padding-top: 0; }
+.ow-q .ow-qamount > label { justify-self: start; font-weight: var(--weight-heavy); line-height: 1.3; color: var(--color-ink-muted); }
+/* One muted line under the button, 8 below it; the pinned bar on a phone grows by it and the page keeps the room. */
+.ow-qsave .ow-qsave-note { margin: var(--space-2) 0 0; }
+@media (max-width: 1023px) {
+  .ow-content:has(.ow-qsave-note) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 128px); }
+  .ow-content:has(.ow-qsave-note) .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 128px + var(--space-3)); }
+}
 .ow-cardline-link { color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .ow-qsave .ow-btn + .ow-btn { margin-top: var(--space-2); }
 /* The list's chip for a change waiting for its date sits on its own line under the row's text (Design gaps §1). */

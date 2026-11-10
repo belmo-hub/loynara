@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { ClientApiError, postJson, type PublicProgram } from "@/components/client-api";
+import { headStartFloor } from "@/lib/card-extras";
 import { useDirtyGuard } from "./owner-context";
 import { GuardedLink } from "./owner-shell";
 import { CardLinePreview, nf, Notice, NumberStepper, OwnerIcon } from "./owner-ui";
@@ -28,7 +29,9 @@ export function NewReward({ slug, program, onSaved }: { slug: string; program: P
   const name = title.trim(), amount = parseWholeNumber(cost);
   const reach = name.length < 2 ? 1 : amount === null ? 2 : 3; // the furthest step the input allows
   // The server takes names from 2 characters on (rewards route).
-  const problem = step === 1 && !name ? REWARD_NAME_MISSING : step === 1 && reach < 2 ? SHORT_NAME : step === 2 && reach < 3 ? WHOLE_NUMBER : "";
+  // ENG-207: a cost under four times the Startbonus at sign-up is not offered; the reason names it.
+  const floor = headStartFloor(program);
+  const problem = step === 1 && !name ? REWARD_NAME_MISSING : step === 1 && reach < 2 ? SHORT_NAME : step === 2 && reach < 3 ? WHOLE_NUMBER : step === 2 && amount !== null && amount < floor.least ? floor.reason : "";
   const field = step === 1 ? "new-reward-name" : "new-reward-cost";
   const shown = tried && problem;
   const others = otherRewardsHint(type, program.rewards.map(reward => reward.cost));
@@ -88,10 +91,12 @@ export function NewReward({ slug, program, onSaved }: { slug: string; program: P
         {/* Points move in tens, so their number looks like the field it is: other values are typed. */}
         {step === 2 && <div className="ow-qnumber" data-typed={points || undefined}>
           <label htmlFor="new-reward-cost" className="ow-sr">Einlösbar ab</label>
-          <NumberStepper id="new-reward-cost" value={cost} onChange={value => setCost(value && String(Math.min(Number(value), COST_MAX)))} min={1} max={COST_MAX} stepSize={points ? 10 : 1}
+          <NumberStepper id="new-reward-cost" value={cost} onChange={value => setCost(value && String(Math.min(Number(value), COST_MAX)))} min={floor.least} max={COST_MAX} stepSize={points ? 10 : 1}
             unit={{ one: unitName(type, 1), many: unitName(type) }} invalid={Boolean(shown)} describedBy={[shown && "new-reward-cost-error", (others || spend) && "new-reward-cost-hint"].filter(Boolean).join(" ") || undefined} />
           {fieldError}
           {(others || spend) && <p id="new-reward-cost-hint" className="ow-hint">{others}{others && spend && <br />}{spend}</p>}
+          {/* At the floor „weniger“ is disabled: the line says why. */}
+          {floor.reason && amount === floor.least && <p className="ow-hint">{floor.reason}</p>}
         </div>}
         {step === 3 && amount !== null && <>
           <div className="ow-qpanel">

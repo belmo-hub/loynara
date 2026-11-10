@@ -25,7 +25,7 @@ export function useBackToList(home: QuestionHome = PROGRAM_HOME) {
 // Server diagnostics stay off the page: a lost connection or a rate limit says what to do (client-api), and the server's
 // German checks of a challenge or levels name the field to fix, and a change already waiting (ENG-100) says so. Anything
 // else is the live W25 text.
-export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING" || cause.code === "INVALID_SENDER")
+export const failure = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 0 || cause.status === 429 || cause.code === "INVALID_CHALLENGE" || cause.code === "INVALID_HEAD_START" || cause.code === "INVALID_LEVELS" || cause.code === "CHANGE_PENDING" || cause.code === "INVALID_SENDER")
   ? cause.message : "Die Einstellungen konnten nicht gespeichert werden.";
 
 /** The setup's own wording for a whole number out of range („Bitte eine ganze Zahl von 1 bis 1000 eingeben.“). */
@@ -78,9 +78,10 @@ export function useReview<Step extends string = "review">() {
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
-export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
+export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, note, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
   home?: QuestionHome; /** A preview beside the form from 1024 px, under it on a phone (ENG-164 D-A08). */ aside?: ReactNode;
+  /** One muted line under the button: what a save changes (ENG-207). */ note?: string;
   busy: boolean; busyLabel?: string; /** Kunden's steps keep the live rule: the button waits until the answer is complete. */ disabled?: boolean;
   failed: string; action?: string; /** ENG-100: „Archivieren“ (30) is danger, „Änderung zurücknehmen“ (57) secondary. */ tone?: "primary" | "danger" | "secondary";
   /** „Abbrechen“ under the button (30, 58). */ cancel?: () => void; onSubmit: () => void; children: ReactNode;
@@ -103,7 +104,8 @@ export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, bu
         {/* No action (57 for an expiry shortening): nothing to press, the back link leads on. */}
         {aside && <div className="ow-qaside">{aside}</div>}
         {action && <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
-          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>}
+          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}
+          {note && <p className="ow-hint ow-qsave-note">{note}</p>}</div>}
       </form>
     </div>
   );
@@ -113,7 +115,7 @@ export const FieldError = ({ id, children }: { id: string; children: string }) =
   children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{children}</p> : null;
 
 /** `icon` is left out where every row would repeat the same one (decision 2). */
-export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon };
+export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon; /** An answer this shop cannot pick; its sub says why. */ disabled?: boolean };
 /**
  * One answer out of a few, as rows (screens 08, 16, 33). The picked row says „Wie bisher“, or „Neu gewählt“ before it is
  * saved (W25); without a `saved` answer (Kunden 05) it says neither, and the question shows as the group's label.
@@ -126,7 +128,7 @@ export function Choices({ name, label, lead, options, value, saved, onChange }: 
       {options.map(({ icon: Icon, ...option }) => {
         const sub = option.sub ?? (option.value !== value || saved === undefined ? "" : value === saved ? "Wie bisher" : "Neu gewählt");
         return <label key={option.value} className="ow-qchoice">
-          <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} />
+          <input type="radio" className="ow-sr" name={name} value={option.value} checked={option.value === value} disabled={option.disabled} onChange={() => onChange(option.value)} />
           {Icon && <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>}
           <span className="ow-prog-text"><strong>{option.label}</strong>{sub && <small>{sub}</small>}</span>
           {option.value === value && <Check className="ow-qchoice-check" size={22} aria-hidden="true" />}
