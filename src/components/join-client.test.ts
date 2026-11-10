@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
+import { firstCardHeight, firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -144,11 +144,20 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(source.match(/disabled=\{plain && busy\}/g)).toHaveLength(2);
     // The returning check's line sits below the button, so its going moves nothing under the thumb.
-    expect(source.indexOf('{returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}', page)).toBeGreaterThan(order[4]);
+    expect(source.indexOf('<Reveal open={returning.state === "checking"}', page)).toBeGreaterThan(order[4]);
+  });
+  it("sizes the placeholder's card like the card it stands for, and speaks once when the card exists", async () => {
+    expect([firstCardHeight(), firstCardHeight({ programType: "stamp", rewardCost: 8 }), firstCardHeight({ programType: "stamp", rewardCost: 12 }), firstCardHeight({ programType: "points", rewardCost: 80 }), firstCardHeight({ programType: "stamp", rewardCost: 40 })]).toEqual([140, 140, 184, 120, 120]);
+    const source = await read("src/components/join-client.tsx");
+    expect(source).toContain("const cover = newPage && covered ? { main: placeholder } : undefined;");
+    expect(source.match(/role="status">\{created \? /g)).toHaveLength(1);
+    expect(source).toContain('<WalletStep token={walletStep} program={program} heading="h2" />');
   });
   it("gives every motion of the page a reduced-motion rule, within the house durations", async () => {
     const css = await read("src/components/customer/first-page.module.css");
-    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.top, \.step, \.card\[data-created\]::before \{ animation: none; \}\s*\.blocks \{ transition: none; \}/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.step, \.card\[data-created\]::before \{ animation: none; \}\s*\.blocks \{ transition: none; \}/);
+    // Skeleton to content: the loaded row and card do not rise; the placeholder fades over them (the shell's cover).
+    expect(css).not.toMatch(/\.top \{[^}]*animation/);
     expect(css.match(/animation: [a-z]+ ([^;]+);/g)!.every(rule => /var\(--dur-(press|ui|reward)\)/.test(rule))).toBe(true);
     expect(css).not.toContain("infinite");
   });

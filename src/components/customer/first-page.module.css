@@ -1,8 +1,8 @@
 /* ENG-205, the first page behind FIRST_TAP_HOOK_ENABLED (Head of Design's spec, 10 Nov): the shop on the page ground,
    the card as the only object, then the rules, the terms and one button, with no panel around them. */
-/* The placeholder stands still (Skeleton to content); the loaded row and card arrive as one block. */
-.placeholder { display: grid; gap: var(--space-4); }
-.top { display: grid; gap: var(--space-4); animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+/* Skeleton to content: the placeholder lies over the loaded row and card and fades (the shell's cover); a block that
+   replaces a placeholder never rises. */
+.placeholder, .top { display: grid; gap: var(--space-4); }
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 .wait { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
@@ -14,14 +14,15 @@
 .location { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
 
 /* The card. Its ground is a layer of its own, so a press moves the ground and the places stand still. */
-.card { position: relative; isolation: isolate; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); color: var(--merchant-ink); }
+/* The same object as on the card page, so the same radius. */
+.card { position: relative; isolation: isolate; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); }
 .card::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
 /* Press (card object): the server has created the card. 1 to .985 over --dur-press, back over --dur-ui, no fade. */
 .card[data-created]::before { animation: press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out); }
 @keyframes press { 35% { transform: scale(.985); } }
-/* 32 px places with one gap in both directions, so the rows read as one grid. */
-.stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: start; gap: var(--space-3); }
-.stamps li { width: 32px; }
+/* 32 px places spread across the card's width, as on the card page (Design, 10 Nov); rows 12 apart. */
+.card .stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: space-between; row-gap: var(--space-3); }
+.card .stamps li { width: 32px; }
 .foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.4; }
 .foot svg { flex: none; }
 .foot strong { font-weight: var(--weight-heavy); }
@@ -35,29 +36,34 @@
 /* The step badges were made for the white panel; on the page ground they take the surface. */
 .blocks ol span { background: var(--color-surface); }
 /* The way back reads as one line with its question, also where it wraps. */
-.blocks .recover { margin-top: calc(var(--space-1) - var(--space-4)); font-size: var(--text-14); line-height: 20px; }
+.blocks .recover { margin-top: calc(var(--space-1) - var(--space-4)); font-size: var(--text-14); line-height: calc(20 / 14); }
 .blocks .recover a { display: inline; min-height: 0; padding-block: var(--space-3); }
 .blocks[data-leaving] { opacity: 0; pointer-events: none; }
 /* The rules, word for word, set compact under a hairline. */
 .rules { display: grid; gap: var(--space-1); padding-top: var(--space-4); border-top: 1px solid var(--color-line); }
 .rules > div { padding-top: 0; border-top: 0; }
 /* Headings keep the house weight (D-020); the size sets them back. */
-.rules h2 { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 20px; }
-.rules > div p { line-height: 20px; }
+.rules h2 { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: calc(20 / 14); }
+/* Unitless, so the lines keep their distance when the guest enlarges the text. */
+.rules > div p { line-height: calc(20 / 14); }
 .rules > div p + p { margin-top: 0; }
 .rules > p { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .form { display: grid; gap: var(--space-4); }
 .form a, .rules a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
 /* The terms sentence belongs to the button: 8 above it. */
 .terms { margin-bottom: calc(var(--space-2) - var(--space-4)); }
-.terms p { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.terms p { font-size: var(--text-14); line-height: calc(20 / 14); color: var(--color-ink-muted); }
 /* The optional message tick below the button: no box, a small heading. */
-.tick > div { padding-block: 0; border: 0; }
-.tick h3 { font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.blocks .tick > div { padding-block: 0; border: 0; }
+.blocks .tick h3 { font-size: var(--text-14); font-weight: var(--weight-heavy); }
 /* The Wallet step arrives where the blocks stood. */
 .step { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
 
+/* On a dark ground the card keeps its edge; in forced colours it gets a border. */
+@media (prefers-color-scheme: dark) { .card::before { box-shadow: var(--shadow-object), inset 0 0 0 1px color-mix(in oklab, var(--merchant-ink), transparent 90%); } }
+@media (forced-colors: active) { .card { border: 1px solid CanvasText; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .top, .step, .card[data-created]::before { animation: none; }
+  .step, .card[data-created]::before { animation: none; }
   .blocks { transition: none; }
 }

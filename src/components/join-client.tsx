@@ -12,12 +12,13 @@ import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
+import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { CustomerShell } from "./ui/customer-shell";
 import { Skeleton } from "./ui/skeleton";
 import { PointsLadder } from "./ui/points-ladder";
-import { StampGrid } from "./ui/stamp-grid";
+import { StampGrid, STAMP_GRID_MAX, stampColumns } from "./ui/stamp-grid";
 import { iphoneDevice, walletPlatform } from "./wallet-preparation";
 import { afterJoin, iphoneJoin, markJoinAsked, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
@@ -79,6 +80,12 @@ export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr
  *  220 ms later, the card page after a 400 ms hold. Reduced motion: at once. */
 export const firstTapHold = (step: boolean, still: boolean) => still ? 0 : step ? 220 : 400;
 /** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
+/** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
+export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
+  if (program?.programType === "points" || (program && program.rewardCost > STAMP_GRID_MAX)) return 120;
+  const rows = program ? Math.ceil(program.rewardCost / stampColumns(program.rewardCost)) : 2;
+  return 16 + rows * 32 + (rows - 1) * 12 + 12 + 20 + 16;
+}
 export const firstPage = (flag: boolean, locale: "de" | "fr") => flag && locale === "de";
 export const joinNeedsTick = (locale: "de" | "fr", accepted: boolean) => locale === "fr" && !accepted;
 
@@ -105,6 +112,9 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [walletStep, setWalletStep] = useState<string | null>(null);
   // ENG-205: the server has created the card: the form is leaving and the card presses once.
   const [created, setCreated] = useState(false);
+  // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
+  const [covered, setCovered] = useState(true);
+  useEffect(() => { if (loading) return; const timer = setTimeout(() => setCovered(false), 400); return () => clearTimeout(timer); }, [loading]);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
@@ -195,11 +205,13 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
-  // ENG-205: a placeholder shaped like the shop row and the card.
-  if (loading && firstTap) return <CustomerShell locale="de"><div className={first.placeholder} aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>
-    <div className={first.shop}><Skeleton width={48} height={48} radius="var(--radius-md)" /><div><Skeleton width="60%" height={24} /><Skeleton width="40%" height={16} /></div></div>
-    <Skeleton height={136} radius="var(--radius-lg)" />
-  </div></CustomerShell>;
+  // ENG-205: a placeholder shaped like the shop row and the card. Once the programme is here it lies over the page and fades.
+  const placeholder = <div className={first.placeholder}>
+    <div className={first.shop}><Skeleton width={48} height={48} radius="var(--radius-md)" /><div><Skeleton width="60%" height={25} /><Skeleton width="40%" height={21} /></div></div>
+    <Skeleton height={firstCardHeight(program ?? undefined)} radius="var(--radius-xl)" />
+  </div>;
+  const cover = newPage && covered ? { main: placeholder } : undefined;
+  if (loading && firstTap) return <CustomerShell locale="de"><div aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>{placeholder}</div></CustomerShell>;
   if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
   // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
@@ -215,7 +227,10 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
     </section>
   </div>;
-  if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}<div className={first.step}><WalletStep token={walletStep} program={program} /></div></CustomerShell>;
+  // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
+  // wording: Design's placeholder, Marketing confirms
+  const createdLine = newPage && <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>;
+  if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}{createdLine}<div className={first.step}><WalletStep token={walletStep} program={program} heading="h2" /></div></CustomerShell>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
@@ -269,8 +284,9 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     {rewardLine}
   </section>;
 
-  if (plain) return <CustomerShell brandColor={program.brandColor} locale="de" footer={<p className={styles.footer}>{t.footer}</p>}>
+  if (plain) return <CustomerShell brandColor={program.brandColor} locale="de" footer={<p className={styles.footer}>{t.footer}</p>} cover={cover}>
     {top}
+    {createdLine}
     <div className={first.blocks} data-leaving={created || undefined}>
       {iphone && <ol className={styles.steps}>
         <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
@@ -287,13 +303,13 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         {messagesBox && <div className={first.tick}>{messagesBox}</div>}
         <p className={styles.muted}>{t.noEmail}</p>
         {/* Below the button: when the check resolves, nothing under the thumb moves. */}
-        {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
+        <Reveal open={returning.state === "checking"} gap="var(--space-4)"><p className={styles.muted}>{t.checking}</p></Reveal>
       </form>
       <p className={`${styles.link} ${first.recover}`}><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></p>
     </div>
   </CustomerShell>;
 
-  return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>}>
+  return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>} cover={cover}>
     {top || preview}
     {/* Keyed: a panel that takes another's place arrives, instead of changing under the guest. */}
     {returning.state === "stale" && !wantsAnother ? <section key="stale" className={styles.panel}>
