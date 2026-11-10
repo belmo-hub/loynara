@@ -1,4 +1,4 @@
-import { enroll } from "@/lib/product";
+import { enroll, enrollInput } from "@/lib/product";
 import { jsonBody, requireSameOrigin, respondError } from "@/lib/http";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
@@ -17,14 +17,16 @@ export async function POST(request: Request) {
     let input = data;
     let shared = false;
     if (data && typeof data === "object" && "slug" in data && typeof data.slug === "string") {
-      // Shared by every guest of this programme: 20 addresses' worth of the per-address limit (20 x 25), so a busy shop
-      // has headroom and blocking its joins takes at least 20 addresses.
-      await enforceRateLimit({ scope: "enroll_program", identity: data.slug, max: 500, windowSeconds: 60 * 60 });
       // A browser that already holds a valid card for this programme gets it offered again instead of a silent second,
       // empty card. Another card is created only when the guest deliberately asked for one (additionalCard: true).
       // Stale credentials require recovery or a deliberate request for a separate new card.
       const { additionalCard, ...rest } = data as Record<string, unknown>;
       if (additionalCard !== undefined && additionalCard !== true) throw new DomainError("INVALID_INPUT", "Die Anfrage ist unvollständig. Bitte lade die Seite neu und versuche es noch einmal.");
+      // Checked before the shared limit below, so malformed requests cannot use it up.
+      enrollInput.parse(rest);
+      // Shared by every guest of this programme: 500 an hour is five addresses' worth of the per-address limit
+      // (25 per 15 minutes is 100 an hour), so a busy shop has headroom and blocking its joins takes at least five addresses.
+      await enforceRateLimit({ scope: "enroll_program", identity: data.slug, max: 500, windowSeconds: 60 * 60 });
       input = rest;
       const found = await findReturningCard(request, data.slug);
       if (found.state === "stale" && additionalCard !== true) throw new DomainError("RECOVERY_REQUIRED", "Öffne deinen aktuellen Kartenlink oder stelle deine Karte sicher wieder her.");
@@ -39,6 +41,6 @@ export async function POST(request: Request) {
       headers.append("Set-Cookie", remember);
     }
     // ENG-207: `headStart` exists only when a Startbonus was booked with this card.
-    return Response.json({ cardToken: result.cardToken, ...(result.headStart ? { headStart: result.headStart } : {}) }, { status: 201, headers });
+    return Response.json({ cardToken: result.cardToken, cardLocator: result.cardLocator, ...(result.headStart ? { headStart: result.headStart } : {}) }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }

@@ -41,7 +41,9 @@ describe("Wallet-message consent on the join page (ENG-173)", () => {
     const { programSlug } = await shop();
     const response = await enrollRoute(new Request(`${origin}/api/enroll`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ slug: programSlug, acceptedTerms: true, walletConsentVersion: JOIN_CONSENT_TEXT_VERSION }) }));
     expect(response.status).toBe(201);
-    const { cardToken } = await response.json();
+    const { cardToken, cardLocator } = await response.json();
+    // The join keeps its "already shown" flags under the card number, never the private link (F-2).
+    expect(cardLocator).toMatch(/^K-[A-Z2-9]{6}$/);
     expect(await consents()).toMatchObject([{ text_version: JOIN_CONSENT_TEXT_VERSION, withdrawn_at: null }]);
     expect(await getWalletConsent(cardToken)).toMatchObject({ available: true, granted: true, givenAt: expect.any(String), shop: "Tick Café" });
     await setWalletConsent(cardToken, false);

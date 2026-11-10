@@ -1,3 +1,5 @@
+import { jsonBody } from "@/lib/http";
+import { DomainError } from "@/lib/loyalty";
 import { appleSigningConfig, appleWalletStatus } from "@/lib/wallet/apple";
 import { registerAppleDevice, unregisterAppleDevice } from "@/lib/wallet/apple-service";
 import { appleServiceError, appleServiceLimits } from "@/lib/wallet/http";
@@ -10,11 +12,9 @@ export async function POST(request: Request, context: Params) {
   const limited = await appleServiceLimits(request, [{ scope: "wallet_apple_ws_device", identity: params.deviceId.slice(0, 200), max: 60 }]);
   if (limited) return limited;
   try {
-    if (!request.headers.get("content-type")?.startsWith("application/json")) return new Response(null, { status: 400 });
-    const raw = await request.text();
-    if (Buffer.byteLength(raw) > 1000) return new Response(null, { status: 413 });
-    let body: { pushToken?: unknown };
-    try { body = JSON.parse(raw); } catch { return new Response(null, { status: 400 }); }
+    let body: { pushToken?: unknown } | null;
+    try { body = await jsonBody(request, 1000) as typeof body; }
+    catch (error) { return new Response(null, { status: error instanceof DomainError && error.code === "TOO_LARGE" ? 413 : 400 }); }
     if (typeof body?.pushToken !== "string") return new Response(null, { status: 400 });
     const result = await registerAppleDevice({ ...params, authorization: request.headers.get("authorization") ?? "", pushToken: body.pushToken }, appleSigningConfig());
     return new Response(null, { status: result });

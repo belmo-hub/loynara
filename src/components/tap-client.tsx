@@ -161,12 +161,13 @@ export function TapClient({ refId }: { refId: string }) {
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
   // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
   useEffect(() => {
-    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    const locator = preview?.cardLocator;
+    if (!preview || !locator || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(locator) })) return;
     let active = true;
     void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
       if (!active) return;
       const step = tapWalletStep(value);
-      markWalletStep(recoveryCard, step.mark);
+      markWalletStep(locator, step.mark);
       if (step.show) setWalletProgram(value);
     }).catch(() => {});
     return () => { active = false; };

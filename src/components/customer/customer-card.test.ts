@@ -340,7 +340,7 @@ describe("the card after the join page (ENG-205)", () => {
     const read = (path: string) => import("node:fs").then(fs => fs.readFileSync(path, "utf8"));
     expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && !quiet ? cardSkeleton : undefined}");
     // Read hydration-safely: the server never knows about a return and renders the placeholder.
-    expect(await read("src/components/card-client.tsx")).toContain("const pendingReturn = useSyncExternalStore(never, () => peekJoined(token), () => false);");
+    expect(await read("src/components/card-client.tsx")).toContain("const pendingReturn = useSyncExternalStore(never, () => peekJoined(), () => false);");
     expect(await read("src/components/customer/customer-card.module.css")).toContain(".lead[data-return], .lead[data-return] ~ * { animation: return-in var(--dur-ui) var(--ease-out) backwards; }");
   });
 });

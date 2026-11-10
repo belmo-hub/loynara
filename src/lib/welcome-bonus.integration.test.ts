@@ -116,7 +116,7 @@ describe("welcome bonus (Startbonus)", () => {
     await expect(updateProgramExtras({ actorUserId: owner, programId: merchant.programId, welcomeBonus: 4 })).rejects.toMatchObject({ code: "INVALID_WELCOME_BONUS" });
     const otherOwner = await user();
     await shop(otherOwner);
-    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, welcomeBonus: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, welcomeBonus: 1 })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, welcomeBonus: 3 });
     await updateProgram({ actorUserId: owner, programSlug: merchant.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee.", programType: "points", earningMode: "manual" });
     expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId })).toMatchObject({ welcomeBonus: 0 });

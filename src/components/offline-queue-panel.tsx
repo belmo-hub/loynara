@@ -9,7 +9,7 @@ const reasons: Record<string, string> = {
   LEASE_EXPIRED: "Die Offline-Freigabe ist abgelaufen.", EVENT_OUTSIDE_LEASE: "Der Vorgang liegt außerhalb der Freigabezeit.",
   STAFF_REVOKED: "Der Teamzugang ist nicht mehr aktiv.", CARD_CLOSED: "Die Karte wurde geschlossen.",
   LEASE_LIMIT: "Die Freigabe hat ihre Obergrenze erreicht.", STALE_RULE: "Die Programmregel wurde geändert.",
-  LIMIT_EXCEEDED: "Die Vergabe überschreitet das Rollenlimit.",
+  LIMIT_EXCEEDED: "Die Vergabe überschreitet das Rollenlimit.", CARD_PACE_LIMIT: "Die Karte wurde in kurzer Zeit zu oft gebucht.",
 };
 
 export function OfflineQueuePanel({ events, busy, error, onSync, onAcknowledge, locale }: {
