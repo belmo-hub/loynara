@@ -147,7 +147,7 @@ jobs:
     name: NFC browser specs
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
+    services: &browser-services
       postgres:
         image: postgres:18
         env:
@@ -167,7 +167,7 @@ jobs:
         # nfc-recovery-contact accepts only a capture on 18149 or 18159.
         ports:
           - 18149:8025
-    env:
+    env: &browser-env
       DATABASE_URL: postgresql://looplocal:looplocal_local_only@127.0.0.1:54459/looplocal
       PGPASSWORD: looplocal_local_only
       BETTER_AUTH_URL: http://localhost:3049
@@ -188,17 +188,21 @@ jobs:
       OPERATOR_ADDRESS: Teststraße 1, 34117 Kassel
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - &checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - &setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26"
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci
+      - &npm-ci
+        run: npm ci
       # The specs sign their tap URLs with the same master the server verifies with. Push is only offered, never sent.
-      - name: Create throwaway keys for this run
+      - &throwaway-keys
+        name: Create throwaway keys for this run
         run: |
           master="$(openssl rand -hex 32)"
           auth="$(openssl rand -hex 32)"
@@ -211,13 +215,15 @@ jobs:
             echo "VAPID_PUBLIC_KEY=${vapid% *}"
             echo "VAPID_PRIVATE_KEY=${vapid#* }"
           } >> "$GITHUB_ENV"
-      - name: Prepare the database
+      - &prepare-database
+        name: Prepare the database
         run: |
           psql -h 127.0.0.1 -p 54459 -U looplocal -d looplocal -v ON_ERROR_STOP=1 -q -f drizzle/auth.sql
           npx drizzle-kit migrate
       # next dev, not a production build: a compiled app keeps Better Auth's 3 sign-ups per 10 s, which the specs'
       # 18 merchant setups would have to wait out. The production build job already checks the build.
-      - name: Start the app on :3049
+      - &start-app
+        name: Start the app on :3049
         run: |
           nohup npx next dev -p 3049 > "$RUNNER_TEMP/next-dev.log" 2>&1 &
           for _ in $(seq 120); do curl -fsS http://localhost:3049/api/health > /dev/null 2>&1 && exit 0; sleep 1; done
@@ -226,6 +232,30 @@ jobs:
       # program-question-payloads (ENG-099 N-3) needs only sign-up and the owner pages, so it runs on this app too.
       - name: Run the NFC specs
         run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy e2e/program-question-payloads e2e/token-guards
-      - name: Show the app log
+      - &app-log
+        name: Show the app log
         if: failure()
         run: cat "$RUNNER_TEMP/next-dev.log"
+
+  owner-e2e:
+    name: Owner browser specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The same database, mail capture, settings, keys and next dev app as the NFC job, as a job of its own: it runs
+    # beside that job, so neither waits for the other, and an owner failure does not show as an NFC one.
+    services: *browser-services
+    env: *browser-env
+    steps:
+      - *checkout
+      - *setup-node
+      - *npm-ci
+      - *throwaway-keys
+      - *prepare-database
+      # owner-arrival and owner-screen-change sign in as the local demo owner from var/demo-access.json.
+      - name: Seed the synthetic demo shop
+        run: npx tsx scripts/seed.ts
+      - *start-app
+      # Desktop project only, as above; the owner *.mobile.spec.ts files need WebKit.
+      - name: Run the owner specs
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus
+      - *app-log
