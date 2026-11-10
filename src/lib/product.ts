@@ -430,7 +430,7 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if (input.email) await tx.insert(membershipContacts).values({ tenantId: program.tenantId, membershipId: member.id, email: input.email.toLowerCase() });
     if (input.marketingOptIn) await tx.insert(consentEvents).values({ tenantId: program.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion: "2026-09", source: "enrollment" });
     if (input.walletConsentVersion !== undefined) await tx.insert(walletMessageConsents).values({ tenantId: program.tenantId, membershipId: member.id, textVersion: input.walletConsentVersion });
-    return { id: member.id, programId: program.id, cardToken: member.cardToken, scanCode: member.scanCode };
+    return { id: member.id, programId: program.id, cardToken: member.cardToken, cardLocator: formatCardLocator(member.cardLocator), scanCode: member.scanCode };
   });
 }
 
