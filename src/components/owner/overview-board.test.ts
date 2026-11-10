@@ -134,7 +134,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(waiting).not.toContain("ow-prog-row");
     expect(waiting).not.toContain("ow-diary"); // no heading over „Lädt …“ a screen above where the diary lands
     // The band's place is held by a band-shaped placeholder, so the board stands where it will stay.
-    expect(waiting).toContain('<div class="ow-next ow-next-ph" aria-hidden="true"><span><span class="ow-band ow-ph"></span></span></div>');
+    expect(waiting).toContain(`<div class="ow-next ow-next-ph" aria-hidden="true"><span><span class="ow-band ow-ph"><span class="ow-band-icon"></span><span class="ow-band-text"><b>00 Karten können jetzt eine Prämie einlösen.</b><span class="ow-band-go">${NBSP}</span></span></span></span></div>`);
     expect(waiting.indexOf("ow-next-ph")).toBeLessThan(waiting.indexOf("ow-board-ph"));
     expect(waiting).not.toContain('aria-label="Als Nächstes"');
     expect(waiting).not.toContain("<h1");

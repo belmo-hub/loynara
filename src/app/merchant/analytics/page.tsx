@@ -133,6 +133,7 @@ function Retention({ state, reload }: { state: Loadable<RetentionSummary>; reloa
  * The period's full weeks as the Übersicht strip's bars: the count above each bar, the week's first day under it, the
  * latest full week lit; the week still running follows as an outline, „bis heute“. Ninety days give thirteen narrow bars,
  * so every third one from the last carries its label; the others keep an empty line, so every bar stands on the same baseline.
+ * The dated label just before „bis heute“ stays empty: side by side the two read as one range.
  */
 function Weeks({ weeks, running }: { weeks: Week[]; running?: Week }) {
   const bars = running ? [...weeks, running] : weeks;
@@ -147,7 +148,7 @@ function Weeks({ weeks, running }: { weeks: Week[]; running?: Week }) {
           <div className="ow-strip-day" key={week.from} aria-hidden="true">
             <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
             <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} data-today={week === running ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
-            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && (bars.length - 1 - index) % 3 !== 0 ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
+            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && ((bars.length - 1 - index) % 3 !== 0 || (running && bars.length - 1 - index === 3)) ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
           </div>
         );
       })}

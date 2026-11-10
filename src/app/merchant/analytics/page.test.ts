@@ -47,6 +47,19 @@ describe("Ergebnisse as Wegweiser rows (ENG-122b)", () => {
     expect(html).toContain("Die meisten Buchungen gab es letzte Woche.");
   });
 
+  it("leaves the dated label before „bis heute“ empty on ninety days, where the two would read as one range", () => {
+    const series = data.report.series;
+    data.report.series = [...Array.from({ length: 12 }, (_, index) => data.week(index, 5 + index)), data.week(12, 4, 2)];
+    try {
+      const labels = [...render().matchAll(/<span class="ow-strip-d"[^>]*>([^<]*)<\/span>/g)].map(match => match[1]);
+      expect(labels).toHaveLength(13);
+      expect(labels.at(-1)).toBe("bis heute");
+      expect(labels.at(-4)).toBe("\u00a0"); // its turn in the every-third rhythm, left empty beside „bis heute“
+      expect(labels.at(-7)).toMatch(/^\d\d\.\d\d\.$/);
+      expect(labels.filter(label => label !== "\u00a0")).toHaveLength(4); // 3 dates and „bis heute“
+    } finally { data.report.series = series; }
+  });
+
   it("says the latest week was best only when it had more bookings than every other week", () => {
     const series = data.report.series;
     data.report.series = [data.week(0, 9), data.week(1, 15), data.week(2, 13), data.week(3, 15), data.week(4, 1, 2)];

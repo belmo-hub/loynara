@@ -14,7 +14,7 @@ import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, NextBandPlaceholder, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
@@ -97,11 +97,11 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const answered = ready && [referrals, readiness].every(state => state.state !== "loading");
   const a = ready && analytics.state === "ok" ? analytics.data : null;
   const r = ready && retention.state === "ok" ? retention.data : null;
-  // The band's slot: there from a cold load's first paint, taken away 200 ms after the reads answered without a band
+  // The band's slot: there from a cold load's first paint, taken away 250 ms after the reads answered without a band
   // (it closes in place meanwhile). A screen that opens with its reads already answered never shows it.
   const [slot, setSlot] = useState(!answered && !failed);
   const slotCloses = answered || failed;
-  useEffect(() => { if (!slot || !slotCloses) return; const timer = setTimeout(() => setSlot(false), 200); return () => clearTimeout(timer); }, [slot, slotCloses]);
+  useEffect(() => { if (!slot || !slotCloses) return; const timer = setTimeout(() => setSlot(false), 250); return () => clearTimeout(timer); }, [slot, slotCloses]);
   const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
@@ -150,7 +150,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       {firstName === null ? <div className="ow-hello" aria-hidden="true">{NBSP}</div> : <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>}
       {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
       {next ? <NextBand {...next}>{signFailed}</NextBand> : <>
-        {slot && <div className="ow-next ow-next-ph" data-closing={slotCloses || undefined} aria-hidden="true"><span><span className="ow-band ow-ph" /></span></div>}
+        {slot && <NextBandPlaceholder closing={slotCloses} />}
         {signFailed}
       </>}
       <div className="ow-dash-lead ow-stack">

@@ -194,6 +194,22 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
 export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
 /** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
 /** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
+/**
+ * The band's slot while the reads it is chosen from load (ENG-203): the band's own structure, hidden, so the slot is as
+ * tall as a band with a title and an action line and the board stands where it will stay. A band takes its place;
+ * without one it closes in place (owner.css, .ow-next-ph).
+ */
+// shortcut: sized by a title of usual length (two lines on a phone, one from about 500 px) with its action line; a shorter title or a band with an extra text line still moves the board 20 to 45 px, size the slot from the band itself once the reads can say which band comes
+/** Sizing only, never shown or read out: as long as a usual band title, so it wraps where one does. */
+export const BAND_SIZER = "00 Karten können jetzt eine Prämie einlösen.";
+export function NextBandPlaceholder({ closing }: { closing: boolean }) {
+  return (
+    <div className="ow-next ow-next-ph" data-closing={closing || undefined} aria-hidden="true">
+      <span><span className="ow-band ow-ph"><span className="ow-band-icon" /><span className="ow-band-text"><b>{BAND_SIZER}</b><span className="ow-band-go">{NBSP}</span></span></span></span>
+    </div>
+  );
+}
+
 export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
   const body = <>
     <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
