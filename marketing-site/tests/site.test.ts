@@ -127,6 +127,10 @@ test('the contact section states the honest mail-draft behaviour and promises no
 });
 test('metadata is complete and indexable; the page carries no inline style or script (CSP)', () => {
   assert.match(home, /<title>Loynara: Die Stempelkarte für deinen Tresen<\/title>/);
+  for (const name of ['property="og:title"', 'name="twitter:title"']) assert.ok(home.includes(`${name} content="Loynara: Die Stempelkarte für deinen Tresen"`), `${name} is the page title, not a promised result`);
+  for (const name of ['property="og:description"', 'name="twitter:description"']) assert.ok(home.includes(`${name} content="Digitale Stempel- und Punktekarte für kleine Geschäfte. Antippen oder QR-Code, ohne App. Dein Team bestätigt jeden Stempel."`), name);
+  const shareImage = readFileSync(resolve(import.meta.dirname, '../site/assets/social-preview.svg'), 'utf8');
+  assert.match(shareImage, /Die Stempelkarte/); assert.doesNotMatch(shareImage + home, /Aus Kunden werden Stammkunden/, 'the share preview names the product, it promises no result');
   assert.match(home, /name="description" content="Digitale Stempel- und Punktekarte für kleine Geschäfte\. Dein Team bestätigt jeden Stempel\. 49 € pro Monat und Standort, erster Monat gratis\."/);
   for (const marker of ['rel="canonical" href="https://getloynara.com/"', 'property="og:title"', 'property="og:description"', 'property="og:image"', 'name="twitter:card"', 'rel="icon"', 'name="robots" content="index,follow"', '<link rel="stylesheet" href="/home.css">', '<script type="module" src="/assets/home.js"></script>', '<a class="skip" href="#inhalt">Zum Inhalt springen</a>']) assert.ok(home.includes(marker), marker);
   assert.doesNotMatch(home, /\sstyle="|<style|<script(?![^>]*\ssrc=)|\son[a-z]+="/);
