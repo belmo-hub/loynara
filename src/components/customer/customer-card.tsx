@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarClock, Check, CheckCircle2, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import type { ChangeLine } from "@/lib/change-lines";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 import { copyText } from "@/components/copy-text";
+import { stampAnnouncement, tapCopy } from "@/components/tap-client";
+import { MOMENT_PILL_MS } from "./booking-moment";
 
 type Reward = CardReward;
 export type CardActivity = { id: string; label: string; date: string; change: number };
@@ -24,8 +26,11 @@ export type CustomerCardProps = {
   locationName: string;
   programType: "stamps" | "points";
   balance: number;
-  /** A stamp count reached while the card was open; that stamp lands once. */
+  /** A stamp count just reached; the last `landedCount` stamps land once. */
   landed?: number;
+  landedCount?: number;
+  /** A booking this device has not shown yet: the pill over the header says what was added and the balance it led to, until the page takes it away. */
+  moment?: { credited: number; balance: number };
   rewards: Reward[];
   cardLocator?: string;
   qrSrc?: string;
@@ -89,7 +94,7 @@ export type CustomerCardProps = {
  * on the left and the sections run on the right.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, demoNotice, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
+  const { businessName, locationName, programType, balance, landed, landedCount, moment, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, demoNotice, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -116,6 +121,8 @@ export function CustomerCard(props: CustomerCardProps) {
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
     <div className={styles.lead}>
+      {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
+      {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
       {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
         <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
@@ -126,7 +133,7 @@ export function CustomerCard(props: CustomerCardProps) {
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
-        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false} tag={level?.name ?? undefined}>
+        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined}>
           <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
             {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
             {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{readyCount > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
@@ -347,4 +354,20 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
       {closeError ? <p className={styles.alert} role="alert">{closeError}</p> : null}
     </div> : null}
   </section>;
+}
+
+/**
+ * The booking moment: „Stempel erhalten“ with what was added, floating over the shop header so nothing below moves.
+ * It is never a target and leaves by itself. Screen readers hear one sentence through the page's status region.
+ */
+function BookingPill({ points, credited, balance }: { points: boolean; credited: number; balance: number }) {
+  const { live, announce } = useCardStatus("moment");
+  const said = stampAnnouncement("confirmed", balance, points, credited) ?? "";
+  useEffect(() => { announce(said); }, [announce, said]);
+  return <div className={styles.pill} role={live ? "status" : undefined} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
+    <span className={styles.pillCheck} aria-hidden="true"><CheckCircle2 size={24} /></span>
+    <strong aria-hidden="true">{tapCopy("confirmed", undefined, points).title}</strong>
+    <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
+    <span className={styles.srOnly}>{said}</span>
+  </div>;
 }

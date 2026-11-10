@@ -169,3 +169,22 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 /* ENG-100: a change waiting for its date is a „Gut zu wissen“ row (mock 25); a long new rule opens under its line. */
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
 .newRule { display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* The booking moment (card-moment spec): a pill over the shop header, so nothing below moves. Never a target; it
+   leaves by itself after --pill-stay. Reduced motion keeps it in place. */
+.pill {
+  --pill-shift: -12px;
+  position: fixed; z-index: var(--z-toast); top: calc(env(safe-area-inset-top) + var(--space-2)); left: 50%; translate: -50% 0;
+  display: flex; align-items: center; gap: var(--space-3); width: min(408px, calc(100% - 2 * var(--gutter))); min-height: 56px;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2); border-radius: var(--radius-pill);
+  background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line), var(--shadow-overlay); pointer-events: none;
+  animation: pill-in var(--dur-ui) var(--ease-out) both, pill-out var(--dur-ui) ease-in calc(var(--pill-stay) - var(--dur-ui)) forwards;
+}
+.pill strong { flex: 1; font-size: var(--text-18); font-weight: var(--weight-heavy); white-space: nowrap; }
+.pillCheck { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in oklab, var(--color-success) 16%, transparent); color: var(--color-success); }
+.pillChip { flex: none; padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: var(--color-success); color: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes pill-in { from { opacity: 0; transform: translateY(var(--pill-shift)); } }
+@keyframes pill-out { to { opacity: 0; transform: translateY(var(--pill-shift)); } }
+@media (prefers-reduced-motion: reduce) { .pill { --pill-shift: 0px; } }
+
