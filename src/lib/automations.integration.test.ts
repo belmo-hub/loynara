@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { automationRules, automationRuns, consentEvents, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { automationRules, automationRuns, consentEvents, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
 import { award } from "./loyalty";
 import type { LocalMessage } from "./email";
+import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { deliverAutomationRun, listAutomations, processAutomationEvent, processAutomationScan, upsertAutomationRule } from "./automations";
 
@@ -31,10 +32,11 @@ beforeEach(async () => {
 });
 afterAll(async () => { await pool.end(); });
 
-async function fixture() {
+async function fixture(withAddress = true) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Automation Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  if (withAddress) await fillSender(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   return { ownerId, merchant };
 }
 
@@ -65,8 +67,11 @@ describe("bounded local automations", () => {
     process.env.PROMOTIONAL_UNSUBSCRIBE_ORIGIN = "https://unsubscribe.example.test";
     process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
-      expect(message.body).toContain("Synthetic Automation Café");
       expect(message.unsubscribeUrl).toContain("/unsubscribe#token=");
+      expect(message.fromName).toBe("Synthetic Automation Café via Loynara");
+      // Legal's footer, verbatim; legal form, register entry and VAT ID are empty here, so they disappear (campaigns test: all filled).
+      expect(message.body).toBe(`${firstRule.body}\n\nDiese E-Mail kommt von Synthetic Automation Café, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: kontakt@example.test, 0561 123456.\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Automation Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<automation@example.test>" };
     }) };
     await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
@@ -78,6 +83,52 @@ describe("bounded local automations", () => {
     expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 2 }, undefined, undefined, provider)).status).toBe("complete");
     expect(provider.send).toHaveBeenCalledTimes(1);
   });
+  it("without a shop address no rule can be switched on and nothing promotional is sent", async () => {
+    const f = await fixture(false);
+    const card = await member(f.merchant.programSlug);
+    await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule })).rejects.toMatchObject({ code: "ADDRESS_REQUIRED" });
+    expect(await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule, enabled: false })).toMatchObject({ enabled: false });
+    await fillSender(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
+    await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+    await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
+    // An address lost after queueing (e.g. a rule enabled before this check existed) still blocks the send.
+    await db.update(locations).set({ street: null }).where(eq(locations.id, f.merchant.locationId));
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send)).toEqual({ status: "suppressed", reason: "Shop address missing" });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("each required sender field blocks switching a rule on and every queued send, and the refusal names it", async () => {
+    const where = (f: Awaited<ReturnType<typeof fixture>>) => eq(locations.id, f.merchant.locationId);
+    const drops: Array<[string, (f: Awaited<ReturnType<typeof fixture>>) => Promise<unknown>]> = [
+      ["Anschrift", f => db.update(locations).set({ street: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ postalCode: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ city: "" }).where(where(f))],
+      ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null }).where(where(f))],
+      ["Registergericht und Registernummer", f => db.update(tenants).set({ legalForm: "GmbH", registerCourt: null, registerNumber: null }).where(eq(tenants.id, f.merchant.tenantId))],
+    ];
+    for (const [label, drop] of drops) {
+      await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
+      const f = await fixture();
+      const card = await member(f.merchant.programSlug);
+      await upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule });
+      await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+      const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+      await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
+      await drop(f);
+      await expect(upsertAutomationRule({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...inactiveRule }), label).rejects.toMatchObject({ code: "ADDRESS_REQUIRED", message: expect.stringContaining(label) });
+      const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+      const send = vi.fn(async (message: LocalMessage) => { void message; });
+      expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send), label).toEqual({ status: "suppressed", reason: "Shop address missing" });
+      expect(send, label).not.toHaveBeenCalled();
+    }
+  });
+
   it("allows only the active owner to configure rules and exposes aggregate run history", async () => {
     const f = await fixture();
     const cashier = randomUUID();
@@ -125,7 +176,7 @@ describe("bounded local automations", () => {
     expect((await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 2 }, send)).status).toBe("complete");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ to: "member@example.test", subject: firstRule.subject });
-    expect(send.mock.calls[0][0].body).toContain("Angebote abbestellen:");
+    expect(send.mock.calls[0][0].body).toContain("Abmelden:");
     expect((await db.select().from(automationRuns))[0]).toMatchObject({ status: "complete", attempts: 1 });
   });
 
@@ -192,5 +243,25 @@ describe("bounded local automations", () => {
     expect(event.status).toBe("complete");
     expect((await db.select().from(automationRuns))[0]).toMatchObject({ status: "suppressed", reason: "Contact unavailable or unverified" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"))).toHaveLength(0);
+  });
+});
+
+describe("content rules for automation text (ENG-163, Legal 1 Nov)", () => {
+  it("refuses tobacco in the subject or body on save, and suppresses a run whose rule text breaks the rules", async () => {
+    const f = await fixture();
+    const base = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...firstRule };
+    await expect(upsertAutomationRule({ ...base, subject: "Willkommen, neue E-Liquids sind da" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    await expect(upsertAutomationRule({ ...base, body: "Danke! Beim nächsten Besuch gibt es Snus gratis." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    const card = await member(f.merchant.programSlug);
+    const rule = await upsertAutomationRule(base);
+    await award({ userId: f.ownerId, locationId: f.merchant.locationId, membershipId: card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    const [event] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.event"));
+    await processAutomationEvent({ id: event.id, tenantId: event.tenantId, payload: event.payload });
+    // A rule text saved before the rule (or changed outside the app) is caught before the mail goes out.
+    await db.update(automationRules).set({ body: "Neu: E-Zigaretten an der Kasse." }).where(eq(automationRules.id, rule.id));
+    const [delivery] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.automation"));
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverAutomationRun({ id: delivery.id, tenantId: delivery.tenantId, payload: delivery.payload, attempts: 1 }, send)).toMatchObject({ status: "suppressed", reason: "Rule text breaks the content rules" });
+    expect(send).not.toHaveBeenCalled();
   });
 });

@@ -53,10 +53,10 @@ export function BookingDay() {
   return (
     <div className="ow-page" style={{ maxWidth: 720 }}>
       <header className="ow-pagehead">
-        <div><p className="ow-eyebrow">Termine</p><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
+        <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
         {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
-      {ready && setup.data.settings?.goalText && <p className="ow-muted" style={{ marginTop: "calc(var(--space-4) * -1)" }}>Dein Ziel: {setup.data.settings.goalText}</p>}
+      {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
         Gesperrt: {blockedCount === 1 ? "1 Kunde" : `${blockedCount} Kunden`}</button></div>}
 

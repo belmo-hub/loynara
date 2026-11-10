@@ -8,6 +8,7 @@ import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeFo
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
+import { programInForce } from "./rule-versions";
 import { enqueueTapPush } from "./staff-push";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
 
@@ -30,9 +31,9 @@ export function tapCardToken(request: Request, programId: string): string | unde
   return tapMemberSession(request, programId)?.token;
 }
 export async function bindTapCard(token: string): Promise<string> {
-  if (!/^card_[A-Za-z0-9_-]{32,80}$/.test(token)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!/^card_[A-Za-z0-9_-]{32,80}$/.test(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [member] = await db.select({ programId: memberships.programId }).from(memberships).where(and(eq(memberships.cardToken, token), isNull(memberships.closedAt)));
-  if (!member) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!member) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return member.programId;
 }
 
@@ -65,7 +66,7 @@ export function defaultTapKeyProvider(): TapKeyProvider {
 
 async function owner(tx: Transaction, actorUserId: string, tenantId: string) {
   const [role] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!role) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
 }
 
 export async function setTapPolicy(input: { actorUserId: string; programId: string; mode: TapMode; cooldownSeconds: number | null }) {
@@ -73,7 +74,7 @@ export async function setTapPolicy(input: { actorUserId: string; programId: stri
   if (!["disabled", "automatic_fixed", "staff_confirmed"].includes(input.mode) || (input.mode !== "disabled" && (!Number.isInteger(input.cooldownSeconds) || input.cooldownSeconds === null || input.cooldownSeconds < 1 || input.cooldownSeconds > 86400))) throw new DomainError("INVALID_TAP_POLICY", "An approved cooldown is required");
   return db.transaction(async tx => {
     const [program] = await tx.select().from(programs).where(eq(programs.id, input.programId)).for("update");
-    if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+    if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     await owner(tx, input.actorUserId, program.tenantId);
     // A stamp tap is always one fixed stamp. Points are always entered and confirmed by the team, so only a fixed stamp
     // can ever be booked by the tap itself.
@@ -111,11 +112,11 @@ export async function activateSecureTag(input: { actorUserId: string; tagId: str
     // Programme before tag, like taps, provisioning and replacement: locking the tag first deadlocked with a tap read of
     // this tag (programme, then tag). A tag never moves to another programme, so the plain lookup is safe.
     const [located] = await tx.select({ programId: secureTags.programId, tenantId: secureTags.tenantId }).from(secureTags).where(eq(secureTags.id, input.tagId));
-    if (!located?.programId || !located.tenantId) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!located?.programId || !located.tenantId) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     const query = tx.select().from(programs).where(and(eq(programs.id, located.programId), eq(programs.tenantId, located.tenantId)));
     const [lockedProgram] = input.expectedPolicy ? await query.for("update") : [];
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Provisioned tag not found");
+    if (!tag || tag.status !== "provisioned" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (input.expectedTag && (tag.uid !== input.expectedTag.uid || tag.keyRef !== input.expectedTag.keyRef || tag.publicRef !== input.expectedTag.publicRef)) throw new DomainError("PREPARED_POLICY_MISMATCH", "Approved tag binding changed");
     const [program] = input.expectedPolicy ? [lockedProgram] : await query;
@@ -130,7 +131,7 @@ export async function activateSecureTag(input: { actorUserId: string; tagId: str
 export async function revokeSecureTag(input: { actorUserId: string; tagId: string }) {
   return db.transaction(async tx => {
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
-    if (!tag || !isBound(tag)) throw new DomainError("NOT_FOUND", "Tag not found");
+    if (!tag || !isBound(tag)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     await owner(tx, input.actorUserId, tag.tenantId);
     if (tag.status === "active" || tag.status === "provisioned") await tx.update(secureTags).set({ status: "revoked", revokedAt: new Date() }).where(eq(secureTags.id, tag.id));
     return { id: tag.id, status: "revoked" as const };
@@ -139,7 +140,7 @@ export async function revokeSecureTag(input: { actorUserId: string; tagId: strin
 
 export async function replaceSecureTag(input: { actorUserId: string; tagId: string; uid: string; keyRef: string; configVersion: number }) {
   const [old] = await db.select().from(secureTags).where(eq(secureTags.id, input.tagId));
-  if (!old || !isBound(old)) throw new DomainError("NOT_FOUND", "Tag not found");
+  if (!old || !isBound(old)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
   return provisionSecureTag({ actorUserId: input.actorUserId, programId: old.programId, uid: input.uid, keyRef: input.keyRef, configVersion: input.configVersion, replacesTagId: old.id });
 }
 
@@ -153,16 +154,16 @@ export type TapResult = { customerActivityAt?: number; state: "awarded" | "alrea
   pushJobId?: string };
 
 async function verifiedContext(tx: Transaction, input: TapInput) {
-  if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!publicRefPattern.test(input.tagRef)) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   // Programme before tag, as in tag provisioning and replacement (programme, then the old tag). The request a tap
   // inserts takes a key-share lock on the programme through its foreign key; taken after the tag, that deadlocked
   // with a replacement of the same tag. Only an operator relink moves a plate to another programme; see the re-check below.
   const [located] = await tx.select({ programId: secureTags.programId }).from(secureTags).where(eq(secureTags.publicRef, input.tagRef));
-  if (!located?.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!located?.programId) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, located.programId)).for("key share");
   const [tag] = await tx.select().from(secureTags).where(eq(secureTags.publicRef, input.tagRef)).for("update");
   // An operator relink can move a plate between the two reads; the re-check under the lock refuses that tap.
-  if (!tag || tag.status !== "active" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag || tag.status !== "active" || tag.programId !== located.programId || !isBound(tag)) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   const keys = await (input.keyProvider ?? defaultTapKeyProvider()).getKeys(tag.keyRef, { uid: tag.uid } satisfies TapKeyContext);
   let decoded: { uid: string; counter: number };
   try { decoded = verifySdm(input.fields, keys); }
@@ -172,7 +173,7 @@ async function verifiedContext(tx: Transaction, input: TapInput) {
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, programs.tenantId))
     .where(and(eq(programs.id, tag.programId), eq(programs.tenantId, tag.tenantId), eq(programs.locationId, tag.locationId)));
-  if (!row || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!row || row.program.status !== "active") throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   return { tag, counter: decoded.counter, ...row };
 }
 
@@ -197,7 +198,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
     const statusRefFor = async (requestTagId: string) => {
       if (requestTagId === tag.id) return tag.publicRef;
       const [boundTag] = await tx.select({ publicRef: secureTags.publicRef }).from(secureTags).where(and(eq(secureTags.id, requestTagId), eq(secureTags.tenantId, tag.tenantId), eq(secureTags.programId, tag.programId)));
-      if (!boundTag) throw new DomainError("NOT_FOUND", "Tap unavailable");
+      if (!boundTag) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
       return boundTag.publicRef;
     };
     // What a request means to the guest who tapped, reported without booking anything.
@@ -275,22 +276,22 @@ export async function settleUnlinkedTap(input: Pick<TapInput, "tagRef" | "fields
 }
 
 export async function tapProgramId(ref: string): Promise<string> {
-  if (!publicRefPattern.test(ref)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!publicRefPattern.test(ref)) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   const [tag] = await db.select({ programId: secureTags.programId }).from(secureTags).where(and(eq(secureTags.publicRef, ref), eq(secureTags.status, "active")));
-  if (!tag?.programId) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!tag?.programId) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   return tag.programId;
 }
 
 /** Read the exact waiting request for its card. This path never verifies a new tap, consumes a counter, or books. */
 export async function secureTapStatus(input: { tagRef: string; requestId: string; cardToken?: string; now?: Date }): Promise<Pick<TapResult, "state" | "balance" | "cardLocator" | "requestId" | "expiresAt" | "statusRef" | "credited">> {
-  if (!publicRefPattern.test(input.tagRef) || !/^[a-f0-9-]{36}$/.test(input.requestId) || !input.cardToken || !/^card_[A-Za-z0-9_-]{32,80}$/.test(input.cardToken)) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!publicRefPattern.test(input.tagRef) || !/^[a-f0-9-]{36}$/.test(input.requestId) || !input.cardToken || !/^card_[A-Za-z0-9_-]{32,80}$/.test(input.cardToken)) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   const [row] = await db.select({ request: tapRequests, balance: memberships.balance, locator: memberships.cardLocator, tagStatus: secureTags.status, programStatus: programs.status, tapMode: programs.tapMode, credited: ledgerEntries.delta }).from(tapRequests)
     .innerJoin(secureTags, and(eq(secureTags.id, tapRequests.tagId), eq(secureTags.tenantId, tapRequests.tenantId), eq(secureTags.programId, tapRequests.programId), eq(secureTags.locationId, tapRequests.locationId)))
     .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId), eq(memberships.programId, tapRequests.programId)))
     .innerJoin(programs, and(eq(programs.id, tapRequests.programId), eq(programs.tenantId, tapRequests.tenantId), eq(programs.locationId, tapRequests.locationId)))
     .leftJoin(ledgerEntries, and(eq(ledgerEntries.id, tapRequests.ledgerEntryId), eq(ledgerEntries.tenantId, tapRequests.tenantId)))
     .where(and(eq(tapRequests.id, input.requestId), eq(secureTags.publicRef, input.tagRef), eq(memberships.cardToken, input.cardToken), isNull(memberships.closedAt)));
-  if (!row) throw new DomainError("NOT_FOUND", "Tap unavailable");
+  if (!row) throw new DomainError("NOT_FOUND", "Dieses Schild funktioniert gerade nicht. Bitte sage an der Kasse Bescheid.");
   const { request, balance } = row;
   const cardLocator = formatCardLocator(row.locator);
   if (request.status === "confirmed") return { state: "confirmed", balance, cardLocator, credited: row.credited ?? undefined };
@@ -301,31 +302,35 @@ export async function secureTapStatus(input: { tagRef: string; requestId: string
   return { state: "expired", balance };
 }
 
+const counterRule = ({ type, earningMode, pointsPerCurrencyUnit, ruleVersionId }: Awaited<ReturnType<typeof programInForce>>) => ({ programType: type, earningMode, pointsPerCurrencyUnit, ruleVersionId });
+
 export async function pendingTapRequests(input: { userId: string; locationId: string; now?: Date }) {
   const [role] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
-  if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
+  if (!role || (role.role !== "owner" && role.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
   const now = input.now ?? new Date();
   // The card number only: the scan code is a credential and never leaves the server here. A points request also carries
   // what the cashier's entry needs, as a counter lookup does: earning mode, rate, currency and the rule version to confirm.
   const rows = await db.select({ id: tapRequests.id, createdAt: tapRequests.createdAt, expiresAt: tapRequests.expiresAt, balance: memberships.balance, locator: memberships.cardLocator,
-    programType: programs.type, earningMode: programs.earningMode, pointsPerCurrencyUnit: programs.pointsPerCurrencyUnit, currency: tenants.currency,
-    ruleVersionId: sql<string>`(SELECT r.id FROM program_rule_versions r WHERE r.tenant_id = ${tapRequests.tenantId} AND r.program_id = ${tapRequests.programId} ORDER BY r.version DESC LIMIT 1)` }).from(tapRequests)
+    program: programs, currency: tenants.currency }).from(tapRequests)
     .innerJoin(memberships, and(eq(memberships.id, tapRequests.membershipId), eq(memberships.tenantId, tapRequests.tenantId)))
     .innerJoin(programs, and(eq(programs.id, tapRequests.programId), eq(programs.tenantId, tapRequests.tenantId)))
     .innerJoin(tenants, eq(tenants.id, tapRequests.tenantId))
     .where(and(eq(tapRequests.tenantId, role.tenantId), eq(tapRequests.locationId, input.locationId), eq(tapRequests.status, "pending_staff"), gt(tapRequests.expiresAt, now), isNull(memberships.closedAt)))
     .orderBy(desc(tapRequests.createdAt)).limit(20);
   // Remaining and elapsed time are computed here, so a cashier phone with a wrong clock still shows the right countdown.
-  return rows.map(({ locator, ...row }) => ({ ...row, cardLocator: formatCardLocator(locator), expiresInMs: Math.max(0, row.expiresAt.getTime() - now.getTime()), ageMs: Math.max(0, now.getTime() - row.createdAt.getTime()) }));
+  // The rule in force (ENG-100), read once per programme: a waiting change reaches the counter at its date.
+  const rules = new Map<string, Awaited<ReturnType<typeof programInForce>>>();
+  for (const { program } of rows) if (!rules.has(program.id)) rules.set(program.id, await programInForce(db, program));
+  return rows.map(({ locator, program, ...row }) => ({ ...row, ...counterRule(rules.get(program.id)!), cardLocator: formatCardLocator(locator), expiresInMs: Math.max(0, row.expiresAt.getTime() - now.getTime()), ageMs: Math.max(0, now.getTime() - row.createdAt.getTime()) }));
 }
 
 /** `award` is the cashier's entry for a points programme (purchase amount and rule version, or points); a stamp tap takes none. */
 export async function confirmTapRequest(input: { userId: string; locationId: string; requestId: string; award?: Pick<AwardInput, "quantity" | "purchaseAmountMinor" | "ruleVersionId">; now?: Date }) {
   return db.transaction(async tx => {
     const [request] = await tx.select().from(tapRequests).where(eq(tapRequests.id, input.requestId)).for("update");
-    if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Pending tap not found");
+    if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diese Anfrage ist abgelaufen oder schon erledigt.");
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true)));
-    if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
+    if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const idempotencyKey = `tap:${request.tagId}:${request.counter}`;
     if (request.status === "confirmed") {
       // An entry sent again is checked against what was booked, like any award replay: same entry, nothing more; another one, KEY_REUSED.
@@ -359,10 +364,10 @@ export async function confirmTapRequest(input: { userId: string; locationId: str
 export async function cancelTapRequest(input: { userId: string; locationId: string; requestId: string }) {
   return db.transaction(async tx => {
     const [request] = await tx.select().from(tapRequests).where(eq(tapRequests.id, input.requestId)).for("update");
-    if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Pending tap not found");
+    if (!request || request.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diese Anfrage ist abgelaufen oder schon erledigt.");
     // Held until commit, like checkout's role lock: a revocation waits for this cancellation, or this one sees it.
     const [staff] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, request.tenantId), eq(staffRoles.userId, input.userId), eq(staffRoles.active, true))).for("share");
-    if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Checkout access required");
+    if (!staff || (staff.role !== "owner" && staff.locationId !== request.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     if (request.status === "cancelled") return { state: "cancelled" as const };
     if (request.status === "confirmed" || request.status === "awarded") throw new DomainError("TAP_ALREADY_CONFIRMED", "This tap was already confirmed");
     if (request.status !== "pending_staff") throw new DomainError("TAP_EXPIRED", "Pending tap expired");
@@ -374,7 +379,7 @@ export async function cancelTapRequest(input: { userId: string; locationId: stri
 /** Owner view of one programme's tags. Non-secret fields only: no key reference, no UID, no key material. */
 export async function programTagStatus(input: { actorUserId: string; programId: string }) {
   const [program] = await db.select().from(programs).where(eq(programs.id, input.programId));
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   await db.transaction(async tx => owner(tx, input.actorUserId, program.tenantId));
   const tags = await db.select({ id: secureTags.id, status: secureTags.status, activatedAt: secureTags.activatedAt, revokedAt: secureTags.revokedAt, lastCounter: secureTags.lastCounter })
     .from(secureTags).where(and(eq(secureTags.tenantId, program.tenantId), eq(secureTags.programId, program.id))).orderBy(desc(secureTags.createdAt)).limit(20);

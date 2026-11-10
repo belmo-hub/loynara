@@ -15,7 +15,7 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     // owner readiness before any customer
     const ownerCtx = await browser.newContext({ baseURL: url, storageState: await m.owner.storageState() });
     const ownerPage = await ownerCtx.newPage();
-    await ownerPage.goto("/merchant/program");
+    await ownerPage.goto("/merchant/program/nfc");
     await expect(ownerPage.getByText("1 aktives NFC-Schild, noch nicht berührt.")).toBeVisible();
 
     // customer taps with no card: asked to create one, with the existing-card hint
@@ -25,7 +25,6 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     await expect(page.getByRole("heading", { name: "Deine Karte erstellen" })).toBeVisible();
     await expect(page.getByText("Du hast schon eine Karte?")).toBeVisible();
     await page.getByRole("link", { name: "Karte erstellen" }).click();
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: /Meine Karte erstellen/ }).click();
     // enrollment returns to the same tap and waits for the cashier
     await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
@@ -44,7 +43,7 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
     await page.reload();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
     await expect(page.locator("main [role=alert], [role=alert]:not(#__next-route-announcer__):not(:empty)")).toHaveCount(0);   // no error banner (Next's empty route announcer excluded)
 
     // owner view agrees: one confirmed award

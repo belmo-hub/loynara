@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const explicit = request.headers.get("content-type")?.startsWith("application/json") ? await jsonBody(request, 500) : undefined;
     if (explicit !== undefined && (typeof explicit !== "object" || explicit === null
       || !["switchAccount", "authenticate"].includes(Object.keys(explicit).join(","))
-      || Object.values(explicit).some(value => value !== true))) throw new DomainError("INVALID_INPUT", "Explicit authentication or account switch required");
+      || Object.values(explicit).some(value => value !== true))) throw new DomainError("INVALID_INPUT", "Die Anfrage ist unvollständig. Bitte lade die Seite neu und versuche es noch einmal.");
     const switchApproved = !!explicit && (explicit as { switchAccount?: boolean }).switchAccount === true;
     const uninspectedLegacyIdentity = new URL(request.url).pathname.startsWith("/api/card/") && !current;
     if ((switching || uninspectedLegacyIdentity) && !switchApproved) throw new DomainError("ACCOUNT_SWITCH_REQUIRED", "Andere Karte auf diesem Gerät: Wechsel bitte ausdrücklich bestätigen.");

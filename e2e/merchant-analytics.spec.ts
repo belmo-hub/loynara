@@ -54,16 +54,17 @@ test("owner sees tenant-scoped checkout analytics while cashier and guest cannot
       const page = await ownerBrowser.newPage();
       await page.goto("/merchant/analytics");
       await expect(page.getByRole("heading", { name: "Ergebnisse", exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Bestätigte Buchungen" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Einlösungen" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Bestätigte Buchungen, letzte 30 Tage" })).toBeVisible();
+      await expect(page.getByText("Einlösungen", { exact: true })).toBeVisible();
       await expect(page.getByText("Kaffee", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Coffee", { exact: true })).toBeVisible();
-      await page.getByText("So zählen wir").click();
-      await expect(page.getByText("nicht alle Besuche, und sagen nichts über Umsatz", { exact: false })).toBeVisible();
+      await page.getByRole("button", { name: "So zählen wir „Karten und Buchungen“" }).click();
+      await expect(page.getByText("nicht alle Besuche", { exact: false })).toBeVisible();
+      await page.getByRole("dialog").getByRole("button", { name: "Schließen" }).last().click();
       // Finished-looking pilot page: no future-development or test wording, no empty sections for features that are off.
       await expect(page.getByText(/Kampagnenversuche|Empfehlungen im Zeitraum|Zustellversuche|Mailpit|noch nicht/i)).toHaveCount(0);
-      await page.getByLabel("Zeitraum").selectOption("90");
-      await expect(page.getByLabel("Zeitraum")).toHaveValue("90");
+      await page.getByRole("button", { name: "90 Tage" }).click();
+      await expect(page.getByRole("button", { name: "90 Tage" })).toHaveAttribute("aria-pressed", "true");
     } finally { await ownerBrowser.close(); }
   } finally { await Promise.all([owner.dispose(), cashier.dispose(), guest.dispose()]); }
 });

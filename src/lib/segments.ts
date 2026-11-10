@@ -5,6 +5,7 @@ import { programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 
 import { audienceDefinitionSchema } from "./audience-definition";
+import { liveReward, notSuperseded } from "./reward-versions";
 export { audienceDefinitionSchema, type AudienceDefinition } from "./audience-definition";
 
 const audienceQuerySchema = z.object({
@@ -48,12 +49,12 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
   const [staff] = await db.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, input.actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
-    throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   }
   const [program] = await db.select({ id: programs.id, locationId: programs.locationId, effectiveAt: programs.effectiveAt })
     .from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, staff.tenantId), eq(programs.status, "active"))).limit(1);
   if (!program || program.effectiveAt > asOf || (staff.role === "manager" && staff.locationId !== program.locationId)) {
-    throw new DomainError("NOT_FOUND", "Programme not found in your scope");
+    throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   }
 
   const definition = input.definition;
@@ -79,10 +80,10 @@ export async function selectAudience(raw: AudienceQuery): Promise<AudienceResult
       FROM rewards r
       JOIN LATERAL (
         SELECT rv.cost FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= p.as_of
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= p.as_of AND ${notSuperseded("rv")}
         ORDER BY rv.version DESC LIMIT 1
       ) latest ON true
-      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${liveReward("r", "p.as_of")}
         AND (p.reward_id IS NULL OR r.id = p.reward_id)
         AND latest.cost > m.balance
     ) reward_gap ON true`;
@@ -139,6 +140,6 @@ export async function selectAudienceBySlug(raw: SlugAudienceQuery): Promise<Audi
   const { programSlug, ...query } = raw;
   const slug = z.string().min(1).max(120).parse(programSlug);
   const [program] = await db.select({ id: programs.id }).from(programs).where(eq(programs.slug, slug)).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in your scope");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return selectAudience({ ...query, programId: program.id });
 }

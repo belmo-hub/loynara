@@ -7,9 +7,9 @@ const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) a
 
 
 const pages = [
-  ["join", () => `/join/${encodeURIComponent(demo.programSlug)}`, "Mach deinen Besuch zählbar."],
+  ["join", () => `/join/${encodeURIComponent(demo.programSlug)}`, /, direkt im Browser\.$/],
   ["recover", () => "/recover", "Karte wiederfinden"],
-  ["verify-email", () => "/verify-email", "Bestätigungslink ungültig."],
+  ["verify-email", () => "/verify-email", "Dieser Link gilt nicht mehr"],
   ["unsubscribe", () => "/unsubscribe", "E-Mail-Angebote abbestellen"],
 ] as const;
 
@@ -27,14 +27,12 @@ test.describe("guest pages on phones", () => {
     // The referral and release specs find this alert as `form` → role=alert; they need their own databases, so this pins the hook here.
     await page.route("**/api/enroll", route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Synthetischer Fehler" }) }));
     await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
-    await page.getByRole("checkbox").first().check();
     const enrolled = page.waitForResponse(response => new URL(response.url()).pathname === "/api/enroll" && response.request().method() === "POST");
     await page.getByRole("button", { name: "Meine Karte erstellen", exact: true }).click();
     expect((await enrolled).status()).toBe(500);
     // The alert carries the server's message, so it came from this failed request and not from client-side validation.
     await expect(page.locator("form").getByRole("alert")).toHaveCount(1);
-    await expect(page.locator("form").getByRole("alert")).toContainText("Synthetischer Fehler");
-    await expect(page.getByRole("checkbox").first()).toBeChecked();
+    await expect(page.locator("form").getByRole("alert")).toContainText("Die Karte konnte nicht erstellt werden.");
   });
 
   test("the recovery page shows no status message until something happened", async ({ page }) => {

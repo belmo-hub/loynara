@@ -2,13 +2,15 @@ import { manualAwardLimit, type StaffRole } from "./award-limits";
 import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
-import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programRuleVersions, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
+import { automationRules, ledgerEntries, locations, memberships, outboxJobs, programs, purchaseAwards, redemptions, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
 import { challengeFor } from "./card-extras";
 import { challengeProgress } from "./challenges";
 import { activeHappyHour } from "./happy-hour";
 import { PointsError, purchasePoints } from "./points";
 import { qualifyReferralOnAward, reverseReferralForCheckout } from "./referrals";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
+import { liveReward, notSuperseded } from "./reward-versions";
+import { programInForce } from "./rule-versions";
 import { surfaceHidden } from "./pilot-surfaces";
 import { birthdayWeek, WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 
@@ -53,7 +55,7 @@ export async function lockProgrammeForBooking<T>(tx: Transaction, read: () => Pr
 // Every ledger idempotency-key namespace the server generates itself (staff tap confirmation and automatic tap, offline
 // sync, referral bonuses and their reversals, the welcome bonus, the happy-hour extra and the win-back and birthday bonuses, each with its reversal, the expiry job, and the challenge bonus with its reversal). A client key in one of them could take
 // a key first and block or replay a server booking. Add every new server-generated prefix here.
-export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:", "birthday:", "birthday-reversal:", "expiry:", "challenge:", "challenge-reversal:", "booking:"] as const;
+export const RESERVED_KEY_PREFIXES = ["tap:", "offline:", "referral:", "welcome:", "welcome-reversal:", "happyhour:", "happyhour-reversal:", "winback:", "winback-reversal:", "birthday:", "birthday-reversal:", "expiry:", "challenge:", "challenge-reversal:", "demo-seed:", "booking:"] as const;
 const validKeyLength = (key: string) => key.length >= 8 && key.length <= 100;
 
 /** For keys that come from a client (the public award, redeem and reverse entry points). Internal callers never use it. */
@@ -89,7 +91,8 @@ async function checkoutStaff(tx: Transaction, tenantId: string, userId: string) 
 }
 
 /** Client entry point (cashier route, scripts). Tap confirmation and offline sync call awardInTransaction with server keys. */
-type AwardResult = { balance: number; duplicate: boolean; entryId: string; creditedQuantity: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number };
+// Every bonus booked with the award, by source, so the counter can show how the new balance adds up (ENG-133).
+type AwardResult = { balance: number; /** The card's balance under the booking's lock, on a new booking. */ balanceBefore?: number; duplicate: boolean; entryId: string; creditedQuantity: number; welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
 
 export async function award(input: AwardInput): Promise<AwardResult> {
   assertClientKey(input.idempotencyKey);
@@ -112,17 +115,17 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
   if (!validKeyLength(input.idempotencyKey)) throw new DomainError("INVALID_KEY", "Invalid idempotency key");
 
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const programRow = () => tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
     const atThisLocation = (row: typeof programs.$inferSelect | undefined) => {
-      if (!row || row.locationId !== input.locationId || row.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+      if (!row || row.locationId !== input.locationId || row.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
       return row;
     };
     // Authorization and replay come before the programme lock below: a booking that already went through is reported
     // as such even while an owner saves the programme, never as "nothing was booked", which would invite a second one.
     atThisLocation((await programRow())[0]);
     const staff = trustedTap ? undefined : await checkoutStaff(tx, member.tenantId, input.userId);
-    if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!trustedTap && (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId))) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
       if (existing.membershipId !== member.id || existing.kind !== "award") throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
@@ -136,7 +139,11 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     // other and the save's "no activity yet" check before a type change cannot miss a first award committing at the
     // same moment. Read again under the lock. Automatic tap awards keep the plain read: they hold their tag first, and
     // never run in production.
-    const program = atThisLocation((trustedTap ? await programRow() : await lockProgrammeForBooking(tx, () => programRow().for("share")))[0]);
+    // ENG-100: the rule version in force at the booking instant (clock_timestamp, not the transaction start, so a change
+    // committed while this booking waited is seen), never the newest saved row: a dated change waits for its date.
+    const program = await programInForce(tx, atThisLocation((trustedTap ? await programRow() : await lockProgrammeForBooking(tx, () => programRow().for("share")))[0]), sql`clock_timestamp()`);
+    // A screen from before a change (or its date) is stale, whatever entry it sent: checked before the entry's shape.
+    if (input.ruleVersionId !== undefined && input.ruleVersionId !== program.ruleVersionId) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
     if (trustedTap && (program.type !== "stamp" || program.earningMode !== "manual" || input.quantity !== 1)) throw new DomainError("INVALID_EARNING_MODE", "Tap supports one fixed stamp only");
     const purchaseMode = program.type === "points" && program.earningMode === "purchase";
 
@@ -144,9 +151,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     let ruleVersionId: string | undefined;
     if (purchaseMode) {
       if (input.quantity !== undefined || input.purchaseAmountMinor === undefined || !input.ruleVersionId) throw new DomainError("INVALID_EARNING_MODE", "A purchase amount and rule version are required");
-      const [rule] = await tx.select().from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, program.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1);
-      if (!rule || rule.id !== input.ruleVersionId) throw new DomainError("STALE_RULE", "Programme rule has changed; refresh and confirm again");
-      ruleVersionId = rule.id;
+      ruleVersionId = program.ruleVersionId;
       try { quantity = purchasePoints(input.purchaseAmountMinor, program.pointsPerCurrencyUnit); }
       catch (error) { if (error instanceof PointsError) throw new DomainError(error.code, error.code); throw error; }
     } else {
@@ -199,7 +204,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       if (rule) await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "automation.event", payload: { ruleId: rule.id, ruleRevision: String(rule.revision), membershipId: member.id, ledgerEntryId: entry.id } });
     }
     // The cashier screen shows the challenge bonus with this booking („+1 extra: Monats-Challenge“).
-    return { balance: balance + referral.referredBonus, duplicate: false, entryId: entry.id, creditedQuantity: quantity, winbackBonus, birthdayBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
+    return { balance: balance + referral.referredBonus, balanceBefore: member.balance, duplicate: false, entryId: entry.id, creditedQuantity: quantity, welcomeBonus, happyHourBonus: happyHour, winbackBonus, birthdayBonus, referralBonus: referral.referredBonus, ...(challenge ? { challengeBonus: challenge } : {}) };
 }
 
 // The welcome bonus ("Startbonus") is its own ledger row next to the card's first staff-confirmed award, keyed by that
@@ -207,14 +212,19 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
 // and analytics count only staff sources, so the bonus never counts as a purchase or visit.
 const welcomeBonusKey = (awardEntryId: string) => `welcome:${awardEntryId}`;
 
+/** The welcome bonus the card's next staff-confirmed award books: the programme's bonus until a first award, then 0. */
+export async function welcomeBonusDue(tx: Pick<typeof db, "select">, program: { welcomeBonus: number }, card: { tenantId: string; membershipId: string }, exceptEntryId?: string): Promise<number> {
+  if (program.welcomeBonus <= 0) return 0;
+  const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
+    eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.membershipId), exceptEntryId ? ne(ledgerEntries.id, exceptEntryId) : undefined,
+    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
+  return earlier ? 0 : program.welcomeBonus;
+}
+
 async function bookWelcomeBonus(tx: Transaction, input: { program: typeof programs.$inferSelect; entry: typeof ledgerEntries.$inferSelect }): Promise<number> {
   const { program, entry } = input;
-  if (program.welcomeBonus <= 0) return 0;
   // The membership row is locked by the caller, so this "first award" check cannot race another booking for this card.
-  const [earlier] = await tx.select({ id: ledgerEntries.id }).from(ledgerEntries).where(and(
-    eq(ledgerEntries.tenantId, entry.tenantId), eq(ledgerEntries.membershipId, entry.membershipId), ne(ledgerEntries.id, entry.id),
-    inArray(ledgerEntries.source, ["staff_online", "staff_offline", "welcome_bonus"]))).limit(1);
-  if (earlier) return 0;
+  if (!(await welcomeBonusDue(tx, program, entry, entry.id))) return 0;
   await tx.insert(ledgerEntries).values({
     tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: program.welcomeBonus, kind: "award",
     source: "welcome_bonus", actorUserId: entry.actorUserId, requestId: entry.requestId, idempotencyKey: welcomeBonusKey(entry.id), reason: "Startbonus",
@@ -342,11 +352,11 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
   assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, input.membershipId)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId)));
-    if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Card not found at this location");
+    if (!program || program.locationId !== input.locationId || program.status !== "active") throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
     const staff = await checkoutStaff(tx, member.tenantId, input.userId);
-    if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!staff || (staff.role !== "owner" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
 
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, member.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {
@@ -355,14 +365,16 @@ export async function redeem(input: RedeemInput): Promise<{ balance: number; dup
       return { balance: member.balance, duplicate: true, entryId: existing.id };
     }
 
-    const [selected] = await tx.select({ version: rewardVersions, reward: rewards })
+    // ENG-100: the version in force and the archive date at the booking instant (clock_timestamp), so a pending raise or
+    // archive keeps the current reward and cost redeemable until its date.
+    const [selected] = await tx.select({ version: rewardVersions, reward: rewards, live: sql<boolean>`${sql.raw(liveReward("rewards", "clock_timestamp()"))}` })
       .from(rewardVersions)
       .innerJoin(rewards, and(eq(rewards.id, rewardVersions.rewardId), eq(rewards.tenantId, rewardVersions.tenantId)))
       // Keep this catalogue entry stable through booking; owner edit/archive takes an exclusive reward lock.
-      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= now()`)).for("share", { of: rewards });
-    if (!selected || !selected.reward.active || selected.reward.programId !== member.programId) throw new DomainError("INVALID_REWARD", "Reward is not available");
+      .where(and(eq(rewardVersions.id, input.rewardVersionId), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= clock_timestamp()`)).for("share", { of: rewards });
+    if (!selected || !selected.live || selected.reward.programId !== member.programId) throw new DomainError("INVALID_REWARD", "Reward is not available");
     const [currentVersion] = await tx.select({ id: rewardVersions.id }).from(rewardVersions)
-      .where(and(eq(rewardVersions.rewardId, selected.reward.id), eq(rewardVersions.tenantId, member.tenantId)))
+      .where(and(eq(rewardVersions.rewardId, selected.reward.id), eq(rewardVersions.tenantId, member.tenantId), sql`${rewardVersions.effectiveAt} <= clock_timestamp()`, sql.raw(notSuperseded("reward_versions"))))
       .orderBy(desc(rewardVersions.version)).limit(1);
     if (currentVersion.id !== input.rewardVersionId) throw new DomainError("STALE_REWARD", "Reward has changed; refresh and confirm again");
     if (member.balance < selected.version.cost) throw new DomainError("INSUFFICIENT_BALANCE", "Not enough points or stamps");
@@ -412,7 +424,7 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
   assertClientKey(input.idempotencyKey);
   return db.transaction(async (tx) => {
     const [original] = await tx.select().from(ledgerEntries).where(eq(ledgerEntries.id, input.entryId));
-    if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Transaction not found at this location");
+    if (!original || original.locationId !== input.locationId || original.kind === "reversal") throw new DomainError("NOT_FOUND", "Diese Buchung haben wir an diesem Standort nicht gefunden.");
     if (original.source === "referral_bonus") throw new DomainError("REFERRAL_REVIEW_REQUIRED", "Referral bonuses are corrected through referral review");
     if (original.source === "happy_hour") throw new DomainError("HAPPY_HOUR_WITH_AWARD", "The happy-hour points are corrected together with their award");
     if (original.source === "welcome_bonus") throw new DomainError("WELCOME_BONUS_WITH_AWARD", "The welcome bonus is corrected together with the card's first award");
@@ -420,12 +432,12 @@ export async function reverseEntry(input: ReversalInput): Promise<{ balance: num
     if (original.source === "winback_bonus") throw new DomainError("WINBACK_BONUS_WITH_AWARD", "The win-back bonus is corrected together with its award");
     if (original.source === "challenge_bonus") throw new DomainError("CHALLENGE_BONUS_WITH_AWARD", "The challenge bonus is corrected together with the visits that earned it");
     const [member] = await tx.select().from(memberships).where(and(eq(memberships.id, original.membershipId), eq(memberships.tenantId, original.tenantId))).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
     // An ended programme books nothing more, corrections included (the end job never touches memberships, so a plain read is safe).
     const [ended] = member ? await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.id, member.programId), eq(programs.status, "ended"))) : [];
-    if (ended) throw new DomainError("NOT_FOUND", "Card not found at this location");
+    if (ended) throw new DomainError("NOT_FOUND", "Diese Karte haben wir an diesem Standort nicht gefunden.");
     const staff = await checkoutStaff(tx, original.tenantId, input.userId);
-    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Manager or owner access required");
+    if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== input.locationId)) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
     if (staff.role === "manager" && Math.abs(original.delta) > 100) throw new DomainError("LIMIT_EXCEEDED", "Owner approval required for this correction");
     const [existing] = await tx.select().from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, original.tenantId), eq(ledgerEntries.idempotencyKey, input.idempotencyKey)));
     if (existing) {

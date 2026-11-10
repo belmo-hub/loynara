@@ -39,26 +39,28 @@ Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers
 | `--color-raised` | #FFFFFF | #1D2923 | inputs, tickets, menus |
 | `--color-ink` | #17291F | #E9EFEA | primary text |
 | `--color-ink-muted` | #58645C | #A6B3AA | secondary text (≥ 5.5:1) |
+| `--color-ink-faint` | #76827A | #7F8E85 | disabled and least important text (≥ 3:1) |
 | `--color-line` | #DCE0D6 | #2B3A32 | dividers (decorative) |
 | `--color-line-strong` | #7A867D | #6B7B71 | input and control borders (≥ 3:1) |
-| `--color-action` | #245D47 | #9FD3B5 | primary buttons, links, selection |
+| `--color-action` | #245D47 | #9FD3B5 | the one solid green per screen (band or primary button), switch on-tracks, icon tiles' glyphs |
 | `--color-action-hover` | #143D2E | #B9E2CA | hover |
 | `--color-on-action` | #FFFFFF | #0F1713 | text on action |
-| `--color-action-soft` | #E6EEDF | #22352B | quiet fills, selected rows |
-| `--color-fill` | 7 % ink | 7 % ink | neutral badge, hover fills, segmented track, skeleton |
+| `--color-action-soft` | #E6EEDF | #22352B | icon tiles |
+| `--color-fill` | 7 % ink | 7 % ink | nav active, selected rows, neutral badge, hover fills, segmented track, skeleton |
 | `--color-accent-text` | #9E4B2D | #E8A58A | kickers ("Als Nächstes"), warm emphasis |
 | `--color-stamp` | #E9895F | #E9895F | earned stamps, reward markers (decorative) |
 | `--color-on-stamp` | #17291F | #17291F | check marks and counts on a coral stamp (≥ 4.5:1) |
 | `--color-success` | #1F6B45 | #8FD1A8 | confirmed booking, "+1" |
-| `--color-danger` | #A3321E | #F08F7A | errors, destructive |
+| `--color-danger` | #A3321E | #FF6B6B | errors, destructive, always with the alert icon (ΔE > 20 from stamp) |
+| `--color-on-danger` | #FFFFFF | #0F1713 | text on a danger fill |
 | `--color-warning` | #8A5A00 | #F2C14E | offline queue, pending |
-| `--color-focus` | #2E7D5B | #9FD3B5 | focus ring (3 px, 2 px offset) |
+| `--color-focus` | #17291F | #E8ECEA | focus ring (2 px, 2 px offset) |
 
 Status chips and notices set the status colour as text on a 10 % fill of itself
 (`color-mix(in oklab, var(--color-success), transparent 90%)`), in the shared Badge and in the dashboard alike.
 
 Contrast pairs asserted by `src/styles/tokens.test.ts`: ink, ink-muted, accent-text, success, danger and warning on
-bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, action and focus on surface (≥ 3:1);
+bg, surface and raised (≥ 4.5:1); on-action on action (≥ 4.5:1); line-strong, ink-faint, action and focus on surface (≥ 3:1); danger at ΔE*ab > 20 from stamp;
 each status colour on its fill and ink-muted on `--color-fill`, with the shares read from badge.module.css,
 owner.css and tokens.css themselves, over every ground (≥ 4.5:1).
 
@@ -82,11 +84,11 @@ file; no external requests.
 
 | Token | Size / line | Use |
 |---|---|---|
-| `--text-12` | 12 / 16 | bottom-bar labels, sidebar group labels. Never body copy. |
+| `--text-12` | 12 / 16 | bottom-bar labels below 420 px (14 from 420), dense diary-strip labels. Never body copy. |
 | `--text-14` | 14 / 20 | secondary text, hints, table meta |
 | `--text-16` | 16 / 24 | body, buttons, inputs (16 px stops iOS zoom) |
 | `--text-18` | 18 / 26 | section titles |
-| `--text-22` | 22 / 28 | panel titles, cashier state |
+| `--text-22` | 22 / 28 | panel titles |
 | `--text-28` | 28 / 34 | page titles on phones, customer goal line (display) |
 | `--display-36` | 36 / 40 | page titles ≥ 1024 px (display) |
 | `--display-num` | clamp(40, 11vw, 56) / 1 | customer balance and goal numerals (display) |
@@ -106,7 +108,7 @@ Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cash
 - Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px. A link that stands on its
   own (a footer row, a line of its own, beside a button) is a target too: `min-height: var(--target)` or a positioned
   `::after` that extends its hit area. A link inside a sentence is exempt (WCAG 2.5.8 inline exception) and is always
-  underlined, `--color-action`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
+  underlined, `--color-ink`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
   phone spec uses.
 - Z-index: `--z-sticky` 10 · `--z-nav` 20 · `--z-sheet` 40 · `--z-dialog` 50 · `--z-toast` 60.
 
@@ -145,7 +147,7 @@ No hover lift on cards, no stagger on page load, no animation on keyboard-trigge
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
 - **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
-- **Dashboard.** Sidebar groups: Überblick · Programm · Kunden · Marketing · Auswertung · Betrieb, location switcher on top, "Kasse öffnen" and user menu at the bottom. Phones: top bar with location switcher, bottom bar (Übersicht, Kunden, Programm, Auswertung, Mehr) and a "Mehr" sheet with the remaining groups. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
+- **Dashboard.** Sidebar (≥ 1024 px): brand, then the location (one location as plain text, name 16/720 over the card type 14 muted; several as a 48 px select labelled „Standort“), then Übersicht · Programm · Kunden · Aktionen · Einstellungen, with "Kasse öffnen" (48 px) and the who-line with a quiet „Abmelden“ at the bottom. Sidebar rows are 36 px with 4 px between them for a fine pointer and 44 px for a coarse one; the current row has the neutral fill, 800 and a 2.5 icon stroke, and is the only filled thing in the sidebar. Phones: top bar with the shop name (16/800) over the location (14/500 muted), bottom bar (Übersicht, Programm, Kunden, Aktionen, Mehr) and a "Mehr" page with the rest. Bottom-bar labels are 12 px below 420 px wide and 14 px from 420, at 600 (current 800); the current tab has a 56×32 neutral pill behind its icon and a 2.5 stroke. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
   high instead of 48) but keep the shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation, sticky save bar when dirty.
 
 ## Copy rules

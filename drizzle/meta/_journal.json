@@ -299,22 +299,64 @@
     {
       "idx": 42,
       "version": "7",
-      "when": 1793056180191,
-      "tag": "0042_booking",
+      "when": 1793195962467,
+      "tag": "0042_free_month",
       "breakpoints": true
     },
     {
       "idx": 43,
       "version": "7",
-      "when": 1793091250868,
-      "tag": "0043_booking_review",
+      "when": 1793353501977,
+      "tag": "0043_dated_reward_changes",
       "breakpoints": true
     },
     {
       "idx": 44,
       "version": "7",
-      "when": 1793134689336,
-      "tag": "0044_booking_requests_hours",
+      "when": 1793502117557,
+      "tag": "0044_billing_ends_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793507837240,
+      "tag": "0045_shop_erasure",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793522822267,
+      "tag": "0046_sender_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793749608716,
+      "tag": "0047_challenge_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793751426716,
+      "tag": "0048_shop_unsubscribes",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793967495347,
+      "tag": "0049_google_classes",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793967555347,
+      "tag": "0050_booking",
       "breakpoints": true
     }
   ]

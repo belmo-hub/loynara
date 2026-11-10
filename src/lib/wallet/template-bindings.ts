@@ -46,7 +46,7 @@ export async function walletTemplateOverview(reader: Reader, env: Env) {
  * be ready for the location with it. Refuses a template that the table or the env already gives another location.
  */
 export async function setWalletTemplate(input: { actorUserId: string; env: Env; tenantId: string; locationId: string; templateId: string; execute: boolean }) {
-  if (!UUID.test(input.tenantId) || !UUID.test(input.locationId)) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+  if (!UUID.test(input.tenantId) || !UUID.test(input.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
   if (!UUID.test(input.templateId.trim())) throw new DomainError("INVALID_TEMPLATE", "Die Vorlagen-ID muss eine UUID aus PassFast sein");
   const templateId = input.templateId.trim().toLowerCase(), scope = scopeKey(input.tenantId, input.locationId);
   return db.transaction(async tx => {
@@ -55,7 +55,7 @@ export async function setWalletTemplate(input: { actorUserId: string; env: Env; 
     const [shop] = await tx.select({ tenantId: locations.tenantId, locationId: locations.id, merchant: tenants.name, location: locations.name })
       .from(locations).innerJoin(tenants, eq(tenants.id, locations.tenantId))
       .where(and(eq(locations.id, input.locationId), eq(locations.tenantId, input.tenantId)));
-    if (!shop) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+    if (!shop) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
     const [current] = await tx.select().from(walletTemplateBindings)
       .where(and(eq(walletTemplateBindings.tenantId, shop.tenantId), eq(walletTemplateBindings.locationId, shop.locationId)));
     const env = envBindings(input.env);

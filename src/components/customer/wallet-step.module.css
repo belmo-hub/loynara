@@ -1,0 +1,30 @@
+/* ENG-130 Wallet step (Design 03–07): why Wallet, a lock-screen picture, then the Apple button with the skip link right under it. */
+.step { display: grid; gap: var(--space-4); min-width: 0; }
+.step[data-band] { margin-top: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-xl); background: var(--color-surface); }
+.title { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
+.lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
+.muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
+.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+
+/* A phone lock screen is dark in both themes; in dark mode a 1 px ring keeps its edge (07). */
+.lock { display: grid; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: #1F2A25; box-shadow: var(--shadow-object); }
+@media (prefers-color-scheme: dark) { .lock { background: #26332D; box-shadow: 0 0 0 1px rgb(255 255 255 / .16); } }
+.alert { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-3); row-gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: #3C4741; color: #FFFFFF; font-size: var(--text-14); line-height: 1.4; }
+.mono { grid-row: span 2; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); }
+.from { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); min-width: 0; }
+.from strong { min-width: 0; overflow-wrap: anywhere; font-weight: var(--weight-strong); }
+.from small { margin-left: auto; flex: none; font-size: var(--text-12); color: #D3DAD6; }
+/* Legal: „Beispiel“ stays next to the shop name at full contrast (white on #5B6560, about 6:1). */
+.example { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: #5B6560; color: #FFFFFF; font-size: var(--text-12); font-style: normal; font-weight: var(--weight-label); line-height: 1.6; }
+.text { grid-column: 2; overflow-wrap: anywhere; }
+
+/* Apple's badge (black, its own outline, one artwork for both themes), centred; hit area and focus ring are the badge's. */
+.apple { display: flex; align-items: center; justify-content: center; justify-self: center; width: fit-content; min-height: 52px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; cursor: pointer; }
+.apple img { display: block; height: 52px; width: auto; }
+.apple:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.apple:disabled { cursor: progress; }
+.busy { margin: calc(var(--space-2) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
+/* Always mounted so it is announced; out of the grid's flow while it says nothing. */
+.busy:empty { position: absolute; margin: 0; }
+.skip { margin: 0; text-align: center; }
+.skip a { display: inline-flex; align-items: center; min-height: var(--target); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }

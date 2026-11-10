@@ -13,8 +13,10 @@ import { assertLocalTarget } from "./local-guard";
 
 export const PRODUCTION_TARGET = "loynara-production";
 export const LOCAL_TARGET = "local";
+/** The separate demo environment (demo-mode design v3): its own Railway project and database, every shop a demo. */
+export const DEMO_TARGET = "loynara-demo";
 
-export type OperatorTarget = typeof PRODUCTION_TARGET | typeof LOCAL_TARGET;
+export type OperatorTarget = typeof PRODUCTION_TARGET | typeof LOCAL_TARGET | typeof DEMO_TARGET;
 export type OperatorEnv = Record<string, string | undefined>;
 
 export class OperatorRefusal extends Error {
@@ -30,16 +32,16 @@ const refuse = (code: string): never => { throw new OperatorRefusal(code); };
 export function assertOperatorTarget(target: string | undefined, env: OperatorEnv): OperatorTarget {
   if (target === PRODUCTION_TARGET) {
     if (env.PRODUCTION_ENVIRONMENT !== PRODUCTION_TARGET) refuse("WRONG_ENVIRONMENT_MARKER");
-    if (env.NODE_ENV !== "production") refuse("NODE_ENV_NOT_PRODUCTION");
-    let database: URL;
-    try { database = new URL(env.DATABASE_URL ?? ""); } catch { return refuse("DATABASE_URL_INVALID"); }
-    // Private Railway network only: no public TCP proxy, no loopback, no other host.
-    if (!["postgres:", "postgresql:"].includes(database.protocol) || !database.hostname.endsWith(".railway.internal")) refuse("DATABASE_NOT_PRIVATE_RAILWAY");
-    let auth: URL; let base: URL;
-    try { auth = new URL(env.BETTER_AUTH_URL ?? ""); base = new URL(env.PUBLIC_BASE_URL ?? ""); } catch { return refuse("APP_URL_INVALID"); }
-    if (auth.protocol !== "https:" || base.protocol !== "https:" || auth.origin !== base.origin || ["localhost", "127.0.0.1", "[::1]"].includes(auth.hostname)) refuse("APP_ORIGIN_NOT_PRODUCTION");
-    if (env.PUBLIC_REGISTRATION_ENABLED !== "false") refuse("PUBLIC_REGISTRATION_NOT_DISABLED");
+    assertDeployed(env);
     return PRODUCTION_TARGET;
+  }
+  if (target === DEMO_TARGET) {
+    if (env.PRODUCTION_ENVIRONMENT === PRODUCTION_TARGET) refuse("DEMO_TARGET_ON_PRODUCTION");
+    if (env.DEMO_ENVIRONMENT !== "true") refuse("NOT_DEMO_ENVIRONMENT");
+    const database = assertDeployed(env);
+    // Same rule as the demo startup check: the demo database names itself, so production's can never be the target.
+    if (!/demo/i.test(`${database.hostname}/${database.pathname}/${database.username}`)) refuse("DATABASE_NOT_DEMO");
+    return DEMO_TARGET;
   }
   if (target === LOCAL_TARGET) {
     if (env.PRODUCTION_ENVIRONMENT === PRODUCTION_TARGET) refuse("LOCAL_TARGET_ON_PRODUCTION");
@@ -47,6 +49,20 @@ export function assertOperatorTarget(target: string | undefined, env: OperatorEn
     return LOCAL_TARGET;
   }
   return refuse("TARGET_REQUIRED");
+}
+
+/** The checks every deployed target shares: production mode, private Railway database, one HTTPS origin, registration off. */
+function assertDeployed(env: OperatorEnv): URL {
+  if (env.NODE_ENV !== "production") refuse("NODE_ENV_NOT_PRODUCTION");
+  let database: URL;
+  try { database = new URL(env.DATABASE_URL ?? ""); } catch { return refuse("DATABASE_URL_INVALID"); }
+  // Private Railway network only: no public TCP proxy, no loopback, no other host.
+  if (!["postgres:", "postgresql:"].includes(database.protocol) || !database.hostname.endsWith(".railway.internal")) refuse("DATABASE_NOT_PRIVATE_RAILWAY");
+  let auth: URL; let base: URL;
+  try { auth = new URL(env.BETTER_AUTH_URL ?? ""); base = new URL(env.PUBLIC_BASE_URL ?? ""); } catch { return refuse("APP_URL_INVALID"); }
+  if (auth.protocol !== "https:" || base.protocol !== "https:" || auth.origin !== base.origin || ["localhost", "127.0.0.1", "[::1]"].includes(auth.hostname)) refuse("APP_ORIGIN_NOT_PRODUCTION");
+  if (env.PUBLIC_REGISTRATION_ENABLED !== "false") refuse("PUBLIC_REGISTRATION_NOT_DISABLED");
+  return database;
 }
 
 export function normalizeIdentity(input: { email?: string; name?: string }): { email: string; name: string } {

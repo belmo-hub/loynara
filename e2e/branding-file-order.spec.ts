@@ -1,20 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type BrowserContext } from "@playwright/test";
+import sharp from "sharp";
 import { pool } from "../src/db";
+import { checkedLogoUpload } from "../src/lib/wallet/logo-process";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_branding_088") throw new Error("Dedicated synthetic branding database required");
 const origin = "http://localhost:3000";
-const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 // The error variant injects a delayed read error after a real native read; it is not a natural disk-I/O failure.
-// Distinct accepted PNG byte streams, with harmless trailing fixture labels; actual browser FileReader reads them.
-const bytes = (label: string) => Buffer.concat([png, Buffer.from(label)]);
+// Distinct accepted PNGs, one colour per label; actual browser FileReader reads them. The server stores each re-encoded (ENG-134).
+const labels = ["initial", "older", "newer"] as const;
+let images: Record<string, Buffer>, stored: Record<string, string>;
+const bytes = (label: string) => images[label];
 const data = (label: string) => `data:image/png;base64,${bytes(label).toString("base64")}`;
 let owner: { slug: string; tenant: string; name: string; location: string; storage: Awaited<ReturnType<BrowserContext["storageState"]>> };
 let foreign: { tenant: string; initial: unknown };
 async function persisted(tenant: string) { return (await pool.query("SELECT id,tenant_id,name,brand_color,logo_data FROM locations WHERE tenant_id=$1 ORDER BY id", [tenant])).rows; }
 test.beforeAll(async ({ browser, baseURL }) => {
   if (baseURL !== origin) throw new Error("Loopback required");
+  images = Object.fromEntries(await Promise.all(labels.map(async (label, i) => [label, await sharp({ create: { width: 20, height: 20, channels: 3, background: ["#214739", "#a8492c", "#2c4a7a"][i] } }).png().toBuffer()])));
+  stored = Object.fromEntries(await Promise.all(labels.map(async label => [label, await checkedLogoUpload(data(label))])));
   for (const own of [true, false]) {
     const context = await browser.newContext({ baseURL });
     try {
@@ -41,17 +46,18 @@ for (const [action, width] of [["newer", 375], ["remove", 1280], ["discard", 375
         return nativeRead.call(this, blob);
       };
     });
-    const page = await context.newPage(); await page.goto("/merchant/program/card"); const image = page.getByAltText("Ausgewähltes Logo", { exact: true }); await expect(image).toHaveAttribute("src", data("initial")); const input = page.locator("#cs-logo");
+    const page = await context.newPage(); await page.goto("/merchant/program/card"); const image = page.getByAltText("Ausgewähltes Logo", { exact: true }); await expect(image).toHaveAttribute("src", stored.initial); const input = page.locator("#cs-logo");
     let writes = 0; page.on("request", r => { if (r.method() === "POST" && new URL(r.url()).pathname === "/api/merchant/program/brand") writes++; });
-    await input.setInputFiles({ name: action === "error" ? "older-error.png" : "older.png", mimeType: "image/png", buffer: bytes("older") }); await page.waitForFunction(() => typeof (window as typeof window & { __heldLogoRead?: () => void }).__heldLogoRead === "function"); expect(writes).toBe(0); expect((await persisted(owner.tenant))[0].logo_data).toBe(data("initial"));
+    await input.setInputFiles({ name: action === "error" ? "older-error.png" : "older.png", mimeType: "image/png", buffer: bytes("older") }); await page.waitForFunction(() => typeof (window as typeof window & { __heldLogoRead?: () => void }).__heldLogoRead === "function"); expect(writes).toBe(0); expect((await persisted(owner.tenant))[0].logo_data).toBe(stored.initial);
     if (action === "newer") { await input.setInputFiles({ name: "newer.png", mimeType: "image/png", buffer: bytes("newer") }); await expect(image).toHaveAttribute("src", data("newer")); }
     else if (action === "remove") { await page.getByRole("button", { name: "Logo entfernen", exact: true }).click(); await expect(image).toHaveCount(0); }
-    else if (action === "error") { await input.setInputFiles({ name: "rejected.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") }); await expect(page.locator(".ow-error[role=alert]")).toHaveText("Bitte ein PNG-, JPG- oder WebP-Bild wählen."); }
+    else if (action === "error") { await input.setInputFiles({ name: "rejected.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") }); await expect(page.locator(".ow-error[role=alert]")).toHaveText("Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB."); }
     else { await page.getByLabel("Geschäftsname", { exact: true }).fill("Unsaved synthetic draft"); await page.getByRole("button", { name: "Verwerfen", exact: true }).click(); await expect(page.getByLabel("Geschäftsname", { exact: true })).toHaveValue(owner.name); }
     await page.evaluate(() => (window as typeof window & { __heldLogoRead?: () => void }).__heldLogoRead?.());
-    if (action === "error") await expect(page.locator(".ow-error[role=alert]")).toHaveText("Bitte ein PNG-, JPG- oder WebP-Bild wählen.");
-    const expected = action === "newer" ? data("newer") : action === "remove" ? null : data("initial");
-    if (expected) await expect.soft(image).toHaveAttribute("src", expected); else await expect.soft(image).toHaveCount(0);
+    if (action === "error") await expect(page.locator(".ow-error[role=alert]")).toHaveText("Dieses Bild können wir nicht verwenden. Wähle ein PNG, JPG oder WebP bis 2 MB.");
+    const shown = action === "newer" ? data("newer") : action === "remove" ? null : stored.initial;
+    if (shown) await expect.soft(image).toHaveAttribute("src", shown); else await expect.soft(image).toHaveCount(0);
+    const expected = action === "newer" ? stored.newer : shown;
     if (action === "discard" || action === "error") {
       await expect.soft(page.locator(".ow-savestate")).toContainText("Keine Änderungen");
       await expect.soft(page.getByRole("button", { name: "Kundenkarte speichern", exact: true })).toBeDisabled();

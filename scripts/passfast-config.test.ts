@@ -35,8 +35,8 @@ describe("canonical PassFast configuration and private capability",()=>{
     expect(productionConfigIssues({...on,PASSFAST_TEMPLATE_ID:""})).toEqual([]);
     expect(walletAvailability({...on,PASSFAST_TENANT_TEMPLATES:undefined})).toEqual({apple:"unavailable",google:"unavailable"});
   });
-  it("requires independent Google Direct setup while native Apple stays dormant",()=>{
-    expect(productionConfigIssues({...on,APPLE_WALLET_ENABLED:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+  it("requires independent native Apple and Google Direct setup beside PassFast",()=>{
+    expect(productionConfigIssues({...on,APPLE_WALLET_ENABLED:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/APPLE_TEAM_ID/)]));
     expect(productionConfigIssues({...on,GOOGLE_WALLET_ENABLED:"true"})).toEqual(expect.arrayContaining([expect.stringMatching(/GOOGLE_DIRECT/)]));
   });
 });

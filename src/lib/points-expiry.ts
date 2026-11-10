@@ -3,8 +3,9 @@ import { and, asc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs } from "@/db/schema";
 import { duePoints, EXPIRY_REMINDER_DAYS, expiryBatches, expiryBuckets, expiryReminderText, expiryRuleText, upcomingExpiry } from "./points-expiry-rules";
+import { programInForce } from "./rule-versions";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
-import { queueCardWalletMessage } from "./wallet-messages";
+import { messagePass, queueCardWalletMessage } from "./wallet-messages";
 
 // Points expiry (ENG-051). Expired points leave the card as a ledger row (kind and source 'expiry', no actor), booked by
 // the worker; nothing is ever deleted. Analytics, referrals and the weekly report count only staff awards and 'redeem'
@@ -44,8 +45,9 @@ export async function expireCardPoints(membershipId: string, now = new Date()) {
     const [member] = await tx.select().from(memberships).where(eq(memberships.id, membershipId)).for("update");
     if (!member || member.closedAt) return 0;
     // Shared like a booking, so an owner's save of the rule and this job wait for each other.
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId))).for("share");
-    if (!program || program.status !== "active") return 0;
+    const [row] = await tx.select().from(programs).where(and(eq(programs.id, member.programId), eq(programs.tenantId, member.tenantId))).for("share");
+    if (!row || row.status !== "active") return 0;
+    const program = await programInForce(tx, row);
     const amount = Math.min(duePoints(await cardExpiryBuckets(tx, member.tenantId, member.id, program), now), member.balance);
     if (amount <= 0) return 0;
     await tx.insert(ledgerEntries).values({
@@ -74,16 +76,19 @@ export async function runPointsExpiry(now = new Date()) {
 
 /**
  * One Wallet banner per card and 30 days, covering what expires in the next 30 days. Service information, not marketing
- * (Product/Legal 22 Oct): every live Apple pass gets it, with or without marketing consent; never an email.
+ * (Product/Legal 22 Oct): every pass that can carry a message gets it, with or without marketing consent; never an email.
+ * It is the same pass rule that shows the card's consent panel, whose line promises this notice: PassFast ('created'),
+ * native ('registered', ENG-128) and Google with its message switch. queueCardWalletMessage applies the rest (registered
+ * device, cap, French shops).
  */
 export async function queueExpiryReminders(now = new Date()) {
   let queued = 0;
   for (const card of await candidates()) {
     const [row] = await db.select({ program: programs, timezone: locations.timezone }).from(programs)
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
-      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and p.provider = 'apple' and p.status = 'created' and p.revoked_at is null)`));
+      .where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId), sql`exists (select 1 from wallet_passes p where p.tenant_id = ${card.tenantId}::uuid and p.membership_id = ${card.membershipId}::uuid and ${messagePass()} and p.revoked_at is null)`));
     if (!row) continue;
-    const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, row.program), now);
+    const upcoming = upcomingExpiry(await cardExpiryBuckets(db, card.tenantId, card.membershipId, await programInForce(db, row.program)), now);
     if (!upcoming) continue;
     const text = expiryReminderText(upcoming, row.timezone);
     try { if (await queueCardWalletMessage({ tenantId: card.tenantId, programId: card.programId, membershipId: card.membershipId, kind: "expiry", text, onceWithinDays: EXPIRY_REMINDER_DAYS }, now)) queued += 1; }

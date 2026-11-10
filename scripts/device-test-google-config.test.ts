@@ -3,10 +3,11 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 import { deviceTestPreparationIssues, deviceTestRuntimeIssues } from "./device-test-config";
 import { googleClass, googleConfig, GoogleWalletClient } from "../src/lib/wallet/google";
-import { merchantGoogleLogoUrl } from "../src/lib/wallet/logo";
+import { merchantGoogleLogoUrls } from "../src/lib/wallet/logo";
 import type { WalletPassData } from "../src/lib/wallet/types";
 
 const directory = mkdtempSync(path.join(tmpdir(), "looplocal-google-gate-"));
@@ -79,14 +80,23 @@ describe("explicitly approved Google Demo device-test gate", () => {
     finally { chmodSync(keyFile, 0o600); }
   });
 
-  it("carries the approved program and path through config to the actual versioned merchant logo", () => {
-    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQ83H9DwADCgG307XiNAAAAABJRU5ErkJggg==";
-    const selected = merchantGoogleLogoUrl(pass.programId, png, approved);
-    expect(selected).toMatch(/\.png\?v=[0-9a-f]{16}$/);
+  it("carries the approved program and path through config to the actual versioned merchant logos", async () => {
+    const wordmark = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120"><rect width="360" height="120" fill="#fff"/></svg>`)).png().toBuffer();
+    const selected = await merchantGoogleLogoUrls(pass.programId, `data:image/png;base64,${wordmark.toString("base64")}`, pass.brandColor, pass.merchantName, approved);
+    expect(selected.googleLogoUrl).toMatch(/\/google-logo\/.+\.png\?v=[0-9a-f]{16}$/);
+    expect(selected.googleWideLogoUrl).toMatch(/\/google-wide-logo\/.+\.png\?v=[0-9a-f]{16}$/);
     const config = googleConfig(approved);
-    expect(googleClass({ ...pass, googleLogoUrl: selected }, config).programLogo.sourceUri.uri).toBe(selected);
+    const cls = googleClass({ ...pass, ...selected }, config);
+    expect(cls.programLogo.sourceUri.uri).toBe(selected.googleLogoUrl);
+    expect(cls.wideProgramLogo?.sourceUri.uri).toBe(selected.googleWideLogoUrl);
     expect(googleClass(pass, config).programLogo.sourceUri.uri).toBe(logoUrl);
     expect(() => googleClass({ ...pass, programId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" }, config)).toThrow(/approved/i);
+    const wideRoute = logoUrl.replace("/google-logo/", "/google-wide-logo/");
+    for (const googleWideLogoUrl of [`${wideRoute}`, `${wideRoute}?v=short`, `${logoUrl}?v=0123456789abcdef`,
+      `${wideRoute.replace(pass.programId, "cccccccc-cccc-4ccc-8ccc-cccccccccccc")}?v=0123456789abcdef`,
+      `${wideRoute.replace("assets.owned-domain.org", "elsewhere.owned-domain.org")}?v=0123456789abcdef`]) {
+      expect(() => googleClass({ ...pass, googleWideLogoUrl }, config), googleWideLogoUrl).toThrow(/approved/i);
+    }
   });
 
   it("rejects unapproved actual program, origin, path and query before even requesting an OAuth token", async () => {

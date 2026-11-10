@@ -12,7 +12,7 @@ const counts = async () => Object.fromEntries((await pool.query<{ status: string
 it("seeds one convincing salon week, idempotently, without overlaps", async () => {
   await assertDisposableDatabase(pool);
   await pool.query('TRUNCATE tenants,"user" CASCADE');
-  expect(seed()).toMatch(/\/card\/card_\w+/);
+  expect(seed()).toMatch(/\/card\/card_[\w-]+/);
 
   const one = async (sql: string) => (await pool.query<{ n: number }>(sql)).rows[0].n;
   expect(await one("SELECT count(*)::int AS n FROM booking_staff WHERE archived_at IS NULL")).toBe(2);

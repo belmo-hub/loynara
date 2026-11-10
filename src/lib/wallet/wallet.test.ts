@@ -4,14 +4,18 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import { applePassArchive, applePassJson, applePassToken, appleVoidedPassJson, appleWalletStatus, validApplePassToken } from "./apple";
+import { iconPng, stripPng } from "./apple-images";
 import { apnsPassUpdateRequest } from "./apple-push";
 import { walletAvailability } from "./capability";
 import { passInk, walletProgress } from "./content";
 import { GoogleWalletClient, googleClass, googleObject, googleObjectId, googleRevokedObject, googleSaveUrl, googleWalletStatus } from "./google";
-import { appleLogoFromData, decodeMerchantLogoPng, merchantGoogleLogoUrl, pngDimensions } from "./logo";
-import { appleFixture, fakeGoogleApi, googleFixture } from "./test-support";
+import { appleLogoFromData, googleLogoAsset, merchantGoogleLogoUrls } from "./logo";
+import { INITIAL_CHARACTERS, initialOf } from "./initial";
+import { initialLogo } from "./logo-initial";
+import { appleFixture, fakeGoogleApi, googleFixture, withEnv } from "./test-support";
 import { createDownloadTicket, readDownloadTicket } from "./ticket";
 import type { WalletPassData, WalletRevokedData } from "./types";
 
@@ -34,7 +38,10 @@ const pass: WalletPassData = {
 const serial = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const revoked: WalletRevokedData = { tenantId: pass.tenantId, programId: pass.programId, merchantName: pass.merchantName, programName: pass.programName, locationName: pass.locationName, brandColor: pass.brandColor, country: "DE", locale: "de", membershipId: pass.membershipId, reason: "reissued" };
 const appleConfig = { passTypeId: "pass.local.loop", teamId: "ABCDE12345", webServiceUrl: "https://wallet.example.test/api/apple", authSecret: "a".repeat(40) };
-const tinyPng = pngOfSize(1, 1);
+const fakeLogo = { png1x: Buffer.alloc(1), png2x: Buffer.alloc(1), png3x: Buffer.alloc(1), width: 160, height: 50 };
+const svgLogo = async (width: number, height: number, body: string) => `data:image/png;base64,${(await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`)).png().toBuffer()).toString("base64")}`;
+// A white wordmark (three blocks with gaps) on transparent: wide, so the pass shows no name beside it.
+const wordmark = () => svgLogo(360, 120, `<g fill="#fff"><rect width="100" height="120"/><rect x="130" y="30" width="100" height="90"/><rect x="260" width="100" height="60"/></g>`);
 function pngChunk(type: string, data: Buffer) {
   const label = Buffer.from(type), length = Buffer.alloc(4), checksum = Buffer.alloc(4);
   length.writeUInt32BE(data.length);
@@ -124,6 +131,20 @@ describe("Apple Wallet configuration status (operator diagnostics)", () => {
       expect(appleWalletStatus({ ...apple.env, APPLE_WALLET_WEB_SERVICE_URL: "http://wallet.example.test/api/apple" }).ready).toBe(false);
     } finally { apple.cleanup(); }
   });
+
+  it("serves per-location copies of the environment from the status cache, but never a copy with other Apple inputs", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv(apple.env, () => {
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        rmSync(apple.config.keyPath);
+        // The file is gone, yet the copy hits the five-minute cache the way process.env does: no openssl/zip per request.
+        expect(appleWalletStatus({ ...process.env, PASSFAST_TENANT_TEMPLATES: "[]" }).ready).toBe(true);
+        expect(appleWalletStatus({ ...process.env, APPLE_TEAM_ID: "abc" }).ready).toBe(false);
+        expect(appleWalletStatus({ ...process.env, APPLE_SIGNING_KEY_PATH: `${apple.config.keyPath}.other` }).ready).toBe(false);
+      });
+    } finally { apple.cleanup(); }
+  });
 });
 
 describe("public Wallet availability never leaks diagnostics", () => {
@@ -151,6 +172,17 @@ describe("pass content derived from Loynara state", () => {
     expect(walletProgress({ ...pass, locale: "fr" })).toMatchObject({ unit: "tampons", statusText: "Encore 3 tampons" });
   });
 
+  it("counts the last point or stamp in the singular, the field label stays plural (ENG-108)", () => {
+    const points = (balance: number, locale: "de" | "fr" = "de") => walletProgress({ ...pass, locale, programType: "points", balance, reward: { title: "Gutschein", cost: 200 } });
+    expect(points(199)).toMatchObject({ unit: "Punkte", statusText: "Noch 1 Punkt" });
+    expect(points(198)).toMatchObject({ statusText: "Noch 2 Punkte" });
+    expect(points(199, "fr")).toMatchObject({ unit: "points", statusText: "Encore 1 point" });
+    expect(points(198, "fr")).toMatchObject({ statusText: "Encore 2 points" });
+    expect(walletProgress({ ...pass, balance: 9 })).toMatchObject({ statusText: "Noch 1 Stempel" });
+    expect(walletProgress({ ...pass, locale: "fr", balance: 9 })).toMatchObject({ unit: "tampons", statusText: "Encore 1 tampon" });
+    expect(walletProgress({ ...pass, locale: "fr", balance: 8 })).toMatchObject({ statusText: "Encore 2 tampons" });
+  });
+
   it("picks readable text like the browser card", () => {
     expect(passInk("#264C45")).toBe("light");
     expect(passInk("#F2D16B")).toBe("dark");
@@ -173,20 +205,115 @@ describe("Apple pass", () => {
     expect(first.serialNumber).not.toBe(pass.membershipId);
   });
 
-  it("puts merchant first and shows progress, reward, status and the card number with one change message", () => {
+  it("puts merchant first, the balance in the header and the card number under the QR code", () => {
     const json = applePassJson(pass, serial, appleConfig);
     expect(json).toMatchObject({ organizationName: "Kasseler Kaffee", logoText: "Kasseler Kaffee", foregroundColor: "rgb(255, 255, 255)", backgroundColor: "rgb(38, 76, 69)", sharingProhibited: true, webServiceURL: appleConfig.webServiceUrl });
-    expect(json.storeCard.headerFields).toEqual([{ key: "balance", label: "STEMPEL", value: "7 / 10" }]);
-    expect(json.storeCard.primaryFields).toEqual([{ key: "reward", label: "NÄCHSTE PRÄMIE", value: "Kaffee nach Wahl" }]);
-    expect(json.storeCard.secondaryFields[0]).toEqual({ key: "status", label: "STATUS", value: "Noch 3 Stempel", changeMessage: "%@" });
-    expect(json.storeCard.secondaryFields[1]).toMatchObject({ key: "card", value: "K-7QX2MA" });
     expect(json.barcodes).toEqual([{ format: "PKBarcodeFormatQR", message: pass.scanCode, messageEncoding: "iso-8859-1", altText: "K-7QX2MA" }]);
     expect(JSON.stringify(json)).not.toMatch(/card_[A-Za-z0-9]/); // never the bearer card link
-    const ready = applePassJson({ ...pass, balance: 10 }, serial, appleConfig);
-    expect(ready.storeCard.primaryFields[0].label).toBe("PRÄMIE BEREIT");
     expect(applePassJson({ ...pass, brandColor: "#F2D16B" }, serial, appleConfig).foregroundColor).toBe("rgb(17, 17, 17)");
-    const noReward = applePassJson({ ...pass, reward: undefined }, serial, appleConfig);
-    expect(noReward.storeCard.headerFields[0]).toMatchObject({ changeMessage: "%@" });
+  });
+
+  it("shows the spec's cases A–E: no primary or auxiliary field, the reward left and what is left right (ENG-119)", () => {
+    const front = (data: Partial<WalletPassData>) => applePassJson({ ...pass, ...data }, serial, appleConfig);
+    const a = front({ balance: 3, brandColor: "#8A3B2E", reward: { title: "Gratiskaffee", cost: 10 } });
+    expect(a).toMatchObject({ logoText: "Kasseler Kaffee", foregroundColor: "rgb(255, 255, 255)" });
+    expect(Object.keys(a.storeCard)).toEqual(["headerFields", "secondaryFields", "backFields"]);
+    expect(a.storeCard.headerFields).toEqual([{ key: "balance", label: "STEMPEL", value: "3 / 10" }]);
+    expect(a.storeCard.secondaryFields).toEqual([
+      { key: "reward", label: "NÄCHSTE PRÄMIE", value: "Gratiskaffee" },
+      { key: "status", label: "NOCH", value: "7 Stempel", changeMessage: "Noch %@", textAlignment: "PKTextAlignmentRight" },
+    ]);
+    const b = front({ balance: 8, brandColor: "#F2C14E", appleLogo: { ...fakeLogo, showName: false }, reward: { title: "Kugel gratis", cost: 8 } });
+    expect(b).toMatchObject({ foregroundColor: "rgb(17, 17, 17)" });
+    expect(b).not.toHaveProperty("logoText"); // a wordmark already carries the name
+    expect(b.storeCard.headerFields[0].value).toBe("8 / 8");
+    expect(b.storeCard.secondaryFields).toEqual([
+      { key: "reward", label: "PRÄMIE BEREIT", value: "Kugel gratis" },
+      { key: "status", label: "EINLÖSEN", value: "an der Kasse", changeMessage: "Deine Prämie ist bereit. Du kannst sie %@ einlösen.", textAlignment: "PKTextAlignmentRight" },
+    ]);
+    expect(front({ balance: 9, reward: { title: "Kuchenstück gratis", cost: 14 } }).storeCard.secondaryFields[1].value).toBe("5 Stempel");
+    const d = front({ programType: "points", balance: 21, brandColor: "#2C4A7A", appleLogo: { ...fakeLogo, width: 50, showName: true }, reward: { title: "Haarwäsche gratis", cost: 100 } });
+    expect(d).toMatchObject({ logoText: "Kasseler Kaffee" });
+    expect(d.storeCard.headerFields).toEqual([{ key: "balance", label: "PUNKTE", value: "21" }]);
+    expect(d.storeCard.secondaryFields[1]).toMatchObject({ label: "NOCH", value: "79 Punkte" });
+    expect(front({ programType: "points", balance: 99, reward: { title: "Haarwäsche gratis", cost: 100 } }).storeCard.secondaryFields[1].value).toBe("1 Punkt");
+    const e = front({ programType: "points", balance: 312, brandColor: "#F3D9DD", reward: { title: "Antipasti-Teller", cost: 300 } });
+    expect(e.storeCard.headerFields[0].value).toBe("312");
+    expect(e.storeCard.secondaryFields.map(field => [field.label, field.value])).toEqual([["PRÄMIE BEREIT", "Antipasti-Teller"], ["EINLÖSEN", "an der Kasse"]]);
+  });
+
+  it("keeps one key on the right-hand field, so Wallet alerts when the reward turns ready and again after redeeming", () => {
+    const status = (balance: number) => applePassJson({ ...pass, balance }, serial, appleConfig).storeCard.secondaryFields.find(field => field.key === "status");
+    expect(status(9)).toMatchObject({ value: "1 Stempel", changeMessage: "Noch %@" });
+    expect(status(10)).toMatchObject({ value: "an der Kasse", changeMessage: "Deine Prämie ist bereit. Du kannst sie %@ einlösen." });
+    expect(status(0)).toMatchObject({ value: "10 Stempel", changeMessage: "Noch %@" });
+    expect(applePassJson(pass, serial, appleConfig).storeCard.headerFields[0]).not.toHaveProperty("changeMessage"); // one alert per update
+  });
+
+  it("shows the programme and announces the balance when no reward is set up", () => {
+    const json = applePassJson({ ...pass, reward: undefined }, serial, appleConfig);
+    expect(json.storeCard.headerFields).toEqual([{ key: "balance", label: "STEMPEL", value: "7", changeMessage: "Dein Stand: %@" }]);
+    expect(json.storeCard.secondaryFields).toEqual([{ key: "programName", label: "PROGRAMM", value: "Kaffeeclub" }]);
+    expect(json.storeCard.backFields.map(field => field.key)).not.toContain("rewardTitle");
+  });
+
+  it("demo environment only: Legal's demo line leads the back as a plain field, never with a change message (Legal, 9 Nov)", () => {
+    const line = "Demo von Loynara für Kaffeeclub. Diese Karte endet am 10. November 2026 um 15:30. Stempel und Prämien gelten nicht.";
+    const back = applePassJson({ ...pass, demoNotice: line }, serial, appleConfig).storeCard.backFields;
+    expect(back[0]).toEqual({ key: "demo", label: "", value: line, dataDetectorTypes: [] });
+    expect(applePassJson(pass, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("demo");
+  });
+
+  it("puts the rules first on the back, then the full reward name, programme, location, card, update and note", () => {
+    const rules = ["Ein Stempel pro Heißgetränk.", "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben."];
+    const long = "Gratisgetränk 0,3 l, nur Mo–Fr außer Feiertage";
+    const json = applePassJson({ ...pass, rules, reward: { title: long, cost: 10 }, lastActivityAt: new Date("2026-10-28T11:39:00Z") }, serial, appleConfig);
+    expect(json.storeCard.backFields.map(field => [field.key, field.label])).toEqual([["rules", "Programmregeln"], ["rewardTitle", "Nächste Prämie"], ["programme", "Programm"], ["location", "Standort"], ["card", "Karte"], ["updated", "Zuletzt aktualisiert"], ["note", "Hinweis"]]);
+    expect(json.storeCard.backFields.slice(0, 5).map(field => field.value)).toEqual([rules.join("\n\n"), long, "Kaffeeclub", "Mitte", "K-7QX2MA"]);
+    expect(applePassJson({ ...pass, balance: 10 }, serial, appleConfig).storeCard.backFields.find(field => field.key === "rewardTitle")?.label).toBe("Prämie bereit");
+    const keys = [...json.storeCard.headerFields, ...json.storeCard.secondaryFields, ...json.storeCard.backFields].map(field => field.key);
+    expect(new Set(keys).size).toBe(keys.length); // Wallet needs every field key unique across the pass
+  });
+
+  it("turns data detectors off on the rules and the reward name, so „0,3 l“ is no unit and no owner text becomes a link", () => {
+    const json = applePassJson({ ...pass, rules: ["Ein Stempel pro Pizza ab 8 €."], reward: { title: "Gratisgetränk 0,3 l, nur Mo–Fr außer Feiertage", cost: 10 } }, serial, appleConfig);
+    const back = Object.fromEntries(json.storeCard.backFields.map(field => [field.key, field]));
+    expect(back.rules).toMatchObject({ dataDetectorTypes: [] });
+    expect(back.rewardTitle).toMatchObject({ dataDetectorTypes: [] });
+    expect(back.note).not.toHaveProperty("dataDetectorTypes"); // the rest keeps Wallet's defaults
+  });
+
+  it("lists what each reward costs right after the reward name, in the merchant's order (ENG-116)", () => {
+    const rewards = [{ title: "Gratiskaffee", cost: 100 }, { title: "Frühstück", cost: 1 }, { title: "Torte", cost: 200 }];
+    const back = applePassJson({ ...pass, programType: "points", reward: rewards[0], rewards }, serial, appleConfig).storeCard.backFields;
+    expect(back.map(field => field.key).slice(0, 3)).toEqual(["rewardTitle", "rewards", "programme"]);
+    expect(back[1]).toEqual({ key: "rewards", label: "Prämien", value: "100 Punkte – Gratiskaffee\n1 Punkt – Frühstück\n200 Punkte – Torte", dataDetectorTypes: [] });
+    const stamps = applePassJson({ ...pass, rewards: [{ title: "Gratiskaffee", cost: 10 }, { title: "Brötchen", cost: 1 }] }, serial, appleConfig).storeCard.backFields;
+    expect(stamps.find(field => field.key === "rewards")?.value).toBe("10 Stempel – Gratiskaffee\n1 Stempel – Brötchen");
+    // No approved French label yet: French passes keep their back as it is.
+    expect(applePassJson({ ...pass, locale: "fr", rewards }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("rewards");
+  });
+
+  it("puts the owner's message after the rules and the reward on the back, with a lock-screen changeMessage, leaving the front as it was (ENG-127)", () => {
+    const text = "Heute ruhig: Kaffee zum halben Preis bis 17 Uhr.";
+    const rules = ["Ein Stempel pro Kaffee."];
+    const json = applePassJson({ ...pass, rules, message: text, messageDay: "28.10." }, serial, appleConfig);
+    expect(json.storeCard.backFields.map(field => field.key).slice(0, 3)).toEqual(["rules", "rewardTitle", "message"]);
+    expect(json.storeCard.backFields[2]).toEqual({ key: "message", label: "Nachricht von Kasseler Kaffee vom 28.10.", value: text, changeMessage: "%@", dataDetectorTypes: [] });
+    const plain = applePassJson({ ...pass, rules }, serial, appleConfig);
+    expect(plain.storeCard.backFields.map(field => field.key)).not.toContain("message");
+    expect({ ...json.storeCard, backFields: json.storeCard.backFields.filter(field => field.key !== "message") }).toEqual(plain.storeCard);
+    // Consent without a message yet: the key exists with a placeholder, so Wallet alerts when the first message changes it.
+    expect(applePassJson({ ...pass, message: "" }, serial, appleConfig).storeCard.backFields.find(field => field.key === "message")).toMatchObject({ key: "message", label: "Nachricht von Kasseler Kaffee", value: "Noch keine Nachricht." });
+    expect(applePassJson({ ...pass, locale: "fr", message: text }, serial, appleConfig).storeCard.backFields.map(field => field.key)).not.toContain("message");
+  });
+
+  it("keeps today's approved French status line while the new strings are German only (founder, 28 Oct)", () => {
+    const card = (data: Partial<WalletPassData>) => applePassJson({ ...pass, locale: "fr", ...data }, serial, appleConfig).storeCard;
+    expect(card({}).secondaryFields[1]).toEqual({ key: "status", label: "STATUT", value: "Encore 3 tampons", changeMessage: "%@", textAlignment: "PKTextAlignmentRight" });
+    expect(card({ balance: 10 }).secondaryFields[1]).toMatchObject({ key: "status", label: "STATUT", value: "À utiliser en caisse", changeMessage: "%@" });
+    expect(card({ reward: undefined }).headerFields[0]).toMatchObject({ changeMessage: "%@" });
+    expect(card({ rules: ["Un tampon par visite."] }).backFields[0]).toMatchObject({ key: "rules", label: "Règles du programme" });
   });
 
   it("voids a revoked pass without QR code, balance or card number", () => {
@@ -200,22 +327,26 @@ describe("Apple pass", () => {
     expect(appleVoidedPassJson({ ...revoked, reason: "closed" }, serial, appleConfig).storeCard.primaryFields[0].value).toBe("Geschlossen");
   });
 
-  it("includes merchant location coordinates only when supplied", () => {
-    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toMatchObject([{ latitude: 51.3127, longitude: 9.4797 }]);
+  it("includes the shop pin with the lock-screen line only when coordinates are supplied", () => {
+    expect(applePassJson({ ...pass, latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations).toEqual([{ latitude: 51.3127, longitude: 9.4797, relevantText: "Kasseler Kaffee: deine Karte" }]);
+    expect(applePassJson({ ...pass, locale: "fr", latitude: 51.3127, longitude: 9.4797 }, serial, appleConfig).locations?.[0].relevantText).toBe("Kasseler Kaffee\u00a0: votre carte");
     expect("locations" in applePassJson(pass, serial, appleConfig)).toBe(false);
   });
 
   it("packages a signed archive whose manifest matches every file, including the merchant logo", async () => {
     const apple = appleFixture();
     try {
-      const logo = appleLogoFromData(pngOfSize(120, 40));
+      const logo = await appleLogoFromData(await wordmark(), pass.brandColor);
       expect(logo).toBeDefined();
+      expect(new Set([logo!.png1x, logo!.png2x, logo!.png3x].map(png => png.toString("base64"))).size).toBe(3);
       const withLogo = { ...pass, appleLogo: logo };
       const buffer = await applePassArchive(applePassJson(withLogo, serial, apple.config), withLogo, apple.config);
       const archive = join(apple.dir, "fixture.pkpass");
       writeFileSync(archive, buffer);
       const files = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" }).trim().split("\n");
-      expect(files).toEqual(expect.arrayContaining(["pass.json", "manifest.json", "signature", "icon.png", "icon@2x.png", "icon@3x.png", "logo.png", "logo@2x.png"]));
+      expect(files).toEqual(expect.arrayContaining(["pass.json", "manifest.json", "signature", "icon.png", "icon@2x.png", "icon@3x.png", "logo.png", "logo@2x.png", "logo@3x.png", "strip.png", "strip@2x.png", "strip@3x.png"]));
+      expect(execFileSync("unzip", ["-p", archive, "strip@3x.png"])).toEqual(stripPng("stamp", 7, [10], 3));
+      expect(execFileSync("unzip", ["-p", archive, "icon@3x.png"])).toEqual(iconPng(3, pass.brandColor));
       const manifest = JSON.parse(execFileSync("unzip", ["-p", archive, "manifest.json"], { encoding: "utf8" }));
       for (const name of files.filter(file => file !== "manifest.json" && file !== "signature")) {
         expect(manifest[name], name).toBe(createHash("sha1").update(execFileSync("unzip", ["-p", archive, name])).digest("hex"));
@@ -231,6 +362,36 @@ describe("Apple pass", () => {
     } finally { apple.cleanup(); }
   });
 
+  it("takes the pass icon from a square logo and keeps the stamp disc for a wide one (ENG-134)", async () => {
+    const apple = appleFixture();
+    try {
+      const icon = async (logoData: string) => {
+        const logo = await appleLogoFromData(logoData, pass.brandColor);
+        const withLogo = { ...pass, appleLogo: logo };
+        writeFileSync(join(apple.dir, "icon.pkpass"), await applePassArchive(applePassJson(withLogo, serial, apple.config), withLogo, apple.config));
+        return { logo, icon3x: execFileSync("unzip", ["-p", join(apple.dir, "icon.pkpass"), "icon@3x.png"]) };
+      };
+      const square = await icon(await svgLogo(400, 400, `<rect width="400" height="400" fill="#B3261E"/><rect x="80" y="160" width="240" height="80" fill="#fff"/>`));
+      expect(square.icon3x).toEqual(square.logo!.icon![2]);
+      expect((await icon(await wordmark())).icon3x).toEqual(iconPng(3, pass.brandColor));
+    } finally { apple.cleanup(); }
+  });
+
+  it("adds no strip without a target reward, nor to a voided pass", async () => {
+    const apple = appleFixture();
+    try {
+      const files = async (json: Parameters<typeof applePassArchive>[0], data: Parameters<typeof applePassArchive>[1]) => {
+        writeFileSync(join(apple.dir, "fixture.pkpass"), await applePassArchive(json, data, apple.config));
+        return execFileSync("unzip", ["-Z1", join(apple.dir, "fixture.pkpass")], { encoding: "utf8" }).trim().split("\n");
+      };
+      const noReward = { ...pass, reward: undefined };
+      for (const names of [await files(applePassJson(noReward, serial, apple.config), noReward), await files(appleVoidedPassJson(revoked, serial, apple.config), revoked)]) {
+        expect(names).toContain("icon@3x.png");
+        expect(names.filter(name => name.startsWith("strip"))).toEqual([]);
+      }
+    } finally { apple.cleanup(); }
+  });
+
   it("sends update pushes as empty background notifications for the pass topic", () => {
     const request = apnsPassUpdateRequest("pass.local.loop", "a".repeat(64));
     expect(request.headers).toMatchObject({ ":method": "POST", ":path": `/3/device/${"a".repeat(64)}`, "apns-topic": "pass.local.loop", "apns-push-type": "background", "apns-priority": "5" });
@@ -239,7 +400,7 @@ describe("Apple pass", () => {
 });
 
 describe("merchant logo handling", () => {
-  it("falls back for truncated, checksum-corrupted, invalid image data and decompression bombs", () => {
+  it("gives Google no merchant logo for truncated, checksum-corrupted, invalid image data and decompression bombs", async () => {
     const valid = Buffer.from(pngOfSize(32, 32).split(",")[1], "base64");
     const badCrc = Buffer.from(valid); badCrc[29] ^= 1;
     const header = valid.subarray(16, 29);
@@ -253,30 +414,92 @@ describe("merchant logo handling", () => {
       image(deflateSync(Buffer.alloc(32 * 129, 5))),
       image(deflateSync(Buffer.alloc(1_000_000)), hugeHeader)]) {
       const data = `data:image/png;base64,${bytes.toString("base64")}`;
-      expect(decodeMerchantLogoPng(data)).toBeNull();
-      expect(appleLogoFromData(data)).toBeUndefined();
-      expect(merchantGoogleLogoUrl(pass.programId, data, env)).toBeUndefined();
+      // Treated as no logo: only the initial, never the bytes.
+      expect(await merchantGoogleLogoUrls(pass.programId, data, pass.brandColor, pass.merchantName, env)).toEqual(await merchantGoogleLogoUrls(pass.programId, null, pass.brandColor, pass.merchantName, env));
     }
   });
 
-  it("accepts a reasonable PNG for Apple and falls back for anything else", () => {
-    expect(pngDimensions(decodeMerchantLogoPng(pngOfSize(320, 100))!)).toEqual({ width: 320, height: 100 });
-    expect(appleLogoFromData(pngOfSize(320, 100))).toMatchObject({ width: 320, height: 100 });
-    expect(appleLogoFromData(null)).toBeUndefined();
-    expect(appleLogoFromData("data:image/jpeg;base64,/9j/4AAQ")).toBeUndefined();
-    expect(appleLogoFromData(pngOfSize(4000, 100))).toBeUndefined(); // too wide
-    expect(appleLogoFromData(pngOfSize(8, 8))).toBeUndefined(); // too small
-    expect(appleLogoFromData(pngOfSize(200, 200, 600_000))).toBeUndefined(); // too heavy
-    expect(appleLogoFromData("data:image/png;base64,not-base64!")).toBeUndefined();
+  it("gives Apple every readable logo in its own shape and leaves out a missing, unreadable or faint one (ENG-134)", async () => {
+    expect(await appleLogoFromData(await wordmark(), pass.brandColor)).toMatchObject({ width: 150, height: 50, showName: false });
+    const square = await svgLogo(400, 400, `<rect width="400" height="400" fill="#B3261E"/><rect x="80" y="160" width="240" height="80" fill="#fff"/>`);
+    const jpeg = `data:image/jpeg;base64,${(await sharp(Buffer.from(square.split(",")[1], "base64")).jpeg().toBuffer()).toString("base64")}`;
+    expect(await appleLogoFromData(jpeg, pass.brandColor)).toMatchObject({ width: 50, height: 50, showName: true, icon: expect.any(Array) });
+    expect(await appleLogoFromData(null, pass.brandColor)).toBeUndefined();
+    expect(await appleLogoFromData("data:image/jpeg;base64,/9j/4AAQ", pass.brandColor)).toBeUndefined();
+    expect(await appleLogoFromData(pngOfSize(8, 8), pass.brandColor)).toBeUndefined(); // too small
+    expect(await appleLogoFromData("data:image/png;base64,not-base64!", pass.brandColor)).toBeUndefined();
+    const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
+    const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
+    expect(await appleLogoFromData(darkLogo, "#1F4D3A")).toBeUndefined(); // too faint on Waldgrün: the pass shows the name instead
   });
 
-  it("derives a versioned merchant PNG URL for Google only with an explicitly enabled HTTPS asset origin", () => {
+  it("gives Google a versioned URL per asset only with an explicitly enabled HTTPS asset origin (ENG-153)", async () => {
     const env = { GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.example.test" };
-    const url = merchantGoogleLogoUrl(pass.programId, tinyPng, env);
-    expect(url).toMatch(new RegExp(`^https://assets\\.example\\.test/api/wallet/assets/google-logo/${pass.programId}\\.png\\?v=[0-9a-f]{16}$`));
-    expect(merchantGoogleLogoUrl(pass.programId, tinyPng, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toBeUndefined();
-    expect(merchantGoogleLogoUrl(pass.programId, tinyPng, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toBeUndefined();
-    expect(merchantGoogleLogoUrl(pass.programId, "data:image/jpeg;base64,YWJj", env)).toBeUndefined();
+    const urls = (logo: string, color = pass.brandColor, e: Record<string, string> = env) => merchantGoogleLogoUrls(pass.programId, logo, color, pass.merchantName, e);
+    const route = (name: string) => new RegExp(`^https://assets\\.example\\.test/api/wallet/assets/${name}/${pass.programId}\\.png\\?v=[0-9a-f]{16}$`);
+    const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
+    expect(Object.keys(await urls(square))).toEqual(["googleLogoUrl"]);
+    expect((await urls(square)).googleLogoUrl).toMatch(route("google-logo"));
+    const wide = await urls(await wordmark());
+    expect(wide.googleLogoUrl).toMatch(route("google-logo"));
+    expect(wide.googleWideLogoUrl).toMatch(route("google-wide-logo"));
+    expect(new URL(wide.googleWideLogoUrl!).search).not.toBe(new URL(wide.googleLogoUrl!).search);
+    // The initial is drawn on the brand colour, so a new colour is a new revision.
+    expect((await urls(await wordmark(), "#B3261E")).googleLogoUrl).not.toBe(wide.googleLogoUrl);
+    expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ENABLED: "false" })).toEqual({});
+    expect(await urls(square, pass.brandColor, { ...env, GOOGLE_WALLET_ASSET_ORIGIN: "http://localhost:3000" })).toEqual({});
+    expect(await urls("data:image/jpeg;base64,YWJj")).toEqual({ googleLogoUrl: wide.googleLogoUrl }); // unreadable: the initial only
+  });
+
+  it("never squeezes a wide logo into Google's circle and drops a faint one for the initial, like Apple (ENG-153)", async () => {
+    const size = async (bytes?: Buffer) => { const { width, height } = await sharp(bytes!).metadata(); return [width, height]; };
+    const logo = await wordmark();
+    const circle = await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName);
+    expect(circle).toEqual(await initialLogo("K", pass.brandColor));
+    expect(await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName)).toBe(circle); // drawn once, then remembered
+    expect(await size(circle)).toEqual([660, 660]);
+    expect(await size(await googleLogoAsset("wide", logo, pass.brandColor, pass.merchantName))).toEqual([1280, 400]);
+    const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
+    const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
+    expect(await googleLogoAsset("wide", darkLogo, "#1F4D3A", pass.merchantName)).toBeUndefined();
+    expect(await googleLogoAsset("square", darkLogo, "#1F4D3A", pass.merchantName)).toEqual(await initialLogo("K", "#1F4D3A"));
+    const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
+    expect(await googleLogoAsset("wide", square, pass.brandColor, pass.merchantName)).toBeUndefined();
+    const tall = await svgLogo(100, 200, `<rect width="100" height="200" rx="20" fill="#fff"/>`);
+    expect(await googleLogoAsset("wide", tall, pass.brandColor, pass.merchantName)).toBeUndefined(); // a tall mark sits in the circle
+    expect(await googleLogoAsset("square", tall, pass.brandColor, pass.merchantName)).not.toEqual(circle);
+    // No logo: the initial, as the studio shows it; a name with nothing to draw gets no circle rather than an empty disc.
+    expect(await googleLogoAsset("square", null, pass.brandColor, pass.merchantName)).toBe(circle);
+    expect(await googleLogoAsset("square", null, pass.brandColor, "★ & ✿")).toBeUndefined();
+    expect(await googleLogoAsset("square", logo, pass.brandColor, "★ & ✿")).toBeUndefined();
+  });
+
+  it("keeps a real black wordmark JPG on a light brand colour on both wallets: its white box carries it (ENG-153)", async () => {
+    const jpg = `data:image/jpeg;base64,${readFileSync(join(__dirname, "fixtures/white-jpg-wordmark.jpg")).toString("base64")}`;
+    expect(await appleLogoFromData(jpg, "#F2E8DC")).toBeDefined();
+    expect(await googleLogoAsset("wide", jpg, "#F2E8DC", pass.merchantName)).toBeDefined();
+  });
+
+  it("takes the initial from the first drawable letter, the same for the circle and the studio preview (ENG-153)", () => {
+    expect(["„Zur Linde“", "'s Eck", "Ølhus", "Öztürk", "1. FC Kebab", "&Co", "éclair", "1. Döner", "4711", "  ", "★"].map(initialOf))
+      .toEqual(["Z", "S", "L", "Ö", "F", "C", "E", "D", "4", "", ""]);
+  });
+
+  it("draws the shop's initial in the pass ink on the brand colour, accents folded, without any font installed (ENG-153)", async () => {
+    const rows = async (initial: string) => {
+      const { data } = await sharp(await initialLogo(initial, "#264C45")).raw().toBuffer({ resolveWithObject: true });
+      const inked: number[] = [];
+      for (let y = 0; y < 660; y++) for (let x = 0; x < 660; x++) if (data[(y * 660 + x) * 4] > 200) { inked.push(y); break; }
+      return [inked[0], inked.at(-1)!];
+    };
+    expect(await rows("K")).toEqual([198, 461]); // caps 264 px tall, centred
+    const [oTop, oBottom] = await rows("O");
+    const [umlautTop, umlautBottom] = await rows("Ö");
+    expect(umlautBottom).toBe(oBottom); // same size and baseline: the dots sit above, the letter does not shrink
+    expect(umlautTop).toBeLessThan(oTop - 30);
+    for (const initial of INITIAL_CHARACTERS) await expect(initialLogo(initial, "#264C45")).resolves.toBeInstanceOf(Buffer);
+    expect((await sharp(await initialLogo("K", "#264C45")).stats()).channels[0].max).toBe(255); // white on dark
+    expect((await sharp(await initialLogo("K", "#F2E9DC")).stats()).channels[0].min).toBeLessThan(30); // dark on light
   });
 });
 
@@ -304,6 +527,14 @@ describe("Google Wallet adapter", () => {
     expect(googleObject({ ...pass, programType: "points", reward: undefined }, serial, config).loyaltyPoints).toEqual({ label: "Punkte", balance: { int: 7 } });
   });
 
+  it("puts the shop pin on the class as merchantLocations, the field Google's nearby notification reads", () => {
+    const located = { ...pass, latitude: 51.3127, longitude: 9.4797 };
+    expect(googleClass(located, config)).toMatchObject({ merchantLocations: [{ latitude: 51.3127, longitude: 9.4797 }] });
+    expect("locations" in googleClass(located, config)).toBe(false);
+    expect("merchantLocations" in googleClass(pass, config)).toBe(false);
+    expect(JSON.stringify(googleObject(located, serial, config))).not.toContain("51.3127");
+  });
+
   it("deactivates a revoked object without barcode, balance or card number", () => {
     const object = googleRevokedObject(revoked, "123456.loynara_old", config);
     expect(object.state).toBe("INACTIVE");
@@ -318,6 +549,16 @@ describe("Google Wallet adapter", () => {
     expect(googleClass({ ...pass, googleLogoUrl: merchantLogoUrl }, config).programLogo.sourceUri.uri).toBe(merchantLogoUrl);
     expect(googleClass(pass, config).programLogo.sourceUri.uri).toBe(config.logoUrl);
     expect(() => googleClass({ ...pass, googleLogoUrl: "http://localhost:3000/logo.png" }, config)).toThrow("HTTPS");
+  });
+
+  it("sets wideProgramLogo only for a logo that is not square, keeping the circle for the initial (ENG-153)", () => {
+    const googleLogoUrl = "https://assets.example.test/api/wallet/assets/google-logo/cccccccc-cccc-4ccc-8ccc-cccccccccccc.png?v=0123456789abcdef";
+    const googleWideLogoUrl = "https://assets.example.test/api/wallet/assets/google-wide-logo/cccccccc-cccc-4ccc-8ccc-cccccccccccc.png?v=fedcba9876543210";
+    const cls = googleClass({ ...pass, googleLogoUrl, googleWideLogoUrl }, config);
+    expect(cls.programLogo.sourceUri.uri).toBe(googleLogoUrl);
+    expect(cls.wideProgramLogo).toEqual({ sourceUri: { uri: googleWideLogoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: "Kasseler Kaffee Logo" } } });
+    expect("wideProgramLogo" in googleClass({ ...pass, googleLogoUrl }, config)).toBe(false);
+    expect(() => googleClass({ ...pass, googleLogoUrl, googleWideLogoUrl: "http://localhost:3000/wide.png" }, config)).toThrow("HTTPS");
   });
 
   it("signs a Save link that references the prepared object by id only (no scan code in the URL)", () => {

@@ -32,10 +32,10 @@ describe("database-resolved managed Wallet scope", () => {
     const { walletCardEligibility } = await import("./eligibility");
     expect(await walletCardEligibility(member.cardToken)).toMatchObject({ tenantId: merchant.tenantId, locationId: merchant.locationId, membershipId: member.id, credentialHash: credentialHash(member.scanCode), availability: { apple: "available", google: "unavailable" } });
     expect((await walletCardEligibility(second.card_token)).availability).toEqual({ apple: "unavailable", google: "unavailable" });
-    await expect(walletCardEligibility("invalid-token")).rejects.toMatchObject({ code: "NOT_FOUND", message: "Card not found" });
-    await expect(walletCardEligibility(`card_${"z".repeat(40)}`)).rejects.toMatchObject({ code: "NOT_FOUND", message: "Card not found" });
+    await expect(walletCardEligibility("invalid-token")).rejects.toMatchObject({ code: "NOT_FOUND", message: "Diese Karte haben wir nicht gefunden." });
+    await expect(walletCardEligibility(`card_${"z".repeat(40)}`)).rejects.toMatchObject({ code: "NOT_FOUND", message: "Diese Karte haben wir nicht gefunden." });
     await pool.query("UPDATE memberships SET closed_at=now() WHERE id=$1", [member.id]);
-    await expect(walletCardEligibility(member.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND", message: "Card not found" });
+    await expect(walletCardEligibility(member.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND", message: "Diese Karte haben wir nicht gefunden." });
   });
   it("snapshot carries the actual program location", async () => {
     const snapshot = await walletCardSnapshot(member.id);

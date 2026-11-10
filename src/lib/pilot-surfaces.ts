@@ -1,4 +1,5 @@
 import { isProductionDeployment } from "./pilot-policy";
+import { demoEnvironment } from "./demo-environment";
 import { nfcCapability } from "./nfc-keys";
 import { anyWalletAvailable } from "./wallet/capability";
 
@@ -17,7 +18,8 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   Withheld on real production until Legal's documents are live and the founder switches it on; preview and development show it.
  * - campaigns: withheld like automations while production e-mail delivery is disabled (Product, 24 Oct: the owner area offers
  *   one way to bring customers back, the Wallet win-back bonus on the programme page).
- * - audiences: NOT withheld. The audience preview only counts cards; nothing can be sent from it.
+ * - audiences: withheld with campaigns (founder, 6 Nov): its only next step is a campaign, so on production it would end in a
+ *   number with nothing to do, and the Kunden groups cover most of it.
  * - walletPreviews / cardLogo: Apple/Google Wallet previews, Wallet readiness and the logo upload in the card studio.
  *   Like NFC these follow CAPABILITY on real production: withheld while no Wallet provider can issue a pass (the browser
  *   card does not show a logo, the Apple pass does), shown automatically once Apple or Google Wallet is configured.
@@ -25,10 +27,15 @@ import { anyWalletAvailable } from "./wallet/capability";
  *   environment name: it is withheld wherever no verification-key provider is configured (lib/nfc-keys), so nothing is
  *   offered that could not work, and it appears automatically once production NFC is configured.
  *
+ * - walletMessages stays open in the demo environment (founder, 9 Nov: the pitch shows a message landing on the owner's
+ *   card). The send path takes it only from the active demo (lib/wallet-messages); the automatic reminders stay off there.
+ * - revenue: the owner board's „Umsatz deiner Loynara-Kunden“, withheld in the demo environment (design v3): its sample data
+ *   carries no amounts, and a demo must not show an owner invented money.
+ *
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
-export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages";
-export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "cancellation", "walletMessages"];
+export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages" | "revenue";
+export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "audiences", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
 
@@ -39,6 +46,7 @@ export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
   const hidden: PilotSurface[] = production ? PILOT_HIDDEN_SURFACES.filter(surface => !switchedOn(surface)) : [];
   if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
+  if (demoEnvironment(env)) hidden.push("revenue");
   return hidden;
 }
 

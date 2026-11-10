@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // Every counter load re-registers the device (it is bound to the login session), so allow a busy day of reloads.
     await enforceRateLimit({ scope: "push_subscribe_user", identity: user.id, max: 120, windowSeconds: 60 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const subscription = await jsonBody(request, 4_000);
     return Response.json(await saveStaffPushSubscription({ userId: user.id, sessionId, tenantId: context.tenantId, locationId: context.locationId, subscription }), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }

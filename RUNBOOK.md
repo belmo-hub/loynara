@@ -46,6 +46,8 @@ French staff reminder for this same local workflow: choisir le bon établissemen
 
 An owner can review the last 50 invite, acceptance and revocation events under **Team → Zugriffsverlauf** and download the full tenant-scoped history in the merchant JSON export. The database rejects updates and deletes of these new audit rows. No earlier staff events were backfilled, invitation links are never logged in the audit, and the operator still needs an approved retention schedule.
 
+In the merchant JSON export, a `programRuleVersions` or `rewardVersions` row replaced before its date keeps its past `effectiveAt` although it never applied; read `createdAt`: the row never applied if a higher version of it was created before that `effectiveAt`.
+
 ### Offline award simulation (local browser only)
 
 While online, look up the card to obtain a staff/location/card/browser lease valid for 30 minutes. After a disconnect, explicitly choose **Offline-Vergabe vormerken** in the award review. Up to 20 events stay in that browser's localStorage; the card balance and rewards do not change. Reconnect and choose **Ausstehende Vergaben synchronisieren**. Server acceptance posts one idempotent ledger award; rejection shows a reason for staff review and never credits the card. Expired leases, revoked staff, changed rules and closed cards are rejected. Redemption stays online. Do not clear browser data, switch device/browser or sign out before all pending events are reviewed; browser storage is not a durable server backup. The simulated disconnect/reload/retry/revocation tests passed locally, but a physical cashier-device outage and recovery are **NOT RUN**.
@@ -125,7 +127,7 @@ The printable enrollment sign is `var/device-test-counter-sign.pdf` (one A5 page
 
 Run `npm run local`, then `node scripts/record-full-platform-demo.mjs --verify` for the guarded synthetic rehearsal or `node scripts/record-full-platform-demo.mjs` to record. The script creates a fresh synthetic merchant and staff through app sessions, uses real database-backed actions and local Mailpit, and refuses remote origins/databases or enabled external providers. Its simulated camera feeds a generated QR through the actual decoder; it does not use physical camera hardware. Stop the local app/worker with Ctrl-C. If Colima was stopped, `colima start` starts the existing local Docker runtime first.
 
-Current outputs: [`full-platform-kassel-synthetic.mp4`](demo/full-platform-kassel-synthetic.mp4), [`recorded evidence`](demo/full-platform-kassel-evidence.json), and the one-page [`German product sheet`](demo/full-platform-product-sheet-de.pdf) with editable HTML alongside it. The new recording supersedes the narrow card demo for merchant presentations. The sheet's €69 standard / €49 founding / €99 assisted setup prices are proposals; existing stored €49 plan drafts in the app were not repriced. French merchant-flow work remains the next independent product slice **after** protected HTTPS, actual two-phone checkout, one real Wallet provider path, and this updated demo.
+Current outputs: [`full-platform-kassel-synthetic.mp4`](demo/full-platform-kassel-synthetic.mp4) and [`recorded evidence`](demo/full-platform-kassel-evidence.json). The recording is a test record and is not shown to merchants. The September pitch, merchant demo outline and product sheets were retired on 6 Nov 2026; they are in git history. French merchant-flow work remains the next independent product slice **after** protected HTTPS, actual two-phone checkout, one real Wallet provider path, and this updated demo.
 
 ## Local marketing mail test
 
@@ -146,6 +148,37 @@ Stage-A production backup amendment: Railway Hobby's authenticated account does 
 Run `npm run backup` to write a restricted custom-format PostgreSQL dump under ignored `var/backups/`. Run `npm run restore-check` to restore the newest dump into a new temporary database, verify the main tables and append-only ledger trigger, report row counts, and remove the temporary database. Both commands refuse a nonlocal or production target. A local backup refuses an existing destination, including one created while the dump is being validated; it does not replace another archive or move into a newly created directory. Failed dump, validation or publication leaves no temporary archive. To use a specific file, run `npm run backup -- path/to/file.dump` and `npm run restore-check -- path/to/file.dump`.
 
 These commands verify a local restoration only. Before live operation, arrange encrypted offsite backups, access limits, retention, periodic restoration drills, and a documented recovery owner. Never point the local scripts at a production database.
+
+## Erasing an ended shop (DS-05)
+
+**When:** never before the owner's 30-day export window is over, and at the latest by end date + 30 days + `SHOP_ERASURE_DELAY_DAYS` (7 by default, AVV § 8 (2)). The shop's Stripe subscription must have ended, and no checkout may be open. Once a day the worker logs `Erasure: N ended shop(s) to erase (<id> by <deadline>…)`, marked `OVERDUE` past the deadline, and the confirmations still to send. Erasing is final, so the operator runs it.
+
+**From the private Railway console**, as for `operator-programme`:
+1. `npx tsx scripts/operator-shop-erasure.ts due --target loynara-production --actor-user-id <operator user id>` lists the shops to erase and the confirmations still to send.
+2. `… erase --tenant-id <id> --target … --actor-user-id …` is a dry run: the rows per table that would go, or why not yet.
+3. Add `--execute` after reading the dry run.
+4. Send the owner the text-form confirmation, to the address on the erasure record, once it shows as sendable. Then record it: `… confirmed --tenant-id <id> --target … --actor-user-id …`.
+
+**What it does (Legal's ruling, 1 Nov 2026):**
+- **First, the provider copies, with retries.** The shop's Google Wallet objects are deactivated, and Mailgun's bounces, unsubscribes and complaints are removed for addresses no other shop uses. If one fails, nothing is deleted; revocations already done stay done, and running the erasure again skips them.
+- **The shop's Google Wallet classes are overwritten too (Legal).** Google has no class delete, so names, logo with its alt text, wide logo, location and colour become „Programm beendet“ and the neutral `GOOGLE_WALLET_PROGRAM_LOGO_URL`. Google may review that: the erasure then stops with `EXTERNAL_PENDING`, nothing is deleted, no confirmation is due, and `/operator` shows the state. Run the erasure again later; it finishes once Google shows the text approved. A class with Google off holds the erasure the same way. A shop without a class is not affected.
+- **If Google rejects the overwrite,** `/operator` shows „von Google abgelehnt“ and the erasure's error says so. Running it again alone won't help: the text is already there, so nothing is sent again. Find Google's reason in the Google Pay & Wallet Console and ask for a new review there. If the neutral logo is the reason, change `GOOGLE_WALLET_PROGRAM_LOGO_URL`, and the next run sends the overwrite again. Run the erasure again once the class is approved. If that won't happen before the DS-05 deadline, tell Legal the same day; the shop's data stays until then.
+- **Then one transaction:**
+  - It deletes every row of the shop in every table with a `tenant_id`, every row hanging off those, and every row naming the shop in another `*_tenant_id` column.
+  - It deletes the logins of the shop's owner and staff, with their sessions.
+  - Apple registrations and push tokens are in the database and go with it.
+  - The shop's promotional unsubscribes (`email_unsubscribes`) go with it. Global permanent failures and complaints (`email_suppressions`, no shop) stay until their 24-month expiry.
+  - Plates go back to stock.
+  - The contract facts (who ended it, when, which day) are first copied into the erasure record.
+- **The erasure record (`shop_erasures`, 6 years)** also holds the legal name, end date, export end, rows deleted per table, the provider clean-up, and the owner's name and business email for the confirmation. Its confirmation is sendable only after both parts succeeded.
+
+**What stays (Loynara's own records):** the billing records (`billing_invoices`, `billing_handoffs`, `billing_webhook_events`, `subscriptions`; 8 years) and the tenant row they hang off, reduced to its legal name and ids. No location row survives; each location's plan, price and guarantee facts are copied into the erasure record first.
+
+**Backups:** a backup isn't edited. Each is deleted 14 days after it was made (R2 lifecycle, DS-06) and used only for restores. **After any restore, before the service is released**, re-apply every erasure:
+1. Before restoring, save the live erasure list: `npx tsx scripts/reapply-erasures.ts export --target loynara-production > erasures.json`. A backup older than an erasure holds no record of it.
+2. After restoring: `npx tsx scripts/reapply-erasures.ts apply --file erasures.json --target loynara-production`. It prints a line for each shop it erased again and writes back any missing record.
+
+**Before the first real erasure (Legal: „tested on a copy“):** restore a recent backup into an isolated database (see the backup and restore check above). Run the dry run and then `--execute` there with `--target local`, and keep the console output with the release evidence.
 
 ## Deployment preparation
 

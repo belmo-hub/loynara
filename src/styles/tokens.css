@@ -5,8 +5,11 @@
   --color-bg: #EEF0EF;
   --color-surface: #FFFFFF;
   --color-raised: #FFFFFF;
+  /* A switch's knob: light in both themes, so it never reads as a hole in the track. */
+  --color-knob: #FFFFFF;
   --color-ink: #17291F;
   --color-ink-muted: #58645C;
+  --color-ink-faint: #76827A;
   --color-line: #DCE0D6;
   --color-line-strong: #7A867D;
   --color-action: #245D47;
@@ -19,8 +22,9 @@
   --color-on-stamp: #17291F;
   --color-success: #1F6B45;
   --color-danger: #A3321E;
+  --color-on-danger: #FFFFFF;
   --color-warning: #8A5A00;
-  --color-focus: #2E7D5B;
+  --color-focus: #17291F;
   --color-scrim: rgba(15, 23, 19, .48);
   --color-qr-ground: #FFFFFF;
   /* The Übersicht board (ENG-085): one deep green panel, built from values above (action-hover, dark action-hover/action). */
@@ -63,6 +67,8 @@
   --space-12: 48px;
   --gutter: 16px;
   --target: 44px;
+  /* A row in a panel (Design decision 1). */
+  --row-min: 56px;
   --target-cashier: 56px;
 
   --radius-sm: 8px;
@@ -98,8 +104,10 @@
   --color-bg: #0F1713;
   --color-surface: #16201B;
   --color-raised: #1D2923;
+  --color-knob: #F4F7F5;
   --color-ink: #E9EFEA;
   --color-ink-muted: #A6B3AA;
+  --color-ink-faint: #7F8E85;
   --color-line: #2B3A32;
   --color-line-strong: #6B7B71;
   --color-action: #9FD3B5;
@@ -109,9 +117,10 @@
   --color-fill: color-mix(in oklab, var(--color-ink), transparent 93%);
   --color-accent-text: #E8A58A;
   --color-success: #8FD1A8;
-  --color-danger: #F08F7A;
+  --color-danger: #FF6B6B;
+  --color-on-danger: #0F1713;
   --color-warning: #F2C14E;
-  --color-focus: #9FD3B5;
+  --color-focus: #E8ECEA;
   --color-scrim: rgba(0, 0, 0, .6);
   --color-board: #22352B;
   --color-on-board: #E9EFEA;
@@ -128,8 +137,10 @@
     --color-bg: #0F1713;
     --color-surface: #16201B;
     --color-raised: #1D2923;
+  --color-knob: #F4F7F5;
     --color-ink: #E9EFEA;
     --color-ink-muted: #A6B3AA;
+    --color-ink-faint: #7F8E85;
     --color-line: #2B3A32;
     --color-line-strong: #6B7B71;
     --color-action: #9FD3B5;
@@ -139,9 +150,10 @@
   --color-fill: color-mix(in oklab, var(--color-ink), transparent 93%);
     --color-accent-text: #E8A58A;
     --color-success: #8FD1A8;
-    --color-danger: #F08F7A;
+    --color-danger: #FF6B6B;
+    --color-on-danger: #0F1713;
     --color-warning: #F2C14E;
-    --color-focus: #9FD3B5;
+    --color-focus: #E8ECEA;
     --color-scrim: rgba(0, 0, 0, .6);
     --color-board: #22352B;
     --color-on-board: #E9EFEA;

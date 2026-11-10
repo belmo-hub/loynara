@@ -16,9 +16,12 @@
   -webkit-text-size-adjust: 100%;
 }
 .owner-app *, .owner-app *::before, .owner-app *::after { box-sizing: border-box; }
-.owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.owner-app h1, .owner-app h2, .owner-app h3 { font-family: inherit; letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); }
+.owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* D-020: every heading is Manrope 800 (SF-4); no later rule lowers it (owner-type.test.ts). */
+.owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); text-wrap: balance; }
 .owner-app p { margin: 0; }
+/* Running text leaves no word alone on its last line (SF-6). */
+.owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
 .owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
@@ -26,28 +29,46 @@
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
 .ow-side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6) var(--space-4); background: var(--color-raised); border-right: 1px solid var(--color-line); overflow-y: auto; }
-.ow-brand { display: flex; align-items: center; padding-inline: var(--space-2); min-height: 44px; }
+/* Sidebar (SF-13): brand, location and foot start at the column edge (x 16); brand → location 16, location → nav 24. */
+.ow-brand { display: flex; align-items: center; min-height: 44px; }
 .ow-brand a { display: inline-flex; align-items: center; min-height: 44px; }
-.ow-nav { display: flex; flex-direction: column; gap: 2px; }
-.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
-.ow-nav a:hover { background: var(--color-fill); color: var(--color-ink); }
-.ow-nav a[aria-current="page"] { background: var(--color-action); color: var(--color-on-action); }
+/* Rows 36 px with 4 px between them; every icon sits in one column 12 px in. */
+.ow-nav { display: flex; flex-direction: column; gap: var(--space-1); }
+.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
+.ow-nav a:hover:not([aria-current]) { background: color-mix(in oklab, var(--color-fill) 55%, transparent); color: var(--color-ink); }
+/* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
+.ow-nav a[aria-current="page"] { background: var(--color-fill); color: var(--color-ink); font-weight: var(--weight-heavy); }
+/* The same current-item cue as the tab bar: fill, 800 and the heavier stroke. */
+.ow-nav a[aria-current="page"] svg { stroke-width: 2.5; }
+/* 36 px rows suit a mouse; a touch screen at 1024 px and up (iPad landscape) gets 44 px targets. */
+@media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
-.ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-3); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
+.ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
-.ow-who { font-size: var(--text-14); color: var(--color-ink-muted); padding-inline: var(--space-2); overflow-wrap: anywhere; }
+.ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
+.ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
+/* Abmelden is rare (Einstellungen › Konto has it too): a quiet text button on the who-line's edge, not a second pill. */
+/* The text sits on x 16; the 8 px padding pulled back by a negative margin gives the focus ring room. */
+.ow-side-who .ow-btn--ghost { border: 0; padding-inline: var(--space-2); margin-inline-start: calc(-1 * var(--space-2)); justify-content: flex-start; }
+.ow-side-who .ow-btn--ghost:hover:not(:disabled) { background: none; color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; }
 
-.ow-loc { display: flex; flex-direction: column; gap: 6px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-bg); }
-.ow-loc-label { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); letter-spacing: .02em; }
-.ow-loc select { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background-color: var(--color-raised); appearance: none; font-weight: 700; color: var(--color-ink); }
-.ow-loc-name { font-weight: 700; color: var(--color-ink); min-height: 24px; overflow-wrap: anywhere; }
+/* No box and no fill: the current nav item is the only filled thing in the sidebar. */
+.ow-loc { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }
+.ow-loc .ow-select { height: 48px; font-weight: var(--weight-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ow-loc-name { font-weight: var(--weight-strong); color: var(--color-ink); overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: var(--text-14); color: var(--color-ink-muted); }
 
 .ow-main { min-width: 0; display: flex; flex-direction: column; }
 .ow-topbar { display: none; }
 .ow-content { flex: 1; padding-bottom: var(--space-12); }
 .ow-subnav { position: sticky; top: 0; z-index: var(--z-sticky); background: color-mix(in srgb, var(--color-bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-line); }
+/* Next.js keeps the old scroll offset on navigation while the new page's top is "in view", and otherwise scrolls the page
+   top to the window top. Telling it the sticky bars cover the top makes every owner page open at the top, title visible. */
+html:has(.ow-subnav) { scroll-padding-top: 49px; }
+/* The bars' own links are never "covered" by the bars, so focusing one does not scroll the page. */
+.ow-topbar :is(a, button), .ow-subnav a { scroll-margin-top: -105px; }
+@media (min-width: 1024px) { .ow-subnav a { scroll-margin-top: -49px; } }
 .ow-subnav-inner { max-width: 1120px; margin-inline: auto; padding-inline: var(--space-6); display: flex; align-items: center; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
 .ow-subnav-inner::-webkit-scrollbar { display: none; }
 /* Scroll hint: the side with more tabs behind it fades out (data-start / data-end are set by owner-shell). */
@@ -57,18 +78,20 @@
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
 .ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
 .ow-subnav a:hover { color: var(--color-ink); }
-.ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-action); }
+.ow-subnav a[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
 
 @media (max-width: 1023px) {
   .ow-shell { grid-template-columns: minmax(0, 1fr); }
-  .ow-side { position: fixed; z-index: var(--z-sheet); inset: 0 auto 0 0; width: min(88vw, 320px); transform: translateX(-102%); transition: transform var(--dur-ui) var(--ease-drawer); box-shadow: var(--shadow-overlay); visibility: hidden; }
-  .ow-side[data-open="true"] { transform: none; visibility: visible; }
-  .ow-scrim { position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1); background: var(--color-scrim); animation: ow-fade var(--dur-press) linear; }
+  /* The bottom bar and the „Mehr“ page take over (ENG-122c). */
+  .ow-side { display: none; }
   .ow-topbar { position: sticky; top: 0; z-index: var(--z-nav); display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: 0 var(--space-4); background: var(--color-raised); border-bottom: 1px solid var(--color-line); }
   .ow-topbar-loc { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
-  .ow-topbar-loc strong { font-size: var(--text-14); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ow-topbar-loc span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The shop over its location, as in the approved mocks (A-22, F-22). */
+  .ow-topbar-loc strong { font-size: var(--text-16); font-weight: var(--weight-heavy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ow-topbar-loc span { font-size: var(--text-14); font-weight: 500; color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
+  html:has(.ow-topbar) { scroll-padding-top: 56px; }
+  html:has(.ow-subnav) { scroll-padding-top: 105px; }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -76,26 +99,40 @@
 .ow-arrive { animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
 @keyframes ow-arrive { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .ow-arrive { animation: none; } }
-/* Phone and tablet chrome: compact top bar, and a bottom bar with the first areas plus "Mehr" (opens the panel). */
+/* Phone and tablet chrome: compact top bar, and a bottom bar with the first areas plus „Mehr“ (a page of signposts). */
 .ow-tabs { display: none; }
 .ow-topbar-brand { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-left: -6px; border-radius: var(--radius-md); }
 .ow-topbar-brand svg { width: 32px; height: 32px; }
 @media (max-width: 1023px) {
   .ow-content { padding-bottom: calc(var(--space-12) + var(--ow-tabbar)); }
-  /* A dirty form's save bar sticks above the bottom bar, not underneath it. */
-  .ow-savebar:not([data-idle]) { bottom: var(--ow-tabbar); padding-bottom: var(--space-3); }
+  /* Unsaved changes: the bar is pinned above the bottom bar. Sticky stopped at the end of its card and floated
+     mid-screen; the page keeps room for the pinned bar so nothing hides behind it. */
+  .ow-savebar:not([data-idle]) { position: fixed; left: 0; right: 0; bottom: var(--ow-tabbar); margin: 0; padding-bottom: var(--space-3); }
+  .ow-content:has(.ow-savebar:not([data-idle])) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 120px); }
+  .ow-content:has(.ow-savebar:not([data-idle])) :focus { scroll-margin-bottom: calc(var(--ow-tabbar) + 140px); }
   .ow-tabs {
     position: fixed; inset: auto 0 0 0; z-index: var(--z-nav); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-    padding: 4px var(--space-2) calc(4px + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
+    padding: var(--space-1) 0 calc(var(--space-1) + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
   }
   .ow-tab {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 0 2px;
-    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-12); font-weight: 700;
-    text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
+    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: 600; line-height: 1.1;
+    text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press);
   }
-  .ow-tab[aria-current="page"] { color: var(--color-action); }
+  /* The current tab is marked by more than colour (I-10): the neutral pill behind the icon (as the sidebar), a heavier icon and 800. */
+  .ow-tab-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: var(--radius-pill); transition: background var(--dur-press) var(--ease-out); }
+  .ow-tab[aria-current="page"] { color: var(--color-ink); font-weight: var(--weight-heavy); }
+  .ow-tab[aria-current="page"] .ow-tab-icon { background: var(--color-fill); }
+  .ow-tab[aria-current="page"] svg { stroke-width: 2.5; }
+  /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
+  /* 1.34 (the 12/16 token) leaves room for descenders: WebKit clips the „g“ of „Programm“ at 1.1 under overflow: hidden. */
+  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.34; }
+  /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
+  .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
+  /* „Programm“ at 800 needs a cell of about 84 px at 14 px; below 420 a fifth of the screen is narrower (Design ruling 1). */
+  @media (max-width: 419px) { .ow-tab { font-size: var(--text-12); } }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }
@@ -107,18 +144,17 @@
 .ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: manual; overflow-wrap: break-word; }
 @media (min-width: 1024px) { .ow-pagehead h1 { font-size: var(--display-36); line-height: 1.1; } }
 .ow-pagehead p { color: var(--color-ink-muted); margin-top: 4px; max-width: 62ch; }
-.ow-eyebrow { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); margin-bottom: 4px; }
 
 /* Primitives */
 .ow-card { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-lg); padding: var(--space-6); }
 .ow-card--flat { box-shadow: none; }
-.ow-card h2 { font-size: var(--text-18); }
+.ow-card :is(h2, h3) { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
-.ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: 2px; }
+.ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: var(--space-1); }
 .ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
-.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
+.ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
 .ow-btn--ghost:disabled { background: transparent; }
 .ow-btn--primary { background: var(--color-action); color: var(--color-on-action); }
 .ow-btn--primary:hover:not(:disabled) { background: var(--color-action-hover); }
@@ -128,44 +164,74 @@
 .ow-btn--ghost:hover:not(:disabled) { background: var(--color-fill); }
 .ow-btn--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); border-color: color-mix(in oklab, var(--color-danger), transparent 60%); }
 .ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-pill); }
-.ow-link { color: var(--color-action); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-link { color: var(--color-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
-.ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
+.ow-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: var(--radius-sm); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
 .ow-chip--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
 .ow-chip--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
 .ow-chip--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
-.ow-chip--info { background: var(--color-action-soft); color: var(--color-ink); }
+.ow-chip--info { background: var(--color-fill); color: var(--color-ink); }
 .ow-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-action-soft); color: var(--color-ink); }
-.ow-notice--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
-.ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
+/* A notice is a white panel with a muted icon (inside a card, a ruled row); only real success, warnings and errors carry a status colour. */
+.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
+.ow-notice > span:first-child { display: flex; align-items: center; height: 1lh; color: var(--color-ink-muted); } /* the icon on the first line's centre */
+.ow-notice > div { min-width: 0; }
+/* Until the desktop grid (SF-1), a notice on the page is as wide as its text, not half empty (Design FIX 8). */
+@media (min-width: 1024px) { .ow-notice:not(:is(.ow-card, .ow-qpanel) .ow-notice) { width: fit-content; max-width: 100%; } }
+.ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
+:is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: none; box-shadow: none; border-radius: 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-line); }
+.ow-notice--warn > span:first-child { color: var(--color-warning); }
+/* One failure notice (Design decision 19): the icon and a strong title in danger, the body in ink, on the tint. */
+.ow-notice--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-ink); }
 .ow-notice--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
+.ow-notice--ok > span:first-child { color: inherit; }
+.ow-notice--danger > span:first-child, .ow-notice--danger strong { color: var(--color-danger); }
+.ow-notice--danger strong { display: block; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
 .ow-muted { color: var(--color-ink-muted); }
-.ow-num { font-variant-numeric: tabular-nums; }
+/* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
+.ow-num, .ow-metric-value, .ow-table td, .ow-qcount > span:last-child, .ow-strip-n { font-variant-numeric: tabular-nums; }
 .ow-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.ow-stack--tight { gap: var(--space-2); }
+.ow-stack--wide { gap: var(--space-5); }
+/* One-off gaps on the 4 px scale instead of inline styles (SF-7); `.owner-app` beats `.owner-app p { margin: 0 }`. */
+.owner-app .ow-mt-1 { margin-top: var(--space-1); }
+.owner-app .ow-mt-2 { margin-top: var(--space-2); }
+.owner-app .ow-mt-3 { margin-top: var(--space-3); }
+/* A list or a second paragraph inside a panel or notice: 4 under the line before it, the markers inside the column. */
+.owner-app :is(.ow-card, .ow-notice, .ow-readonly) ul:not([class]) { margin: var(--space-1) 0 0; padding-left: 0; } /* unmarked: flush with the head (Design FIX 7) */
+.owner-app .ow-notice div > * + :is(p, ul, ol) { margin-top: var(--space-1); }
+.owner-app .ow-readonly p + p { margin-top: var(--space-2); }
+/* Numbered steps in a help sheet. */
+.ow-steps-list { display: grid; gap: var(--space-2); margin: 0 0 var(--space-3); padding-left: var(--space-5); list-style: decimal; }
 .ow-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .ow-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Fields */
-.ow-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.ow-field > label, .ow-label { font-weight: 700; font-size: var(--text-14); }
+.ow-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+/* A number or date answer is as wide as its value, not the column (SF-7). */
+.ow-field--narrow { max-width: 12rem; }
+/* One field label (Design decision 20): ink, 14, strong, on every field and stepper. Grey is for panel heads only. */
+:is(.ow-field > label, .ow-label, .ow-qcontrol label, .ow-qnumber > label:not(.ow-sr), .ow-times label) { color: var(--color-ink); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-hint { font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-more { font-size: var(--text-14); color: var(--color-ink-muted); }
+/* Body text runs at most 65 characters a line (SF-6). */
+.ow-notice > div, .ow-hint, .ow-prog-note, .ow-rows-note, .ow-card p, .ow-card ul, .ow-card ol { max-width: 65ch; }
 .ow-more-body { max-width: 65ch; padding-bottom: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
+.ow-input[type="file"] { padding-block: var(--space-2); }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .ow-input:hover, .ow-select:hover, .ow-textarea:hover { border-color: var(--color-ink); }
 /* Native selects: appearance none so Safari honours the 44 px height; the chevron is drawn in the theme ink. */
-.ow-select, .ow-loc select {
+.ow-select {
   -webkit-appearance: none; appearance: none; height: 44px; padding-right: 40px;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-ink-muted) 50%), linear-gradient(135deg, var(--color-ink-muted) 50%, transparent 50%);
   background-position: right 20px center, right 14px center; background-size: 6px 6px; background-repeat: no-repeat;
 }
-.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 6%, var(--color-raised)); }
+.ow-input[aria-invalid="true"], .ow-textarea[aria-invalid="true"] { border-color: var(--color-danger); }
 .ow-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 /* Controls on one line when one label wraps and the other doesn't; only for fields without a hint under the control. */
 .ow-grid-2--end { align-items: end; }
@@ -175,8 +241,8 @@
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
-.ow-radio-card:has(input:checked) { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-radio-card:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-radio-card:has(input:checked) { border-color: var(--color-ink); background: var(--color-fill); }
+.ow-radio-card:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-radio-card input { margin-top: 3px; accent-color: var(--color-action); width: 18px; height: 18px; flex: none; }
 .ow-radio-card strong { display: block; }
 .ow-radio-card span { color: var(--color-ink-muted); font-size: var(--text-14); }
@@ -187,28 +253,13 @@
 .ow-metric { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ow-metric dt { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); }
 .ow-metric dd { margin: 0; }
-.ow-metric-value { font-size: var(--text-28); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: proportional-nums; }
+.ow-metric-value { font-size: var(--text-28); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
 .ow-metric-value--muted { color: var(--color-ink-muted); font-size: var(--text-22); }
 .ow-metric-note { font-size: var(--text-14); color: var(--color-ink-muted); }
-
-/* Checklist */
-.ow-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ow-step { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
-.ow-step:first-child { border-top: 0; }
-.ow-step-mark { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--color-line-strong); font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); }
-.ow-step[data-done="true"] .ow-step-mark { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
-.ow-step[data-next="true"] .ow-step-mark { border-color: var(--color-stamp); color: var(--color-ink); }
-.ow-step-title { font-weight: 700; }
-.ow-step-note { font-size: var(--text-14); color: var(--color-ink-muted); }
-@media (max-width: 560px) { .ow-step { grid-template-columns: 32px minmax(0, 1fr); } .ow-step > :last-child { grid-column: 2; justify-self: start; } }
 
 /* Overview layout */
 .ow-two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
 @media (max-width: 900px) { .ow-two { grid-template-columns: minmax(0, 1fr); } }
-.ow-action { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); background: var(--color-raised); }
-.ow-action--lead { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-action h3 { font-size: var(--text-16); }
-.ow-action p { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-feed { list-style: none; margin: 0; padding: 0; }
 .ow-feed li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
 .ow-feed li:first-child { border-top: 0; }
@@ -225,6 +276,11 @@
 .ow-savebar { position: sticky; bottom: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); margin-inline: calc(var(--space-6) * -1); background: var(--color-raised); border-top: 1px solid var(--color-line-strong); }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
+/* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
+.ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
+.ow-savestate-label { flex: 1 1 min(12rem, calc(100% - 8px - var(--space-2))); min-width: 0; } /* never on a line without its dot */
+.ow-savestate-detail { font-weight: var(--weight-body); }
+.ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */
 .ow-savestate[data-state="dirty"] { color: var(--color-warning); }
 .ow-savestate[data-state="saving"] { color: var(--color-ink-muted); }
 .ow-savestate[data-state="saved"] { color: var(--color-success); }
@@ -242,8 +298,10 @@
 }
 @media (max-width: 640px) { .ow-btn, .ow-input, .ow-select { font-size: var(--text-16); } }
 
-.ow-skip { position: absolute; left: -9999px; top: 8px; z-index: var(--z-toast); padding: 10px 16px; background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
-.ow-skip:focus { left: 8px; }
+.ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
+.ow-skip:focus { left: var(--space-2); }
+/* The owner area could not load: one card, centred lower on the page. */
+.ow-page--alone { max-width: 560px; padding-top: calc(var(--space-12) * 2); }
 .ow-bare .ow-topbar { position: static; padding-block: var(--space-3); }
 
 /* Card preview */
@@ -259,7 +317,8 @@
 .ow-pass-field--end { text-align: right; align-items: flex-end; }
 .ow-pass--apple .ow-pass-row:first-child .ow-pass-field b { font-size: 22px; line-height: 1.05; letter-spacing: -.01em; white-space: nowrap; }
 .ow-pass-primary b { font-size: 24px; line-height: 1.15; letter-spacing: -.02em; font-weight: 600; }
-.ow-pass-logo { border-radius: 6px; object-fit: contain; flex: none; }
+/* Apple's 160 x 50 pt logo slot at about 1.06 px/pt on the 340 px pass: the logo keeps its own shape, never cropped or rounded. */
+.ow-pass-logo { width: auto; height: auto; max-width: 170px; max-height: 53px; object-fit: contain; flex: none; }
 .ow-pass-row--sec { padding-top: 2px; }
 .ow-cardprev { width: 100%; max-width: 380px; }
 .ow-cardprev-ticket { display: grid; justify-items: center; gap: 6px; padding: 12px; border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
@@ -275,8 +334,13 @@
 .ow-pass--google { border-radius: 22px; min-height: 300px; }
 .ow-pass-issuer { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .ow-pass-issuer strong { min-width: 0; overflow-wrap: anywhere; }
-.ow-pass-issuer img { border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
-.ow-pass-initial { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .85); color: #1a2b25; font-weight: 700; }
+.ow-pass-issuer img { flex: none; }
+/* Google's circle: the mark at 22 of 32 px (the asset's 15 % margin) on its box or the brand colour. */
+.ow-pass-mark { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.ow-pass-mark img { width: 22px; height: 22px; object-fit: contain; }
+.ow-pass-wide { width: auto; height: 32px; max-width: 160px; object-fit: contain; }
+/* As the generated asset: the initial in the pass ink straight on the brand colour. */
+.ow-pass-initial { width: 32px; height: 32px; display: grid; place-items: center; flex: none; background: transparent; color: inherit; font-weight: 800; font-size: 18px; }
 .ow-pass-program { font-size: 13px; opacity: .9; overflow-wrap: anywhere; }
 .ow-pass-big { display: flex; flex-direction: column; }
 .ow-pass-big small { font-size: 12px; opacity: .85; }
@@ -288,7 +352,7 @@
 .ow-stage { width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--color-fill); border: 1px dashed var(--color-line-strong); }
 .ow-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-group + .ow-group { border-top: 1px solid var(--color-line); padding-top: var(--space-6); margin-top: var(--space-6); }
-.ow-group > legend { font-size: var(--text-14); font-weight: 700; letter-spacing: .04em; color: var(--color-ink-muted); padding: 0; margin-bottom: var(--space-3); }
+.ow-group > legend { padding: 0; margin-bottom: var(--space-3); }
 .ow-swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ow-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--color-raised); box-shadow: 0 0 0 1px var(--color-line-strong); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .ow-swatch:hover { transform: scale(1.06); }
@@ -296,13 +360,14 @@
 .ow-colorrow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
 .ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; }
 .ow-logo-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.ow-logo-thumb { width: 56px; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-line); object-fit: cover; background: var(--color-raised); }
-.ow-mobile-switch { display: none; }
+/* The 160:50 Wallet slot on the brand colour, so the owner sees the whole logo as the pass shows it. */
+.ow-logo-thumb { width: 112px; height: 35px; padding: 6px; box-sizing: border-box; border-radius: var(--radius-sm); object-fit: contain; }
+.ow-mobile-switch { display: none; margin-bottom: var(--space-4); }
 .ow-readonly { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-fill); font-size: var(--text-14); }
 .ow-readonly dl { margin: 0; }
 .ow-wallet-ready-list { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-wallet-ready-list > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: start; }
-.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: 600; padding-top: 3px; }
+.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: 600; padding-top: var(--space-1); }
 .ow-wallet-ready-list dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 @media (max-width: 420px) { .ow-wallet-ready-list > div { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) {
@@ -319,59 +384,54 @@
 .ow-rewards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ow-reward { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); flex-wrap: wrap; }
 .ow-reward:first-child { border-top: 0; }
-.ow-reward-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.ow-reward-head { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; flex: 1 1 260px; }
+.ow-reward-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1; }
 .ow-reward-main > strong { font-size: var(--text-16); }
-.ow-reward-actions { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+/* Campaign rows: the text takes a line of its own on a phone instead of a narrow column beside the actions. */
+.ow-campaign-main { flex: 1 1 260px; }
+.ow-reward-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+/* Move arrows sit beside the name they move: quiet, borderless, and a disabled one only fades (no fill, no ring). */
+.ow-reward-move { display: flex; flex: none; }
+.ow-reward-move .ow-btn { width: 44px; padding: 0; }
+.ow-reward-move .ow-btn:disabled { border-color: transparent; opacity: .35; }
 .ow-savebar[data-idle] { position: static; box-shadow: none; border-top: 1px solid var(--color-line); background: transparent; margin-inline: 0; padding-inline: 0; }
 
 /* Stepper */
 .ow-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 6px; border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-action); background: var(--color-action-soft); }
+.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-ink); background: var(--color-fill); }
 .ow-stepper li[data-done="true"] { color: var(--color-ink-muted); }
 .ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-fill); font-size: var(--text-14); font-weight: 700; }
-.ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--color-action); color: var(--color-on-action); }
+.ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--color-ink); color: var(--color-bg); }
 .owner-app h1[tabindex="-1"]:focus, .owner-app main[tabindex="-1"]:focus { outline: none; box-shadow: none; }
 .ow-bare .ow-topbar { padding-inline: var(--space-6); }
 
-/* Customers */
-.ow-filters { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); align-items: flex-end; padding: var(--space-4) var(--space-6); }
-.ow-filters-q { flex: 1 1 160px; max-width: 32rem; }
-.ow-filters-more { flex: 1 1 100%; }
-.ow-filters-more > summary { font-weight: var(--weight-label); }
-.ow-filters-fields { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; padding-top: var(--space-2); }
-@media (max-width: 640px) { .ow-filters { padding: var(--space-3) var(--space-4); } }
-.ow-cust { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-.ow-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); container-type: inline-size; }
-.ow-member { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); min-height: 56px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-raised); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
-.ow-member:hover { border-color: var(--color-line-strong); background: var(--color-bg); }
-.ow-member[aria-current="true"] { border-color: var(--color-action); background: var(--color-action-soft); }
-.ow-member-id, .ow-member-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ow-member-stat { text-align: right; flex: none; }
-.ow-member small { color: var(--color-ink-muted); font-size: var(--text-14); overflow-wrap: anywhere; }
-.ow-member-id strong { white-space: nowrap; overflow-wrap: anywhere; }
-/* A narrow list (phones, and the list column beside an open card on small laptops) puts the stats under the card
-   number, so the programme name keeps the full width instead of breaking letter by letter. */
-@container (max-width: 440px) {
-  .ow-member { flex-direction: column; align-items: stretch; }
-  .ow-member-stat { text-align: left; }
-}
-.ow-cust-back { display: none; align-self: flex-start; margin-bottom: var(--space-2); }
-.ow-cust-detail { position: sticky; top: 72px; }
-@media (max-width: 900px) {
-  .ow-cust { grid-template-columns: minmax(0, 1fr); }
-  .ow-cust[data-detail="open"] .ow-cust-list { display: none; }
-  .ow-cust[data-detail="closed"] .ow-cust-detail { display: none; }
-  .ow-cust-back { display: inline-flex; }
-  .ow-cust-detail { position: static; }
-}
+/* Kunden (ENG-122a, rest 01–06) on the Übersicht's and Programm's parts: the search field on top, then their rows. */
+.ow-search { position: relative; display: grid; gap: var(--space-1); max-width: 40rem; }
+.ow-search > svg { position: absolute; top: 16px; left: var(--space-4); color: var(--color-ink-muted); pointer-events: none; }
+.ow-search .ow-input { min-height: 52px; padding-left: 48px; -webkit-appearance: none; appearance: none; }
+/* A copy, a download or a step is a row too: the button wears the link row's shape. */
+button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.ow-prog-text .ow-chip { margin-top: var(--space-1); }
+/* A card's balance: the number reads first, its unit one step quieter, so „Zuletzt vor 34 Tagen“ keeps one line. */
+.ow-prog-value small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; }
+.ow-page > a.ow-band { max-width: 40rem; }
+.ow-band-arrow { flex: none; }
+/* The card's „Aktueller Stand“: the unit one step down from the board's, the slots under the number. */
+.ow-stand .ow-board-big small { font-size: var(--text-22); }
+.ow-stand-grid { margin-top: var(--space-3); }
+.ow-day-sum strong { color: var(--color-ink); font-weight: var(--weight-strong); }
+.ow-qlegend { margin: 0 0 var(--space-2); }
+.ow-qsum dl > div[data-new] dd { color: var(--color-ink); }
+.ow-reissued { display: grid; justify-items: center; gap: var(--space-2); text-align: center; text-wrap: pretty; }
+.ow-reissued strong { font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 
 /* Campaigns */
 .ow-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 @media (max-width: 1280px) { .ow-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
-.ow-goal { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
-.ow-goal:hover { border-color: var(--color-action); transform: translateY(-1px); }
+.ow-goal { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-goal:hover { border-color: var(--color-ink); transform: translateY(-1px); }
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-mail { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-fill); }
@@ -380,11 +440,13 @@
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ow-seg { max-width: 100%; flex-wrap: wrap; }
+/* Chips (the demo form's shop types): no track, each label whole on its own ring, wrapping onto new rows. */
+.ow-seg.ow-seg--chips { padding: 0; gap: var(--space-2); background: none; border-radius: 0; flex-wrap: wrap; }
+.ow-seg.ow-seg--chips button { flex: 0 0 auto; white-space: nowrap; min-height: 44px; box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-seg.ow-seg--chips button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--color-ink); }
 .ow-studio-preview > * { max-width: 100%; }
 
-/* Refinement pass 1: heading weight (Tailwind preflight resets it) and icon+label segmented buttons */
-.owner-app h1 { font-weight: 700; }
-.owner-app h2, .owner-app h3 { font-weight: 650; }
+/* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
@@ -394,6 +456,52 @@
   .ow-field:has(> .ow-seg), .ow-row:has(> .ow-seg) { width: 100%; }
 }
 
+/* Programm list (ENG-099, Wegweiser): section labels on the grey, one row per setting, the whole row one link. */
+.ow-prog { max-width: 40rem; }
+/* One section head (SF-4): 14/800 muted on the grey, on the rows' left edge, 8 above its rows and 20 below the block
+   above. Every label over a group wears it; its margins come from where it stands. */
+.owner-app .ow-section-head, .ow-prog h2:where(:not(dialog *)), .owner-app .ow-tiles-title, .ow-diary h2, .ow-group > legend, .ow-qlegend, .ow-q .ow-qsub, .ow-q .ow-qlabel, .ow-cardline-label {
+  padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.3; letter-spacing: 0; color: var(--color-ink-muted);
+}
+.owner-app .ow-section-head { margin: 0 0 var(--space-2); } /* the page's 24 gap is the space above */
+.owner-app .ow-stack > .ow-section-head { margin-bottom: 0; } /* the stack's gap is the 8 */
+/* Not a Sheet's own title, which keeps the Sheet's style. */
+.ow-prog h2:where(:not(dialog *)) { margin: var(--space-5) 0 0; }
+.ow-prog > div:first-child h2:where(:not(dialog *)) { margin-top: 0; }
+.ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+/* 12/16 with gap 12 (SF-7). Long titles („Google-Bewertung“, „Durchschnittsbon“) stay whole at 360 because the value
+   wraps under the text instead of splitting a word (.ow-prog-text min-width, Design FIX 1). */
+.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+.ow-prog-row:active { transform: scale(.985); }
+.ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
+.ow-prog-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
+/* A value sits beside the words while they fit unbroken, else on a line of its own: a word never splits around it. */
+.ow-prog-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
+.ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
+.ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
+.ow-prog-value { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-prog-value[data-off] { color: var(--color-ink-muted); }
+.ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
+/* Two bonuses („+20 · +10“) one step smaller, so they stay beside „Empfehlungen“ at 375 px. */
+.ow-prog-value[data-pair] { font-size: var(--text-22); }
+.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+@media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
+.ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
+/* Below 360 px the icons give their room to the words. */
+@media (max-width: 359px) { .ow-prog-icon { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
+.ow-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); margin-left: -6px; padding-right: var(--space-2); font-weight: var(--weight-strong); color: var(--color-ink); }
+.ow-back:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* „Gespeichert“ after a row's page saved: one toast above the bottom bar; the region keeps role="status" so it is read out. */
+.ow-toast-region { position: fixed; inset: auto 0 calc(var(--ow-tabbar) + var(--space-6)); z-index: var(--z-toast); display: flex; justify-content: center; padding-inline: var(--space-4); pointer-events: none; }
+@media (min-width: 1024px) { .ow-toast-region { left: var(--ow-sidebar); bottom: var(--space-6); } }
+/* Above the pinned bar where a page has one, so a toast never covers its button. */
+@media (max-width: 1023px) { .ow-content:has(.ow-qsave) .ow-toast-region { bottom: calc(var(--ow-tabbar) + 76px + var(--space-3)); } }
+.ow-toast { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 10px 18px 10px 14px; border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg); font-weight: var(--weight-strong); box-shadow: var(--shadow-overlay); animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
+.ow-toast svg { flex: none; color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
+
 /* Tables with an intentional mobile treatment: rows become labelled blocks */
 .ow-table { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
 .ow-table th { text-align: left; font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--color-line-strong); white-space: nowrap; }
@@ -401,29 +509,31 @@
 @media (max-width: 640px) {
   .ow-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .ow-table, .ow-table tbody, .ow-table tr, .ow-table td { display: block; width: 100%; }
-  .ow-table tr { padding: 10px 0; border-bottom: 1px solid var(--color-line); }
-  .ow-table td { border: 0; padding: 2px 0; display: flex; gap: var(--space-3); justify-content: space-between; }
+  .ow-table tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-line); }
+  .ow-table td { border: 0; padding: var(--space-1) 0; display: flex; gap: var(--space-3); justify-content: space-between; }
   .ow-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-weight: 600; flex: none; }
 }
 .ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
+/* NFC-Tap's disclosure: its title and state chip on one 44 px line. */
+.ow-tap-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
 .ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
 /* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
 .ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
-.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-raised); box-shadow: var(--shadow-hairline); transition: transform var(--dur-ui) var(--ease-out); }
+.ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-knob); box-shadow: none; transition: transform var(--dur-ui) var(--ease-out); }
 .ow-check input[role="switch"]:checked { background: var(--color-action); }
 .ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
 .ow-check input[role="switch"]:disabled { background: var(--color-line); cursor: not-allowed; }
-.ow-check input[role="switch"]:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-check input[role="switch"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ow-check input[role="switch"], .ow-check input[role="switch"]::before { transition: none; } }
 
-/* Trend bars */
-.ow-trend { display: flex; flex-direction: column; gap: var(--space-3); }
-.ow-trend-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: center; font-size: var(--text-14); }
-.ow-trend-row small { color: var(--color-ink-muted); font-size: var(--text-14); }
-.ow-bar { height: 8px; border-radius: var(--radius-pill); background: var(--color-fill); overflow: hidden; margin-bottom: 2px; }
-.ow-bar span { display: block; height: 100%; background: var(--color-action); border-radius: var(--radius-pill); transition: width var(--dur-ui) var(--ease-out); }
-.ow-bar--alt span { background: var(--color-stamp); }
-@media (max-width: 720px) { .ow-trend-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } }
+/* Ergebnisse (ENG-122b): heads on the grey over the Übersicht's rows; the period's weeks drawn with the strip's parts. */
+.ow-results { gap: var(--space-4); }
+.ow-results > .ow-pagehead { margin-bottom: var(--space-2); } /* head to first block stays 24 (SF-7) */
+.ow-rows-section { display: grid; gap: var(--space-2); }
+.ow-rows-note { font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+/* Twelve weeks at 320 px: narrower gaps, the counts and dates one step smaller. */
+.ow-weeks[data-many] { gap: var(--space-1); }
+.ow-weeks[data-many] :is(.ow-strip-n, .ow-strip-d) { font-size: var(--text-12); }
 
 /* Two-column layouts always stack on narrow screens, even when a page sets its own column ratio inline */
 @media (max-width: 900px) { .ow-two { grid-template-columns: minmax(0, 1fr) !important; } }
@@ -445,148 +555,491 @@
   .ow-metrics--three .ow-metric dd:not(.ow-metric-note) { grid-column: 2; grid-row: 1 / span 2; }
 }
 .ow-next { display: grid; gap: var(--space-3); justify-items: start; }
-.ow-next .ow-eyebrow { margin: 0; color: var(--color-accent-text); }
 .ow-next-text { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.4; max-width: 60ch; text-wrap: pretty; }
 .ow-filebtn { cursor: pointer; }
-.ow-filebtn:focus-within { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.ow-filebtn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-swatches + .ow-colorrow { margin-top: var(--space-2); }
-@media (max-width: 560px) { .ow-step .ow-btn--ghost { padding-inline: 0; justify-self: start; } }
-.ow-feed-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
-.ow-feed-reason { display: block; margin-top: 2px; color: var(--color-ink-muted); font-size: var(--text-14); }
-.ow-readiness-group + .ow-readiness-group { margin-top: var(--space-4); }
-.ow-readiness-group h3 { font-size: var(--text-16); margin: 0; }
-.ow-step-mark--external { border-style: dashed; }
-.ow-step-mark--na { border-color: var(--color-line); }
-.ow-step-mark--todo { border-color: var(--color-line-strong); }
-details.ow-readiness > summary { cursor: pointer; list-style-position: inside; }
-.ow-entitlement { border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin: 0; display: grid; gap: var(--space-2); }
-.ow-entitlement legend { font-weight: 700; padding-inline: 6px; }
-.ow-entitlement p { margin: 0; }
 
-/* Retention: card base bar and insight list (overview). */
+/* Retention: insight list (overview). */
 .ow-insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.ow-base { display: grid; gap: 10px; }
-.ow-base-bar { display: flex; gap: 3px; height: 12px; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-fill); }
-.ow-base-seg { display: block; min-width: 6px; height: 100%; }
-.ow-base-seg--recent { background: var(--color-action); }
-.ow-base-seg--drifting { background: var(--color-stamp); }
-.ow-base-seg--never { background: var(--color-line-strong); }
-.ow-base-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-base-legend li { display: inline-flex; align-items: center; gap: 6px; }
-.ow-base-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
 /* Team permissions matrix. */
 .ow-table-wrap { overflow-x: auto; }
 .ow-perm { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
-.ow-perm th, .ow-perm td { padding: 10px 8px; border-bottom: 1px solid var(--color-line); text-align: center; }
+.ow-perm th, .ow-perm td { padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-line); text-align: center; }
 .ow-perm thead th { font-size: var(--text-14); color: var(--color-ink-muted); font-weight: 700; }
 .ow-perm th[scope="row"], .ow-perm thead th:first-child { text-align: left; font-weight: 600; }
 .ow-perm-yes { color: var(--color-success); font-weight: 800; }
 .ow-perm-no { color: var(--color-ink-muted); }
 @media (max-width: 520px) { .ow-perm th, .ow-perm td { padding: 8px 4px; font-size: var(--text-14); } }
 
-/* ───────────── Übersicht, direction D (ENG-085): the board, two tiles, the next step and the diary ───────────── */
+/* ───────────── Übersicht, direction D (ENG-085) as Wegweiser start screen A (ENG-121): greeting, the green band, the
+   white overview card, the rows and the diary ───────────── */
 .ow-dash { display: grid; gap: var(--space-4); }
 @media (min-width: 1024px) {
-  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "board side" "diary side"; align-items: start; column-gap: var(--space-6); }
+  .ow-dash { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "notice notice" "hello hello" "next next" "board side" "diary diary"; align-items: start; column-gap: var(--space-6); }
   .ow-dash > .ow-dash-notice { grid-area: notice; }
-  .ow-dash > .ow-board, .ow-dash > .ow-dash-error { grid-area: board; }
+  .ow-dash > .ow-hello { grid-area: hello; }
+  .ow-dash > .ow-next { grid-area: next; }
+  .ow-dash > .ow-board, .ow-dash > .ow-dash-error, .ow-dash > .ow-dash-lead { grid-area: board; }
   .ow-dash > .ow-diary { grid-area: diary; }
-  .ow-dash > .ow-dash-side { grid-area: side; position: sticky; top: var(--space-6); }
-  .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: "notice" "board" "diary"; }
+  .ow-dash > .ow-dash-side { grid-area: side; }
+  .ow-dash--single { grid-template-columns: minmax(0, 720px); grid-template-areas: none; }
+  .ow-dash.ow-dash--single > * { grid-area: auto; }
 }
 .ow-dash-side { display: grid; gap: var(--space-4); }
+/* Greeting to the next block is 24 at every width (Design FIX 5): its 8 margin plus the 16 gap; without a band the empty grid row would add a gap. */
+@media (min-width: 1024px) { .ow-dash:not(.ow-dash--single):not(:has(> .ow-next)) { grid-template-areas: "notice notice" "hello hello" "board side" "diary diary"; } }
+.ow-dash-notice:empty { display: none; }
+/* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
+.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
+/* The greeting reads as the Übersicht's title: the same 36 as every page title on desktop (I-07). */
+@media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
-.ow-board { background: var(--color-board); color: var(--color-on-board); border-radius: var(--radius-xl); padding: var(--space-6) var(--space-5) var(--space-5); }
-.ow-board-hello { margin: 0 0 var(--space-2); font-size: var(--text-16); font-weight: var(--weight-strong); }
-.ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-on-board-muted); }
-.ow-board-big { margin: var(--space-2) 0 var(--space-1); font: var(--weight-heavy) var(--display-board)/1 var(--font-display); letter-spacing: -.04em; }
+/* The next step: the one green thing on the page, the whole band one action. */
+.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+a.ow-band, button.ow-band { cursor: pointer; }
+a.ow-band:active, button.ow-band:active { transform: scale(.985); }
+@media (hover: hover) { a.ow-band:hover, button.ow-band:hover { background: var(--color-action-hover); } }
+.ow-band-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
+.ow-band-text { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.ow-band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; text-wrap: balance; }
+.ow-band small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
+.ow-band-go { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); font-weight: var(--weight-strong); }
+@media (max-width: 359px) { .ow-band-icon { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ow-band { transition: none; } a.ow-band:active, button.ow-band:active { transform: none; } }
+
+/* The overview card: white (surface), ink numbers; the bars are an ink tint, yesterday in full ink (green is the band's). */
+.ow-board { background: var(--color-surface); color: var(--color-ink); border-radius: var(--radius-lg); padding: var(--space-4); }
+.ow-board-kicker, .ow-board-sub, .ow-board-legend, .ow-strip-cap { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-board-big { margin: var(--space-1) 0; font: var(--weight-heavy) var(--display-num)/1.1 var(--font-display); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .ow-board-big small { font-size: var(--text-28); letter-spacing: -.02em; }
-.ow-board-title { margin: var(--space-2) 0; font: var(--weight-heavy) var(--text-28)/1.15 var(--font-display); text-wrap: balance; }
-.ow-board-news { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--color-board-line); font: var(--weight-heavy) var(--text-18)/1.3 var(--font-display); text-wrap: balance; }
-.ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-board-line); border-radius: var(--radius-lg); display: grid; gap: var(--space-3); }
+.ow-board .ow-board-est { margin: 0 0 var(--space-1); }
+.ow-board .ow-board-news { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--color-line); font: var(--weight-heavy) var(--text-16)/1.4 var(--font-display); text-wrap: balance; }
+.ow-board-ask { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); display: grid; gap: var(--space-3); }
 .ow-board-ask p { margin: 0; }
 .ow-board-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
-.ow-btn--board { background: var(--color-on-board); color: var(--color-board); }
-.ow-btn--board:focus-visible, .ow-board-textbtn:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: 2px; }
-.ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
+.ow-board-textbtn { min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; cursor: pointer; }
 
-.ow-strip { margin-top: var(--space-5); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
+.ow-strip { margin-top: var(--space-4); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); height: 124px; align-items: end; }
 .ow-strip-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: var(--space-1); height: 100%; min-width: 0; }
 .ow-strip-n { font-size: var(--text-14); font-weight: var(--weight-strong); }
-.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--color-board-line); }
-.ow-strip-bar[data-lit] { background: var(--color-board-mark); }
-.ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-board-line); }
+.ow-strip-bar { width: 100%; min-height: 6px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: color-mix(in oklab, var(--color-ink) 28%, var(--color-surface)); }
+.ow-strip-bar[data-lit] { background: var(--color-ink); }
+/* In dark full ink would be the brightest block on the screen, above the band (Design, 30 Oct). */
+.ly-theme-dark .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
+@media (prefers-color-scheme: dark) { .ly-theme-auto .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); } }
+.ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-line-strong); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
-.ow-strip-d { font-size: var(--text-14); color: var(--color-on-board-muted); white-space: nowrap; }
-.ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-on-board); }
+.ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
+.ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-ink); }
+/* Under 360 the columns are about 30 px and „gestern“ at 14 px touches the label before it; at 12 px they keep a gap. */
+@media (max-width: 359px) { .ow-strip-d { font-size: var(--text-12); } }
 .ow-board .ow-strip-cap { margin-top: var(--space-2); } /* beats `.owner-app p { margin: 0 }` */
 
-.ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: 3px; height: 14px; }
-.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-board-mark); }
-.ow-stock span[data-kind="drifting"] { background: var(--color-board-line); }
-.ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-board-line); }
+.ow-stock { margin: var(--space-4) 0 var(--space-2); display: flex; gap: var(--space-1); height: 14px; }
+.ow-stock span { flex: 1 1 0; min-width: 2px; border-radius: var(--radius-sm); background: var(--color-ink); }
+.ow-stock span[data-kind="drifting"] { background: color-mix(in oklab, var(--color-ink) 28%, var(--color-surface)); }
+.ow-stock span[data-kind="never"] { background: none; border: 1px solid var(--color-line-strong); }
 .ow-board-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 
-.ow-ph { display: block; border-radius: var(--radius-sm); background: var(--color-board-line); }
+.ow-ph { display: block; border-radius: var(--radius-sm); background: var(--color-fill); }
+/* The board's placeholder: number, sub-line, then the strip 20 lower. */
+.ow-board-ph { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
+.ow-board-ph > :last-child { margin-top: var(--space-3); }
 @media (prefers-reduced-motion: no-preference) { .ow-board[aria-busy="true"] .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
 @keyframes ow-pulse { 50% { opacity: .45; } }
 
-.ow-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-.ow-tile { padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
-.ow-tile-n { display: block; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); color: var(--color-ink); }
-.ow-tile-note { display: block; font-size: var(--text-14); color: var(--color-ink-muted); }
-
-.ow-nextbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-raised); box-shadow: var(--shadow-raised); }
-.ow-nextbar p { flex: 1 1 12rem; margin: 0; font-size: var(--text-14); line-height: 1.35; }
-.ow-nextbar b { display: block; font-size: var(--text-16); }
-.ow-nextbar .ow-btn { flex: none; margin-left: auto; }
-@media (max-width: 1023px) {
-  .ow-nextbar { position: fixed; left: var(--space-3); right: var(--space-3); bottom: calc(var(--ow-tabbar) + var(--space-3)); z-index: var(--z-sticky); }
-  .ow-dash[data-next] { padding-bottom: 120px; }
-}
+/* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
+.ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ow-rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+div.ow-prog-row:active { transform: none; }
+/* The value is first in the DOM (read before the note) and drawn at the right edge; unlinked rows keep the arrow's
+   width empty, so every value shares one right edge. */
+.ow-rows .ow-prog-value { order: 1; }
+.ow-rows div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
+.ow-rows-help + .ow-rows-help { margin-top: var(--space-4); }
+.ow-rows-help h3 { margin: 0 0 var(--space-1); font-size: var(--text-16); font-weight: var(--weight-heavy); }
 
 .ow-diary h2 { margin-bottom: var(--space-2); }
 .ow-day { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-5); }
 .ow-day-rail { display: flex; flex-direction: column; align-items: center; }
-.ow-day-rail i { width: 12px; height: 12px; margin-top: 6px; border-radius: var(--radius-pill); background: var(--color-action); }
-.ow-day-rail span { flex: 1; width: 2px; margin-top: 6px; background: var(--color-line); }
+.ow-day-rail i { width: 12px; height: 12px; margin-top: var(--space-1); border-radius: var(--radius-pill); background: var(--color-ink-muted); }
+.ow-day-rail span { flex: 1; width: 2px; margin-top: var(--space-1); background: var(--color-line); }
 .ow-day[data-gap] .ow-day-rail i, .ow-day[data-state="open"] .ow-day-rail i { background: none; border: 2px solid var(--color-line-strong); }
-.ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-action); }
+.ow-day[data-state="current"] .ow-day-rail i { background: none; border: 2px solid var(--color-ink); }
 /* The first-steps rail tells done, current and open apart by shape, not only colour. */
-.ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-on-action); }
+.ow-day[data-state] .ow-day-rail i { display: grid; place-items: center; width: 16px; height: 16px; margin-top: 4px; color: var(--color-bg); }
 .ow-day[data-state="current"] .ow-day-rail i { border-width: 4px; }
 .ow-day[data-state="open"] .ow-day-rail i { border-width: 1px; }
 .ow-day h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
+.ow-day h3 .ow-chip { margin-left: var(--space-2); }
 .ow-day[data-gap] h3 { color: var(--color-ink-muted); }
-.ow-day-sum { margin: 2px 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-day-sum { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.ow-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
-.ow-pill b { color: var(--color-success); }
+.ow-pill { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
+.ow-pill b { color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="correction"] b { color: var(--color-ink-muted); }
 /* The redeemed reward is the one coral element on the screen (spec §4.2). */
 .ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
-.ow-tiles-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-/* Label on its own row; the „?“ shares the note row (same grid cell as the body, end-aligned), outside the body's link. */
-.ow-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; }
-/* Only a soft hyphen in the label may break a word (hyphens: manual). */
-.ow-tile-label { grid-column: 1 / -1; margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink); hyphens: manual; }
-.ow-tile-body { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; gap: 2px; }
-.ow-tile-body .ow-tile-note { padding-right: var(--space-8); }
-.ow-tile-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
-.ow-tile-row svg { flex: none; margin-bottom: var(--space-1); color: var(--color-action); }
-/* A 24 px "?" with a 44 px target (spec §1.3). */
-.ow-tile-q { grid-column: 2; grid-row: 2; align-self: end; position: relative; display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
-.ow-tile-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.ow-tile-help { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
-.ow-tile-link { border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
-.ow-tile-link:hover .ow-tile-note, .ow-tile-link:focus-visible .ow-tile-note { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.ow-tile-go { margin-left: var(--space-1); }
+/* The help „?“: lucide CircleHelp at 22 px in a 44 px target (spec §1.3, C-16). */
+.ow-tile-q { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
 .ow-pill[data-kind="more"] { color: var(--color-ink-muted); }
-@media (min-width: 1024px) { .ow-dash > .ow-dash-invite { grid-column: 1; } }
-/* The board's „?“ ends its sub-line: a 24 px circle with a 44 px target; the negative margins keep the line's height. */
-.ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-on-board); font: inherit; vertical-align: middle; cursor: pointer; }
-.ow-board-q span[aria-hidden] { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--color-board-line); border-radius: var(--radius-pill); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.ow-board-q:focus-visible { outline: 3px solid var(--color-on-board); outline-offset: -4px; border-radius: var(--radius-pill); }
-.ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-on-board-muted); }
+/* The board's „?“ ends its sub-line, a 22 px CircleHelp in a 44 px target; the negative margins keep the line's height. */
+.ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; vertical-align: middle; cursor: pointer; }
+.ow-tile-q svg, .ow-board-q svg { flex: none; }
+.ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+/* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
+.ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+.ow-number button:hover:not(:disabled) { background: var(--color-fill); }
+.ow-number button:active:not(:disabled) { transform: scale(.97); }
+.ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
+.ow-number-value { display: inline-flex; align-items: baseline; justify-content: center; gap: var(--space-1); min-width: 6.5rem; font-size: var(--text-18); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-2)); height: var(--target); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: end; }
+.ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-label); }
+.ow-number[data-invalid] .ow-number-value { color: var(--color-danger); }
+/* Card preview (spec §6): the customer's line on a raised mini card in a grey inset; the rules sit under a hairline. */
+.ow-cardline { display: grid; gap: var(--space-2); }
+.ow-cardline-ground { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-bg); }
+.ow-cardline-card { padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-raised); }
+.ow-cardline-shop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.ow-cardline-shop i { flex: none; width: 16px; height: 16px; border-radius: calc(var(--radius-sm) / 2); background: var(--color-action); }
+.ow-cardline-text { margin-top: var(--space-2); font-size: var(--text-14); text-wrap: pretty; }
+.ow-cardline-text u { color: var(--color-ink); font-weight: var(--weight-strong); text-underline-offset: 3px; }
+.ow-cardline-rules { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+/* The preview's reward lines (screen 07): name, then the threshold; the new reward in the action colour. */
+.ow-cardline-reward { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); }
+.ow-cardline-reward + .ow-cardline-reward { border-top: 1px solid var(--color-line); }
+.ow-cardline-reward b { min-width: 0; font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.ow-cardline-reward span { flex: none; color: var(--color-ink-muted); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
+.ow-cardline-reward[data-new] b { color: var(--color-ink); }
+
+/* Question pages (ENG-099, Wegweiser, screens 05–07, 18, 19): the question is the heading, its answer sits on a panel on
+   the grey, and one action waits at the thumb. Adding a reward shows „Schritt n von 3“ under a bar per step. */
+.ow-qpage { gap: var(--space-3); }
+/* Page head to the first block is 24 everywhere (SF-7): the panels' 12 gap plus 12 under the head. */
+.ow-qpage > .ow-pagehead { margin-bottom: var(--space-3); }
+.ow-qpage [aria-invalid="true"]:focus-visible { outline-color: var(--color-danger); }
+.ow-qhead { width: 100%; max-width: 40rem; }
+.ow-qstep { display: grid; gap: var(--space-2); margin: var(--space-1) 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qbar { display: flex; gap: var(--space-2); }
+.ow-qbar i { flex: 1; height: 4px; border-radius: var(--radius-pill); background: var(--color-line); }
+.ow-qbar i[data-on] { background: var(--color-ink); }
+.ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
+.ow-qpanel { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-qpanel .ow-input { min-height: 52px; }
+/* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. On a panel the preview is one
+   surface with a round mark (Design, 6 Nov). */
+.ow-qpanel .ow-cardline-shop i { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-line-strong); }
+.ow-qpanel .ow-cardline-ground { padding: 0; background: none; }
+.ow-qpanel .ow-cardline-card { padding: 0; background: none; box-shadow: none; }
+.ow-qcount { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-qcount span:last-child { flex: none; }
+.ow-qerror { display: flex; align-items: flex-start; gap: var(--space-2); }
+/* One line tall, so the icon centres on the message's first line. */
+.ow-qerror svg { flex: none; height: 1lh; }
+/* One number as the whole answer: − 20 + at full size, the unit under the number. */
+.ow-qnumber { display: grid; justify-items: center; gap: var(--space-2); padding-top: var(--space-4); text-align: center; }
+.ow-qnumber .ow-number { gap: var(--space-5); }
+.ow-qnumber .ow-number button { width: 64px; height: 64px; }
+.ow-qnumber .ow-number button svg { width: 28px; height: 28px; }
+.ow-qnumber .ow-number-value { flex-direction: column; align-items: center; gap: var(--space-1); min-width: 7rem; font-size: var(--display-num); line-height: 1; letter-spacing: -.03em; }
+.ow-qnumber .ow-number-value input { height: auto; padding: 0; text-align: center; }
+.ow-qnumber .ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-strong); color: var(--color-ink-muted); letter-spacing: 0; }
+/* Points move in tens, so their number wears the input outline: any other value is typed (the keypad opens on tap). */
+.ow-qnumber[data-typed] .ow-number-value input { width: calc(max(var(--ow-number-chars), 3) * 1ch + var(--space-5)); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
+/* Below 360 px six digits still fit beside the buttons. */
+@media (max-width: 359px) { .ow-qnumber .ow-number { gap: var(--space-2); } .ow-qnumber .ow-number button { width: 56px; height: 56px; } }
+/* Save failed (screen 19): what failed in the danger colour, what is kept in ink. */
+.ow-qsave { margin-top: var(--space-3); }
+.ow-qsave .ow-btn { width: 100%; min-height: 52px; }
+/* The same button carries every step: a tap must not leave it in its hover colour on a phone. */
+@media (hover: none) { .ow-qsave .ow-btn--primary:hover { background: var(--color-action); } }
+@media (max-width: 1023px) {
+  /* Pinned above the bottom bar like the save bar, aligned with the page; the page keeps room for it (button 52 + 2 × 12). */
+  .ow-qsave { position: fixed; left: 0; right: 0; bottom: var(--ow-tabbar); z-index: var(--z-sticky); margin: 0; padding: var(--space-3) var(--space-6); background: var(--color-bg); }
+  .ow-qsave .ow-btn { max-width: 40rem; }
+  .ow-content:has(.ow-qsave) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 76px); }
+  .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 76px + var(--space-3)); }
+}
+@media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
+/* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
+.ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice:active { transform: scale(.985); }
+.ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
+/* The picked answer is DESIGN.md's selected row in both themes: the neutral fill, a 2 px ink ring and an ink check at the
+   row's end, so the choice never rests on colour alone; the button stays the one solid green (Design, 30 Oct). */
+.ow-qchoice:has(:checked) { background: var(--color-fill); box-shadow: inset 0 0 0 2px var(--color-ink); }
+/* The check stands over the right edge, so a card keeps its size and wrap when picked. */
+.ow-qchoice { position: relative; padding-right: var(--target); }
+.ow-qchoice-check { position: absolute; top: 50%; right: var(--space-4); translate: 0 -50%; color: var(--color-ink); }
+@media (hover: hover) { .ow-qchoice:not(:has(:checked)):hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
+@media (prefers-reduced-motion: reduce) { .ow-qchoice:active { transform: none; } }
+.ow-qswitch { justify-content: space-between; min-height: 64px; font-weight: var(--weight-body); }
+/* The ring goes on the switch, not round the white row: a ringed row reads as picked (Design, 30 Oct). */
+.ow-qswitch:has(:focus-visible) { outline: none; }
+.ow-qcontrol { display: grid; gap: var(--space-2); }
+.ow-qcontrol > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+/* „Bonus“ and its two answers share the line while they fit; each answer stays one line. */
+.ow-qcontrol .ow-seg { width: auto; }
+.ow-qcontrol .ow-seg button { flex: 1 1 auto; white-space: nowrap; }
+.ow-qpanel .ow-textarea { resize: none; }
+.ow-qmoney { position: relative; display: block; max-width: 12rem; }
+.ow-qmoney .ow-input { min-height: 56px; padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qmoney span { position: absolute; top: 50%; right: var(--space-4); transform: translateY(-50%); font-size: var(--text-22); font-weight: var(--weight-strong); pointer-events: none; }
+/* A text action under the answer: „Vorteile pro Level“ opens more fields, „Neuigkeit entfernen“ saves at once. */
+.ow-qlink { display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }
+.ow-qlink[data-danger] { gap: var(--space-2); color: var(--color-danger); text-decoration: none; }
+/* Danger never rests on colour alone: lucide TriangleAlert (18 px, currentColor) before every destructive label. */
+.ow-btn--danger::before, .ow-qlink[data-danger]::before { content: ""; flex: none; width: 18px; height: 18px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat; }
+.ow-qlink svg { flex: none; transition: transform var(--dur-ui) var(--ease-out); }
+.ow-qlink[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .ow-qlink svg { transition: none; } }
+.ow-qlink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* The rule questions (14, 33) and their review (34, 35): the rule keeps its line breaks, as on the card and the sign-up page. */
+.ow-qpanel .ow-textarea { field-sizing: content; }
+.ow-qrule { display: block; margin-bottom: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* C2: the extra rules so far, in ink after their muted label, as the owner wrote them. */
+.ow-qformer span { color: var(--color-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* ENG-100: the date box of a change that waits four weeks (28, 30, 57) and of a take-back (58, undo icon). */
+.ow-when { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-when > svg { flex: none; margin-top: var(--space-1); color: var(--color-warning); }
+.ow-when[data-undo] > svg { color: var(--color-ink); }
+.ow-when b { display: block; font-size: var(--text-18); font-weight: var(--weight-heavy); }
+.ow-when p { margin-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-q > .ow-hint[data-later] { color: var(--color-warning); font-weight: var(--weight-label); }
+.ow-qchoices-lead { margin: 0 0 var(--space-2); }
+.ow-cardline-link { color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.ow-qsave .ow-btn + .ow-btn { margin-top: var(--space-2); }
+/* The list's chip for a change waiting for its date sits on its own line under the row's text (Design gaps §1). */
+.ow-prog-pend { flex-basis: 100%; }
+.ow-qcmp { display: grid; gap: var(--space-2); }
+.ow-qcmp > p:first-child { font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qcmp > p + p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ow-qcmp[data-new] { box-shadow: inset 0 0 0 2px var(--color-ink); }
+/* The notes under a review leave no word alone on its last line („berechnet.“). */
+.ow-q > .ow-hint { text-wrap: pretty; }
+.ow-qsum dl { margin: var(--space-2) 0 0; }
+.ow-qsum dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--color-line); }
+.ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }
+.ow-qsum dd { flex: none; margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qsum .ow-hint { padding-top: var(--space-2); }
+/* Nachricht (ENG-122d, screens 10 and 11): the lock screen on the board's dark green in both themes, the send warning, and
+   the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
+.ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4) var(--space-3) var(--space-5); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
+.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; } /* display text: no tabular gap in 9:41 */
+.ow-lock-note { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
+.ow-lock-note b { display: flex; justify-content: space-between; gap: var(--space-3); }
+.ow-lock-note b span + span { flex: none; color: var(--color-on-board-muted); font-weight: var(--weight-label); }
+.ow-qnote { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ow-qnote > svg { flex: none; color: var(--color-warning); }
+.ow-qnote strong { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); }
+.ow-qnote p { padding-top: var(--space-1); color: var(--color-ink-muted); text-wrap: pretty; }
+.ow-qactions { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.ow-qactions .ow-btn, .ow-qactions button { width: 100%; min-height: 52px; }
+/* First setup (ENG-122f, screens 19–22): the question pages before a programme exists, in the bare shell. The column is
+   centred under the logo; without a bottom bar the button ends the page instead of being pinned. */
+.ow-qsetup, .ow-bare--setup .ow-topbar { max-width: calc(40rem + 2 * var(--space-6)); margin-inline: auto; }
+.ow-page.ow-qsetup { padding-top: var(--space-1); }
+.ow-bare--setup .ow-topbar { background: none; border-bottom: 0; }
+@media (max-width: 640px) { .ow-bare--setup .ow-topbar { padding-inline: var(--space-4); } }
+.ow-bare .ow-qsave { position: static; margin-top: var(--space-3); padding: 0; background: none; }
+/* A second question inside a step („So entstehen Punkte“) gets a section head on the grey, as on the Programm list. */
+.ow-q .ow-qsub { margin: var(--space-3) 0 0; }
+.ow-qpanel > summary { font-weight: var(--weight-strong); }
+.ow-qpanel > summary::marker { color: var(--color-ink-muted); }
+.ow-qpanel[open] > summary { margin-bottom: var(--space-3); }
+.ow-qsetup .ow-cardline-rules { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ENG-095, under the board: customers back with the bonus or new on a referral. Nothing here is earned, so no coral. */
+.ow-brought, .ow-brought-off { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
+.ow-brought { padding: var(--space-4); }
+.ow-brought-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.ow-brought-head .ow-tile-q { flex: none; align-self: flex-start; }
+/* `.ow-brought p` beats `.owner-app p { margin: 0 }`. */
+.ow-brought .ow-brought-n { margin-top: var(--space-1); font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
+.ow-brought-lines, .ow-brought .ow-brought-all { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+/* Rows sit further apart than the lines of a wrapped label, so „mit Bonus“ never reads as a row of its own. */
+.ow-brought-lines { display: grid; gap: var(--space-2); }
+.ow-brought-lines div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: var(--space-3); line-height: 1.25; }
+.ow-brought-lines dt { flex: 1 1 0; min-width: 0; text-wrap: balance; }
+.ow-brought-lines dd { margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The till-amount sub-line takes its own row under „Umsatz dieser Buchungen“. */
+.ow-brought-lines dd + dd { flex-basis: 100%; font-weight: var(--weight-body); white-space: normal; }
+.ow-brought-lines dd + dd, .ow-brought-all { font-size: var(--text-14); color: var(--color-ink-muted); }
+/* The all-card figure in regular weight, so it reads as context, not as the base of a ratio (Design). */
+.ow-brought-all span { color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ow-brought-off { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); color: var(--color-ink); text-decoration: none; transition: transform var(--dur-press) var(--ease-out); }
+.ow-brought-off:active { transform: scale(.97); }
+.ow-brought-off > span:first-child { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); }
+.ow-brought-off > span + span { flex: 1; min-width: 0; }
+.ow-brought-off b { display: block; font-weight: var(--weight-strong); line-height: 1.3; }
+.ow-brought-off small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); }
+.ow-brought-off:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-brought-off > svg { flex: none; color: var(--color-ink-muted); }
+@media (prefers-reduced-motion: reduce) { .ow-brought-off { transition: none; } .ow-brought-off:active { transform: none; } }
+
+/* ───────────── „Mehr“ (ENG-122c): the hub and its pages, built from the Programm list's and the Übersicht's parts ───────────── */
+/* The navigation's own word beside each navigation: „Mehr“ with the bottom bar, „Einstellungen“ with the sidebar. */
+.ow-side-only { display: none; }
+@media (min-width: 1024px) { .ow-tabs-only { display: none; } .ow-side-only { display: inline; } }
+/* Rows that are buttons (sign-out, a person to block) look like the links. */
+button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+button.ow-prog-row:disabled { cursor: progress; }
+/* In a list with links, a plain row keeps the arrow's width empty, so every value shares one right edge. */
+.ow-prog ul:has(a.ow-prog-row, button.ow-prog-row) div.ow-prog-row::after { content: ""; flex: none; width: 22px; }
+.ow-prog li > * + * { margin-top: var(--space-2); }
+/* A title word that fits stays whole: the text's flex basis is its longest word, so the value wraps under it first
+   („Durchschnittsbon“ at 360, Design FIX 1). A word wider than the column (a long reward name, an e-mail) still breaks
+   inside it, never under the arrow or past the page edge (review R-2). Shared by the list rows and the answer rows. */
+.ow-prog-text { flex: 1 1 min-content; min-width: 0; }
+.ow-prog-text strong { overflow-wrap: break-word; }
+.ow-prog-text small { overflow-wrap: anywhere; }
+/* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
+.owner-app .ow-rows-head > h2 { margin: 0; }
+.ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
+.ow-prog-value[data-off] { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.ow-prog li p[role="alert"] { margin-top: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-danger); }
+.ow-prog .ow-prog-head { margin: var(--space-5) 0 0; }
+.ow-prog > div:first-child .ow-prog-head { margin-top: 0; }
+.ow-prog .ow-prog-head h2 { margin: 0; }
+/* A state on its own line under the row's text (the 55 chip rule), squared like every chip (DESIGN.md: --radius-sm). */
+.ow-prog-row:has(> .ow-prog-chip) { flex-wrap: wrap; row-gap: 0; }
+.ow-prog-chip { flex-basis: 100%; padding-left: calc(40px + var(--space-3)); } /* under the text: icon + gap */
+.ow-prog-chip .ow-chip, .ow-chip--state { margin-top: var(--space-1); border-radius: var(--radius-sm); }
+@media (max-width: 359px) { .ow-prog-chip { padding-left: 0; } }
+/* The white card above the rows, as wide as they are; its unit is a step smaller than the Übersicht board's. */
+.ow-numcard { max-width: 40rem; }
+.ow-numcard .ow-board-big small { font-size: var(--text-22); letter-spacing: -.01em; }
+.ow-numcard-facts { display: grid; gap: var(--space-1); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.ow-numcard-facts div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.ow-numcard-facts dd { margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A dated fact („Voraussichtlich bis zum …“) beside its calendar, in the warning colour the surface brief keeps for dates. */
+.ow-qwhen { display: flex; align-items: flex-start; gap: var(--space-3); }
+.ow-qwhen svg { flex: none; color: var(--color-warning); }
+/* A confirmation's two answers at the thumb (Programm 28/30): the destructive one filled, „Abbrechen“ under it. */
+.ow-qsave--pair { display: grid; gap: var(--space-2); }
+.ow-qsave .ow-btn--danger:not(:disabled) { background: var(--color-danger); border-color: transparent; color: var(--color-on-danger); }
+@media (max-width: 1023px) {
+  .ow-content:has(.ow-qsave .ow-btn + .ow-btn) { padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); }
+  .ow-content:has(.ow-qsave .ow-btn + .ow-btn) .ow-qfail { scroll-margin-bottom: calc(var(--ow-tabbar) + 136px + var(--space-3)); } /* two pinned buttons */
+}
+/* Team, Abrechnung, Empfehlungen: the band's arrow, a back step inside a page, the price card's note, a price per month. */
+.ow-band-arrow { flex: none; }
+button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.ow-numcard .ow-numcard-note { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); font-weight: var(--weight-label); color: var(--color-ink-muted); text-wrap: pretty; }
+/* A price at a row's right edge with „im Monat“ under it, so it stays beside the location's name. */
+.ow-price { display: inline-grid; justify-items: end; }
+.ow-price small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; line-height: 1.2; color: var(--color-ink-muted); }
+.ow-q .ow-qlabel { margin: var(--space-3) 0 0; }
+.ow-q .ow-qnote, .ow-qpanel .ow-qreason { margin-top: var(--space-2); }
+
+/* Geschäft › Absender (ENG-164): Legal's footer as the owner's proof; beside the rows and the form from 1024 px. */
+.ow-preview { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
+.ow-preview h2 { margin: 0; padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-preview p { margin: 0; overflow-wrap: anywhere; }
+.ow-preview .ow-preview-tail { color: var(--color-ink-muted); }
+.ow-preview-mark { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-fill); color: inherit; }
+.ow-preview-missing { color: var(--color-ink-muted); }
+.ow-preview .ow-preview-note { color: var(--color-ink-muted); }
+.ow-preview--bare { margin-top: var(--space-3); padding: 0; background: none; }
+.ow-sender-preview { margin-top: var(--space-3); }
+.ow-qpair { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
+.ow-qpair > .ow-qerror { grid-column: 1 / -1; }
+.ow-qaside { margin-top: var(--space-2); }
+.ow-split-aside { display: none; }
+@media (min-width: 1024px) {
+  .ow-split[data-aside] { display: grid; grid-template-columns: minmax(0, 36rem) 22rem; gap: 32px; align-items: start; max-width: 1120px; }
+  .ow-split-aside { display: block; position: sticky; top: var(--space-6); }
+  .ow-qpage[data-aside] .ow-q { display: grid; grid-template-columns: minmax(0, 36rem) 22rem; column-gap: 32px; max-width: 1120px; }
+  .ow-qpage[data-aside] .ow-q > * { grid-column: 1; }
+  .ow-qpage[data-aside] .ow-q > .ow-qaside { grid-column: 2; grid-row: 1 / span 20; position: sticky; top: var(--space-6); align-self: start; margin: 0; }
+  .ow-qpage[data-aside] .ow-qsave .ow-btn { width: auto; min-width: 12rem; }
+}
+
+/* ───────────── Owner pages on a phone (ENG-180): the shared layer of Design's 6 Nov set (proposed.css) ───────────── */
+/* Rows (decision 1): each section is one panel, rows split by hairlines, 56 px minimum, one padding. Every list of rows. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) { gap: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-surface); }
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) > li + li { border-top: 1px solid var(--color-line); }
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row { min-height: var(--row-min); padding: var(--space-2) var(--space-4); border-radius: 0; background: none; }
+/* A list with no row (an empty, loading or failed state) has no panel: its text stands on the ground, as before. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)):not(:has(.ow-prog-row, .ow-check)) { background: none; border-radius: 0; overflow: visible; }
+/* The panel clips; the ring goes inside the row, as on the tab bar. */
+:is(.ow-rows, .ow-prog ul):where(:not(dialog *)) .ow-prog-row:focus-visible { outline-offset: -2px; }
+/* Inside a grid .ow-prog the parent's gap is the space above. */
+.ow-prog > .ow-rows { margin-top: 0; }
+/* A number on a row is a label's partner, not a headline (spec rule 6): the board keeps the only big number. */
+.ow-rows .ow-prog-value:is([data-big], [data-pair]) { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.2; }
+/* Rows with no arrow anywhere need no arrow-sized gap at the edge. */
+.ow-rows:not(:has(a.ow-prog-row, button.ow-prog-row)) div.ow-prog-row::after { display: none; }
+/* Weekdays (decision 28): seven 44 px chips with 3 px gaps fill the panel's 326 px at 390; narrower, two rows. Ink when
+   on, no green: green stays the one Speichern. The 1.5 px edge is live's .ow-number button and .ow-qchoice hover. */
+.ow-days { display: grid; grid-template-columns: repeat(7, minmax(var(--target), 1fr)); gap: calc(var(--space-1) - 1px); }
+@media (max-width: 389px) { .ow-days { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); } }
+.ow-days button { min-width: 0; min-height: var(--target); padding: 0; border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: var(--weight-strong); cursor: pointer; }
+.ow-days button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-bg); }
+.ow-days button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The house date and time field (rule 4): iOS shrinks a bare date or time input and centres its value, so it needs
+   appearance none, min-width 0 and the value on the left. */
+.ow-input:is([type="date"], [type="time"], [type="datetime-local"]) { box-sizing: border-box; min-width: 0; appearance: none; -webkit-appearance: none; text-align: left; font-variant-numeric: tabular-nums; }
+.ow-input:is([type="date"], [type="time"], [type="datetime-local"])::-webkit-date-and-time-value { text-align: left; }
+.ow-input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
+/* From and until: two equal columns, the label above. */
+.ow-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.ow-times label { display: grid; gap: var(--space-1); min-width: 0; }
+/* A time window: the sentence is the heading, remove sits beside it. */
+.ow-window { position: relative; display: grid; gap: var(--space-3); min-width: 0; }
+.ow-window-title { display: flex; align-items: center; min-height: calc(var(--space-6) + var(--space-1)); padding-right: var(--target); font-size: var(--text-16); font-weight: var(--weight-strong); }
+.ow-window-title[data-problem] { gap: var(--space-2); color: var(--color-danger); }
+.ow-window-title svg { flex: none; }
+.ow-window .ow-sent-warn { color: var(--color-danger); }
+.ow-iconbtn { position: absolute; top: var(--space-1); right: var(--space-2); display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); cursor: pointer; }
+.ow-iconbtn svg { width: 20px; height: 20px; }
+.ow-add { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.ow-add svg { width: 18px; height: 18px; }
+/* Sent messages (rule 5): the message first, one quiet line under it. Replaces the table. */
+.ow-sent { list-style: none; margin: 0; padding: 0; }
+.ow-sent li { display: grid; gap: var(--space-1); padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
+.ow-sent li:first-child { border-top: 0; padding-top: 0; }
+.ow-sent li:last-child { padding-bottom: 0; }
+.ow-sent-text { margin: 0; overflow-wrap: anywhere; }
+.ow-sent-meta { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-sent-warn { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-warning); font-size: var(--text-14); font-weight: var(--weight-strong); }
+.ow-sent-warn svg { flex: none; height: 1lh; }
+.ow-sent-live { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
+.ow-sent-live .ow-btn { margin-left: auto; }
+/* With .ow-q's 8 px gap, 24 px under the composer. */
+.ow-history { margin-top: var(--space-4); }
+/* Advice: what to do, one button, one fold, on the same panel as every other form. */
+.ow-advice { display: grid; gap: var(--space-2); }
+.ow-advice h2 { margin: 0; font-size: var(--text-18); text-wrap: balance; }
+.ow-advice p { margin: 0; }
+.ow-advice .ow-btn { justify-self: start; margin-top: var(--space-1); }
+/* The closed fold's 44 px target reaches into the card's padding, so the space under „Mehr dazu“ matches the space above
+   the title. Open, the last line does. */
+.ow-advice .ow-more:not([open]) { margin-bottom: calc(var(--space-3) * -1); }
+.ow-advice .ow-more-body { padding-bottom: 0; }
+/* Fold: one drawn chevron instead of the browser triangle. */
+.ow-more > summary { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); list-style: none; cursor: pointer; }
+.ow-more > summary::-webkit-details-marker { display: none; }
+.ow-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; }
+.ow-more[open] > summary::after { translate: 0 2px; rotate: -135deg; }
+/* A stepper or segment beside other fields (decision 12): label over it, the control across the panel, one hint under all.
+   Number and unit are one group centred between the buttons; the digits' box stays a 44 px target but takes only the
+   digits' width in the line. The big centred .ow-qnumber stays only where the number is the whole page. */
+.ow-qstack { gap: var(--space-3); }
+.ow-qstack > div { flex-direction: column; align-items: stretch; gap: var(--space-1); }
+.ow-qstack .ow-number { display: flex; justify-content: space-between; }
+.ow-qstack .ow-seg { width: 100%; }
+.ow-qstack .ow-number-value { flex: 1 1 0; min-width: 0; }
+.ow-qstack .ow-number-value input { width: var(--target); margin-inline: min(0px, (var(--ow-number-chars) * 1ch - var(--target)) / 2); padding: 0; text-align: center; }
+/* Light only: the owner app follows the system, and these stay as live in dark. A picked card stays on the white surface:
+   the dark edge and the check carry the choice. The danger notice is solid, so it reads the same on the grey page. */
+@media (prefers-color-scheme: light) {
+  .ow-qchoice:has(:checked) { background: var(--color-surface); }
+  .ow-notice--danger { background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)); }
+}

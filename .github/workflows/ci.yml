@@ -183,6 +183,9 @@ jobs:
       MAILPIT_HTTP_ORIGIN: http://127.0.0.1:18149
       E2E_RECOVERY_MAILPIT: http://127.0.0.1:18149
       VAPID_SUBJECT: mailto:nfc-e2e@example.test
+      # Confirmation mails name their sender (Legal, 1 Nov); a synthetic name for the browser tests.
+      OPERATOR_NAME: Synthetic Betreiber
+      OPERATOR_ADDRESS: Teststraße 1, 34117 Kassel
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -220,8 +223,9 @@ jobs:
           for _ in $(seq 120); do curl -fsS http://localhost:3049/api/health > /dev/null 2>&1 && exit 0; sleep 1; done
           cat "$RUNNER_TEMP/next-dev.log"; exit 1
       # Desktop project only: it uses the runner's installed Chrome. The *.mobile.spec.ts files need WebKit.
+      # program-question-payloads (ENG-099 N-3) needs only sign-up and the owner pages, so it runs on this app too.
       - name: Run the NFC specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/nfc- e2e/pilot-nfc-policy e2e/program-question-payloads e2e/token-guards
       - name: Show the app log
         if: failure()
         run: cat "$RUNNER_TEMP/next-dev.log"

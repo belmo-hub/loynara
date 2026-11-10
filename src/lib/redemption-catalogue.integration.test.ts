@@ -25,7 +25,9 @@ async function fixture(kind: "edit" | "archive") {
   await createReward({ actorUserId: f.userId, programSlug: f.program.slug, title: "Other synthetic reward", cost: 12 });
   await award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 20, idempotencyKey: randomUUID(), requestId: randomUUID() });
   const request = { userId: f.userId, locationId: f.location.id, membershipId: f.member.id, rewardVersionId: reward.versionId, idempotencyKey: randomUUID(), requestId: randomUUID() };
-  const change = () => kind === "edit" ? editReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: reward.rewardId, title: "Changed synthetic reward", cost: 9, termsText: "" }) : archiveReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: reward.rewardId });
+  // ENG-100: "edit" applies at once (a lower cost and a rename the owner calls better); an archive is dated, so the reward
+  // stays redeemable until its date (dated-reward-changes.integration.test.ts covers the raise and the date passing).
+  const change = () => kind === "edit" ? editReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: reward.rewardId, title: "Changed synthetic reward", cost: 7, termsText: "", worse: false }) : archiveReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: reward.rewardId });
   return { f, request, change };
 }
 
@@ -49,9 +51,11 @@ describe("redemption orders catalogue changes against the authoritative booking"
       expect(await catalogue).toHaveProperty("value");
       expect.soft(order).toEqual(["redeem", "catalogue"]);
       await expect(redeem(request)).resolves.toMatchObject({ balance: 12, duplicate: true });
-      await expect(redeem({ ...request, idempotencyKey: randomUUID(), requestId: randomUUID() })).rejects.toMatchObject({ code: kind === "edit" ? "STALE_REWARD" : "INVALID_REWARD" });
-      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(1);
-      expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(12);
+      const again = redeem({ ...request, idempotencyKey: randomUUID(), requestId: randomUUID() });
+      if (kind === "edit") await expect(again).rejects.toMatchObject({ code: "STALE_REWARD" });
+      else await expect(again).resolves.toMatchObject({ balance: 4, duplicate: false });
+      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(kind === "edit" ? 1 : 2);
+      expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(kind === "edit" ? 12 : 4);
     } finally { await gate.query("ROLLBACK"); await Promise.all([booking, catalogue]); gate.release(); }
   });
 
@@ -70,11 +74,36 @@ describe("redemption orders catalogue changes against the authoritative booking"
       expect.soft(await waitForLock("rewards"), "Redemption must wait for the catalogue transaction").toBe(true);
       await gate.query("COMMIT");
       expect(await catalogue).toHaveProperty("value");
-      expect.soft(await booking).toMatchObject({ error: { code: kind === "edit" ? "STALE_REWARD" : "INVALID_REWARD" } });
-      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(0);
-      expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(20);
-      expect((await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.member.id))).filter(row => row.kind === "redeem")).toHaveLength(0);
+      const redeemed = kind === "archive" ? 1 : 0;
+      expect.soft(await booking).toMatchObject(kind === "edit" ? { error: { code: "STALE_REWARD" } } : { value: { balance: 12, duplicate: false } });
+      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(redeemed);
+      expect((await db.select().from(memberships).where(eq(memberships.id, f.member.id)))[0].balance).toBe(20 - 8 * redeemed);
+      expect((await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.member.id))).filter(row => row.kind === "redeem")).toHaveLength(redeemed);
     } finally { await gate.query("ROLLBACK"); await Promise.all([catalogue, booking]); gate.release(); }
+  });
+
+  it.each(["raise", "archive"] as const)("checks the %s's date at the booking instant, not when the redemption began", async kind => {
+    const { f, request } = await fixture("edit");
+    const gate = await pool.connect();
+    let booking: Promise<unknown> | undefined;
+    try {
+      // An owner write holds the reward while its date, 1.5 s away, passes. The archive updates the row, so the booking re-reads it.
+      // The date comes back as text: a JS Date drops the microseconds, and the wait below could end just before the date.
+      await gate.query("BEGIN");
+      const [{ reward_id: rewardId }] = (await gate.query("SELECT reward_id FROM reward_versions WHERE id = $1", [request.rewardVersionId])).rows;
+      await gate.query("SELECT 1 FROM rewards WHERE id = $1 FOR UPDATE", [rewardId]);
+      const [{ at }] = (kind === "raise"
+        ? await gate.query(`INSERT INTO reward_versions (tenant_id, reward_id, version, title, cost, terms_text, effective_at)
+            SELECT tenant_id, reward_id, version + 1, title, cost + 1, terms_text, clock_timestamp() + interval '1.5 seconds' FROM reward_versions WHERE id = $1 RETURNING effective_at::text AS at`, [request.rewardVersionId])
+        : await gate.query("UPDATE rewards SET ends_at = clock_timestamp() + interval '1.5 seconds' WHERE id = $1 RETURNING ends_at::text AS at", [rewardId])).rows;
+      booking = redeem(request).then(value => ({ value }), error => ({ error }));
+      expect(await waitForLock("rewards")).toBe(true);
+      expect((await pool.query("SELECT clock_timestamp() < $1::timestamptz AS before", [at])).rows[0].before, "the redemption must begin before the date").toBe(true);
+      while (!(await pool.query("SELECT clock_timestamp() > $1::timestamptz AS past", [at])).rows[0].past) await new Promise(resolve => setTimeout(resolve, 50));
+      await gate.query("COMMIT");
+      expect(await booking).toMatchObject({ error: { code: kind === "raise" ? "STALE_REWARD" : "INVALID_REWARD" } });
+      expect(await db.select().from(redemptions).where(eq(redemptions.membershipId, f.member.id))).toHaveLength(0);
+    } finally { await gate.query("ROLLBACK"); await booking; gate.release(); }
   });
 
   it("rejects foreign rewards, tenants, locations, revoked staff and closed cards without redemption effects", async () => {

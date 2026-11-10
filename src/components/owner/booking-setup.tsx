@@ -204,18 +204,18 @@ function Wizard({ initial }: { initial: Setup }) {
 
   return (
     <div className="ow-page" style={{ maxWidth: 760 }}>
-      <PageHead eyebrow="Termine" title="Online-Buchung einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
+      <PageHead title="Online-Buchung einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
       {data.settings && !data.settings.enabled && <Notice role="status">Online-Buchung wird mit dem Plan Termin + Treue freigeschaltet. Alles hier bleibt gespeichert.</Notice>}
       <ol className="ow-stepper" aria-label="Fortschritt">
         {STEPS.map((label, index) => (
           <li key={label} aria-current={index === step ? "step" : undefined} data-done={index < step || (returning && index !== step)} style={{ padding: 0 }}>
-            <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" style={{ color: "inherit", paddingLeft: 6 }} disabled={index > reached} onClick={() => go(index)}>
+            <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" style={{ color: "inherit", paddingLeft: "var(--space-2)" }} disabled={index > reached} onClick={() => go(index)}>
               <span className="ow-stepper-n">{index < step || (returning && index !== step) ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}
             </button>
           </li>
         ))}
       </ol>
-      <form className="ow-card ow-stack" style={{ gap: 20 }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
+      <form className="ow-card ow-stack" style={{ gap: "var(--space-5)" }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
         {step === 0 && <>
           <div><h2 ref={heading} tabIndex={-1}>Was für ein Betrieb bist du?</h2><p className="ow-hint">{returning ? "Ändert nur die Art. Deine Leistungen und Zeiten bleiben." : "Füllt Leistungen und Zeiten mit Beispielen vor. Alles bleibt änderbar."}</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Betriebsart" aria-describedby={err("bs-type-nagelstudio") ? "bs-type-error" : undefined}>
@@ -235,7 +235,7 @@ function Wizard({ initial }: { initial: Setup }) {
           {form.services.length === 0 && <p className="ow-muted">Noch keine Leistung. Füge mindestens eine hinzu.</p>}
           <ul className="ow-rewards">
             {form.services.map(service => (
-              <li key={service.key} className="ow-stack" style={{ gap: 12, padding: "16px 0", borderTop: "1px solid var(--color-line)" }}>
+              <li key={service.key} className="ow-stack" style={{ gap: "var(--space-3)", padding: "var(--space-4) 0", borderTop: "1px solid var(--color-line)" }}>
                 <Field id={`bs-sname-${service.key}`} label="Name" error={err(`bs-sname-${service.key}`)}>
                     <input id={`bs-sname-${service.key}`} className="ow-input" value={service.name} maxLength={80} aria-invalid={Boolean(err(`bs-sname-${service.key}`))} onChange={event => setService(service.key, { name: event.target.value })} />
                 </Field>
@@ -285,7 +285,7 @@ function Wizard({ initial }: { initial: Setup }) {
           </Notice>}
           <ul className="ow-rewards">
             {form.staff.map((member, index) => (
-              <li key={member.key} className="ow-stack" style={{ gap: 12, padding: "16px 0", borderTop: index ? "1px solid var(--color-line)" : 0 }}>
+              <li key={member.key} className="ow-stack" style={{ gap: "var(--space-3)", padding: "var(--space-4) 0", borderTop: index ? "1px solid var(--color-line)" : 0 }}>
                 <Field id={`bs-pname-${member.key}`} label="Name" error={err(`bs-pname-${member.key}`)}>
                   <input id={`bs-pname-${member.key}`} className="ow-input" value={member.name} maxLength={60} placeholder="z. B. Lena" aria-invalid={Boolean(err(`bs-pname-${member.key}`))} onChange={event => setStaff(member.key, { name: event.target.value })} />
                 </Field>
@@ -341,20 +341,20 @@ function HoursEditor({ id, days, onChange, error }: { id: string; days: Day[]; o
   const setDay = (index: number, patch: Partial<Day>) => onChange(days.map((day, i) => i === index ? { ...day, ...patch } : day));
   const first = days.findIndex(day => day.open);
   return (
-    <div className="ow-stack" id={id} tabIndex={-1} style={{ gap: 12 }}>
+    <div className="ow-stack" id={id} tabIndex={-1} style={{ gap: "var(--space-3)" }}>
       {days.map((day, index) => {
         const problem = dayProblem(day);
         return (
-          <fieldset key={WEEKDAYS[index]} className="ow-group" style={{ gap: 8 }}>
+          <fieldset key={WEEKDAYS[index]} className="ow-group" style={{ gap: "var(--space-2)" }}>
             <legend className="ow-sr">{WEEKDAYS[index]}</legend>
             <label className="ow-check"><input type="checkbox" role="switch" checked={day.open} onChange={event => setDay(index, { open: event.target.checked })} /> {WEEKDAYS[index]}{!day.open && <span className="ow-muted" style={{ fontWeight: 500 }}>geschlossen</span>}</label>
             {day.open && <>
-              <div className="ow-row" style={{ gap: 8 }}>
+              <div className="ow-row" style={{ gap: "var(--space-2)" }}>
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} ab`} value={day.start} onChange={event => setDay(index, { start: event.target.value })} />
                 <span aria-hidden="true">–</span>
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} bis`} value={day.end} onChange={event => setDay(index, { end: event.target.value })} />
               </div>
-              {day.breakStart || day.breakEnd ? <div className="ow-row" style={{ gap: 8 }}>
+              {day.breakStart || day.breakEnd ? <div className="ow-row" style={{ gap: "var(--space-2)" }}>
                 <span className="ow-hint" style={{ minWidth: 48 }}>Pause</span>
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} Pause ab`} value={day.breakStart} onChange={event => setDay(index, { breakStart: event.target.value })} />
                 <span aria-hidden="true">–</span>
@@ -362,7 +362,7 @@ function HoursEditor({ id, days, onChange, error }: { id: string; days: Day[]; o
                 <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label={`${WEEKDAYS[index]} ohne Pause`} onClick={() => setDay(index, { breakStart: "", breakEnd: "" })}><OwnerIcon name="close" size={18} /></button>
               </div> : null}
               {problem && <span className="ow-error">{problem}</span>}
-              <div className="ow-row" style={{ gap: 8 }}>
+              <div className="ow-row" style={{ gap: "var(--space-2)" }}>
                 {!day.breakStart && !day.breakEnd && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setDay(index, { breakStart: "13:00", breakEnd: "13:30" })}><OwnerIcon name="plus" size={18} />Pause hinzufügen</button>}
                 {index === first && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => onChange(days.map(other => other.open ? { ...day } : other))}>Für alle Tage übernehmen</button>}
               </div>

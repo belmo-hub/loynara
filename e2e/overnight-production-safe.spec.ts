@@ -29,20 +29,20 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
  const context=await browser.newContext({baseURL:url,viewport:{width,height:1000},storageState:await owner.storageState(),extraHTTPHeaders:{"cf-connecting-ip":"203.0.113.71"}});
  try{
   const me=await(await owner.get("/api/me")).json();
-  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["automations","billing","campaigns","nfc","walletPreviews"]));
-  expect(me.hiddenSurfaces).not.toContain("audiences");expect(me.tapAutomaticAllowed).toBe(false);
+  expect(me.hiddenSurfaces).toEqual(expect.arrayContaining(["audiences","automations","billing","campaigns","nfc","walletPreviews"]));
+  expect(me.tapAutomaticAllowed).toBe(false);
   const registration=await owner.post("/api/auth/sign-up/email",{data:{name:"Must refuse",email:`refused-${randomUUID()}@example.test`,password:`Local!${randomUUID()}Aa`}});
   expect(registration.status()).toBe(403);
   const page=await context.newPage();
   mkdirSync("var/qa/overnight-independent",{recursive:true});
-  for(const [path,heading] of [["/merchant","Übersicht"],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Das Team am Tresen."],["/merchant/audiences","Segmente prüfen"]]){
+  for(const [path,heading] of ([["/merchant",/^Übersicht: /],["/merchant/customers","Kundenkarten"],["/merchant/analytics","Ergebnisse"],["/merchant/referrals","Empfehlungen"],["/merchant/staff","Team"]]) as [string,string|RegExp][]){
    await page.goto(path);await expect(page.getByRole("heading",{name:heading,exact:true,level:1})).toBeVisible();
    await expect(page.locator(".ow-skel")).toHaveCount(0);
    if(path==="/merchant")await expect(page.getByRole("heading",{name:"Letzte 30 Tage an diesem Standort"})).toBeVisible();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width+1);
    await page.screenshot({path:`var/qa/overnight-independent/${width}-${path.split("/").pop()||"overview"}.png`,fullPage:true});
   }
-  for(const path of ["/merchant/campaigns","/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
+  for(const path of ["/merchant/audiences","/merchant/campaigns","/merchant/automations","/merchant/billing"]){await page.goto(path);await expect(page.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}
   await page.goto("/merchant/program");await expect(page.getByText("NFC-Tap (optional)")).toHaveCount(0);
   const policy=await owner.post("/api/merchant/tap",{data:{action:"policy",programId:f.programId,mode:"automatic_fixed",cooldownSeconds:60}});expect(policy.status()).toBe(400);expect((await policy.json()).code).toBe("TAP_AUTOMATIC_NOT_ALLOWED");
   // Even a stored staff-confirmed policy cannot display a disabled-capability panel.
@@ -51,18 +51,17 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   try{const till=await counter.newPage();await till.goto("/cashier");await expect(till.getByRole("heading",{name:/Karte scannen/})).toBeVisible();await expect(till.getByRole("heading",{name:"NFC-Anfragen"})).toHaveCount(0);await till.screenshot({path:`var/qa/overnight-independent/${width}-cashier.png`,fullPage:true});}finally{await counter.close();}
   expect((await owner.post("/api/merchant/tap",{data:{action:"policy",programId:f.programId,mode:"disabled",cooldownSeconds:null}})).status()).toBe(200);
   const managerContext=await browser.newContext({baseURL:url,viewport:{width,height:1000},storageState:await manager.storageState(),extraHTTPHeaders:{"cf-connecting-ip":"203.0.113.72"}});
-  try{const scoped=await managerContext.newPage();await scoped.goto("/merchant/audiences");await expect(scoped.getByRole("heading",{name:"Segmente prüfen"})).toBeVisible();await expect(scoped.getByRole("link",{name:/Kampagne/})).toHaveCount(0);await scoped.screenshot({path:`var/qa/overnight-independent/${width}-manager-audiences.png`,fullPage:true});}finally{await managerContext.close();}
+  try{const scoped=await managerContext.newPage();await scoped.goto("/merchant/audiences");await expect(scoped.getByRole("heading",{name:"Diese Seite gibt es nicht."})).toBeVisible();}finally{await managerContext.close();}
   expect((await manager.get(`/api/merchant/retention?locationId=${f.secondLocationId}`)).status()).toBe(404);
   expect((await owner.get(`/api/merchant/retention?locationId=${f.foreignLocationId}`)).status()).toBe(404);
   const m=await(await manager.get("/api/merchant/retention")).json();expect(m.locationId).toBe(f.locationId);
   for(const days of [14,30,60,90]){const summaryResponse=await owner.get(`/api/merchant/retention?days=${days}&locationId=${f.locationId}`);expect(summaryResponse.status()).toBe(200);const summary=await summaryResponse.json();const listResponse=await owner.get(`/api/merchant/customers?activity=drifting&days=${days}&locationId=${f.locationId}`);expect(listResponse.status()).toBe(200);const list=await listResponse.json();expect(summary.drifting).toBe(list.members.length);}
   await page.goto("/merchant/customers?activity=drifting&days=30&scope=all");
-  await expect(page.getByText("Warum diese Karten?")).toBeVisible();
-  await expect(page.getByLabel("Ansicht")).toHaveValue("drifting");
+  await expect(page.getByRole("heading",{level:1,name:"Länger nicht da"})).toBeVisible(); // ENG-122a: the group's own screen
   await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const filteredCard=(await(await owner.get(`/api/merchant/customers?activity=drifting&days=30&locationId=${f.locationId}`)).json()).members[0].cardLocator;
   await page.goto(`/merchant/customers?activity=drifting&days=30&locationId=${f.locationId}&q=${encodeURIComponent(filteredCard)}`);
-  await expect(page.getByText("Warum diese Karten?")).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
+  await expect(page.getByRole("heading",{level:1,name:"Länger nicht da"})).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const progress=await(await owner.get(`/api/card/${f.referrerToken}/referral`)).json();expect(JSON.stringify(progress)).not.toContain("@example.test");
   await page.goto("/merchant");await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0); // Product, 24 Oct: no e-mail campaign is offered while e-mail is off
   await context.addInitScript(()=>{

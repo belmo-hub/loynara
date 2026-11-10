@@ -116,6 +116,18 @@ describe("birthday bonus at the counter", () => {
     expect(await give(s, c)).toMatchObject({ birthdayBonus: 1, balance: 2 });
   });
 
+  it("refreshes the installed Apple passes when the setting changes, and not for a save that keeps it (ENG-119)", async () => {
+    const s = await shop(); const c = await card(s);
+    const passId = randomUUID();
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'created')",
+      [passId, s.tenantId, c.id, `passfast:${passId}`, credentialHash(c.scanCode)]);
+    const refreshes = async () => (await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'wallet.refresh' AND payload ->> 'membershipId' = $1", [c.id])).rows[0].n;
+    await updateBirthday({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: true, bonus: 1 } });
+    expect(await refreshes()).toBe(0);
+    await updateBirthday({ actorUserId: s.owner, programSlug: s.slug, settings: { enabled: false, bonus: 1 } });
+    expect(await refreshes()).toBe(1);
+  });
+
   it("shows Legal's rules line while on, and books nothing with „kein Bonus“ or on production while hidden", async () => {
     const s = await shop(); const c = await card(s);
     expect((await getCard(c.cardToken)).rulesText).toBe(`Ein Stempel pro Kaffee.\n\n${birthdayRule("stamp", 1)}`);

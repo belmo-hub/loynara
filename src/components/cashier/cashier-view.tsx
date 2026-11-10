@@ -5,24 +5,26 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
-import { Check, Clock, Menu, Minus, Plus, ScanLine, ShieldAlert, Undo2, WifiOff, X } from "lucide-react";
+import { ArrowRight, Check, Clock, Gift, Menu, Minus, Plus, ScanLine, ShieldAlert, Undo2, WifiOff, X } from "lucide-react";
 import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
 import { cx } from "@/components/ui/cx";
 import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
+import { useFormCheck } from "@/components/ui/form-check";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
+import { unitWord, withUnit } from "@/lib/units";
 import { birthdayCashierLine, WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
 export type CashierReward = { id: string; name: string; cost: number; eligible: boolean };
 export type CashierAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
-export type CashierCard = { id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: win-back (ENG-044), birthday (ENG-049); 0 = none. */ winbackBonus?: number; birthdayBonus?: number; level?: { name: string; perk?: string }; /** The card's booked appointment around now; done = already completed with its award. */ appointment?: { start: string; startLabel: string; serviceName: string; done: boolean } | null };
-export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
+export type CashierCard = { appointment?: { start: string; startLabel: string; serviceName: string; done: boolean }; id: string; code: string; cardLocator: string; matchedBy?: "code" | "locator"; balance: number; programType: ProgramType; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: CashierReward[]; /** Bonuses booked with the next award: Startbonus (first award), win-back (ENG-044), birthday (ENG-049); 0 = none. */ welcomeBonus?: number; winbackBonus?: number; birthdayBonus?: number; /** A happy-hour window is running: purchase points count twice. */ happyHour?: boolean; level?: { name: string; perk?: string } };
+export type CashierBooked = { tone: "success" | "pending" | "undone"; title: string; headline?: string; /** How the headline adds up: „1 Punkt + 5 Startbonus“. */ parts?: string; detail: string; meta?: string; hint?: string; undo?: "available" | "staff-only"; error?: string };
 export type CashierViewProps = {
   locationName: string;
   card?: CashierCard | null;
@@ -71,6 +73,60 @@ export type CashierViewProps = {
   logoutControl?: ReactNode;
 };
 
+/** Bonuses booked with an award, by source (ENG-133). */
+export type AwardBonuses = { welcomeBonus?: number; happyHourBonus?: number; winbackBonus?: number; birthdayBonus?: number; challengeBonus?: number; referralBonus?: number };
+// The names the owner's ledger export uses for these sources (lib/export.ts), in the order the line names them: happy hour
+// first, since it doubles the purchase itself (Marketing, 30 Oct).
+const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy Hour", welcomeBonus: "Startbonus", winbackBonus: "Willkommen-zurück-Bonus", birthdayBonus: "Geburtstags-Bonus", challengeBonus: "Challenge-Bonus", referralBonus: "Empfehlungsbonus" };
+/** Only the bonus fields of a server result, so other numbers on it are never summed. */
+export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
+export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
+
+/**
+ * „1 Punkt + 5 Punkte Startbonus“: the quantity and each bonus by name. French sums the bonuses (« + 5 en plus »). Each part
+ * keeps its words together with no-break spaces, so a narrow line only breaks at a „+“.
+ */
+export function awardParts(quantity: number, kind: ProgramType, bonuses: AwardBonuses, locale: UiLocale) {
+  const n = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format;
+  const base = `${n(quantity)} ${unitWord(quantity, kind, locale)}`;
+  const parts = locale === "fr" ? [base, ...(bonusTotal(bonuses) ? [`${n(bonusTotal(bonuses))} en plus`] : [])]
+    : [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)} ${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)];
+  return parts.map(part => part.replace(/ /g, "\u00a0")).join(" + ");
+}
+
+/**
+ * What a booking added: the balance change the cashier sees, and whether the credited quantity plus the bonuses the server
+ * named add up to it. A mismatch (a bonus the server did not name, or a balance that moved meanwhile) is logged; the
+ * screen shows the real change either way.
+ */
+export function awardDelta(balanceBefore: number, result: AwardBonuses & { balance: number; creditedQuantity: number }) {
+  const delta = result.balance - balanceBefore;
+  const known = result.creditedQuantity + bonusTotal(result);
+  if (known !== delta) console.warn(`Kasse: booked ${known} (quantity and bonuses) but the balance moved by ${delta}`);
+  return { delta, matches: known === delta };
+}
+
+/** The booked screen's chip and the line under it: „+6 Punkte“ and „1 Punkt + 5 Punkte Startbonus“; no line without a bonus. */
+export function bookedAward(card: Pick<CashierCard, "balance" | "programType">, credited: number, result: AwardBonuses & { balance: number; balanceBefore?: number }, locale: UiLocale) {
+  // The server's balance under the booking's lock; the lookup's balance only if an older server leaves it out.
+  const { delta, matches } = awardDelta(result.balanceBefore ?? card.balance, { ...result, creditedQuantity: credited });
+  const headline = `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(delta)} ${unitWord(delta, card.programType, locale)}`;
+  return { headline, parts: bonusTotal(result) || !matches ? awardParts(credited, card.programType, bonusesOf(result), locale) : undefined };
+}
+
+/** What the amount sheet previews, read like the booked screen: the total („+29 Punkte“), its parts if any bonus comes with it, the balance after. */
+export function purchasePreviewOf(card: Pick<CashierCard, "balance" | "happyHour" | "welcomeBonus" | "winbackBonus" | "birthdayBonus">, points: number, locale: UiLocale) {
+  const bonuses: AwardBonuses = { happyHourBonus: card.happyHour ? points : 0, welcomeBonus: card.welcomeBonus, winbackBonus: card.winbackBonus, birthdayBonus: card.birthdayBonus };
+  const total = points + bonusTotal(bonuses);
+  return { total: `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(total)} ${unitWord(total, "points", locale)}`, parts: bonusTotal(bonuses) ? awardParts(points, "points", bonuses, locale) : undefined, balanceAfter: card.balance + total };
+}
+
+/** The lookup's open card as the counter holds it (ENG-133: the bonuses the next award books come along). */
+export type CashierLookup = { membershipId: string; cardLocator: string; matchedBy: "code" | "locator"; balance: number; programType: "stamp" | "points"; earningMode: "manual" | "purchase"; pointsPerCurrencyUnit: number; currency: "EUR" | "MAD"; ruleVersionId: string; rewards: Array<{ id: string; title: string; cost: number }>; welcomeBonus?: number; happyHour?: boolean; winbackBonus?: number; birthdayBonus?: number; level?: { name: "Bronze" | "Silber" | "Gold" | null; perk?: string }; appointment?: { start: string; startLabel: string; serviceName: string; done: boolean } };
+export function cashierCard(result: CashierLookup, code: string): CashierCard {
+  return { id: result.membershipId, code, cardLocator: result.cardLocator, matchedBy: result.matchedBy, balance: result.balance, programType: result.programType === "stamp" ? "stamps" : "points", earningMode: result.earningMode, pointsPerCurrencyUnit: result.pointsPerCurrencyUnit, currency: result.currency, ruleVersionId: result.ruleVersionId, rewards: result.rewards.map(reward => ({ id: reward.id, name: reward.title, cost: reward.cost, eligible: result.balance >= reward.cost })), welcomeBonus: result.welcomeBonus ?? 0, happyHour: result.happyHour === true, winbackBonus: result.winbackBonus ?? 0, birthdayBonus: result.birthdayBonus ?? 0, level: result.level?.name ? { name: result.level.name, perk: result.level.perk } : undefined, appointment: result.appointment };
+}
+
 function previewMonth(isoMonth: string, locale: UiLocale) {
   const [year, month] = isoMonth.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale === "fr" ? "fr-FR" : "de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
@@ -78,6 +134,7 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
 
 export function CashierView({ locationName, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
+  const fields = useFormCheck();
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
   const [purchaseAmount, setPurchaseAmount] = useState("");
@@ -112,16 +169,20 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   }
   const amountLabel = locale === "fr" ? `Montant de l’achat (${card?.currency ?? "EUR"})` : `Kaufbetrag (${card?.currency ?? "EUR"})`;
   // A handheld scanner types the QR content into the field; do not leave that code on screen after submitting it.
-  function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
+  function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!fields.check(event.currentTarget)) return; const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
   // One stamp is booked with one tap: the scan identified the card and this button is the deliberate decision. More
   // than one, or a choice between online and offline booking, still goes through the confirmation dialog. Points are
   // booked from the amount sheet, whose „Buchen“ is that decision, after the preview of points and new balance.
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
-  const winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
-  const awardLabel = winback + birthday > 0
-    ? `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} + ${winback + birthday} ${locale === "fr" ? "en plus" : "extra"}`
+  const welcome = card?.welcomeBonus ?? 0, winback = card?.winbackBonus ?? 0, birthday = card?.birthdayBonus ?? 0;
+  const purchaseOutcome = card && purchasePreview ? purchasePreviewOf(card, purchasePreview.points, locale) : null;
+  // The Startbonus by name; win-back and birthday as „extra“, since the note above the balance names them.
+  const extras = locale === "fr" ? welcome + winback + birthday ? [`${welcome + winback + birthday} en plus`] : []
+    : [welcome ? `${welcome} Startbonus` : "", winback + birthday ? `${winback + birthday} extra` : ""].filter(Boolean);
+  const awardLabel = extras.length
+    ? [awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`, ...extras].join(" + ")
     : awardCount === 1 && !offlineChoice
       ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
       : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
@@ -140,6 +201,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
   const rewardFirst = readyRewards.length > 0;
+  // The band names the one ready reward (copy R21); with several, its tap opens the list, so it names none. No French yet.
+  const readyLine = locale === "de" && readyRewards.length === 1 ? `${readyRewards[0].name} · Stand reicht` : "";
   function redeemReady() {
     if (readyRewards.length === 1) { setConfirm({ kind: "redeem", reward: readyRewards[0] }); return; }
     const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
@@ -172,7 +235,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   const cheapest = card && card.programType !== "points" && card.rewards.length ? Math.min(...card.rewards.map(reward => reward.cost)) : 0;
   const stampGoal = cheapest > 0 && cheapest <= STAMP_GRID_MAX ? cheapest : 0;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
-  const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "go" as const, size: "xl" as const };
+  const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
   const dock = card ? <>
     {purchaseMode
       ? <Button {...earnLook} block disabled={busy}
@@ -186,14 +249,19 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         </div>
         <Button {...earnLook} block className="cashier-award-now" onClick={() => awardQuantity(card)} disabled={busy}>{awardLabel}</Button>
       </>}
-    {rewardFirst && <Button variant="go" size="xl" block className="cashier-redeem-now" onClick={redeemReady} disabled={busy}>{t.redeem}</Button>}
+    {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeemReady} disabled={busy}>
+      <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
+      <span className={styles.bandText}><b>{t.redeem}</b>{readyLine && <small>{readyLine}</small>}</span>
+      <ArrowRight size={22} aria-hidden="true" />
+    </button>}
   </> : undefined;
 
-  // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region.
+  // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. After a
+  // booking the result carries its own title, so the strip steps aside.
   return <CashierShell lang={locale} live={false} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={stateLabel} stateDetail={stateDetail} dock={dock}>
-    {/* The status strip says where the counter is; the heading stays for screen readers and page structure. */}
-    <h1 className={styles.srOnly}>{card ? t.found : t.scanTitle}</h1>
+    state={shellState} stateLabel={booked ? null : stateLabel} stateDetail={stateDetail} dock={dock}>
+    {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
+    <h1 className={card || preview || booked ? styles.srOnly : styles.title}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
@@ -201,10 +269,10 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>}
       {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={36} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={32} /> : <Clock size={32} />}</span>
-        {/* With an amount, the tick and the amount say it and the strip above carries the title; the heading stays for screen readers. */}
-        <h2 className={booked.headline ? styles.srOnly : undefined}>{booked.title}</h2>
+        <span className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={56} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
+        <h2>{booked.title}</h2>
         {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
+        {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
         <p className={styles.bookedDetail}>{booked.detail}</p>
         {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
         {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
@@ -227,8 +295,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
     </section> : !card ? <section className={styles.ready} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
-      <form className={styles.stack} onSubmit={lookup}>
-        <TextField id="cashier-code" label={t.manual} hint={t.codeHint}
+      <form className={styles.stack} onSubmit={lookup} onInput={fields.onInput} noValidate>
+        <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
           autoFocus={focusCodeInput} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           placeholder={locale === "fr" ? "p. ex. K-7QX2MA" : "z. B. K-7QX2MA"} required />
         <Button type="submit" variant={camera || onStartCamera ? "secondary" : "primary"} size="lg" block disabled={busy}>{t.check}</Button>
@@ -244,30 +312,33 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
       {card.matchedBy === "locator" && <p className={styles.note} role="note">{t.locatorNote}</p>}
       {winback + birthday > 0 && <p className={styles.winback} role="note">
-        {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${winback} ${unit} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
-        {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${birthday} ${unit} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
+        {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${withUnit(winback, card.programType, locale)} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
+        {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${withUnit(birthday, card.programType, locale)} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
         <small>{WINBACK_EXCLUSIONS}</small></p>}
+      {/* The number, its unit and the level read as one line; the label stays for screen readers. */}
       <div className={cx("balance-display", styles.balance)}>
-        <span>{t.balance}</span>
-        <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unit}</em></strong>
+        <span className={styles.srOnly}>{t.balance}</span>
+        <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
+        {card.level && <span className={styles.level}>{card.level.name}</span>}
       </div>
       {card.appointment && <p className={styles.note} role="note"><strong>{locale === "fr" ? "RDV" : "Termin"} {card.appointment.startLabel} · {card.appointment.serviceName}</strong>{card.appointment.done ? (locale === "fr" ? ` · déjà terminé, ${unit} enregistrés` : ` · schon erledigt, ${unit} sind gebucht`) : ""}</p>}
-      {card.level && <p className={styles.note} role="note"><strong>{card.level.name}</strong>{card.level.perk ? ` · ${locale === "fr" ? "Avantage" : "Vorteil"}: ${card.level.perk}` : ""}</p>}
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
-        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} size="sm" className={styles.stamps} />}
+        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} className={styles.stamps} />}
+      {card.level?.perk && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
       {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
         footer={<div className={styles.stack}>
           {offlineChoice && <Button variant="secondary" size="lg" block disabled={busy || !purchaseAward} onClick={() => bookPurchase(true)}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
-          <Button variant="go" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
+          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
         </div>}>
         <div className={styles.stack}>
           <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
             onChange={event => setPurchaseAmount(event.target.value)} aria-describedby="purchase-preview" />
           <div id="purchase-preview" className={styles.preview} aria-live="polite">{purchasePreview
             ? <>
-              <strong>+{number.format(purchasePreview.points)} {t.points}{winback + birthday > 0 ? ` + ${winback + birthday} extra` : ""}</strong>
-              <span>{t.newBalance}: {number.format(card.balance + purchasePreview.points + winback + birthday)} {t.points}</span>
+              <strong>{purchaseOutcome?.total}</strong>
+              {purchaseOutcome?.parts && <span className={styles.previewParts}>{purchaseOutcome.parts}</span>}
+              <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)} {unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
             </>
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
           {offlineChoice && <p className={styles.note} role="note">{t.offlineNote}</p>}
@@ -277,7 +348,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
         <h3>{t.rewards}</h3>
         {card.rewards.length ? <div className={cx("reward-action-list", styles.rewardList)}>
           {card.rewards.map(reward => <button type="button" key={reward.id} className={styles.reward} disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>
-            <span><strong>{reward.name}</strong><small>{reward.cost} {unit}</small></span>
+            <span><strong>{reward.name}</strong><small>{withUnit(reward.cost, card.programType, locale)}</small></span>
             <span className={styles.rewardAction}>{reward.eligible ? t.redeemShort : `${t.still} ${number.format(reward.cost - card.balance)}`}</span>
           </button>)}
         </div> : <p className={styles.help}>{t.noRewards}</p>}
@@ -286,7 +357,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
     {confirm && card && <Dialog open onClose={() => setConfirm(null)} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
-      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? `${confirm.award.quantity} ${unit}` : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${confirm.reward.cost} ${unit}) ${t.redeemFor} ${card.cardLocator}.`}
+      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor} ${card.cardLocator}.`}
       actions={<>
         <Button variant="secondary" onClick={() => setConfirm(null)}>{t.cancel}</Button>
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}

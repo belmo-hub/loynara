@@ -37,7 +37,7 @@ async function ladderOnScreen(page: Page) {
     const marks = [...el.children].slice(1).map(mark => mark.firstElementChild!.getBoundingClientRect()).map(r => [r.left, r.right]);
     return { outer: { left: outer.left, right: outer.right, top: outer.top, bottom: outer.bottom }, x: track.left, y: track.top, width: track.width, height: track.height, marks };
   });
-  // The track spans the ladder (it overhangs by 14 px each side) and is tall enough to see.
+  // The track spans the ladder, from the start to the last marker's centre, and is tall enough to see.
   expect(box.width).toBeGreaterThanOrEqual(box.outer.right - box.outer.left);
   expect(box.height).toBeGreaterThanOrEqual(4);
   expect(box.y).toBeGreaterThanOrEqual(box.outer.top); expect(box.y + box.height).toBeLessThanOrEqual(box.outer.bottom);

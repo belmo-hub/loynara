@@ -79,7 +79,7 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
       .where(and(open, isNull(bookingServices.archivedAt), keptServices.length ? notInArray(bookingAppointments.serviceId, keptServices) : sql`true`))
       .groupBy(bookingAppointments.serviceId).limit(1);
     if (dropped) throw new BookingError("SERVICE_HAS_APPOINTMENTS", "Service still has open appointments", { serviceId: dropped.serviceId, count: dropped.count });
-    const services = await upsert(tx, scope, bookingServices, input.services, "Service");
+    const services = await upsert(tx, scope, bookingServices, input.services, "Diese Leistung");
     const staffIds = input.staff.flatMap(s => s.id ? [s.id] : []);
     const leaving = await tx.select({ staffId: bookingAppointments.staffId, count: sql<number>`count(*)::int` }).from(bookingAppointments)
       .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
@@ -95,7 +95,7 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
         or(eq(staffRoles.role, "owner"), eq(staffRoles.locationId, scope.locationId))));
       if (known.length !== userIds.length) throw new DomainError("INVALID_STAFF_USER", "Unknown team member for this location");
     }
-    const staff = await upsert(tx, scope, bookingStaff, input.staff.map(s => ({ id: s.id, name: s.name, userId: s.userId, workingHours: s.workingHours })), "Staff member");
+    const staff = await upsert(tx, scope, bookingStaff, input.staff.map(s => ({ id: s.id, name: s.name, userId: s.userId, workingHours: s.workingHours })), "Diese Person");
 
     const serviceIds = new Set(services);
     for (const [index, member] of input.staff.entries()) {
@@ -115,7 +115,7 @@ async function upsert(tx: Tx, scope: Scope, table: typeof bookingServices | type
     const [row] = id
       ? await tx.update(table).set(set).where(and(eq(table.tenantId, scope.tenantId), eq(table.locationId, scope.locationId), eq(table.id, id), isNull(table.archivedAt))).returning({ id: table.id })
       : await tx.insert(table).values({ ...scope, ...set } as never).returning({ id: table.id }); // rows were validated by setupInput for this table
-    if (!row) throw new DomainError("NOT_FOUND", `${label} not found`);
+    if (!row) throw new DomainError("NOT_FOUND", `${label} haben wir nicht gefunden.`);
     ids.push(row.id);
   }
   await tx.update(table).set({ archivedAt: new Date() })

@@ -15,8 +15,8 @@ describe("shared web and worker production Wallet runtime gate", () => {
     const env = { ...safe, APPLE_WALLET_ENABLED: "true", APPLE_PASS_TYPE_ID: "pass.com.owned-domain.loyalty", APPLE_TEAM_ID: "ABCDE12345",
       APPLE_SIGNING_CERT_PATH: "/run/secrets/unavailable-apple-cert.pem", APPLE_SIGNING_KEY_PATH: "/run/secrets/unavailable-apple-key.pem", APPLE_WWDR_CERT_PATH: "/run/secrets/unavailable-apple-wwdr.pem",
       APPLE_WALLET_AUTH_SECRET: "synthetic-apple-auth-0123456789abcdef", APPLE_WALLET_WEB_SERVICE_URL: "https://app.owned-domain.org/api/apple" };
-    expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
-    expect(productionWalletRuntimeIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(/Apple Wallet enabled without working configuration/)]));
+    expect(productionConfigIssues(env)).toEqual([]);
+    expect(productionWalletRuntimeIssues(env)).toEqual([expect.stringMatching(/Apple Wallet enabled without working configuration/)]);
   });
 
   it("rejects unreadable Google credentials despite complete production declarations without echoing paths", () => {
@@ -36,7 +36,9 @@ describe("shared web and worker production Wallet runtime gate", () => {
   it("allows a locally parseable synthetic Google key but rejects demo publication in production", () => {
     const google = googleFixture();
     try {
-      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production" })).toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
+      // Classes live in the table (ENG-175): no env binding is fine, an invalid one is not.
+      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
+      expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production", GOOGLE_WALLET_LOCATION_CLASSES: "not json" })).toEqual(expect.arrayContaining([expect.stringMatching(/Google Wallet enabled without working configuration/)]));
       expect(productionWalletRuntimeIssues({ ...google.env, NODE_ENV: "production", GOOGLE_WALLET_PUBLISHING_STATUS: "demo" })).toEqual(expect.arrayContaining([expect.stringMatching(/not approved for production/)]));
     } finally { google.cleanup(); }
   });

@@ -54,7 +54,7 @@ it.each(["award", "redemption", "reversal", "catalogue"] as const)("returns one 
     if (operation === "award") await expect(award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, quantity: 2, idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 2 });
     else if (operation === "redemption") await expect(redeem(redeemInput)).resolves.toMatchObject({ balance: 0 });
     else if (operation === "reversal" && prior) await expect(reverseEntry({ userId: f.userId, locationId: f.location.id, entryId: prior.entryId, reason: "Synthetic customer history correction", idempotencyKey: randomUUID(), requestId: randomUUID() })).resolves.toMatchObject({ balance: 8 });
-    else if (operation === "catalogue") await editReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: version.rewardId, title: "Updated coffee", cost: 1, termsText: "" });
+    else if (operation === "catalogue") await editReward({ actorUserId: f.userId, programSlug: f.program.slug, rewardId: version.rewardId, title: "Updated coffee", cost: 1, termsText: "", worse: false });
     resume.resolve();
     const response = await pending;
     expect(response.status).toBe(200);

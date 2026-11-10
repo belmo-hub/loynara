@@ -5,7 +5,7 @@ export const SITE = {
   loginUrl: 'https://app.getloynara.com/login',
   supportEmail: 'support@getloynara.com',
   /** Provisional introductory offer. Shown with "details in a personal conversation"; no setup fee, discount or VAT statement is made. */
-  price: { amount: 49, unit: 'Monat / Standort', note: 'Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch.' },
+  price: { amount: 49, unit: 'Monat / Standort', note: 'Kunden und Karten kosten nichts extra.' },
   /** Termin + Treue: the 49 € plan plus online booking (docs/booking-design.md). Same founding-price rule as `price`. */
   terminPlan: { amount: 69 },
   /** Founder wording 24 Oct 2026. Legal must confirm the agreement carries the identical condition before this is published. */

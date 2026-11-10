@@ -7,8 +7,9 @@ import { apiJson, ClientApiError, postJson, type EndedAccountResponse, type MeRe
 import { accountLoadMessage, locationSwitchMessage, SETUP_INCOMPLETE } from "./owner-errors";
 import { OwnerDialog } from "./owner-ui";
 
-export type OwnerLocation = { id: string; name: string; city: string; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
-type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string }; preventDefault: () => void };
+export type OwnerLocation = { id: string; name: string; city: string; street: string | null; postalCode: string | null; representative: string | null; contactEmail: string | null;
+  contactPhone: string | null; legalForm: string | null; registerCourt: string | null; registerNumber: string | null; vatId: string | null; timezone?: string; programSlug: string | null; programName: string | null; programType: "stamp" | "points" | null; cards: number };
+type NavigateEventLike = { navigationType: string; cancelable: boolean; destination: { key: string; url: string }; preventDefault: () => void };
 type NavigationLike = { addEventListener: (type: string, listener: EventListener) => void; removeEventListener?: (type: string, listener: EventListener) => void; traverseTo?: (key: string) => { committed?: Promise<unknown> } };
 type Status = "loading" | "ready" | "unprovisioned" | "ended" | "error";
 export type EndedInfo = EndedAccountResponse["programEnded"];
@@ -18,6 +19,8 @@ export type SetupDraft = { businessName: string; locationName: string; city: str
 type OwnerValue = {
   /** Surfaces withheld on this deployment, known even before an account has a merchant (see lib/pilot-surfaces). */
   hiddenSurfaces: readonly PilotSurface[];
+  /** The role the server read for the first paint; `me.role` replaces it once /api/me answers. */
+  role: MeResponse["role"];
   status: Status;
   me: MeResponse | null;
   /** Set when the shop's programme has ended: the owner area is then only the export. */
@@ -45,6 +48,9 @@ export function useOwner() {
   if (!value) throw new Error("useOwner must be used inside OwnerProvider");
   return value;
 }
+
+/** Back or Forward to the same path and query is a step of the page on screen (the new-reward steps): its edits stay, so the leave guard lets it through. */
+export const sameEntry = (destination: string, here: { pathname: string; search: string }) => { const to = new URL(destination); return to.pathname === here.pathname && to.search === here.search; };
 
 /** Registers unsaved edits for as long as `dirty` is true; leaving the page clears it. */
 export function useDirtyGuard(key: string, dirty: boolean) {
@@ -80,7 +86,7 @@ async function fetchAccount(): Promise<AccountResult> {
   }
 }
 
-export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: ReactNode; hiddenSurfaces?: readonly PilotSurface[] }) {
+export function OwnerProvider({ children, hiddenSurfaces = [], role = "owner" }: { children: ReactNode; hiddenSurfaces?: readonly PilotSurface[]; role?: MeResponse["role"] }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -140,7 +146,7 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
     const nav = (window as unknown as { navigation?: NavigationLike }).navigation;
     if (!nav?.addEventListener) return;
     const onNavigate = ((event: NavigateEventLike) => {
-      if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable) return;
+      if (traversalBypass.current || event.navigationType !== "traverse" || !event.cancelable || sameEntry(event.destination.url, window.location)) return;
       event.preventDefault();
       const key = event.destination.key;
       setPending(() => () => {
@@ -181,9 +187,9 @@ export function OwnerProvider({ children, hiddenSurfaces = [] }: { children: Rea
   }, [apply, guard, load, me?.locationId, switching]);
 
   const value = useMemo<OwnerValue>(() => ({
-    hiddenSurfaces, status, me, ended, setupDraft, error, locations, switching, switchError, epoch,
+    hiddenSurfaces, role, status, me, ended, setupDraft, error, locations, switching, switchError, epoch,
     refresh: () => load("silent"), reload: () => { setStatus("loading"); setError(""); void load("initial"); }, resetAfterSignOut, setDirty, guard, switchLocation, announce: setMessage,
-  }), [hiddenSurfaces, status, me, ended, setupDraft, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
+  }), [hiddenSurfaces, role, status, me, ended, setupDraft, error, locations, switching, switchError, epoch, load, resetAfterSignOut, setDirty, guard, switchLocation]);
 
   return (
     <OwnerContext.Provider value={value}>

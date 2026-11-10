@@ -1,9 +1,11 @@
 import { Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { withUnit } from "@/lib/units";
 import { cx } from "./cx";
 import styles from "./stamp-grid.module.css";
 
-type Props = { earned: number; total: number; landed?: number; locale?: "de" | "fr"; mark?: ReactNode; size?: "md" | "sm"; className?: string };
+/** `reward`: the icon the last slot shows in an ink ring until it is earned (the owner's card view, ENG-122a). */
+type Props = { earned: number; total: number; landed?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string };
 
 /** Above this many stamps a card of marks stops being readable (and buries the code below it); a track replaces it. */
 export const STAMP_GRID_MAX = 30;
@@ -22,9 +24,9 @@ export function stampColumns(total: number) {
  * plays the landing motion once (DESIGN.md, "Pop in"). Programmes longer than STAMP_GRID_MAX stamps get one progress
  * track instead, so the card keeps its height whatever the merchant sets.
  */
-export function StampGrid({ earned, total, landed, locale = "de", mark, size = "md", className }: Props) {
+export function StampGrid({ earned, total, landed, locale = "de", mark, reward, size = "md", className }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
-  const label = locale === "fr" ? `${filled} ${filled === 1 ? "tampon" : "tampons"} sur ${total}` : `${filled} von ${total} Stempeln`;
+  const label = locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
   if (total > STAMP_GRID_MAX) {
     return <div className={cx(styles.track, className)} role="img" aria-label={label}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />
@@ -32,9 +34,9 @@ export function StampGrid({ earned, total, landed, locale = "de", mark, size = "
   }
   return <ol className={cx(styles.grid, styles[size], className)} aria-label={label} style={{ "--cols": stampColumns(total) } as CSSProperties}>
     {Array.from({ length: total }, (_, index) => {
-      const isEarned = index < filled;
-      return <li key={index} className={styles.slot} data-earned={isEarned || undefined} data-new={isEarned && landed === index + 1 ? true : undefined} style={{ "--r": `${((index * 47) % 17) - 8}deg` } as CSSProperties} aria-hidden="true">
-        {isEarned ? mark ?? <Check size={size === "sm" ? 16 : 22} strokeWidth={3} /> : null}
+      const isEarned = index < filled, goal = !isEarned && index === total - 1 ? reward : undefined;
+      return <li key={index} className={styles.slot} data-earned={isEarned || undefined} data-reward={goal ? true : undefined} data-new={isEarned && landed === index + 1 ? true : undefined} style={{ "--r": `${((index * 47) % 17) - 8}deg` } as CSSProperties} aria-hidden="true">
+        {isEarned ? mark ?? <Check size={size === "sm" ? 16 : 22} strokeWidth={3} /> : goal ?? null}
       </li>;
     })}
   </ol>;

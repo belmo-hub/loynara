@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { OperatorClient } from "@/components/operator/operator-client";
 import { auth } from "@/lib/auth";
+import { demoStatus } from "@/lib/demo";
+import { demoEnvironment } from "@/lib/demo-environment";
 import { DomainError } from "@/lib/loyalty";
 import { operatorOverview } from "@/lib/operator";
 import "@/components/owner/owner.css";
@@ -15,5 +17,7 @@ export default async function OperatorPage() {
   if (!session) notFound();
   const data = await operatorOverview(session.user.id).catch(error => { if (error instanceof DomainError && error.code === "FORBIDDEN") return null; throw error; });
   if (!data) notFound();
-  return <div className="owner-app ly-theme-auto"><OperatorClient {...data} /></div>;
+  // Demo-Modus only in the demo environment (design v3); elsewhere the section does not exist.
+  const demo = demoEnvironment() ? { running: await demoStatus() } : undefined;
+  return <div className="owner-app ly-theme-auto"><OperatorClient {...data} demo={demo} /></div>;
 }

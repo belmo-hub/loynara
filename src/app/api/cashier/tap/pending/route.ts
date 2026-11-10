@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const user = await sessionUser(request);
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const taps = await pendingTapRequests({ userId: user.id, locationId: context.locationId });
     const appointments = await appointmentsForTaps(context.locationId, taps.map(tap => tap.id));
     return Response.json(taps.map(tap => ({ ...tap, appointment: appointments.get(tap.id) ?? null })), { headers: { "Cache-Control": "no-store" } });

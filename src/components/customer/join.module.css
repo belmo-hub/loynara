@@ -3,7 +3,9 @@
 .welcome { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); }
 .business { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
 .location { margin: 0 0 var(--space-3); font-size: var(--text-14); overflow-wrap: anywhere; }
-.stamps li { max-width: 40px; justify-self: center; width: 100%; }
+/* Fixed 40 px slots with equal gaps, so the two rows read as one card (G-19). */
+.stamps { justify-content: start; grid-template-columns: repeat(var(--cols), minmax(0, 40px)); column-gap: var(--space-4); row-gap: var(--space-3); }
+.stamps li { width: 100%; }
 .reward { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-2) 0 0; padding-top: var(--space-3); border-top: 1px solid color-mix(in oklab, var(--merchant-ink), transparent 78%); font-size: var(--text-14); line-height: 1.4; }
 .reward svg { flex: none; margin-top: 2px; }
 .reward small { display: block; font-size: var(--text-14); }
@@ -12,11 +14,12 @@
 .panel { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
 .headline { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; }
-.lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; }
+.lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
 .note { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-action-soft); font-size: var(--text-14); line-height: 1.5; }
 .warning { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-warning), transparent 88%); font-size: var(--text-14); line-height: 1.5; }
-.error { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error svg { flex: none; margin-top: 2px; }
 .cardNumber { display: grid; justify-items: center; gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); }
 .cardNumber span { font-size: var(--text-14); color: var(--color-ink-muted); }
 .cardNumber strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
@@ -26,12 +29,40 @@
 .rewardList li:first-child { border-top: 0; }
 .rewardList span { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
 
-.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
-.rules h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
-.rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; }
+.rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); scroll-margin-top: var(--space-4); }
+.rules h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); }
+.rules p { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
+.rules p + p { margin-top: var(--space-4); }
 
 .form { display: grid; gap: var(--space-3); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }
 .footer { margin: 0; text-align: center; }
+
+/* ENG-100: a change waiting for its date, after the text it changes (Design 63, 67); the stale join's ring (64). */
+.change { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: 650; }
+.change svg { flex: none; margin-top: 2px; color: var(--color-warning); }
+.ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
+.newRule { white-space: pre-wrap; }
+.rules[data-stale] { padding: var(--space-3); border-radius: var(--radius-md); box-shadow: 0 0 0 2px var(--color-action); }
+
+/* ENG-130 (01): the two join steps on an iPhone where the location has Apple Wallet; neutral badges, one green element per screen. */
+.steps { display: grid; margin: 0; padding: 0; list-style: none; }
+.steps li { display: flex; align-items: center; gap: var(--space-3); padding-block: var(--space-3); }
+.steps li + li { border-top: 1px solid var(--color-line); }
+.steps span { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--color-bg); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.steps p { display: grid; margin: 0; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
+.steps strong { font-size: var(--text-16); font-weight: var(--weight-strong); color: var(--color-ink); }
+/* The Wallet step's header, as on the card page. */
+.merchant { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
+.merchant p { display: grid; margin: 0; min-width: 0; }
+.merchant strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.merchant span:not(.mono) { font-size: var(--text-14); color: var(--color-ink-muted); }
+.mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
+
+/* ENG-173: the optional Wallet-message box, then the notice that accepts the terms: normal size and contrast (Legal, 6 Nov). */
+.messages { display: grid; gap: var(--space-2); padding-block: var(--space-3); border-block: 1px solid var(--color-line); overflow-wrap: anywhere; }
+.messages h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; text-wrap: balance; }
+.notice { margin: 0; line-height: 1.5; }

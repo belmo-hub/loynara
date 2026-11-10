@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { AuthShell } from "@/components/ui/auth-shell";
+import { LegalLinks } from "@/components/ui/legal-links";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
+import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
 import styles from "@/components/auth/auth.module.css";
 
@@ -18,6 +20,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const fields = useFormCheck({ "login-password": "Bitte gib dein Passwort ein." });
   // Until the page is interactive, a tap on "Anmelden" would submit the bare form natively and just reload the page, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
 
@@ -26,6 +29,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
     // The button only shows "loading" (it keeps focus), so Enter in a field would submit again: ignore it while a request runs.
     if (busy) return;
     const formElement = event.currentTarget;
+    if (!fields.check(formElement)) return;
     // The fields are uncontrolled: text typed or autofilled before hydration finished is kept, where a controlled field
     // would be reset to its empty initial state and the browser's "required" check would then swallow the submit silently.
     const form = new FormData(formElement);
@@ -58,13 +62,15 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
     } finally { setBusy(false); }
   }
 
-  return <AuthShell>
+  // Design's screen 34 (ENG-122h): the mark alone, the larger question, the legal links right under the form, muted like
+  // everywhere else (G-22: green is the one next step). Copy is live (R22).
+  return <AuthShell mark footer={null}>
     <div className={styles.page}>
-      <PageHeader title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
+      <PageHeader className={styles.signin} title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
       <div className={styles.sheet}>
-        <form className={`auth-form ${styles.form}`} onSubmit={submit}>
-          <TextField label="E-Mail-Adresse" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" required placeholder="du@geschaeft.de" />
-          <TextField label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
+        <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
+          <TextField id="login-email" error={fields.error("login-email")} label="E-Mail-Adresse" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" required placeholder="du@geschaeft.de" />
+          <TextField id="login-password" error={fields.error("login-password")} label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
           <a className={styles.forgot} href={RESET_MAIL}>Passwort vergessen?</a>
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
           <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
@@ -73,6 +79,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
           ? <>Noch kein Konto? <Link className={styles.link} href="/register">Konto erstellen</Link></>
           : <>Noch keinen Zugang? Loynara richtet ihn gemeinsam mit dir ein.</>}</p>
       </div>
+      <LegalLinks />
     </div>
   </AuthShell>;
 }

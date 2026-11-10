@@ -63,7 +63,6 @@ test("a returning guest is offered the saved card instead of a silent second car
 
     // First visit: the normal join creates the card.
     await page.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     const firstPath = new URL(page.url()).pathname;
@@ -92,7 +91,6 @@ test("a returning guest is offered the saved card instead of a silent second car
     await page.getByRole("button", { name: "Ich brauche eine weitere Karte" }).click();
     await expect(page.getByRole("heading", { name: "Weitere Karte erstellen?" })).toBeVisible();
     await expect(page.locator(".join-another-warning")).toContainText(`bleiben auf Karte ${locator} und werden nicht übertragen`);
-    await page.getByRole("checkbox", { name: /Programmregeln/ }).check();
     await page.getByRole("button", { name: "Weitere Karte erstellen" }).click();
     await expect(page.getByText("Bitte bestätige, dass du eine zusätzliche Karte möchtest.")).toBeVisible();
     expect(enrolPosts).toHaveLength(1);
@@ -107,9 +105,9 @@ test("a returning guest is offered the saved card instead of a silent second car
     // A closed card is never offered again; the guest sees a plain note and can join normally.
     await page.getByRole("button", { name: "Karte schließen" }).click();
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
     await page.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByText("die nicht mehr gilt", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
 
@@ -118,7 +116,7 @@ test("a returning guest is offered the saved card instead of a silent second car
     try {
       const fresh = await privateWindow.newPage();
       await fresh.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-      await expect(fresh.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+      await expect(fresh.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
       await expect(fresh.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
     } finally { await privateWindow.close(); }
   } finally { await phone.close(); await shop.owner.dispose(); }
@@ -136,7 +134,6 @@ test("two tabs of one browser pressing create at the same time make one card", a
     const [first, second] = [await phone.newPage(), await phone.newPage()];
     for (const tab of [first, second]) {
       await tab.goto(`/join/${encodeURIComponent(shop.programSlug)}`);
-      await tab.getByRole("checkbox").first().check();
       await expect(tab.getByRole("button", { name: "Meine Karte erstellen" })).toBeEnabled();
     }
     await Promise.all([first.getByRole("button", { name: "Meine Karte erstellen" }).click(), second.getByRole("button", { name: "Meine Karte erstellen" }).click()]);
@@ -154,11 +151,10 @@ test("a card from one programme is never offered on another programme's join pag
   try {
     const page = await phone.newPage();
     await page.goto(`/join/${encodeURIComponent(pizza.programSlug)}`);
-    await page.getByRole("checkbox").first().check();
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
     await page.goto(`/join/${encodeURIComponent(barber.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toHaveCount(0);
     await page.goto(`/join/${encodeURIComponent(pizza.programSlug)}`);
     await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toBeVisible();
@@ -341,7 +337,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     // The page loads the card through /api/enroll/card/ and re-reads it through /api/card/.
     page.on("request", request => { if (request.method() === "GET" && new RegExp(`^/api/(enroll/)?card/${card.cardToken}$`).test(new URL(request.url()).pathname)) reads.push(Date.now()); });
     await page.goto(`/card/${encodeURIComponent(card.cardToken)}`);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("0 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
     await page.waitForTimeout(500);
     // Development mode runs the initial effect twice (React Strict Mode); count from the settled initial load.
     const initial = reads.length;
@@ -360,7 +356,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     const membershipId = await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await returnToPage();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("1 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
     await expect(page.locator(".customer-activity-list")).toContainText("+1 Stempel");
     expect(reads).toHaveLength(initial + 1);
 
@@ -373,7 +369,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await page.getByRole("button", { name: "Karte aktualisieren" }).click();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText("2 Stempel");
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
     expect(reads).toHaveLength(initial + 2);
 
     // A link that was reissued elsewhere stops showing the old card and says what to do.
@@ -381,7 +377,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     expect(reissue.status()).toBe(200);
     await page.waitForTimeout(5_200);
     await returnToPage();
-    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar" })).toBeVisible();
     await expect(page.getByText("Dieser Kartenlink ist nicht mehr gültig.", { exact: false })).toBeVisible();
   } finally { await phone.close(); await shop.owner.dispose(); }
 });

@@ -20,9 +20,9 @@ export async function POST(request: Request, route: { params: Promise<{ id: stri
     const user = await sessionUser(request);
     await enforceRateLimit({ scope: "tap_confirm_user", identity: user.id, max: 120, windowSeconds: 15 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const { id } = await route.params;
-    if (!/^[a-f0-9-]{36}$/.test(id)) throw new DomainError("NOT_FOUND", "Pending tap not found");
+    if (!/^[a-f0-9-]{36}$/.test(id)) throw new DomainError("NOT_FOUND", "Diese Anfrage ist abgelaufen oder schon erledigt.");
     const entry = request.headers.get("content-type") ? award.parse(await jsonBody(request, 500)) : undefined;
     const result = await confirmTapRequest({ userId: user.id, locationId: context.locationId, requestId: id, award: entry });
     await completeAfterAward(result.entryId);

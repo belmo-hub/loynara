@@ -6,6 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { TextField } from "./ui/field";
+import { useFormCheck } from "./ui/form-check";
 import styles from "./customer/panels.module.css";
 import { CardStatusLine, useCardStatus } from "./customer/card-status";
 
@@ -14,6 +15,7 @@ type ContactStatus = { available: boolean; marketingAvailable: boolean; marketin
 export function CardContact({ token, locale, recoveryOnly = false }: { token: string; locale: "de" | "fr"; recoveryOnly?: boolean }) {
   const [status, setStatus] = useState<ContactStatus | null>(null);
   const [email, setEmail] = useState("");
+  const fields = useFormCheck();
   const [busy, setBusy] = useState(false);
   // Which action is running, so only its own button shows progress.
   const [action, setAction] = useState<"request" | "preference" | null>(null);
@@ -33,7 +35,9 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
   }, [token]);
 
   async function request(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setAction("request"); setError(""); setMessage("");
+    event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
+    setBusy(true); setAction("request"); setError(""); setMessage("");
     try {
       const result = await postJson<{ status: "queued" | "verified" }>(`/api/card/${encodeURIComponent(token)}/contact`, { email });
       setStatus(await apiJson<ContactStatus>(`/api/card/${encodeURIComponent(token)}/contact`));
@@ -54,12 +58,12 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
     finally { setBusy(false); }
   }
 
-  async function preference(granted: boolean) {
+  async function preference(granted: false) {
     setBusy(true); setAction("preference"); setError(""); setMessage("");
     try {
       const result = await postJson<{ marketingEmail: boolean }>(`/api/card/${encodeURIComponent(token)}/contact/marketing`, { granted });
       setStatus(current => current && ({ ...current, marketingEmail: result.marketingEmail }));
-      setMessage(granted ? status?.marketingExternal ? french ? "Courriels d'offres activés. Désabonnement possible ici." : "E-Mail-Angebote aktiviert. Hier jederzeit abbestellbar." : french ? "Courriels de test locaux activés." : "Lokale Test-E-Mails aktiviert." : french ? "Désabonné." : "Abbestellt.");
+      setMessage(french ? "Désabonné." : "Abbestellt.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : french ? "Préférence non enregistrée." : "Einstellung konnte nicht gespeichert werden."); }
     finally { setBusy(false); setAction(null); }
   }
@@ -77,16 +81,17 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
     {status.available && (!recoveryOnly || !status.emailVerified) && <>
       <p className={styles.muted}>{french ? "Avec une adresse vérifiée, vous retrouvez votre carte si vous perdez ce lien. Sans publicité : aucun consentement marketing n’est ajouté." : "Mit einer bestätigten E-Mail-Adresse findest du deine Karte wieder, falls du diesen Link verlierst. Werbung abonnierst du damit nicht."}</p>
       <p className={styles.muted}>{withoutRecovery}</p>
-      <form onSubmit={request} className={styles.form}>
-        <TextField label={french ? "Adresse e-mail" : "E-Mail-Adresse"} type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="gast@example.com" maxLength={320} required />
+      <form onSubmit={request} onInput={fields.onInput} className={styles.form} noValidate>
+        <TextField id="contact-email" error={fields.error("contact-email")} label={french ? "Adresse e-mail" : "E-Mail-Adresse"} type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="gast@example.com" maxLength={320} required />
         <Button type="submit" variant="secondary" loading={action === "request"} disabled={busy && action !== "request"}>{french ? "Envoyer le lien de vérification" : "Bestätigungslink senden"}</Button>
       </form>
       {recoveryOnly && <Button variant="quiet" size="sm" disabled={busy} onClick={() => setDeferred(true)}>{french ? "Plus tard" : "Später"}</Button>}
     </>}
     {status.contactPresent && <p className={styles.state}>{status.emailVerified ? french ? "Adresse vérifiée." : "Adresse bestätigt." : french ? "Adresse non vérifiée ; aucun message marketing." : "Adresse noch nicht bestätigt; keine Marketing-Nachrichten."}</p>}
-    {!recoveryOnly && status.emailVerified && (status.marketingAvailable || status.marketingEmail) && <div className={styles.preference}>
-      <p className={styles.muted}>{status.marketingExternal ? french ? "Choix séparé : recevoir des offres de ce commerce par e-mail. Désabonnement possible à tout moment." : "Separate Einwilligung: E-Mail-Angebote dieses Geschäfts erhalten. Du kannst sie jederzeit abbestellen." : status.marketingAvailable ? french ? "Choix séparé pour les courriels marketing de test. Les messages restent dans la boîte locale." : "Separate Einwilligung für lokale Test-Marketing-E-Mails. Nachrichten bleiben im lokalen Test-Postfach." : french ? "Vous pouvez désactiver les offres par e-mail sans perdre votre carte ni votre adresse de récupération." : "Du kannst E-Mail-Angebote abbestellen. Karte und Wiederherstellungsadresse bleiben erhalten."}</p>
-      <Button variant="secondary" size="sm" loading={action === "preference"} disabled={busy && action !== "preference"} onClick={() => void preference(!status.marketingEmail)}>{status.marketingEmail ? french ? "Se désabonner" : "E-Mail-Marketing abbestellen" : french ? "Accepter les courriels d'offres" : "E-Mail-Angebote aktivieren"}</Button>
+    {/* ENG-165 N-1/N-5: granting goes only through the confirmation link now, so this panel (French cards) only withdraws,
+        with the button alone: no French sentence beyond the existing „Se désabonner“ (founder's hold on French copy). */}
+    {!recoveryOnly && status.emailVerified && status.marketingEmail && <div className={styles.preference}>
+      <Button variant="secondary" size="sm" loading={action === "preference"} disabled={busy && action !== "preference"} onClick={() => void preference(false)}>{french ? "Se désabonner" : "E-Mail-Marketing abbestellen"}</Button>
     </div>}
     {!recoveryOnly && status.available && status.contactPresent && <Button variant="quiet" size="sm" disabled={busy} onClick={() => void remove()}>{french ? "Supprimer l’adresse de récupération" : "Wiederherstellungsadresse entfernen"}</Button>}
     {status.available && <p className={styles.link}><Link href="/recover">{french ? "Lien perdu ? Retrouver la carte" : "Kartenlink verloren? Karte wiederfinden"}</Link></p>}

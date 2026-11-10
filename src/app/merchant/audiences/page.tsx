@@ -6,6 +6,8 @@ import { apiJson, type PublicProgram } from "@/components/client-api";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { FieldError } from "@/components/owner/question-form";
+import { useFormCheck } from "@/components/ui/form-check";
 import type { AudienceDefinition } from "@/lib/segments";
 
 type Preview = { total: number; asOf: string; countingRule: string };
@@ -24,12 +26,13 @@ export default function MerchantAudiencesPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState("");
+  const fields = useFormCheck();
   if (!me) return null;
   const unit = me.programType === "stamp" ? "Stempel" : "Punkte";
 
   async function showPreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!me?.programSlug) return;
+    if (!me?.programSlug || !fields.check(event.currentTarget)) return;
     const params = new URLSearchParams({ programSlug: me.programSlug, kind });
     if (kind === "new" || kind === "recently_active" || kind === "frequent_visitors") params.set("withinDays", withinDays);
     if (kind === "inactive") params.set("daysSinceLast", daysSinceLast);
@@ -49,22 +52,22 @@ export default function MerchantAudiencesPage() {
 
   return (
     <div className="ow-page">
-      <PageHead eyebrow="Kunden" title="Segmente prüfen" lead="Sieh, wie viele Karten ohne Namen zu einer Regel passen. Das ist noch keine Liste versendbarer Kontakte." />
+      <PageHead title="Segmente prüfen" lead="Sieh, wie viele Karten ohne Namen zu einer Regel passen. Das ist noch keine Liste versendbarer Kontakte." />
       {program.state === "error" && <ErrorNotice message={program.message} onRetry={reloadProgram} />}
       {program.state === "loading" && <LoadingBlock />}
       {program.state === "ok" && (
         <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
-          <form className="ow-card ow-stack" onSubmit={showPreview}>
+          <form className="ow-card ow-stack" onSubmit={showPreview} onInput={fields.onInput} noValidate>
             <div><h2>Regel auswählen</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Die Vorschau verwendet den aktuellen Datenstand dieses Programms.</p></div>
             <div className="ow-field"><label htmlFor="au-kind">Segment</label>
               <select id="au-kind" className="ow-select" value={kind} onChange={event => change(setKind)(event.target.value as Kind)}>
                 <option value="new">Neu angemeldet</option><option value="recently_active">Kürzlich aktiv</option><option value="inactive">Inaktiv</option><option value="frequent_visitors">Häufige Buchungen</option><option value="close_to_reward">Kurz vor einer Prämie</option>
               </select></div>
-            {(kind === "new" || kind === "recently_active" || kind === "frequent_visitors") && <div className="ow-field"><label htmlFor="au-within">Zeitraum in Tagen</label><input id="au-within" className="ow-input" type="number" min="1" max="3650" required value={withinDays} onChange={event => change(setWithinDays)(event.target.value)} /></div>}
-            {kind === "inactive" && <div className="ow-field"><label htmlFor="au-inactive">Letzte bestätigte Buchung vor mindestens so vielen Tagen</label><input id="au-inactive" className="ow-input" type="number" min="1" max="3650" required value={daysSinceLast} onChange={event => change(setDaysSinceLast)(event.target.value)} /></div>}
-            {kind === "frequent_visitors" && <div className="ow-field"><label htmlFor="au-min">Mindestens so viele bestätigte Buchungen</label><input id="au-min" className="ow-input" type="number" min="1" max="10000" required value={minCheckouts} onChange={event => change(setMinCheckouts)(event.target.value)} /></div>}
+            {(kind === "new" || kind === "recently_active" || kind === "frequent_visitors") && <div className="ow-field"><label htmlFor="au-within">Zeitraum in Tagen</label><input id="au-within" {...fields.aria("au-within")} className="ow-input" type="number" min="1" max="3650" required value={withinDays} onChange={event => change(setWithinDays)(event.target.value)} /><FieldError id="au-within-error">{fields.error("au-within") ?? ""}</FieldError></div>}
+            {kind === "inactive" && <div className="ow-field"><label htmlFor="au-inactive">Letzte bestätigte Buchung vor mindestens so vielen Tagen</label><input id="au-inactive" {...fields.aria("au-inactive")} className="ow-input" type="number" min="1" max="3650" required value={daysSinceLast} onChange={event => change(setDaysSinceLast)(event.target.value)} /><FieldError id="au-inactive-error">{fields.error("au-inactive") ?? ""}</FieldError></div>}
+            {kind === "frequent_visitors" && <div className="ow-field"><label htmlFor="au-min">Mindestens so viele bestätigte Buchungen</label><input id="au-min" {...fields.aria("au-min")} className="ow-input" type="number" min="1" max="10000" required value={minCheckouts} onChange={event => change(setMinCheckouts)(event.target.value)} /><FieldError id="au-min-error">{fields.error("au-min") ?? ""}</FieldError></div>}
             {kind === "close_to_reward" && <>
-              <div className="ow-field"><label htmlFor="au-rem">Höchstens so viele {unit} bis zur Prämie</label><input id="au-rem" className="ow-input" type="number" min="1" max="100000" required value={maxRemaining} onChange={event => change(setMaxRemaining)(event.target.value)} /></div>
+              <div className="ow-field"><label htmlFor="au-rem">Höchstens so viele {unit} bis zur Prämie</label><input id="au-rem" {...fields.aria("au-rem")} className="ow-input" type="number" min="1" max="100000" required value={maxRemaining} onChange={event => change(setMaxRemaining)(event.target.value)} /><FieldError id="au-rem-error">{fields.error("au-rem") ?? ""}</FieldError></div>
               <div className="ow-field"><label htmlFor="au-reward">Prämie</label><select id="au-reward" className="ow-select" value={rewardId} onChange={event => change(setRewardId)(event.target.value)}><option value="">Beliebige aktive Prämie</option>{program.data.rewards.map(reward => <option key={reward.id} value={reward.rewardId}>{reward.title} · {reward.cost}</option>)}</select></div>
             </>}
             <div><button className="ow-btn ow-btn--primary" type="submit" disabled={previewing} aria-busy={previewing}>{previewing ? "Berechne …" : "Anzahl berechnen"}</button></div>
@@ -72,10 +75,10 @@ export default function MerchantAudiencesPage() {
           <section className="ow-card ow-stack" aria-live="polite" aria-labelledby="au-result">
             <h2 id="au-result">Passende Karten</h2>
             {previewing ? <p className="ow-muted">Segment wird berechnet …</p>
-              : preview ? <div><strong className="ow-metric-value" style={{ fontSize: "var(--display-num)" }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, true)}</time></p>{campaignLink && <p style={{ marginTop: 12 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
+              : preview ? <div><strong className="ow-metric-value" style={{ fontSize: "var(--display-num)" }} data-testid="audience-total">{preview.total}</strong><p>pseudonyme {preview.total === 1 ? "Karte erfüllt" : "Karten erfüllen"} diese Regel.</p><p className="ow-hint">Datenstand: <time dateTime={preview.asOf}>{germanDate(preview.asOf, "feed")}</time></p>{campaignLink && <p className="ow-mt-3"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={campaignLink}>Kampagnenentwurf für diese Zielgruppe</Link></p>}</div>
               : <p className="ow-muted">Wähle eine Regel und berechne die Anzahl.</p>}
             {error && <ErrorNotice message={error} />}
-            <Notice><div><strong>So wird gezählt</strong><p style={{ marginTop: 4 }}>Jede bestätigte Buchung zählt einmal, außer sie wurde korrigiert. Eine Buchung ist kein Beweis für einen Besuch. Anmeldung und Startguthaben zählen hier nicht.</p><p style={{ marginTop: 4 }}>Für Nachrichten braucht jede Person zusätzlich eine verifizierte Kontaktadresse und eine passende Einwilligung.</p></div></Notice>
+            <Notice><div><strong>So wird gezählt</strong><p>Jede bestätigte Buchung zählt einmal, außer sie wurde korrigiert. Eine Buchung ist kein Beweis für einen Besuch. Anmeldung und Startguthaben zählen hier nicht.</p><p>Nachrichten bekommen nur Karten in Apple Wallet, die zugestimmt haben.</p></div></Notice>
           </section>
         </div>
       )}

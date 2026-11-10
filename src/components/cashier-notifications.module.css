@@ -10,7 +10,7 @@
   touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out);
 }
 .button:active:not(:disabled) { transform: scale(.97); }
-.button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .button:disabled { opacity: .6; cursor: progress; }
 .secondary { background: transparent; color: var(--color-ink); border-color: var(--color-line-strong); }
 .error { margin: 0; color: var(--color-danger); }

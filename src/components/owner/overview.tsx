@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
@@ -10,18 +10,19 @@ import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/over
 import type { LaunchReadiness } from "@/lib/readiness";
 import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
-import { formatMinor } from "@/lib/spend-copy";
+import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
-import { downloadCounterSign, JoinCard, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, CardStock, Diary, EmptyStrip, Milestone, NextBar, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
-import { buildInsights, type ReferralRow, type WinbackState } from "./retention-insights";
+import { downloadCounterSign, joinUrlOf } from "./join-card";
+import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
-import { nf } from "./owner-ui";
+import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 /*
- * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct): one green board,
- * four tiles for the last 30 days at the active location, the next step, the diary. Everything is about the active location.
+ * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct) laid out as Wegweiser
+ * start screen A (ENG-121): the greeting, the next step as the green band, the overview card, four rows for the last 30 days
+ * at the active location, the diary. Everything is about the active location.
  */
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
@@ -74,11 +75,13 @@ function TodayAppointments() {
 /* ───────────── Active business ───────────── */
 
 function ActiveBusiness({ me }: { me: MeResponse }) {
-  const { locations, hiddenSurfaces } = useOwner();
+  const { locations } = useOwner();
   const isOwner = me.role === "owner";
+  // The demo environment withholds the euro board (pilot-surfaces „revenue“): the board leads with the card stock instead.
+  const spendShown = isOwner && !me.hiddenSurfaces?.includes("revenue");
   const [analytics, reloadAnalytics] = useLoad<LocationAnalytics>(`/api/merchant/analytics/location?locationId=${encodeURIComponent(me.locationId)}`);
   // Euros are owner-only (the spend read refuses everyone else); the Leitung's board leads with their card stock.
-  const [spend, reloadSpend] = useLoad<MerchantSpend>(isOwner ? "/api/merchant/spend" : null);
+  const [spend, reloadSpend] = useLoad<MerchantSpend>(spendShown ? "/api/merchant/spend" : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
   const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
@@ -89,7 +92,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
   const a = analytics.state === "ok" ? analytics.data : null;
   const r = retention.state === "ok" ? retention.data : null;
-  const live = a && (isOwner ? spend.state === "ok" : r) ? boardOf(a, isOwner && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
+  const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
   useEffect(() => { if (liveJson) writeBoardCache(cacheKey, { at: new Date().toISOString(), board: JSON.parse(liveJson) as BoardData }); }, [cacheKey, liveJson]);
@@ -112,42 +115,57 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
   const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
   const quiet = a ? quietOf(a) : null;
+  const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
+  // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
+  // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
+  // bookings are the board's and the Buchungen tile's number, so the screen shows one figure for one fact. Euros only while
+  // the board's are exact: with part estimated, the board's total and the till amounts would be two totals (fault 17).
+  const owned = spendShown && !failed && spend.state === "ok" ? spend.data : null;
+  const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
+  const brought = !owned || !here || !a ? null
+    : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
+      : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
+
+  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{signError}</p>;
 
   return (
-    <div className="ow-page ow-dash" data-next={next ? "" : undefined}>
-      <h1 className="ow-sr">Übersicht</h1>
+    <div className="ow-page ow-dash">
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
-      {failed && !board ? <ErrorCard reload={reload} />
-        : <Board hello={hello} kicker={!isOwner ? "Karten an deinem Standort · 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden · 30 Tage" : "Buchungen · letzte 30 Tage"} busy={!board}>
-          {!board ? <BoardPlaceholder /> : <>
-            {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
-              <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
-              <p className="ow-board-sub">Karten mit Buchung in den letzten 30 Tagen</p>
-              <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+      {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
+      <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>
+      {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
+      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
+      <div className="ow-dash-lead ow-stack">
+        {failed && !board ? <ErrorCard reload={reload} />
+          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
+            {!board ? <BoardPlaceholder /> : <>
+              {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
+                <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+                <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
+                <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+              </>}
+              <Strip days={board.days} caption={STRIP_CAPTION} />
+              {news && <p className="ow-board-news">{news}</p>}
+              {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
-            <Strip days={board.days} caption={STRIP_CAPTION} />
-            {news && <p className="ow-board-news">{news}</p>}
-            {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
-          </>}
-        </Board>}
+          </Board>}
+        {brought}
+      </div>
       <div className="ow-dash-side">
         <TodayAppointments />
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          : a && <Tiles tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: hiddenSurfaces.includes("walletMessages") ? null : "/merchant/wallet-messages#winback-title" })} />}
-        {next && <NextBar {...next} />}
-        {signError && <p className="ow-error" role="alert">{signError}</p>}
+          // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
+          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
-      {!failed && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={typeof quiet === "number" && a?.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null}>
+      {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
+      {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
         {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
       </Diary>}
-      {/* Until ENG-086 moves them under Kunden, the invite link and the Tresenschild stay reachable here, below the diary
-          (Einstellungen, where the owner also finds them, is owner-only). */}
-      <div className="ow-dash-invite"><JoinCard me={me} /></div>
     </div>
   );
 }
@@ -177,17 +195,19 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     const exact = f.estimatedMinor === 0;
     return <>
       <BigMoney text={formatMinor(f.spentMinor, spend.currency)} />
+      {/* An estimate says so in a neutral chip under the number; the sub-line stays the same (Design, 30 Oct). */}
+      {!exact && <p className="ow-board-est"><span className="ow-chip ow-chip--info">{f.realMinor === 0 ? "geschätzt" : "teils geschätzt"}</span></p>}
       {/* The „?“ ends the sub-line (no break before it); its sentence opens below. */}
-      <p className="ow-board-sub">{exact ? "aus Kassenbeträgen an diesem Standort" : f.realMinor === 0 ? "geschätzt aus Buchungen × Durchschnittsbon" : "teilweise geschätzt"}{NBSP}<button type="button" className="ow-board-q" aria-expanded={why} aria-controls={whyId} onClick={() => setWhy(open => !open)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir den Umsatz</span></button></p>
+      <p className="ow-board-sub">Umsatz deiner Loynara-Kunden, 30 Tage{NBSP}<button type="button" className="ow-board-q" aria-expanded={why} aria-controls={whyId} onClick={() => setWhy(open => !open)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir den Umsatz</span></button></p>
       <p id={whyId} className="ow-board-help" hidden={!why}>{exact ? "Summe der Kassenbeträge, die dein Team bei Loynara-Buchungen eingegeben hat. Bonuspunkte zählen nicht." : "Buchungen × dein Durchschnittsbon. Darum steht „geschätzt“ dabei."}</p>
     </>;
   }
   return <>
     <p className="ow-board-big">{nf.format(bookings)}{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
-    <p className="ow-board-sub">bestätigt an der Kasse</p>
+    <p className="ow-board-sub">letzte 30 Tage, Korrekturen abgezogen</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
-      <div className="ow-board-actions"><Link className="ow-btn ow-btn--board ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
+      <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
     </div>}
   </>;
 }
@@ -240,11 +260,11 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
-    { key: "bookings", label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
-    { key: "cards", label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
-    { key: "back", label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
+    { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
+    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "back", icon: Undo2, label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
-    { key: "rewards", label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
+    { key: "rewards", icon: Gift, label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
   ];
 }
 
@@ -255,23 +275,23 @@ const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}K
  * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
  * ending, the end-date card leads instead.
  */
-export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | "over90" | null; sign: () => void }): { title: string; text?: string; action?: NextAction } | null {
+export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionSummary>; referrals: ReferralRow[] | null; readiness: Loadable<LaunchReadiness>; winback: WinbackState; quiet: number | "over90" | null; sign: () => void }): { kind: string; title: string; text?: string; action?: NextAction } | null {
   const { me, retention, referrals, readiness, winback, quiet, sign } = input;
   const isOwner = me.role === "owner";
   if (me.cancellationEndDate) return null;
-  if (quiet !== null) return { title: `${quiet === "over90" ? "Seit über 90 Tagen" : `Seit ${quiet} Tagen`} keine Buchung. Steht das Tresenschild noch gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
+  if (quiet !== null) return { kind: "quiet", title: `${quiet === "over90" ? "Seit über 90 Tagen" : `Seit ${quiet} Tagen`} keine Buchung. Steht das Tresenschild noch gut sichtbar?`, action: { label: "Tresenschild laden", onClick: sign } };
   if (retention.state !== "ok" || readiness.state !== "ok") return null;
   // The step's evidence is its action sentence (#129); its title stays on the steps list.
   const setup = readiness.data.steps.find(step => step.required && step.status === "todo" && step.action && (isOwner || !step.action.ownerOnly));
-  if (setup) return { title: setup.evidence, action: setup.action ?? undefined };
-  const insight = buildInsights({ summary: retention.data, unit: unitOf(me), isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
+  if (setup) return { kind: `setup:${setup.id}`, title: setup.evidence, action: setup.action ?? undefined };
+  const insight = buildInsights({ summary: retention.data, isOwner, campaigns: !(me.hiddenSurfaces ?? []).includes("campaigns"), referrals, winback })[0];
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href.startsWith("/merchant/wallet-messages") ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
-  if (insight?.id === "reward-ready") return { title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
-  if (insight) return { title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
+  if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
   return null;
 }
 
@@ -290,7 +310,7 @@ function ErrorCard({ reload }: { reload: () => void }) {
 /** The rail's steps and their sentences (copy E7). Karte gestalten and Team stay where they are today (Programm, Team). */
 const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: string }> = {
   programme: () => ({ title: "Programm und Prämie" }),
-  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit dem Anmeldelink oder dem Tresenschild." }),
+  enrolment: () => ({ title: "Erste Karte anmelden", text: "Mit Anmeldelink oder Tresenschild" }),
   first_award: me => ({ title: "Erste Buchung an der Kasse", text: me.programType === "points" ? "Ein paar Punkte auf deine eigene Karte." : "Ein Stempel auf deine eigene Karte." }),
   first_redemption: () => ({ title: "Einlösung einmal durchspielen", text: "Zeigt deinem Team die Bestätigung." }),
 };
@@ -301,22 +321,22 @@ function EmptyShop({ me }: { me: MeResponse }) {
   const steps = readiness.state === "ok" ? readiness.data.steps.filter(step => step.id in FIRST_STEPS) : [];
   const current = steps.find(step => step.required && step.status === "todo");
   const joinUrl = joinUrlOf(me);
-  const lead = !current ? null
-    : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? <a className="ow-btn ow-btn--board ow-btn--sm" href={joinUrl} target="_blank" rel="noopener noreferrer">Anmeldelink öffnen</a> : null }
-      : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: <Link className="ow-btn ow-btn--board ow-btn--sm" href="/cashier">Kasse öffnen</Link> }
-        : { title: current.evidence, text: undefined, action: current.action ? <Link className="ow-btn ow-btn--board ow-btn--sm" href={current.action.href}>{current.action.label}</Link> : null };
+  const lead: { title: string; text?: string; action?: NextAction } | null = !current ? null
+    : current.id === "enrolment" ? { title: "Melde die erste Karte selbst an.", text: "Mit deinem eigenen Handy. So siehst du, was deine Kundinnen und Kunden sehen.", action: joinUrl ? { label: "Anmeldelink öffnen", href: joinUrl, external: true } : undefined }
+      : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: { label: "Kasse öffnen", href: "/cashier" } }
+        : { title: current.evidence, action: current.action ? { label: current.action.label, href: current.action.href } : undefined };
   return (
     <div className="ow-page ow-dash ow-dash--single">
-      <h1 className="ow-sr">Dein Treueprogramm einrichten</h1>
       <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
-      <Board hello={`Willkommen bei Loynara, ${me.businessName}.`} kicker={readiness.state === "ok" ? `Startklar · ${readiness.data.requiredDone} von ${readiness.data.requiredTotal} Pflichtschritten` : "Startklar"} busy={readiness.state !== "ok" && readiness.state !== "error"}>
-        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--board ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
-          : readiness.state !== "ok" ? <BoardPlaceholder />
-            : lead && <>
-              <p className="ow-board-title">{lead.title}</p>
-              {lead.text && <p className="ow-board-sub">{lead.text}</p>}
-              {lead.action && <div className="ow-board-actions" style={{ marginTop: 16 }}>{lead.action}</div>}
-            </>}
+      <h1 className="ow-hello"><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
+      {lead && <NextBand {...lead} />}
+      <Board label="Startklar" busy={readiness.state !== "ok" && readiness.state !== "error"}>
+        {readiness.state === "ok" && <>
+          <p className="ow-board-big">{nf.format(readiness.data.requiredDone)}{NBSP}<small>von {nf.format(readiness.data.requiredTotal)}</small></p>
+          <p className="ow-board-sub">Pflichtschritte erledigt</p>
+        </>}
+        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
+          : readiness.state !== "ok" && <BoardPlaceholder />}
         <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
       </Board>
       <TodayAppointments />
@@ -328,15 +348,13 @@ function EmptyShop({ me }: { me: MeResponse }) {
             <div className="ow-day" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
               <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3.5} />}</i><span /></div>
               <div>
-                <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip" style={{ marginLeft: 8 }}>Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
+                <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip">Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
                 <p className="ow-day-sum">{step.status === "done" || !copy.text ? step.evidence : copy.text}</p>
               </div>
             </div>
           );
         })}
       </section>
-      {/* The invite link and the Tresenschild, until ENG-086 moves them under Kunden. */}
-      <JoinCard me={me} />
     </div>
   );
 }

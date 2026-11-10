@@ -364,9 +364,9 @@ describe("PassFast Apple and historical managed Google lifecycle through isolate
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     const originals=[...rows.values()].map(row=>({serial:row.serial_number,platform:row.wallet_type,data:{...row.dynamic_data}}));
     await updateMerchantBrand({actorUserId:f.owner,programSlug:f.merchant.programSlug,businessName:"Updated Café",locationName:"Updated Location",brandColor:"#123456"});
-    await updateProgram({actorUserId:f.owner,programSlug:f.merchant.programSlug,name:"Updated Coffee",rulesText:"One stamp per approved purchase"});
+    await updateProgram({actorUserId:f.owner,programSlug:f.merchant.programSlug,name:"Updated Coffee",rulesText:"One stamp per approved purchase",worse:false});
     const reward=(await pool.query("SELECT id FROM rewards WHERE program_id=$1",[f.merchant.programId])).rows[0];
-    await editReward({actorUserId:f.owner,programSlug:f.merchant.programSlug,rewardId:reward.id,title:"Updated Reward",cost:3,termsText:""});
+    await editReward({actorUserId:f.owner,programSlug:f.merchant.programSlug,rewardId:reward.id,title:"Updated Reward",cost:3,termsText:"",worse:false});
     const before=await snapshot(f.member.id); const boundary=calls.length;
     await refreshWalletForMembership(f.member.id,{expectedTenantId:f.merchant.tenantId});
     expect(await snapshot(f.member.id)).toEqual(before);
@@ -480,9 +480,9 @@ describe("combined remembered browser and PassFast generation security", () => {
     await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: referred.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     const booked = await award({ userId: f.owner, locationId: f.merchant.locationId, membershipId: f.member.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
     await reverseEntry({ userId: f.owner, locationId: f.merchant.locationId, entryId: booked.entryId, reason: "Synthetic providers off correction", idempotencyKey: randomUUID(), requestId: randomUUID() });
-    await updateProgram({ actorUserId: f.owner, programSlug: f.merchant.programSlug, name: "Providers OFF Card", rulesText: "Confirmed visit only" });
+    await updateProgram({ actorUserId: f.owner, programSlug: f.merchant.programSlug, name: "Providers OFF Card", rulesText: "Confirmed visit only", worse: false });
     const reward = (await pool.query("SELECT id FROM rewards WHERE program_id=$1", [f.member.programId])).rows[0];
-    await editReward({ actorUserId: f.owner, programSlug: f.merchant.programSlug, rewardId: reward.id, title: "Providers OFF Reward", cost: 3, termsText: "" });
+    await editReward({ actorUserId: f.owner, programSlug: f.merchant.programSlug, rewardId: reward.id, title: "Providers OFF Reward", cost: 3, termsText: "", worse: false });
     await updateMerchantBrand({ actorUserId: f.owner, programSlug: f.merchant.programSlug, businessName: "Providers OFF Café", locationName: "Providers OFF Location", brandColor: "#123456" });
     const readiness = await ownerWalletReadiness({ actorUserId: f.owner, programSlug: f.merchant.programSlug });
     expect(readiness).toMatchObject({ apple: "not_set_up", google: "not_set_up", passes: { apple: 0, google: 0 } });

@@ -2,12 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { postJson, type MeResponse } from "@/components/client-api";
-import { useDirtyGuard } from "./owner-context";
+import { useDirtyGuard, useOwner } from "./owner-context";
 import { SaveBar, type SaveState } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { tapModesFor, type TapMode as Mode } from "./tap-modes";
+import { FieldError } from "./question-form";
+import { useFormCheck } from "@/components/ui/form-check";
 
-const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
+export const ALL_MODES: Array<{ id: Mode; label: string; text: string }> = [
   { id: "disabled", label: "Aus", text: "Nur QR-Scan oder Kartencode an der Kasse." },
   { id: "staff_confirmed", label: "Mit Bestätigung", text: "Ein NFC-Tag öffnet die Karte, das Team bestätigt die Vergabe." },
   { id: "automatic_fixed", label: "Automatisch", text: "Ein Tap vergibt automatisch die feste Menge, mit Wartezeit zwischen zwei Taps." },
@@ -33,8 +35,10 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [linked, setLinked] = useState("");
+  const fields = useFormCheck();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
     const element = event.currentTarget, form = new FormData(element);
     setBusy(true); setError(""); setLinked("");
     try {
@@ -43,10 +47,10 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Die Platte konnte nicht aktiviert werden."); }
     finally { setBusy(false); }
   }
-  return <form className="ow-stack" onSubmit={submit} aria-labelledby="plate-activate-title">
+  return <form className="ow-stack" onSubmit={submit} onInput={fields.onInput} noValidate aria-labelledby="plate-activate-title">
     <strong id="plate-activate-title">Platte aus der Post aktivieren</strong>
-    <div className="ow-field"><label htmlFor="plate-label">Plattenname</label><input id="plate-label" name="plate" className="ow-input" placeholder="P-007" autoCapitalize="characters" autoComplete="off" spellCheck={false} required maxLength={16} style={{ maxWidth: 200 }} /></div>
-    <div className="ow-field"><label htmlFor="plate-code">Code von der Karte in der Box</label><input id="plate-code" name="code" className="ow-input" placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="one-time-code" spellCheck={false} required maxLength={20} style={{ maxWidth: 240 }} /></div>
+    <div className="ow-field"><label htmlFor="plate-label">Plattenname</label><input id="plate-label" {...fields.aria("plate-label")} name="plate" className="ow-input ow-field--narrow" placeholder="P-007" autoCapitalize="characters" autoComplete="off" spellCheck={false} required maxLength={16} /><FieldError id="plate-label-error">{fields.error("plate-label") ?? ""}</FieldError></div>
+    <div className="ow-field"><label htmlFor="plate-code">Code von der Karte in der Box</label><input id="plate-code" {...fields.aria("plate-code")} name="code" className="ow-input" placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="one-time-code" spellCheck={false} required maxLength={20} style={{ maxWidth: 240 }} /><FieldError id="plate-code-error">{fields.error("plate-code") ?? ""}</FieldError></div>
     {error && <p className="ow-error" role="alert">{error}</p>}
     {linked && <p role="status">{linked}</p>}
     <div><button type="submit" className="ow-btn ow-btn--secondary" disabled={busy}>{busy ? "Wird geprüft …" : "Platte aktivieren"}</button></div>
@@ -55,6 +59,7 @@ function PlateActivation({ programId, onLinked }: { programId: string; onLinked:
 
 /** NFC policy for the programme. A physical tag still needs separate, secure provisioning. */
 export function TapPolicyCard({ me }: { me: MeResponse }) {
+  const owner = useOwner();
   const initial: Mode = me.tapMode ?? "disabled";
   const [saved, setSaved] = useState<{ mode: Mode; cooldown: string }>({ mode: initial, cooldown: me.tapCooldownSeconds ? String(me.tapCooldownSeconds) : "" });
   const [mode, setMode] = useState<Mode>(saved.mode);
@@ -79,7 +84,7 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
     setState("saving"); setError("");
     try {
       await postJson("/api/merchant/tap", { action: "policy", programId: me.programId, mode, cooldownSeconds: mode === "disabled" ? null : cooldownNumber });
-      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved"); reloadTags();
+      setSaved({ mode, cooldown: mode === "disabled" ? "" : cooldown }); setState("saved"); reloadTags(); void owner.refresh(); // the Programm list reads the mode from /api/me
     } catch (cause) { setState("error"); setError(cause instanceof Error ? cause.message : "Die NFC-Regel konnte nicht gespeichert werden."); }
   }
 
@@ -87,8 +92,8 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
   return (
     <section className="ow-card ow-card--flat" aria-labelledby="tap-title">
       <details open={saved.mode !== "disabled" || changed || undefined}>
-        <summary style={{ cursor: "pointer", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 700 }}><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
-        <div className="ow-stack" style={{ marginTop: 12 }}>
+        <summary className="ow-tap-summary"><span id="tap-title">NFC-Tap (optional)</span><span className="ow-chip">{label}</span></summary>
+        <div className="ow-stack ow-mt-3">
           <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Kundinnen und Kunden berühren das NFC-Schild am Tresen, {stamp ? "das Team bestätigt jeden Stempel an der Kasse" : "das Team trägt die Punkte an der Kasse ein und bestätigt sie"}. Das Schild richtet Loynara für dich ein. Der QR-Code an der Kasse bleibt immer eine Alternative.</p>
           {tagStatus.state === "ok" && <Readiness status={tagStatus.data} mode={saved.mode} />}
           {me.programId && saved.mode === "staff_confirmed" ? <PlateActivation programId={me.programId} onLinked={reloadTags} />
@@ -98,9 +103,9 @@ export function TapPolicyCard({ me }: { me: MeResponse }) {
             <div className="ow-radio-cards">
               {MODES.map(item => <label key={item.id} className="ow-radio-card"><input type="radio" name="tap-mode" checked={mode === item.id} disabled={item.id === "automatic_fixed" && !automaticAllowed} onChange={() => { setMode(item.id); if (state === "saved" || state === "error") setState("clean"); }} /><div><strong>{item.label}</strong><span>{item.id === "automatic_fixed" && !automaticAllowed ? AUTOMATIC_NOTE : item.text}</span></div></label>)}
             </div>
-            {needsCooldown && <div className="ow-field"><label htmlFor="tap-cooldown">Wartezeit zwischen zwei Taps (Sekunden)</label><input id="tap-cooldown" className="ow-input" inputMode="numeric" style={{ maxWidth: 200 }} value={cooldown} onChange={event => setCooldown(event.target.value.replace(/[^0-9]/g, ""))} aria-invalid={!cooldownValid} /></div>}
+            {needsCooldown && <div className="ow-field"><label htmlFor="tap-cooldown">Wartezeit zwischen zwei Taps (Sekunden)</label><input id="tap-cooldown" className="ow-input ow-field--narrow" inputMode="numeric" value={cooldown} onChange={event => setCooldown(event.target.value.replace(/[^0-9]/g, ""))} aria-invalid={!cooldownValid} /></div>}
           </fieldset>
-          <SaveBar state={shown} onSave={() => void save()} onDiscard={() => { setMode(saved.mode); setCooldown(saved.cooldown); setState("clean"); }} canSave={changed && cooldownValid} saveLabel="NFC-Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
+          <SaveBar section="NFC" state={shown} onSave={() => void save()} onDiscard={() => { setMode(saved.mode); setCooldown(saved.cooldown); setState("clean"); }} canSave={changed && cooldownValid} saveLabel="NFC-Regel speichern" detail={shown === "error" ? `${error} Deine Änderungen sind noch da.` : undefined} />
         </div>
       </details>
     </section>

@@ -8,7 +8,7 @@ import { getMerchantAnalytics } from "./merchant-analytics";
 import { getMerchantMember } from "./merchant-members";
 import { configureReferrals, getCardReferralShare } from "./referrals";
 import { getRetentionSummary } from "./retention";
-import { createMerchant, enroll, getCard, updateProgram, updateProgramHappyHour } from "./product";
+import { createMerchant, enroll, getCard, lookupCard, updateProgram, updateProgramExtras, updateProgramHappyHour } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -23,7 +23,7 @@ async function user() {
 // A points shop that earns by purchase amount: 2 points per euro, so 5.00 EUR is 10 points.
 async function shop(userId: string, type: "stamp" | "points" = "points") {
   const merchant = await createMerchant({ userId, businessName: "Synthetic Happy Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: type, rulesText: "Punkte pro Euro.", rewardTitle: "Kaffee gratis", rewardCost: 100 });
-  if (type === "points") await updateProgram({ actorUserId: userId, programSlug: merchant.programSlug, name: "Punktekarte", rulesText: "Zwei Punkte pro Euro.", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2 });
+  if (type === "points") await updateProgram({ actorUserId: userId, programSlug: merchant.programSlug, name: "Punktekarte", rulesText: "Zwei Punkte pro Euro.", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2, worse: false });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   return { ...merchant, card };
 }
@@ -62,6 +62,22 @@ describe("happy hour", () => {
     expect(view.activity.filter(a => a.isHappyHour).map(a => a.delta)).toEqual([10]);
   });
 
+  it("award and lookup name every bonus by source, and the credited points plus the bonuses are the balance change (ENG-133)", async () => {
+    const owner = await user(); const m = await shop(owner);
+    await on(owner, m);
+    await updateProgramExtras({ actorUserId: owner, programId: m.programId, welcomeBonus: 5 });
+    const scanCode = (await db.select({ scanCode: memberships.scanCode }).from(memberships).where(eq(memberships.id, m.card.id)))[0].scanCode;
+    expect(await lookupCard({ userId: owner, locationId: m.locationId, scanCode })).toMatchObject({ welcomeBonus: 5, happyHour: true });
+    const before = await balanceOf(m.card.id);
+    const result = await buy(owner, m);
+    expect(result).toMatchObject({ creditedQuantity: 10, welcomeBonus: 5, happyHourBonus: 10, winbackBonus: 0, birthdayBonus: 0, referralBonus: 0, balance: 25 });
+    const bonuses = result.welcomeBonus! + result.happyHourBonus! + result.winbackBonus! + result.birthdayBonus! + (result.challengeBonus ?? 0) + result.referralBonus!;
+    expect(result.creditedQuantity + bonuses).toBe(await balanceOf(m.card.id) - before);
+    expect(result.balanceBefore).toBe(before);
+    // The Startbonus is booked once: the next lookup no longer offers it.
+    expect(await lookupCard({ userId: owner, locationId: m.locationId, scanCode })).toMatchObject({ welcomeBonus: 0, happyHour: true });
+  });
+
   it("books nothing outside the windows, with the switch off, and shows no line on the card", async () => {
     const owner = await user(); const m = await shop(owner);
     await on(owner, m, [{ days: [1, 2, 3, 4, 5, 6, 7].filter(d => d !== today()), start: "00:00", end: "24:00" }]);
@@ -97,7 +113,7 @@ describe("happy hour", () => {
   it("gives a points programme with manual quantities nothing", async () => {
     const owner = await user(); const m = await shop(owner);
     await on(owner, m);
-    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Punktekarte", rulesText: "Punkte von Hand.", programType: "points", earningMode: "manual" });
+    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Punktekarte", rulesText: "Punkte von Hand.", programType: "points", earningMode: "manual", worse: false });
     expect(await award({ userId: owner, locationId: m.locationId, membershipId: m.card.id, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() })).toMatchObject({ balance: 5 });
     expect((await getCard(m.card.cardToken)).happyHourUntil).toBeUndefined();
   });
@@ -129,8 +145,9 @@ describe("happy hour", () => {
     }
     expect(await rows(m.card.id)).toEqual([]);
     await on(owner, m);
-    await updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Stempelkarte", rulesText: "Ein Stempel.", programType: "stamp", earningMode: "manual" });
-    expect((await db.select().from(programs).where(and(eq(programs.id, m.programId))))[0]).toMatchObject({ happyHourEnabled: false });
+    // ENG-100 (Legal): the shop has a card, so the type is locked; welcome-bonus covers what a type change switches off.
+    await expect(updateProgram({ actorUserId: owner, programSlug: m.programSlug, name: "Stempelkarte", rulesText: "Ein Stempel.", programType: "stamp", earningMode: "manual" })).rejects.toMatchObject({ code: "TYPE_LOCKED" });
+    expect((await db.select().from(programs).where(and(eq(programs.id, m.programId))))[0]).toMatchObject({ happyHourEnabled: true });
   });
 
   it("gives an offline-synced award nothing: its purchase time is not known to the server", async () => {

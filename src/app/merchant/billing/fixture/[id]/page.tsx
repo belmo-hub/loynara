@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { postJson } from "@/components/client-api";
@@ -25,7 +26,7 @@ export default function BillingFixturePage() {
   const amount = h ? new Intl.NumberFormat("de-DE", { style: "currency", currency: h.currency }).format(h.amountMinor / 100) : "";
   return (
     <div className="ow-page" style={{ maxWidth: 760 }}>
-      <PageHead eyebrow="Einstellungen · Abrechnung" title="Zahlungsübergabe prüfen" lead="Nur eine Vorschau. Es wird kein Geld bewegt." />
+      <PageHead back={<Link href="/merchant/billing" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Abrechnung</Link>} title="Zahlungsübergabe prüfen" lead="Nur eine Vorschau. Es wird kein Geld bewegt." />
       {handoff.state === "loading" && <LoadingBlock rows={1} />}
       {handoff.state === "error" && <ErrorNotice message={handoff.message} onRetry={reload} />}
       {h && (

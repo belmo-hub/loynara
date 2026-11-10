@@ -61,13 +61,13 @@ export function billingFixtureAvailable() { try { fixtureOrigin(); return true; 
 export async function ownerTenant(actorUserId: string, tx: Transaction | typeof db = db) {
   const [role] = await tx.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Active owner access required");
+  if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return role.tenantId;
 }
 
 async function reconcileSubscription(tx: Transaction, tenantId: string, at: Date) {
   const [current] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)).for("update");
-  if (!current) throw new DomainError("NOT_FOUND", "Subscription not found");
+  if (!current) throw new DomainError("NOT_FOUND", "Dein Abo haben wir nicht gefunden. Bitte wende dich an den Support.");
   let status = current.status;
   if (current.cancelAtPeriodEnd && current.currentPeriodEnd && at >= current.currentPeriodEnd && ["active_fixture", "grace_fixture"].includes(status)) status = "cancelled";
   else if (status === "grace_fixture" && current.graceUntil && at >= current.graceUntil) status = "suspended_fixture";
@@ -112,13 +112,13 @@ export async function createFixtureHandoff(actorUserId: string, at = new Date())
   fixtureOrigin();
   return db.transaction(async tx => {
     const subscription = await reconcileSubscription(tx, tenantId, at);
-    if (!["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(subscription.status)) throw new DomainError("BILLING_STATE", "A fixture checkout is unavailable in this state");
+    if (!["manual_pending", "pending_checkout", "cancelled", "suspended_fixture"].includes(subscription.status)) throw new DomainError("BILLING_STATE", "Im aktuellen Abo-Status geht das nicht. Bitte lade die Seite neu.");
     const plans = await tx.select({ priceMinor: billingLocationPlans.priceMinor }).from(billingLocationPlans).where(eq(billingLocationPlans.tenantId, tenantId));
     const amountMinor = plans.reduce((sum, plan) => sum + plan.priceMinor, 0);
-    if (!plans.length || amountMinor <= 0) throw new DomainError("PLAN_UNAVAILABLE", "No location plan available");
+    if (!plans.length || amountMinor <= 0) throw new DomainError("PLAN_UNAVAILABLE", "Für deine Standorte ist noch kein Tarif hinterlegt. Bitte wende dich an den Support.");
     const [pending] = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, tenantId), eq(billingHandoffs.status, "pending"))).orderBy(desc(billingHandoffs.createdAt)).limit(1);
     if (pending) {
-      if (pending.currency !== subscription.currency || pending.amountMinor !== amountMinor) throw new DomainError("BILLING_STATE", "A prior fixture checkout needs review after the location total changed");
+      if (pending.currency !== subscription.currency || pending.amountMinor !== amountMinor) throw new DomainError("BILLING_STATE", "Seit dem letzten Bezahlversuch hat sich dein Monatsbetrag geändert. Bitte wende dich an den Support.");
       return { id: pending.id, provider: fixtureProvider.name, status: pending.status, amountMinor, currency: pending.currency, url: fixtureProvider.checkoutUrl(pending.id) };
     }
     const [handoff] = await tx.insert(billingHandoffs).values({ tenantId, provider: fixtureProvider.name, currency: subscription.currency, amountMinor, createdAt: at }).returning();
@@ -130,9 +130,9 @@ export async function createFixtureHandoff(actorUserId: string, at = new Date())
 export async function getFixtureHandoff(actorUserId: string, handoffId: string) {
   const tenantId = await ownerTenant(actorUserId);
   fixtureOrigin();
-  if (!z.uuid().safeParse(handoffId).success) throw new DomainError("NOT_FOUND", "Fixture handoff not found");
+  if (!z.uuid().safeParse(handoffId).success) throw new DomainError("NOT_FOUND", "Diesen Bezahlvorgang haben wir nicht gefunden. Bitte lade die Seite neu.");
   const [handoff] = await db.select().from(billingHandoffs).where(and(eq(billingHandoffs.id, handoffId), eq(billingHandoffs.tenantId, tenantId))).limit(1);
-  if (!handoff) throw new DomainError("NOT_FOUND", "Fixture handoff not found");
+  if (!handoff) throw new DomainError("NOT_FOUND", "Diesen Bezahlvorgang haben wir nicht gefunden. Bitte lade die Seite neu.");
   return handoff;
 }
 
@@ -140,7 +140,7 @@ export async function cancelSubscriptionAtPeriodEnd(actorUserId: string, at = ne
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
     const current = await reconcileSubscription(tx, tenantId, at);
-    if (!["active_fixture", "grace_fixture"].includes(current.status) || !current.currentPeriodEnd) throw new DomainError("BILLING_STATE", "No active fixture period to cancel");
+    if (!["active_fixture", "grace_fixture"].includes(current.status) || !current.currentPeriodEnd) throw new DomainError("BILLING_STATE", "Es gibt kein laufendes Abo, das du kündigen kannst.");
     const [updated] = await tx.update(subscriptions).set({ cancelAtPeriodEnd: true, updatedAt: at }).where(eq(subscriptions.tenantId, tenantId)).returning();
     return { status: updated.status, cancelAtPeriodEnd: updated.cancelAtPeriodEnd, currentPeriodEnd: updated.currentPeriodEnd };
   });
@@ -166,7 +166,7 @@ export async function applyFixtureWebhook(raw: string, signature: string, at = n
     // either merchant can write a fixture invoice or an outcome row.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${event.id}::text, 13))`);
     const [handoff] = await tx.select().from(billingHandoffs).where(eq(billingHandoffs.id, event.handoffId)).for("update");
-    if (!handoff || handoff.tenantId !== event.tenantId || handoff.provider !== fixtureProvider.name) throw new DomainError("NOT_FOUND", "Fixture handoff not found");
+    if (!handoff || handoff.tenantId !== event.tenantId || handoff.provider !== fixtureProvider.name) throw new DomainError("NOT_FOUND", "Diesen Bezahlvorgang haben wir nicht gefunden. Bitte lade die Seite neu.");
     const [prior] = await tx.select().from(billingWebhookEvents).where(eq(billingWebhookEvents.eventId, event.id));
     if (prior) {
       if (prior.payloadHash !== payloadHash || prior.tenantId !== event.tenantId) throw new DomainError("KEY_REUSED", "Fixture event ID reused with different content");
@@ -175,14 +175,14 @@ export async function applyFixtureWebhook(raw: string, signature: string, at = n
     const subscription = await reconcileSubscription(tx, event.tenantId, at);
     if (event.type === "checkout.completed") {
       if (event.currency !== handoff.currency || event.amountMinor !== handoff.amountMinor) throw new DomainError("AMOUNT_MISMATCH", "Fixture amount or currency differs from handoff");
-      if (handoff.status !== "pending") throw new DomainError("BILLING_STATE", "Fixture handoff already completed");
+      if (handoff.status !== "pending") throw new DomainError("BILLING_STATE", "Diese Zahlung ist schon abgeschlossen.");
       const periodEnd = new Date(event.periodEnd);
       if (periodEnd <= occurredAt) throw new DomainError("INVALID_PERIOD", "Fixture period must end after checkout");
       await tx.insert(billingInvoices).values({ tenantId: event.tenantId, handoffId: handoff.id, providerInvoiceId: event.invoiceId, status: "fixture_paid", currency: event.currency, amountMinor: event.amountMinor, taxMinor: null, periodEnd, createdAt: at });
       await tx.update(billingHandoffs).set({ status: "complete", completedAt: at }).where(eq(billingHandoffs.id, handoff.id));
       await tx.update(subscriptions).set({ status: "active_fixture", provider: fixtureProvider.name, currentPeriodEnd: periodEnd, cancelAtPeriodEnd: false, graceUntil: null, updatedAt: at }).where(eq(subscriptions.tenantId, event.tenantId));
     } else {
-      if (handoff.status !== "complete" || !["active_fixture", "grace_fixture"].includes(subscription.status)) throw new DomainError("BILLING_STATE", "No active fixture period for failure");
+      if (handoff.status !== "complete" || !["active_fixture", "grace_fixture"].includes(subscription.status)) throw new DomainError("BILLING_STATE", "Es gibt keinen laufenden Abrechnungszeitraum.");
       const proposedGraceUntil = new Date(occurredAt.getTime() + GRACE_MS);
       const graceUntil = subscription.graceUntil && subscription.graceUntil < proposedGraceUntil ? subscription.graceUntil : proposedGraceUntil;
       await tx.update(subscriptions).set({ status: "grace_fixture", graceUntil, updatedAt: at }).where(eq(subscriptions.tenantId, event.tenantId));
@@ -194,7 +194,7 @@ export async function applyFixtureWebhook(raw: string, signature: string, at = n
 
 export async function completeFixtureHandoff(actorUserId: string, handoffId: string, at = new Date()) {
   const handoff = await getFixtureHandoff(actorUserId, handoffId);
-  if (handoff.status !== "pending") throw new DomainError("BILLING_STATE", "Fixture handoff already completed");
+  if (handoff.status !== "pending") throw new DomainError("BILLING_STATE", "Diese Zahlung ist schon abgeschlossen.");
   const event = { id: `evt_${randomUUID()}`, type: "checkout.completed", tenantId: handoff.tenantId, handoffId: handoff.id,
     invoiceId: `inv_${randomUUID()}`, amountMinor: handoff.amountMinor, currency: handoff.currency,
     periodEnd: new Date(at.getTime() + 30 * 86_400_000).toISOString(), occurredAt: at.toISOString() };

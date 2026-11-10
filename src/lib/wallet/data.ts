@@ -1,12 +1,17 @@
+import { shopDemo } from "../demo-texts";
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { ledgerEntries, locations, memberships, programs, tenants, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { ledgerEntries, locations, memberships, programs, tenants, walletMessageConsents, walletMessageRecipients, walletMessages } from "@/db/schema";
+import { signUpRules } from "@/lib/card-extras";
+import { changeLines, waitingLines } from "@/lib/change-lines";
 import { formatCardLocator } from "@/lib/card-locator";
 import { DomainError } from "@/lib/loyalty";
-import { currentRewards } from "@/lib/product";
+import { currentRewards, publicRules } from "@/lib/product";
+import { programInForce } from "@/lib/rule-versions";
 import type { WalletBrand, WalletPassData } from "./types";
-import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
+import { appleLogoFromData, merchantGoogleLogoUrls } from "./logo";
+import { surfaceHidden } from "@/lib/pilot-surfaces";
 
 /**
  * Binds an issued pass to the card credential it was issued for. A staff reissue or closure replaces the scan code, so
@@ -14,6 +19,37 @@ import { appleLogoFromData, merchantGoogleLogoUrl } from "./logo";
  */
 export function credentialHash(scanCode: string): string {
   return createHash("sha256").update("loynara-wallet-credential-v1\0").update(scanCode).digest("hex");
+}
+
+type BrandRow = { program: typeof programs.$inferSelect; location: typeof locations.$inferSelect; tenant: typeof tenants.$inferSelect };
+async function brandOf(row: BrandRow, program: { type: string; name: string }): Promise<WalletBrand> {
+  const appleLogo = await appleLogoFromData(row.location.logoData, row.location.brandColor);
+  const googleLogos = await merchantGoogleLogoUrls(row.program.id, row.location.logoData, row.location.brandColor, row.tenant.name);
+  return {
+    programType: program.type === "points" ? "points" : "stamp",
+    tenantId: row.tenant.id,
+    locationId: row.location.id,
+    programId: row.program.id,
+    merchantName: row.tenant.name,
+    programName: program.name,
+    locationName: row.location.name,
+    brandColor: row.location.brandColor,
+    country: row.location.country,
+    locale: row.tenant.locale === "fr" ? "fr" : "de",
+    ...(appleLogo ? { appleLogo } : {}),
+    ...googleLogos,
+    ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
+  };
+}
+
+/** A programme's Wallet presentation without any card: what its Google class shows. */
+export async function walletProgramBrand(tenantId: string, programId: string, reader: Pick<typeof db, "select"> = db): Promise<WalletBrand> {
+  const [row] = await reader.select({ program: programs, location: locations, tenant: tenants }).from(programs)
+    .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, programs.tenantId))
+    .where(and(eq(programs.id, programId), eq(programs.tenantId, tenantId)));
+  if (!row) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
+  return brandOf(row, await programInForce(reader, row.program));
 }
 
 export type WalletCardSnapshot =
@@ -31,49 +67,49 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(eq(memberships.id, membershipId));
-  if (!row) throw new DomainError("NOT_FOUND", "Card not found");
-  const appleLogo = appleLogoFromData(row.location.logoData);
-  const googleLogoUrl = merchantGoogleLogoUrl(row.program.id, row.location.logoData);
-  const brand: WalletBrand & { membershipId: string } = {
-    programType: row.program.type === "points" ? "points" : "stamp",
-    tenantId: row.tenant.id,
-    locationId: row.location.id,
-    membershipId: row.member.id,
-    programId: row.program.id,
-    merchantName: row.tenant.name,
-    programName: row.program.name,
-    locationName: row.location.name,
-    brandColor: row.location.brandColor,
-    country: row.location.country,
-    locale: row.tenant.locale === "fr" ? "fr" : "de",
-    ...(appleLogo ? { appleLogo } : {}),
-    ...(googleLogoUrl ? { googleLogoUrl } : {}),
-    ...(row.location.latitude !== null && row.location.longitude !== null ? { latitude: row.location.latitude, longitude: row.location.longitude } : {}),
-  };
+  if (!row) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
+  const program = await programInForce(reader, row.program);
+  const brand: WalletBrand & { membershipId: string } = { ...await brandOf(row, program), membershipId: row.member.id };
   if (row.member.closedAt) return { open: false, brand };
-  const [target] = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const rewardList = await currentRewards(row.member.tenantId, row.program.id, reader);
+  const [target] = rewardList;
   const [latest] = await reader.select({ createdAt: ledgerEntries.createdAt }).from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
     .orderBy(desc(ledgerEntries.createdAt)).limit(1);
-  const [lastMessage] = await reader.select({ text: walletMessages.text }).from(walletMessageRecipients)
+  const [consent] = await reader.select({ id: walletMessageConsents.id }).from(walletMessageConsents)
+    .where(and(eq(walletMessageConsents.tenantId, row.member.tenantId), eq(walletMessageConsents.membershipId, row.member.id), isNull(walletMessageConsents.withdrawnAt))).limit(1);
+  const [lastMessage] = await reader.select({ text: walletMessages.text, sentAt: walletMessages.createdAt }).from(walletMessageRecipients)
     .innerJoin(walletMessages, and(eq(walletMessages.id, walletMessageRecipients.messageId), eq(walletMessages.tenantId, walletMessageRecipients.tenantId)))
     // Every row that may have reached the device, so a refresh never puts an older text back (with a banner):
     // sent, in flight, queued for a retry after a try that may have been applied, or failed with an unknown outcome.
-    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id),
+    // Without consent only the expiry notices (ENG-162, Legal): a shop message never shows on such a pass.
+    .where(and(eq(walletMessageRecipients.tenantId, row.member.tenantId), eq(walletMessageRecipients.membershipId, row.member.id), consent ? undefined : eq(walletMessages.kind, "expiry"),
       sql`(${walletMessageRecipients.status} in ('sent','sending') or (${walletMessageRecipients.status} = 'queued' and ${walletMessageRecipients.attempts} > 0) or (${walletMessageRecipients.status} = 'failed' and ${walletMessageRecipients.reason} = 'uncertain'))`))
     .orderBy(desc(walletMessages.createdAt)).limit(1);
+  // The field is there before its first text, because Wallet alerts only when an existing key changes: with consent the
+  // shop's message field; without it, where an expiry rule is in force or waiting (points only, a database check), the expiry-only field (ENG-162).
+  // An empty field only while messages are switched on (Design): off, nothing can fill it. A text once sent always stays.
+  const live = !surfaceHidden("walletMessages");
+  const expiryNotice = !consent && (lastMessage !== undefined || (live && Boolean(program.pointsExpiryMonths || program.pendingExpiry)));
   return {
     open: true,
     credentialHash: credentialHash(row.member.scanCode),
     pass: {
       ...brand,
-      programType: row.program.type === "points" ? "points" : "stamp",
+      programType: program.type === "points" ? "points" : "stamp",
       balance: row.member.balance,
       scanCode: row.member.scanCode,
       cardLocator: formatCardLocator(row.member.cardLocator),
-      ...(target ? { reward: { title: target.title, cost: target.cost } } : {}),
+      ...(() => { const demo = shopDemo(row.tenant, row.location.timezone); return demo ? { demoNotice: demo.line } : {}; })(),
+      ...(target ? { reward: { title: target.title, cost: target.cost, pending: target.pending, endsOn: target.endsOn } } : {}),
+      rewards: rewardList.map(({ title, cost }) => ({ title, cost })),
+      // ENG-100: the dated lines come first, the whole new rule quoted (W46, W58), then the rules in force.
+      rules: [...waitingLines(changeLines({ programType: program.type === "points" ? "points" : "stamp", rewards: rewardList, pending: program.pending, pendingExpiry: program.pendingExpiry }, true)), ...signUpRules(publicRules(program, row.tenant))],
       ...(latest ? { lastActivityAt: latest.createdAt } : {}),
-      ...(lastMessage ? { message: lastMessage.text } : {}),
+      // The send day in the shop's timezone („28.10.“): the back keeps a message until the next one (Marketing, ENG-127).
+      ...(expiryNotice ? { message: lastMessage?.text ?? "", messageKey: "expiry" as const }
+        : consent ? (lastMessage ? { message: lastMessage.text, messageDay: new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone: row.location.timezone }).format(lastMessage.sentAt) } : live ? { message: "" } : {}) : {}),
+      pending: program.pending, pendingExpiry: program.pendingExpiry,
     },
   };
 }
@@ -81,6 +117,6 @@ export async function walletCardSnapshot(membershipId: string, reader: Pick<type
 /** The open card's pass data; a closed or unknown card is NOT_FOUND. */
 export async function walletPassDataByMembershipId(membershipId: string): Promise<WalletPassData> {
   const snapshot = await walletCardSnapshot(membershipId);
-  if (!snapshot.open) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!snapshot.open) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return snapshot.pass;
 }

@@ -75,13 +75,12 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       await login(owner.page, f.owners[0], "/merchant");
       await login(cashier.page, f.cashier, "/cashier");
       await customer.page.goto(`/join/${f.merchants[0].programSlug}`);
-      await customer.page.getByRole("checkbox").first().check();
       await customer.page.getByRole("button", { name: "Meine Karte erstellen" }).click();
       await expect.poll(() => new URL(customer.page.url()).pathname.startsWith("/card/")).toBe(true);
       const cardPath = new URL(customer.page.url()).pathname, cardToken = cardPath.split("/").pop()!;
       await customer.page.reload(); // Same real membership cookie recognizes returning customer.
       expect(new URL(customer.page.url()).pathname).toBe(cardPath);
-      await expect(customer.page.locator(".customer-balance-line strong")).toHaveText("0 Stempel");
+      await expect(customer.page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
       const member = (await pool.query("SELECT id,scan_code FROM memberships WHERE card_token=$1", [cardToken])).rows[0] as { id: string; scan_code: string };
       await cashier.page.getByLabel("Kartennummer oder Kartencode").fill(member.scan_code);
       await cashier.page.getByRole("button", { name: "Prüfen", exact: true }).click();
@@ -122,14 +121,14 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       await cashier.page.goto("/cashier");
       await expect(cashier.page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
       await owner.page.goto("/merchant");
-      await expect(owner.page.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+      await expect(owner.page.getByRole("heading", { name: /^Übersicht:/, level: 1 })).toBeVisible();
       for (const [path, booking] of [["award", journey.award], ["redeem", journey.redemption]] as const) {
         const replay = await post(cashier.page, `/api/cashier/${path}`, booking);
         expect(replay.status()).toBe(200); expect((await replay.json()).duplicate).toBe(true);
       }
     }
     await customer.page.goto(journey.cardPath);
-    await expect(customer.page.locator(".customer-balance-line strong")).toHaveText("0 Stempel");
+    await expect(customer.page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
     await expect(customer.page.locator(".customer-activity-list")).toContainText("+3 Stempel");
     await expect(customer.page.locator(".customer-activity-list")).toContainText("-3 Stempel");
     const ledger = (await pool.query("SELECT delta FROM ledger_entries WHERE membership_id=$1 ORDER BY created_at,id", [journey.membershipId])).rows;

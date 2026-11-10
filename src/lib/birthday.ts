@@ -6,27 +6,29 @@ import { validCardToken } from "./card-lifecycle";
 import { activeHappyHour } from "./happy-hour";
 import { DomainError } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { demoEnvironment } from "./demo-environment";
 import { eligible, lock } from "./wallet-messages";
 import { BIRTHDAY_FIELD_TEXT, birthdayText, birthdayWeek, germanDay, WINBACK_SEND_WINDOW } from "./wallet-message-rules";
 import { bonusMax, queueBatch } from "./winback";
+import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 // Birthday (ENG-049). The customer may store day and month (no year) on the card; Legal (22 Oct): a voluntary field for a
 // programme benefit, no separate consent, deletable at any time and then gone. The bonus is booked at the counter
 // (loyalty.ts, bookBirthdayBonus); this file holds the card field, the owner set-up and the reminder to consented holders.
 
 const rows = <T>(result: { rows: unknown[] }) => result.rows as T[];
-const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Nicht verfügbar"); };
+const available = () => { if (surfaceHidden("walletMessages")) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar."); };
 /** Same as the bonus: once in this many days per card, so a moved birthday gets no second reminder. */
 const REPEAT_DAYS = 300;
 
 async function cardOf(cardToken: string) {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [card] = rows<{ tenantId: string; membershipId: string; shop: string; enabled: boolean; day: number | null; month: number | null }>(await db.execute(sql`
     SELECT m.tenant_id AS "tenantId", m.id AS "membershipId", t.name AS shop, p.birthday_enabled AS enabled, b.day, b.month
     FROM memberships m JOIN programs p ON p.id = m.program_id AND p.tenant_id = m.tenant_id JOIN tenants t ON t.id = m.tenant_id
       LEFT JOIN card_birthdays b ON b.membership_id = m.id AND b.tenant_id = m.tenant_id
     WHERE m.card_token = ${cardToken} AND m.closed_at IS NULL`));
-  if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return card;
 }
 
@@ -45,7 +47,7 @@ export async function setCardBirthday(cardToken: string, raw: { day: number; mon
   const parsed = birthdayInput.safeParse(raw);
   if (!parsed.success) throw new DomainError("INVALID_BIRTHDAY", "Bitte wähle einen gültigen Tag und Monat.");
   const card = await cardOf(cardToken);
-  if (!card.enabled) throw new DomainError("NOT_FOUND", "Nicht verfügbar");
+  if (!card.enabled) throw new DomainError("NOT_FOUND", "Diese Funktion ist noch nicht verfügbar.");
   await db.execute(sql`INSERT INTO card_birthdays (membership_id, tenant_id, day, month) VALUES (${card.membershipId}::uuid, ${card.tenantId}::uuid, ${parsed.data.day}, ${parsed.data.month})
     ON CONFLICT (membership_id) DO UPDATE SET day = EXCLUDED.day, month = EXCLUDED.month, updated_at = now()`);
   return { day: parsed.data.day, month: parsed.data.month };
@@ -78,14 +80,22 @@ export async function updateBirthday(input: { actorUserId: string; programSlug: 
   const next = settingsInput.parse(input.settings);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   if (next.bonus > await bonusMax(program)) throw new DomainError("INVALID_BIRTHDAY_BONUS", program.type === "stamp" ? "Bonus: kein Bonus oder 1 Stempel." : "Bonus: höchstens ein Viertel deiner günstigsten Prämie.");
-  await db.execute(sql`UPDATE programs SET birthday_enabled = ${next.enabled}, birthday_bonus = ${next.bonus} WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid`);
+  await db.transaction(async tx => {
+    const [row] = rows<{ changed: boolean }>(await tx.execute(sql`
+      WITH before AS (SELECT id, birthday_enabled, birthday_bonus FROM programs WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid FOR UPDATE)
+      UPDATE programs p SET birthday_enabled = ${next.enabled}, birthday_bonus = ${next.bonus} FROM before WHERE p.id = before.id
+      RETURNING (before.birthday_enabled, before.birthday_bonus) IS DISTINCT FROM (p.birthday_enabled, p.birthday_bonus) AS changed`));
+    // The back of the Apple pass shows the birthday line (ENG-119): a change refreshes installed passes, without an alert.
+    if (row?.changed) await enqueueWalletProgramRefresh(tx, program.tenantId, program.id);
+  });
   return settings({ ...program, birthdayEnabled: next.enabled, birthdayBonus: next.bonus });
 }
 
 // ---- Reminder: once in the birthday week, Mon–Sat 10–18 local, consented holders inside the per-customer cap -------------
 
 export async function queueBirthdayMessages(now = new Date()) {
-  if (surfaceHidden("walletMessages")) return 0;
+  // Off in the demo environment: only the owner's own message may reach a demo card (founder, 9 Nov).
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return 0;
   const programs = rows<{ tenantId: string; programId: string; type: "stamp" | "points"; bonus: number; timezone: string; today: string }>(await db.execute(sql`
     SELECT p.tenant_id AS "tenantId", p.id AS "programId", p.type, p.birthday_bonus AS bonus, l.timezone, (${now}::timestamptz AT TIME ZONE l.timezone)::date::text AS today
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id WHERE p.birthday_enabled AND p.status = 'active'`));

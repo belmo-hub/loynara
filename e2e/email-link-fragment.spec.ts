@@ -26,7 +26,7 @@ for (const kind of ["verify", "recover"] as const) {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await expect(page.getByRole("button", { name:action,exact:true })).toBeVisible();
     await page.getByRole("button", { name:action,exact:true }).click();
-    if (kind === "verify") await expect(page.getByRole("heading", { name:"E-Mail bestätigt." })).toBeVisible();
+    if (kind === "verify") await expect(page.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();
     else await expect(page.locator(".recovery-options")).toContainText("synthetic_B");
     expect(tokens).toEqual(["synthetic_A", "synthetic_B"]);
   });

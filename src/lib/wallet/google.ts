@@ -34,7 +34,8 @@ function classReviewStatus(value: unknown): unknown {
 function comparableClassField(value: unknown): string | undefined {
   const normalize = (item: unknown): unknown => Array.isArray(item) ? item.map(normalize)
     : item && typeof item === "object" ? Object.fromEntries(Object.entries(item).filter(([key]) => key !== "kind").sort(([a], [b]) => a.localeCompare(b)).map(([key, field]) => [key, normalize(field)])) : item;
-  return JSON.stringify(normalize(value));
+  // A cleared field (null) compares equal to an absent one.
+  return value === null ? undefined : JSON.stringify(normalize(value));
 }
 
 function assertClassEligibility(current: Record<string, unknown>, id: string, config: GoogleConfig) {
@@ -97,7 +98,7 @@ function assertGoogleScope(pass: WalletBrand, config: Pick<GoogleConfig, "issuer
 export function googleClass(pass: WalletBrand, config: GoogleConfig) {
   assertGoogleScope(pass, config);
   const logoUrl = pass.googleLogoUrl ?? config.logoUrl;
-  if (new URL(logoUrl).protocol !== "https:") throw new Error("Google logo must use HTTPS");
+  if ([logoUrl, pass.googleWideLogoUrl ?? logoUrl].some(url => new URL(url).protocol !== "https:")) throw new Error("Google logo must use HTTPS");
   if (config.approvedDeviceTestLogoUrl !== undefined) {
     // Approval covers one program PNG path and its optional content revision,
     // not arbitrary programs or query parameters on the same asset origin.
@@ -109,6 +110,10 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
         || config.approvedDeviceTestLogoUrl !== `${approved.origin}${approved.pathname}`
         || (selected.search !== "" && !/^\?v=[0-9a-f]{16}$/.test(selected.search))
         || logoUrl !== `${config.approvedDeviceTestLogoUrl}${selected.search}`) throw new Error("Unapproved logo");
+      // The wide logo is the same programme's PNG on the sibling route, with its own revision.
+      const wide = pass.googleWideLogoUrl === undefined ? undefined : new URL(pass.googleWideLogoUrl);
+      if (wide && (!/^\?v=[0-9a-f]{16}$/.test(wide.search)
+        || pass.googleWideLogoUrl !== `${config.approvedDeviceTestLogoUrl.replace("/google-logo/", "/google-wide-logo/")}${wide.search}`)) throw new Error("Unapproved logo");
     } catch { throw new Error("Google device-test program or selected logo is outside the approved route"); }
   }
   const t = walletText(pass.locale);
@@ -119,11 +124,14 @@ export function googleClass(pass: WalletBrand, config: GoogleConfig) {
     programName: pass.programName,
     reviewStatus: "UNDER_REVIEW",
     programLogo: { sourceUri: { uri: logoUrl }, contentDescription: { defaultValue: { language, value: t.logoAlt(pass.merchantName) } } },
+    // A logo that is not square shows as itself in place of the circle; the circle keeps the initial for Google's small marks.
+    ...(pass.googleWideLogoUrl ? { wideProgramLogo: { sourceUri: { uri: pass.googleWideLogoUrl }, contentDescription: { defaultValue: { language, value: t.logoAlt(pass.merchantName) } } } } : {}),
     countryCode: pass.country,
     hexBackgroundColor: pass.brandColor,
     // A loyalty card belongs to one person; Google must not offer to hand it to another account.
     multipleDevicesAndHoldersAllowedStatus: "ONE_USER_ALL_DEVICES",
-    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { locations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
+    // Google sets radius, dwell and text for the nearby notification; the deprecated `locations` triggers nothing.
+    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { merchantLocations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
   };
 }
 
@@ -143,7 +151,6 @@ export function googleObject(pass: WalletPassData, passId: string, config: Pick<
       ...(progress.rewardTitle ? [{ id: "reward", header: progress.ready ? t.rewardReady : t.nextReward, body: `${progress.rewardTitle} · ${progress.statusText}` }] : []),
       { id: "note", header: t.note, body: t.noteBody },
     ],
-    ...(pass.latitude !== undefined && pass.longitude !== undefined ? { locations: [{ latitude: pass.latitude, longitude: pass.longitude }] } : {}),
   };
 }
 
@@ -181,6 +188,10 @@ export function googleSaveUrl(object: { id: string; classId: string }, credentia
 function accessAssertion(credentials: GoogleCredentials, issuedAt = Math.floor(Date.now() / 1000)): string {
   return signJwt({ iss: credentials.clientEmail, scope: SCOPE, aud: "https://oauth2.googleapis.com/token", iat: issuedAt, exp: issuedAt + 3600 }, credentials);
 }
+
+/** What an erased shop's class shows instead of the shop (Legal). */
+const NEUTRAL_CLASS_TEXT = "Programm beendet";
+const NEUTRAL_CLASS_COLOUR = "#5f6368";
 
 /** Error without provider response bodies, which can echo request details. */
 export class GoogleWalletError extends Error {
@@ -221,28 +232,76 @@ export class GoogleWalletClient {
   }
 
   /** Creates or aligns the programme class (merchant name, programme, colour, logo, location). */
-  async upsertClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
+  async upsertClass(brand: WalletBrand, config: GoogleConfig, mode: "issue" | "maintain" = "issue"): Promise<string> {
+    return (await this.alignClass(brand, config, mode)).id;
+  }
+
+  /** The worker's side (ENG-175): may create a missing class even when published, and reports its review state instead of refusing it. */
+  async provisionClass(brand: WalletBrand, config: GoogleConfig): Promise<string> {
+    return (await this.alignClass(brand, config, "provision")).status;
+  }
+
+  /**
+   * Erasure (Legal): Google has no class delete, so an erased shop's class is overwritten until nothing names the shop:
+   * names, logo with its alt text, wide logo, location and colour. "done" only once Google shows that text approved; a class
+   * Google never had is done too. "rejected" needs a person, since sending the same text again changes nothing.
+   */
+  async neutralizeClass(classId: string, logoUrl: string): Promise<"done" | "waiting" | "rejected"> {
+    const path = `/loyaltyClass/${encodeURIComponent(classId)}`;
+    const read = async () => {
+      const response = await this.request("GET", path);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new GoogleWalletError("class lookup", response.status);
+      return await response.json() as Record<string, unknown>;
+    };
+    const fields = {
+      issuerName: NEUTRAL_CLASS_TEXT, programName: NEUTRAL_CLASS_TEXT, hexBackgroundColor: NEUTRAL_CLASS_COLOUR,
+      programLogo: { sourceUri: { uri: logoUrl }, contentDescription: { defaultValue: { language: "de-DE", value: NEUTRAL_CLASS_TEXT } } },
+    };
+    const neutral = (current: Record<string, unknown>) => !current.wideProgramLogo && !current.merchantLocations
+      && (Object.keys(fields) as Array<keyof typeof fields>).every(key => comparableClassField(current[key]) === comparableClassField(fields[key]));
+    let current = await read();
+    if (!current) return "done";
+    if (!neutral(current)) {
+      const updated = await this.request("PATCH", path, { ...fields, wideProgramLogo: null, merchantLocations: null, reviewStatus: "UNDER_REVIEW" });
+      if (!updated.ok) throw new GoogleWalletError("class overwrite", updated.status);
+      current = await read();
+    }
+    if (!current || !neutral(current)) return "waiting";
+    const review = classReviewStatus(current.reviewStatus);
+    return review === "APPROVED" ? "done" : review === "REJECTED" ? "rejected" : "waiting";
+  }
+
+  /** "issue" needs an eligible class. "maintain" keeps passes already out updated in any review state. Only "provision" may create a published class. */
+  private async alignClass(brand: WalletBrand, config: GoogleConfig, mode: "issue" | "maintain" | "provision"): Promise<{ id: string; status: string }> {
     const cls = googleClass(brand, config);
+    const eligible = (current: Record<string, unknown>) => {
+      if (mode === "issue") assertClassEligibility(current, cls.id, config);
+      else if (current.id !== cls.id) throw new GoogleWalletError("class eligibility", 0);
+      return String(classReviewStatus(current.reviewStatus));
+    };
     const classGet = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
+    let status: string = cls.reviewStatus;
     if (classGet.status === 404) {
-      if (config.binding && config.publishingStatus !== "demo") throw new GoogleWalletError("approved class missing", 404);
+      if (config.binding && config.publishingStatus !== "demo" && mode !== "provision") throw new GoogleWalletError("approved class missing", 404);
       const inserted = await this.request("POST", "/loyaltyClass", cls);
       if (!inserted.ok && inserted.status !== 409) throw new GoogleWalletError("class creation", inserted.status);
       if (inserted.status === 409) {
         const raced = await this.request("GET", `/loyaltyClass/${encodeURIComponent(cls.id)}`);
         if (!raced.ok) throw new GoogleWalletError("class conflict", 409);
-        assertClassEligibility(await raced.json(), cls.id, config);
+        status = eligible(await raced.json());
       }
     } else if (classGet.ok) {
       const current = await classGet.json() as Record<string, unknown>;
-      assertClassEligibility(current, cls.id, config);
+      status = eligible(current);
       const patch: Record<string, unknown> = {};
-      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "locations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
+      for (const key of ["issuerName", "programName", "hexBackgroundColor", "programLogo", "wideProgramLogo", "merchantLocations", "multipleDevicesAndHoldersAllowedStatus"] as const) {
         const observed = key === "multipleDevicesAndHoldersAllowedStatus"
           ? ({ oneUserAllDevices: "ONE_USER_ALL_DEVICES", oneUserOneDevice: "ONE_USER_ONE_DEVICE", multipleHolders: "MULTIPLE_HOLDERS" } as Record<string, string>)[String(current[key])] ?? current[key] : current[key];
         if (comparableClassField(observed) !== comparableClassField(cls[key as keyof typeof cls])) {
           const value = cls[key as keyof typeof cls];
-          if (value !== undefined) patch[key] = value;
+          // A logo changed to square must drop the wide one, and a removed pin its location: Google clears both on a PATCH with null.
+          if (value !== undefined || key === "wideProgramLogo" || key === "merchantLocations") patch[key] = value ?? null;
         }
       }
       if (Object.keys(patch).length) {
@@ -250,14 +309,15 @@ export class GoogleWalletClient {
         patch.reviewStatus = "UNDER_REVIEW";
         const updated = await this.request("PATCH", `/loyaltyClass/${encodeURIComponent(cls.id)}`, patch);
         if (!updated.ok) throw new GoogleWalletError("class update", updated.status);
+        status = "UNDER_REVIEW";
       }
     } else throw new GoogleWalletError("class lookup", classGet.status);
-    return cls.id;
+    return { id: cls.id, status };
   }
 
   /** Creates the object or overwrites its displayed state from Loynara. Never reads a balance back from Google. */
-  async upsert(pass: WalletPassData, passId: string, config: GoogleConfig): Promise<{ id: string; classId: string }> {
-    await this.upsertClass(pass, config);
+  async upsert(pass: WalletPassData, passId: string, config: GoogleConfig, mode: "issue" | "maintain" = "issue"): Promise<{ id: string; classId: string }> {
+    await this.upsertClass(pass, config, mode);
     const object = googleObject(pass, passId, config);
     const objectGet = await this.request("GET", `/loyaltyObject/${encodeURIComponent(object.id)}`);
     if (objectGet.status === 404) {

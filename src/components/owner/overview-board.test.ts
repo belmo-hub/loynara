@@ -3,9 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boardCacheKey } from "@/lib/board-cache";
 import type { MeResponse } from "@/components/client-api";
-import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
+import type { BroughtCustomers, LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import type { LaunchReadiness } from "@/lib/readiness";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
+import { BROUGHT_COPY, SPEND_COPY } from "@/lib/spend-copy";
 
 type Load = { state: "ok"; data: unknown; at: number } | { state: "loading" } | { state: "error"; message: string };
 const state = vi.hoisted(() => ({ me: null as MeResponse | null, locations: [] as Array<{ id: string }>, hidden: [] as string[], loads: {} as Record<string, Load>, urls: [] as string[] }));
@@ -43,10 +44,12 @@ const analytics = (patch: Partial<LocationAnalytics> = {}): LocationAnalytics =>
 });
 const figures = (patch: Partial<SpendFigures>): SpendFigures => ({ visits: 0, spentMinor: 0, realMinor: 0, estimatedMinor: 0, unpricedVisits: 0, averagePerVisitMinor: null, newCardMinor: 0, returningCardMinor: 0, ...patch });
 const spend = (here: SpendFigures, overall: SpendFigures = figures({ visits: 40, spentMinor: 99_900, realMinor: 99_900, averagePerVisitMinor: 2_497 })): MerchantSpend =>
-  ({ asOf: "", currency: "EUR", overall: { recent: overall, total: overall }, locations: [{ locationId: "loc-1", name: "Kassel Mitte", recentFrom: "", recent: here, total: here }] });
+  ({ asOf: "", currency: "EUR", overall: { recent: overall, total: overall }, locations: [{ locationId: "loc-1", name: "Kassel Mitte", recentFrom: "", recent: here, total: here, brought: null }] });
 const retention: RetentionSummary = { asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 17, drifting: 0, never: 2, neverAfterWeek: 0, nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
 const readiness = (steps: Array<Partial<LaunchReadiness["steps"][number]>> = []) => ({ locationId: "loc-1", steps, next: null, requiredDone: 1, requiredTotal: 3 });
 const render = () => renderToStaticMarkup(createElement(Overview));
+/** The 30-day rows' labels, in order. */
+const labels = (html: string) => [...html.matchAll(/<div class="ow-prog-row">|<a class="ow-prog-row"[^>]*>/g)].map(match => html.slice(match.index).match(/<strong>([^<]+)<\/strong>/)![1]);
 
 afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => {
@@ -60,41 +63,69 @@ beforeEach(() => {
 });
 
 describe("Übersicht direction D (ENG-085)", () => {
+  it("demo environment (pilot-surfaces revenue): no „Umsatz deiner Loynara-Kunden“, the spend read is never made, the card stock leads", () => {
+    state.me = me({ hiddenSurfaces: ["revenue"] });
+    const html = render();
+    expect(html).not.toContain("Umsatz deiner Loynara-Kunden");
+    expect(state.urls.some(url => url.startsWith("/api/merchant/spend"))).toBe(false);
+    expect(html).toContain('aria-label="Karten an deinem Standort, letzte 30 Tage"');
+    expect(html).toContain("Demo-Daten: erfundene Beispiele, keine Prognose.");
+    state.me = me();
+    expect(render()).not.toContain("Demo-Daten");
+  });
+
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
-    expect(html).toMatch(/Guten (Morgen|Tag|Abend), Lena\./);
+    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena\.<\/h1>/); // the visible heading, outside the card
     expect(html).not.toContain("Café Lindenblatt.");
-    expect(html).toContain("Umsatz deiner Loynara-Kunden · 30 Tage");
+    expect(html).toContain('aria-label="Umsatz deiner Loynara-Kunden, letzte 30 Tage"'); // no kicker: the sub-line says the days
+    expect(html).not.toContain("ow-board-kicker");
     expect(html).toContain("128<small>,10"); // this location, not the 999,00 € of the whole business
-    expect(html).toContain("aus Kassenbeträgen an diesem Standort");
+    expect(html).toContain("Umsatz deiner Loynara-Kunden, 30 Tage");
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="img" aria-label="Buchungen an diesem Standort · letzte 7 Tage: [^"]*gestern 3/);
     expect(html).toContain("Letzte 30 Tage an diesem Standort");
-    expect([...html.matchAll(/<h3 class="ow-tile-label">([^<]+)<\/h3>/g)].map(match => match[1])).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
+    expect(labels(html)).toEqual(["Buchungen", "Neue Karten", "Wieder\u00adgekommen", "Prämien eingelöst"]); // breaks only at the soft hyphen
     expect(html).toContain('<button type="button" class="ow-board-q" aria-expanded="false"'); // the board's „?“ ends the sub-line
-    expect(html).toMatch(/aus Kassenbeträgen an diesem Standort\u00a0<button/);
+    expect(html).toMatch(/Umsatz deiner Loynara-Kunden, 30 Tage\u00a0<button/);
+    expect(html).not.toContain("ow-board-est"); // exact till amounts: no estimate chip
     expect(html).toContain("vorher 10");
-    const link = html.match(/<a class="ow-tile-body ow-tile-link" href="([^"]+)">(.*?)<\/a>/);
+    // Wegweiser rows: label, note as sub-line, the value at the right edge; the whole linked row is the link, with the arrow.
+    const link = html.match(/<a class="ow-prog-row" href="([^"]+)">(.*?)<\/a>/);
     expect(link?.[1]).toBe("/merchant/customers?activity=recent&amp;days=30&amp;locationId=loc-1");
-    expect(link?.[2]).toMatch(/^<span class="ow-sr">Buchungen: <\/span><span class="ow-tile-row"><span class="ow-tile-n">9<\/span><svg[^]*<\/svg><\/span><span class="ow-tile-note">vorher 10<span class="ow-tile-go" aria-hidden="true">›<\/span><\/span>$/);
-    expect(link?.[2]).not.toContain("<button"); // the „?“ stays outside the link
-    expect(html.match(/ow-tile-link/g)).toHaveLength(1); // the other Kunden filters come with ENG-086
+    expect(link?.[2]).toMatch(/<span class="ow-prog-value" data-big="">9<\/span><span class="ow-prog-text"><strong>Buchungen<\/strong><small>vorher 10<\/small><\/span><\/span><svg[^>]*ow-prog-arrow/);
+    // The link's name reads the value before the comparison: „9 Buchungen vorher 10“, never „Buchungen vorher 10 9“.
+    expect(link?.[2].replace(/<svg.*?<\/svg>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()).toBe("9 Buchungen vorher 10");
+    expect(html.match(/class="ow-prog-row"/g)).toHaveLength(4);
+    expect(html.match(/ow-prog-arrow/g)).toHaveLength(1); // only the linked row; the other Kunden filters come with ENG-086
+    // One „?“ for all rows, on the section head; the shared sheet lists the four help texts under their labels, word for word.
+    expect(html.match(/class="ow-tile-q"/g)).toHaveLength(1);
+    expect(html).toMatch(/<h2 id="[^"]+" class="ow-tiles-title">Letzte 30 Tage an diesem Standort<\/h2><button type="button" class="ow-tile-q" aria-haspopup="dialog">/);
+    const sheet = html.slice(html.lastIndexOf("<dialog"), html.lastIndexOf("</dialog>"));
+    expect(sheet).toMatch(/<h2 id="[^"]+" class="[^"]*">So zählen wir<\/h2>/);
+    expect([...sheet.matchAll(/<h3>([^<]+)<\/h3><p>([^<]+)<\/p>/g)].map(match => `${match[1]}: ${match[2]}`)).toEqual([
+      "Buchungen: Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", "Neue Karten: Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben.",
+      "Wieder\u00adgekommen: Karten, die nach über 30 Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.", "Prämien eingelöst: Prämien, die dein Team an der Kasse eingelöst hat."]);
+    expect(sheet).toContain("Schließen");
+    expect(html.indexOf('class="ow-hello"')).toBeLessThan(html.indexOf('class="ow-board"'));
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
   it("a shop without till amounts leads with bookings (Q-81 switch off), whatever the average says", () => {
     state.loads["/api/merchant/spend"] = ok(spend(figures({ visits: 6, spentMinor: 9_000, estimatedMinor: 9_000, averagePerVisitMinor: 1_500 })));
     const html = render();
-    expect(html).toContain("Buchungen · letzte 30 Tage");
+    expect(html).toContain('aria-label="Buchungen, letzte 30 Tage"');
     expect(html).toContain(`9${NBSP}<small>Buchungen</small>`);
-    expect(html).toContain("bestätigt an der Kasse");
+    expect(html).toContain("letzte 30 Tage, Korrekturen abgezogen");
     expect(html).not.toContain("€");
     expect(html).not.toContain("Durchschnittsbon");
   });
 
-  it("mixed till amounts and estimates read „teilweise geschätzt“", () => {
+  it("mixed till amounts and estimates read „teils geschätzt“", () => {
     state.loads["/api/merchant/spend"] = ok(spend(figures({ visits: 17, spentMinor: 12_810, realMinor: 10_000, estimatedMinor: 2_810, averagePerVisitMinor: 1_423 })));
-    expect(render()).toContain("teilweise geschätzt");
+    const html = render();
+    expect(html).toContain('<p class="ow-board-est"><span class="ow-chip ow-chip--info">teils geschätzt</span></p>');
+    expect(html).toContain("Umsatz deiner Loynara-Kunden, 30 Tage");
   });
 
   it("quiet week: rule 4, the Tresenschild next step in one line, a grey gap in the diary", () => {
@@ -102,7 +133,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     const html = render();
     expect(html).toContain("Eine ruhige Woche. Die letzte Buchung war am Samstag, 24.10.");
     expect(html).toContain("<b>Seit 11 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
-    expect(html).toContain(">Tresenschild laden</button>");
+    // The band is the action: a button for the download, its label the last line with the arrow; nothing closes it any more.
+    expect(html).toMatch(/<section class="ow-next" aria-label="Als Nächstes"><button type="button" class="ow-band">[^]*<span class="ow-band-go">Tresenschild laden<svg/);
+    expect(html).not.toMatch(/Hinweis schließen|ow-nextbar|data-next/);
     expect(html).toContain("25.10.–03.11.");
     expect(html).toContain(`1${NBSP}Punkt vergeben`);
     expect(html).not.toContain("Dringendes");
@@ -116,6 +149,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain('<p class="ow-board-news">Seit über 90 Tagen keine Buchung.</p>');
     expect(html).toContain("<b>Seit über 90 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
     expect(html).not.toContain("keine Buchung</p>"); // no diary gap without a known last booking
+    expect(html).not.toContain("Die letzten Tage am Tresen"); // and no diary heading over nothing
     expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-05", today: "2026-11-04" })).toBe("over90"); // 91 days
     expect(quietOf({ lastBookingOn: null, programStartedOn: "2026-08-06", today: "2026-11-04" })).toBeNull(); // 90 days: every booking would be in the read
     expect(quietOf({ lastBookingOn: null, programStartedOn: null, today: "2026-11-04" })).toBeNull();
@@ -126,10 +160,15 @@ describe("Übersicht direction D (ENG-085)", () => {
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
     state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
     expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
+    // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
+    expect(render()).toMatch(/<a class="ow-band" href="\/merchant\/program\/winback">[^]*<span class="ow-band-go">Willkommen-zurück-Bonus einschalten<svg/);
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen.</b>`);
-    expect(html).toMatch(/class="ow-btn ow-btn--primary ow-btn--sm" href="[^"]+">Ansehen</);
+    expect(html).toMatch(/<a class="ow-band" href="[^"]+">[^]*<span class="ow-band-go">Ansehen<svg/);
+    expect(html.indexOf('class="ow-next"')).toBeLessThan(html.indexOf('class="ow-board"')); // in the flow, under the greeting
   });
 
   it("Leitung: their card stock, the strip and the four tiles, never a euro or the spend read; the bonus note is plain text", () => {
@@ -137,21 +176,22 @@ describe("Übersicht direction D (ENG-085)", () => {
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
     const html = render();
     expect(state.urls.some(url => url.startsWith("/api/merchant/spend"))).toBe(false);
-    expect(html).toContain("Karten an deinem Standort · 30 Tage");
+    expect(html).toContain('aria-label="Karten an deinem Standort, letzte 30 Tage"');
     expect(html).toContain("17 <small>von 20</small>");
-    expect(html).toContain("Karten mit Buchung in den letzten 30 Tagen");
+    expect(html).toContain("Karten mit Buchung, letzte 30 Tage");
     expect(html).toContain("Karten an deinem Standort: 17 da · 0 länger nicht da · 2 noch nie an der Kasse");
     expect(html).toContain("Buchungen an diesem Standort · letzte 7 Tage");
-    expect(html).toMatch(/<span class="ow-tile-n">–<\/span><svg[^>]*>(?:(?!<\/svg>).)*<\/svg><\/span><span class="ow-tile-note">Willkommen-zurück-Bonus ist aus<\/span>/);
+    expect(html).toContain('<div class="ow-prog-row">'); // unlinked rows carry no arrow
+    expect(html).toContain('<span class="ow-prog-value" data-big="">–</span><span class="ow-prog-text"><strong>Wieder\u00adgekommen</strong><small>Willkommen-zurück-Bonus ist aus</small></span>');
     expect(html).not.toContain("€");
     expect(html).not.toContain("Umsatz");
   });
 
-  it("loading keeps greeting and kicker busy; error is one alert without a promise about the cashier", () => {
+  it("loading keeps greeting and card busy; error is one alert without a promise about the cashier", () => {
     state.loads = {};
     const loading = render();
     expect(loading).toContain('aria-busy="true"');
-    expect(loading).toContain("Umsatz deiner Loynara-Kunden · 30 Tage");
+    expect(loading).toContain('aria-label="Umsatz deiner Loynara-Kunden, letzte 30 Tage"');
     state.loads = { "/api/merchant/analytics/location": { state: "error", message: "x" } };
     const failed = render();
     expect(failed).toContain('role="alert"');
@@ -172,10 +212,10 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
     expect(html).toMatch(/role="status">Stand (heute, \d{1,2}:\d{2}|gestern)</);
     expect(html).not.toContain("Die Zahlen sind gerade nicht da.");
-    expect(html).not.toContain("ow-tile-label");
+    expect(html).not.toContain("ow-prog-row");
     expect(html.match(/Lädt, sobald die Verbindung wieder da ist\./g)).toHaveLength(1); // once, beside the board
     expect(html).not.toContain("Die letzten Tage am Tresen");
-    expect(html).not.toContain("ow-nextbar"); // no next step beside stale numbers, though cards are away
+    expect(html).not.toContain("ow-band"); // no next step beside stale numbers, though cards are away
     state.me = me({ userId: "someone-else" }); // another person on this device
     expect(render()).toContain("Die Zahlen sind gerade nicht da.");
     state.me = me();
@@ -198,8 +238,89 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);
   });
 
-  it("keeps the invite link and Tresenschild reachable on the page until ENG-086 moves them", () => {
-    expect(render()).toContain("Kunden einladen");
+  it("leaves the invite link and Tresenschild to Kunden (ENG-122a)", () => {
+    expect(render()).not.toContain("Kunden einladen");
+  });
+});
+
+describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
+  const row = (locationId: string, brought: BroughtCustomers | null, here: Partial<SpendFigures> = {}) => ({ locationId, name: locationId, recentFrom: "", recent: figures(here), total: figures(here), brought });
+  const stamps: BroughtCustomers = { customers: 3, winback: 2, referral: 1, bookings: 3, revenue: null };
+  const showing = (rows: ReturnType<typeof row>[]) => { state.loads["/api/merchant/spend"] = ok({ ...spend(figures({})), locations: rows }); return render(); };
+  const block = (html: string) => { const at = html.indexOf('<section class="ow-brought"'); return at < 0 ? "" : html.slice(at, html.indexOf("</section>", at)); };
+
+  it("stamp shop: the two events with their counts under the board, the all-card bookings as on the board, no euro, ratio or cause", () => {
+    const html = showing([row("loc-1", stamps, { visits: 7 })]);
+    const shown = block(html);
+    expect(shown).toContain(`Wieder da oder neu auf Empfehlung${NBSP}· letzte${NBSP}30${NBSP}Tage`);
+    expect(shown).toContain(`<p class="ow-brought-n">3${NBSP}Kunden</p>`);
+    expect(shown).toContain("<dt>Nach längerer Pause wieder da, mit Bonus</dt><dd>2</dd>");
+    expect(shown).toContain("<dt>Neu auf Empfehlung</dt><dd>1</dd>");
+    expect(shown).toContain("Alle Kunden mit Karte: <span>9 Buchungen</span>. Manche wären auch ohne Karte gekommen."); // the board's 9, not the spend read's 7
+    expect(shown).toContain('aria-haspopup="dialog"');
+    expect(shown).toContain("Gezählt werden nur die Buchungen, bei denen der Willkommen-zurück-Bonus dazukam, und die erste Buchung nach einer Empfehlung.");
+    expect(shown).not.toMatch(/€|%|Umsatz|(über|durch|dank) Loynara/);
+    expect(html.indexOf("ow-brought")).toBeGreaterThan(html.indexOf('class="ow-board"'));
+    expect(html.indexOf("ow-brought")).toBeLessThan(html.indexOf("ow-tiles-title"));
+    expect(SPEND_COPY.howWeCount.endsWith(BROUGHT_COPY.allNote)).toBe(true); // the caveat stays word for word
+  });
+
+  it("points shop: the till amounts of these bookings with how many had one, never an estimate; singular forms", () => {
+    const points = (revenue: BroughtCustomers["revenue"], patch: Partial<BroughtCustomers> = {}) => block(showing([row("loc-1", { ...stamps, revenue, ...patch }, { visits: 9, realMinor: 31_200, spentMinor: 35_000, estimatedMinor: 3_800 })]));
+    const some = points({ amountMinor: 4_150, pricedBookings: 2 });
+    expect(some).toContain(`<dt>Umsatz dieser Buchungen</dt><dd>41,50${NBSP}€</dd><dd>2 von 3 Buchungen mit Kassenbetrag</dd>`);
+    // The board shows 350 € partly estimated; a second euro total (312 € till amounts) would contradict it (fault 17).
+    expect(some).toContain("Alle Kunden mit Karte: <span>9 Buchungen</span>.");
+    const exact = block(showing([row("loc-1", { ...stamps, revenue: { amountMinor: 4_150, pricedBookings: 2 } }, { visits: 9, realMinor: 31_200, spentMinor: 31_200 })]));
+    expect(exact).toContain(`Alle Kunden mit Karte: <span>312,00${NBSP}€</span>.`); // exact till amounts: the board's own figure
+    expect(points({ amountMinor: 4_150, pricedBookings: 3 })).toContain("<dd>aus 3 Buchungen mit Kassenbetrag</dd>");
+    expect(points({ amountMinor: 0, pricedBookings: 0 })).toContain("<dd>–</dd><dd>0 von 3 Buchungen mit Kassenbetrag</dd>");
+    const one = points({ amountMinor: 900, pricedBookings: 1 }, { customers: 1, winback: 0, referral: 1, bookings: 1 });
+    expect(one).toContain(`1${NBSP}Kunde</p>`);
+    expect(one).toContain("aus 1 Buchung mit Kassenbetrag");
+  });
+
+  it("shows a true 0 once the gate is open, without a revenue line when there is no booking to sum", () => {
+    const shown = block(showing([row("loc-1", { customers: 0, winback: 0, referral: 0, bookings: 0, revenue: { amountMinor: 0, pricedBookings: 0 } }, { realMinor: 1_000 })]));
+    expect(shown).toContain(`0${NBSP}Kunden`);
+    expect(shown).toContain("<dd>0</dd>");
+    expect(shown).not.toContain("Umsatz dieser Buchungen");
+  });
+
+  it("before the first brought customer: the bonus band while the bonus is off, else nothing; never for the Leitung or beside a failed read", () => {
+    const off = () => { state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } })); };
+    off();
+    const band = showing([row("loc-1", null)]);
+    expect(band).toMatch(/<a class="ow-brought-off" href="\/merchant\/program\/winback"><span><svg[^]*<\/svg><\/span><span><b>Willkommen-zurück-Bonus einschalten<\/b><small>Ein kleiner Bonus für Kunden, die länger nicht da waren.<\/small><\/span><svg/);
+    expect(band).not.toContain('<section class="ow-brought"');
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
+    expect(showing([row("loc-1", null)])).not.toContain("ow-brought");
+    off();
+    state.me = me({ role: "manager" });
+    expect(showing([row("loc-1", stamps)])).not.toContain("ow-brought");
+    state.me = me();
+    state.loads["/api/merchant/retention"] = { state: "error", message: "x" };
+    expect(showing([row("loc-1", stamps)])).not.toContain("ow-brought");
+  });
+
+  it("replaces the „Wiedergekommen“ tile while it shows; with the gate closed the four tiles stay as they were", () => {
+    const shown = showing([row("loc-1", stamps)]);
+    expect(labels(shown)).toEqual(["Buchungen", "Neue Karten", "Prämien eingelöst"]);
+    expect(shown.slice(shown.lastIndexOf("<dialog"), shown.lastIndexOf("</dialog>"))).not.toContain("gekommen"); // the sheet explains only the rows on screen
+    expect(labels(showing([row("loc-1", null)]))).toEqual(["Buchungen", "Neue Karten", "Wieder­gekommen", "Prämien eingelöst"]);
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
+    const off = showing([row("loc-1", null)]);
+    expect(labels(off)).toContain("Wieder­gekommen");
+    expect(off).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
+    state.hidden = ["walletMessages"]; // the pilot: the setting is on Programm, so the tile links there too
+    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
+  });
+
+  it("follows the active location", () => {
+    state.me = me({ locationId: "loc-2" });
+    const shown = block(showing([row("loc-1", stamps), row("loc-2", { ...stamps, customers: 5, winback: 5, referral: 0 })]));
+    expect(shown).toContain(`5${NBSP}Kunden`);
+    expect(shown).toContain("<dd>5</dd>");
   });
 });
 
@@ -269,18 +390,30 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
   it("leads with the current required step and lists the four first steps in the approved words", () => {
     const html = render();
     expect(html).toContain("Willkommen bei Loynara, Café Lindenblatt.");
-    expect(html).toContain("Startklar · 1 von 3 Pflichtschritten");
-    expect(html).toContain("Melde die erste Karte selbst an.");
-    expect(html).toContain('href="http://localhost:3000/join/cafe"');
+    expect(html).toContain(`<p class="ow-board-big">1${NBSP}<small>von 3</small></p><p class="ow-board-sub">Pflichtschritte erledigt</p>`);
+    expect(html).toContain('<h1 class="ow-hello"><span class="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, Café Lindenblatt.</h1>');
+    // The current step is the green band; its external link opens in a new tab, its label the last line.
+    expect(html).toMatch(/<a class="ow-band" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">[^]*<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><span class="ow-band-go">Anmeldelink öffnen<svg/);
+    expect(html.indexOf('class="ow-band"')).toBeLessThan(html.indexOf("Pflichtschritte erledigt")); // the card holds the count and the strip
     expect(html).toContain("Hier siehst du bald jeden Tag am Tresen.");
-    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit dem Anmeldelink oder dem Tresenschild.", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
+    for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit Anmeldelink oder Tresenschild", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);
     expect(html).not.toContain("NFC am Tresen");
     expect(html).not.toContain("Kundenkarte gestaltet");
     expect(html).not.toContain("Wenn du magst");
     expect([...html.matchAll(/class="ow-day" data-state="(\w+)"><div class="ow-day-rail" aria-hidden="true"><i>(<svg)?/g)].map(match => `${match[1]}${match[2] ? "+check" : ""}`))
       .toEqual(["done+check", "current", "open", "open"]); // done, current and open differ by shape
-    expect(html).toContain("Kunden einladen");
-    expect(html).toContain("Tresenschild laden");
+    expect(html).not.toContain("Kunden einladen"); // under Kunden since ENG-122a
+  });
+
+  it("a step without an action is a band without an arrow that nothing can tap; a failed read keeps the white card", () => {
+    state.loads["/api/merchant/readiness"] = ok(readiness([{ id: "programme", group: "setup", required: true, status: "todo", title: "Programm und Prämie", evidence: "Noch kein Programm." }]));
+    const html = render();
+    expect(html).toMatch(/<div class="ow-band">[^]*<b>Noch kein Programm\.<\/b><\/span><\/div>/);
+    expect(html).not.toContain("ow-band-go");
+    state.loads["/api/merchant/readiness"] = { state: "error", message: "x" };
+    const failed = render();
+    expect(failed).toMatch(/<section class="ow-board"[^]*Die Zahlen sind gerade nicht da\.[^]*>Erneut laden<\/button>/);
+    expect(failed).not.toContain("ow-band");
   });
 
   it("gives a manager no owner-only links", () => {
@@ -288,6 +421,6 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     const html = render();
     expect(html).not.toContain("/merchant/staff");
     expect(html).not.toContain("/merchant/program/card");
-    expect(html).toContain("Tresenschild laden");
+    expect(html).not.toContain("Tresenschild laden"); // the Leitung finds it under Kunden (ENG-122a), which it can open
   });
 });

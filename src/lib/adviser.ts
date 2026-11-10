@@ -44,78 +44,87 @@ function metrics(report: MerchantAnalytics): MerchantAdvice["metrics"] {
   };
 }
 
+// Design's Beratung drafts (6 Nov) and Marketing F4c/F8 (7 Nov). A count keeps its unit on a line break.
+const cardCount = (n: number) => `${n}\u00a0${n === 1 ? "Karte" : "Karten"}`;
+const PROGRAM_LINK = { label: "Programm öffnen", href: "/merchant/program" };
+
 /** Suggestions are read-only and derived from persisted, tenant-scoped activity. */
 export function buildRuleBasedAdvice(report: MerchantAnalytics, retention?: RetentionSummary): AdviceRecommendation[] {
   const m = metrics(report);
   const suggestions: AdviceRecommendation[] = [];
   const r = retention;
   if (m.currentActiveCards === 0) suggestions.push({
-    id: "enrolment_start", title: "Erste Karte im Betrieb prüfen",
+    id: "enrolment_start", title: "Melde die erste Karte an",
     observed: [{ label: "Aktive Karten", value: 0 }, { label: "Neue Karten", value: m.newCards }],
-    reasoning: "Ohne aktive Karte lässt sich noch kein digitaler Kassenablauf auswerten.",
-    missingInformation: ["Papierkarten und nicht erfasste Besuche sind hier nicht enthalten."],
-    nextAction: "Mit einer eigenen Karte die Anmeldung und den Kassenablauf im Team durchgehen.",
+    reasoning: "Noch gibt es keine aktive Karte.",
+    missingInformation: ["Papierkarten zählen hier nicht."],
+    nextAction: "Lege dir selbst eine Karte an und gehe den Ablauf an der Kasse einmal mit deinem Team durch.",
   });
   else if (m.qualifyingCheckouts === 0) suggestions.push({
     id: "checkout_flow", title: "Erste Buchung testen",
     observed: [{ label: "Aktive Karten", value: m.currentActiveCards }, { label: "Bestätigte Buchungen", value: 0 }],
-    reasoning: "Es gibt Karten, aber noch keine bestätigte Buchung. Ob der Ablauf an der Kasse klappt, ist also noch nicht gezeigt.",
-    missingInformation: ["Papierkäufe und nicht erfasste Besuche sind unbekannt."],
-    nextAction: "Leg dir selbst eine Karte an, lass eine Buchung bestätigen und schau, ob der neue Stand stimmt.",
+    reasoning: "Es gibt Karten, aber noch keine bestätigte Buchung.",
+    missingInformation: ["Papierkarten und Verkäufe ohne Karte zählen hier nicht."],
+    nextAction: "Lege dir selbst eine Karte an, lasse eine Buchung bestätigen und prüfe, ob der neue Stand stimmt.",
   });
   if (r && r.rewardReady > 0) suggestions.push({
-    id: "reward_waiting", title: "Prämien sind jetzt einlösbar",
+    id: "reward_waiting", title: `Prämie verdient: ${cardCount(r.rewardReady)}`,
     observed: [{ label: "Karten mit verdienter Prämie", value: r.rewardReady }, { label: "Einlösungen im Zeitraum", value: m.redemptions }],
-    reasoning: "Der aktuelle Kartenstand reicht für die günstigste aktive Prämie. Ob und wann vorher Prämien eingelöst wurden, sagt dieser Bestand nicht.",
-    missingInformation: ["Ob die Person die Prämie kennt oder bewusst spart, zeigen die Daten nicht."],
-    nextAction: "Dein Team bitten, die Prämie beim nächsten Besuch aktiv anzubieten; die Karten stehen unter Kunden.",
-    link: { label: "Karten mit verdienter Prämie", href: retentionCustomerHref(r, "reward_ready") },
+    reasoning: "Der Stand dieser Karten reicht schon für die günstigste Prämie.",
+    missingInformation: ["Ob jemand bewusst spart, sehen wir nicht."],
+    nextAction: "Bitte dein Team, die Prämie beim nächsten Besuch anzubieten.",
+    link: { label: "Karten ansehen", href: retentionCustomerHref(r, "reward_ready") },
   });
   if (r && r.drifting >= 3 && r.drifting > r.driftingWeekAgo) suggestions.push({
     id: "lapsed_growing", title: "Mehr Karten bleiben weg",
     observed: [{ label: `Ohne Buchung seit ${r.inactiveDays}+ Tagen`, value: r.drifting }, { label: "Vor einer Woche", value: r.driftingWeekAgo }],
-    reasoning: `Mehr Karten als vor einer Woche hatten früher Buchungen, aber seit über ${r.inactiveDays} Tagen keine mehr.`,
-    missingInformation: ["Warum jemand nicht mehr kommt (Urlaub, Umzug, Konkurrenz), weiß Loynara nicht.", "Besuche ohne vorgezeigte Karte fehlen in den Daten."],
-    nextAction: "Die betroffenen Karten ansehen und entscheiden, ob eine Rückhol-Aktion passt.",
+    reasoning: `Mehr Karten als vor einer Woche sind seit über ${r.inactiveDays} Tagen weg.`,
+    missingInformation: ["Warum, wissen wir nicht.", "Verkäufe ohne Karte fehlen hier."],
+    nextAction: "Sieh dir die Karten an und entscheide, ob der Willkommen-zurück-Bonus passt.",
     link: { label: "Länger nicht da", href: retentionCustomerHref(r, "drifting") },
   });
   if (r && r.neverAfterWeek >= 3 && r.neverAfterWeek * 4 >= r.openCards) suggestions.push({
-    id: "signup_not_stamped", title: "Anmeldungen ohne Buchung",
-    observed: [{ label: "Seit über 7 Tagen ohne Buchung", value: r.neverAfterWeek }, { label: "Offene Karten", value: r.openCards }],
-    reasoning: "Mindestens ein Viertel der Karten wurde vor über einer Woche angelegt, aber nie an der Kasse bestätigt.",
-    missingInformation: ["Ob die Person nicht wiederkam oder an der Kasse nicht gestempelt wurde, ist nicht unterscheidbar."],
-    nextAction: "Mit dem Team kurz durchgehen, dass jede Karte beim Bezahlen gescannt oder per Kartennummer gesucht wird.",
-    link: { label: "Noch nie an der Kasse", href: retentionCustomerHref(r, "never", 7) },
+    id: "signup_not_stamped", title: `Noch nie an der Kasse: ${cardCount(r.neverAfterWeek)}`,
+    observed: [{ label: "Seit über 7 Tagen ohne Buchung", value: r.neverAfterWeek }, { label: "Alle Karten", value: r.openCards }],
+    reasoning: "Mindestens ein Viertel der Karten hat nach über einer Woche noch keine Buchung.",
+    missingInformation: ["Ob jemand nicht wiederkam oder nicht gescannt wurde, sehen wir nicht."],
+    nextAction: "Erinnere dein Team daran, jede Karte beim Bezahlen zu scannen oder per Kartennummer zu suchen.",
+    link: { label: "Karten ansehen", href: retentionCustomerHref(r, "never", 7) },
   });
   if (m.failedOrBlockedAttempts > 0) suggestions.push({
-    id: "delivery_failures", title: "Zustellfehler prüfen",
+    id: "delivery_failures", title: "E-Mails kamen nicht an",
     observed: [{ label: "Zustellversuche", value: m.campaignAttempts }, { label: "Fehlgeschlagen oder blockiert", value: m.failedOrBlockedAttempts }],
-    reasoning: "Mindestens ein erfasster Zustellversuch ist fehlgeschlagen oder blockiert.",
-    missingInformation: ["Ein Annahmestatus beweist keine Zustellung in ein echtes Postfach."],
-    nextAction: "Die betroffenen Kampagnenversuche und Unterdrückungsgründe prüfen, bevor ein weiterer Test geplant wird.",
+    reasoning: "Mindestens ein Versand ist fehlgeschlagen.",
+    missingInformation: ["Angenommen heißt nicht, dass die E-Mail im Postfach ankam."],
+    nextAction: "Prüfe in den Kampagnen, was nicht rausging, bevor du neu sendest.",
   });
   if (m.participatingCards >= 5 && m.repeatCards * 4 < m.participatingCards) suggestions.push({
-    id: "repeat_participation", title: "Wiederkehrende Teilnahme ansehen",
+    id: "repeat_participation", title: "Wenige Karten mit zweiter Buchung",
     observed: [{ label: "Karten mit Buchung", value: m.participatingCards }, { label: "Mit mindestens zwei Buchungen", value: m.repeatCards }],
-    reasoning: "Weniger als ein Viertel der Karten mit Buchung hatte im gewählten Zeitraum zwei oder mehr bestätigte Buchungen.",
-    missingInformation: ["Die Daten zeigen keine Kaufhäufigkeit außerhalb dieser digitalen Karte und keine Ursache für Wiederkehr."],
-    nextAction: "Das Prämienziel und den Kassenablauf mit dem Team ansehen; Änderungen erst nach eigener Prüfung vornehmen.",
+    reasoning: "Weniger als ein Viertel der Karten hatte im Zeitraum zwei oder mehr Buchungen.",
+    missingInformation: ["Verkäufe ohne Karte und die Gründe kennen wir nicht."],
+    nextAction: "Prüfe, ob die erste Prämie zu weit weg ist, und frage dein Team, ob jede Karte gescannt wird.",
+    link: PROGRAM_LINK,
   });
   if (m.qualifyingCheckouts >= 3 && m.redemptions === 0 && !(r && r.rewardReady > 0)) suggestions.push({
-    id: "reward_path", title: "Prämienweg prüfen",
+    id: "reward_path", title: "Keine Prämie im Zeitraum eingelöst",
     observed: [{ label: "Bestätigte Buchungen", value: m.qualifyingCheckouts }, { label: "Einlösungen", value: 0 }],
-    reasoning: "Mindestens drei bestätigte Buchungen, aber im Zeitraum keine eingelöste Prämie.",
-    missingInformation: [r ? "Noch hat keine Karte genug für eine Prämie; der Weg dorthin könnte zu lang sein." : "Der Bericht zeigt nicht, ob einzelne Karten bereits genug Guthaben für eine Prämie haben."],
-    nextAction: "Prämienkosten, Kartentexte und den Einlösevorgang im Programm prüfen.",
+    // Without the retention read nobody knows whether a card already has enough: the live line says so.
+    reasoning: r ? "Noch hat keine Karte genug. Der Weg zur Prämie könnte zu lang sein." : "Mindestens drei bestätigte Buchungen, aber im Zeitraum keine eingelöste Prämie.",
+    missingInformation: [r ? "Warum, wissen wir nicht." : "Der Bericht zeigt nicht, ob einzelne Karten bereits genug Guthaben für eine Prämie haben."],
+    nextAction: "Prüfe im Programm, ob die günstigste Prämie zu teuer ist.",
+    link: PROGRAM_LINK,
   });
   if (suggestions.length === 0) suggestions.push({
-    id: "monitor_trend", title: "Verlauf weiter beobachten",
+    id: "monitor_trend", title: "Gerade fällt nichts auf",
     observed: [{ label: "Bestätigte Buchungen", value: m.qualifyingCheckouts }, { label: "Einlösungen", value: m.redemptions }],
-    reasoning: "Die festen Prüfregeln haben im gewählten Zeitraum keinen konkreten Handlungsbedarf ausgelöst.",
-    missingInformation: ["Die App kennt keine Verkäufe außerhalb der erfassten Vorgänge und keine inkrementelle Wirkung."],
-    nextAction: "Den 30- und 90-Tage-Verlauf vergleichen und bei Bedarf eine konkrete Regel manuell prüfen.",
+    reasoning: "Im Zeitraum gibt es nichts zu tun.",
+    missingInformation: ["Verkäufe ohne Karte und die Wirkung der Karte auf deinen Umsatz kennen wir nicht."],
+    nextAction: "Sieh nächste Woche wieder nach.",
   });
-  return suggestions.slice(0, 4);
+  // E-mail campaigns are withheld on the pilot (pilot-surfaces), so their delivery hint ranks last (Design, 6 Nov).
+  const email = suggestions.filter(item => item.id === "delivery_failures");
+  return [...suggestions.filter(item => item.id !== "delivery_failures"), ...email].slice(0, 4);
 }
 
 export async function getMerchantAdvice(actorUserId: string, options: { windowDays: AnalyticsWindowDays; asOf?: Date }): Promise<MerchantAdvice> {

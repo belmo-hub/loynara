@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { contrast, mix } from "@/components/ui/color";
+import { contrast, mix, parseHex } from "@/components/ui/color";
 
 const css = readFileSync(path.join(__dirname, "tokens.css"), "utf8");
 
@@ -21,6 +21,18 @@ const text = ["--color-ink", "--color-ink-muted", "--color-accent-text", "--colo
 const grounds = ["--color-bg", "--color-surface", "--color-raised"];
 const ui = ["--color-line-strong", "--color-action", "--color-focus"];
 
+/** CIE76 colour difference (ΔE*ab) of two #RRGGBB values, D65. */
+function deltaE(a: string, b: string) {
+  const lab = (hex: string) => {
+    const [r, g, bl] = parseHex(hex).map((v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+    const [x, y, z] = [(r * 0.4124 + g * 0.3576 + bl * 0.1805) / 0.95047, r * 0.2126 + g * 0.7152 + bl * 0.0722, (r * 0.0193 + g * 0.1192 + bl * 0.9505) / 1.08883].map(f);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  };
+  const [p, q] = [lab(a), lab(b)];
+  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+}
+
 describe.each([["light", light], ["dark", dark]])("%s tokens", (_name, t) => {
   it.each(text.flatMap((fg) => grounds.map((bg) => [fg, bg])))("%s on %s is at least 4.5:1", (fg, bg) => {
     expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
@@ -30,6 +42,20 @@ describe.each([["light", light], ["dark", dark]])("%s tokens", (_name, t) => {
   });
   it("text on the action colour is at least 4.5:1", () => {
     expect(contrast(t["--color-on-action"], t["--color-action"])).toBeGreaterThanOrEqual(4.5);
+  });
+  it("text on the danger colour is at least 4.5:1", () => {
+    expect(contrast(t["--color-on-danger"], t["--color-danger"])).toBeGreaterThanOrEqual(4.5);
+  });
+  // Coral means an earned stamp; an error must never read as one (SF-15).
+  it("danger is more than 20 ΔE*ab away from the stamp coral", () => {
+    expect(deltaE(t["--color-danger"], t["--color-stamp"])).toBeGreaterThan(20);
+  });
+  it("the focus ring is ink, not a second green", () => {
+    expect(deltaE(t["--color-focus"], t["--color-ink"])).toBeLessThan(3);
+  });
+  it.each(grounds)("faint text on %s is at least 3:1 and quieter than muted text", (bg) => {
+    expect(contrast(t["--color-ink-faint"], t[bg])).toBeGreaterThanOrEqual(3);
+    expect(contrast(t["--color-ink-faint"], t[bg])).toBeLessThan(contrast(t["--color-ink-muted"], t[bg]));
   });
   it.each(ui)("%s on the surface is at least 3:1", (token) => {
     expect(contrast(t[token], t["--color-surface"])).toBeGreaterThanOrEqual(3);
@@ -60,6 +86,12 @@ describe.each([["light", light], ["dark", dark]])("%s tinted fills", (_name, t) 
   it.each(grounds)("muted text on the quiet fill over %s is at least 4.5:1", (bg) => {
     const share = 1 - Number(quietFill![1]) / 100;
     expect(contrast(t["--color-ink-muted"], mix(t[bg], t["--color-ink"], share))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("text selection", () => {
+  it("is an ink tint, not stamp coral", () => {
+    expect(readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8")).toMatch(/::selection\s*\{\s*background:\s*color-mix\(in oklab, var\(--color-ink\)/);
   });
 });
 

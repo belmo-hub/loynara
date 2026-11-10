@@ -65,18 +65,17 @@ test("a failed account load tells a lost connection from a server failure", asyn
 
 test("a failed location switch says what to do", async ({ page }) => {
   await signIn(page);
-  // A second location (synthetic, never selected for real) makes the switcher appear in the "Mehr" panel.
+  // A second location (synthetic, never selected for real) gets its own page under Standorte, with the switch (ENG-122c).
   await page.route("**/api/merchant/locations", async route => {
     const list = await (await route.fetch()).json() as { locations: object[] };
-    await route.fulfill({ json: { ...list, locations: [...list.locations, { id: "00000000-0000-4000-8000-000000000001", name: "Zweiter Standort", city: "Köln", programSlug: null, programName: null, programType: null, cards: 0 }] } });
+    await route.fulfill({ json: { ...list, locations: [...list.locations, { id: "00000000-0000-4000-8000-000000000001", name: "Zweiter Standort", city: "Köln", country: "DE", programSlug: null, programName: null, programType: null, cards: 0, awards: 0, redemptions: 0, activeStaff: 0 }] } });
   });
-  await page.goto("/merchant");
-  await page.getByRole("button", { name: "Mehr: Navigation öffnen" }).click();
-  const switcher = page.getByRole("combobox", { name: "Aktiver Standort" }), alert = page.locator('.ow-loc [role="alert"]');
+  await page.goto("/merchant/locations/00000000-0000-4000-8000-000000000001");
+  const switcher = page.getByRole("button", { name: "Als aktiven Standort wählen" }), alert = page.locator('.ow-notice[role="alert"]');
   for (const [answer, text] of [[fail(404, { error: "Location not found", code: "NOT_FOUND" }), "aktuellen Liste"], [fail(500, { error: "Internal error" }), "bisheriger Standort bleibt aktiv"],
     [{ status: 200, contentType: "application/json", body: "" }, "prüfe, welcher Standort aktiv ist"]] as const) {
     await page.route("**/api/merchant/locations/select", route => route.fulfill(answer));
-    await switcher.selectOption({ label: "Zweiter Standort" });
+    await switcher.click();
     await expect(alert).toContainText(text);
     expect(await alert.innerText()).not.toMatch(/Internal error|not found|leer/i);
     await page.unroute("**/api/merchant/locations/select");
@@ -85,9 +84,9 @@ test("a failed location switch says what to do", async ({ page }) => {
 
 test("a failed new location says what to do and never leaves a created location in the form", async ({ page }) => {
   await signIn(page);
-  await page.goto("/merchant/locations");
-  const form = page.locator('section[aria-labelledby="loc-create"]'), alert = page.locator('.ow-notice[role="alert"]');
-  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Teilnahmebedingungen", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
+  await page.goto("/merchant/locations/new");
+  const form = page.locator("#ow-main form"), alert = page.locator('.ow-notice[role="alert"]');
+  for (const [label, value] of [["Standortname", "Filiale Süd"], ["Stadt", "Köln"], ["Programmname", "Kaffeekarte Süd"], ["Regel auf der Karte", "Ein Stempel je Kaffee."], ["Erste Prämie", "Ein Kaffee"]])
     await form.getByLabel(label, { exact: true }).fill(value);
   const createWith = (answer: ReturnType<typeof fail>) => page.route("**/api/merchant/locations", route => route.request().method() === "POST" ? route.fulfill(answer) : route.fallback());
 

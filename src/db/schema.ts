@@ -30,6 +30,13 @@ export const tenants = pgTable("tenants", {
   locale: varchar("locale", { length: 5 }).notNull().default("de"),
   /** Monday report email to the owners (lib/weekly-owner-report). On unless an owner switches it off. */
   weeklyReportEnabled: boolean("weekly_report_enabled").notNull().default(true),
+  // Sender details of the business (Legal, 19 Oct: per tenant, the same under every location's mail): the representative
+  // is required before anything promotional is sent; legal form, register entry and VAT ID are optional.
+  representative: varchar("representative", { length: 120 }),
+  legalForm: varchar("legal_form", { length: 40 }),
+  registerCourt: varchar("register_court", { length: 120 }),
+  registerNumber: varchar("register_number", { length: 40 }),
+  vatId: varchar("vat_id", { length: 14 }),
   createdAt: createdAt(),
 });
 
@@ -38,6 +45,11 @@ export const locations = pgTable("locations", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
   name: varchar("name", { length: 180 }).notNull(),
   city: varchar("city", { length: 120 }).notNull(),
+  // Sender details under every marketing mail (Legal's footer), per location: street, postal code and a contact (contact
+  // email or phone) are required before anything promotional is sent. The business's own details are on tenants.
+  street: varchar("street", { length: 180 }),
+  postalCode: varchar("postal_code", { length: 5 }),
+  contactPhone: varchar("contact_phone", { length: 30 }),
   country: varchar("country", { length: 2 }).notNull(),
   timezone: varchar("timezone", { length: 80 }).notNull(),
   contactEmail: varchar("contact_email", { length: 320 }),
@@ -198,6 +210,9 @@ export const programRuleVersions = pgTable("program_rule_versions", {
   rulesText: text("rules_text").notNull(),
   earningMode: varchar("earning_mode", { length: 8 }).notNull(),
   pointsPerCurrencyUnit: integer("points_per_currency_unit").notNull(),
+  // ENG-100: the points expiry that applies with this version (null = off), kept as Legal's proof of what applied when.
+  pointsExpiryMonths: integer("points_expiry_months"),
+  pointsExpirySince: timestamp("points_expiry_since", { withTimezone: true }),
   effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 }, (t) => [
@@ -214,6 +229,8 @@ export const rewards = pgTable("rewards", {
   tenantId: uuid("tenant_id").notNull(),
   programId: uuid("program_id").notNull(),
   active: boolean("active").notNull().default(true),
+  // ENG-100: an archive takes effect four weeks after saving and the reward stays redeemable until then. Null = not ending.
+  endsAt: timestamp("ends_at", { withTimezone: true }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: createdAt(),
 }, (t) => [
@@ -278,6 +295,10 @@ export const contactVerificationChallenges = pgTable("contact_verification_chall
   membershipId: uuid("membership_id").notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  // The link also confirms the marketing consent (double opt-in); the grant is written only when it is clicked.
+  marketing: boolean("marketing").notNull().default(false),
+  // The consent text version the guest ticked (email-consent-text.ts); the click writes it into the consent event.
+  noticeVersion: varchar("notice_version", { length: 32 }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
   createdAt: createdAt(),
@@ -594,6 +615,13 @@ export const outboxJobs = pgTable("outbox_jobs", {
   foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id] }),
 ]);
 
+/** ENG-123: one row per shop and free month (Legal: one reminder per business), written in the same statement that queues the mail. */
+export const freeMonthReminders = pgTable("free_month_reminders", {
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  freeUntil: timestamp("free_until", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.freeUntil] })]);
+
 /** One row per shop and reported Berlin ISO week (its Monday), written in the same statement that queues the mails. */
 export const weeklyOwnerReports = pgTable("weekly_owner_reports", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
@@ -622,11 +650,24 @@ export const emailProviderEvents = pgTable("email_provider_events", {
   createdAt: createdAt(),
 });
 
+/**
+ * Global, for every shop and every kind of mail: an address the provider reported as permanently failing or that complained.
+ * Also "unsubscribed" rows from before ENG-170 that no shop's delivery explains: those block marketing only. Survives a shop's
+ * erasure; deleted 24 months after the last event (ENG-170, Legal).
+ */
 export const emailSuppressions = pgTable("email_suppressions", {
   recipientHash: varchar("recipient_hash", { length: 64 }).primaryKey(),
   reason: varchar("reason", { length: 32 }).notNull(),
   createdAt: createdAt(),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** One shop's promotional unsubscribe, reported by the provider: blocks that shop's marketing only, never another shop's or recovery mail. */
+export const emailUnsubscribes = pgTable("email_unsubscribes", {
+  tenantId: uuid("tenant_id").notNull(),
+  recipientHash: varchar("recipient_hash", { length: 64 }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.recipientHash] })]);
 
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -869,6 +910,10 @@ export const subscriptions = pgTable("subscriptions", {
   providerCustomerId: varchar("provider_customer_id", { length: 64 }).unique(),
   providerSubscriptionId: varchar("provider_subscription_id", { length: 64 }).unique(),
   startedAt: timestamp("started_at", { withTimezone: true }),
+  // ENG-123: the first paid moment (Stripe's first billing date) when billing started with the free month; null otherwise.
+  freeUntil: timestamp("free_until", { withTimezone: true }),
+  // ENG-125: the moment Stripe was told to end the subscription because the operator confirmed the shop's end (#84); null while none is set.
+  billingEndsAt: timestamp("billing_ends_at", { withTimezone: true }),
 }, (t) => [
   check("subscription_status_valid", sql`${t.status} in ('manual_pending','pending_checkout','active_fixture','grace_fixture','suspended_fixture','cancelled','active','past_due','suspended')`),
   check("subscription_price_positive", sql`${t.priceMinor} > 0 and ${t.activeLocationCount} > 0`),
@@ -1065,6 +1110,29 @@ export const walletMessageRecipients = pgTable("wallet_message_recipients", {
  * Apple Wallet (PassFast) template per location (ENG-046), set by the operator on /operator. Wins over the env binding of
  * the same scope; PASSFAST_TENANT_TEMPLATES stays the read-only fallback. One template per location, no template shared.
  */
+/**
+ * One Google Wallet class per tenant, location and programme (ENG-175), made by the worker. Only an `approved` class issues
+ * passes. GOOGLE_WALLET_LOCATION_CLASSES stays the read-only fallback for a scope without a row.
+ */
+export const walletGoogleClasses = pgTable("wallet_google_classes", {
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  programId: uuid("program_id").notNull(),
+  classId: varchar("class_id", { length: 230 }).notNull().unique(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  /** Hash of the class fields last sent: an unchanged, approved class costs no Google call. */
+  syncedHash: varchar("synced_hash", { length: 64 }),
+  /** The failed step only, never a provider response. */
+  lastError: varchar("last_error", { length: 60 }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId, t.programId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.programId], foreignColumns: [programs.tenantId, programs.id] }),
+  check("wallet_google_classes_status_check", sql`${t.status} IN ('pending', 'under_review', 'approved', 'rejected')`),
+]);
+
 export const walletTemplateBindings = pgTable("wallet_template_bindings", {
   tenantId: uuid("tenant_id").notNull(),
   locationId: uuid("location_id").notNull(),
@@ -1265,3 +1333,27 @@ export const bookingPushLog = pgTable("booking_push_log", {
   index("booking_push_log_member_idx").on(t.tenantId, t.membershipId, t.sentAt),
   check("booking_push_kind_valid", sql`${t.kind} in ('reminder_24h','reminder_2h','rebook','shop_cancel','moved','confirmed')`),
 ]);
+/**
+ * ENG-166 (DS-05): the erasure record, one row per erased shop, kept 6 years with the contract (Legal, 1 Nov). It is
+ * Loynara's own record, not the shop's data: legal name, end date, export end, the contract facts copied in before the
+ * erasure (who confirmed the end, when; Legal: copy first), rows deleted per table, the provider clean-up, and the owner's
+ * name and business email for the text-form confirmation (AVV § 8 (2)). It is also the tombstone list a restore re-applies.
+ * Append-only, except that the confirmation's sending is stamped once.
+ */
+export const shopErasures = pgTable("shop_erasures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  erasedTenantId: uuid("erased_tenant_id").notNull().unique(),
+  legalName: varchar("legal_name", { length: 180 }).notNull(),
+  endDate: date("end_date").notNull(),
+  exportUntil: date("export_until").notNull(),
+  actorUserId: text("actor_user_id").notNull(),
+  contract: jsonb("contract").$type<Record<string, unknown>>().notNull(),
+  rowCounts: jsonb("row_counts").$type<Record<string, number>>().notNull(),
+  external: jsonb("external").$type<Record<string, unknown>>().notNull(),
+  confirmationName: varchar("confirmation_name", { length: 200 }),
+  confirmationEmail: varchar("confirmation_email", { length: 320 }),
+  erasedAt: timestamp("erased_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Set with the erasure, only after the provider clean-up and the database both succeeded: the confirmation may go out. */
+  confirmationSendableAt: timestamp("confirmation_sendable_at", { withTimezone: true }).notNull(),
+  confirmationSentAt: timestamp("confirmation_sent_at", { withTimezone: true }),
+});

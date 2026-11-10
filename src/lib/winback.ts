@@ -5,9 +5,11 @@ import { ownerProgram } from "./automations";
 import { activeHappyHour } from "./happy-hour";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
 import { surfaceHidden } from "./pilot-surfaces";
+import { demoEnvironment } from "./demo-environment";
 import { currentRewards } from "./product";
 import { eligible, lock } from "./wallet-messages";
 import { WINBACK_DAYS, WINBACK_SEND_WINDOW, WINBACK_WINDOW_DAYS, germanDay, winbackBonusMax, winbackText } from "./wallet-message-rules";
+import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 // Win-back reminders (ENG-044). The bonus itself is booked at the counter (loyalty.ts, bookWinbackBonus) for every card in
 // its window; this only reminds consented Apple holders, once per lapse, Mon–Sat 10–18, inside the per-customer cap.
@@ -36,11 +38,19 @@ export async function updateWinback(input: { actorUserId: string; programSlug: s
   const settings = settingsInput.parse(input.settings);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   if (settings.bonus > await bonusMax(program)) throw new DomainError("INVALID_WINBACK_BONUS", program.type === "stamp" ? "Bonus: kein Bonus oder 1 Stempel." : "Bonus: höchstens ein Viertel deiner günstigsten Prämie.");
-  const [updated] = rows<{ tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number; almostEnabled: boolean }>(await db.execute(sql`
-    UPDATE programs SET winback_enabled = ${settings.enabled}, winback_days = ${settings.days}, winback_bonus = ${settings.bonus}
-    WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid AND status = 'active'
-    RETURNING tenant_id AS "tenantId", id, type, winback_enabled AS "winbackEnabled", winback_days AS "winbackDays", winback_bonus AS "winbackBonus", almost_enabled AS "almostEnabled"`));
-  if (!updated) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
+  const updated = await db.transaction(async tx => {
+    const [row] = rows<{ tenantId: string; id: string; type: string; winbackEnabled: boolean; winbackDays: number; winbackBonus: number; almostEnabled: boolean; changed: boolean }>(await tx.execute(sql`
+      WITH before AS (SELECT id, winback_enabled, winback_days, winback_bonus FROM programs
+        WHERE id = ${program.id}::uuid AND tenant_id = ${program.tenantId}::uuid AND status = 'active' FOR UPDATE)
+      UPDATE programs p SET winback_enabled = ${settings.enabled}, winback_days = ${settings.days}, winback_bonus = ${settings.bonus}
+      FROM before WHERE p.id = before.id
+      RETURNING p.tenant_id AS "tenantId", p.id, p.type, p.winback_enabled AS "winbackEnabled", p.winback_days AS "winbackDays", p.winback_bonus AS "winbackBonus", p.almost_enabled AS "almostEnabled",
+        (before.winback_enabled, before.winback_days, before.winback_bonus) IS DISTINCT FROM (p.winback_enabled, p.winback_days, p.winback_bonus) AS changed`));
+    // The back of the Apple pass shows the win-back line (ENG-119): a change refreshes installed passes, without an alert.
+    if (row?.changed) await enqueueWalletProgramRefresh(tx, row.tenantId, row.id);
+    return row;
+  });
+  if (!updated) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return winbackSettings(updated);
 }
 
@@ -69,7 +79,8 @@ export async function queueBatch(tx: Pick<typeof db, "execute">, p: { tenantId: 
  * confirmed stamp gets one recipient row. One message row per deadline date, because the date is in the text.
  */
 export async function queueWinbackMessages(now = new Date()) {
-  if (surfaceHidden("walletMessages")) return 0;
+  // Off in the demo environment: only the owner's own message may reach a demo card (founder, 9 Nov).
+  if (surfaceHidden("walletMessages") || demoEnvironment()) return 0;
   const programs = rows<{ tenantId: string; programId: string; type: "stamp" | "points"; days: number; bonus: number; timezone: string }>(await db.execute(sql`
     SELECT p.tenant_id AS "tenantId", p.id AS "programId", p.type, p.winback_days AS days, p.winback_bonus AS bonus, l.timezone
     FROM programs p JOIN locations l ON l.id = p.location_id AND l.tenant_id = p.tenant_id WHERE p.winback_enabled AND p.status = 'active'`));

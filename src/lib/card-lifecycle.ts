@@ -18,10 +18,10 @@ export function validCardToken(token: string) {
  * remain until the operator has an approved retention schedule.
  */
 export async function closeCard(cardToken: string): Promise<{ closed: true; retention: "pseudonymous-ledger-and-consent-pending-policy" }> {
-  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(cardToken)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return db.transaction(async (tx) => {
     const [member] = await tx.select().from(memberships).where(eq(memberships.cardToken, cardToken)).for("update");
-    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Card not found");
+    if (!member || member.closedAt) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
 
     await tx.delete(contactVerificationChallenges).where(and(eq(contactVerificationChallenges.tenantId, member.tenantId), eq(contactVerificationChallenges.membershipId, member.id)));
     await tx.delete(membershipContacts).where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id)));

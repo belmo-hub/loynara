@@ -4,6 +4,7 @@ import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/ht
 import { DomainError, reverseEntry } from "@/lib/loyalty";
 import { selectedLocationFromRequest } from "@/lib/locations";
 import { getMerchantContext } from "@/lib/product";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const input = z.object({ locationId: z.uuid(), entryId: z.uuid(), reason: z.string().trim().min(10).max(240), idempotencyKey: z.string().min(8).max(100) });
 
@@ -11,10 +12,11 @@ export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
     const user = await sessionUser(request);
+    await enforceRateLimit({ scope: "transactions_reverse_user", identity: user.id, max: 60, windowSeconds: 15 * 60 });
     const body = input.parse(await jsonBody(request, 2000));
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context || context.role === "cashier") throw new DomainError("FORBIDDEN", "Manager or owner access required");
-    if (context.locationId !== body.locationId) throw new DomainError("NOT_FOUND", "Transaction not found at selected location");
+    if (!context || context.role === "cashier") throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
+    if (context.locationId !== body.locationId) throw new DomainError("NOT_FOUND", "Diese Buchung haben wir an diesem Standort nicht gefunden.");
     return Response.json(await reverseEntry({ ...body, userId: user.id, requestId: randomUUID() }));
   } catch (error) { return respondError(error); }
 }

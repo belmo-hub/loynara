@@ -43,6 +43,27 @@ export const BOOKING_COPY = {
   howWeCount: "Es zählen Termine nach ihrer Startzeit an deinem Standort. „Letzte 30 Tage“ heißt: heute und die 29 Tage davor. Nicht erschienen zählt gegen alle erledigten, nicht erschienenen und kurzfristig abgesagten Termine. Neu gebucht über Erinnerung heißt: über den Link aus der Erinnerung an den nächsten Termin. „Listenpreise erledigter Termine“ ist die Summe der Preise, so wie sie beim Buchen galten. Das ist kein kassierter Betrag. „An der Kasse bestätigt“ ist der Betrag, den dein Team beim Abschluss des Termins eingegeben hat; korrigierte Buchungen fallen weg.",
 } as const;
 
+/**
+ * ENG-095 on the Übersicht (labels: Marketing; Legal checked, 27 Oct): the heading names two events, never a cause, and the
+ * block shows no share, ratio or estimate. Its last line keeps howWeCount's closing sentence word for word.
+ */
+export const BROUGHT_COPY = {
+  // No-break spaces keep the dot with „Empfehlung“ and „letzte 30 Tage“ on one line (Design).
+  title: "Wieder da oder neu auf Empfehlung · letzte 30 Tage",
+  customers: (n: number) => `${n.toLocaleString("de-DE")} ${n === 1 ? "Kunde" : "Kunden"}`,
+  winback: "Nach längerer Pause wieder da, mit Bonus",
+  referral: "Neu auf Empfehlung",
+  revenue: "Umsatz dieser Buchungen",
+  /** „aus 3 Buchungen mit Kassenbetrag“ when every booking has one, else „2 von 3 …“ (also „0 von 3 …“ beside „–“). */
+  priced: (priced: number, bookings: number) => `${priced === bookings ? "aus" : `${priced.toLocaleString("de-DE")} von`} ${SPEND_COPY.bookings(bookings)} mit Kassenbetrag`,
+  all: "Alle Kunden mit Karte:",
+  allNote: "Manche wären auch ohne Karte gekommen.",
+  howWeCountTitle: "So zählen wir",
+  howWeCount: "Gezählt werden nur die Buchungen, bei denen der Willkommen-zurück-Bonus dazukam, und die erste Buchung nach einer Empfehlung. Spätere Buchungen zählen darunter bei allen Loynara-Kunden mit. Manche wären auch ohne Bonus wiedergekommen.",
+  bonusOff: "Willkommen-zurück-Bonus einschalten",
+  bonusOffText: "Ein kleiner Bonus für Kunden, die länger nicht da waren.",
+} as const;
+
 export const AVERAGE_VISIT_SPEND_MAX_MINOR = 100_000;
 
 /** Display only: the figures stay integer minor units until here. */

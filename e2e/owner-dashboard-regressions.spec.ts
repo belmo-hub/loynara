@@ -40,9 +40,9 @@ test("failed context refresh after location selection shows an error and retry r
 });
 
 for (const flow of [
-  { name: "rules to card studio", path: "/merchant/program", field: "Programmname", link: "Kundenkarte gestalten", target: "/merchant/program/card", editRules: true },
-  { name: "card studio to rules", path: "/merchant/program/card", field: "Geschäftsname", link: "Sammelregeln & Prämien", target: "/merchant/program" },
-  { name: "location draft to programme", path: "/merchant/locations", field: "Standortname", link: "Programm ansehen", target: "/merchant/program" },
+  { name: "rule page back to the list", path: "/merchant/program/rule", field: "Regel auf der Karte", link: "Programm", target: "/merchant/program" },
+  { name: "card studio to rules", path: "/merchant/program/card", field: "Geschäftsname", link: "Programm", target: "/merchant/program" },
+  { name: "location draft back to Standorte", path: "/merchant/locations/new", field: "Standortname", link: "Standorte", target: "/merchant/locations" },
 ]) test(`page link guards unsaved edits: ${flow.name}`, async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const f = await owner(url);
@@ -51,7 +51,6 @@ for (const flow of [
     try {
       const page = await context.newPage();
       await page.goto(flow.path);
-      if (flow.editRules) await page.getByRole("button", { name: "Regel ändern", exact: true }).click();
       await page.getByLabel(flow.field, { exact: true }).fill("Synthetischer ungespeicherter Entwurf");
       const link = page.locator("#ow-main").getByRole("link", { name: flow.link, exact: true });
       await link.click();
@@ -78,16 +77,19 @@ test("customer search stays applied when switching between location and tenant s
     const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
     try {
       const page = await context.newPage();
+      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards under the field.
+      const rows = page.locator("section.ow-prog a.ow-prog-row");
+      await page.goto("/merchant/customers?activity=all");
+      await expect(rows).toHaveCount(2);
       await page.goto("/merchant/customers");
-      await expect(page.locator(".ow-member")).toHaveCount(2);
       await page.getByLabel("Kartennummer suchen").fill(wanted.id);
-      await page.getByRole("button", { name: "Suchen", exact: true }).click();
-      await expect(page.locator(".ow-member")).toHaveCount(1);
+      await page.getByLabel("Kartennummer suchen").press("Enter");
+      await expect(rows).toHaveCount(1);
       for (const label of ["Alle Standorte", "Erster Standort"]) {
         await page.getByRole("group", { name: "Umfang" }).getByRole("button", { name: label, exact: true }).click();
         await page.waitForLoadState("networkidle");
-        await expect(page.locator(".ow-member")).toHaveCount(1);
-        await expect(page.locator(".ow-member")).toContainText(wanted.pseudonym);
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toContainText(wanted.pseudonym.replace(/^Karte /, ""));
         await expect(page.getByLabel("Kartennummer suchen")).toHaveValue(wanted.id);
       }
     } finally { await context.close(); }
@@ -103,7 +105,7 @@ test("NFC policy keeps its accessible group name without horizontal page overflo
   const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
   try {
     const page = await context.newPage();
-    await page.goto("/merchant/program");
+    await page.goto("/merchant/program/nfc");
     const group = page.getByRole("group", { name: "Vergabe nach NFC-Berührung", exact: true });
     await expect(group).toBeVisible();
     for (const width of [390, 320, 768, 1280, 1440]) {

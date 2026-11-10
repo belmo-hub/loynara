@@ -28,11 +28,11 @@ for (const width of [375, 1280]) test(`committed owner revocation suppresses a p
     const request = (await pool.query("INSERT INTO tap_requests (tag_id,counter,tenant_id,location_id,program_id,membership_id,status,expires_at) VALUES ($1,1,$2,$3,$4,$5,'pending_staff',now()+interval '300 seconds') RETURNING id", [tag, f.tenant.id, f.location.id, f.program.id, f.member.id])).rows[0].id as string;
     const page = await owner.newPage(); await page.goto("/merchant/staff");
     const row = page.locator('section[aria-labelledby="st-list"]').getByRole("listitem").filter({ hasText: `${cashier}@example.test` });
-    await row.getByRole("button", { name: "Sperren", exact: true }).click();
+    await row.getByRole("button").click();
     let sends = 0;
     const result = await deliverTapPush({ payload: { tapRequestId: request } }, { env: vapid, send: async () => { sends++; return { statusCode: 201, body: "", headers: {} }; }, renew: async () => {
       const response = page.waitForResponse(r => new URL(r.url()).pathname === "/api/staff/revoke");
-      await page.getByRole("alertdialog", { name: "Zugang sperren?", exact: true }).getByRole("button", { name: "Zugang sperren", exact: true }).click();
+      await page.locator("#ow-main").getByRole("button", { name: "Zugang sperren", exact: true }).click();
       expect((await response).status()).toBe(200); await expect(row).toContainText("Gesperrt"); return true;
     } });
     expect(sends).toBe(0); expect(result.sent).toBe(0);

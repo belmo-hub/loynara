@@ -5,6 +5,8 @@ import { guardPoolErrors } from "../src/db/pool-errors";
 import { claimOutboxJob, completeWalletOutboxJob, deferOutboxJob, markOutboxJob, renewOutboxJob, type OutboxJob, type OutboxStatus } from "../src/lib/outbox";
 import { replayOutboxJob } from "../src/lib/outbox-replay";
 import { productionConfigIssues } from "./config-check";
+import { demoEnvironment } from "../src/lib/demo-environment";
+import { appleCredentialStartupIssues } from "./apple-wallet-credential";
 import { googleServiceAccountStartupIssues } from "./google-wallet-credential";
 import { productionWalletRuntimeIssues } from "./wallet-runtime-config";
 import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
@@ -27,6 +29,10 @@ let winbackCheckedAt = 0;
 let rebookCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
+let suppressionsPrunedAt = 0;
+let googleClassesSyncedAt = 0;
+let erasureCheckedAt = 0;
+let demosEndedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -106,6 +112,35 @@ async function processJob(job: Job, claimedAt: number) {
       const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
       const marked = await mark(job, permanent ? "failed" : "retry", "Weekly report failed", permanent ? 0 : delay);
       console.error(`Weekly report job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
+  if (job.kind === "email.contract_end") {
+    try {
+      const { deliverContractEndEmail } = await import("../src/lib/contract-end-email");
+      const result = await deliverContractEndEmail(job);
+      if (result.status === "deferred") return await defer(job, result.reason, result.until);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Contract-end email failed", permanent ? 0 : delay);
+      console.error(`Contract-end email job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
+  if (job.kind === "email.free_month") {
+    try {
+      const { deliverFreeMonthReminder } = await import("../src/lib/free-month-reminder");
+      const result = await deliverFreeMonthReminder(job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: the send is reserved by job id, so a retry after an uncertain send ends blocked, never sends twice.
+      const permanent = job.attempts >= maxAttempts;
+      const delay = Math.min(3600, 60 * 2 ** (job.attempts - 1));
+      const marked = await mark(job, permanent ? "failed" : "retry", "Free-month reminder failed", permanent ? 0 : delay);
+      console.error(`Free-month reminder job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
       return marked;
     }
   }
@@ -215,6 +250,20 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "wallet.program_refresh") {
+    try {
+      const { db } = await import("../src/db");
+      const { runWalletProgramRefresh } = await import("../src/lib/wallet/enqueue");
+      const result = await runWalletProgramRefresh(db, job);
+      return await mark(job, result.status, "reason" in result ? result.reason : undefined);
+    } catch (error) {
+      // Safe to retry: it only queues coalesced card refreshes.
+      const permanent = job.attempts >= maxAttempts;
+      const marked = await mark(job, permanent ? "failed" : "retry", "Scheduled Wallet refresh failed", permanent ? 0 : Math.min(3600, 30 * 2 ** (job.attempts - 1)));
+      console.error(`Scheduled Wallet refresh job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind !== "wallet.refresh") {
     return await mark(job, "failed", "Unknown job kind");
   }
@@ -255,8 +304,8 @@ async function replay(jobId: string) {
 
 async function main() {
   const configurationIssues = productionConfigIssues(process.env);
-  // Same order as the web guard: a Google key delivered as a value is written only after the configuration passed.
-  if (!configurationIssues.length) configurationIssues.push(...googleServiceAccountStartupIssues(process.env));
+  // Same order as the web guard: Wallet keys delivered as values are written only after the configuration passed.
+  if (!configurationIssues.length) configurationIssues.push(...googleServiceAccountStartupIssues(process.env), ...appleCredentialStartupIssues(process.env));
   configurationIssues.push(...productionWalletRuntimeIssues(process.env));
   if (process.env.NODE_ENV === "production" && !validHeartbeatUrl(process.env.WORKER_HEARTBEAT_URL)) {
     configurationIssues.push("Production worker requires a reviewed HTTPS heartbeat monitor URL");
@@ -295,6 +344,9 @@ async function main() {
         try {
           const { queueWeeklyOwnerReports } = await import("../src/lib/weekly-owner-report");
           await queueWeeklyOwnerReports(housekeepingDatabase);
+          // ENG-123: free-month reminders, 7 days before the end; idempotent per business and free month.
+          const { queueFreeMonthReminders } = await import("../src/lib/free-month-reminder");
+          await queueFreeMonthReminders(housekeepingDatabase);
           weeklyReportsCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
@@ -350,13 +402,40 @@ async function main() {
           throw error;
         }
       }
+      if (Date.now() - googleClassesSyncedAt >= 15 * 60_000) {
+        try {
+          // Idempotent, and a no-op unless Google is on and published: each active programme gets its class, each changed shop its fields.
+          const { syncGoogleClasses } = await import("../src/lib/wallet/google-classes");
+          const result = await syncGoogleClasses(process.env, fetch, { signal: shutdown.signal });
+          if (result.synced || result.failed) console.log(`Google Wallet classes: ${result.synced} synced, ${result.failed} failed`);
+          googleClassesSyncedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          // Google must not stop stamping jobs: a fixed line, and the next round tries again.
+          console.error(`Google Wallet class sync failed (${error instanceof Error ? error.name : "error"})`);
+          googleClassesSyncedAt = Date.now();
+        }
+      }
+      if (Date.now() - suppressionsPrunedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent: permanent failures and complaints are kept 24 months after their last event (Legal, ENG-170).
+          const { pruneEmailSuppressions } = await import("../src/lib/transactional-email");
+          const removed = await pruneEmailSuppressions();
+          if (removed) console.log(`Email suppressions: ${removed} expired after 24 months`);
+          suppressionsPrunedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
       if (Date.now() - billingCheckedAt >= 24 * 60 * 60_000) {
         try {
-          // Daily and idempotent (owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
+          // Daily and idempotent (Stripe end = confirmed shop end, owed guarantee credits, Stripe quantity = location count); a no-op unless Stripe billing is enabled.
           const { runBillingJob } = await import("../src/lib/billing-stripe");
           const result = await runBillingJob();
           if (result.quantities) console.log(`Billing: location quantity updated for ${result.quantities} subscription(s)`);
           if (result.credited) console.log(`Billing: ${result.credited} owed start-guarantee credit(s) issued`);
+          if (result.ends) console.log(`Billing: Stripe end updated for ${result.ends} shop(s) after a programme end`);
           billingCheckedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
@@ -364,6 +443,33 @@ async function main() {
           const code = error instanceof Error && "code" in error ? ` ${String(error.code)}` : "";
           console.error(`Billing job failed (${error instanceof Error ? error.name : "error"}${code}); retrying in an hour`);
           billingCheckedAt = Date.now() - 23 * 60 * 60_000;
+        }
+      }
+      if (Date.now() - erasureCheckedAt >= 24 * 60 * 60_000) {
+        erasureCheckedAt = Date.now();
+        try {
+          // ENG-166 (DS-05): says daily which ended shops to erase, by when, and which confirmations are still to send; the
+          // operator erases them (operator-shop-erasure).
+          const { dueShopErasures } = await import("../src/lib/shop-erasure");
+          const { due, confirmations } = await dueShopErasures();
+          if (due.length) console.log(`Erasure: ${due.length} ended shop(s) to erase (${due.map(shop => `${shop.tenantId} by ${shop.deadline}${shop.overdue ? " OVERDUE" : ""}${shop.billing ? ", Stripe still running" : ""}`).join(", ")}); run operator-shop-erasure`);
+          if (confirmations.length) console.log(`Erasure: ${confirmations.length} confirmation(s) to the owner still to send (${confirmations.map(shop => shop.tenantId).join(", ")})`);
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          console.error(`Erasure check failed (${error instanceof Error ? error.name : "error"}); retrying tomorrow`);
+        }
+      }
+      // Demo environment only (design v3): production never loads the module. endDemos checks the same again.
+      if (demoEnvironment() && Date.now() - demosEndedAt >= 60 * 60_000) {
+        demosEndedAt = Date.now();
+        try {
+          // Passes of demos past 24 hours are voided, demos past 25 hours erased.
+          const { endDemos } = await import("../src/lib/demo");
+          const { voided, erased } = await endDemos();
+          if (voided || erased) console.log(`Demo: ${voided} card(s) voided, ${erased} demo shop(s) erased`);
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          console.error(`Demo end failed (${error instanceof Error ? error.name : "error"}); retrying in an hour`);
         }
       }
       let processed = 0;

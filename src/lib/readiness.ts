@@ -3,6 +3,8 @@ import { db, pool } from "@/db";
 import { locations, programs, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { nfcCapability } from "./nfc-keys";
+import { withUnit } from "./units";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 /**
  * "Ready to start" for one location, derived only from persisted state — never from browser checkboxes.
@@ -41,9 +43,9 @@ const germanDate = (value: Date, timezone: string) => value.toLocaleDateString("
 
 export async function getLaunchReadiness(actorUserId: string, locationId: string, env: Record<string, string | undefined> = process.env): Promise<LaunchReadiness> {
   const [staff] = await db.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true)));
-  if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== locationId)) throw new DomainError("FORBIDDEN", "Owner or manager access required");
+  if (!staff || staff.role === "cashier" || (staff.role === "manager" && staff.locationId !== locationId)) throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   const [location] = await db.select().from(locations).where(and(eq(locations.id, locationId), eq(locations.tenantId, staff.tenantId)));
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   const [program] = await db.select().from(programs).where(and(eq(programs.tenantId, staff.tenantId), eq(programs.locationId, location.id), eq(programs.status, "active")));
 
   const facts = (await pool.query<{
@@ -52,11 +54,11 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
     live_tags: number; confirmed_taps: number;
   }>(`
     SELECT
-      (SELECT count(*)::int FROM rewards r WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active) AS rewards,
+      (SELECT count(*)::int FROM rewards r WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")}) AS rewards,
       (SELECT rv.title FROM rewards r JOIN reward_versions rv ON rv.tenant_id = r.tenant_id AND rv.reward_id = r.id
-        WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_title,
+        WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")} AND rv.effective_at <= now() AND ${notSuperseded("rv")} ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_title,
       (SELECT rv.cost FROM rewards r JOIN reward_versions rv ON rv.tenant_id = r.tenant_id AND rv.reward_id = r.id
-        WHERE r.tenant_id = $1 AND r.program_id = $3 AND r.active ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_cost,
+        WHERE r.tenant_id = $1 AND r.program_id = $3 AND ${liveReward("r", "now()")} AND rv.effective_at <= now() AND ${notSuperseded("rv")} ORDER BY r.sort_order, rv.version DESC LIMIT 1) AS reward_cost,
       (SELECT count(*)::int FROM memberships m JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
         WHERE m.tenant_id = $1 AND p.location_id = $2) AS cards,
       -- Only real counter evidence counts: seed data, referral bonuses and corrected awards do not prove the flow.
@@ -71,10 +73,9 @@ export async function getLaunchReadiness(actorUserId: string, locationId: string
       (SELECT count(*)::int FROM tap_requests q WHERE q.tenant_id = $1 AND q.location_id = $2 AND q.status IN ('confirmed','awarded')) AS confirmed_taps
   `, [staff.tenantId, location.id, program?.id ?? null])).rows[0];
 
-  const unit = program?.type === "points" ? "Punkte" : "Stempel";
   const steps: ReadinessStep[] = [];
   steps.push(program && facts.rewards > 0
-    ? { id: "programme", group: "setup", required: true, status: "done", title: "Programm und Prämie", evidence: `${program.type === "stamp" ? "Stempelkarte" : "Punktekarte"} · ${facts.reward_cost} ${unit} → ${facts.reward_title}`, action: { label: "Ansehen", href: "/merchant/program" } }
+    ? { id: "programme", group: "setup", required: true, status: "done", title: "Programm und Prämie", evidence: `${program.type === "stamp" ? "Stempelkarte" : "Punktekarte"} · ${withUnit(facts.reward_cost ?? 0, program.type as "stamp" | "points")} → ${facts.reward_title}`, action: { label: "Ansehen", href: "/merchant/program" } }
     : { id: "programme", group: "setup", required: true, status: "todo", title: "Programm und Prämie", evidence: program ? "Es gibt keine aktive Prämie. Kunden wüssten nicht, wofür sie sammeln." : "Für diesen Standort ist kein aktives Programm eingerichtet.", action: { label: "Prämie anlegen", href: "/merchant/program", ownerOnly: true } });
   const customised = location.brandColor.toLowerCase() !== DEFAULT_BRAND_COLOR || Boolean(location.logoData);
   steps.push({ id: "card", group: "setup", required: false, status: customised ? "done" : "todo", title: "Kundenkarte gestaltet", evidence: customised ? "Eigene Markenfarbe ist gespeichert." : "Die Karte nutzt noch die Standardfarbe von Loynara.", action: { label: customised ? "Ändern" : "Karte gestalten", href: "/merchant/program/card", ownerOnly: true } });

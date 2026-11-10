@@ -89,7 +89,7 @@ export function weeklyReportText(shop: string, from: Date, to: Date, figures: Fi
 async function ownerTenant(actorUserId: string) {
   const [owner] = (await pool.query<{ tenantId: string }>(
     `SELECT tenant_id AS "tenantId" FROM staff_roles WHERE user_id = $1 AND role = 'owner' AND active = true`, [actorUserId])).rows;
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return owner.tenantId;
 }
 

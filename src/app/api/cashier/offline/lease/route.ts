@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const user = await sessionUser(request);
     await enforceRateLimit({ scope: "offline_lease_user", identity: user.id, max: 30, windowSeconds: 15 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const input = body.parse(await jsonBody(request, 1000));
     return Response.json(await prepareOfflineAward({ ...input, userId: user.id, locationId: context.locationId }), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }

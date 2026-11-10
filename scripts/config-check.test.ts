@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { productionConfigIssues } from "./config-check";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE } from "./google-wallet-credential";
+import { appleFixture } from "../src/lib/wallet/test-support";
 
 // A freshly generated stand-in for a production Google service-account key file, never a Google-issued key.
 const googleKeyJson = (identity: Record<string, string> = {}) => JSON.stringify({
@@ -99,6 +100,23 @@ describe("production configuration gate", () => {
     expect(productionConfigIssues({ ...safe, PG_POOL_MAX: "2" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/pool/i)]));
   });
 
+  it("keys suppressions with their own SUPPRESSION_HASH_SECRET once email is on, never a reused or placeholder value (ENG-170)", () => {
+    const issue = /SUPPRESSION_HASH_SECRET/;
+    const key = "Zq7wXr2Lp9Kd4Ns8Vb1Mt6Hy3Gc5Fj0E";
+    expect(productionConfigIssues(safe)).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)])); // email off: not needed
+    const email = { ...safe, EXTERNAL_EMAIL_ENABLED: "true" };
+    expect(productionConfigIssues(email)).toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    for (const bad of ["short-key", "replace-with-at-least-32-random-characters", "a".repeat(40)]) {
+      expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: bad }), bad).toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    }
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: safe.BETTER_AUTH_SECRET })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key })).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+    // G-1: the legacy key is optional; set, it must be a real former secret and not the new key.
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "a-former-login-secret-of-forty-characters" })).not.toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: "short" })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_LEGACY_HASH_SECRET/)]));
+    expect(productionConfigIssues({ ...email, SUPPRESSION_HASH_SECRET: key, SUPPRESSION_LEGACY_HASH_SECRET: key })).toEqual(expect.arrayContaining([expect.stringMatching(/SUPPRESSION_HASH_SECRET must not be reused/)]));
+  });
+
   it("refuses a remote database labelled preview or device-test", () => {
     const issues = productionConfigIssues({ ...safe, DATABASE_URL: "postgresql://merchant:unique-value@preview-db.railway.internal/device_test" });
     expect(issues).toEqual(expect.arrayContaining([expect.stringMatching(/database/i)]));
@@ -122,6 +140,13 @@ describe("production configuration gate", () => {
       expect.stringMatching(/email/i),
       expect.stringMatching(/billing/i),
     ]));
+  });
+
+  it("requires the operator's name and address for owner emails whenever the email lane is on (ENG-167)", () => {
+    const operator = /OPERATOR_NAME and OPERATOR_ADDRESS/;
+    expect(productionConfigIssues(safe).some(issue => operator.test(issue))).toBe(false);
+    expect(productionConfigIssues({ ...safe, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "true" })).toEqual(expect.arrayContaining([expect.stringMatching(operator)]));
+    expect(productionConfigIssues({ ...safe, TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "true", OPERATOR_NAME: "Synthetische Betreiberin", OPERATOR_ADDRESS: "Musterstraße 1\n12345 Musterstadt" }).some(issue => operator.test(issue))).toBe(false);
   });
 
   it("does not label a local development environment as production-invalid", () => {
@@ -170,7 +195,7 @@ describe("production configuration gate", () => {
 
   describe("live billing (Stripe)", () => {
     // Synthetic placeholders shaped like Stripe identifiers; none is a real credential.
-    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true" };
+    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
     it("is accepted off (absent or false) and on with the whole group", () => {
       expect(productionConfigIssues({ ...safe, LIVE_BILLING_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(stripe)).toEqual([]);
@@ -190,7 +215,10 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: "yes" })).toEqual(expect.arrayContaining(["LIVE_BILLING_ENABLED must be exactly true or false"]));
       expect(productionConfigIssues(stripe).join(" ")).not.toContain("x".repeat(24));
     });
-    it("is Kleinunternehmer by default and switches to 19 % only with a tax rate", () => {
+    it("refuses live billing on production without an explicit VAT mode (D-021: no invoice without VAT information)", () => {
+      expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: undefined })).toEqual(["Live billing requires an explicit BILLING_VAT_MODE (kleinunternehmer or standard)"]);
+    });
+    it("takes Kleinunternehmer explicitly and switches to 19 % only with a tax rate", () => {
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "kleinunternehmer" })).toEqual([]);
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_synthetic0001" })).toEqual([]);
       expect(productionConfigIssues({ ...stripe, BILLING_VAT_MODE: "standard" })).toEqual(["BILLING_VAT_MODE=standard requires a valid STRIPE_TAX_RATE_ID"]);
@@ -247,20 +275,36 @@ describe("production configuration gate", () => {
     };
     const refused = (env: NodeJS.ProcessEnv, pattern: RegExp) => expect(productionConfigIssues(env)).toEqual(expect.arrayContaining([expect.stringMatching(pattern)]));
 
-    it("accepts Wallet OFF and approved Direct Google while native Apple remains dormant", () => {
+    it("needs no GOOGLE_WALLET_LOCATION_CLASSES (classes live in the table), but refuses an invalid value and a managed issuer (ENG-175)", () => {
+      const issue = /owned issuer/;
+      expect(productionConfigIssues({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: undefined })).not.toEqual(expect.arrayContaining([expect.stringMatching(issue)]));
+      refused({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: "not json" }, issue);
+      refused({ ...google, GOOGLE_WALLET_LOCATION_CLASSES: undefined, GOOGLE_WALLET_ISSUER_ID: "3388000000023094673" }, issue);
+    });
+
+    it("accepts Wallet OFF, approved native Apple (alone or beside PassFast) and approved Direct Google", () => {
       expect(productionConfigIssues({ ...safe, APPLE_WALLET_ENABLED: "false", GOOGLE_WALLET_ENABLED: "false" })).toEqual([]);
-      expect(productionConfigIssues(apple)).toEqual(expect.arrayContaining([expect.stringMatching(/dormant/)]));
+      expect(productionConfigIssues(apple)).toEqual([]);
+      expect(productionConfigIssues({ ...apple, PASSFAST_ENABLED: "true", PASSFAST_WALLET_TYPES: "apple", PASSFAST_API_KEY: "sk_live_" + "abcdef0123456789".repeat(4), PASSFAST_APP_ID: "11111111-1111-4111-8111-111111111111",
+        PASSFAST_TENANT_TEMPLATES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", templateId: "22222222-2222-4222-8222-222222222222" }]) })).toEqual([]);
       expect(productionConfigIssues(google)).toEqual([]);
       expect(productionConfigIssues({ ...google, GOOGLE_WALLET_ASSET_ENABLED: "true", GOOGLE_WALLET_ASSET_ORIGIN: "https://assets.getloynara.com" })).toEqual([]);
     });
 
-    it("owner messages: absent changes nothing; on, they need PassFast and a 16+ character webhook secret", () => {
+    it("owner messages: absent changes nothing; on, they need native Apple or PassFast with a 16+ character webhook secret", () => {
       expect(productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "false" })).toEqual([]);
       refused({ ...safe, WALLET_MESSAGES_ENABLED: "yes" }, /WALLET_MESSAGES_ENABLED must be exactly/);
-      refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "k".repeat(8) + "9".repeat(24) }, /requires PassFast/);
-      for (const secret of [undefined, "", "short-secret-15"]) refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: secret }, /PASSFAST_WEBHOOK_SECRET with at least 16/);
-      const ok = productionConfigIssues({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" });
-      expect(ok.join(" ")).not.toMatch(/PASSFAST_WEBHOOK_SECRET/);
+      refused({ ...safe, WALLET_MESSAGES_ENABLED: "true", PASSFAST_WEBHOOK_SECRET: "k".repeat(8) + "9".repeat(24) }, /requires Apple Wallet/);
+      refused({ ...google, WALLET_MESSAGES_ENABLED: "true" }, /requires Apple Wallet/);
+      // Production today (ENG-127): native Apple on, PassFast off, no webhook secret.
+      expect(productionConfigIssues({ ...apple, WALLET_MESSAGES_ENABLED: "true" })).toEqual([]);
+      const passfast: NodeJS.ProcessEnv = { ...safe, WALLET_PRODUCTION_APPROVED: "true", PASSFAST_ENABLED: "true", PASSFAST_WALLET_TYPES: "apple", PASSFAST_API_KEY: "sk_live_" + "abcdef0123456789".repeat(4), PASSFAST_APP_ID: "11111111-1111-4111-8111-111111111111",
+        PASSFAST_TENANT_TEMPLATES: JSON.stringify([{ tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", locationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", templateId: "22222222-2222-4222-8222-222222222222" }]), WALLET_MESSAGES_ENABLED: "true" };
+      for (const env of [passfast, { ...passfast, ...apple, PASSFAST_ENABLED: "true" }]) {
+        for (const secret of [undefined, "", "short-secret-15"]) refused({ ...env, PASSFAST_WEBHOOK_SECRET: secret }, /PASSFAST_WEBHOOK_SECRET with at least 16/);
+      }
+      const ok = productionConfigIssues({ ...passfast, PASSFAST_WEBHOOK_SECRET: "synthetic-hook-0123456789" });
+      expect(ok).toEqual([]);
       expect(ok.join(" ")).not.toContain("synthetic-hook-0123456789");
     });
 
@@ -337,6 +381,39 @@ describe("production configuration gate", () => {
         const issues = [...productionConfigIssues({ ...safe, [GOOGLE_SERVICE_ACCOUNT_VALUE]: key }), ...productionConfigIssues({ ...google, [GOOGLE_SERVICE_ACCOUNT_VALUE]: raw })].join(" ");
         expect(issues).not.toContain(key.slice(0, 24));
         expect(issues).not.toMatch(/PRIVATE KEY|gserviceaccount/);
+      });
+    });
+
+    describe("Apple certificate, key and WWDR delivered as values", () => {
+      const fixture = appleFixture();
+      afterAll(() => fixture.cleanup());
+      const values = {
+        APPLE_SIGNING_CERT_BASE64: readFileSync(fixture.config.certPath).toString("base64"),
+        APPLE_SIGNING_KEY_BASE64: readFileSync(fixture.config.keyPath).toString("base64"),
+        APPLE_WWDR_CERT_BASE64: readFileSync(fixture.config.wwdrPath).toString("base64"),
+      };
+
+      it("adds no issue to the Apple group, and changes nothing when absent or empty", () => {
+        expect(productionConfigIssues({ ...apple, ...values })).toEqual(productionConfigIssues(apple));
+        expect(productionConfigIssues({ ...safe, APPLE_SIGNING_KEY_BASE64: "" })).toEqual([]);
+      });
+
+      it.each(Object.keys(values))("refuses %s without Apple Wallet, with the wrong content, or with placeholder text", name => {
+        refused({ ...safe, [name]: values[name as keyof typeof values] }, new RegExp(`${name} is set while Apple Wallet is not enabled`));
+        const swapped = name === "APPLE_SIGNING_KEY_BASE64" ? values.APPLE_SIGNING_CERT_BASE64 : values.APPLE_SIGNING_KEY_BASE64;
+        refused({ ...apple, [name]: swapped }, new RegExp(`${name} must be a base64-encoded`));
+        refused({ ...apple, [name]: readFileSync(fixture.config.keyPath, "utf8") }, new RegExp(`${name} must be a base64-encoded`));
+        refused({ ...apple, [name]: "replace-with-base64" }, new RegExp(`${name} contains placeholder text`));
+      });
+
+      it("requires each file path beside its value", () => {
+        refused({ ...apple, ...values, APPLE_SIGNING_KEY_PATH: undefined }, /APPLE_SIGNING_KEY_PATH must be an absolute path/);
+      });
+
+      it("never echoes a delivered value or the key in its messages", () => {
+        const issues = [...productionConfigIssues({ ...safe, ...values }), ...productionConfigIssues({ ...apple, APPLE_SIGNING_CERT_BASE64: values.APPLE_SIGNING_KEY_BASE64 })].join(" ");
+        for (const value of Object.values(values)) expect(issues).not.toContain(value.slice(0, 24));
+        expect(issues).not.toMatch(/BEGIN|PRIVATE KEY/);
       });
     });
 

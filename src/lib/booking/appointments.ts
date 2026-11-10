@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { bookingAppointments, bookingBlockedCustomers, bookingBlocks, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, ledgerEntries, locations, memberships, programRuleVersions, programs, tenants } from "@/db/schema";
+import { bookingAppointments, bookingBlockedCustomers, bookingBlocks, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, ledgerEntries, locations, memberships, programs, tenants } from "@/db/schema";
 import { validCardToken } from "@/lib/card-lifecycle";
 import { formatCardLocator } from "@/lib/card-locator";
 import { requireSameOrigin, sessionUser } from "@/lib/http";
 import { selectedLocationFromRequest } from "@/lib/locations";
 import { awardInTransaction, DomainError } from "@/lib/loyalty";
+import { programInForce } from "@/lib/rule-versions";
 import { getMerchantContext } from "@/lib/product";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { GRID_MIN, slots } from "./availability";
@@ -68,14 +69,14 @@ export function assertInWindow(start: Date, settings: Pick<Settings, "leadTimeMi
 // ---- Reads --------------------------------------------------------------------------------------------------------------
 
 export async function cardScope(reader: Reader, token: string) {
-  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   const [card] = await reader.select({ tenantId: memberships.tenantId, membershipId: memberships.id, locationId: programs.locationId, timezone: locations.timezone, shopName: tenants.name })
     .from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
     .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
     .where(and(eq(memberships.cardToken, token), isNull(memberships.closedAt), eq(programs.status, "active")));
-  if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return card;
 }
 
@@ -84,20 +85,20 @@ const isBlocked = async (reader: Reader, card: { tenantId: string; membershipId:
 
 async function settingsOf(reader: Reader, scope: Scope, enabledOnly = true) {
   const [settings] = await reader.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
-  if (!settings || (enabledOnly && !settings.enabled)) throw new DomainError("NOT_FOUND", "Online booking is not available here");
+  if (!settings || (enabledOnly && !settings.enabled)) throw new DomainError("NOT_FOUND", "Hier kann man nicht online buchen.");
   return settings;
 }
 
 async function timezoneOf(reader: Reader, scope: Scope) {
   const [location] = await reader.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.tenantId, scope.tenantId), eq(locations.id, scope.locationId)));
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
   return location.timezone;
 }
 
 async function liveService(reader: Reader, scope: Scope, serviceId: string) {
   const [service] = await reader.select().from(bookingServices)
     .where(and(eq(bookingServices.tenantId, scope.tenantId), eq(bookingServices.locationId, scope.locationId), eq(bookingServices.id, serviceId), isNull(bookingServices.archivedAt)));
-  if (!service) throw new DomainError("NOT_FOUND", "Service not found");
+  if (!service) throw new DomainError("NOT_FOUND", "Diese Leistung haben wir nicht gefunden.");
   return service;
 }
 
@@ -107,7 +108,7 @@ type SlotService = { id: string; durationMin: number; bufferMin: number };
 async function availability(reader: Reader, scope: Scope & { timezone: string }, input: { service: SlotService; staffId?: string; days: string[]; excludeId?: string; settings: Pick<Settings, "leadTimeMin" | "maxDaysAhead">; now: Date }) {
   const staffRows = await reader.select({ id: bookingStaff.id, sort: bookingStaff.sort, workingHours: bookingStaff.workingHours }).from(bookingStaff)
     .where(and(eq(bookingStaff.tenantId, scope.tenantId), eq(bookingStaff.locationId, scope.locationId), isNull(bookingStaff.archivedAt), input.staffId ? eq(bookingStaff.id, input.staffId) : undefined));
-  if (input.staffId && !staffRows.length) throw new DomainError("NOT_FOUND", "Staff member not found");
+  if (input.staffId && !staffRows.length) throw new DomainError("NOT_FOUND", "Diese Person haben wir nicht gefunden.");
   const links = staffRows.length ? await reader.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), inArray(bookingStaffServices.staffId, staffRows.map(s => s.id)))) : [];
   // A day either side covers every timezone's local midnight.
   const window = range(new Date(Date.parse(`${input.days[0]}T00:00:00Z`) - 86_400_000), new Date(`${addDays(input.days[input.days.length - 1], 2)}T00:00:00Z`));
@@ -246,7 +247,7 @@ export async function book(input: BookInput, now = new Date()) {
 
 async function customerAppointment(reader: Reader, card: Awaited<ReturnType<typeof cardScope>>, appointmentId: string) {
   const [row] = await appointmentRows(reader, and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId), eq(bookingAppointments.id, appointmentId)));
-  if (!row) throw new DomainError("NOT_FOUND", "Appointment not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
   return row;
 }
 
@@ -305,7 +306,7 @@ async function setStatus(tx: Tx, row: Row, to: Status, extra: Partial<typeof boo
 
 async function ownerAppointment(tx: Tx, scope: Scope, appointmentId: string) {
   const [row] = await appointmentRows(tx, and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), eq(bookingAppointments.id, appointmentId)));
-  if (!row) throw new DomainError("NOT_FOUND", "Appointment not found");
+  if (!row) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
   return row;
 }
 
@@ -323,24 +324,24 @@ export async function transition(input: TransitionInput, now = new Date()) {
     assertTransition(row.a.status, input.expected, input.to, row.start, now);
     let doneAward: { balance: number; creditedQuantity: number } | undefined;
     if (input.to === "done") {
-      const [program] = await tx.select({ id: programs.id, type: programs.type, earningMode: programs.earningMode, closedAt: memberships.closedAt }).from(memberships)
+      const [{ program, closedAt }] = await tx.select({ program: programs, closedAt: memberships.closedAt }).from(memberships)
         .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
         .where(and(eq(memberships.tenantId, input.tenantId), eq(memberships.id, row.a.membershipId)));
-      const [rule] = program.type === "points" && program.earningMode === "purchase"
-        ? await tx.select({ id: programRuleVersions.id }).from(programRuleVersions).where(and(eq(programRuleVersions.tenantId, input.tenantId), eq(programRuleVersions.programId, program.id))).orderBy(desc(programRuleVersions.version)).limit(1)
-        : [];
+      // The rule in force now, as at the till (ENG-100): a change still waiting for its date neither switches a programme to points nor picks its version.
+      const inForce = await programInForce(tx, program, sql`clock_timestamp()`);
+      const purchase = inForce.type === "points" && inForce.earningMode === "purchase";
       // A purchase programme credits only an amount the team typed: the list price is an estimate, never a confirmed purchase.
       // No amount, one too small for a point, or a closed card (nothing left to credit) completes the appointment without a credit.
       let entryId: string | null = null;
-      if (!program.closedAt && (!rule || (input.purchaseAmountMinor ?? 0) >= 1)) {
+      if (!closedAt && (!purchase || (input.purchaseAmountMinor ?? 0) >= 1)) {
         try {
           const award = await awardInTransaction(tx, {
             userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
-            ...(rule ? { purchaseAmountMinor: input.purchaseAmountMinor, ruleVersionId: rule.id } : { quantity: 1 }),
+            ...(purchase ? { purchaseAmountMinor: input.purchaseAmountMinor, ruleVersionId: inForce.ruleVersionId } : { quantity: 1 }),
           });
           entryId = award.entryId;
           doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
-        } catch (error) { if (!(rule && error instanceof DomainError && error.code === "NO_POINTS")) throw error; }
+        } catch (error) { if (!(purchase && error instanceof DomainError && error.code === "NO_POINTS")) throw error; }
       }
       await setStatus(tx, row, "done", { doneLedgerEntryId: entryId });
     } else {
@@ -387,7 +388,7 @@ export async function createBlock(input: Scope & { staffId?: string; start: Date
     await lockLocation(tx, input.locationId);
     if (input.staffId) {
       const [staff] = await tx.select({ id: bookingStaff.id }).from(bookingStaff).where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), eq(bookingStaff.id, input.staffId)));
-      if (!staff) throw new DomainError("NOT_FOUND", "Staff member not found");
+      if (!staff) throw new DomainError("NOT_FOUND", "Diese Person haben wir nicht gefunden.");
     }
     const [block] = await tx.insert(bookingBlocks).values({ tenantId: input.tenantId, locationId: input.locationId, staffId: input.staffId ?? null, during: range(input.start, input.end), reason: input.reason }).returning({ id: bookingBlocks.id });
     const affected = await appointmentRows(tx, openInside(input, { staffId: input.staffId ?? null, start: input.start, end: input.end }));
@@ -397,7 +398,7 @@ export async function createBlock(input: Scope & { staffId?: string; start: Date
 
 export async function deleteBlock(input: Scope & { blockId: string }) {
   const deleted = await db.delete(bookingBlocks).where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), eq(bookingBlocks.id, input.blockId))).returning({ id: bookingBlocks.id });
-  if (!deleted.length) throw new DomainError("NOT_FOUND", "Block not found");
+  if (!deleted.length) throw new DomainError("NOT_FOUND", "Diese Sperrzeit haben wir nicht gefunden.");
 }
 
 export async function cancelAffected(input: Scope & { blockId: string }, now = new Date()) {
@@ -405,7 +406,7 @@ export async function cancelAffected(input: Scope & { blockId: string }, now = n
     await lockLocation(tx, input.locationId);
     const [block] = await tx.select({ staffId: bookingBlocks.staffId, start: lower(bookingBlocks.during), end: upper(bookingBlocks.during) }).from(bookingBlocks)
       .where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), eq(bookingBlocks.id, input.blockId)));
-    if (!block) throw new DomainError("NOT_FOUND", "Block not found");
+    if (!block) throw new DomainError("NOT_FOUND", "Diese Sperrzeit haben wir nicht gefunden.");
     const cancelled = await tx.update(bookingAppointments).set({ status: "cancelled_by_shop", cancelledAt: now, cancelReason: "Geschäft geschlossen", updatedAt: now })
       .where(openInside(input, block)).returning({ id: bookingAppointments.id });
     for (const { id } of cancelled) await notifyShopChange(tx, id, "shop_cancel", now);
@@ -417,7 +418,7 @@ async function locationCard(scope: Scope, membershipId: string) {
   const [card] = await db.select({ id: memberships.id }).from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .where(and(eq(memberships.tenantId, scope.tenantId), eq(memberships.id, membershipId), eq(programs.locationId, scope.locationId)));
-  if (!card) throw new DomainError("NOT_FOUND", "Card not found");
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
 }
 
 export async function blockCustomer(input: Scope & { membershipId: string; userId: string; reason?: string }) {
@@ -489,7 +490,7 @@ export async function bookingStaffScope(request: Request, ownerOnly = false) {
   const user = await sessionUser(request);
   await enforceRateLimit({ scope: "booking_staff_user", identity: user.id, max: 240, windowSeconds: 15 * 60 });
   const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-  if (!context || context.role === "cashier" || (ownerOnly && context.role !== "owner")) throw new DomainError("FORBIDDEN", "No booking access");
+  if (!context || context.role === "cashier" || (ownerOnly && context.role !== "owner")) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Zugang zu den Terminen.");
   return { userId: user.id, tenantId: context.tenantId, locationId: context.locationId };
 }
 
@@ -502,7 +503,7 @@ export async function cardBookingLimits(request: Request, token: string, write =
 
 /** Path ids that are not uuids are simply not found. */
 export function pathId(id: string) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new DomainError("NOT_FOUND", "Not found");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new DomainError("NOT_FOUND", "Das haben wir nicht gefunden.");
   return id;
 }
 
@@ -512,7 +513,7 @@ export function pathId(id: string) {
  */
 export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
   const row = await one(db, input.tenantId, input.appointmentId);
-  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Appointment not found");
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
   const scope = { ...input, timezone: await timezoneOf(db, input) };
   const staffRows = await db.select({ id: bookingStaff.id, name: bookingStaff.name }).from(bookingStaff)
     .where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort));

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { getCustomerExport } from "./export";
 import { award, redeem, reverseEntry } from "./loyalty";
-import { consentEvents, rewardVersions } from "@/db/schema";
+import { consentEvents, membershipContacts, rewardVersions } from "@/db/schema";
 import { closeCard } from "./card-lifecycle";
 import { nfcFixture } from "./nfc-test-db";
 
@@ -15,6 +15,17 @@ afterAll(async () => { await pool.end(); });
 function signal() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 
 describe("customer export database snapshot", () => {
+  it("leaves out contact records, credentials and other cards, with exactly the known keys", async () => {
+    const own = await nfcFixture(), foreign = await nfcFixture();
+    const canaries = [own, foreign].map(f => ({ tenantId: f.tenant.id, membershipId: f.member.id, email: `contact-canary-${randomUUID()}@example.test`, emailVerified: true, recoveryTokenHash: randomUUID().replaceAll("-", "").repeat(2) }));
+    await db.insert(membershipContacts).values(canaries);
+    const exported = await getCustomerExport(own.member.cardToken);
+    expect(Object.keys(exported).sort()).toEqual(["formatVersion", "exportedAt", "scope", "membership", "program", "ledger", "redemptions", "consentEvents", "walletMessageConsents", "consentTexts", "birthday", "appointments"].sort());
+    const text = JSON.stringify(exported);
+    for (const secret of [...canaries.flatMap(canary => [canary.email, canary.recoveryTokenHash]), foreign.member.id, own.member.cardToken, own.member.scanCode, foreign.member.cardToken, foreign.member.scanCode]) expect(text).not.toContain(secret);
+    expect(text).not.toMatch(/"(email|emailVerified|email_verified|recoveryTokenHash|recovery_token_hash|membershipContacts|membership_contacts)":/);
+  });
+
   it("exports balance and ledger from one committed snapshot when earning completes between reads", async () => {
     const f = await nfcFixture();
     const read = signal(); const resume = signal();

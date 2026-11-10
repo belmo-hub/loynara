@@ -44,7 +44,7 @@ export function walletDownloadFailure(request: Request, response: Response): Res
 /** The card bearer token travels in the POST body, never in a Wallet URL. */
 export function cardTokenFrom(body: unknown): string {
   const token = body && typeof body === "object" ? (body as { token?: unknown }).token : undefined;
-  if (typeof token !== "string" || token.length > 100) throw new DomainError("NOT_FOUND", "Card not found");
+  if (typeof token !== "string" || token.length > 100) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
   return token;
 }
 

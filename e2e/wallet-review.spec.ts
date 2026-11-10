@@ -68,6 +68,11 @@ async function cardReady(page: Page, token = cardToken) {
   await page.goto(`/card/${encodeURIComponent(token)}`);
   await expect(page.locator(".customer-header-merchant")).toHaveText("Synthetic Wallet Café");
 }
+// The Add to Wallet buttons sit in a sheet behind the „In Wallet speichern“ row (ENG-148).
+async function openWallet(page: Page) {
+  await page.locator(".customer-header").getByRole("button", { name: "In Wallet speichern" }).click();
+  await expect(page.locator(".customer-wallet-add")).toBeVisible();
+}
 async function fits(page: Page, width: number) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth), "page must have no horizontal overflow").toBeLessThanOrEqual(width);
   expect(await page.locator(".wallet-add").evaluateAll(elements => elements.every(element => {
@@ -94,8 +99,8 @@ test("customer availability and platform matrix fits five viewports (75 combinat
         await expect(page.locator(".wallet-add--google")).toHaveCount(google ? 1 : 0);
         await expect(page.locator(".customer-wallet-add")).toHaveCount(apple || google ? 1 : 0);
         await expect(page.locator(".wallet-mode-note")).toHaveCount(google && state.google === "test_only" ? 1 : 0);
-        if (apple && google) expect(await page.locator(".wallet-add span").allTextContents()).toEqual(["Zu Apple Wallet hinzufügen", "Zu Google Wallet hinzufügen"]);
-        if (apple || google) await page.locator(".customer-wallet-add").scrollIntoViewIfNeeded();
+        if (apple && google) expect(await page.locator(".wallet-add img").evaluateAll(badges => badges.map(badge => badge.getAttribute("alt")))).toEqual(["Hinzufügen zu Apple Wallet", "Hinzufügen zu Google Wallet"]);
+        if (apple || google) await openWallet(page);
         await fits(page, viewport.width);
         await page.screenshot({ path: testInfo.outputPath(`wallet-customer-${viewport.width}-${agent.name}-${state.name}.png`), fullPage: true, mask: [page.locator(".customer-qr img")] });
       }
@@ -114,9 +119,11 @@ test("slow issuance disables both buttons, prevents duplicate calls and recovers
     await route.fulfill({ status: 502, json: { code: "WALLET_PROVIDER_ERROR", error: "provider fixture private-key.pem" } });
   });
   await cardReady(page);
+  await openWallet(page);
   const apple = page.locator(".wallet-add--apple");
   await apple.click();
-  await expect(apple).toHaveText("Wird vorbereitet …");
+  await expect(apple).toHaveAccessibleName("Hinzufügen zu Apple Wallet");
+  await expect(page.locator(".wallet-busy")).toHaveText("Wird vorbereitet …");
   await expect(apple).toHaveAttribute("aria-busy", "true");
   await expect(page.locator(".wallet-add--google")).toBeDisabled();
   await apple.dispatchEvent("click");
@@ -126,6 +133,30 @@ test("slow issuance disables both buttons, prevents duplicate calls and recovers
   await expect(page.locator(".wallet-error[role=alert]")).not.toContainText("private-key");
   await expect(apple).toBeEnabled();
   await expect(page.locator(".customer-header-merchant")).toBeVisible();
+});
+
+test("a previous-provider Apple holder is asked to re-add on iPhone; one tap starts the new pass and clears the prompt", async ({ browser, baseURL }, testInfo) => {
+  const prompt = "Deine Karte in Apple Wallet bekommt eine neue Version.";
+  for (const agent of agents) {
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, userAgent: agent.ua });
+    try {
+      await localOnly(context);
+      const page = await context.newPage();
+      await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "unavailable", appleReAdd: true } }));
+      let calls = 0;
+      await page.route("**/api/wallet/apple", route => { calls++; return route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-ticket" } }); });
+      await page.route("**/api/wallet/apple/download/*", route => route.fulfill({ status: 204 }));
+      await cardReady(page);
+      const notice = page.getByRole("status").filter({ hasText: prompt });
+      if (agent.name === "android") { await expect(page.locator(".customer-header-merchant")).toBeVisible(); await expect(notice).toHaveCount(0); continue; }
+      await expect(notice).toBeVisible();
+      await fits(page, 390);
+      await page.screenshot({ path: testInfo.outputPath(`wallet-readd-${agent.name}.png`), fullPage: true, mask: [page.locator(".customer-qr img")] });
+      await notice.getByRole("button", { name: "Neu zu Apple Wallet hinzufügen" }).click();
+      await expect(notice).toHaveCount(0);
+      expect(calls).toBe(1);
+    } finally { await context.close(); }
+  }
 });
 
 test("status-check failure hides Wallet and leaves browser card usable", async ({ page }) => {
@@ -139,6 +170,7 @@ test("failed Google Save is explained on the card without a provider redirect", 
   await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "unavailable", google: "test_only" } }));
   await page.route("**/api/wallet/google", route => route.fulfill({ status: 503, json: { code: "WALLET_UNAVAILABLE" } }));
   await cardReady(page);
+  await openWallet(page);
   await page.locator(".wallet-add--google").click();
   await expect(page.locator(".wallet-error[role=alert]")).toContainText("Deine Karte funktioniert weiterhin hier im Browser");
   expect(new URL(page.url()).origin).toBe(appOrigin);
@@ -150,6 +182,7 @@ test("real disabled-provider download renders safe navigation HTML and Back rest
   await page.route("**/api/wallet/status", route => route.fulfill({ json: { apple: "available", google: "unavailable" } }));
   await page.route("**/api/wallet/apple", route => route.fulfill({ json: { status: "ready", url: "/api/wallet/apple/download/synthetic-expired-ticket" } }));
   await cardReady(page);
+  await openWallet(page);
   const responsePromise = page.waitForResponse(response => response.url().includes("/api/wallet/apple/download/"));
   await page.locator(".wallet-add--apple").click();
   const response = await responsePromise;
@@ -168,9 +201,9 @@ test("owner readiness states distinguish issuance and delayed updates across fiv
   test.setTimeout(120_000);
   const readiness = [
     { name: "disabled", apple: "not_set_up", google: "not_set_up", logo: "missing", googleLogo: "fallback", passes: { apple: 0, google: 0 }, delayedUpdates: 0 },
-    { name: "test-only", apple: "not_set_up", google: "test_only", logo: "needs_png", googleLogo: "fallback", passes: { apple: 0, google: 2 }, delayedUpdates: 0 },
+    { name: "test-only", apple: "not_set_up", google: "test_only", logo: "missing", googleLogo: "fallback", passes: { apple: 0, google: 2 }, delayedUpdates: 0 },
     { name: "ready", apple: "ready", google: "ready", logo: "ready", googleLogo: "merchant", passes: { apple: 1, google: 2 }, delayedUpdates: 0 },
-    { name: "delayed", apple: "ready", google: "ready", logo: "too_large", googleLogo: "fallback", passes: { apple: 1, google: 2 }, delayedUpdates: 3 },
+    { name: "delayed", apple: "ready", google: "ready", logo: "low_contrast", googleLogo: "fallback", passes: { apple: 1, google: 2 }, delayedUpdates: 3 },
   ];
   const context = await browser.newContext({ baseURL, storageState: await owner.storageState() });
   try {
@@ -253,7 +286,7 @@ test("Wallet OFF preserves hardened closure guidance and confirmation", async ({
   await page.getByRole("button", { name: "Karte schließen", exact: true }).click();
   await expect(page.locator(".customer-close-confirm")).not.toContainText("Wallet");
   await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-  await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
   await expect(page.locator(".card-state-page")).not.toContainText("Wallet");
 });
 
@@ -266,8 +299,8 @@ test("asynchronous pending polls the protected status without repeating issuance
   });
   await page.route("**/api/wallet/apple",route=>{issues++;return route.fulfill({status:202,json:{status:"pending"}});});
   await page.route("**/api/wallet/apple/download/browser-ready-ticket",route=>route.fulfill({contentType:"text/html",body:"<html><body><h1>Synthetic archive handoff</h1></body></html>"}));
-  await cardReady(page); const button=page.locator(".wallet-add--apple"); await button.click();
-  await expect(button).toHaveText("Wird vorbereitet …"); await expect(button).toBeDisabled(); await expect(page.locator(".wallet-add--google")).toHaveCount(0);
+  await cardReady(page); await openWallet(page); const button=page.locator(".wallet-add--apple"); await button.click();
+  await expect(page.locator(".wallet-busy")).toHaveText("Wird vorbereitet …"); await expect(button).toHaveAttribute("aria-busy", "true"); await expect(button).toBeDisabled(); await expect(page.locator(".wallet-add--google")).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath("apple-pending.png"),fullPage:true,mask:[page.locator(".customer-qr img")]});
   await expect(page.getByRole("heading",{name:"Synthetic archive handoff"})).toBeVisible({timeout:20_000});expect(issues).toBe(1);expect(checks).toBe(3);
 });

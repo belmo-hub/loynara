@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { automationRuns, consentEvents, emailSuppressions, membershipContacts, outboxJobs, rewards, rewardVersions, staffRoles } from "@/db/schema";
+import { automationRuns, consentEvents, emailSuppressions, emailUnsubscribes, membershipContacts, outboxJobs, rewards, rewardVersions, staffRoles } from "@/db/schema";
+import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { deliverAutomationRun, processAutomationScan, upsertAutomationRule } from "./automations";
@@ -28,12 +29,16 @@ async function fixture(quantity = 8, email = "reward@example.test") {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Reward Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp per purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await fillSender(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email, marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   const entry = quantity ? await award({ userId: ownerId, locationId: merchant.locationId, membershipId: card.id, quantity, idempotencyKey: randomUUID(), requestId: randomUUID() }) : null;
   const now = new Date((await pool.query("SELECT clock_timestamp() AS now")).rows[0].now.getTime() + 1000);
   now.setUTCHours(10, 0, 0, 0);
   now.setUTCDate(now.getUTCDate() + 1); // daylight in Berlin; all fixture rows predate the scan
+  // The monthly cap counts per calendar month in the shop's timezone: keep now and now + 1 day in the same month.
+  const month = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(at);
+  if (month(now) !== month(new Date(now.getTime() + DAY))) now.setUTCDate(now.getUTCDate() + 1);
   return { ownerId, merchant, card, entry, now };
 }
 async function queue(f: Awaited<ReturnType<typeof fixture>>) {
@@ -65,7 +70,7 @@ describe("LOY-133 catalogue reward reminders", () => {
     expect(results.map(x => x.status)).toEqual(["complete", "complete"]);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: "reward@example.test", subject: ruleInput.subject });
-    expect(sent[0].body).toContain("Angebote abbestellen:");
+    expect(sent[0].body).toContain("Abmelden:");
     expect((await db.select().from(automationRuns))[0]).toMatchObject({ status: "complete", attempts: 1 });
     const nextScan = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "automation.scan"))).find(x => x.id !== scan.id)!;
     expect(await processAutomationScan(nextScan, new Date(f.now.getTime() + DAY))).toMatchObject({ queuedCount: 0 });
@@ -88,6 +93,12 @@ describe("LOY-133 catalogue reward reminders", () => {
     if (condition === "suppressed") await db.insert(emailSuppressions).values({ recipientHash: recipientHash("reward@example.test"), reason: "permanent_fail" });
     expect((await queue(f)).outcome).toMatchObject({ queuedCount: 0 });
     expect(await db.select().from(automationRuns)).toHaveLength(0);
+  });
+
+  it.each([["here", 0], ["elsewhere", 1]] as const)("an unsubscribe from mail of a shop %s gives %i queued (ENG-170)", async (where, queued) => {
+    const f = await fixture();
+    await db.insert(emailUnsubscribes).values({ tenantId: where === "here" ? f.merchant.tenantId : randomUUID(), recipientHash: recipientHash("reward@example.test") });
+    expect((await queue(f)).outcome).toMatchObject({ queuedCount: queued });
   });
 
   it.each(["consent", "suppression", "redemption", "reversal", "catalogue", "disabled", "owner"] as const)("rechecks %s immediately before dispatch", async condition => {

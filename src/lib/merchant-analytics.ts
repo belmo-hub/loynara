@@ -3,10 +3,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { pool } from "@/db";
 import type { PoolClient } from "pg";
 import { DomainError, lastConfirmedStamp } from "./loyalty";
-import { surfaceHidden } from "./pilot-surfaces";
 import { retentionScope, uuidPattern } from "./retention";
 import type { DiaryDay, LocationDays } from "./overview-day";
 import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
+import { visitSources } from "./demo-environment";
 
 export type AnalyticsWindowDays = 30 | 90;
 /** W is 7 only for the weekly owner report's exact calendar week. */
@@ -14,7 +14,8 @@ export type MerchantAnalytics<W extends number = AnalyticsWindowDays> = {
   windowDays: W;
   from: string;
   asOf: string;
-  timezone: "UTC";
+  /** Days and weeks are Berlin calendar days: the window is today and the days before it, the bars Monday weeks. */
+  timezone: "Europe/Berlin";
   currentActiveCards: number;
   newCards: number;
   qualifyingCheckouts: number;
@@ -60,17 +61,23 @@ type AttemptCounts = { status: string; count: number };
 type ReferralCounts = { attributed: number; qualified: number; reversed: number };
 type BucketCount = { bucket: number; count: number };
 
+const BERLIN = "Europe/Berlin";
+// Bars are Monday weeks in Berlin, the same on 30 and 90 Tage; bucket 0 is the week holding `from` ($2).
+const firstMonday = (from: string) => `date_trunc('week', ${from}::timestamptz AT TIME ZONE '${BERLIN}')`;
+const WEEK_BUCKET = (column: string) => `((((${column}) AT TIME ZONE '${BERLIN}')::date - ${firstMonday("$2")}::date) / 7)::int`;
+
 // A checkout is one distinct server-accepted staff-award request on one card. All entries for a
 // request must be reversed to stop that checkout counting; partial corrections
-// continue to count the accepted checkout. Seed/referral credits never count.
-const checkoutCte = `
+// continue to count the accepted checkout. Seed/referral credits never count, except the
+// demo environment's sample visits (demo-environment visitSources).
+const checkoutCte = () => `
   WITH accepted_awards AS (
-    SELECT e.membership_id, e.request_id, e.created_at, e.delta, e.actor_user_id, e.location_id, p.type
+    SELECT e.membership_id, e.request_id, e.created_at, e.delta, e.actor_user_id, e.location_id, p.type, e.source
     FROM ledger_entries e
     JOIN memberships m ON m.tenant_id = e.tenant_id AND m.id = e.membership_id
     JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
     WHERE e.tenant_id = $1 AND e.created_at >= $2 AND e.created_at < $3
-      AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+      AND e.kind = 'award' AND e.source in (${visitSources()})
       AND NOT EXISTS (
         SELECT 1 FROM ledger_entries undo
         WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id
@@ -96,8 +103,13 @@ export async function getMerchantAnalytics(
       `SELECT tenant_id AS "tenantId" FROM staff_roles WHERE user_id = $1 AND role = 'owner' AND active = true LIMIT 1`,
       [actorUserId],
     )).rows;
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
-    const report = await readAnalytics(client, owner.tenantId, new Date(asOf.getTime() - options.windowDays * 86_400_000), asOf, options.windowDays);
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
+    // „30 Tage“ is today and the 29 days before it, from Berlin midnight; 30 × 24 h would reach into a 31st day.
+    const [{ from }] = (await client.query<{ from: Date }>(
+      `SELECT (((($1::timestamptz AT TIME ZONE '${BERLIN}')::date - $2::int)::timestamp) AT TIME ZONE '${BERLIN}') AS "from"`,
+      [asOf, options.windowDays - 1],
+    )).rows;
+    const report = await readAnalytics(client, owner.tenantId, from, asOf, options.windowDays);
     // The owner's selected location, else the oldest one, as in the rest of the owner area.
     const locationId = options.booking?.locationId && uuidPattern.test(options.booking.locationId) ? options.booking.locationId : null;
     return options.booking ? { ...report, booking: await bookingFigures(client, owner.tenantId, locationId, asOf) } : report;
@@ -162,14 +174,14 @@ async function inSnapshot<T>(snapshot: PoolClient | undefined, read: (client: Po
 
 async function readAnalytics<W extends number>(client: PoolClient, tenantId: string, from: Date, asOf: Date, windowDays: W): Promise<MerchantAnalytics<W>> {
     const params = [tenantId, from, asOf];
-    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity, wonBack] = await Promise.all([
+    const [members, checkout, redemption, titles, attempts, referralCounts, membershipBuckets, checkoutBuckets, staffActivity, locationActivity, wonBack, weeks] = await Promise.all([
       client.query<MembershipCounts>(`
         SELECT
           count(*) FILTER (WHERE created_at < $3 AND (closed_at IS NULL OR closed_at >= $3))::int AS "currentActiveCards",
           count(*) FILTER (WHERE created_at >= $2 AND created_at < $3)::int AS "newCards"
         FROM memberships WHERE tenant_id = $1
       `, params),
-      client.query<CheckoutCounts>(`${checkoutCte}, per_card AS (
+      client.query<CheckoutCounts>(`${checkoutCte()}, per_card AS (
         SELECT membership_id, count(DISTINCT request_id)::int AS checkouts
         FROM accepted_awards GROUP BY membership_id
       )
@@ -213,28 +225,30 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
         FROM referrals WHERE tenant_id = $1
       `, params),
       client.query<BucketCount>(`
-        SELECT floor(extract(epoch FROM (created_at - $2::timestamptz)) / 604800)::int AS bucket,
+        SELECT ${WEEK_BUCKET("created_at")} AS bucket,
           count(*)::int AS count
         FROM memberships WHERE tenant_id = $1 AND created_at >= $2 AND created_at < $3
         GROUP BY bucket
       `, params),
-      client.query<BucketCount>(`${checkoutCte}, checkout_first AS (
+      client.query<BucketCount>(`${checkoutCte()}, checkout_first AS (
         SELECT membership_id, request_id, min(created_at) AS first_at
         FROM accepted_awards GROUP BY membership_id, request_id
       )
-        SELECT floor(extract(epoch FROM (first_at - $2::timestamptz)) / 604800)::int AS bucket,
+        SELECT ${WEEK_BUCKET("first_at")} AS bucket,
           count(*)::int AS count
         FROM checkout_first GROUP BY bucket
       `, params),
-      client.query<MerchantAnalytics["staffActivity"][number]>(`${checkoutCte}
+      client.query<MerchantAnalytics["staffActivity"][number]>(`${checkoutCte()}
         SELECT a.actor_user_id AS "userId", u.name,
           count(*)::int AS "awardActions",
           coalesce(sum(a.delta) FILTER (WHERE a.type = 'stamp'), 0)::int AS "stampUnits",
           coalesce(sum(a.delta) FILTER (WHERE a.type = 'points'), 0)::int AS "pointUnits"
         FROM accepted_awards a JOIN "user" u ON u.id = a.actor_user_id
+        -- The demo's sample visits count in the totals, never as a person's bookings.
+        WHERE a.source <> 'synthetic_seed'
         GROUP BY a.actor_user_id, u.name ORDER BY u.name, a.actor_user_id
       `, params),
-      client.query<MerchantAnalytics["locationActivity"][number]>(`${checkoutCte}, activity AS (
+      client.query<MerchantAnalytics["locationActivity"][number]>(`${checkoutCte()}, activity AS (
         SELECT location_id, count(*)::int AS award_actions,
           coalesce(sum(delta) FILTER (WHERE type = 'stamp'), 0)::int AS stamp_units,
           coalesce(sum(delta) FILTER (WHERE type = 'points'), 0)::int AS point_units
@@ -249,13 +263,13 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
       `, params),
       // Won back: a counted award in the window whose card's previous counted award was 21 days (504 hours) or more
       // earlier. Hours, not days, so the gap does not depend on the session time zone or a DST change.
-      client.query<{ wonBack: number }>(`${checkoutCte}
+      client.query<{ wonBack: number }>(`${checkoutCte()}
         SELECT count(DISTINCT a.membership_id)::int AS "wonBack"
         FROM accepted_awards a
         CROSS JOIN LATERAL (
           SELECT max(e.created_at) AS previous_at FROM ledger_entries e
           WHERE e.tenant_id = $1 AND e.membership_id = a.membership_id AND e.created_at < a.created_at
-            AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+            AND e.kind = 'award' AND e.source in (${visitSources()})
             AND NOT EXISTS (
               SELECT 1 FROM ledger_entries undo
               WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id AND undo.created_at < $3
@@ -263,13 +277,21 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
         ) previous
         WHERE previous.previous_at <= a.created_at - interval '504 hours'
       `, params),
+      // Each week cut to the window; only the first and the last can be short.
+      client.query<{ from: Date; to: Date }>(`
+        SELECT greatest(start, $1::timestamptz) AS "from", least(next, $2::timestamptz) AS "to" FROM (
+          SELECT (${firstMonday("$1")} + k * interval '7 days') AT TIME ZONE '${BERLIN}' AS start,
+            (${firstMonday("$1")} + (k + 1) * interval '7 days') AT TIME ZONE '${BERLIN}' AS next
+          FROM generate_series(0, $3::int) k
+        ) week WHERE start < $2 ORDER BY start
+      `, [from, asOf, Math.ceil(windowDays / 7) + 1]),
     ]);
 
     const perBucketCards = new Map(membershipBuckets.rows.map(row => [row.bucket, row.count]));
     const perBucketCheckouts = new Map(checkoutBuckets.rows.map(row => [row.bucket, row.count]));
-    const series = Array.from({ length: Math.ceil(windowDays / 7) }, (_, index) => ({
-      from: new Date(from.getTime() + index * 7 * 86_400_000).toISOString(),
-      to: new Date(Math.min(asOf.getTime(), from.getTime() + (index + 1) * 7 * 86_400_000)).toISOString(),
+    const series = weeks.rows.map((week, index) => ({
+      from: week.from.toISOString(),
+      to: week.to.toISOString(),
       newCards: perBucketCards.get(index) ?? 0,
       checkouts: perBucketCheckouts.get(index) ?? 0,
     }));
@@ -282,7 +304,7 @@ async function readAnalytics<W extends number>(client: PoolClient, tenantId: str
     }
 
     return {
-      windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: "UTC",
+      windowDays, from: from.toISOString(), asOf: asOf.toISOString(), timezone: BERLIN,
       currentActiveCards: members.rows[0].currentActiveCards,
       newCards: members.rows[0].newCards,
       qualifyingCheckouts: checkout.rows[0].qualifyingCheckouts,
@@ -319,16 +341,31 @@ export type SpendFigures = {
   newCardMinor: number | null;
   returningCardMinor: number | null;
 };
+/**
+ * ENG-095: customers back with the win-back bonus or new on a referral, last 30 local days (rules: Product, 27 Oct). Each
+ * card counts once, in the line of its earliest trigger, so the lines add up to `customers`; every trigger booking counts
+ * in `bookings` and `revenue`. Revenue is the till amount of those bookings only, for points programmes; stamp
+ * programmes get null. Null for the whole block until the location has had a brought customer in the last 90 local days.
+ */
+export type BroughtCustomers = {
+  customers: number;
+  winback: number;
+  referral: number;
+  bookings: number;
+  revenue: { amountMinor: number; pricedBookings: number } | null;
+};
 export type MerchantSpend = {
   asOf: string;
   currency: string;
   overall: { recent: SpendFigures; total: SpendFigures };
-  locations: Array<{ locationId: string; name: string; recentFrom: string; recent: SpendFigures; total: SpendFigures }>;
+  locations: Array<{ locationId: string; name: string; recentFrom: string; recent: SpendFigures; total: SpendFigures; brought: BroughtCustomers | null }>;
 };
 type SpendRow = { locationId: string; name: string; recentFrom: Date; period: "recent" | "total"; visits: number; pricedVisits: number; estimatedVisits: number; realMinor: string; estimatedMinor: string; newCardMinor: string };
+type BroughtRow = { locationId: string; gate: number; points: boolean } & Omit<BroughtCustomers, "revenue"> & { pricedBookings: number; amountMinor: string };
 type SpendSums = { visits: number; priced: number; estimated: number; real: bigint; estimatedMinor: bigint; newCard: bigint | null };
 
 export const SPEND_RECENT_DAYS = 30;
+const BROUGHT_GATE_DAYS = 90;
 const ZERO = BigInt(0), TWO = BigInt(2);
 
 /**
@@ -347,7 +384,7 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
        WHERE r.user_id = $1 AND r.role = 'owner' AND r.active = true LIMIT 1`,
       [actorUserId],
     )).rows;
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const { rows } = await client.query<SpendRow>(`
       WITH loc AS (
         SELECT l.id, l.name,
@@ -361,7 +398,7 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
         JOIN programs p ON p.tenant_id = m.tenant_id AND p.id = m.program_id
         LEFT JOIN purchase_awards pa ON pa.tenant_id = e.tenant_id AND pa.ledger_entry_id = e.id
         WHERE e.tenant_id = $1 AND e.created_at < $2
-          AND e.kind = 'award' AND e.source in ('staff_online','staff_offline')
+          AND e.kind = 'award' AND e.source in (${visitSources()})
           AND NOT EXISTS (
             SELECT 1 FROM ledger_entries undo
             WHERE undo.tenant_id = e.tenant_id AND undo.reversal_of_id = e.id AND undo.created_at < $2
@@ -385,6 +422,8 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
       ORDER BY l.name, l.id, w.period
     `, [owner.tenantId, asOf]);
 
+    const brought = await broughtCustomers(client, owner.tenantId, asOf);
+
     const sums = (list: SpendRow[], period: SpendRow["period"]): SpendSums => list.filter(row => row.period === period).reduce<SpendSums>((sum, row) => ({
       visits: sum.visits + row.visits, priced: sum.priced + row.pricedVisits, estimated: sum.estimated + row.estimatedVisits,
       real: sum.real + BigInt(row.realMinor), estimatedMinor: sum.estimatedMinor + BigInt(row.estimatedMinor),
@@ -397,10 +436,68 @@ export async function getMerchantSpend(actorUserId: string, options: { asOf?: Da
       overall: { recent: spendFigures(sums(rows, "recent")), total: spendFigures(sums(rows, "total")) },
       locations: ids.map(id => {
         const own = rows.filter(row => row.locationId === id);
-        return { locationId: id, name: own[0].name, recentFrom: own[0].recentFrom.toISOString(), recent: spendFigures(sums(own, "recent")), total: spendFigures(sums(own, "total")) };
+        const b = brought.get(id);
+        return {
+          locationId: id, name: own[0].name, recentFrom: own[0].recentFrom.toISOString(), recent: spendFigures(sums(own, "recent")), total: spendFigures(sums(own, "total")),
+          brought: b && b.gate > 0 ? { customers: b.customers, winback: b.winback, referral: b.referral, bookings: b.bookings, revenue: b.points ? { amountMinor: Number(b.amountMinor), pricedBookings: b.pricedBookings } : null } : null,
+        };
       }),
     };
   });
+}
+
+/**
+ * The ENG-095 triggers per location. A win-back trigger is a booking (card + request) that carries an uncorrected
+ * `winback_bonus` and a confirmed staff award; a referral trigger is the referred card's qualifying booking while the
+ * referral stands (a correction or the referral review sets it to reversed). The referrer never counts, and neither do
+ * the other bonus sources or bookings after a message. Same local-day window and correction rule as the spend above.
+ */
+async function broughtCustomers(client: PoolClient, tenantId: string, asOf: Date): Promise<Map<string, BroughtRow>> {
+  const { rows } = await client.query<BroughtRow>(`
+    WITH loc AS (
+      SELECT l.id,
+        (((($2::timestamptz AT TIME ZONE l.timezone)::date - ${SPEND_RECENT_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS recent_from,
+        (((($2::timestamptz AT TIME ZONE l.timezone)::date - ${BROUGHT_GATE_DAYS - 1})::timestamp) AT TIME ZONE l.timezone) AS gate_from,
+        EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = l.tenant_id AND p.location_id = l.id AND p.status = 'active' AND p.type = 'points') AS points
+      FROM locations l WHERE l.tenant_id = $1
+    ), trig AS (
+      SELECT e.location_id, e.membership_id, e.request_id, e.created_at AS at, 'winback' AS line
+      FROM ledger_entries e
+      WHERE e.tenant_id = $1 AND e.created_at >= (SELECT min(gate_from) FROM loc) AND e.created_at < $2
+        AND e.kind = 'award' AND e.source = 'winback_bonus' AND ${NOT_REVERSED("$2")}
+      UNION ALL
+      SELECT e.location_id, e.membership_id, e.request_id, e.created_at, 'referral'
+      FROM referrals r JOIN ledger_entries e ON e.tenant_id = r.tenant_id AND e.id = r.qualifying_entry_id
+      WHERE r.tenant_id = $1 AND r.status = 'qualified' AND e.created_at >= (SELECT min(gate_from) FROM loc) AND e.created_at < $2
+        AND ${STAFF_AWARD()} AND ${NOT_REVERSED("$2")}
+    ), visit AS (
+      -- The booking's confirmed staff awards: none left means the trigger is gone; their till amounts are its revenue.
+      SELECT t.location_id, t.membership_id, t.request_id, min(t.at) AS at, (array_agg(t.line ORDER BY t.at, t.line))[1] AS line, s.amount
+      FROM trig t JOIN loc l ON l.id = t.location_id
+      CROSS JOIN LATERAL (
+        SELECT count(*) AS awards, sum(pa.amount_minor)::bigint AS amount
+        FROM ledger_entries e LEFT JOIN purchase_awards pa ON pa.tenant_id = e.tenant_id AND pa.ledger_entry_id = e.id
+        WHERE e.tenant_id = $1 AND e.membership_id = t.membership_id AND e.request_id = t.request_id AND e.created_at < $2
+          AND ${STAFF_AWARD()} AND ${NOT_REVERSED("$2")}
+      ) s
+      WHERE t.at >= l.gate_from AND s.awards > 0
+      GROUP BY t.location_id, t.membership_id, t.request_id, s.amount
+    ), recent AS (
+      SELECT v.* FROM visit v JOIN loc l ON l.id = v.location_id WHERE v.at >= l.recent_from
+    ), card AS (
+      SELECT location_id, membership_id, (array_agg(line ORDER BY at, line))[1] AS line FROM recent GROUP BY location_id, membership_id
+    )
+    SELECT l.id AS "locationId", l.points,
+      (SELECT count(*) FROM visit v WHERE v.location_id = l.id)::int AS gate,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id)::int AS customers,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id AND c.line = 'winback')::int AS winback,
+      (SELECT count(*) FROM card c WHERE c.location_id = l.id AND c.line = 'referral')::int AS referral,
+      (SELECT count(*) FROM recent r WHERE r.location_id = l.id)::int AS bookings,
+      (SELECT count(r.amount) FROM recent r WHERE r.location_id = l.id)::int AS "pricedBookings",
+      (SELECT coalesce(sum(r.amount), 0) FROM recent r WHERE r.location_id = l.id)::bigint::text AS "amountMinor"
+    FROM loc l
+  `, [tenantId, asOf]);
+  return new Map(rows.map(row => [row.locationId, row]));
 }
 
 function spendFigures(sum: SpendSums): SpendFigures {
@@ -430,7 +527,11 @@ export type LocationAnalytics = LocationDays & {
   current: LocationCounts;
   /** The 30 days before, only once the location's programme has run a full previous period (60 days); else null. */
   previous: LocationCounts | null;
-  /** Owner only, while the walletMessages surface is offered and the location runs a programme; else null. */
+  /**
+   * Whether the win-back bonus is on (switched on, with a bonus) and how many cards are inside its window, wherever the
+   * location runs a programme; else null. Counts only, for every reader of this read: the bonus has run without Wallet
+   * messages since ENG-089 (ENG-112).
+   */
   winback: { enabled: boolean; inWindow: number } | null;
 };
 
@@ -441,7 +542,7 @@ const LOCATION_WINDOW_DAYS = 30;
  * location only), with the same counting rule and rolling window as getMerchantAnalytics. Cashiers get FORBIDDEN.
  */
 export async function getLocationAnalytics(actorUserId: string, options: { locationId: string; asOf?: Date }): Promise<LocationAnalytics> {
-  if (!uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (!uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return inSnapshot(undefined, async client => {
     const asOf = options.asOf ?? (await client.query<{ as_of: Date }>("SELECT now() AS as_of")).rows[0].as_of;
     if (!Number.isFinite(asOf.getTime())) throw new DomainError("INVALID_WINDOW", "Invalid report time");
@@ -449,13 +550,14 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
     const locationId = scope.locationId!;
     const from = new Date(asOf.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
     const before = new Date(from.getTime() - LOCATION_WINDOW_DAYS * 86_400_000);
-    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackEnabled: boolean; winbackOn: boolean; winbackDays: number; effectiveAt: Date }>(`
-      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AS "winbackEnabled", winback_enabled AND winback_bonus > 0 AS "winbackOn",
+    const [program] = (await client.query<{ id: string; fullPeriod: boolean; winbackOn: boolean; winbackDays: number; effectiveAt: Date }>(`
+      SELECT id, effective_at <= $3 AS "fullPeriod", winback_enabled AND winback_bonus > 0 AS "winbackOn",
         winback_days AS "winbackDays", effective_at AS "effectiveAt"
       FROM programs WHERE tenant_id = $1 AND location_id = $2 AND status = 'active'
     `, [scope.tenantId, locationId, before])).rows;
-    const winback = scope.role === "owner" && program && !surfaceHidden("walletMessages")
-      ? { enabled: program.winbackEnabled, inWindow: program.winbackEnabled ? await cardsInWinbackWindow(client, scope.tenantId, program.id, asOf) : 0 }
+    // "On" as at the counter: switched on without a bonus gives nothing, so it never reads as „bekommen den Bonus“.
+    const winback = program
+      ? { enabled: program.winbackOn, inWindow: program.winbackOn ? await cardsInWinbackWindow(client, scope.tenantId, program.id, asOf) : 0 }
       : null;
     return {
       locationId, windowDays: LOCATION_WINDOW_DAYS, from: from.toISOString(), asOf: asOf.toISOString(),
@@ -468,7 +570,7 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
   });
 }
 
-const STAFF_AWARD = `e.kind = 'award' AND e.source IN ('staff_online','staff_offline')`;
+const STAFF_AWARD = () => `e.kind = 'award' AND e.source IN (${visitSources()})`;
 const NOT_REVERSED = (until: string) => `NOT EXISTS (SELECT 1 FROM ledger_entries u WHERE u.tenant_id = e.tenant_id AND u.reversal_of_id = e.id AND u.created_at < ${until})`;
 const DIARY_DAYS = 10;
 const DIARY_ENTRIES = 50;
@@ -494,13 +596,13 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
     client.query<{ date: string; bookings: number }>(`
       SELECT (e.created_at AT TIME ZONE $3)::date::text AS date, count(DISTINCT (e.membership_id, e.request_id))::int AS bookings
       FROM ledger_entries e
-      WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $4 AND e.created_at < $5 AND ${NOT_REVERSED("$6")}
+      WHERE ${where} AND ${STAFF_AWARD()} AND e.created_at >= $4 AND e.created_at < $5 AND ${NOT_REVERSED("$6")}
       GROUP BY 1
     `, [tenantId, locationId, bounds.timezone, bounds.stripFrom, bounds.todayFrom, asOf]),
     // Bounded to 90 local days (no index on location and time yet, ENG-088); beyond that the board says „vor über 90 Tagen“.
     client.query<{ last: string | null }>(`
       SELECT (e.created_at AT TIME ZONE $3)::date::text AS last FROM ledger_entries e
-      WHERE ${where} AND ${STAFF_AWARD} AND e.created_at >= $5 AND e.created_at < $4 AND ${NOT_REVERSED("$4")}
+      WHERE ${where} AND ${STAFF_AWARD()} AND e.created_at >= $5 AND e.created_at < $4 AND ${NOT_REVERSED("$4")}
       ORDER BY e.created_at DESC LIMIT 1
     `, [tenantId, locationId, bounds.timezone, asOf, bounds.lastFrom]),
     // Staff awards, redemptions, and the corrections of either, each its own entry (never netted).
@@ -510,9 +612,9 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
           (e.kind = 'award' AND ${NOT_REVERSED("$5")}) AS counted
         FROM ledger_entries e
         WHERE ${where} AND e.created_at >= $4 AND e.created_at < $5
-          AND ((${STAFF_AWARD}) OR e.kind = 'redeem' OR (e.kind = 'reversal' AND EXISTS (
+          AND ((${STAFF_AWARD()}) OR e.kind = 'redeem' OR (e.kind = 'reversal' AND EXISTS (
             SELECT 1 FROM ledger_entries o WHERE o.tenant_id = e.tenant_id AND o.id = e.reversal_of_id
-              AND (o.kind = 'redeem' OR (o.kind = 'award' AND o.source IN ('staff_online','staff_offline'))))))
+              AND (o.kind = 'redeem' OR (o.kind = 'award' AND o.source IN (${visitSources()}))))))
       ), days AS (
         SELECT day, count(DISTINCT (membership_id, request_id)) FILTER (WHERE counted)::int AS bookings,
           coalesce(sum(delta) FILTER (WHERE counted), 0)::int AS units, count(*)::int AS entries
@@ -548,7 +650,7 @@ async function locationDays(client: PoolClient, tenantId: string, locationId: st
 
 async function locationCounts(client: PoolClient, tenantId: string, locationId: string, from: Date, to: Date): Promise<LocationCounts> {
   // Checkouts by the till they were booked at (as "Aktivität je Standort"); new cards by their programme's location.
-  return (await client.query<LocationCounts>(`${checkoutCte}, here AS (
+  return (await client.query<LocationCounts>(`${checkoutCte()}, here AS (
       SELECT membership_id, request_id FROM accepted_awards WHERE location_id = $4
     ), per_card AS (
       SELECT membership_id, count(DISTINCT request_id) AS checkouts FROM here GROUP BY membership_id

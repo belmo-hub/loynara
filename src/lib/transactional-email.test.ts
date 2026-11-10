@@ -1,10 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { emailDeliveries, emailProviderEvents, emailSuppressions, outboxJobs, tenants } from "@/db/schema";
-import { emailTransportMode, mailgunEuProvider, promotionalEmailMode, promotionalProvider, recordMailgunWebhook, recipientHash, sendPromotional, sendTransactional, verifyMailgunWebhook } from "./transactional-email";
+import { emailDeliveries, emailProviderEvents, emailSuppressions, emailUnsubscribes, outboxJobs, tenants } from "@/db/schema";
+import { emailTransportMode, mailgunEuProvider, promotionalEmailMode, promotionalProvider, pruneEmailSuppressions, recordMailgunWebhook, recipientHash, sendPromotional, sendTransactional, verifyMailgunWebhook } from "./transactional-email";
 import { POST as webhookPost } from "../app/api/email/mailgun/webhook/route";
 import { productionConfigIssues } from "../../scripts/config-check";
 
@@ -14,7 +16,7 @@ const secret = "synthetic-mailgun-api-key-not-real";
 const signing = "synthetic-mailgun-signing-key-not-real";
 const config: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production", PUBLIC_BASE_URL: "https://test.example.test", EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_SEND_APPROVED: "true", MAILGUN_EU_DOMAIN: "mail.example.test", MAILGUN_FROM_EMAIL: "service@mail.example.test", MAILGUN_EU_API_KEY: secret, MAILGUN_EU_WEBHOOK_SIGNING_KEY: signing };
 beforeEach(async () => {
-  await pool.query('TRUNCATE TABLE email_provider_events, email_suppressions, tenants, "user", demo_requests CASCADE');
+  await pool.query('TRUNCATE TABLE email_provider_events, email_suppressions, email_unsubscribes, tenants, "user", demo_requests CASCADE');
   process.env.BETTER_AUTH_SECRET = "synthetic-email-hashing-secret-long-enough-for-tests";
   process.env.PUBLIC_BASE_URL = "https://test.example.test";
   process.env.EXTERNAL_EMAIL_ENABLED = "true";
@@ -105,6 +107,17 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
     expect(await mailgunEuProvider(config, vi.fn(async () => { throw new Error(secret); }) as typeof fetch)!.send(message)).toEqual({ state: "ambiguous" });
     expect(logged).not.toHaveBeenCalled();
     logged.mockRestore();
+  });
+
+  it("sends from the configured address, with the shop's display name only when one is given and never a second header line", async () => {
+    const froms: unknown[] = [];
+    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => { froms.push((options?.body as FormData).get("from")); return Response.json({ id: "<from@example.test>" }); });
+    const provider = mailgunEuProvider(config, request as typeof fetch)!;
+    const message = { to: "holder@example.test", subject: "Offer", body: "Synthetic message", jobId: randomUUID() };
+    await provider.send(message);
+    await provider.send({ ...message, fromName: "Café Müller via Loynara" });
+    await provider.send({ ...message, fromName: 'Bad "Shop"\\\r\nBcc: x@example.test via Loynara' });
+    expect(froms).toEqual(["service@mail.example.test", '"Café Müller via Loynara" <service@mail.example.test>', '"Bad \\"Shop\\"\\\\  Bcc: x@example.test via Loynara" <service@mail.example.test>']);
   });
 
   it("records accepted sends once and idempotent signed delivery/complaint events, then suppresses future sends", async () => {
@@ -344,56 +357,102 @@ it.each(["complained", "permanent_fail"] as const)("preserves %s suppression aft
   expect(provider.send).toHaveBeenCalledTimes(2);
 });
 
-it("preserves a complaint when another delivery concurrently records unsubscribe", async () => {
-  const first = await job(); const second = await job();
+it("records a provider unsubscribe for the sending job's shop only, and leaves recovery mail and other shops alone (ENG-170)", async () => {
+  const first = await job(); const other = await job();
   const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
   const message = { to: "holder@example.test", subject: "Synthetic", body: "Synthetic only" };
   await sendTransactional({ ...message, jobId: first.id }, provider);
-  await sendTransactional({ ...message, jobId: second.id }, provider);
-  let hardReady!: () => void; const hardRead = new Promise<void>(resolve => { hardReady = resolve; });
-  let weakReady!: () => void; const weakStarted = new Promise<void>(resolve => { weakReady = resolve; });
-  let release!: () => void; const resume = new Promise<void>(resolve => { release = resolve; });
-  const originalQuery = Client.prototype.query;
-  let held = false;
-  const spy = vi.spyOn(Client.prototype, "query").mockImplementation((function (this: Client, ...args: unknown[]) {
-    const config = args[0]; const text = typeof config === "string" ? config : (config as { text?: string } | undefined)?.text;
-    const values = args[1] as unknown[] | undefined;
-    if (!text?.includes('insert into "email_suppressions"')) return Reflect.apply(originalQuery, this, args);
-    if (values?.includes("unsubscribed")) weakReady();
-    if (held || !values?.includes("complained")) return Reflect.apply(originalQuery, this, args);
-    held = true;
-    // Drizzle transactions use the real Promise form; pause after PostgreSQL
-    // acquired the suppression row, before the complaint transaction commits.
-    return (Reflect.apply(originalQuery, this, args) as Promise<unknown>).then(async rows => { hardReady(); await resume; return rows; });
-  }) as typeof originalQuery);
-  let hard: ReturnType<typeof recordMailgunWebhook> | undefined;
-  let weak: ReturnType<typeof recordMailgunWebhook> | undefined;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  // The payload names another job's tenant nowhere: the shop comes from our own job row.
+  await recordMailgunWebhook(signed("unsubscribed", first.id));
+  expect(await db.select().from(emailUnsubscribes)).toEqual([expect.objectContaining({ tenantId: first.tenantId, recipientHash: recipientHash(message.to) })]);
+  expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+  expect(await sendTransactional({ ...message, jobId: (await job()).id }, provider)).toMatchObject({ status: "complete" });
+  expect((await db.select().from(emailUnsubscribes)).some(row => row.tenantId === other.tenantId)).toBe(false);
+});
+
+it("migration 0048 moves an old global unsubscribe to every shop that mailed the address and keeps one no mail explains as a global marketing block", async () => {
+  // Shop A mailed holder@ and got the unsubscribe event; shop B mailed holder@ too, without one. Nobody mailed orphan@.
+  const { queued: a } = await sentJob();
+  await recordMailgunWebhook(signed("unsubscribed", a.id));
+  const { queued: b } = await sentJob();
+  const [mapped, orphan, hard] = [recipientHash("holder@example.test"), recipientHash("orphan@example.test"), recipientHash("hard@example.test")];
+  await db.delete(emailUnsubscribes);
+  // The rows as the old code wrote them.
+  await db.insert(emailSuppressions).values([{ recipientHash: mapped, reason: "unsubscribed" }, { recipientHash: orphan, reason: "unsubscribed" }, { recipientHash: hard, reason: "complained" }]);
+  const statements = readFileSync(join(process.cwd(), "drizzle/0048_shop_unsubscribes.sql"), "utf8").split("--> statement-breakpoint").map(part => part.trim()).filter(part => /^(--[^\n]*\n)*(UPDATE|INSERT|DELETE)/.test(part));
+  expect(statements).toHaveLength(3);
+  for (const statement of statements) await pool.query(statement);
+  expect((await db.select().from(emailUnsubscribes)).map(row => [row.tenantId, row.recipientHash]).sort()).toEqual([[a.tenantId, mapped], [b.tenantId, mapped]].sort());
+  expect((await db.select().from(emailSuppressions)).map(row => [row.recipientHash, row.reason]).sort()).toEqual([[hard, "complained"], [orphan, "unsubscribed"]].sort());
+  // The kept orphan still blocks marketing, never requested recovery mail.
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const orphanMail = { to: "orphan@example.test", subject: "Synthetic", body: "Synthetic only" };
+  expect(await sendPromotional({ ...orphanMail, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+  expect(await sendTransactional({ ...orphanMail, jobId: (await job()).id }, provider)).toMatchObject({ status: "complete" });
+});
+
+it("keeps an address blocked through the switch to SUPPRESSION_HASH_SECRET and writes new rows under the new key (ENG-170)", async () => {
+  const previous = process.env.SUPPRESSION_HASH_SECRET;
+  delete process.env.SUPPRESSION_HASH_SECRET;
   try {
-    hard = recordMailgunWebhook(signed("complained", first.id));
-    await Promise.race([hardRead, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Suppression insert gate not reached")), 2000); })]);
-    if (timeout) clearTimeout(timeout);
-    weak = recordMailgunWebhook(signed("unsubscribed", second.id));
-    await Promise.race([
-      weakStarted,
-      weak.then(() => { throw new Error("Unsubscribe finished before suppression gate"); }),
-      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Unsubscribe suppression gate not reached")), 2000); }),
-    ]);
-    if (timeout) clearTimeout(timeout);
-    timeout = undefined;
-    release();
-    await Promise.all([hard, weak]);
-    expect((await db.select().from(emailSuppressions))[0].reason).toBe("complained");
-    expect(await db.select().from(emailProviderEvents)).toHaveLength(2);
-    expect(await sendTransactional({ ...message, jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
-    expect(provider.send).toHaveBeenCalledTimes(2);
+    // Before the switch: a delivery and its complaint, both hashed with the login secret.
+    const { queued } = await sentJob();
+    await recordMailgunWebhook(signed("complained", queued.id));
+    const oldHash = recipientHash("holder@example.test");
+    process.env.SUPPRESSION_HASH_SECRET = "synthetic-suppression-hash-key-0123456789";
+    const newHash = recipientHash("holder@example.test");
+    expect(newHash).not.toBe(oldHash);
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+    expect(await sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic only", jobId: (await job()).id }, provider)).toMatchObject({ status: "suppressed" });
+    expect(provider.send).not.toHaveBeenCalled();
+    // A late event for the old-key delivery still matches it, and its row is written under the new key.
+    await recordMailgunWebhook(signed("unsubscribed", queued.id));
+    expect((await db.select().from(emailUnsubscribes)).map(row => row.recipientHash)).toEqual([newHash]);
+    await recordMailgunWebhook(signed("permanent_fail", queued.id));
+    expect((await db.select().from(emailSuppressions)).map(row => row.recipientHash).sort()).toEqual([oldHash, newHash].sort());
   } finally {
-    if (timeout) clearTimeout(timeout);
-    release();
-    try { await Promise.allSettled([hard, weak]); } finally { spy.mockRestore(); }
+    if (previous === undefined) delete process.env.SUPPRESSION_HASH_SECRET; else process.env.SUPPRESSION_HASH_SECRET = previous;
   }
 });
 
+it("keeps old-key rows matching through a BETTER_AUTH_SECRET rotation once the old value sits in SUPPRESSION_LEGACY_HASH_SECRET (ENG-170 G-1)", async () => {
+  const saved = { auth: process.env.BETTER_AUTH_SECRET, key: process.env.SUPPRESSION_HASH_SECRET, legacy: process.env.SUPPRESSION_LEGACY_HASH_SECRET };
+  delete process.env.SUPPRESSION_HASH_SECRET; delete process.env.SUPPRESSION_LEGACY_HASH_SECRET;
+  try {
+    // A complaint stored before ENG-170, under the login secret of that time.
+    const { queued } = await sentJob();
+    await recordMailgunWebhook(signed("complained", queued.id));
+    const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+    const recovery = async () => sendTransactional({ to: "holder@example.test", subject: "Synthetic", body: "Synthetic only", jobId: (await job()).id }, provider);
+    // The deploy sets the new key; the operator then moves the old login secret aside and rotates it.
+    process.env.SUPPRESSION_HASH_SECRET = "synthetic-suppression-hash-key-0123456789";
+    process.env.SUPPRESSION_LEGACY_HASH_SECRET = saved.auth;
+    process.env.BETTER_AUTH_SECRET = "synthetic-rotated-login-secret-0123456789abc";
+    expect(await recovery()).toMatchObject({ status: "suppressed" });
+    // Without the legacy setting the old row would no longer match: exactly what G-1 guards against.
+    delete process.env.SUPPRESSION_LEGACY_HASH_SECRET;
+    expect(await recovery()).toMatchObject({ status: "complete" });
+  } finally {
+    for (const [name, value] of [["BETTER_AUTH_SECRET", saved.auth], ["SUPPRESSION_HASH_SECRET", saved.key], ["SUPPRESSION_LEGACY_HASH_SECRET", saved.legacy]] as const) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
+it("refreshes a hard suppression's last event and forgets it 24 months after that, not before (ENG-170)", async () => {
+  const { queued } = await sentJob();
+  await recordMailgunWebhook(signed("permanent_fail", queued.id));
+  const hash = recipientHash("holder@example.test");
+  const old = new Date("2024-01-01T00:00:00Z");
+  await db.update(emailSuppressions).set({ lastEventAt: old, createdAt: old });
+  await recordMailgunWebhook(signed("complained", queued.id));
+  const [row] = await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash));
+  expect(row.reason).toBe("complained");
+  expect(row.lastEventAt.getTime()).toBeGreaterThan(old.getTime());
+  expect(await pruneEmailSuppressions(new Date(row.lastEventAt.getTime() + 700 * 86_400_000))).toBe(0);
+  expect(await pruneEmailSuppressions(new Date(row.lastEventAt.getTime() + 732 * 86_400_000))).toBe(1);
+  expect(await db.select().from(emailSuppressions)).toHaveLength(0);
+});
 
 it.each(["complained", "permanent_fail"] as const)("keeps hard %s delivery terminal after unsubscribe and upgrades earlier unsubscribe", async reason => {
   const { queued } = await sentJob();

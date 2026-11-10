@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useFormCheck } from "@/components/ui/form-check";
 import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
@@ -18,8 +19,11 @@ import { Sheet } from "@/components/ui/sheet";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
+import { copyText } from "@/components/copy-text";
+import { OwnerIcon } from "@/components/owner/owner-ui";
+import { DemoMode, type DemoRunning } from "./demo-mode";
 
-type Row = { bookingEnabled: boolean; walletTemplate: { templateId: string; source: "table" | "env" } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { bookingEnabled: boolean; latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
@@ -28,13 +32,16 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string };
+type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
+type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
 const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
+const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };
+const mapsUrl = (p: { latitude: number | null; longitude: number | null }) => `https://www.google.com/maps?q=${p.latitude},${p.longitude}`;
 const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
 const CODE = { none: "kein Code", open: "Code offen", locked: "Code offen, ein Konto gesperrt", used: "Code benutzt" } as const;
@@ -45,7 +52,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[] }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -60,6 +67,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   const [tplRow, setTplRow] = useState<Row | null>(null);
   const [templateId, setTemplateId] = useState("");
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
+  const [pointRow, setPointRow] = useState<Row | null>(null);
+  const [coordinates, setCoordinates] = useState("");
+  const [pointPreview, setPointPreview] = useState<{ latitude: number; longitude: number; changed: boolean } | null>(null);
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState("");
@@ -101,6 +111,16 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
     } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
+  async function sendPoint(execute: boolean) {
+    setBusy(true); setError("");
+    try {
+      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, execute });
+      if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
+    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPointPreview(null); setError(""); };
+  const closePoint = () => { setPointRow(null); setPointPreview(null); setError(""); };
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
   const openEnd = (row: Row) => { setProg(row); setEndDate(row.endDate ?? ""); setEndPreview(null); setError(""); };
@@ -110,6 +130,26 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   const endText = (r: Row) => r.endDate ? `${r.confirmed ? "bestätigt" : "vorläufig"} bis ${germanDate(r.endDate)}` : "keine Kündigung";
   const origin = (r: Row) => r.requestedDays !== null ? `angefragt vor ${r.requestedDays} ${r.requestedDays === 1 ? "Tag" : "Tagen"}` : "vom Operator geplant";
   const close = () => { setLabel(null); setPreview(null); setError(""); };
+  // Go-live starts the paid contract's free first month (ENG-123): a second click confirms it.
+  const [startFor, setStartFor] = useState<string | null>(null);
+  // § 14 UStG: the invoice recipient's full name and address, recorded at go-live and sent to Stripe.
+  const fields = useFormCheck();
+  const [recipient, setRecipient] = useState({ name: "", line1: "", postalCode: "", city: "", email: "" });
+  const openStart = (b: Billing) => { setStartFor(b.tenantId); setRecipient({ name: b.ownerName ?? "", line1: "", postalCode: "", city: b.city ?? "", email: b.ownerEmail ?? "" }); setError(""); };
+  async function startBilling(tenantId: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-start", { tenantId, billing: recipient }); setStartFor(null); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  // § 2 (3): an owner who cancels in the free month owes nothing; the subscription must end before its first invoice.
+  const [endFor, setEndFor] = useState<string | null>(null);
+  async function endFreeMonth(tenantId: string) {
+    setBusy(true); setError("");
+    try { await postJson("/api/operator/billing-free-month-end", { tenantId }); setEndFor(null); router.refresh(); }
+    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
   async function setPlan(tenantId: string, planCode: string) {
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
@@ -150,6 +190,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   }
   async function createShop(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fields.check(event.currentTarget)) return;
     const element = event.currentTarget, form = new FormData(element);
     const text = (key: string) => String(form.get(key) ?? "").trim();
     if (await shop({ action: "create", businessName: text("businessName"), ...(text("locationName") ? { locationName: text("locationName") } : {}), city: text("city"), country: text("country"), timezone: text("timezone"), ownerEmail: text("ownerEmail") }, text("businessName"))) element.reset();
@@ -158,16 +199,17 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
   return <main className="ow-page" id="ow-main">
     <PageHeader title="Operator" description="Platten und Geschäfte. Nur für dich sichtbar." />
     {error && !label ? <p role="alert">{error}</p> : null}
+    {demo ? <DemoMode running={demo.running} /> : null}
 
     <Card as="section" aria-labelledby="op-new">
       <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
-      <form onSubmit={createShop} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
-        <TextField label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
-        <TextField label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
-        <TextField label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
+      <form onSubmit={createShop} onInput={fields.onInput} noValidate style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
+        <TextField id="op-1" error={fields.error("op-1")} label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
+        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
+        <TextField id="op-3" error={fields.error("op-3")} label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
         <Select label="Land" name="country" defaultValue="DE"><option value="DE">Deutschland</option><option value="MA">Marokko</option></Select>
         <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
-        <TextField label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
+        <TextField id="op-4" error={fields.error("op-4")} label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
         <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
       </form>
@@ -200,7 +242,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-billing">
-      <CardHeader id="op-billing" title="Tarife" description="Gilt ab dem nächsten Checkout. Während ein Abo läuft, bleibt der Tarif fest." />
+      <CardHeader id="op-billing" title="Tarife" description="Ohne Wahl gilt der Listenpreis. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos, danach bleibt der Tarif fest." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
@@ -208,15 +250,39 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
             <option value="">Noch nicht gewählt</option>
             {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
           </Select>
+          {b.lastFreeDay ? <div style={{ display: "grid", gap: 4 }}><span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
+            {b.status === "active" && !b.cancelling ? (endFor === b.tenantId
+              ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="danger" loading={busy} onClick={() => void endFreeMonth(b.tenantId)}>Vertrag zum {b.lastFreeDay} beenden, ohne Rechnung</Button><Button variant="quiet" onClick={() => setEndFor(null)}>Zurück</Button></div>
+              : <div><Button variant="quiet" onClick={() => setEndFor(b.tenantId)}>Gekündigt im kostenlosen Monat</Button></div>) : null}</div>
+            : b.started ? null
+              : startFor === b.tenantId
+                ? <form style={{ display: "grid", gap: 8 }} onInput={fields.onInput} noValidate onSubmit={event => { event.preventDefault(); if (fields.check(event.currentTarget)) void startBilling(b.tenantId); }}>
+                  <p className="ow-muted">Rechnungsempfänger (wie in der Pilotvereinbarung):</p>
+                  <TextField id="op-5" error={fields.error("op-5")} label="Name" value={recipient.name} onChange={event => setRecipient(r => ({ ...r, name: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-6" error={fields.error("op-6")} label="Straße und Hausnummer" value={recipient.line1} onChange={event => setRecipient(r => ({ ...r, line1: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-7" error={fields.error("op-7")} label="Postleitzahl" value={recipient.postalCode} onChange={event => setRecipient(r => ({ ...r, postalCode: event.target.value }))} required inputMode="numeric" pattern="\d{5}" autoComplete="off" />
+                  <TextField id="op-8" error={fields.error("op-8")} label="Ort" value={recipient.city} onChange={event => setRecipient(r => ({ ...r, city: event.target.value }))} required autoComplete="off" />
+                  <TextField id="op-9" error={fields.error("op-9")} label="E-Mail für Rechnungen" type="email" value={recipient.email} onChange={event => setRecipient(r => ({ ...r, email: event.target.value }))} required autoComplete="off" />
+                  {error ? <p role="alert">{error}</p> : null}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button type="submit" loading={busy}>Heute starten bestätigen</Button><Button type="button" variant="quiet" onClick={() => setStartFor(null)}>Zurück</Button></div>
+                </form>
+                : <div><Button variant="secondary" onClick={() => openStart(b)}>Abrechnung starten (Go-live)</Button></div>}
         </li>)}
       </ul>
     </Card>
+
+    {freeMonths.length ? <Card as="section" aria-labelledby="op-free-month">
+      <CardHeader id="op-free-month" title="Kostenloser Monat endet bald" description="Die Erinnerung geht 7 Tage vorher per E-Mail raus. Steht hier „nicht gesendet“, bitte selbst von support@ schicken." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {freeMonths.map(f => <li key={f.tenantId} role={f.sent ? "status" : "alert"}><strong>{f.shop}</strong> · {f.locations.join(", ")} · letzter freier Tag {f.lastFreeDay} · <Badge tone={f.sent ? "success" : "warning"}>{f.sent ? "Erinnerung gesendet" : "nicht gesendet"}</Badge></li>)}
+      </ul>
+    </Card> : null}
 
     <Card as="section" aria-labelledby="op-plates">
       <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
       {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
-      <form onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
+      <form noValidate onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
         <TextField label="Plattenname" placeholder="P-007" value={typed} onChange={event => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" style={{ flex: 1 }} />
         <Button type="submit" variant="secondary">Öffnen</Button>
       </form>
@@ -237,17 +303,23 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
     </Card>
 
     <Card as="section" aria-labelledby="op-shops">
-      <CardHeader id="op-shops" title="Geschäfte" description="Nur Lesen." />
+      <CardHeader id="op-shops" title="Geschäfte" description="Koordinaten je Standort für den Wallet-Hinweis in der Nähe. Sonst nur Lesen." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-        {rows.map(r => <li key={r.programId} style={{ padding: "8px 0", borderTop: "1px solid var(--color-line, currentColor)" }}>
+        {rows.map((r, index) => <li key={r.programId} style={{ padding: "8px 0", borderTop: "1px solid var(--color-line, currentColor)" }}>
           <strong>{r.tenant}</strong> · {r.location} ({r.city})<br />
           <span className="ow-muted">{r.programme} · {r.status === "active" ? "aktiv" : "archiviert"} · {r.cards} Karten · letzte Gutschrift: {date(r.lastAward)} · Wochenbericht {r.weeklyReport ? "an" : "aus"}{r.endDate ? ` · Kündigung ${origin(r)}, ${endText(r)}` : ""}</span>
+          {r.googleClass ? <><br /><span className={r.googleClass.status === "rejected" || r.googleClass.lastError ? undefined : "ow-muted"} role={r.googleClass.status === "rejected" || r.googleClass.lastError ? "alert" : undefined}>Google-Wallet-Klasse: {GOOGLE_CLASS[r.googleClass.status] ?? r.googleClass.status}{r.googleClass.lastError ? ` (letzter Versuch fehlgeschlagen: ${r.googleClass.lastError})` : ""}</span></> : null}
           {r.walletMessages ? <><br /><span className={r.walletMessages.warn ? undefined : "ow-muted"} role={r.walletMessages.warn ? "alert" : undefined}>Wallet-Nachrichten (30 Tage): {r.walletMessages.messages} gesendet an {r.walletMessages.sent} Karten · Karten entfernt innerhalb von 48 Stunden (nur Apple Wallet): {r.walletMessages.removed}{r.walletMessages.warn ? " · Warnung: mehr Karten entfernt als erwartet" : ""}</span></> : null}
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
           <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue (Online-Buchung für {r.location})</Checkbox>
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
+          {/* Rows are per programme, the point per location: only its first row carries it. */}
+          {rows.findIndex(other => other.locationId === r.locationId) === index ? <div>
+            {r.latitude !== null ? <a className="ow-muted" style={{ textDecoration: "underline" }} href={mapsUrl(r)} target="_blank" rel="noopener noreferrer">{r.latitude}, {r.longitude}</a> : <span className="ow-muted">Keine Koordinaten</span>}
+            <Button variant="quiet" onClick={() => openPoint(r)}>{r.latitude !== null ? "Koordinaten ändern" : "Koordinaten setzen"}</Button>
+          </div> : null}
         </li>)}
       </ul>
     </Card>
@@ -262,7 +334,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         <p><strong>{invitation.tenant}</strong> · für {invitation.email} · gültig bis {date(invitation.expiresAt)}</p>
         <Image unoptimized src={invitation.qr} alt={`QR-Code der Einladung für ${invitation.tenant}`} width={240} height={240} style={{ justifySelf: "center" }} />
         <p style={{ wordBreak: "break-all" }}>{invitation.link}</p>
-        <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(invitation.link).then(() => setCopied("Link kopiert."), () => setCopied("Kopieren nicht möglich.")); }}>Link kopieren</Button>
+        <Button variant="secondary" onClick={() => { void copyText(invitation.link).then(ok => setCopied(ok ? "Link kopiert." : "Kopieren nicht möglich.")); }}>Link kopieren</Button>
         {copied ? <p role="status">{copied}</p> : null}
         <p className="ow-muted">Der Link wird nur jetzt angezeigt. Geht er verloren: widerrufen und neu einladen.</p>
       </div> : null}
@@ -286,6 +358,18 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees }: 
         {error ? <p role="alert">{error}</p> : null}
         {endPreview ? <Button loading={busy} onClick={() => sendEnd(true)}>Bestätigen</Button>
           : <Button loading={busy} disabled={!endDate} onClick={() => sendEnd(false)}>Prüfen</Button>}
+      </div> : null}
+    </Sheet>
+
+    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten">
+      {pointRow ? <div style={{ display: "grid", gap: 12 }}>
+        <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
+        {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
+        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={18} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
+        {pointPreview?.changed
+          ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
+          : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}
       </div> : null}
     </Sheet>
 

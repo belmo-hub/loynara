@@ -5,6 +5,8 @@ import * as schema from "@/db/schema";
 import { db, pool } from "@/db";
 import { locations, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { visitSources } from "./demo-environment";
+import { liveReward, notSuperseded } from "./reward-versions";
 
 /**
  * Retention states for open loyalty cards, derived only from recorded checkouts and balances.
@@ -53,7 +55,7 @@ export function parseRetentionDays(raw: string | null | undefined, fallback: Ret
 }
 
 const QUALIFYING = (alias: string, asOf: string) => `
-  ${alias}.kind = 'award' AND ${alias}.source in ('staff_online','staff_offline') AND ${alias}.created_at <= ${asOf}
+  ${alias}.kind = 'award' AND ${alias}.source in (${visitSources()}) AND ${alias}.created_at <= ${asOf}
   AND NOT EXISTS (SELECT 1 FROM ledger_entries undo WHERE undo.tenant_id = ${alias}.tenant_id AND undo.reversal_of_id = ${alias}.id AND undo.created_at <= ${asOf})`;
 
 /** Lateral joins over a memberships row `m`: `q.last_at` (last qualifying checkout) and `rw.cost` (cheapest active reward). */
@@ -67,10 +69,10 @@ export function retentionJoins(asOf: string) {
       SELECT min(latest.cost)::int AS cost FROM rewards r
       JOIN LATERAL (
         SELECT rv.cost FROM reward_versions rv
-        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${asOf}
+        WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= ${asOf} AND ${notSuperseded("rv")}
         ORDER BY rv.version DESC LIMIT 1
       ) latest ON true
-      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND r.active = true
+      WHERE r.tenant_id = m.tenant_id AND r.program_id = m.program_id AND ${liveReward("r", asOf)}
     ) rw ON true`;
 }
 
@@ -100,16 +102,16 @@ export async function retentionScope(actorUserId: string, requestedLocationId?: 
   const [staff] = await scopedDb.select({ tenantId: staffRoles.tenantId, role: staffRoles.role, locationId: staffRoles.locationId })
     .from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.active, true))).limit(1);
   if (!staff || (staff.role !== "owner" && staff.role !== "manager") || (staff.role === "manager" && !staff.locationId)) {
-    throw new DomainError("FORBIDDEN", "Owner or manager access required");
+    throw new DomainError("FORBIDDEN", "Das dürfen nur die Leitung und die Inhaberin oder der Inhaber.");
   }
   if (staff.role === "manager") {
-    if (requestedLocationId && requestedLocationId !== staff.locationId) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+    if (requestedLocationId && requestedLocationId !== staff.locationId) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     return { tenantId: staff.tenantId, locationId: staff.locationId!, role: staff.role };
   }
   if (!requestedLocationId) return { tenantId: staff.tenantId, locationId: null, role: staff.role };
   const [location] = await scopedDb.select({ id: locations.id }).from(locations)
     .where(and(eq(locations.id, requestedLocationId), eq(locations.tenantId, staff.tenantId))).limit(1);
-  if (!location) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   return { tenantId: staff.tenantId, locationId: location.id, role: staff.role };
 }
 
@@ -118,7 +120,7 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 export async function getRetentionSummary(actorUserId: string, options: { inactiveDays?: RetentionDays; locationId?: string | null; asOf?: Date } = {}, snapshot?: PoolClient): Promise<RetentionSummary> {
   const inactiveDays = options.inactiveDays ?? 30;
   if (!RETENTION_DAYS.includes(inactiveDays)) throw new DomainError("INVALID_FILTER", "Choose 14, 30, 60 or 90 days");
-  if (options.locationId && !uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Location not found in your scope");
+  if (options.locationId && !uuidPattern.test(options.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
   const scope = await retentionScope(actorUserId, options.locationId, snapshot);
   const reader = snapshot ?? pool;
   const asOf = options.asOf ?? (await reader.query<{ now: Date }>("SELECT now() AS now")).rows[0].now;
@@ -149,8 +151,8 @@ export async function getRetentionSummary(actorUserId: string, options: { inacti
     reader.query<{ cost: number | null; rewardId: string | null }>(`
       SELECT selected.cost, selected.reward_id AS "rewardId" FROM programs p
       LEFT JOIN LATERAL (SELECT r.id AS reward_id, latest.cost FROM rewards r
-        JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 ORDER BY rv.version DESC LIMIT 1) latest ON true
-        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND r.active = true
+        JOIN LATERAL (SELECT rv.cost FROM reward_versions rv WHERE rv.tenant_id = r.tenant_id AND rv.reward_id = r.id AND rv.effective_at <= $3 AND ${notSuperseded("rv")} ORDER BY rv.version DESC LIMIT 1) latest ON true
+        WHERE r.tenant_id = p.tenant_id AND r.program_id = p.id AND ${liveReward("r", "$3")}
         ORDER BY latest.cost, r.id LIMIT 1) selected ON true
       WHERE p.tenant_id = $1 AND ($2::uuid IS NULL OR p.location_id = $2) AND p.status = 'active'
     `, [scope.tenantId, scope.locationId, asOf]),

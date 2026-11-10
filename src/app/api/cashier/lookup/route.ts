@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const user = await sessionUser(request);
     await enforceRateLimit({ scope: "cashier_lookup_user", identity: user.id, max: 120, windowSeconds: 15 * 60 });
     const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
-    if (!context) throw new DomainError("FORBIDDEN", "No checkout access");
+    if (!context) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Kassenzugang.");
     const params = new URL(request.url).searchParams;
     const code = params.get("code");
     if (!code || code.length > 64) throw new DomainError("INVALID_CODE", "Invalid card code");

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { and, eq, sql } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { ledgerEntries, memberships, programs } from "@/db/schema";
 import { award, redeem, reverseEntry } from "./loyalty";
@@ -8,8 +8,9 @@ import { getMerchantMember } from "./merchant-members";
 import { createMerchant, enroll, getCard, getPublicProgram, updateProgramExtras } from "./product";
 import { addMonths } from "./points-expiry-rules";
 import { expireCardPoints, queueExpiryReminders, runPointsExpiry } from "./points-expiry";
-import { credentialHash } from "./wallet/data";
+import { credentialHash, walletPassDataByMembershipId } from "./wallet/data";
 import { deliverWalletMessage, setWalletConsent } from "./wallet-messages";
+import { EXCLUDED_GOODS } from "./card-extras";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -32,8 +33,24 @@ const balanceOf = async (membershipId: string) => (await db.select({ balance: me
 const expiryRows = (membershipId: string) => db.select().from(ledgerEntries).where(and(eq(ledgerEntries.membershipId, membershipId), eq(ledgerEntries.kind, "expiry")));
 const entryTime = async (entryId: string) => (await db.select({ at: ledgerEntries.createdAt }).from(ledgerEntries).where(eq(ledgerEntries.id, entryId)))[0].at;
 const setExpiry = (s: Shop, months: 24 | 36 | null, actorUserId = s.owner) => updateProgramExtras({ actorUserId, programId: s.programId, pointsExpiryMonths: months });
+/** An expiry in force: switching on is dated four weeks on (ENG-100, dated-rule-changes), so these replay tests start from a passed date. */
+const expiryOn = (s: Shop, months: 24 | 36) => db.update(programs).set({ pointsExpiryMonths: months, pointsExpirySince: sql`now()` }).where(eq(programs.id, s.programId));
 
 describe("points expiry setting", () => {
+  it("refreshes the installed Apple passes when the period changes, and not for a save that keeps it (ENG-119)", async () => {
+    const s = await shop();
+    const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const passId = randomUUID();
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'created')",
+      [passId, s.tenantId, card.id, `passfast:${passId}`, credentialHash(m.scan_code)]);
+    const refreshes = async () => (await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'wallet.refresh' AND payload ->> 'membershipId' = $1", [card.id])).rows[0].n;
+    await setExpiry(s, null);
+    expect(await refreshes()).toBe(0);
+    await setExpiry(s, 24);
+    expect(await refreshes()).toBe(1);
+  });
+
   it("is off by default: nothing expires and the card shows no rule", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
@@ -58,10 +75,15 @@ describe("points expiry setting", () => {
     await expect(setExpiry(stamps, 36)).rejects.toMatchObject({ code: "INVALID_POINTS_EXPIRY" });
 
     expect(await setExpiry(s, 36)).toMatchObject({ pointsExpiryMonths: 36 });
+    // Switching on waits four weeks (ENG-100): until then no expiry rule is in force, and the join page states none.
+    expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBeUndefined();
+    await expiryOn(s, 36); // the date has passed
     const rule = "Punkte verfallen 36 Monate nach dem Sammeln, die ältesten zuerst.";
     expect((await getPublicProgram(s.programSlug)).pointsExpiryRule).toBe(rule);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     expect((await getCard(card.cardToken)).pointsExpiry).toEqual({ rule, batches: [], notice: undefined });
+    // The back of the Apple pass lists it as the sign-up page does: after the rules, before the exclusions (ENG-119).
+    expect((await walletPassDataByMembershipId(card.id)).rules).toEqual(["Punkte für jeden bestätigten Besuch.", rule, EXCLUDED_GOODS]);
     // The other shop is untouched.
     expect((await getPublicProgram(other.programSlug)).pointsExpiryRule).toBeUndefined();
   });
@@ -70,7 +92,7 @@ describe("points expiry setting", () => {
 describe("the expiry job", () => {
   it("books a labelled ledger row exactly at the expiry instant, once", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     const due = addMonths(await entryTime(first.entryId), 24);
@@ -91,7 +113,7 @@ describe("the expiry job", () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     await give(s, card.id, 30);
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const after = await give(s, card.id, 20);
     // Changing the period restarts it: the 20 points keep their 24-month promise only until the change, then never expire.
     await setExpiry(s, 36);
@@ -104,7 +126,7 @@ describe("the expiry job", () => {
 
   it("uses up the oldest points first when a reward is redeemed", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const old = await give(s, card.id, 50);
     await give(s, card.id, 80);
@@ -117,7 +139,7 @@ describe("the expiry job", () => {
 
   it("gives expired points back through an ordinary correction, which the job then leaves alone", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     const due = addMonths(await entryTime(first.entryId), 24);
@@ -141,8 +163,8 @@ describe("the expiry job", () => {
   it("is not a visit and not a redemption in the owner's numbers, and stays inside its shop", async () => {
     const s = await shop();
     const other = await shop("points", "Other Synthetic Shop");
-    await setExpiry(s, 24);
-    await setExpiry(other, 36);
+    await expiryOn(s, 24);
+    await expiryOn(other, 36);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const neighbour = await enroll({ slug: other.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
@@ -158,7 +180,7 @@ describe("the expiry job", () => {
 
   it("keeps going when one card cannot be booked", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const broken = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const fine = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, broken.id, 40);
@@ -174,7 +196,7 @@ describe("the expiry job", () => {
 
   it("books nothing for an ended programme", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const first = await give(s, card.id, 40);
     await db.update(programs).set({ status: "ended" }).where(eq(programs.id, s.programId));
@@ -194,7 +216,7 @@ describe("the 30-day reminder", () => {
 
   it("goes to every Wallet holder as service information, once per 30 days", async () => {
     const s = await shop();
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const consented = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const silent = await enroll({ slug: s.programSlug, acceptedTerms: true });
     const browserOnly = await enroll({ slug: s.programSlug, acceptedTerms: true });
@@ -226,10 +248,84 @@ describe("the 30-day reminder", () => {
     expect(calls[0].data.message).toBe(silentMessage.text);
   });
 
+  it("reaches every pass the consent panel's line speaks to: a registered native Apple pass, and Google with its message switch (ENG-161)", async () => {
+    const s = await shop();
+    await expiryOn(s, 24);
+    const pass = async (provider: "apple" | "google", device: boolean) => {
+      const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
+      const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+      const passId = randomUUID();
+      await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        [passId, s.tenantId, card.id, provider, provider === "apple" ? passId : `3388000000000000001.loynara_${passId}`, credentialHash(m.scan_code), provider === "apple" ? "registered" : "created"]);
+      if (device) {
+        await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [`device-${passId}`, "a".repeat(64)]);
+        await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [`device-${passId}`, s.tenantId, card.id, "pass.test.loynara", passId]);
+      }
+      return { card, entry: await give(s, card.id, 80) };
+    };
+    const native = await pass("apple", true);
+    await pass("apple", false); // installed but no device registered for updates: nothing can reach it
+    const google = await pass("google", false);
+    const reminderAt = new Date(addMonths(await entryTime(native.entry.entryId), 24).getTime() - 20 * 86_400_000);
+    const recipients = async () => (await pool.query("SELECT membership_id FROM wallet_message_recipients")).rows.map(row => row.membership_id);
+    expect(await queueExpiryReminders(reminderAt)).toBe(1);
+    expect(await recipients()).toEqual([native.card.id]);
+    vi.stubEnv("GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED", "true");
+    try {
+      expect(await queueExpiryReminders(reminderAt)).toBe(1);
+      expect((await recipients()).sort()).toEqual([native.card.id, google.card.id].sort());
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  /** A native Apple pass (ENG-127) a device registered for updates. */
+  async function nativePass(s: Shop, card: { id: string; cardToken: string }, consent: boolean) {
+    const { rows: [m] } = await pool.query("SELECT scan_code FROM memberships WHERE id = $1", [card.id]);
+    const passId = randomUUID(), deviceId = `device-${passId}`;
+    await pool.query("INSERT INTO wallet_passes (id, tenant_id, membership_id, provider, provider_object_id, credential_hash, status) VALUES ($1,$2,$3,'apple',$4,$5,'registered')",
+      [passId, s.tenantId, card.id, passId, credentialHash(m.scan_code)]);
+    await pool.query("INSERT INTO apple_devices (device_library_identifier, push_token) VALUES ($1, $2)", [deviceId, "a".repeat(64)]);
+    await pool.query("INSERT INTO apple_registrations (device_library_identifier, tenant_id, membership_id, pass_type_identifier, serial_number) VALUES ($1,$2,$3,$4,$5)", [deviceId, s.tenantId, card.id, "pass.test.loynara", passId]);
+    if (consent) await setWalletConsent(card.cardToken, true);
+    return passId;
+  }
+
+  it("reaches native Apple passes too, with or without consent, within the weekly cap, through a refresh (ENG-128)", async () => {
+    const s = await shop();
+    await expiryOn(s, 24);
+    const consented = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const silent = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    const capped = await enroll({ slug: s.programSlug, acceptedTerms: true });
+    await nativePass(s, consented, true);
+    await nativePass(s, silent, false);
+    const cappedPass = await nativePass(s, capped, true);
+    const first = await give(s, consented.id, 80);
+    await give(s, silent.id, 80);
+    await give(s, capped.id, 80);
+    const due = addMonths(await entryTime(first.entryId), 24);
+    const reminderAt = new Date(due.getTime() - 20 * 86_400_000);
+    // Two messages this week already: the cap of two per seven days holds for service information too.
+    for (const daysAgo of [2, 4]) {
+      const at = new Date(reminderAt.getTime() - daysAgo * 86_400_000);
+      const { rows: [m] } = await pool.query("INSERT INTO wallet_messages (tenant_id, program_id, kind, text, status, created_at) VALUES ($1,$2,'winback','Früher','complete',$3) RETURNING id", [s.tenantId, s.programId, at]);
+      await pool.query("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id, status, created_at) VALUES ($1,$2,$3,$4,'sent',$5)", [m.id, cappedPass, s.tenantId, capped.id, at]);
+    }
+
+    expect(await queueExpiryReminders(reminderAt)).toBe(2);
+    const { rows } = await pool.query("SELECT m.id, r.membership_id FROM wallet_messages m JOIN wallet_message_recipients r ON r.message_id = m.id WHERE m.kind = 'expiry'");
+    expect(rows.map(row => row.membership_id).sort()).toEqual([consented.id, silent.id].sort());
+    // Delivery refreshes the native pass (the device fetches it after the push) and never calls PassFast.
+    await pool.query("DELETE FROM outbox_jobs WHERE tenant_id = $1 AND kind = 'wallet.refresh'", [s.tenantId]);
+    const silentMessage = rows.find(row => row.membership_id === silent.id)!;
+    const noSend = async () => { throw new Error("PassFast must not be called for a native pass"); };
+    expect(await deliverWalletMessage({ id: randomUUID(), tenantId: s.tenantId, payload: { messageId: silentMessage.id } }, { send: noSend, now: () => new Date("2026-10-22T10:00:00Z") })).toEqual({ status: "complete" });
+    const { rows: refreshes } = await pool.query("SELECT payload ->> 'membershipId' AS id FROM outbox_jobs WHERE tenant_id = $1 AND kind = 'wallet.refresh'", [s.tenantId]);
+    expect(refreshes.map(row => row.id)).toEqual([silent.id]);
+  });
+
   it("shows the notice on the card within 30 days of the first expiry", async () => {
     const s = await shop();
     const card = await enroll({ slug: s.programSlug, acceptedTerms: true });
-    await setExpiry(s, 24);
+    await expiryOn(s, 24);
     const { cardExpiry } = await import("./points-expiry");
     const first = await give(s, card.id, 25);
     const due = addMonths(await entryTime(first.entryId), 24);

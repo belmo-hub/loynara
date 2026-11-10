@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { and, eq, inArray } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { campaignRecipients, campaigns, ledgerEntries, membershipContacts, memberships, outboxJobs, staffRoles } from "@/db/schema";
+import { fillSender } from "./sender-test-support";
 import { createMerchant, createReward, enroll } from "./product";
 import { getRetentionSummary } from "./retention";
 import { selectAudience } from "./segments";
@@ -53,6 +54,7 @@ async function fixture() {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Safe Café", city: "Berlin", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Card", programType: "stamp", rulesText: "One stamp per checkout.", rewardTitle: "Coffee", rewardCost: 8 });
+  await fillSender(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "synthetic-customer@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
   session.actorId = ownerId;
@@ -131,7 +133,7 @@ describe("production-equivalent campaign draft-only safety", () => {
     // Generic audiences intentionally consider any not-yet-affordable reward. A card with ten stamps is
     // ready for Coffee (eight), but is also two short of the larger reward (twelve).
     expect(await selectAudience({ actorUserId: f.ownerId, programId: f.merchant.programId, definition: { kind: "close_to_reward", maxRemaining: 2 } })).toMatchObject({ total: 2 });
-    const reminder = buildInsights({ summary, unit: "Stempel", isOwner: true, campaigns: true, referrals: [] })
+    const reminder = buildInsights({ summary, isOwner: true, campaigns: true, referrals: [] })
       .find(insight => insight.id === "near-reward")?.actions.find(action => action.href.startsWith("/merchant/campaigns"));
     expect(reminder).toBeDefined();
     const params = new URL(reminder!.href, ORIGIN).searchParams;

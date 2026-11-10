@@ -1,26 +1,30 @@
 "use client";
 
+import { DEMO_DATA_NOTE } from "@/lib/demo-texts";
 import Link from "next/link";
-import { CircleCheck, CreditCard, Gift, Undo2, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleHelp, Flag, RefreshCw, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
+import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
+import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
 import { nf } from "./owner-ui";
 
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
-const SHY = "\u00ad";
 
-/** The one deep green panel: greeting, kicker, then the number area and the strip the caller passes in. */
-export function Board({ hello, kicker, busy = false, children }: { hello: string; kicker: string; busy?: boolean; children: ReactNode }) {
-  return (
-    <section className="ow-board" aria-labelledby="ow-board-kicker" aria-busy={busy}>
-      <p className="ow-board-hello">{hello}</p>
-      <p className="ow-board-kicker" id="ow-board-kicker">{kicker}</p>
-      {children}
-    </section>
-  );
+/**
+ * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
+ * and its sub-line says what it counts and over which days; `label` names the card for screen readers.
+ */
+export function Board({ label, busy = false, demo = false, children }: { label: string; busy?: boolean; /** Demo environment: its numbers include the sample visits. */ demo?: boolean; children: ReactNode }) {
+  return <section className="ow-board" aria-label={label} aria-busy={busy}>{demo ? <p style={{ marginBottom: "var(--space-3)" }}><DemoDataChip /></p> : null}{children}</section>;
 }
+
+/** The demo environment's sample visits count in these numbers (lib/demo-environment visitSources); Legal's line (9 Nov). */
+export const DemoDataChip = () => <span className="ow-chip ow-chip--info">{DEMO_DATA_NOTE}</span>;
 
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
 export function BigMoney({ text }: { text: string }) {
@@ -30,7 +34,7 @@ export function BigMoney({ text }: { text: string }) {
 
 /** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
 export function BoardPlaceholder() {
-  return <div aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%", margin: "8px 0" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112, marginTop: 20 }} /></div>;
+  return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
 
 /** The last 7 local days ending yesterday; only yesterday lights up, and only if it had bookings. */
@@ -88,37 +92,43 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
   );
 }
 
-const TILE_ICONS = { bookings: CircleCheck, cards: CreditCard, back: Undo2, rewards: Gift } satisfies Record<string, LucideIcon>;
-/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). */
-export type Tile = { key: keyof typeof TILE_ICONS; label: string; value: string; note: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
-/** The four tiles, always in this order, numbers in ink: no arrows, no colour coding (spec §1.3). */
-export function Tiles({ tiles }: { tiles: Tile[] }) {
+/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). No `help`: not in the sheet. */
+export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
+/**
+ * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
+ * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
+ */
+export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
+  const [help, setHelp] = useState(false);
+  const titleId = useId();
+  const close = () => setHelp(false);
   return (
-    <section className="ow-stack" aria-labelledby="ow-tiles-title" style={{ gap: 8 }}>
-      <h2 id="ow-tiles-title" className="ow-tiles-title">Letzte 30 Tage an diesem Standort</h2>
-      <div className="ow-tiles">{tiles.map(tile => <TileCard key={tile.key} tile={tile} />)}</div>
+    <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
+      <div className="ow-rows-head">
+        <h2 id={titleId} className="ow-tiles-title">{title}</h2>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
+      </div>
+      <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
+      <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
+        {tiles.filter(tile => tile.help).map(tile => <div className="ow-rows-help" key={tile.key}><h3>{tile.label}</h3><p>{tile.help}</p></div>)}
+      </Sheet>
     </section>
   );
 }
-function TileCard({ tile }: { tile: Tile }) {
-  const [open, setOpen] = useState(false);
-  const helpId = useId();
-  const Icon = TILE_ICONS[tile.key];
+function TileRow({ tile }: { tile: Tile }) {
+  const Icon = tile.icon;
   const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
-  // The icon sits beside the number, as in Design's mock; the label has its row to itself.
-  const body = <><span className="ow-tile-row"><span className="ow-tile-n">{value}</span><Icon size={22} aria-hidden="true" focusable="false" /></span>
-    <span className="ow-tile-note">{tile.note}{tile.href && <span className="ow-tile-go" aria-hidden="true">›</span>}</span></>;
-  return (
-    <div className="ow-tile">
-      <h3 className="ow-tile-label">{tile.label}</h3>
-      {/* A linked tile's whole body is the link; the „?“ stays its own button on the note row, outside it. */}
-      {tile.href
-        ? <Link className="ow-tile-body ow-tile-link" href={tile.href}><span className="ow-sr">{tile.label.replace(SHY, "")}: </span>{body}</Link>
-        : <div className="ow-tile-body">{body}</div>}
-      <button type="button" className="ow-tile-q" aria-expanded={open} aria-controls={helpId} onClick={() => setOpen(value => !value)}><span aria-hidden="true">?</span><span className="ow-sr">So zählen wir „{tile.label.replace(SHY, "")}“</span></button>
-      <p id={helpId} className="ow-tile-help" hidden={!open}>{tile.help}</p>
-    </div>
-  );
+  const body = <>
+    <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
+    {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
+    <span className="ow-prog-main">
+      <span className="ow-prog-value" data-big="">{value}</span>
+      <span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span>
+    </span>
+  </>;
+  return tile.href
+    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /></Link>
+    : <div className="ow-prog-row">{body}</div>;
 }
 
 const readSeen = (key: string) => { try { const seen = window.localStorage.getItem(key); return seen === null ? null : Number(seen); } catch { return null; } };
@@ -148,6 +158,47 @@ function CountUp({ value, seenKey }: { value: number; seenKey: string }) {
   return <>{nf.format(shown)}</>;
 }
 
+/**
+ * ENG-095 (rules: Product, 27 Oct): customers back with the win-back bonus or new on a referral, last 30 days at this
+ * location. Exact counts and, for points shops, the till amounts of exactly those bookings; no share, no estimate, and no
+ * coral (nothing here is earned). `all` is the all-card total: euros for till amounts, else bookings.
+ */
+export function Brought({ brought, all, currency }: { brought: BroughtCustomers; all: string; currency: string }) {
+  const [help, setHelp] = useState(false);
+  const titleId = useId();
+  const { revenue, bookings } = brought;
+  const close = () => setHelp(false);
+  return (
+    <section className="ow-brought" aria-labelledby={titleId}>
+      <div className="ow-brought-head">
+        <h2 id={titleId} className="ow-tiles-title">{BROUGHT_COPY.title}</h2>
+        <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „Wieder da oder neu auf Empfehlung“</span></button>
+      </div>
+      <p className="ow-brought-n">{BROUGHT_COPY.customers(brought.customers)}</p>
+      <dl className="ow-brought-lines">
+        <div><dt>{BROUGHT_COPY.winback}</dt><dd>{nf.format(brought.winback)}</dd></div>
+        <div><dt>{BROUGHT_COPY.referral}</dt><dd>{nf.format(brought.referral)}</dd></div>
+        {revenue && bookings > 0 && <div><dt>{BROUGHT_COPY.revenue}</dt><dd>{revenue.pricedBookings > 0 ? formatMinor(revenue.amountMinor, currency) : "–"}</dd><dd>{BROUGHT_COPY.priced(revenue.pricedBookings, bookings)}</dd></div>}
+      </dl>
+      <p className="ow-brought-all">{BROUGHT_COPY.all} <span>{all}</span>. {BROUGHT_COPY.allNote}</p>
+      <Sheet open={help} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
+        <p>{BROUGHT_COPY.howWeCount}</p>
+      </Sheet>
+    </section>
+  );
+}
+
+/** ENG-095 §5: until the location has a brought customer, the block's place names the next step while the bonus is off, never a 0. */
+export function BonusOffBand({ href }: { href: string }) {
+  return (
+    <Link className="ow-brought-off" href={href}>
+      <span><RefreshCw size={22} aria-hidden="true" focusable="false" /></span>
+      <span><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
+      <ArrowRight size={22} aria-hidden="true" focusable="false" />
+    </Link>
+  );
+}
+
 /** A milestone, shown once: a quiet white card above the board, no confetti, no sound (spec §4.3). */
 export function Milestone({ cards, action }: { cards: number; action: () => void }) {
   return (
@@ -158,15 +209,23 @@ export function Milestone({ cards, action }: { cards: number; action: () => void
   );
 }
 
-export type NextAction = { label: string; href: string } | { label: string; onClick: () => void };
-/** „Als Nächstes“: a bar above the bottom navigation on phones, a card in the right column on desktop. */
-export function NextBar({ title, text, action }: { title: string; text?: string; action?: NextAction }) {
+export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
+/** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
+/** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
+export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
+  const body = <>
+    <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
+    <span className="ow-band-text">
+      <b>{title}</b>{text && <small>{text}</small>}
+      {action && <span className="ow-band-go">{action.label}<ArrowRight size={20} aria-hidden="true" focusable="false" /></span>}
+    </span>
+  </>;
   return (
-    <section className="ow-nextbar" aria-label="Als Nächstes">
-      <p><b>{title}</b>{text}</p>
-      {action && ("href" in action
-        ? <Link className="ow-btn ow-btn--primary ow-btn--sm" href={action.href}>{action.label}</Link>
-        : <button type="button" className="ow-btn ow-btn--primary ow-btn--sm" onClick={action.onClick}>{action.label}</button>)}
+    <section className="ow-next" aria-label="Als Nächstes">
+      {!action ? <div className="ow-band">{body}</div>
+        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
+          : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
+      {children}
     </section>
   );
 }

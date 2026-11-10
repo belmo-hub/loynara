@@ -12,6 +12,7 @@ type RegistrationInput = PassInput & { deviceId: string; pushToken: string };
 
 const serialPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const devicePattern = /^[A-Za-z0-9._-]{1,200}$/;
+const MAX_DEVICES_PER_PASS = 10;
 
 export type ApplePassView =
   | { kind: "active"; passId: string; updatedAt: Date; pass: WalletPassData }
@@ -29,10 +30,10 @@ export function validAppleDeviceId(deviceId: string) { return devicePattern.test
 export async function authenticatedApplePass(input: PassInput, config: ApplePassConfig): Promise<ApplePassView> {
   const token = /^ApplePass ([A-Za-z0-9_-]{16,100})$/.exec(input.authorization)?.[1];
   if (input.passTypeId !== config.passTypeId || !token || !serialPattern.test(input.serial) || !validApplePassToken(input.serial, token, config)) {
-    throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+    throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   }
   const [row] = await db.select().from(walletPasses).where(and(eq(walletPasses.id, input.serial), eq(walletPasses.provider, "apple")));
-  if (!row) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  if (!row) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   const snapshot = await walletCardSnapshot(row.membershipId);
   if (row.revokedAt === null && snapshot.open && row.credentialHash === snapshot.credentialHash) {
     return { kind: "active", passId: row.id, updatedAt: row.updatedAt, pass: snapshot.pass };
@@ -48,11 +49,15 @@ export async function registerAppleDevice(input: RegistrationInput, config: Appl
   if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
   if (!/^[a-f0-9]{32,300}$/i.test(input.pushToken)) throw new DomainError("INVALID_TOKEN", "Invalid Apple push token");
   const view = await authenticatedApplePass(input, config);
-  if (view.kind !== "active") throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+  if (view.kind !== "active") throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
   return db.transaction(async (tx) => {
     // Lock the pass row: a concurrent reissue/closure revokes it, and then no new registration may appear.
     const [row] = await tx.select().from(walletPasses).where(eq(walletPasses.id, view.passId)).for("update");
-    if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Invalid pass authentication");
+    if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
+    // One person's phone, watch and tablet, with room to spare. Without a limit one pass token could register any number
+    // of made-up devices, and every update of the pass would then push to each of them. Counted under the pass row lock.
+    const held = await tx.select({ deviceId: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.serialNumber, row.id));
+    if (held.length >= MAX_DEVICES_PER_PASS && !held.some(registered => registered.deviceId === input.deviceId)) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
     if (row.status === "pending" || row.status === "downloaded") await tx.update(walletPasses).set({ status: "registered" }).where(eq(walletPasses.id, row.id));
     await tx.insert(appleDevices).values({ deviceLibraryIdentifier: input.deviceId, pushToken: input.pushToken })
       .onConflictDoUpdate({ target: appleDevices.deviceLibraryIdentifier, set: { pushToken: input.pushToken, updatedAt: new Date() } });
@@ -67,9 +72,15 @@ export async function unregisterAppleDevice(input: Omit<RegistrationInput, "push
   if (!validAppleDeviceId(input.deviceId)) throw new DomainError("INVALID_DEVICE", "Invalid device identifier");
   await authenticatedApplePass(input, config);
   await db.transaction(async (tx) => {
-    await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId), eq(appleRegistrations.passTypeIdentifier, input.passTypeId), eq(appleRegistrations.serialNumber, input.serial)));
+    const removed = await tx.delete(appleRegistrations).where(and(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId), eq(appleRegistrations.passTypeIdentifier, input.passTypeId), eq(appleRegistrations.serialNumber, input.serial)))
+      .returning({ serial: appleRegistrations.serialNumber });
     const other = await tx.select({ id: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.deviceLibraryIdentifier, input.deviceId)).limit(1);
     if (!other.length) await tx.delete(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, input.deviceId));
+    // The last device let go of the pass: the removal report of owner messages counts this like PassFast's device event.
+    if (removed.length) await tx.execute(sql`INSERT INTO wallet_pass_events (pass_id, tenant_id, event, event_at)
+      SELECT p.id, p.tenant_id, 'device.unregistered', clock_timestamp() FROM wallet_passes p
+      WHERE p.id = ${input.serial}::uuid AND NOT EXISTS (SELECT 1 FROM apple_registrations a WHERE a.membership_id = p.membership_id AND a.serial_number = p.id::text)
+      ON CONFLICT ON CONSTRAINT wallet_pass_event_once_uq DO NOTHING`);
   });
 }
 

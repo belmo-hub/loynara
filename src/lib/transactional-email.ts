@@ -1,8 +1,9 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { emailDeliveries, emailProviderEvents, emailSuppressions } from "@/db/schema";
+import { emailDeliveries, emailProviderEvents, emailSuppressions, emailUnsubscribes, outboxJobs } from "@/db/schema";
+import { withdrawEmailMarketingConsent } from "./unsubscribe";
 import { localMailAllowed, sendLocalMailpit, syntheticAddress, type LocalMessage } from "./email";
 import { mailgunConfig } from "./email-configuration";
 
@@ -36,10 +37,26 @@ export function promotionalEmailMode(env = process.env): EmailMode {
   return "disabled";
 }
 
-export function recipientHash(email: string) {
-  const secret = process.env.BETTER_AUTH_SECRET;
+const hashWith = (secret: string | undefined, email: string) => {
   if (!secret || secret.length < 32) throw new Error("Recipient hash secret unavailable");
   return createHmac("sha256", secret).update("email-recipient-v1:\0").update(email.trim().toLowerCase()).digest("hex");
+};
+
+/** The address's hash for every new delivery, suppression and unsubscribe: its own key (ENG-170), so rotating the login secret changes nothing. */
+export function recipientHash(email: string) {
+  return hashWith(process.env.SUPPRESSION_HASH_SECRET || process.env.BETTER_AUTH_SECRET, email);
+}
+
+/**
+ * Every hash a stored row for this address may carry: the current key, and rows written before ENG-170 under the login
+ * secret of that time. A hash cannot be re-keyed, so lookups match both (§ 7 UWG: an opt-out must hold through a rotation).
+ * That old key is SUPPRESSION_LEGACY_HASH_SECRET: before BETTER_AUTH_SECRET is rotated, copy its current value there, or every
+ * pre-ENG-170 row stops matching. Unset, it is BETTER_AUTH_SECRET itself.
+ * TODO(ENG-170): drop the old-key hash once every row written under it is older than 24 months (or now, if only demo rows
+ * exist): count `email_suppressions` and `email_unsubscribes` rows created before the deploy that set SUPPRESSION_HASH_SECRET.
+ */
+export function recipientHashes(email: string) {
+  return [...new Set([recipientHash(email), hashWith(process.env.SUPPRESSION_LEGACY_HASH_SECRET || process.env.BETTER_AUTH_SECRET, email)])];
 }
 
 export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch, purpose: "transactional" | "promotional" = "transactional"): TransactionalEmailProvider | null {
@@ -47,7 +64,9 @@ export function mailgunEuProvider(env = process.env, http: typeof fetch = fetch,
   if (!config) return null;
   return { name: "mailgun_eu", async send(message) {
     const body = new FormData();
-    body.set("from", config.from);
+    // RFC 5322 quoted display name: control characters (header breaks) become spaces, quotes and backslashes are escaped.
+    const name = message.fromName?.replace(/\p{Cc}/gu, " ").replace(/["\\]/g, "\\$&");
+    body.set("from", name ? `"${name}" <${config.from}>` : config.from);
     body.set("to", message.to);
     body.set("subject", message.subject);
     body.set("text", message.body);
@@ -98,8 +117,9 @@ function sendManaged(message: TransactionalMessage, provider: TransactionalEmail
 async function sendManaged(message: TransactionalMessage, provider: TransactionalEmailProvider | null, purpose: "transactional" | "promotional"): Promise<PromotionalResult> {
   if (!provider) return { status: "blocked" as const, reason: "Email provider unavailable" };
   const hash = recipientHash(message.to);
-  const [suppression] = await db.select().from(emailSuppressions).where(eq(emailSuppressions.recipientHash, hash));
-  // Promotional unsubscribe is not a withdrawal of requested recovery mail.
+  // Global rows: permanent failures and complaints, plus pre-ENG-170 unsubscribes no shop could be found for (marketing only).
+  // A shop's own unsubscribe is checked by its campaigns and automations. An unsubscribe never withdraws requested recovery mail.
+  const [suppression] = await db.select().from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, recipientHashes(message.to)));
   if (suppression && (purpose === "promotional" || suppression.reason !== "unsubscribed")) return { status: "suppressed" as const, reason: "Recipient suppressed" };
   const reservation = db.insert(emailDeliveries).values({ jobId: message.jobId, provider: provider.name, recipientHash: hash, status: "sending" });
   const sameRejectedDelivery = and(eq(emailDeliveries.jobId, message.jobId), eq(emailDeliveries.provider, provider.name),
@@ -197,7 +217,9 @@ export async function recordMailgunWebhook(input: unknown) {
     const delivery = matches[0];
     if (delivery && jobMatch && delivery.jobId !== jobId) return;
     if (delivery?.providerMessageId && messageIds.length && !messageIds.includes(delivery.providerMessageId)) return;
-    if (delivery && event.recipient && recipientHash(event.recipient) !== delivery.recipientHash) return;
+    // A delivery reserved before ENG-170 carries the old-key hash.
+    const sameRecipient = (recipient: string | undefined) => !!recipient && !!delivery && recipientHashes(recipient).includes(delivery.recipientHash);
+    if (delivery && event.recipient && !sameRecipient(event.recipient)) return;
     const inserted = await tx.insert(emailProviderEvents).values({ id, signatureTokenHash, jobId: delivery?.jobId ?? null, event: event.event }).onConflictDoNothing().returning({ id: emailProviderEvents.id });
     if (!inserted.length) return;
     if (!delivery) return;
@@ -210,15 +232,29 @@ export async function recordMailgunWebhook(input: unknown) {
     if (shouldAdvance) {
       await tx.update(emailDeliveries).set({ status: mapped, retryAt: null, updatedAt: new Date() }).where(eq(emailDeliveries.jobId, delivery.jobId));
     }
-    if (["permanent_fail", "complained", "unsubscribed"].includes(event.event) && event.recipient && recipientHash(event.recipient) === delivery.recipientHash) {
-      // A marketing unsubscribe must not downgrade a complaint/permanent
-      // failure and thereby re-enable transactional recovery mail. PostgreSQL
-      // rechecks the guard under the conflicting recipient row lock.
-      await tx.insert(emailSuppressions).values({ recipientHash: recipientHash(event.recipient), reason: event.event }).onConflictDoUpdate({
-        target: emailSuppressions.recipientHash, set: { reason: event.event },
-        setWhere: eq(emailSuppressions.reason, "unsubscribed"),
-      });
+    if (event.recipient && sameRecipient(event.recipient)) {
+      // New rows always carry the current key's hash, whichever key the delivery was reserved under.
+      const hash = recipientHash(event.recipient);
+      if (event.event === "unsubscribed") {
+        // The shop is the one whose job sent this mail, from our own record, never from the provider's payload.
+        const [job] = await tx.select({ tenantId: outboxJobs.tenantId, kind: outboxJobs.kind, payload: outboxJobs.payload }).from(outboxJobs).where(eq(outboxJobs.id, delivery.jobId));
+        if (job) {
+          await tx.insert(emailUnsubscribes).values({ tenantId: job.tenantId, recipientHash: hash }).onConflictDoNothing();
+          // Like the shop's own unsubscribe link: the withdrawal holds even if every hash were lost (§ 7 UWG).
+          if (["email.campaign", "email.automation"].includes(job.kind) && typeof job.payload.membershipId === "string") await withdrawEmailMarketingConsent(tx, job.tenantId, job.payload.membershipId);
+        }
+      } else if (["permanent_fail", "complained"].includes(event.event)) {
+        await tx.insert(emailSuppressions).values({ recipientHash: hash, reason: event.event }).onConflictDoUpdate({
+          target: emailSuppressions.recipientHash, set: { reason: event.event, lastEventAt: sql`now()` },
+        });
+      }
     }
   });
   return { accepted: true as const };
+}
+
+/** Daily: a permanent failure or complaint is forgotten 24 months after its last event (Legal, ENG-170). */
+export async function pruneEmailSuppressions(now = new Date()) {
+  const removed = await db.delete(emailSuppressions).where(lt(emailSuppressions.lastEventAt, sql`${now}::timestamptz - interval '24 months'`)).returning({ hash: emailSuppressions.recipientHash });
+  return removed.length;
 }

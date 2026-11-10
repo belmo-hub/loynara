@@ -3,9 +3,10 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, ledgerEntries, membershipContacts, outboxJobs, staffRoles } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailProviderEvents, emailSuppressions, emailUnsubscribes, ledgerEntries, locations, membershipContacts, outboxJobs, staffRoles, tenants } from "@/db/schema";
+import { fillSender } from "./sender-test-support";
 import { createMerchant, enroll } from "./product";
 import { type LocalMessage } from "./email";
 import { cancelCampaign, createDraftCampaign, dispatchCampaign, deliverCampaignRecipient, editDraftCampaign, getCampaign, listCampaigns, pauseCampaign, previewCampaign, scheduleCampaign } from "./campaigns";
@@ -40,6 +41,7 @@ async function fixture() {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await fillSender(ownerId, { locationId: merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   return { ownerId, merchant };
 }
 
@@ -71,11 +73,14 @@ describe("local campaign core", () => {
     process.env.PROMOTIONAL_UNSUBSCRIBE_SECRET = "synthetic-dedicated-unsubscribe-secret-long-enough";
     const provider = { name: "mailgun_eu" as const, send: vi.fn(async (message: LocalMessage) => {
       expect(message.to).toBe("owner-controlled@example.test");
-      expect(message.body).toContain("Synthetic Café");
-      expect(message.body).toContain("Angebote abbestellen:");
       expect(message.unsubscribeUrl).toContain("https://unsubscribe.example.test/unsubscribe#token=");
+      expect(message.fromName).toBe("Synthetic Café via Loynara");
+      // Legal's footer, verbatim, with every optional part filled (the automations test has them empty).
+      expect(message.body).toBe(`${draftFields.body}\n\nDiese E-Mail kommt von Synthetic Café, GmbH, vertreten durch Erika Muster, Friedrich-Ebert-Straße 12, 34117 Kassel. Kontakt: hallo@synthetic-cafe.example.test, 0561 123456. Registergericht: Amtsgericht Kassel, HRB 12345. USt-IdNr.: DE123456789\nDu bekommst diese E-Mail, weil du auf deiner Karte E-Mails von Synthetic Café bestellt hast. Abmelden: ${message.unsubscribeUrl} · Datenschutz: https://test.example.test/datenschutz`);
+      expect(message.body).not.toContain(card.cardToken);
       return { state: "accepted" as const, messageId: "<synthetic-promo@example.test>" };
     }) };
+    await fillSender(f.ownerId, { locationId: f.merchant.locationId, street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactEmail: " hallo@synthetic-cafe.example.test ", contactPhone: "0561 123456", legalForm: "GmbH", registerCourt: "Amtsgericht Kassel", registerNumber: "HRB 12345", vatId: "de 123 456 789" });
     const first = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
     const when = new Date(Date.now() + 1_000);
     await scheduleCampaign({ actorUserId: f.ownerId, campaignId: first.id, scheduledAt: when });
@@ -211,12 +216,57 @@ describe("local campaign core", () => {
     }
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ to: "first@example.test" });
-    expect(send.mock.calls[0][0].body).toContain("Angebote abbestellen:");
+    expect(send.mock.calls[0][0].body).toContain("Abmelden:");
     expect((await db.select().from(campaignRecipients)).map(row => row.status).sort()).toEqual(["complete", "suppressed"]);
     expect(await db.select().from(campaignAttempts)).toHaveLength(2);
     expect((await getCampaign({ actorUserId: f.ownerId, campaignId: campaign.id })).summary).toMatchObject({ sent: 1, suppressed: 1, queued: 0 });
     expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(2);
     expect([first.id, second.id].sort()).toEqual((await db.select().from(campaignRecipients)).map(row => row.membershipId).sort());
+  });
+
+  it("blocks at dispatch a campaign whose sender became incomplete after scheduling: no quota, nothing queued (Reviewer N-1)", async () => {
+    const f = await fixture();
+    await member(f.merchant.programSlug, "late@example.test", true, true);
+    const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+    await db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId));
+    const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Sender details missing" });
+    expect((await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, campaign.id)))[0].status).toBe("blocked");
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+    expect(await db.select().from(campaignDailyUsage)).toHaveLength(0);
+  });
+
+  it("refuses to schedule while a required sender field is missing, naming it, and suppresses what was queued before", async () => {
+    const where = (f: Awaited<ReturnType<typeof fixture>>) => eq(locations.id, f.merchant.locationId);
+    const drops: Array<[string, (f: Awaited<ReturnType<typeof fixture>>) => Promise<unknown>]> = [
+      ["Anschrift", f => db.update(locations).set({ street: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ postalCode: null }).where(where(f))],
+      ["Anschrift", f => db.update(locations).set({ city: "" }).where(where(f))],
+      ["Vertreten durch", f => db.update(tenants).set({ representative: null }).where(eq(tenants.id, f.merchant.tenantId))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null, contactPhone: null }).where(where(f))],
+      ["Kontakt", f => db.update(locations).set({ contactEmail: null }).where(where(f))],
+      ["Registergericht und Registernummer", f => db.update(tenants).set({ legalForm: "GmbH", registerCourt: null, registerNumber: null }).where(eq(tenants.id, f.merchant.tenantId))],
+    ];
+    for (const [label, drop] of drops) {
+      await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE');
+      const f = await fixture();
+      await member(f.merchant.programSlug, "first@example.test", true, true);
+      const queued = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+      const when = new Date(Date.now() + 1_000);
+      await scheduleCampaign({ actorUserId: f.ownerId, campaignId: queued.id, scheduledAt: when });
+      const [dispatchJob] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+      await dispatchCampaign({ id: dispatchJob.id, tenantId: f.merchant.tenantId, payload: dispatchJob.payload }, new Date(when.getTime() + 1_000));
+      await drop(f);
+      const draft = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+      await expect(scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: when }), label).rejects.toMatchObject({ code: "ADDRESS_REQUIRED", message: expect.stringContaining(label) });
+      expect((await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug })).find(row => row.id === draft.id)?.status, label).toBe("draft");
+      const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+      const send = vi.fn(async (message: LocalMessage) => { void message; });
+      expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, send), label).toEqual({ status: "suppressed", reason: "Shop address missing" });
+      expect(send, label).not.toHaveBeenCalled();
+    }
   });
 
   it("suppresses a queued message when the member leaves the selected audience before delivery", async () => {
@@ -585,4 +635,63 @@ it("rechecks a real opt-out on the second audience page after preview and before
   expect(await db.select().from(campaignRecipients)).toEqual([expect.objectContaining({tenantId:f.merchant.tenantId,membershipId:boundary[1].id})]);
   expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind,"email.campaign"))).toHaveLength(1);
   expect((await db.select().from(campaignDailyUsage))[0].queued).toBe(1);
+});
+
+describe("content rules for campaign text (ENG-163, Legal 1 Nov)", () => {
+  it("refuses tobacco in the subject or body on save and edit, and blocks a scheduled campaign whose text breaks the rules", async () => {
+    const f = await fixture();
+    const base = { actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields };
+    await expect(createDraftCampaign({ ...base, subject: "Neu: E-Zigaretten" })).rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    await expect(createDraftCampaign({ ...base, body: "Diese Woche Tabak zum Sonderpreis an der Kasse." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    const draft = await createDraftCampaign(base);
+    const { programSlug: _slug, ...edit } = base; void _slug;
+    await expect(editDraftCampaign({ ...edit, campaignId: draft.id, body: "Jetzt mit Vapes im Sortiment." })).rejects.toMatchObject({ code: "MESSAGE_REFUSED" });
+    // A text saved before the rule (or changed outside the app) is caught when the campaign goes out.
+    await member(f.merchant.programSlug, "rules@example.test", true, true);
+    const when = new Date(Date.now() + 1_000);
+    await scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: when });
+    await db.update(campaigns).set({ body: "Ab heute Zigaretten an der Kasse." }).where(eq(campaigns.id, draft.id));
+    const dispatch = (await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"))).at(-1)!;
+    expect(await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000))).toMatchObject({ status: "blocked", reason: "Campaign text breaks the content rules" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+    expect((await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, draft.id)))[0].status).toBe("blocked");
+    // The owner's list says it was blocked and why.
+    const listed = await listCampaigns({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug });
+    expect(listed.find(campaign => campaign.id === draft.id)).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    expect((await getCampaign({ actorUserId: f.ownerId, campaignId: draft.id })).campaign).toMatchObject({ status: "blocked", blockedReason: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    // A blocked campaign stays blocked: it can be neither scheduled again nor edited (Reviewer N-2).
+    await expect(scheduleCampaign({ actorUserId: f.ownerId, campaignId: draft.id, scheduledAt: new Date(Date.now() + 60_000) })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
+    await expect(editDraftCampaign({ ...edit, campaignId: draft.id })).rejects.toMatchObject({ code: "CAMPAIGN_LOCKED" });
+    expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"))).toHaveLength(0);
+  });
+});
+
+it("an unsubscribe from one shop's mail leaves the same address eligible for another shop (ENG-170)", async () => {
+  const a = await fixture(); const b = await fixture();
+  for (const f of [a, b]) await member(f.merchant.programSlug, "shared@example.test", true, true);
+  await db.insert(emailUnsubscribes).values({ tenantId: a.merchant.tenantId, recipientHash: recipientHash("shared@example.test") });
+  const preview = (f: Awaited<ReturnType<typeof fixture>>) => previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: { kind: "all" } });
+  expect(await preview(a)).toMatchObject({ eligibleCount: 0, excludedCountsByReason: { unsubscribed: 1 } });
+  expect(await preview(b)).toMatchObject({ eligibleCount: 1 });
+});
+
+it("a provider-reported unsubscribe also withdraws the card's marketing consent, so the shop stays blocked even if every hash were lost (ENG-170)", async () => {
+  const f = await fixture();
+  const card = await member(f.merchant.programSlug, "provider-unsub@example.test", true, true);
+  Object.assign(process.env, { PUBLIC_BASE_URL: "https://test.example.test", EXTERNAL_EMAIL_ENABLED: "true", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "true", MAILGUN_PROMOTIONAL_SEND_APPROVED: "true", MAILGUN_SEND_APPROVED: "true", MAILGUN_EU_DOMAIN: "mail.example.test", MAILGUN_FROM_EMAIL: "service@mail.example.test", MAILGUN_EU_API_KEY: "synthetic-key", MAILGUN_EU_WEBHOOK_SIGNING_KEY: "synthetic-signing-key-long-enough", PROMOTIONAL_MONTHLY_LOCATION_LIMIT: "100", PROMOTIONAL_CUSTOMER_COOLDOWN_HOURS: "24", PROMOTIONAL_UNSUBSCRIBE_ORIGIN: "https://unsubscribe.example.test", PROMOTIONAL_UNSUBSCRIBE_SECRET: "synthetic-dedicated-unsubscribe-secret-long-enough" });
+  const provider = { name: "mailgun_eu" as const, send: vi.fn(async () => ({ state: "accepted" as const, messageId: `<${randomUUID()}@example.test>` })) };
+  const campaign = await createDraftCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, ...draftFields });
+  const when = new Date(Date.now() + 1_000);
+  await scheduleCampaign({ actorUserId: f.ownerId, campaignId: campaign.id, scheduledAt: when });
+  const [dispatch] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "campaign.dispatch"));
+  await dispatchCampaign({ id: dispatch.id, tenantId: dispatch.tenantId, payload: dispatch.payload }, new Date(when.getTime() + 1_000));
+  const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.campaign"));
+  expect(await deliverCampaignRecipient({ id: job.id, tenantId: job.tenantId, payload: job.payload, attempts: 1 }, undefined, provider)).toMatchObject({ status: "complete" });
+  const timestamp = String(Math.floor(Date.now() / 1000)), token = randomBytes(25).toString("hex");
+  await recordMailgunWebhook({ signature: { timestamp, token, signature: createHmac("sha256", process.env.MAILGUN_EU_WEBHOOK_SIGNING_KEY!).update(timestamp + token).digest("hex") }, "event-data": { id: randomUUID(), event: "unsubscribed", recipient: "provider-unsub@example.test", "user-variables": { job_id: job.id } } });
+  const consent = await db.select().from(consentEvents).where(and(eq(consentEvents.membershipId, card.id), eq(consentEvents.granted, false)));
+  expect(consent).toEqual([expect.objectContaining({ tenantId: f.merchant.tenantId, channel: "email", purpose: "marketing", source: "email_unsubscribe" })]);
+  // Every hash gone (a key rotation, a restore): the consent withdrawal alone still blocks.
+  await db.delete(emailUnsubscribes);
+  expect(await previewCampaign({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, audienceDefinition: { kind: "all" } })).toMatchObject({ eligibleCount: 0, excludedCountsByReason: { unsubscribed: 1 } });
 });

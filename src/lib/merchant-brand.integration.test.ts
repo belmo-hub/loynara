@@ -1,14 +1,20 @@
-import { randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { createHmac, randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
-import { staffRoles } from "@/db/schema";
-import { createMerchant, enroll, getCard, getPublicProgram } from "./product";
+import { locations, staffRoles } from "@/db/schema";
+import { createAdditionalLocation } from "./locations";
+import { createMerchant, enroll, getCard, getMerchantContext, getPublicProgram } from "./product";
+import sharp from "sharp";
 import { getMerchantBrand, updateMerchantBrand } from "./merchant-brand";
+import { ownerWalletReadiness } from "./wallet/readiness";
 import { walletPassDataByMembershipId } from "./wallet/data";
 import { GET as getGoogleLogo } from "@/app/api/wallet/assets/google-logo/[programId]/route";
+import { GET as getGoogleWideLogo } from "@/app/api/wallet/assets/google-wide-logo/[programId]/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Brand tests require looplocal_test");
-const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
+// A 32 x 32 red square: big enough for the 16 px minimum; the save path stores it re-encoded (ENG-134).
+const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAARUlEQVRYhe3XsREAMAhC0ezDBGzvZmaLpHmFvXcifM40+3OOBcYJSoTxhsuIhhVXGEUcLyAZSFZQGli+ismoZlVO81wHF3vljHlao/5+AAAAAElFTkSuQmCC";
 
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
 afterAll(async () => { await pool.end(); });
@@ -25,6 +31,25 @@ async function fixture() {
 }
 
 describe("merchant brand editor", () => {
+  it("setup validates the logo like the studio: a renamed JPEG is refused (ENG-134)", async () => {
+    const ownerId = randomUUID();
+    await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic setup owner", `${ownerId}@example.test`]);
+    const jpeg = await sharp({ create: { width: 32, height: 32, channels: 3, background: "#c0392b" } }).jpeg().toBuffer();
+    await expect(createMerchant({
+      userId: ownerId, businessName: "Renamed Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
+      programName: "Card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,
+      logoData: `data:image/png;base64,${jpeg.toString("base64")}`,
+    })).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  });
+
+  it("readiness says low_contrast for a dark wordmark on a dark colour, and the brand read says so too (ENG-134)", async () => {
+    const { ownerId, merchant } = await fixture();
+    const dark = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120"><g fill="#111"><rect width="100" height="120"/><rect x="130" y="30" width="100" height="90"/><rect x="260" width="100" height="60"/></g></svg>`)).png().toBuffer();
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#1f4a3a", logoData: `data:image/png;base64,${dark.toString("base64")}` });
+    expect(await ownerWalletReadiness({ actorUserId: ownerId, programSlug: merchant.programSlug })).toMatchObject({ logo: "low_contrast" });
+    expect((await getMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug })).logoWallet).toMatchObject({ faint: true, showName: true });
+  });
+
   it("persists owner edits and exposes them on the actual public programme and card", async () => {
     const { ownerId, merchant } = await fixture();
     const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
@@ -32,7 +57,7 @@ describe("merchant brand editor", () => {
       actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "After Café", locationName: "After Mitte",
       brandColor: "#1f4d3f", logoData: tinyPng,
     });
-    expect(saved).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f", logoData: tinyPng });
+    expect(saved).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f", logoData: expect.stringMatching(/^data:image\/png;base64,/), logoWallet: { showName: true, faint: false, upscaled: true } });
     expect(await getMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug })).toMatchObject(saved);
     expect(await getPublicProgram(merchant.programSlug)).toMatchObject({ businessName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f" });
     expect(await getCard(card.cardToken)).toMatchObject({ merchantName: "After Café", locationName: "After Mitte", brandColor: "#1f4d3f" });
@@ -49,6 +74,30 @@ describe("merchant brand editor", () => {
     await expect(getMerchantBrand({ actorUserId: cashier, programSlug: first.merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(updateMerchantBrand({ actorUserId: otherOwner, programSlug: first.merchant.programSlug, businessName: "Unauthorized", locationName: "Nope", brandColor: "#123456" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(updateMerchantBrand({ actorUserId: first.ownerId, programSlug: first.merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#123456", logoData: "data:image/png;base64,ZmFrZQ==" })).rejects.toMatchObject({ code: "INVALID_LOGO" });
+    // A non-owner never reaches the image decoder: the ownership check answers first (ENG-134).
+    await expect(updateMerchantBrand({ actorUserId: otherOwner, programSlug: first.merchant.programSlug, businessName: "Unauthorized", locationName: "Nope", brandColor: "#123456", logoData: "data:image/png;base64,ZmFrZQ==" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("puts the colour, never the logo, into /api/me for exactly the people the brand read lets in", async () => {
+    const { ownerId, merchant } = await fixture();
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#1f4d3f", logoData: tinyPng });
+    const north = await createAdditionalLocation(ownerId, { name: "Before Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin", programName: "North card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 });
+    await updateMerchantBrand({ actorUserId: ownerId, programSlug: north.programSlug, businessName: "Before Café", locationName: "Before Nord", brandColor: "#a8492c" });
+    const staff = { manager: randomUUID(), cashier: randomUUID() };
+    for (const [role, id] of Object.entries(staff)) {
+      await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [id, `Synthetic ${role}`, `${id}@example.test`]);
+      await db.insert(staffRoles).values({ tenantId: merchant.tenantId, locationId: merchant.locationId, userId: id, role });
+    }
+    expect(await getMerchantContext(ownerId)).toMatchObject({ locationId: merchant.locationId, brandColor: "#1f4d3f" });
+    expect(await getMerchantContext(ownerId, north.locationId)).toMatchObject({ locationId: north.locationId, brandColor: "#a8492c" });
+    for (const id of Object.values(staff)) {
+      await expect(getMerchantBrand({ actorUserId: id, programSlug: merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect((await getMerchantContext(id))?.brandColor).toBeUndefined();
+    }
+    for (const id of [ownerId, ...Object.values(staff)]) expect(JSON.stringify(await getMerchantContext(id))).not.toContain("data:image/png");
+    // The column has no CHECK: a stored value that is not #RRGGBB is left out, so the preview keeps its fallback colour.
+    await db.update(locations).set({ brandColor: "red" }).where(eq(locations.id, merchant.locationId));
+    expect((await getMerchantContext(ownerId))?.brandColor).toBeUndefined();
   });
 
   it("keeps the Google PNG route disabled by default and resolves a saved merchant logo only with an approved origin", async () => {
@@ -70,11 +119,55 @@ describe("merchant brand editor", () => {
       expect(response.headers.get("content-type")).toBe("image/png");
       expect(Buffer.from(await response.arrayBuffer()).toString("hex", 0, 8)).toBe("89504e470d0a1a0a");
       expect((await getGoogleLogo(request, { params: Promise.resolve({ programId: `${randomUUID()}.png` }) })).status).toBe(404);
+      // ENG-153: a square logo has no wide asset; a wide one gets the 1280 x 400 PNG and the initial in the circle.
+      expect(pass.googleWideLogoUrl).toBeUndefined();
+      expect((await getGoogleWideLogo(request, routeContext)).status).toBe(404);
+      const wide = await sharp({ create: { width: 600, height: 150, channels: 4, background: "#ffffff" } }).png().toBuffer();
+      await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#2f6b58", logoData: `data:image/png;base64,${wide.toString("base64")}` });
+      const widePass = await walletPassDataByMembershipId(card.id);
+      expect(widePass.googleWideLogoUrl).toMatch(new RegExp(`/api/wallet/assets/google-wide-logo/${merchant.programId}\\.png\\?v=[0-9a-f]{16}$`));
+      const wideResponse = await getGoogleWideLogo(request, routeContext);
+      expect(wideResponse.status).toBe(200);
+      expect(await sharp(Buffer.from(await wideResponse.arrayBuffer())).metadata()).toMatchObject({ width: 1280, height: 400, hasAlpha: true });
+      expect(await sharp(Buffer.from(await (await getGoogleLogo(request, routeContext)).arrayBuffer())).metadata()).toMatchObject({ width: 660, height: 660 });
     } finally {
       if (previousEnabled === undefined) delete process.env.GOOGLE_WALLET_ASSET_ENABLED;
       else process.env.GOOGLE_WALLET_ASSET_ENABLED = previousEnabled;
       if (previousOrigin === undefined) delete process.env.GOOGLE_WALLET_ASSET_ORIGIN;
       else process.env.GOOGLE_WALLET_ASSET_ORIGIN = previousOrigin;
     }
+  });
+
+  it("limits each address to 120 units of logo work in 15 minutes across both public Google routes; remembered logos stay free (ENG-161)", async () => {
+    // Local ingress: every request is the one "untrusted-peer" address, as the limiter keys it.
+    const key = createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update("wallet_google_logo_peer").update("\0").update("untrusted-peer").digest("hex");
+    const clear = () => pool.query("delete from rate_limits where key_hash = $1", [key]);
+    // A colour no other test uses, so this logo is not yet remembered by the process.
+    const uniqueLogo = async () => `data:image/png;base64,${(await sharp({ create: { width: 64, height: 64, channels: 4, background: `#${randomUUID().slice(0, 6)}` } }).png().toBuffer()).toString("base64")}`;
+    // Saved through the studio, the logo is processed (and remembered) at save time; written straight to the row, it is not.
+    const saved = async (through: "studio" | "row") => {
+      const { ownerId, merchant } = await fixture();
+      if (through === "studio") await updateMerchantBrand({ actorUserId: ownerId, programSlug: merchant.programSlug, businessName: "Before Café", locationName: "Before Mitte", brandColor: "#2f6b58", logoData: await uniqueLogo() });
+      else await db.update(locations).set({ logoData: await uniqueLogo() }).where(eq(locations.id, merchant.locationId));
+      return merchant.programId;
+    };
+    const known = await saved("studio");
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ENABLED", "true");
+    vi.stubEnv("GOOGLE_WALLET_ASSET_ORIGIN", "https://assets.example.test");
+    await clear();
+    try {
+      const get = (route: typeof getGoogleLogo, programId: string = randomUUID()) => route(new Request("https://assets.example.test/logo.png"), { params: Promise.resolve({ programId: `${programId}.png` }) });
+      for (let i = 0; i < 120; i++) expect((await get(i % 2 ? getGoogleWideLogo : getGoogleLogo)).status).toBe(404); // unknown ids: 1 unit each
+      // Budget spent. Google re-reading the remembered logo is still served...
+      for (let i = 0; i < 3; i++) expect((await get(getGoogleLogo, known)).status).toBe(200);
+      // ...while cycling ids and a logo not processed yet are refused, on both routes.
+      for (const route of [getGoogleLogo, getGoogleWideLogo]) {
+        const limited = await get(route);
+        expect(limited.status).toBe(429);
+        expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+      }
+      const fresh = await saved("row");
+      expect((await get(getGoogleLogo, fresh)).status).toBe(429);
+    } finally { await clear(); vi.unstubAllEnvs(); }
   });
 });

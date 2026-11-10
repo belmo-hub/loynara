@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { cssDeclarations } from "@/styles/raw-values";
 import { readableInk, whiteContrast } from "./color";
 import { activeGroup, groupHref, visibleGroups } from "./nav";
-import { confirmSentence, earningSentence, minimumSpendMinor, parseGermanMoney, parseWholeNumber, purchaseExample } from "./program-helpers";
+import { confirmSentence, earningSentence, minimumSpendMinor, parseGermanMoney, parseWholeNumber, purchaseExample, QUESTIONS } from "./program-helpers";
 
 describe("purchaseExample uses the server's rounding", () => {
   it("accepts German decimals and rounds down", () => {
@@ -44,11 +47,13 @@ describe("input parsing", () => {
 
 describe("rule wording keeps earning and confirmation apart", () => {
   it("never suggests NFC knows an amount", () => {
-    expect(confirmSentence("points", "purchase")).toContain("kennt keinen Betrag");
-    expect(confirmSentence("stamp", "manual")).not.toContain("Betrag");
+    expect(confirmSentence("points", "purchase", true)).toContain("Das NFC-Schild überträgt keinen Betrag.");
+    expect(confirmSentence("points", "purchase", false)).not.toContain("NFC"); // no sign where the deployment hides NFC
+    expect(confirmSentence("stamp", "manual", true)).not.toContain("Betrag");
   });
   it("describes only supported modes", () => {
     expect(earningSentence("points", "purchase", 2, "EUR")).toBe("2 Punkte pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
+    expect(earningSentence("points", "purchase", 1, "EUR")).toBe("1 Punkt pro 1 € Einkaufswert, abgerundet auf ganze Punkte.");
     expect(earningSentence("stamp", "manual", 1, "EUR")).toContain("Stempel");
   });
 });
@@ -66,15 +71,41 @@ describe("colour helpers", () => {
 });
 
 describe("navigation", () => {
-  it("has six destinations for owners and hides owner-only areas from managers", () => {
-    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine", "Aktionen", "Einstellungen"]);
-    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Treueprogramm", "Kunden", "Termine"]);
+  it("has five destinations for owners and hides owner-only areas from managers", () => {
+    expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
+    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden"]);
+  });
+  it("marks the current tab by more than colour: a 56×32 neutral pill behind a 2.5 icon, 800 (I-10, ENG-138)", () => {
+    const rules = cssDeclarations(readFileSync(join(__dirname, "owner.css"), "utf8"));
+    const style = (selector: string) => Object.fromEntries(rules.filter(rule => rule.selector === selector).map(rule => [rule.property, rule.value]));
+    expect(style(".ow-tab-icon")).toMatchObject({ width: "56px", height: "32px", "border-radius": "var(--radius-pill)" });
+    expect(style('.ow-tab[aria-current="page"] .ow-tab-icon')).toMatchObject({ background: "var(--color-fill)" });
+    expect(style('.ow-tab[aria-current="page"] svg')).toMatchObject({ "stroke-width": "2.5" });
+    expect(style('.ow-tab[aria-current="page"]')).toMatchObject({ "font-weight": "var(--weight-heavy)" });
   });
   it("maps every existing merchant URL to a destination", () => {
-    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/termine", "/merchant/termine/einrichten", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
+    const urls = ["/merchant", "/merchant/program", "/merchant/program/card", "/merchant/referrals", "/merchant/customers", "/merchant/customers/import", "/merchant/audiences", "/merchant/campaigns", "/merchant/automations", "/merchant/analytics", "/merchant/adviser", "/merchant/more", "/merchant/settings", "/merchant/settings/cancel", "/merchant/locations", "/merchant/locations/new", "/merchant/locations/x", "/merchant/staff", "/merchant/billing", "/merchant/billing/fixture/x"];
     for (const url of urls) expect(activeGroup(url, "owner"), url).toBeDefined();
   });
   it("links each destination to a page its role can open", () => {
-    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/termine"]).toContain(groupHref(group, "manager"));
+    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers"]).toContain(groupHref(group, "manager"));
+  });
+});
+
+describe("points expiry wording (Legal, 7 Nov)", () => {
+  it("keeps „Alle Punkte davor verfallen nie.“: a change of period restarts the rule, so older points never expire", () => {
+    for (const file of ["program-extras.tsx", "program-rule-changes.tsx"]) expect(readFileSync(join(__dirname, file), "utf8")).toContain("Alle Punkte davor verfallen nie.");
+  });
+});
+
+describe("Legal 6 wording (7 Nov)", () => {
+  it("says the win-back goes once per absence, „je Pause“", () => {
+    expect(readFileSync(join(__dirname, "winback-card.tsx"), "utf8")).toContain("Höchstens einmal je Pause von {last.days} Tagen ohne Buchung, Mo–Sa 10–18 Uhr.");
+  });
+  it("never calls the rules field „Teilnahmebedingungen“ on Standort hinzufügen: it is „Regel auf der Karte“", () => {
+    const page = readFileSync(join(__dirname, "../../app/merchant/locations/new/page.tsx"), "utf8");
+    expect(page).not.toContain("Teilnahmebedingungen");
+    expect(page).toContain("QUESTIONS.rule");
+    expect(QUESTIONS.rule).toBe("Regel auf der Karte");
   });
 });

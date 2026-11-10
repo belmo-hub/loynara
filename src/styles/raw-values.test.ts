@@ -7,30 +7,39 @@ import { applyExceptions, cssFindings, sourceFindings, type Exception } from "./
 // dashboard had grown its own scale next to the tokens; this keeps any stylesheet, inline style or CSS string from doing
 // that again. Each exception names the file, the kind, the exact rule or value and why. Dev-only previews (src/app/dev)
 // and SVG artwork attributes (logos) are not checked.
+// Spacing (SF-7, ENG-137) is checked on the owner screens: stylesheet values on the 4 px scale, and no raw spacing in
+// inline styles at all. The customer, Kasse and ui modules follow in their area tickets (G, H).
 
 const tokens = new Set([...readFileSync(join(__dirname, "tokens.css"), "utf8").matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
 
 // The wallet-pass mocks picture Apple's and Google's passes at a reduced scale, so they follow the platforms.
 const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-row:first-child .ow-pass-field b", ".ow-pass-title", ".ow-pass-field small",
   ".ow-pass-field b", ".ow-pass-primary b", ".ow-pass-logo", ".ow-pass-codewrap", ".ow-pass-code", ".ow-pass-alt", ".ow-pass-module", ".ow-pass-module small",
-  ".ow-pass-issuer img", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
+  ".ow-pass-issuer img", ".ow-pass-mark", ".ow-pass-initial", ".ow-pass-program", ".ow-pass-big small", ".ow-pass-big b"];
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
+const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
+// Spacing that a later ticket owns: the form controls, chips and toast (ENG-139).
+const CONTROLS = [".owner-app summary", ".ow-chip", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button", ".ow-toast"];
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },
   { file: "src/app/global-error.tsx", kind: "colour", selectors: [":root"], reason: "global-error renders without the app's CSS, so it inlines the token values" },
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
-  { file: "src/components/customer/customer-card.module.css", kind: "font size", selectors: [".goalLine"], value: "clamp(1.5rem, 6.6vw, var(--text-28))", reason: "the goal line shrinks on narrow phones so merchant, balance and QR fit 360 × 800" },
-  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small", ".ticketNote"], reason: QR_TICKET },
+  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
+  { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, chips and the toast, ENG-139 (SF-8, SF-9)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [".ow-days"], value: "calc(var(--space-1) - 1px)", reason: "seven 44 px day chips with 3 px gaps fill the panel's 326 px at 390 (Design decision 28)" },
+  { file: "src/components/owner/card-actions.tsx", kind: "spacing", property: "margin", value: "1px", reason: "QRCode.toDataURL's quiet zone in modules, not a style" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
-  { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "rgba(255, 255, 255, .92)", reason: "sight brackets drawn over the live camera image" },
+  { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   { file: "src/components/ui/sheet.module.css", kind: "colour", selectors: [".sheet::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   ...(["colour", "font size"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
@@ -51,13 +60,13 @@ function repositoryFindings() {
   return [
     ...sources.filter(path => path.endsWith(".css")).flatMap(path => cssFindings(path, readFileSync(path, "utf8"), tokens)),
     ...sources.filter(path => /\.tsx?$/.test(path)).flatMap(path => sourceFindings(path, readFileSync(path, "utf8"), tokens)),
-  ];
+  ].filter(finding => finding.kind !== "spacing" || OWNER_UI.test(finding.file.split("\\").join("/")));
 }
 
 describe("raw design values in the repository", () => {
   const { rest, unused } = applyExceptions(repositoryFindings(), EXCEPTIONS);
 
-  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens", () => {
+  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens, spacing from the scale", () => {
     expect(rest.map(f => `${f.file} | ${f.selector} | ${f.property}: ${f.value} (${f.kind})`)).toEqual([]);
   });
 
@@ -89,6 +98,18 @@ describe("the checker", () => {
     expect(tsx('<p style={{ fontSize: "14px" }} />')).toEqual(["font size: font-size"]);
     expect(tsx("<p style={{ zIndex: 3, borderRadius: 8, color: '#123456' }} />")).toEqual(["layer: z-index", "radius: border-radius", "colour: color"]);
     expect(tsx('<p style={{ fontSize: "var(--text-14)", zIndex: "var(--z-nav)" }} />')).toEqual([]);
+  });
+
+  it("flags spacing off the 4 px scale in stylesheets, and any raw spacing in an inline style", () => {
+    expect(css(".a { padding: 14px var(--space-4); gap: 6px; margin: 0 2px 8px; }")).toEqual(["spacing: padding", "spacing: gap", "spacing: margin"]);
+    expect(css(".a { padding: 12px 16px; gap: var(--space-3); margin-left: -6px; padding-left: calc(40px + var(--space-3)); }")).toEqual([]);
+    expect(tsx("<p style={{ marginTop: 8, paddingBlock: '4px', gap: 12 }} />")).toEqual(["spacing: margin-top", "spacing: padding-block", "spacing: gap"]);
+    expect(tsx('<p style={{ margin: 0, gap: "var(--space-2)", padding: "0 var(--space-4)" }} />')).toEqual([]);
+  });
+
+  it("reads an inline style that sits between two quoted attributes (review N-1)", () => {
+    expect(tsx('<div className="a" style={{ marginTop: 8 }} id="b" />')).toEqual(["spacing: margin-top"]);
+    expect(tsx('<p className="a" style={{ color: "#123456" }} id="b" />')).toEqual(["colour: color"]);
   });
 
   it("reads CSS written inside strings", () => {

@@ -5,8 +5,8 @@ test.skip(!MASTER,"Explicit isolated NFC server required");test.beforeEach(reset
 test("customer browser receives activity renewal before cashier approval; reload/card refresh preserve the original cap",async({browser,baseURL})=>{
  const m=await merchantWithTag(baseURL!),customer=await browser.newContext({baseURL});
  try {
- const page=await customer.newPage();await page.goto(pathOf(m.nextUrl()));await page.getByRole("link",{name:"Karte erstellen",exact:true}).click();await page.getByRole("checkbox").first().check();await page.getByRole("button",{name:/Meine Karte erstellen/}).click();
- await expect(page.getByRole("heading",{name:"Warte auf das Team"})).toBeVisible();const number=await customerCardNumber(page);const pending=await pendingOf(m.cashier);expect((await m.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1\s*Stempel$/);
+ const page=await customer.newPage();await page.goto(pathOf(m.nextUrl()));await page.getByRole("link",{name:"Karte erstellen",exact:true}).click();await page.getByRole("button",{name:/Meine Karte erstellen/}).click();
+ await expect(page.getByRole("heading",{name:"Warte auf das Team"})).toBeVisible();const number=await customerCardNumber(page);const pending=await pendingOf(m.cashier);expect((await m.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
  const [member]=await sql<{id:string;card_token:string;card_locator:string}>("SELECT id,card_token,card_locator FROM memberships WHERE program_id=$1",[m.me.programId]);
  const now=Math.floor(Date.now()/1000),issued=now-85*86400;
  const payload=Buffer.from(JSON.stringify({token:member.card_token,issued,active:issued,shared:false})).toString("base64url");

@@ -25,14 +25,14 @@ for(const [index,leave,failure] of [[0,false,false],[1,true,false],[2,true,true]
    const response=await route.fetch();expect(response.status()).toBe(200);expect((await response.json()).url).toMatch(/^https:\/\/pay.google.com\/gp\/v\/save\//);ready();await held;
    try{await route.fulfill(failure?{status:502,json:{code:'WALLET_PROVIDER_ERROR',error:'Synthetic provider unavailable'}}:{response});}catch(error){if(!page.isClosed()&&!String(error).includes('closed'))throw error;}
   });
-  await page.goto('/card/'+encodeURIComponent(member.cardToken));await expect(page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true}).click();await acknowledged;
+  await page.goto('/card/'+encodeURIComponent(member.cardToken));await page.locator('.customer-header').getByRole('button',{name:'In Wallet speichern'}).click();await expect(page.getByRole('button',{name:'Hinzufügen zu Google Wallet',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Hinzufügen zu Google Wallet',exact:true}).click();await acknowledged;await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Karte schließen',exact:true}).click();await page.getByRole('button',{name:'Schließung verbindlich bestätigen',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Karte geschlossen.',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Karte geschlossen',exact:true})).toBeVisible();
   if(leave){await page.getByRole('link',{name:'Datenschutz',exact:true}).click();await expect(page).toHaveURL(baseURL+'/datenschutz');}
   release();await Promise.race([navigated,page.waitForFunction(()=>(window as Window&{walletSettled?:boolean}).walletSettled===true)]);
   expect(navigation).toEqual([]);
-  if(!leave)await expect(page.getByRole('heading',{name:'Karte geschlossen.',exact:true})).toBeVisible();else await expect(page).toHaveURL(baseURL+'/datenschutz');
+  if(!leave)await expect(page.getByRole('heading',{name:'Karte geschlossen',exact:true})).toBeVisible();else await expect(page).toHaveURL(baseURL+'/datenschutz');
   expect((await pool.query('SELECT closed_at IS NOT NULL AS closed FROM memberships WHERE id=$1',[member.id])).rows).toEqual([{closed:true}]);
   expect((await pool.query('SELECT revoked_at IS NOT NULL AS revoked FROM wallet_passes WHERE membership_id=$1',[member.id])).rows).toEqual([{revoked:true}]);
  }finally{release();await context.close();}
@@ -43,10 +43,10 @@ test('current Google issuance recovers from an unconfirmed response with the sam
  try{
   await context.route('https://pay.google.com/**',async route=>{navigated();await route.fulfill({status:200,contentType:'text/html',body:'<h1>Synthetic Google save destination</h1>'});});
   const page=await context.newPage();await page.route('**/api/wallet/google',async route=>{const response=await route.fetch();expect(response.status()).toBe(200);attempts++;await route.fulfill(attempts===1?{status:502,json:{code:'WALLET_PROVIDER_ERROR',error:'Synthetic unavailable'}}:{response});});
-  await page.goto('/card/'+encodeURIComponent(member.cardToken));await page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true}).click();
+  await page.goto('/card/'+encodeURIComponent(member.cardToken));await page.locator('.customer-header').getByRole('button',{name:'In Wallet speichern'}).click();await page.getByRole('button',{name:'Hinzufügen zu Google Wallet',exact:true}).click();
   await expect(page.getByText('Wallet ist gerade nicht erreichbar. Bitte versuche es in ein paar Minuten erneut; deine Karte funktioniert weiterhin hier.',{exact:true})).toBeVisible();
   const before=(await pool.query('SELECT id,provider_object_id FROM wallet_passes WHERE membership_id=$1',[member.id])).rows;expect(before).toHaveLength(1);
-  await expect(page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Zu Google Wallet hinzufügen',exact:true}).click();await saved;
+  await expect(page.getByRole('button',{name:'Hinzufügen zu Google Wallet',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Hinzufügen zu Google Wallet',exact:true}).click();await saved;
   expect(attempts).toBe(2);expect((await pool.query('SELECT id,provider_object_id FROM wallet_passes WHERE membership_id=$1',[member.id])).rows).toEqual(before);
   expect((await pool.query('SELECT balance,closed_at FROM memberships WHERE id=$1',[member.id])).rows).toEqual([{balance:0,closed_at:null}]);
  }finally{await context.close();}

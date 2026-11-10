@@ -30,16 +30,16 @@ for (const width of [375, 1280]) for (const same of [false, true]) test(`obsolet
   const context = await browser.newContext({ baseURL, storageState: storage, viewport: { width, height: 812 } });
   const page = await context.newPage(); let release!: () => void; let started!: () => void;
   const hold = new Promise<void>(r => { release = r; }); const denied = new Promise<void>(r => { started = r; }); let writes = 0;
-  const row = (id: string) => page.locator('section[aria-labelledby="st-list"]').getByRole('listitem').filter({ hasText: `${id}@example.test` });
-  const dialog = page.getByRole('alertdialog', { name: 'Zugang sperren?', exact: true });
+  const row = (id: string) => page.locator('#ow-main li').filter({ hasText: `${id}@example.test` });
+  const dialog = page.locator('#ow-main');
   try {
-    await page.goto('/merchant/staff'); await row(first).getByRole('button', { name: 'Sperren', exact: true }).click();
+    await page.goto('/merchant/staff'); await row(first).getByRole('button').click();
     expect((await context.request.post('/api/auth/sign-out', { headers: { Origin: origin }, data: {} })).status()).toBe(200); const before = await snapshot();
     await page.route('**/api/staff/revoke', async route => {
       writes++; expect(route.request().postDataJSON()).toEqual({ userId: first }); const actual = await route.fetch(); expect(actual.status()).toBe(401); started(); await hold; await route.fulfill({ response: actual });
     });
     await dialog.getByRole('button', { name: 'Zugang sperren', exact: true }).click(); await denied;
-    await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click(); await row(selected).getByRole('button', { name: 'Sperren', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click(); await row(selected).getByRole('button').click();
     await expect(dialog).toContainText(`${selected}@example.test`);
     await expect(dialog.getByRole('button', { name: 'Zugang sperren', exact: true })).toBeDisabled();
     await expect(dialog.getByRole('button', { name: 'Wird gesperrt …', exact: true })).toHaveCount(0);
@@ -63,13 +63,13 @@ for (const width of [375, 1280]) test(`old committed revocation reloads its resu
   const context = await browser.newContext({ baseURL, storageState: storage, viewport: { width, height: 812 } }); const page = await context.newPage();
   let release!: () => void; let started!: () => void; let writes = 0;
   const hold = new Promise<void>(r => { release = r; }); const committed = new Promise<void>(r => { started = r; });
-  const row = (id: string) => page.locator('section[aria-labelledby="st-list"]').getByRole('listitem').filter({ hasText: `${id}@example.test` }); const dialog = page.getByRole('alertdialog', { name: 'Zugang sperren?', exact: true });
+  const row = (id: string) => page.locator('#ow-main li').filter({ hasText: `${id}@example.test` }); const dialog = page.locator('#ow-main');
   try {
-    await page.goto('/merchant/staff'); await row(first).getByRole('button', { name: 'Sperren', exact: true }).click();
+    await page.goto('/merchant/staff'); await row(first).getByRole('button').click();
     await page.route('**/api/staff/revoke', async route => { writes++; expect(route.request().postDataJSON()).toEqual({ userId: first }); const actual = await route.fetch(); expect(actual.status()).toBe(200); started(); await hold; await route.fulfill({ response: actual }); });
     await dialog.getByRole('button', { name: 'Zugang sperren', exact: true }).click(); await committed;
     const afterCommit = await snapshot();
-    await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click(); await row(second).getByRole('button', { name: 'Sperren', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click(); await row(second).getByRole('button').click();
     await expect(dialog.getByRole('button', { name: 'Zugang sperren', exact: true })).toBeDisabled();
     const completion = page.waitForResponse(r => new URL(r.url()).pathname === '/api/staff/revoke'); release(); expect((await completion).status()).toBe(200);
     await expect(dialog).toContainText(`${second}@example.test`); await expect(dialog.getByRole('button', { name: 'Zugang sperren', exact: true })).toBeEnabled();

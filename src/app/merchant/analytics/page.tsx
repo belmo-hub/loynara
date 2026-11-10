@@ -1,111 +1,150 @@
 "use client";
 
+import { ArrowRight, Check, Gift, MapPin, Megaphone, Plus, RefreshCw, Undo2, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
+import { BackToActions } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
-import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
-import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
-import { useLoad } from "@/components/owner/use-load";
-import Link from "next/link";
-import { CardBase } from "@/components/owner/retention-insights";
-import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
-import { retentionCustomerHref } from "@/lib/retention-links";
-import type { RetentionDays, RetentionSummary } from "@/lib/retention";
-import { EmptyState } from "@/components/ui/empty-state";
+import { Board, BoardPlaceholder, DemoDataChip } from "@/components/owner/overview-board";
+import { ErrorNotice, LoadingBlock, nf, Notice, PageHead } from "@/components/owner/owner-ui";
+import { ALL_LOCATIONS_NOTE } from "@/components/owner/period-bar";
 import { SpendCard } from "@/components/owner/spend-card";
+import { useLoad, type Loadable } from "@/components/owner/use-load";
+import { Rows, RowSection, type ValueRow } from "@/components/owner/value-rows";
+import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-analytics";
+import { bookingsText } from "@/lib/overview-day";
+import { retentionCustomerHref } from "@/lib/retention-links";
+import type { RetentionSummary } from "@/lib/retention";
+import { germanDate as date } from "@/lib/german-date";
 import { SPEND_COPY } from "@/lib/spend-copy";
 
-const date = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+const dayMonth = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" });
+// A Berlin week is an hour short across the spring clock change; a cut week is at least a day short.
+const FULL_WEEK_MS = 7 * 86_400_000 - 3_600_000;
+const PERIOD_SUB = "Bestätigte Buchungen im Zeitraum";
 
+type Week = MerchantAnalytics["series"][number];
+
+/**
+ * Ergebnisse (ENG-122b, screen 07): the period segment, one white card with the period's confirmed bookings and its weeks,
+ * then the old tiles and tables as rows under heads on the grey; each head's „?“ holds the live help texts.
+ */
 export default function MerchantAnalyticsPage() {
   const { me, locations } = useOwner();
   const [windowDays, setWindowDays] = useState<AnalyticsWindowDays>(30);
   const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
-  const [lapseDays, setLapseDays] = useState<RetentionDays>(30);
-  const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? `/api/merchant/retention?days=${lapseDays}` : null);
+  const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? "/api/merchant/retention?days=30" : null);
   if (!me) return null;
-  const head = <PageHead title="Ergebnisse" lead="Neue Karten, bestätigte Buchungen und Prämien im gewählten Zeitraum." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können die Ergebnisse sehen.</Notice></div>;
+  const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} actions={me?.hiddenSurfaces?.includes("revenue") ? <DemoDataChip /> : undefined} />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
-  const maxSeries = Math.max(1, ...(r?.series.map(bucket => Math.max(bucket.newCards, bucket.checkouts)) ?? []));
+  // The read's bars are Monday weeks; the cut first and current week would read as a drop, so only full weeks show.
+  const weeks = r?.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= FULL_WEEK_MS) ?? [];
+  const last = weeks.at(-1);
+  const lastWasBest = Boolean(last && last.checkouts > 0 && weeks.length > 1 && weeks.slice(0, -1).every(week => week.checkouts < last.checkouts));
   return (
-    <div className="ow-page">
+    <div className="ow-page ow-results">
       {head}
-      {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
-      <SpendCard multiLocation={locations.length > 1} booking={r?.booking} />
-      <PeriodBar id="analytics-window" value={windowDays} onChange={setWindowDays} meta={r ? `${date(r.from)} bis ${date(r.asOf)}` : undefined} />
-      {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
-      {report.state === "loading" && <LoadingBlock rows={3} />}
-      {r && <>
-        <section aria-labelledby="an-overview" className="ow-stack"><h2 id="an-overview" style={{ fontSize: "var(--text-18)" }}>Karten und Buchungen</h2>
-          <div className="ow-metrics">
-            <Metric label="Aktive Karten aktuell" value={r.currentActiveCards} note="Alle Karten, die nicht geschlossen sind" />
-            <Metric label="Neue Karten" value={r.newCards} note="Im Zeitraum angemeldet." />
-            <Metric label="Bestätigte Buchungen" value={r.qualifyingCheckouts} note="Vom Team bestätigt, Korrekturen abgezogen" />
-            <Metric label="Wiederkehrende Karten" value={r.repeatCards} note={r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Buchung` : "Karten mit 2+ Buchungen im Zeitraum"} />
-          </div>
-        </section>
-        <section className="ow-card ow-stack" aria-labelledby="an-locations">
-          <div className="ow-card-head"><div><h2 id="an-locations">Aktivität je Standort</h2><p>Buchungen im Zeitraum, je Standort.</p></div></div>
-          {r.locationActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Standorte vorhanden." /> : <ul className="ow-feed">
-            {r.locationActivity.map(row => <li key={row.locationId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
-          </ul>}
-          <MoreInfo><p>Gezählt am Standort der Buchung, mit dem heutigen Namen. Auch Buchungen aus archivierten Programmen zählen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl.</p></MoreInfo>
-        </section>
-        <section className="ow-card ow-stack" aria-labelledby="an-staff">
-          <div className="ow-card-head"><div><h2 id="an-staff">Teamaktivität</h2><p>Bestätigte Buchungen im Zeitraum, je Person.</p></div></div>
-          {r.staffActivity.length === 0 ? <EmptyState level={3} size="compact" title="Keine Buchungen in diesem Zeitraum.">Wähl oben einen längeren Zeitraum.</EmptyState> : <ul className="ow-feed">
-            {r.staffActivity.map(row => <li key={row.userId}><span><strong>{row.name}</strong><span className="ow-muted"> · {row.awardActions.toLocaleString("de-DE")} Buchungen</span></span><span className="ow-num">{row.stampUnits.toLocaleString("de-DE")} Stempel · {row.pointUnits.toLocaleString("de-DE")} Punkte</span></li>)}
-          </ul>}
-          <MoreInfo><p>Über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung.</p></MoreInfo>
-        </section>
-        <section className="ow-card ow-stack" aria-labelledby="an-ret">
-          <div className="ow-card-head" style={{ marginBottom: 0 }}><div><h2 id="an-ret">Kundenbindung heute</h2><p>Stand jetzt, unabhängig vom Zeitraum oben. Welche Buchungen sind erfasst?</p></div>
-            <div className="ow-field"><label htmlFor="an-lapse" className="ow-sr">Als weggeblieben gilt nach</label><select id="an-lapse" className="ow-select" value={lapseDays} onChange={event => setLapseDays(Number(event.target.value) as RetentionDays)}>{([14, 30, 60, 90] as const).map(days => <option key={days} value={days}>Weg nach {days} Tagen</option>)}</select></div></div>
-          {retention.state === "error" && <ErrorNotice message={retention.message} onRetry={reloadRetention} />}
-          {retention.state === "loading" && <LoadingBlock rows={1} height={64} />}
-          {retention.state === "ok" && <>
-            <CardBase summary={retention.data} />
-            <div className="ow-metrics">
-              <RetentionMetric label="Länger nicht da" value={retention.data.drifting} note={`Früher bestätigte Buchungen, seit ${retention.data.inactiveDays}+ Tagen keine mehr. Vor einer Woche: ${retention.data.driftingWeekAgo}.`} href={retentionCustomerHref(retention.data, "drifting")} />
-              <RetentionMetric label="Prämie jetzt einlösbar" value={retention.data.rewardReady} note="Beim nächsten Mal an der Kasse anbieten." href={retentionCustomerHref(retention.data, "reward_ready")} />
-              <RetentionMetric label="Kurz vor der Prämie" value={retention.data.nearReward} note="Höchstens ¼ fehlt zur günstigsten Prämie" href={retentionCustomerHref(retention.data, "near_reward")} />
-              <RetentionMetric label="Noch nie an der Kasse" value={retention.data.never} note={`${retention.data.neverAfterWeek} davon seit über einer Woche angemeldet.`} href={retentionCustomerHref(retention.data, "never")} />
-            </div>
+      <div className="ow-seg" role="group" aria-label="Zeitraum">
+        {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}
+      </div>
+      {report.state === "error" ? <ErrorNotice message={report.message} onRetry={reload} /> : (
+        <Board label={`Bestätigte Buchungen, letzte ${windowDays} Tage`} busy={!r}>
+          {!r ? <BoardPlaceholder /> : <>
+            <p className="ow-board-big">{nf.format(r.qualifyingCheckouts)}{"\u00a0"}<small>{r.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"}</small></p>
+            <p className="ow-board-sub">letzte {windowDays} Tage, Korrekturen abgezogen</p>
+            <Weeks weeks={weeks} />
+            {lastWasBest && <p className="ow-board-news">Die meisten Buchungen gab es letzte Woche.</p>}
           </>}
-        </section>
-        <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }} aria-label="Prämien und Buchungen">
-          <section className="ow-card ow-stack"><h2>Vergebene Einheiten</h2>
-            <dl className="ow-dl">{(me.programType === "stamp" || r.issued.stampUnits > 0) && <><dt>Stempel</dt><dd className="ow-num">{r.issued.stampUnits}</dd></>}{(me.programType === "points" || r.issued.pointUnits > 0) && <><dt>Punkte</dt><dd className="ow-num">{r.issued.pointUnits}</dd></>}<dt>Buchungen</dt><dd className="ow-num">{r.issued.awardActions}</dd></dl></section>
-          <section className="ow-card ow-stack"><h2>Einlösungen</h2><strong className="ow-metric-value">{r.rewards.redemptions}</strong>
-            {r.rewards.topTitles.length ? <><h3 style={{ fontSize: "var(--text-16)" }}>Häufigste eingelöste Prämien</h3><ol className="ow-feed">{r.rewards.topTitles.map(item => <li key={item.title}><span>{item.title}</span><strong className="ow-num">{item.count}</strong></li>)}</ol></> : <p className="ow-muted">Im Zeitraum wurde keine Prämie eingelöst.</p>}</section>
-        </div>
-        {r.referrals.attributed + r.referrals.qualified + r.referrals.reversed > 0 && (
-        <section className="ow-card ow-stack" aria-labelledby="an-ref"><h2 id="an-ref">Empfehlungen im Zeitraum</h2>
-          <dl className="ow-dl"><dt>Über Empfehlungslink angemeldet</dt><dd className="ow-num">{r.referrals.attributed}</dd><dt>Erste Buchung bestätigt, Bonus gebucht</dt><dd className="ow-num">{r.referrals.qualified}</dd><dt>Nach Korrektur zurückgenommen</dt><dd className="ow-num">{r.referrals.reversed}</dd></dl>
-          <p className="ow-hint">Gewonnen ist eine Empfehlung erst mit der ersten bestätigten Buchung. <Link className="ow-link" href="/merchant/referrals">Empfehlungen ansehen</Link></p>
-</section>
-        )}
-        {r.series.some(bucket => bucket.newCards + bucket.checkouts > 0) && (
-        <section className="ow-card ow-stack" aria-labelledby="an-trend"><div><h2 id="an-trend">Verlauf</h2><p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Neue Karten und bestätigte Buchungen je Woche.</p></div>
-          <div className="ow-trend">{r.series.map(bucket => <div className="ow-trend-row" key={bucket.from}><span className="ow-num">{date(bucket.from)}–{date(bucket.to)}</span>
-            <div><div className="ow-bar"><span style={{ width: `${bucket.newCards / maxSeries * 100}%` }} /></div><small>{bucket.newCards} {bucket.newCards === 1 ? "Karte" : "Karten"}</small></div>
-            <div><div className="ow-bar ow-bar--alt"><span style={{ width: `${bucket.checkouts / maxSeries * 100}%` }} /></div><small>{bucket.checkouts} {bucket.checkouts === 1 ? "Buchung" : "Buchungen"}</small></div></div>)}</div></section>
-        )}
-        {r.campaignAttempts.total > 0 && (
-        <section className="ow-card ow-stack" aria-labelledby="an-camp"><h2 id="an-camp">Kampagnenversuche</h2>
-          <dl className="ow-dl"><dt>Insgesamt</dt><dd className="ow-num">{r.campaignAttempts.total}</dd><dt>Angenommen</dt><dd className="ow-num">{r.campaignAttempts.complete}</dd><dt>Unterdrückt</dt><dd className="ow-num">{r.campaignAttempts.suppressed}</dd><dt>Erneut geplant</dt><dd className="ow-num">{r.campaignAttempts.retry}</dd><dt>Fehlgeschlagen</dt><dd className="ow-num">{r.campaignAttempts.failed}</dd><dt>Blockiert</dt><dd className="ow-num">{r.campaignAttempts.blocked}</dd></dl>
-          <p className="ow-hint">Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung.</p></section>
-        )}
-        <MoreInfo summary="So zählen wir"><p>{r.countingRule} {SPEND_COPY.bookingsNote} „Kurz vor der Prämie“ rundet auf ganze Einheiten auf.</p></MoreInfo>
+        </Board>
+      )}
+      {report.state === "loading" && <LoadingBlock rows={3} height={64} />}
+      {r && <>
+        <RowSection title="Karten und Buchungen" help={[{ text: `Zeitraum: ${date(r.from)} bis ${date(r.asOf)}` }, { text: `${r.countingRule} ${SPEND_COPY.bookingsNote}` }]}>
+          <Rows rows={[
+            { key: "active", icon: Users, title: "Aktive Karten aktuell", sub: "Alle Karten, die nicht geschlossen sind", value: nf.format(r.currentActiveCards) },
+            { key: "new", icon: Plus, title: "Neue Karten", sub: "Im Zeitraum angemeldet.", value: nf.format(r.newCards) },
+            { key: "repeat", icon: RefreshCw, title: "Wiederkehrende Karten", sub: r.participatingCards > 0 ? `${Math.round(r.repeatCards / r.participatingCards * 100)} % der Karten mit Buchung` : "Karten mit 2+ Buchungen im Zeitraum", value: nf.format(r.repeatCards) },
+            { key: "redeemed", icon: Gift, title: "Einlösungen", value: nf.format(r.rewards.redemptions) },
+          ]} />
+        </RowSection>
+        <Retention state={retention} reload={reloadRetention} />
+        <RowSection title="Häufigste eingelöste Prämien">
+          {r.rewards.topTitles.length
+            ? <Rows rows={r.rewards.topTitles.map(item => ({ key: item.title, icon: Gift, title: item.title, value: nf.format(item.count) }))} />
+            : <p className="ow-rows-note">Im Zeitraum wurde keine Prämie eingelöst.</p>}
+        </RowSection>
+        <RowSection title="Team" help={[{ text: "Über alle Standorte dieses Betriebs. Vollständig korrigierte Buchungen zählen nicht. Frühere Teammitglieder bleiben in der Historie. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Diese Zahlen belegen keinen Umsatz und keine Arbeitsleistung." }]}>
+          {r.staffActivity.length
+            ? <Rows rows={r.staffActivity.map(row => ({ key: row.userId, icon: Users, title: row.name, sub: PERIOD_SUB, value: nf.format(row.awardActions) }))} />
+            : <p className="ow-rows-note">Keine Buchungen in diesem Zeitraum.{windowDays === 30 && " Wähle oben einen längeren Zeitraum."}</p>}
+        </RowSection>
+        {/* With one location its row would repeat the card's number. */}
+        {r.locationActivity.length > 1 && <RowSection title="Aktivität je Standort" help={[{ text: "Gezählt am Standort der Buchung, mit dem heutigen Namen. Auch Buchungen aus archivierten Programmen zählen. Boni wie Startbonus oder Happy Hour stehen im Export als eigene Zeilen und zählen hier nicht mit. Keine Umsatzkennzahl." }]}>
+          <Rows rows={r.locationActivity.map(row => ({ key: row.locationId, icon: MapPin, title: row.name, sub: PERIOD_SUB, value: nf.format(row.awardActions) }))} />
+        </RowSection>}
+        {r.referrals.attributed + r.referrals.qualified + r.referrals.reversed > 0 && <RowSection title="Empfehlungen im Zeitraum" help={[{ text: "Gewonnen ist eine Empfehlung erst mit der ersten bestätigten Buchung." }]}>
+          <Rows rows={[
+            { key: "attributed", icon: UserPlus, title: "Über Empfehlungslink angemeldet", value: nf.format(r.referrals.attributed) },
+            { key: "qualified", icon: Check, title: "Erste Buchung bestätigt, Bonus gebucht", value: nf.format(r.referrals.qualified) },
+            ...(r.referrals.reversed > 0 ? [{ key: "reversed", icon: Undo2, title: "Nach Korrektur zurückgenommen", value: nf.format(r.referrals.reversed) }] : []),
+            { key: "open", icon: ArrowRight, title: "Empfehlungen ansehen", href: "/merchant/referrals" },
+          ]} />
+        </RowSection>}
+        {r.campaignAttempts.total > 0 && <RowSection title="Kampagnenversuche" help={[{ text: "Dies zählt Versuche, nicht einzigartige Empfänger. Die Annahme bestätigt weder die Zustellung in ein echtes Postfach noch eine Öffnung." }]}>
+          <Rows rows={([["total", "Insgesamt"], ["complete", "Angenommen"], ["suppressed", "Unterdrückt"], ["retry", "Erneut geplant"], ["failed", "Fehlgeschlagen"], ["blocked", "Blockiert"]] as const)
+            .map(([key, title]) => ({ key, icon: Megaphone, title, value: nf.format(r.campaignAttempts[key]) }))} />
+        </RowSection>}
       </>}
+      {/* Withheld in the demo environment (pilot-surfaces „revenue“). */}
+      {!me.hiddenSurfaces?.includes("revenue") && <SpendCard multiLocation={locations.length > 1} booking={r?.booking} />}
     </div>
   );
 }
 
-function RetentionMetric({ label, value, note, href }: { label: string; value: number; note: string; href: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p>{value > 0 && <Link className="ow-link ow-link--block" href={href}>Karten ansehen</Link>}</div>;
+/** „Kundenbindung heute“: the cards as they stand now, whatever the period; each group with cards opens it under Kunden. */
+function Retention({ state, reload }: { state: Loadable<RetentionSummary>; reload: () => void }) {
+  const s = state.state === "ok" ? state.data : null;
+  const row = (key: string, icon: ValueRow["icon"], title: string, sub: string, count: number, href: string): ValueRow =>
+    ({ key, icon, title, sub, value: nf.format(count), href: count > 0 ? href : undefined });
+  return (
+    <RowSection title="Kundenbindung heute" help={s && [
+      { text: "Stand jetzt, unabhängig vom Zeitraum oben." },
+      { title: "Länger nicht da", text: `Früher bestätigte Buchungen, seit ${s.inactiveDays}+ Tagen keine mehr.` },
+      { title: "Kurz vor der Prämie", text: "„Kurz vor der Prämie“ rundet auf ganze Einheiten auf." },
+    ]}>
+      {state.state === "error" && <ErrorNotice message={state.message} onRetry={reload} />}
+      {state.state === "loading" && <LoadingBlock rows={1} height={64} />}
+      {s && <Rows rows={[
+        row("drifting", RefreshCw, "Länger nicht da", `Vor einer Woche: ${s.driftingWeekAgo}.`, s.drifting, retentionCustomerHref(s, "drifting")),
+        row("ready", Gift, "Prämie jetzt einlösbar", "Beim nächsten Mal an der Kasse anbieten.", s.rewardReady, retentionCustomerHref(s, "reward_ready")),
+        row("near", Gift, "Kurz vor der Prämie", "Höchstens ¼ fehlt zur günstigsten Prämie", s.nearReward, retentionCustomerHref(s, "near_reward")),
+        row("never", X, "Noch nie an der Kasse", `${s.neverAfterWeek} davon seit über einer Woche angemeldet.`, s.never, retentionCustomerHref(s, "never")),
+      ]} />}
+    </RowSection>
+  );
 }
 
-function Metric({ label, value, note }: { label: string; value: number; note: string }) {
-  return <div className="ow-metric"><h3 style={{ fontSize: "var(--text-14)", color: "var(--color-ink-muted)" }}>{label}</h3><strong className="ow-metric-value">{value}</strong><p className="ow-metric-note">{note}</p></div>;
+/**
+ * The period's full weeks as the Übersicht strip's bars: the count above each bar, the week's first day under it, the
+ * latest week lit. Ninety days give twelve narrow bars, so every third one from the latest carries its date; the others keep
+ * an empty line, so every bar stands on the same baseline.
+ */
+function Weeks({ weeks }: { weeks: Week[] }) {
+  const max = Math.max(1, ...weeks.map(week => week.checkouts));
+  const many = weeks.length > 7;
+  return (
+    <div className="ow-strip ow-weeks" data-many={many || undefined} style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+      role="img" aria-label={`Bestätigte Buchungen je Woche: ${weeks.map(week => `${dayMonth(week.from)} bis ${dayMonth(week.to)} ${bookingsText(week.checkouts)}`).join(", ")}`}>
+      {weeks.map((week, index) => {
+        const latest = index === weeks.length - 1;
+        return (
+          <div className="ow-strip-day" key={week.from} aria-hidden="true">
+            <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
+            <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
+            <span className="ow-strip-d" data-yesterday={latest ? "" : undefined}>{!many || (weeks.length - 1 - index) % 3 === 0 ? dayMonth(week.from) : "\u00a0"}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

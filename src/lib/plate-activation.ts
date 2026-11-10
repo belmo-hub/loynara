@@ -44,7 +44,7 @@ async function codeMatches(code: string, stored: string) {
  */
 export async function issuePlateCodes(input: { actorUserId: string; env: Env; plateLabels: string[] }) {
   const labels = [...new Set(input.plateLabels.map(normalizePlateLabel))];
-  if (labels.length < 1 || labels.length > 200) throw new DomainError("INVALID_INPUT", "Between 1 and 200 plates");
+  if (labels.length < 1 || labels.length > 200) throw new DomainError("INVALID_INPUT", "Bitte gib eine ganze Zahl von 1 bis 200 ein.");
   await db.transaction(tx => assertPlateOperator(tx, input.actorUserId, input.env));
   // Hashing is slow on purpose, so it happens before the transaction that locks the plates.
   const issued = await Promise.all(labels.map(async plateLabel => {
@@ -56,7 +56,7 @@ export async function issuePlateCodes(input: { actorUserId: string; env: Env; pl
     const tags = await tx.select({ id: secureTags.id, plateLabel: secureTags.plateLabel, status: secureTags.status }).from(secureTags).where(inArray(secureTags.plateLabel, labels)).for("update");
     for (const { plateLabel, codeHash } of issued) {
       const tag = tags.find(t => t.plateLabel === plateLabel);
-      if (!tag) throw new DomainError("NOT_FOUND", `Plate ${plateLabel} not found`);
+      if (!tag) throw new DomainError("NOT_FOUND", `Das Schild ${plateLabel} haben wir nicht gefunden.`);
       if (tag.status !== "unlinked") throw new DomainError("PLATE_LINKED", `Plate ${plateLabel} is not free`);
       const row = { codeHash, usedAt: null, alertedAt: null, issuedByUserId: input.actorUserId, issuedAt: new Date() };
       await tx.insert(plateActivationCodes).values({ tagId: tag.id, ...row }).onConflictDoUpdate({ target: plateActivationCodes.tagId, set: row });
@@ -74,7 +74,7 @@ export async function unlockPlateCode(input: { actorUserId: string; env: Env; pl
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [tag] = await tx.select({ id: secureTags.id }).from(secureTags).where(eq(secureTags.plateLabel, plateLabel));
     const [entry] = tag ? await tx.select({ tagId: plateActivationCodes.tagId }).from(plateActivationCodes).where(eq(plateActivationCodes.tagId, tag.id)) : [];
-    if (!entry) throw new DomainError("NOT_FOUND", "No code for this plate");
+    if (!entry) throw new DomainError("NOT_FOUND", "Für dieses Schild gibt es keinen Code.");
     await tx.delete(plateActivationFailures).where(eq(plateActivationFailures.tagId, entry.tagId));
     return { plateLabel, result: "unlocked" as const };
   });
@@ -102,7 +102,7 @@ export async function plateTripwire(rawLabel: string) {
  * (the same rule as the operator's link). One transaction; a wrong code is counted even though the call fails.
  */
 export async function activatePlate(input: { userId: string; programId: string; plateLabel: string; code: string }) {
-  if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (!/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   let plateLabel: string | null;
   try { plateLabel = normalizePlateLabel(input.plateLabel); } catch { plateLabel = null; }
   const code = normalizeCode(input.code);
@@ -112,10 +112,10 @@ export async function activatePlate(input: { userId: string; programId: string; 
     // Programme before tag, the order every tap and confirmation takes.
     await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, input.programId)).for("share");
     const target = await shopOf(tx, input.programId);
-    if (!target) throw new DomainError("NOT_FOUND", "Programme not found");
+    if (!target) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
       .where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, target.tenantId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (target.status !== "active" || target.tapMode !== "staff_confirmed" || !target.cooldownSeconds) throw new DomainError("STAFF_CONFIRMATION_REQUIRED", "Schalte zuerst NFC „Mit Bestätigung“ ein.");
     const [tag] = plateLabel ? await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update") : [];
     const [entry] = tag ? await tx.select().from(plateActivationCodes).where(eq(plateActivationCodes.tagId, tag.id)).for("update") : [];

@@ -1,5 +1,8 @@
 // Wallet messages (ENG-043): the pure rules and the verbatim texts. No database, so client code may import it.
 // Rules are Product's (2026-10-22-spec-wallet-messages.md), texts are Legal's draft of 22 Oct 2026 (not legal advice).
+import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, type DemoEnd } from "./demo-texts";
+import { EXCLUDED_GOODS } from "./card-extras";
+import { keepUnits } from "./german-date";
 
 export const MESSAGE_MAX = 140;
 /** Messages per programme and per customer in any rolling window of this many days (the consent text promises „höchstens 2 pro Woche“). */
@@ -10,23 +13,51 @@ export const CAP_WINDOW_DAYS = 7;
 export const WALLET_QUIET_HOURS = { startHour: 21, endHour: 8 } as const;
 
 export const CONSENT_TEXT_VERSION = "wallet-consent-2026-10-22-v1";
+/** ENG-173: the box on the join page, Legal's ruling of 6 Nov. A changed text gets a new version; never edit a published one. */
+export const JOIN_CONSENT_TEXT_VERSION = "wallet-consent-join-2026-11-06-v1";
 export const OWNER_TEXT_VERSION = "wallet-owner-2026-10-22-v1";
 
 export const OWNER_CONFIRM_TEXT = "Ich bin für den Inhalt verantwortlich; Angebote sind wahr und werden eingehalten.";
 export const OWNER_GUIDANCE = "Du bist für deine Nachrichten verantwortlich. Bitte schreib nur, was stimmt und was du einhältst: Ein Angebot „bis 17 Uhr“ gilt dann auch bis 17 Uhr. Nicht erlaubt: Werbung für Tabak oder E-Zigaretten, Alkohol-Werbung, die sich an Jugendliche richtet, Heilversprechen, erfundene Knappheit („nur noch 2 Plätze“, wenn es nicht stimmt), „statt“-Preise, die es nie gab, und Namen oder Daten einzelner Kunden. Bedingungen eines Angebots (wann, wie lange, wofür) gehören in die Nachricht oder auf die Karte.";
 
-export function consentText(shop: string, location: string) {
-  return `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`;
-}
+/**
+ * The consent wording by version, the single source for the card and the exports (ENG-174b, Legal). The stored row keeps only
+ * the version, so a published text never changes: a new wording gets a new version here.
+ */
+export const CONSENT_TEXTS: Record<string, (shop: string, location: string, demoEnd?: DemoEnd) => string> = {
+  "wallet-consent-2026-10-22-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit hier auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
+  "wallet-consent-join-2026-11-06-v1": (shop, location) => `Ja, ${shop}, ${location}, darf mir Angebote, Neuigkeiten und Erinnerungen als Nachricht auf meiner Wallet-Karte schicken (höchstens 2 pro Woche). Das ist freiwillig und für die Karte nicht nötig. Ich kann es jederzeit auf meiner Karte abschalten. Mehr in den Datenschutzhinweisen.`,
+  // Demo environment only (Legal, 9 Nov): Loynara is the sender there, there are no reminders, and the demo's end is named.
+  [DEMO_CONSENT_TEXT_VERSION]: (shop, _location, demoEnd) => demoConsentText(shop, demoEnd),
+};
 
-export const QUIET_HOURS_REFUSAL = "Zwischen 21 und 8 Uhr senden wir keine Nachrichten, damit niemand nachts geweckt wird. Ab 8 Uhr geht es wieder.";
+export const consentText = (shop: string, location: string) => CONSENT_TEXTS[CONSENT_TEXT_VERSION](shop, location);
+export const joinConsentText = (shop: string, location: string) => CONSENT_TEXTS[JOIN_CONSENT_TEXT_VERSION](shop, location);
 
-// A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in plain German.
-const rules: Array<[RegExp, string]> = [
-  [/tabak|zigarette|e-?zigarette|vape|vaping|snus|liquid/i, "Werbung für Tabak und E-Zigaretten ist nicht erlaubt."],
-  [/heil(?:t|ung|end|mittel|versprechen)|therap|medizinisch|krebs|diabetes|gesundheitsfördernd|senkt den blutdruck/i, "Gesundheits- und Heilversprechen sind nicht erlaubt."],
-  [/(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)[^]*(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)|(?:jugendliche|minderjährig|teenager|schüler|unter 18|kinder)[^]*(?:alkohol|bier|wein|sekt|schnaps|whisky|wodka|vodka|likör|cocktail|shots?)/i, "Alkohol-Werbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
+export const QUIET_HOURS_REFUSAL = "Zwischen 21\u00a0und 8\u00a0Uhr geht nichts raus. Ab 8\u00a0Uhr kannst du wieder senden.";
+
+// A first line of defence only; the owner's confirmation is the real control (Legal). Each rule names what was matched in
+// plain German. Narrow on purpose (Legal, 1 Nov): a legally required exclusion, a crayfish salad or a double espresso shot
+// must never be refused, so each rule looks for an advertising claim, not a bare word.
+const TOBACCO = /\btabak|\b(?:e-?)?zigarett|\bvap(?:e|es|ing)\b|\bsnus\b|\be-?liquids?\b/i;
+// „Nicht auf Tabak und Zeitschriften“, „außer Tabak“: an exclusion names tobacco without advertising it.
+// It ends at the sentence's end or a colon, so „Außer sonntags: Zigaretten 10 % günstiger“ still names its offer (Reviewer N-1).
+const EXCLUSION = /\b(?:nicht\s+(?:auf|für)|außer|ausgenommen|ausgeschlossen)\b[^.!?;:]*/gi;
+const HEALTH = /\bheil(?:t|en|ung|end|mittel|versprechen)|\b(?:gegen|vor|bei)\s+(?:krebs|diabetes)\b|\b(?:krebs|diabetes)\s+(?:vorbeug|vermeid|verhinder|heil|bekämpf|linder)|gesundheitsfördernd|senkt\s+den\s+blutdruck/i;
+const ALCOHOL = /\balkohol|\bbier|bier\b|\b(?:glüh)?wein|\bsekt\b|\bschn(?:a|ä)ps|\bwhisk(?:e)?y\b|\b(?:w|v)odka\b|\blikör|\bcocktails?\b|(?<!espresso-?\s?)\bshots?\b/i;
+const MINORS = /\bjugendlich|\bminderjährig|\bteenager|\bschüler|\bunter\s*18\b/i;
+const rules: Array<[(text: string) => boolean, string]> = [
+  [text => TOBACCO.test(text.replace(EXCLUSION, " ")), "Werbung für Tabak und E-Zigaretten ist nicht erlaubt."],
+  [text => HEALTH.test(text), "Gesundheits- und Heilversprechen sind nicht erlaubt."],
+  // Within one sentence: „Glühwein für die Großen, Kinderpunsch für die Kleinen“ names both but targets no minor.
+  [text => text.split(/[.!?;\n]/).some(sentence => ALCOHOL.test(sentence) && MINORS.test(sentence)), "Alkoholwerbung, die sich an Jugendliche richtet, ist nicht erlaubt."],
 ];
+
+/** The content rules alone, for text of any length: Wallet messages and email campaigns and automations (ENG-163, Legal). */
+export function contentRefusal(text: string): string | null {
+  for (const [refuses, error] of rules) if (refuses(text)) return error;
+  return null;
+}
 
 /** Trimmed single-line text, or a German refusal. Plain text only: no links, no control characters, at most 140 characters. */
 export function checkMessageText(raw: unknown): { ok: true; text: string } | { ok: false; error: string } {
@@ -35,13 +66,16 @@ export function checkMessageText(raw: unknown): { ok: true; text: string } | { o
   if (Array.from(text).length > MESSAGE_MAX) return { ok: false, error: `Die Nachricht ist zu lang: höchstens ${MESSAGE_MAX} Zeichen.` };
   if (/\p{Cc}/u.test(text)) return { ok: false, error: "Die Nachricht darf nur aus einfachem Text bestehen." };
   if (/https?:|www\.|@|\b[a-z0-9-]+\.(?:de|com|net|org|eu|io|app|shop|link|ly)\b/i.test(text)) return { ok: false, error: "Links und Adressen sind in Nachrichten nicht erlaubt. Kunden können nichts anklicken." };
-  for (const [pattern, error] of rules) if (pattern.test(text)) return { ok: false, error };
-  return { ok: true, text };
+  const refused = contentRefusal(text);
+  return refused ? { ok: false, error: refused } : { ok: true, text };
 }
 
 /** Hint only, never blocks: a promotion needs the matching action switched on at the counter. */
+/** Marketing G16: the shop cap counts a rolling 7 days, so the page and the server refusal say it the same way. `when` is
+ *  germanWhen of the moment the shop may send again; without one the first sentence stands alone. */
+export const shopCapText = (when?: string) => keepUnits(`Du hast in den letzten ${CAP_WINDOW_DAYS} Tagen schon ${SHOP_WEEKLY_CAP} Nachrichten gesendet.${when ? ` Die nächste kannst du ab ${when} senden.` : ""}`);
 export const needsActionHint = (text: string) => /punkte|stempel|doppelt/i.test(text);
-export const ACTION_HINT = "Versprich nur, was an der Kasse auch gilt: Schalte die Aktion für diese Zeit ein.";
+export const ACTION_HINT = "Versprich nur, was an der Kasse gilt.";
 
 /** „Montag, 27. Oktober, 10:14 Uhr“ in the shop's timezone. */
 export function germanWhen(date: Date, timeZone: string) {
@@ -56,7 +90,9 @@ export const WINBACK_DAYS = { min: 14, max: 90, default: 30 } as const;
 /** Mon–Sat 10:00–18:00 in the location's timezone (ISO weekdays, as happy hour). */
 export const WINBACK_SEND_WINDOW = { days: [1, 2, 3, 4, 5, 6], start: "10:00", end: "18:00" };
 
-const extra = (type: "stamp" | "points", bonus: number) => type === "stamp" ? "einen Stempel extra" : `${bonus} Punkte extra`;
+/** „1 Punkt“, „2 Punkte“ (stamps read the same in both numbers). */
+const points = (n: number) => `${n} ${n === 1 ? "Punkt" : "Punkte"}`;
+const extra = (type: "stamp" | "points", bonus: number) => type === "stamp" ? "einen Stempel extra" : `${points(bonus)} extra`;
 /** „5. November“: the deadline is a calendar date (YYYY-MM-DD), so it is formatted without a timezone shift. */
 export const germanDay = (isoDate: string) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${isoDate}T00:00:00Z`));
 
@@ -67,11 +103,12 @@ export function winbackText(type: "stamp" | "points", bonus: number, day: string
 
 /** The programme-rules line on the card while the bonus is on (Legal: the bonus must be in the rules customers see). */
 /** Legal's line (24 Oct, Marketing v1.8 §9); `reminders`: the Wallet sentence only while Wallet messages are offered (ENG-089). */
-export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true) {
-  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""} Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
+/** `exclusions: false` leaves Legal's exclusion sentence to a page that prints it once for all rules (the sign-up page). */
+export function winbackRule(type: "stamp" | "points", days: number, bonus: number, reminders = true, exclusions = true) {
+  return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""}${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
 }
 
-export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
 export const WINBACK_EXCLUSIONS = "Nicht auf Tabak, Presse, Bücher, Lotto, Handyguthaben.";
 
 /** Points bonus: 1 up to a quarter of the cheapest reward (Product); stamps: none or 1. */
@@ -82,7 +119,7 @@ export const winbackBonusMax = (type: "stamp" | "points", cheapestReward: number
 /** A card this close to its next reward gets the reminder: 1 stamp, or up to about 10 points (founder brief). */
 export const almostGap = (type: "stamp" | "points") => type === "stamp" ? 1 : 10;
 export const almostText = (type: "stamp" | "points", missing: number, reward: string) =>
-  type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${missing} Punkte bis zu deiner Prämie: ${reward}.`;
+  type === "stamp" ? `Nur noch 1 Stempel bis zu deiner Prämie: ${reward}.` : `Nur noch ${points(missing)} bis zu deiner Prämie: ${reward}.`;
 
 // ---- Birthday (ENG-049): Legal 22 Oct (field and rules line), Marketing 22 Oct section 8 (reminder and cashier). -----------
 
@@ -91,9 +128,10 @@ export const BIRTHDAY_FIELD_TEXT = (shop: string) => `Geburtstag (freiwillig): n
 export function birthdayText(type: "stamp" | "points", bonus: number, day: string) {
   return bonus > 0 ? `Alles Gute zum Geburtstag! Komm bis zum ${day} vorbei, dann gibt's ${extra(type, bonus)}.` : "Alles Gute zum Geburtstag! Wir freuen uns, dich bald wiederzusehen.";
 }
-export const birthdayRule = (type: "stamp" | "points", bonus: number) =>
-  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : `${bonus} Punkte`} extra. Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.`;
-export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${bonus} ${type === "stamp" ? "Stempel" : "Punkte"} extra`;
+/** `exclusions: false` as for winbackRule. */
+export const birthdayRule = (type: "stamp" | "points", bonus: number, exclusions = true) =>
+  `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
+export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /**

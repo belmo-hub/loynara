@@ -26,13 +26,12 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     const unit = program.programType === "stamp" ? "Stempel" : "Punkte";
 
     await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
-    await expect(page.getByRole("heading", { name: "Mach deinen Besuch zählbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /, direkt im Browser\.$/ })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "E-Mail-Adresse" })).toHaveCount(0);
-    await expect(page.getByRole("checkbox")).toHaveCount(1);
-    await page.getByRole("checkbox").first().check();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `0 von ${program.rewardCost}` : `0 ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
     // The card no longer reveals the raw scan code as text; the QR image carries it, as a camera would read it.
     await expect(page.getByRole("button", { name: "Kartencode anzeigen" })).toHaveCount(0);
@@ -76,7 +75,7 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await expect(cashier.locator(".reward-action-list button").first()).toBeEnabled();
 
     await page.reload();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(`${program.rewardCost} ${unit}`);
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `${program.rewardCost} von ${program.rewardCost}` : `${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText("Deine Prämie ist bereit");
 
@@ -97,7 +96,7 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await expect(cashier.locator(".quantity-row output")).toHaveText("1");
 
     await page.reload();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(`0 ${unit}`);
+    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `0 von ${program.rewardCost}` : `0 ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`-${program.rewardCost} ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
@@ -106,15 +105,15 @@ test(`cohort customer/cashier/merchant journey at ${width}px`, async ({ browser,
     await page.getByRole("button", { name: "Karte schließen" }).click();
     await expect(page.getByText("Buchungen und Einlösungen bleiben vorerst")).toBeVisible();
     await page.getByRole("button", { name: "Schließung verbindlich bestätigen" }).click();
-    await expect(page.getByRole("heading", { name: "Karte geschlossen." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte geschlossen" })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte nicht erreichbar" })).toBeVisible();
     await cashier.goto("/login");
     await cashier.getByLabel("E-Mail-Adresse").fill(demo.ownerEmail);
     await cashier.getByLabel("Passwort").fill(demo.ownerPassword);
     await cashier.getByRole("button", { name: "Anmelden" }).click();
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/merchant");
-    await expect(cashier.getByRole("heading", { name: "Übersicht", exact: true })).toBeVisible();
+    await expect(cashier.getByRole("heading", { name: /^Übersicht:/, level: 1 })).toBeVisible();
     await expect(cashier.locator(width < 768 ? ".ow-topbar-loc" : ".ow-who")).toContainText(demo.merchantName);
     await page.screenshot({ path: `/tmp/loy-105-customer-${width}.png` });
     await cashier.screenshot({ path: `/tmp/loy-105-merchant-${width}.png` });

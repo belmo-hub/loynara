@@ -13,7 +13,7 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function ownerRole(actorUserId: string, tx: Transaction | typeof db = db) {
   const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!owner) throw new DomainError("FORBIDDEN", "Owner access required");
+  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return owner;
 }
 
@@ -24,7 +24,7 @@ export async function createStaffInvite(raw: z.input<typeof inviteInput>) {
   const id = await db.transaction(async tx => {
     const owner = await ownerRole(input.actorUserId, tx);
     const [location] = await tx.select({ id: locations.id }).from(locations).where(and(eq(locations.id, input.locationId), eq(locations.tenantId, owner.tenantId)));
-    if (!location) throw new DomainError("NOT_FOUND", "Location not found");
+    if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden. Bitte lade die Seite neu.");
     const [invite] = await tx.insert(staffInvites).values({ tenantId: owner.tenantId, locationId: location.id, invitedEmail: input.email.toLowerCase(), role: input.role, tokenHash: hash(token), invitedByUserId: input.actorUserId, expiresAt }).returning({ id: staffInvites.id });
     await tx.insert(staffAuditEvents).values({ tenantId: owner.tenantId, action: "invite_created", actorUserId: input.actorUserId, inviteId: invite.id, locationId: location.id, role: input.role });
     return invite.id;
@@ -93,7 +93,7 @@ export async function revokeStaff(input: { actorUserId: string; userId: string }
   return db.transaction(async tx => {
     const owner = await ownerRole(input.actorUserId, tx);
     const [target] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId))).for("update");
-    if (!target) throw new DomainError("NOT_FOUND", "Staff member not found");
+    if (!target) throw new DomainError("NOT_FOUND", "Diese Person haben wir nicht gefunden. Bitte lade die Seite neu.");
     if (target.role === "owner") throw new DomainError("CANNOT_REVOKE_OWNER", "Owner role cannot be revoked here");
     if (!target.active) return { userId: input.userId, active: false };
     await tx.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId)));
@@ -129,7 +129,7 @@ export async function revokeStaffInvite(raw: { actorUserId: string; inviteId: st
     // reverse identity/invitation lock order.
     const [invite] = await tx.select().from(staffInvites)
       .where(and(eq(staffInvites.id, input.inviteId), eq(staffInvites.tenantId, owner.tenantId), ne(staffInvites.role, "owner"))).for("update");
-    if (!invite) throw new DomainError("NOT_FOUND", "Einladung nicht gefunden.");
+    if (!invite) throw new DomainError("NOT_FOUND", "Diese Einladung haben wir nicht gefunden. Bitte lade die Seite neu.");
     if (invite.acceptedAt) throw new DomainError("INVITE_USED", "Die Einladung wurde bereits angenommen. Verwende die Verwaltung der Teamzugänge.");
     if (invite.revokedAt) return { inviteId: invite.id, status: "revoked" as const };
     if (invite.expiresAt <= new Date()) throw new DomainError("INVALID_INVITE", "Die Einladung ist bereits abgelaufen.");

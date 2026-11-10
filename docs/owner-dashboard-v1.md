@@ -7,7 +7,7 @@ Integration plan: `docs/owner-dashboard-integration.md`.
 | Destination | Sub-pages (existing URL) |
 |---|---|
 | Übersicht | `/merchant` |
-| Treueprogramm | Sammelregeln & Prämien `/merchant/program`, Kundenkarte `/merchant/program/card`, Empfehlungen `/merchant/referrals` |
+| Programm | Sammelregeln & Prämien `/merchant/program`, Kundenkarte `/merchant/program/card`, Empfehlungen `/merchant/referrals` |
 | Kunden | Kundenkarten `/merchant/customers`, Zielgruppen `/merchant/audiences` |
 | Aktionen | Kampagnen `/merchant/campaigns`, Automationen `/merchant/automations`, Ergebnisse `/merchant/analytics`, Beratung `/merchant/adviser` |
 | Einstellungen | Geschäft `/merchant/settings`, Standorte `/merchant/locations`, Team `/merchant/staff`, Abrechnung `/merchant/billing` |

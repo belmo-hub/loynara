@@ -32,7 +32,7 @@ describe("the end-date notice", () => {
     expect(html).toContain("Sag es deinen Kunden");
     expect(html).toContain("herunterladen");
     expect(html).toContain("30.12.2026"); // the export window
-    expect(html).toContain('href="/merchant/settings"');
+    expect(html).toContain('href="/merchant/settings/cancel"');
     expect(html).toContain("Text für deine Kunden");
   });
 
@@ -53,8 +53,8 @@ describe("the end-date notice", () => {
     expect(past).not.toContain("Sag es deinen Kunden"); // too late to tell them
     expect(past).toContain("herunterladen");
     expect(past).not.toContain("/merchant/settings");
-    // A provisional date that passes without confirmation never ends the programme.
-    expect(notice(requested, "2026-11-05T10:00:00Z")).toContain("Dein Programm läuft weiter, bis wir das Enddatum bestätigen.");
+    // ENG-167: a cancellation binds from its arrival, so the old past-due line („… bis wir das Enddatum bestätigen“) is gone.
+    expect(notice(requested, "2026-11-05T10:00:00Z")).not.toContain("bis wir das Enddatum bestätigen");
   });
 
   it("names the location for an owner with several, and not for one", () => {

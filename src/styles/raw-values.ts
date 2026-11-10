@@ -1,8 +1,9 @@
 // Finds design values that bypass src/styles/tokens.css (DESIGN.md: nothing else defines a colour, font size, radius or
-// layer). It reads declarations, not text: shorthands (`font`), corner radii, custom-property indirection, inline style
-// objects in .tsx and CSS embedded in strings are all checked, and comments are ignored. Used by raw-values.test.ts.
+// layer) and spacing off the 4 px scale (SF-7). It reads declarations, not text: shorthands (`font`), corner radii,
+// custom-property indirection, inline style objects in .tsx and CSS embedded in strings are all checked, and comments are
+// ignored. Used by raw-values.test.ts.
 
-export type Kind = "colour" | "font size" | "radius" | "layer";
+export type Kind = "colour" | "font size" | "radius" | "layer" | "spacing";
 export type Finding = { file: string; selector: string; property: string; value: string; kind: Kind };
 /** One allowed finding. Every given field must match; `selectors` lists the exact selectors of the rule. */
 export type Exception = { file: string; kind: Kind; selectors?: string[]; property?: string; value?: string; reason: string };
@@ -11,6 +12,9 @@ const COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)
 const ABSOLUTE_SIZE = /(?<![\w.#-])(?:\d+\.?\d*|\.\d+)(?:px|rem|pt)\b/;
 const NONZERO_PX = /(?<![\w.#-])(?:\d*\.\d*[1-9]|[1-9]\d*\.?\d*)px\b/;
 const RADIUS_PROPERTY = /^border(?:-[a-z]+)*-radius$/;
+const SPACING_PROPERTY = /^(?:margin|padding)(?:-[a-z]+)*$|^(?:row-|column-)?gap$/;
+// A pixel length that is not a multiple of 4. Negative offsets are optical alignment (a chevron's own padding), not spacing.
+const OFF_SCALE = (value: string) => [...value.matchAll(/(?<![\w.#-])(\d*\.?\d+)px\b/g)].some(match => Number(match[1]) % 4 !== 0);
 
 const varsIn = (value: string) => [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1]);
 const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -27,6 +31,7 @@ export function checkDeclaration(property: string, value: string, tokens: Readon
   if (RADIUS_PROPERTY.test(prop)) {
     if (NONZERO_PX.test(val) || varsIn(val).some(name => !name.startsWith("--radius-"))) kinds.push("radius");
   }
+  if (SPACING_PROPERTY.test(prop) && OFF_SCALE(val)) kinds.push("spacing");
   if (prop === "z-index" && !/^(auto|0|-1|inherit)$/.test(val)) {
     const names = varsIn(val);
     if (!names.length || names.some(name => !name.startsWith("--z-"))) kinds.push("layer");
@@ -58,6 +63,9 @@ const STYLE_KEYS: Record<string, string> = {
   borderColor: "border-color", outlineColor: "outline-color", fill: "fill", stroke: "stroke", boxShadow: "box-shadow",
   borderRadius: "border-radius", borderTopLeftRadius: "border-top-left-radius", borderTopRightRadius: "border-top-right-radius",
   borderBottomLeftRadius: "border-bottom-left-radius", borderBottomRightRadius: "border-bottom-right-radius",
+  ...Object.fromEntries(["margin", "padding"].flatMap(side => ["", "Top", "Right", "Bottom", "Left", "Block", "Inline", "BlockStart", "BlockEnd", "InlineStart", "InlineEnd"]
+    .map(edge => [side + edge, `${side}${edge.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`]))),
+  gap: "gap", rowGap: "row-gap", columnGap: "column-gap",
 };
 
 /**
@@ -68,13 +76,20 @@ export function sourceFindings(file: string, source: string, tokens: ReadonlySet
   const code = source.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
   const findings: Finding[] = [];
   // Style objects are looked for outside CSS strings (those are read as CSS below).
-  const objects = code.replace(/`[^`]*`/g, "``").replace(/"[^"\n]*[;{][^"\n]*"/g, '""').replace(/'[^'\n]*[;{][^'\n]*'/g, "''");
+  // Strings are taken whole from left to right, so the span between two attributes' quotes is never read as one string.
+  const blank = (quote: string) => (text: string) => /[;{]/.test(text) ? quote + quote : text;
+  const objects = code.replace(/`[^`]*`/g, "``").replace(/"[^"\n]*"/g, blank('"')).replace(/'[^'\n]*'/g, blank("'"));
   for (const match of objects.matchAll(/\b([a-zA-Z]+)\s*:\s*(-?\d+(?:\.\d+)?\b(?!\s*[?:])|"[^"\n]*"|'[^'\n]*'|`[^`$]*`)/g)) {
     const property = STYLE_KEYS[match[1]];
     if (!property) continue;
     const literal = match[2];
     const value = /^-?\d/.test(literal) ? (property === "z-index" ? literal : `${literal}px`) : literal.slice(1, -1);
     if (/^-?\d/.test(literal) && Number(literal) === 0) continue;
+    // Inline spacing is raw whatever its size: it belongs in a class or a parent's gap (SF-7). Tokens and 0 pass.
+    if (SPACING_PROPERTY.test(property)) {
+      if (/\d/.test(value.replace(/var\([^)]*\)/g, "").replace(/(?<![\w.])0(?![\w.])/g, ""))) findings.push({ file, selector: "style", property, value, kind: "spacing" });
+      continue;
+    }
     for (const kind of checkDeclaration(property, value, tokens)) findings.push({ file, selector: "style", property, value, kind });
   }
   // CSS inside string or template literals: anything that holds a declaration block or a run of declarations.

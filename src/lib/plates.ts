@@ -21,9 +21,9 @@ export function normalizePlateLabel(raw: string | undefined): string {
 /** The allowlist is read on the server per call; absent means nobody may link. */
 export async function assertPlateOperator(tx: Pick<Transaction, "execute">, actorUserId: string, env: Env) {
   const allowed = (env.PLATE_OPERATOR_USER_IDS ?? "").split(",").map(id => id.trim()).filter(Boolean);
-  if (!allowed.includes(actorUserId)) throw new DomainError("FORBIDDEN", "Plate operator access required");
+  if (!allowed.includes(actorUserId)) throw new DomainError("FORBIDDEN", "Dafür brauchst du den Zugang für Tresenschilder.");
   const found = await tx.execute(sql`SELECT id FROM "user" WHERE id = ${actorUserId}`);
-  if (found.rows.length !== 1) throw new DomainError("FORBIDDEN", "Plate operator access required");
+  if (found.rows.length !== 1) throw new DomainError("FORBIDDEN", "Dafür brauchst du den Zugang für Tresenschilder.");
 }
 
 export async function shopOf(tx: Transaction, programId: string | null) {
@@ -52,7 +52,7 @@ export async function plateStatus(input: { actorUserId: string; env: Env; plateL
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel));
-    if (!tag) throw new DomainError("NOT_FOUND", "Plate not found");
+    if (!tag) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     return { plateLabel, status: tag.status, everTapped: tag.lastCounter > 0, shop: describe(await shopOf(tx, tag.programId)) };
   });
 }
@@ -63,16 +63,16 @@ export async function plateStatus(input: { actorUserId: string; env: Env; plateL
  */
 export async function setPlateLink(input: { actorUserId: string; env: Env; plateLabel: string; programId: string | null; execute: boolean }) {
   const plateLabel = normalizePlateLabel(input.plateLabel);
-  if (input.programId !== null && !/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Programme not found");
+  if (input.programId !== null && !/^[0-9a-f-]{36}$/i.test(input.programId)) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     // Programme before tag, the order every tap and confirmation takes.
     if (input.programId) await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, input.programId)).for("share");
     const target = await shopOf(tx, input.programId);
-    if (input.programId && !target) throw new DomainError("NOT_FOUND", "Programme not found");
-    if (target && (target.status !== "active" || target.tapMode !== "staff_confirmed" || !target.cooldownSeconds)) throw new DomainError("STAFF_CONFIRMATION_REQUIRED", "The shop must switch on NFC „Mit Bestätigung“ first");
+    if (input.programId && !target) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
+    if (target && (target.status !== "active" || target.tapMode !== "staff_confirmed" || !target.cooldownSeconds)) throw new DomainError("STAFF_CONFIRMATION_REQUIRED", "Das Geschäft muss zuerst NFC „Mit Bestätigung“ einschalten.");
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update");
-    if (!tag) throw new DomainError("NOT_FOUND", "Plate not found");
+    if (!tag) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     if (tag.status !== "unlinked" && tag.status !== "active") throw new DomainError("PLATE_RETIRED", "This plate was revoked or replaced");
     const current = await shopOf(tx, tag.programId);
     if ((current?.programId ?? null) === input.programId) return { result: "unchanged" as const, plateLabel, from: describe(current), to: describe(target) };
@@ -99,7 +99,7 @@ export async function revokeUnlinkedPlate(input: { actorUserId: string; env: Env
   return db.transaction(async tx => {
     await assertPlateOperator(tx, input.actorUserId, input.env);
     const [tag] = await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update");
-    if (!tag) throw new DomainError("NOT_FOUND", "Plate not found");
+    if (!tag) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
     if (tag.status === "revoked" && !tag.programId) return { result: "unchanged" as const, plateLabel };
     if (tag.status === "active") throw new DomainError("PLATE_LINKED", "Unlink the plate first");
     if (tag.status !== "unlinked") throw new DomainError("PLATE_RETIRED", "This plate was revoked or replaced");

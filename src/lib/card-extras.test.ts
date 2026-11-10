@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cardNewsProblem, challengeSentence, reviewUrlValid } from "./card-extras";
+import { cardNewsProblem, challengeSentence, EXCLUDED_GOODS, reviewUrlValid, signUpRules } from "./card-extras";
+
+describe("sign-up rules (join page and the back of the Apple pass)", () => {
+  it("lists the rules, the points expiry, then the exclusions once on German pages", () => {
+    const expiry = "Punkte verfallen 24 Monate nach dem Sammeln, die ältesten zuerst.";
+    expect(signUpRules({ rulesText: "Ein Stempel pro Besuch.", pointsExpiryRule: expiry, locale: "de" })).toEqual(["Ein Stempel pro Besuch.", expiry, EXCLUDED_GOODS]);
+    expect(signUpRules({ rulesText: "Ein Stempel pro Besuch." })).toEqual(["Ein Stempel pro Besuch.", EXCLUDED_GOODS]);
+    expect(signUpRules({ rulesText: "Un tampon par visite.", locale: "fr" })).toEqual(["Un tampon par visite."]);
+  });
+});
 
 describe("review link", () => {
   it("accepts https links on the three Google review hosts", () => {
@@ -34,5 +43,13 @@ describe("challengeSentence in the card's language", () => {
     expect(fr.text).toBe("Venez 3 fois en octobre et recevez 20 points supplémentaires.");
     expect(fr.conditions).toBe("Seules les visites confirmées en caisse comptent, une par jour au maximum. Valable jusqu’au 31/10/2026. Hors tabac, presse, livres, loterie et recharges téléphoniques.");
     expect(challengeSentence(3, 1, "stamp", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 1 tampon supplémentaire.");
+  });
+  it("says a one-point bonus in the singular, in German and French (ENG-104)", () => {
+    expect(challengeSentence(3, 1, "points", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 1 Punkt extra.");
+    expect(challengeSentence(3, 2, "points", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 2 Punkte extra.");
+    expect(challengeSentence(3, 1, "points", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 1 point supplémentaire.");
+    expect(challengeSentence(3, 2, "points", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 2 points supplémentaires.");
+    expect(challengeSentence(3, 1, "stamp", "Oktober", "31.10.2026").text).toBe("Komm 3-mal im Oktober, dann gibt's 1 Stempel extra.");
+    expect(challengeSentence(3, 2, "stamp", "octobre", "31/10/2026", "fr").text).toBe("Venez 3 fois en octobre et recevez 2 tampons supplémentaires.");
   });
 });

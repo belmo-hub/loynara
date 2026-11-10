@@ -2,51 +2,49 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { BackToActions } from "@/components/owner/actions-list";
 import { useOwner } from "@/components/owner/owner-context";
-import { ErrorNotice, LoadingBlock, Notice, PageHead } from "@/components/owner/owner-ui";
-import { ALL_LOCATIONS_NOTE, PeriodBar } from "@/components/owner/period-bar";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
+import { ALL_LOCATIONS_NOTE } from "@/components/owner/period-bar";
 import { useLoad } from "@/components/owner/use-load";
 import type { MerchantAdvice } from "@/lib/adviser";
+import { keepUnits } from "@/lib/german-date";
 
-const day = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-
+/** Beratung (Design, 6 Nov; Legal 7 Nov „half“): the period, then each hint as what to do, one button and one fold; the
+ *  Verkäufe line stays visible under the advice, how the hints come about sits in the page's fold. */
 export default function MerchantAdviserPage() {
   const { me, locations } = useOwner();
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [report, reload] = useLoad<MerchantAdvice>(me?.role === "owner" ? `/api/merchant/adviser?window=${windowDays}` : null);
   if (!me) return null;
-  const head = <PageHead title="Beratung" lead="Hinweise aus deinen bestätigten Buchungen. Was du änderst, entscheidest du." />;
-  if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Nur Inhaber:innen können diese Hinweise sehen.</Notice></div>;
+  const head = <PageHead back={<BackToActions />} title="Beratung" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} />;
+  if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (
     <div className="ow-page">
       {head}
-      {locations.length > 1 && <Notice>{ALL_LOCATIONS_NOTE}</Notice>}
-      <PeriodBar id="adviser-window" value={windowDays} onChange={setWindowDays} meta={r ? `${day(r.from)} bis ${day(r.asOf)}` : undefined} />
+      <div className="ow-seg" role="group" aria-label="Zeitraum">
+        {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}
+      </div>
       {report.state === "error" && <ErrorNotice message={report.message} onRetry={reload} />}
       {report.state === "loading" && <LoadingBlock rows={3} />}
       {r && <>
-        <div className="ow-notice ow-notice--ok"><span><strong>Nach festen Regeln</strong></span><span>Die Hinweise folgen festen Regeln und beruhen nur auf deinen bestätigten Buchungen.</span></div>
-        <dl className="ow-metrics" aria-label="Beobachtete Kennzahlen">
-          <Metric label="Aktive Karten" value={r.metrics.currentActiveCards} /><Metric label="Bestätigte Buchungen" value={r.metrics.qualifyingCheckouts} /><Metric label="Wiederkehrende Karten" value={r.metrics.repeatCards} /><Metric label="Einlösungen" value={r.metrics.redemptions} />
-        </dl>
-        <section aria-labelledby="advice-heading" className="ow-stack"><h2 id="advice-heading" style={{ fontSize: "var(--text-18)" }}>Prüfpunkte</h2>
+        <section className="ow-stack ow-stack--tight" aria-label="Hinweise">
           {r.recommendations.map(item => (
-            <article className="ow-card ow-stack" key={item.id}>
-              <h3 style={{ fontSize: "var(--text-16)" }}>{item.title}</h3>
-              <dl className="ow-dl">{item.observed.map(observation => [<dt key={`${observation.label}-t`}>{observation.label}</dt>, <dd key={`${observation.label}-d`}>{observation.value}</dd>])}</dl>
-              <div><h4 className="ow-label">Warum dieser Hinweis?</h4><p>{item.reasoning}</p></div>
-              <div><h4 className="ow-label">Was fehlt?</h4><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{item.missingInformation.map(value => <li key={value}>{value}</li>)}</ul></div>
-              <div className="ow-readonly"><h4 className="ow-label">Nächster Schritt zur Prüfung</h4><p>{item.nextAction}</p>{item.link && <p style={{ marginTop: 8 }}><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={item.link.href}>{item.link.label}</Link></p>}</div>
+            <article className="ow-qpanel ow-advice" key={item.id}>
+              <h2>{keepUnits(item.title)}</h2>
+              <p>{item.nextAction}</p>
+              {item.link && <Link className="ow-btn ow-btn--secondary ow-btn--sm" href={item.link.href}>{item.link.label}</Link>}
+              <MoreInfo>{[item.reasoning, ...item.missingInformation].map(line => <p key={line}>{keepUnits(line)}</p>)}</MoreInfo>
             </article>
           ))}
         </section>
-        <Notice><div><strong>Datengrenzen</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{r.limitations.map(value => <li key={value}>{value}</li>)}</ul><p style={{ marginTop: 6 }}><Link className="ow-link" href="/merchant/analytics">Zählregeln in den Ergebnissen ansehen</Link> · <Link className="ow-link" href="/merchant/program">Programm manuell öffnen</Link></p></div></Notice>
+        <p className="ow-hint">Erfasste Aktivität beweist keine zusätzlichen Verkäufe.</p>
+        <MoreInfo summary="So entstehen die Hinweise">
+          <p>Die Hinweise folgen festen Regeln und beruhen nur auf deinen bestätigten Buchungen im gewählten Zeitraum.</p>
+          <p>Die Beratung ändert nichts an deinem Programm, deinen Prämien oder deinen Kosten.</p>
+        </MoreInfo>
       </>}
     </div>
   );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="ow-metric"><dt>{label}</dt><dd><span className="ow-metric-value">{value}</span></dd></div>;
 }

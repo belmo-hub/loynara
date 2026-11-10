@@ -1,13 +1,14 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, membershipContacts, memberships, outboxJobs, programs, staffRoles, tenants } from "@/db/schema";
+import { campaignAttempts, campaignDailyUsage, campaignRecipients, campaigns, consentEvents, emailDeliveries, emailSuppressions, emailUnsubscribes, membershipContacts, memberships, outboxJobs, programs, staffRoles } from "@/db/schema";
 import { sendLocalMailpit, syntheticAddress, type LocalSender } from "./email";
 import { DomainError } from "./loyalty";
 import { audienceDefinitionSchema, databaseAudienceNow, selectAudience, type AudienceDefinition } from "./segments";
-import { promotionalEmailMode, promotionalProvider, recipientHash, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
+import { promotionalEmailMode, promotionalProvider, recipientHashes, sendPromotional, type TransactionalEmailProvider } from "./transactional-email";
 import { unsubscribeUrl } from "./unsubscribe";
-import { hasRecentPromotion, monthlyLocationUsage, programTimezone, promotionalLimits, quietHoursDeferral } from "./promotion-policy";
+import { hasRecentPromotion, marketingSignature, monthlyLocationUsage, programSender, promotionalLimits, quietHoursDeferral, requireSenderDetails, senderAddressMissing } from "./promotion-policy";
+import { contentRefusal } from "./wallet-message-rules";
 
 const DAILY_QUOTA = 100;
 const AUDIENCE_PAGE_SIZE = 500;
@@ -24,6 +25,12 @@ type Exclusions = { unverified: number; noConsent: number; unsubscribed: number;
 type DispatchJob = { id: string; tenantId: string; payload: Record<string, unknown> };
 type DeliveryJob = DispatchJob & { attempts: number };
 
+/** The content rules Wallet messages follow apply to campaign mail too (ENG-163, Legal 1 Nov): subject and body. */
+export function requireAllowedContent(subject: string, body: string) {
+  const refused = contentRefusal(subject) ?? contentRefusal(body);
+  if (refused) throw new DomainError("MESSAGE_REFUSED", refused);
+}
+
 function requireCampaignMail() {
   if (promotionalEmailMode() === "disabled") throw new DomainError("EMAIL_DISABLED", "Promotional email delivery is disabled");
 }
@@ -31,7 +38,7 @@ function requireCampaignMail() {
 async function ownerRole(actorUserId: string, query: Query = db) {
   const [role] = await query.select({ tenantId: staffRoles.tenantId }).from(staffRoles)
     .where(and(eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
-  if (!role) throw new DomainError("FORBIDDEN", "Only an active owner can manage campaigns");
+  if (!role) throw new DomainError("FORBIDDEN", "Kampagnen kann nur die Inhaberin oder der Inhaber verwalten.");
   return role;
 }
 
@@ -39,7 +46,7 @@ async function ownerProgram(actorUserId: string, programSlug: string, query: Que
   const role = await ownerRole(actorUserId, query);
   const [program] = await query.select().from(programs)
     .where(and(eq(programs.slug, programSlug), eq(programs.tenantId, role.tenantId), eq(programs.status, "active"))).limit(1);
-  if (!program) throw new DomainError("NOT_FOUND", "Programme not found in this merchant");
+  if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
   return program;
 }
 
@@ -48,7 +55,7 @@ async function ownerCampaign(actorUserId: string, campaignId: string, query: Que
   const selection = query.select().from(campaigns)
     .where(and(eq(campaigns.id, campaignId), eq(campaigns.tenantId, role.tenantId)));
   const [campaign] = lock ? await selection.for("update").limit(1) : await selection.limit(1);
-  if (!campaign) throw new DomainError("NOT_FOUND", "Campaign not found in this merchant");
+  if (!campaign) throw new DomainError("NOT_FOUND", "Diese Kampagne haben wir nicht gefunden. Bitte lade die Seite neu.");
   return campaign;
 }
 
@@ -97,9 +104,11 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     .orderBy(desc(consentEvents.createdAt), desc(consentEvents.id));
   const consent = new Map<string, { granted: boolean; source: string }>();
   for (const event of events) if (!consent.has(event.membershipId)) consent.set(event.membershipId, event);
-  const hashes = rows.flatMap(row => row.email ? [recipientHash(row.email)] : []);
+  const hashes = rows.flatMap(row => row.email ? recipientHashes(row.email) : []);
+  // Global hard reasons (permanent failure, complaint) and this shop's own unsubscribes; another shop's unsubscribe does not count.
   const suppressions = hashes.length ? await query.select({ recipientHash: emailSuppressions.recipientHash, reason: emailSuppressions.reason }).from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, hashes)) : [];
-  const suppressed = new Map(suppressions.map(row => [row.recipientHash, row.reason]));
+  const unsubscribes = hashes.length ? await query.select({ recipientHash: emailUnsubscribes.recipientHash }).from(emailUnsubscribes).where(and(eq(emailUnsubscribes.tenantId, tenantId), inArray(emailUnsubscribes.recipientHash, hashes))) : [];
+  const suppressed = new Map([...suppressions.map(row => [row.recipientHash, row.reason] as const), ...unsubscribes.map(row => [row.recipientHash, "unsubscribed"] as const)]);
   const eligible: Array<{ membershipId: string; email: string }> = [];
   for (const id of ids) {
     const row = contacts.get(id);
@@ -107,7 +116,7 @@ async function classify(tenantId: string, programId: string, ids: string[], quer
     if (!row.email || !row.verified) { excluded.unverified++; continue; }
     if (promotionalEmailMode() === "mailpit" && !syntheticAddress(row.email)) { excluded.nonSynthetic++; continue; }
     if (!consent.get(id)?.granted) { if (consent.get(id)?.source === "email_unsubscribe") excluded.unsubscribed++; else excluded.noConsent++; continue; }
-    const suppression = suppressed.get(recipientHash(row.email));
+    const suppression = recipientHashes(row.email).map(hash => suppressed.get(hash)).find(Boolean);
     if (suppression) { if (suppression === "unsubscribed") excluded.unsubscribed++; else excluded.suppressed++; continue; }
     if (await hasRecentPromotion(query, tenantId, id, now)) { excluded.frequency++; continue; }
     eligible.push({ membershipId: id, email: row.email });
@@ -129,6 +138,7 @@ export async function previewCampaign(raw: { actorUserId: string; programSlug: s
 
 export async function createDraftCampaign(raw: { actorUserId: string; programSlug: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
   const input = contentSchema.extend({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
+  requireAllowedContent(input.subject, input.body);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   return db.transaction(async tx => {
     // A double submit (slow network, second click) must not leave two identical drafts: an identical draft by the same
@@ -145,6 +155,7 @@ export async function createDraftCampaign(raw: { actorUserId: string; programSlu
 
 export async function editDraftCampaign(raw: { actorUserId: string; campaignId: string; title: string; subject: string; body: string; audienceDefinition: AudienceDefinition }) {
   const input = contentSchema.extend({ actorUserId: z.string().min(1), campaignId: z.uuid() }).strict().parse(raw);
+  requireAllowedContent(input.subject, input.body);
   return db.transaction(async tx => {
     const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx, true);
     if (campaign.status !== "draft") throw new DomainError("CAMPAIGN_LOCKED", "Only a draft campaign can be edited");
@@ -161,6 +172,7 @@ export async function scheduleCampaign(raw: { actorUserId: string; campaignId: s
   return db.transaction(async tx => {
     const campaign = await ownerCampaign(input.actorUserId, input.campaignId, tx, true);
     if (campaign.status !== "draft" && campaign.status !== "paused") throw new DomainError("CAMPAIGN_LOCKED", "Only draft or paused campaigns can be scheduled");
+    requireSenderDetails(await programSender(tx, campaign.tenantId, campaign.programId));
     const revision = campaign.scheduleRevision + 1;
     await tx.update(campaigns).set({ status: "scheduled", scheduledAt: input.scheduledAt, audienceAsOf: input.scheduledAt, scheduleRevision: revision, updatedAt: now }).where(eq(campaigns.id, campaign.id));
     await tx.insert(outboxJobs).values({ tenantId: campaign.tenantId, kind: "campaign.dispatch", payload: { campaignId: campaign.id, scheduleRevision: String(revision) }, nextAttemptAt: input.scheduledAt });
@@ -188,11 +200,18 @@ export async function cancelCampaign(raw: { actorUserId: string; campaignId: str
   });
 }
 
+/** A campaign blocked at dispatch for its text says why (ENG-163); other blocks keep today's chip only. */
+const blockedReason = ({ status, subject, body }: { status: string; subject: string; body: string }) => {
+  const reason = status === "blocked" ? contentRefusal(subject) ?? contentRefusal(body) : null;
+  return reason ? { blockedReason: reason } : {};
+};
+
 export async function listCampaigns(raw: { actorUserId: string; programSlug: string }) {
   const input = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120) }).strict().parse(raw);
   const program = await ownerProgram(input.actorUserId, input.programSlug);
   const rows = await db.select().from(campaigns).where(and(eq(campaigns.tenantId, program.tenantId), eq(campaigns.programId, program.id))).orderBy(desc(campaigns.createdAt)).limit(100);
-  return rows.map(({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }));
+  return rows.map(({ id, title, subject, body, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition }) => ({ id, title, subject, status, scheduledAt, audienceCount, queuedCount, createdAt, audienceDefinition,
+    ...blockedReason({ status, subject, body }) }));
 }
 
 export async function getCampaign(raw: { actorUserId: string; campaignId: string }) {
@@ -234,7 +253,7 @@ export async function getCampaign(raw: { actorUserId: string; campaignId: string
       FROM campaign_recipients r
       WHERE r.tenant_id = ${campaign.tenantId} AND r.campaign_id = ${campaign.id} AND r.status = 'complete' AND r.sent_at IS NOT NULL
     `).then(result => result.rows);
-    return { campaign, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
+    return { campaign: { ...campaign, ...blockedReason(campaign) }, summary, attempts, outcome: { sent: outcome?.sent ?? 0, returnedAfterSend: outcome?.returned ?? 0 } };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -260,6 +279,10 @@ export async function dispatchCampaign(job: DispatchJob, now?: Date): Promise<{ 
     if (!campaign || campaign.status !== "scheduled" || campaign.scheduleRevision !== Number(parsed.data.scheduleRevision)) return { status: "suppressed" as const, reason: "Campaign schedule changed" };
     const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, campaign.tenantId), eq(staffRoles.userId, campaign.createdByUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true))).limit(1);
     if (!owner) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Queueing owner no longer authorized" }; }
+    // Rechecked here for drafts saved before the rule existed.
+    if (contentRefusal(campaign.subject) ?? contentRefusal(campaign.body)) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Campaign text breaks the content rules" }; }
+    // A campaign scheduled before the sender details became required (or emptied since) reserves no quota and queues nothing.
+    if (senderAddressMissing(await programSender(tx, campaign.tenantId, campaign.programId))) { await tx.update(campaigns).set({ status: "blocked", updatedAt: now }).where(eq(campaigns.id, campaign.id)); return { status: "blocked" as const, reason: "Sender details missing" }; }
     const [program] = await tx.select({ locationId: programs.locationId }).from(programs).where(and(eq(programs.id, campaign.programId), eq(programs.tenantId, campaign.tenantId), eq(programs.status, "active"))).limit(1);
     if (!program) return { status: "blocked" as const, reason: "Programme unavailable" };
     const monthlyUsed = await monthlyLocationUsage(tx, campaign.tenantId, program.locationId, now, true);
@@ -325,14 +348,14 @@ export async function deliverCampaignRecipient(job: DeliveryJob, send: LocalSend
     } catch { return suppress("Audience could not be rechecked"); }
     const classified = await classify(campaign.tenantId, campaign.programId, [member.id], tx);
     if (!classified.eligible.length) return suppress(classified.excluded.unsubscribed ? "Unsubscribed" : classified.excluded.suppressed ? "Address suppressed by provider" : classified.excluded.frequency ? "Customer frequency limit" : classified.excluded.noConsent ? "Marketing consent withdrawn" : classified.excluded.nonSynthetic ? "Recipient is not synthetic" : "Contact unavailable or unverified");
-    const [tenant] = await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, campaign.tenantId)).limit(1);
-    if (!tenant) return suppress("Merchant unavailable");
-    const timezone = await programTimezone(tx, campaign.tenantId, campaign.programId);
-    if (!timezone) return suppress("Location unavailable");
-    const until = quietHoursDeferral(now, timezone);
-    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const sender = await programSender(tx, campaign.tenantId, campaign.programId);
+    if (!sender) return suppress("Location unavailable");
     const link = unsubscribeUrl({ tenantId: campaign.tenantId, membershipId: member.id, email: classified.eligible[0].email });
-    const message = { to: classified.eligible[0].email, subject: campaign.subject, body: `${campaign.body}\n\n${tenant.name}\nAngebote abbestellen: ${link}`, unsubscribeUrl: link, jobId: job.id };
+    const signature = marketingSignature(sender, link);
+    if (!signature) return suppress("Shop address missing");
+    const until = quietHoursDeferral(now, sender.timezone);
+    if (until) return { status: "deferred" as const, reason: "Quiet hours in the location's timezone", until };
+    const message = { to: classified.eligible[0].email, fromName: signature.fromName, subject: campaign.subject, body: `${campaign.body}\n\n${signature.footer}`, unsubscribeUrl: link, jobId: job.id };
     try {
       if (mode === "mailpit") await send(message);
       else {

@@ -1,9 +1,12 @@
 import path from "node:path";
 import { passFastStatus } from "../src/lib/wallet/passfast";
 import { googleLocationClasses } from "../src/lib/wallet/google-direct";
+import { APPLE_CREDENTIAL_VALUES, type AppleCredentialValue, inspectAppleCredentialValue } from "./apple-wallet-credential";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE, inspectGoogleServiceAccountValue } from "./google-wallet-credential";
 import { DERIVED_KEY_PROVIDER, parseMaster } from "../src/lib/nfc-keys";
 import { stripeConfigIssues } from "../src/lib/stripe-config";
+import { erasureDelayDays } from "../src/lib/programme-end-date";
+import { demoConfigIssues } from "../src/lib/demo-environment";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -11,31 +14,45 @@ function parsedUrl(value?: string): URL | null {
   try { return new URL(value); } catch { return null; }
 }
 
-export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
-  if (env.NODE_ENV !== "production") return [];
-  const issues: string[] = [];
+/**
+ * `demo`: the demo environment (demo-mode design v3, DEMO_ENVIRONMENT set and not "false") runs the production image
+ * without the production marker. It gets these same rules, minus the few that name production itself (its identity and
+ * approved origin, the database name rule, the billing fixture refusals), plus its own refusals (demoConfigIssues).
+ */
+export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false" } = {}): string[] {
+  const issues: string[] = demo ? demoConfigIssues(env) : [];
   const database = parsedUrl(env.DATABASE_URL);
+  const databaseIdentity = database ? `${database.hostname}/${database.pathname}/${database.username}` : "";
+  // Mirror of production's rule, whatever NODE_ENV says (the worker may run without it): the demo database names itself,
+  // so a copied production DATABASE_URL cannot start a demo.
+  if (demo && env.DATABASE_URL && (!database || !/demo/i.test(databaseIdentity) || /preview|device[-_]?test/i.test(databaseIdentity))) issues.push("The demo database must name itself demo (host, database or user), never production, preview or device test");
+  if (env.NODE_ENV !== "production") return issues;
   const auth = parsedUrl(env.BETTER_AUTH_URL);
   const base = parsedUrl(env.PUBLIC_BASE_URL);
-  const approved = parsedUrl(env.PRODUCTION_APPROVED_ORIGIN);
+  // The demo has no approved production origin: its own, the one origin both URLs share, takes that place.
+  const approved = demo ? (base && auth?.origin === base.origin ? parsedUrl(base.origin) : null) : parsedUrl(env.PRODUCTION_APPROVED_ORIGIN);
   // pg-connection-string gives these parameters priority over the URL fields.
   const databaseOverride = database && (["host", "port", "user", "password"].some(name => database.searchParams.has(name)) || Boolean(database.hash));
 
   if (!database || !["postgres:", "postgresql:"].includes(database.protocol) || localHosts.has(database.hostname) || database.password === "looplocal_local_only" || databaseOverride
-    || /preview|device[-_]?test|demo/i.test(`${database.hostname}/${database.pathname}/${database.username}`)) {
+    || (!demo && /preview|device[-_]?test|demo/i.test(databaseIdentity))) {
     issues.push("Production database must use a remote PostgreSQL target and unique credentials");
   }
   if (!auth || !base || auth.protocol !== "https:" || base.protocol !== "https:" || localHosts.has(auth.hostname) || localHosts.has(base.hostname)) {
     issues.push("Production application URLs must use HTTPS and nonlocal hosts");
   }
-  if (env.PRODUCTION_ENVIRONMENT !== "loynara-production") {
-    issues.push("Production environment identity is missing or incorrect");
-  }
-  if (!approved || approved.protocol !== "https:" || approved.origin !== env.PRODUCTION_APPROVED_ORIGIN
-    || approved.hostname.startsWith("preview.") || approved.hostname.endsWith(".pages.dev")
-    || auth?.origin !== approved.origin || base?.origin !== approved.origin
-    || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) {
-    issues.push("Production origin must be the exact approved HTTPS app origin, never preview");
+  if (demo) {
+    if (!approved || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) issues.push("The demo's auth and base URL must be the same HTTPS origin");
+  } else {
+    if (env.PRODUCTION_ENVIRONMENT !== "loynara-production") {
+      issues.push("Production environment identity is missing or incorrect");
+    }
+    if (!approved || approved.protocol !== "https:" || approved.origin !== env.PRODUCTION_APPROVED_ORIGIN
+      || approved.hostname.startsWith("preview.") || approved.hostname.endsWith(".pages.dev")
+      || auth?.origin !== approved.origin || base?.origin !== approved.origin
+      || auth?.href !== `${approved.origin}/` || base?.href !== `${approved.origin}/`) {
+      issues.push("Production origin must be the exact approved HTTPS app origin, never preview");
+    }
   }
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 || env.BETTER_AUTH_SECRET.startsWith("replace-")) {
     issues.push("Production auth secret is missing, short, or a placeholder");
@@ -58,12 +75,25 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
   if (env.SMTP_HOST !== "disabled") issues.push("Local Mailpit/SMTP transport must be disabled in production");
   if (env.TRUST_PROXY_CLIENT_IP !== undefined && env.TRUST_PROXY_CLIENT_IP !== "false") issues.push("Generic proxy client-IP trust is forbidden; use the reviewed ingress policy");
   if (env.TRUSTED_INGRESS !== "cloudflare_tunnel") issues.push("Production requires TRUSTED_INGRESS=cloudflare_tunnel and a private origin with no public bypass");
-  if (env.BILLING_FIXTURE_SECRET) issues.push("Billing fixture secret is forbidden in production");
+  if (!demo && env.BILLING_FIXTURE_SECRET) issues.push("Billing fixture secret is forbidden in production");
   if ([env.MAILGUN_EU_API_KEY, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET]
     .some(value => value && /replace|placeholder|example|test-secret/i.test(value))) {
     issues.push("Placeholder provider credentials are forbidden in production");
   }
   const externalEmailRequested = env.EXTERNAL_EMAIL_ENABLED === "true" || env.TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED === "true" || env.PROMOTIONAL_EXTERNAL_EMAIL_ENABLED === "true";
+  // Suppressions and unsubscribes are keyed by an HMAC of the address under their own key (ENG-170), never the login secret.
+  const suppressionKey = env.SUPPRESSION_HASH_SECRET ?? "";
+  if ((externalEmailRequested || suppressionKey) && (suppressionKey.length < 32 || /replace|placeholder|example|changeme|test-secret/i.test(suppressionKey) || new Set(suppressionKey).size < 12)) {
+    issues.push("External email requires SUPPRESSION_HASH_SECRET with at least 32 random characters");
+  }
+  if (suppressionKey && [env.BETTER_AUTH_SECRET, env.SUPPRESSION_LEGACY_HASH_SECRET, env.NFC_VERIFY_MASTER_KEY, env.PROMOTIONAL_UNSUBSCRIBE_SECRET, env.MAILGUN_EU_WEBHOOK_SIGNING_KEY, env.APPLE_WALLET_AUTH_SECRET].includes(suppressionKey)) {
+    issues.push("SUPPRESSION_HASH_SECRET must not be reused as another secret");
+  }
+  // The pre-ENG-170 login secret, kept only to match old rows after BETTER_AUTH_SECRET is rotated. Optional; set, it must be real.
+  const legacyKey = env.SUPPRESSION_LEGACY_HASH_SECRET;
+  if (legacyKey !== undefined && (legacyKey.length < 32 || /replace|placeholder|example|changeme|test-secret/i.test(legacyKey))) {
+    issues.push("SUPPRESSION_LEGACY_HASH_SECRET, when set, must be the former login secret (at least 32 characters)");
+  }
   if (externalEmailRequested && (env.MAILGUN_SEND_APPROVED !== "true"
     || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(env.MAILGUN_EU_DOMAIN ?? "")
     || !/^[^\s@]+@[^\s@]+$/.test(env.MAILGUN_FROM_EMAIL ?? "")
@@ -96,7 +126,11 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv): string[] {
     issues.push("NFC key settings are present while NFC is not enabled");
   }
   issues.push(...stripeConfigIssues(env, true));
-  if (env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
+  // ENG-167: owner emails (the cancellation's text-form confirmation) carry the operator's name and address. The cancellation
+  // page is withheld on production (pilot-surfaces), but the operator enters e-mailed cancellations, so the email lane decides.
+  if (externalEmailRequested && !(env.OPERATOR_NAME?.trim() && env.OPERATOR_ADDRESS?.trim())) issues.push("OPERATOR_NAME and OPERATOR_ADDRESS (the operator's name and postal address for owner emails) must both be set");
+  if (erasureDelayDays(env) === null) issues.push("SHOP_ERASURE_DELAY_DAYS must be a whole number of days from 7 to 3650");
+  if (!demo && env.BILLING_FIXTURE_MODE === "true") issues.push("Local billing fixture is forbidden in production");
   if (env.DEMO_SEED_ALLOWED === "true" || env.DEMO_MODE === "true") issues.push("Demo seed/settings are forbidden in production");
   if (env.LOOPLOCAL_PREVIEW_SEED === "true") issues.push("Preview seeding is forbidden in production");
   if (env.LOOPLOCAL_DEVICE_TEST_SEED === "true") issues.push("Device-test seeding is forbidden in production");
@@ -124,13 +158,13 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   const apple = env.APPLE_WALLET_ENABLED === "true";
   const google = env.GOOGLE_WALLET_ENABLED === "true";
   const passfast = env.PASSFAST_ENABLED === "true";
-  if (apple) issues.push("Direct native Apple Wallet is dormant; Apple production uses PassFast");
-  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need PassFast and the event webhook
-  // secret, or no removal would ever be recorded and the removal report would silently read 0.
+  // Owner messages (ENG-043): absent keeps them hidden and changes nothing. On, they need an Apple pass that can carry them:
+  // native Apple Wallet (ENG-127, removals come from the pass web service) or PassFast with its event webhook secret,
+  // or no removal would ever be recorded and the removal report would silently read 0.
   if (env.WALLET_MESSAGES_ENABLED === "true") {
-    if (!passfast) issues.push("WALLET_MESSAGES_ENABLED requires PassFast (PASSFAST_ENABLED=true)");
+    if (!passfast && !apple) issues.push("WALLET_MESSAGES_ENABLED requires Apple Wallet (APPLE_WALLET_ENABLED=true or PASSFAST_ENABLED=true)");
     const hook = env.PASSFAST_WEBHOOK_SECRET ?? "";
-    if (hook.length < 16 || placeholder.test(hook)) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
+    if (passfast && (hook.length < 16 || placeholder.test(hook))) issues.push("WALLET_MESSAGES_ENABLED requires PASSFAST_WEBHOOK_SECRET with at least 16 characters");
   }
   if (passfast && !passFastStatus(env).ready) issues.push("PassFast enabled without complete approved configuration");
   if ((passfast || apple || google) && env.WALLET_PRODUCTION_APPROVED !== "true") issues.push("Wallet requires a separate production approval (WALLET_PRODUCTION_APPROVED=true)");
@@ -151,7 +185,7 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   }
   if (google) {
     if (env.GOOGLE_WALLET_PROVIDER !== "GOOGLE_DIRECT") issues.push("Google Wallet requires explicit GOOGLE_DIRECT provider selection");
-    try { googleLocationClasses(env); } catch { issues.push("Google Direct requires valid owned issuer and approved location classes"); }
+    try { googleLocationClasses(env); } catch { issues.push("Google Direct requires a valid owned issuer; GOOGLE_WALLET_LOCATION_CLASSES, when set, must be valid"); }
     credentialPath("GOOGLE_WALLET_SERVICE_ACCOUNT_FILE");
     if (!/^\d{10,25}$/.test(env.GOOGLE_WALLET_ISSUER_ID ?? "")) issues.push("GOOGLE_WALLET_ISSUER_ID must be the numeric Google Wallet issuer ID");
     if (env.GOOGLE_WALLET_PUBLISHING_STATUS !== "published") issues.push("Google Wallet publishing must be approved (GOOGLE_WALLET_PUBLISHING_STATUS=published); Demo Mode is not production");
@@ -164,6 +198,14 @@ function walletConfigIssues(env: NodeJS.ProcessEnv, approved: URL | null): strin
   if (deliveredKey) {
     if (!google) issues.push(`${GOOGLE_SERVICE_ACCOUNT_VALUE} is set while Google Wallet is not enabled`);
     const { issue } = inspectGoogleServiceAccountValue(deliveredKey);
+    if (issue) issues.push(issue);
+  }
+  // Same for the Apple certificate, key and WWDR intermediate: each belongs to the Apple group and is written to its *_PATH.
+  for (const name of Object.keys(APPLE_CREDENTIAL_VALUES) as AppleCredentialValue[]) {
+    const value = env[name];
+    if (!value) continue;
+    if (!apple) issues.push(`${name} is set while Apple Wallet is not enabled`);
+    const { issue } = inspectAppleCredentialValue(name, value);
     if (issue) issues.push(issue);
   }
   for (const name of ["GOOGLE_WALLET_SERVICE_MESSAGES_ENABLED", "GOOGLE_WALLET_MARKETING_MESSAGES_ENABLED"]) if (env[name] === "true" && !google) issues.push(`${name} requires Google Wallet (GOOGLE_WALLET_ENABLED=true)`);

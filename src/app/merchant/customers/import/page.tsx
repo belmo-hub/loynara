@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { useOwner } from "@/components/owner/owner-context";
 import { ErrorNotice, LoadingBlock, MoreInfo, Notice, PageHead } from "@/components/owner/owner-ui";
 import { useLoad } from "@/components/owner/use-load";
+import { FieldError } from "@/components/owner/question-form";
+import { useFormCheck } from "@/components/ui/form-check";
 import type { ImportMapping, ImportPreview } from "@/lib/customer-import-preview";
 
 const sample = "id,email,balance,marketing_consent,consent_source,consent_date\nSYN-001,guest@example.test,3,no,,\n";
@@ -28,8 +31,9 @@ export default function ImportPreviewPage() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const form = useFormCheck();
   if (!me) return null;
-  const head = <PageHead eyebrow="Kunden · Vorschau" title="CSV-Vorschau" lead="Prüfe eine kleine Datei, bevor du Kunden übernimmst." />;
+  const head = <PageHead back={<Link href="/merchant/customers" className="ow-back"><ChevronLeft size={20} aria-hidden="true" />Kundenkarten</Link>} title="CSV-Vorschau" lead="Prüfe eine kleine Datei, bevor du Kunden übernimmst." />;
   const back = <Link href="/merchant/customers" className="ow-btn ow-btn--secondary">Zurück zu Kundenkarten</Link>;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice tone="warn" role="alert">Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich.</Notice><div>{back}</div></div>;
 
@@ -42,6 +46,7 @@ export default function ImportPreviewPage() {
   }
   async function inspect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!form.check(event.currentTarget)) return;
     setBusy(true); setError(""); setPreview(null);
     try { setPreview(await postJson<ImportPreview>("/api/merchant/customers/import-preview", { csv, mapping })); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Die Vorschau konnte nicht geprüft werden."); }
@@ -56,10 +61,10 @@ export default function ImportPreviewPage() {
       {access.state === "error" && <div className="ow-stack"><ErrorNotice message={access.status === 404 ? "Diese Vorschau ist noch nicht verfügbar." : access.status === 401 || access.status === 403 ? "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich." : access.message} onRetry={access.status === 404 || access.status === 403 ? undefined : reload} /><div>{back}</div></div>}
       {access.state === "ok" && !access.data.available && <div className="ow-stack"><Notice tone="warn" role="alert">Diese Vorschau ist auf dieser Instanz nicht verfügbar.</Notice><div>{back}</div></div>}
       {access.state === "ok" && access.data.available && <>
-        <form className="ow-card ow-stack" onSubmit={inspect}>
+        <form className="ow-card ow-stack" onSubmit={inspect} onInput={form.onInput} noValidate>
           <div><h2>Datei und Spalten</h2><MoreInfo><p>Trage für jedes Feld genau den Spaltennamen aus der ersten CSV-Zeile ein. Nur die Kunden-ID ist Pflicht. Nicht zugeordnete Spalten müssen leer sein. Zulässige Quellbezeichnungen: paper_form, legacy_platform, customer_form.</p></MoreInfo></div>
-          <div className="ow-field"><label htmlFor="im-file">CSV-Datei auswählen</label><input id="im-file" className="ow-input" style={{ paddingBlock: 8 }} type="file" accept=".csv,text/csv" onChange={event => void chooseFile(event)} /></div>
-          <div className="ow-field"><label htmlFor="im-csv">CSV-Inhalt</label><textarea id="im-csv" className="ow-textarea" value={csv} onChange={event => { setCsv(event.target.value); setPreview(null); }} rows={7} spellCheck={false} required style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-16)" }} /></div>
+          <div className="ow-field"><label htmlFor="im-file">CSV-Datei auswählen</label><input id="im-file" className="ow-input" type="file" accept=".csv,text/csv" onChange={event => void chooseFile(event)} /></div>
+          <div className="ow-field"><label htmlFor="im-csv">CSV-Inhalt</label><textarea id="im-csv" {...form.aria("im-csv")} className="ow-textarea" value={csv} onChange={event => { setCsv(event.target.value); setPreview(null); }} rows={7} spellCheck={false} required style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-16)" }} /><FieldError id="im-csv-error">{form.error("im-csv") ?? ""}</FieldError></div>
           <div className="ow-grid-2">{fields.map(field => <div className="ow-field" key={field.key}><label htmlFor={`im-${field.key}`}>{field.label}</label><input id={`im-${field.key}`} className="ow-input" value={mapping[field.key] ?? ""} onChange={event => setMapping(current => ({ ...current, [field.key]: event.target.value }))} placeholder={field.required ? "Pflichtfeld" : "Leer lassen, falls nicht vorhanden"} required={field.required} /></div>)}</div>
           <div><button type="submit" className="ow-btn ow-btn--primary" disabled={busy} aria-busy={busy}>{busy ? "Wird geprüft …" : "Vorschau prüfen"}</button></div>
           {error && <ErrorNotice message={error} />}
