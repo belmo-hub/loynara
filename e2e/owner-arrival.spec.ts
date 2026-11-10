@@ -204,7 +204,8 @@ test("forced colours: the checkbox is the native control again", async () => {
   // A transparent border is drawn under forced colours: only the current sub-tab may keep its line.
   const line = (current: boolean) => page.locator(`.ow-subnav a${current ? '[aria-current="page"]' : ':not([aria-current="page"])'}`).first().evaluate(node => getComputedStyle(node).borderBottomColor);
   const canvas = await page.locator(".ow-subnav").evaluate(node => { const probe = document.createElement("i"); probe.style.color = "Canvas"; node.append(probe); const colour = getComputedStyle(probe).color; probe.remove(); return colour; });
-  expect(await line(false), "the other sub-tab's line is the canvas").toBe(canvas);
+  // The line's colour changes over --dur-press, so the switch to forced colours is given that time.
+  await expect.poll(() => line(false), { message: "the other sub-tab's line is the canvas" }).toBe(canvas);
   expect(await line(true), "the current sub-tab's line shows").not.toBe(canvas);
 });
 
