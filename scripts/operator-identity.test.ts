@@ -47,6 +47,30 @@ describe("operator identity: target guard", () => {
   });
 });
 
+describe("operator identity: demo target", () => {
+  const demoEnv = {
+    DEMO_ENVIRONMENT: "true", NODE_ENV: "production", DATABASE_URL: "postgresql://postgres:pw@postgres-demo.railway.internal:5432/railway",
+    BETTER_AUTH_URL: "https://demo.example-pilot.test", PUBLIC_BASE_URL: "https://demo.example-pilot.test", PUBLIC_REGISTRATION_ENABLED: "false",
+  };
+  it("accepts the demo environment", () => {
+    expect(assertOperatorTarget("loynara-demo", demoEnv)).toBe("loynara-demo");
+  });
+  it.each([
+    ["the production deployment", { PRODUCTION_ENVIRONMENT: "loynara-production" }, "DEMO_TARGET_ON_PRODUCTION"],
+    ["demo environment off", { DEMO_ENVIRONMENT: "false" }, "NOT_DEMO_ENVIRONMENT"],
+    ["demo environment unset", { DEMO_ENVIRONMENT: undefined }, "NOT_DEMO_ENVIRONMENT"],
+    ["a database that does not name itself demo", { DATABASE_URL: "postgresql://user:pw@loynara-postgres.railway.internal:5432/railway" }, "DATABASE_NOT_DEMO"],
+    ["a public TCP proxy", { DATABASE_URL: "postgresql://u:p@demo.proxy.rlwy.net:12345/railway" }, "DATABASE_NOT_PRIVATE_RAILWAY"],
+    ["NODE_ENV development", { NODE_ENV: "development" }, "NODE_ENV_NOT_PRODUCTION"],
+    ["registration enabled", { PUBLIC_REGISTRATION_ENABLED: "true" }, "PUBLIC_REGISTRATION_NOT_DISABLED"],
+  ])("refuses: %s", (_name, override, code) => {
+    expect(refusalCode(() => assertOperatorTarget("loynara-demo", { ...demoEnv, ...override } as Record<string, string | undefined>))).toBe(code);
+  });
+  it("the production target still refuses the demo environment", () => {
+    expect(refusalCode(() => assertOperatorTarget("loynara-production", demoEnv))).toBe("WRONG_ENVIRONMENT_MARKER");
+  });
+});
+
 describe("operator identity: inputs", () => {
   it("normalizes and validates the identity", () => {
     expect(normalizeIdentity({ email: "  Owner@Example.COM ", name: " Mira Test " })).toEqual({ email: "owner@example.com", name: "Mira Test" });
