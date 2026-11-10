@@ -50,7 +50,7 @@ describe("news on the card", () => {
     const otherOwner = await user();
     const other = await shop(otherOwner, "Synthetic Other Café");
     const otherCard = await enroll({ slug: other.programSlug, acceptedTerms: true });
-    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, cardNews: "Fremde Nachricht" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, cardNews: "Fremde Nachricht" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const manager = await user();
     await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, 'manager', $3)", [merchant.tenantId, manager, merchant.locationId]);
     await expect(updateProgramExtras({ actorUserId: manager, programId: merchant.programId, cardNews: "Vom Team" })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -73,7 +73,7 @@ describe("review link on the card", () => {
     expect((await getMerchantContext(owner))?.reviewUrl).toBe(REVIEW);
     const otherOwner = await user();
     await shop(otherOwner, "Synthetic Other Café");
-    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, reviewUrl: REVIEW })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(updateProgramExtras({ actorUserId: otherOwner, programId: merchant.programId, reviewUrl: REVIEW })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await updateProgramExtras({ actorUserId: owner, programId: merchant.programId, reviewUrl: "" })).toMatchObject({ reviewUrl: null });
   });
 

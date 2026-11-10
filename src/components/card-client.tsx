@@ -41,20 +41,32 @@ function continueTap() {
 }
 
 /** ENG-130 (08): the panel moves under the card while a device holds the pass and this device has not yet shown it there. */
-export const savedViewDue = (token: string, status: Pick<WalletStatus, "appleSaved">) => status.appleSaved === true && readWalletStep(token) !== "saved" && !joinAsked(token);
+export const savedViewDue = (cardLocator: string, status: Pick<WalletStatus, "appleSaved">) => status.appleSaved === true && readWalletStep(cardLocator) !== "saved" && !joinAsked(cardLocator);
 /** „In Apple Wallet gespeichert“ shows on the first card view after the pass registers, once per card on this device, with its
  *  own flag: it hides on later visits even while the panel still waits for walletMessages (Design, 30 Oct). */
-export function savedLineDue(token: string, status: Pick<WalletStatus, "appleSaved">) {
+export function savedLineDue(cardLocator: string, status: Pick<WalletStatus, "appleSaved">) {
   if (status.appleSaved !== true) return false;
-  const key = `loynara_wallet_saved_line:${token}`;
+  const key = `loynara_wallet_saved_line:${cardLocator}`;
   try { if (localStorage.getItem(key)) return false; localStorage.setItem(key, "1"); } catch { /* blocked storage: the line may repeat */ }
   return true;
 }
 /** The „saved“ mark is left only once the moved-up panel has rendered (CTO, 30 Oct): with walletMessages off, it still comes after the switch. */
-export function savedPanelShown(token: string, savedView: boolean, panelShown: boolean) {
+export function savedPanelShown(cardLocator: string, savedView: boolean, panelShown: boolean) {
   if (!savedView || !panelShown) return false;
-  markWalletStep(token, "saved");
+  markWalletStep(cardLocator, "saved");
   return true;
+}
+/** F-2: older versions named these flags after the private card link, the whole credential. Move every entry that
+ *  contains it to the card number (a flag already set there wins), so no step shows again, and drop the old one. */
+export function moveTokenFlags(token: string, cardLocator: string) {
+  try {
+    const old = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).filter((key): key is string => key?.includes(token) === true);
+    for (const key of old) {
+      const value = localStorage.getItem(key), moved = key.replace(token, cardLocator);
+      if (value !== null && localStorage.getItem(moved) === null) localStorage.setItem(moved, value);
+      localStorage.removeItem(key);
+    }
+  } catch { /* blocked storage: nothing was kept there */ }
 }
 
 export function CardClient({ token }: { token: string }) {
@@ -82,7 +94,9 @@ export function CardClient({ token }: { token: string }) {
   const [offerKept, setOfferKept] = useState(false);
   const [offerClosed, setOfferClosed] = useState(false);
   const offerShown = !offerClosed && (offerKept || email.status?.offer === true);
-  useEffect(() => { savedPanelShown(token, savedView, consentUp); }, [token, savedView, consentUp]);
+  const cardLocator = card?.cardLocator;
+  useEffect(() => { if (cardLocator) moveTokenFlags(token, cardLocator); }, [token, cardLocator]);
+  useEffect(() => { if (cardLocator) savedPanelShown(cardLocator, savedView, consentUp); }, [cardLocator, savedView, consentUp]);
   // The booking moment: a booking this device has not shown yet (made while the card was open, or found when it is
   // opened) shows the pill, and the card steps from the balance last seen to the new one, so the new stamps land.
   const [moment, setMoment] = useState<{ credited: number; stepped: boolean } | null>(null);
@@ -168,10 +182,12 @@ export function CardClient({ token }: { token: string }) {
     return () => { mounted = false; auto.stop(); document.removeEventListener("visibilitychange", auto.visibility); window.removeEventListener("focus", auto.focus); window.removeEventListener("pageshow", onPageShow); };
   }, [token, playMoment]);
   useEffect(() => {
+    // The Wallet flags are kept under the card number (F-2), so the status is read once the card is in.
+    if (!cardLocator) return;
     let mounted = true;
     const controller = new AbortController();
     // Capability belongs to this card's tenant/location. A failed check leaves the action hidden.
-    const saved = (result: WalletStatus) => { if (!mounted) return; if (savedViewDue(token, result)) setSavedView(true); if (savedLineDue(token, result)) setSavedLine(true); };
+    const saved = (result: WalletStatus) => { if (!mounted) return; if (savedViewDue(cardLocator, result)) setSavedView(true); if (savedLineDue(cardLocator, result)) setSavedLine(true); };
     void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setPlatform(walletPlatform()); setWalletScope({ token, availability: result }); setWalletBusy(null); saved(result); } }).catch(() => {});
     // Back from Apple's sheet: the page becomes visible again, and only a registered pass counts.
     const visible = () => { if (document.visibilityState === "visible") void readWalletStatus(token, controller.signal).then(result => { if (mounted) { setWalletScope({ token, availability: result }); saved(result); } }).catch(() => {}); };
@@ -180,7 +196,7 @@ export function CardClient({ token }: { token: string }) {
       mounted = false; controller.abort(); walletOperation.current?.abort(); walletOperation.current = null; document.removeEventListener("visibilitychange", visible);
       if (downloadReset.current) clearTimeout(downloadReset.current);
     };
-  }, [token]);
+  }, [token, cardLocator]);
 
   // Only a ready projection yields a fresh two-minute download ticket. Pending work stays in the worker.
   async function addToAppleWallet() {

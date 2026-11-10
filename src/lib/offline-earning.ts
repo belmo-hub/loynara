@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { z } from "zod";
-import { db } from "@/db";
+import { db, pool } from "@/db";
+import * as schema from "@/db/schema";
 import { ledgerEntries, memberships, offlineAwardEvents, offlineAwardLeases, programs, purchaseAwards, staffRoles } from "@/db/schema";
 import { awardInTransaction, DomainError } from "./loyalty";
+import { enforceRateLimit, RateLimitError } from "./rate-limit";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -44,7 +47,11 @@ type SyncResult = { status: "accepted" | "rejected"; reason?: string; balance?: 
 
 export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promise<SyncResult> {
   const input = eventSchema.parse(raw);
-  return db.transaction(async tx => {
+  // One connection for the transaction and the pace charge: borrowing a second one while holding the first could
+  // starve the pool when many syncs run at once.
+  const client = await pool.connect();
+  try {
+  return await drizzle({ client, schema }).transaction(async tx => {
   // Event IDs are global, including across tenants. Serialize reuse before
   // either lease can post a ledger entry or an outcome row.
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${input.eventId}::text, 0))`);
@@ -93,6 +100,12 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
   if (!reason && (!member || member.closedAt)) reason = "CARD_CLOSED";
   const [count] = await tx.select({ total: sql<number>`count(*)::int` }).from(offlineAwardEvents).where(eq(offlineAwardEvents.leaseId, lease.id));
   if (!reason && count.total >= MAX_EVENTS_PER_LEASE) reason = "LEASE_LIMIT";
+  // The per-card allowance of the online routes (see the award route), charged in this transaction so a busy retry
+  // gives it back.
+  if (!reason) {
+    try { await enforceRateLimit({ scope: "cashier_booking_card", identity: `${lease.locationId}:${lease.membershipId}`, max: 20, windowSeconds: 15 * 60 }, client); }
+    catch (error) { if (!(error instanceof RateLimitError)) throw error; reason = "CARD_PACE_LIMIT"; }
+  }
   if (reason) {
     await saveEvent(tx, lease, input, "rejected", reason, null, now);
     return { status: "rejected", reason };
@@ -111,6 +124,7 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
     return { status: "rejected", reason: error.code };
   }
   });
+  } finally { client.release(); }
 }
 
 async function saveEvent(tx: Transaction, lease: typeof offlineAwardLeases.$inferSelect, input: z.output<typeof eventSchema>, status: "accepted" | "rejected", reason: string | null, ledgerEntryId: string | null, now: Date) {

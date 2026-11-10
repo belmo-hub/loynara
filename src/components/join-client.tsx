@@ -132,15 +132,15 @@ export function JoinClient({ slug }: { slug: string }) {
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
+        return postJson<{ cardToken: string; cardLocator: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
       const continuation = sessionStorage.getItem("loynara_tap_return");
       sessionStorage.removeItem("loynara_tap_return");
-      const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
-      if (next.mark) markWalletStep(result.cardToken, next.mark);
-      if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
+      const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardLocator) });
+      if (next.mark) markWalletStep(result.cardLocator, next.mark);
+      if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardLocator);
       leaving = next.go !== "step";
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
