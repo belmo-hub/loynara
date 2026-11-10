@@ -155,6 +155,8 @@ export type MeResponse = {
 export type EndedAccountResponse = { userId: string; tenantId: string; publicBaseUrl: string; programEnded: { role: "owner" | "manager" | "cashier"; businessName: string; endedOn: string; exportUntil: string; exportOpen: boolean } };
 
 export type PublicProgram = {
+  /** ENG-205: present only while FIRST_TAP_HOOK_ENABLED is on (the join page's new order and the build after the tap). */
+  firstTap?: true;
   businessName: string;
   locationName: string;
   programName: string;

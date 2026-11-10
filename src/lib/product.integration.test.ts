@@ -30,6 +30,20 @@ describe("merchant and customer journey", () => {
     expect(subscription).toMatchObject({ status: "manual_pending", currency: "EUR", priceMinor: 4900 });
   });
 
+  it("names the new first page only while FIRST_TAP_HOOK_ENABLED is exactly true (ENG-205)", async () => {
+    const userId = await createUser();
+    const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 });
+    const before = process.env.FIRST_TAP_HOOK_ENABLED;
+    try {
+      for (const off of [undefined, "false", "1"]) {
+        if (off === undefined) delete process.env.FIRST_TAP_HOOK_ENABLED; else process.env.FIRST_TAP_HOOK_ENABLED = off;
+        expect(await getPublicProgram(merchant.programSlug)).not.toHaveProperty("firstTap");
+      }
+      process.env.FIRST_TAP_HOOK_ENABLED = "true";
+      expect(await getPublicProgram(merchant.programSlug)).toMatchObject({ firstTap: true });
+    } finally { if (before === undefined) delete process.env.FIRST_TAP_HOOK_ENABLED; else process.env.FIRST_TAP_HOOK_ENABLED = before; }
+  });
+
   it("refuses a first reward that advertises tobacco, with the Wallet message line, and saves nothing", async () => {
     const userId = await createUser();
     await expect(createMerchant({ userId, businessName: "Synthetic Kiosk", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kioskkarte", programType: "stamp", rulesText: "Ein Stempel pro Einkauf.", rewardTitle: "E-Zigarette gratis", rewardCost: 8 }))

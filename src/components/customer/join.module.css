@@ -3,6 +3,11 @@
 .welcome { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); }
 .business { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
 .location { margin: 0 0 var(--space-3); font-size: var(--text-14); overflow-wrap: anywhere; }
+/* ENG-205: the shop's mark in a fixed box beside its name, so nothing shifts. */
+.brand { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.brand div { display: grid; gap: 2px; min-width: 0; }
+.brand .location { margin: 0; }
+.logo { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--merchant-ink); color: var(--merchant-deep); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); }
 /* Fixed 40 px slots with equal gaps, so the two rows read as one card (G-19). */
 .stamps { justify-content: start; grid-template-columns: repeat(var(--cols), minmax(0, 40px)); column-gap: var(--space-4); row-gap: var(--space-3); }
 .stamps li { width: 100%; }
@@ -73,4 +78,7 @@
 .panel { animation-delay: 40ms; }
 .panel:has(.cardNumber) { --arrive-shift: 0px; }
 @keyframes arrive { from { opacity: 0; transform: translateY(var(--arrive-shift, 8px)); } }
-@media (prefers-reduced-motion: reduce) { .hero, .panel { animation: none; } }
+/* ENG-205, Card arrive: the card the server just created settles once; the next step opens after it. */
+.hero[data-built] { animation: settle var(--dur-reward) var(--ease-out) backwards; }
+@keyframes settle { from { opacity: .6; transform: scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .hero, .hero[data-built], .panel { animation: none; } }

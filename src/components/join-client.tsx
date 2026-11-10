@@ -73,6 +73,8 @@ export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CO
 /** W58 on German pages names the button, whose next tap accepts the reloaded rules (Legal, 6 Nov); French pages tick again. */
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
+/** ENG-205: how long the created card settles before the next step opens; --dur-reward, and nothing under reduced motion. */
+export const firstTapWait = (reduced: boolean) => reduced ? 0 : 480;
 export const joinNeedsTick = (locale: "de" | "fr", accepted: boolean) => locale === "fr" && !accepted;
 
 export function JoinClient({ slug }: { slug: string }) {
@@ -96,6 +98,8 @@ export function JoinClient({ slug }: { slug: string }) {
   const onIphone = useSyncExternalStore(noSubscription, iphoneDevice, serverIphone);
   // ENG-130: the card made here, while the Wallet step shows instead of the join form.
   const [walletStep, setWalletStep] = useState<string | null>(null);
+  // ENG-205: the server has created the card; the preview settles once before the next step.
+  const [built, setBuilt] = useState(false);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
@@ -141,6 +145,8 @@ export function JoinClient({ slug }: { slug: string }) {
       const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
       if (next.mark) markWalletStep(result.cardToken, next.mark);
       if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
+      // Only after the server's answer: no card is drawn that does not exist.
+      if (program?.firstTap) { setBuilt(true); await new Promise(done => setTimeout(done, firstTapWait(matchMedia("(prefers-reduced-motion: reduce)").matches))); }
       leaving = next.go !== "step";
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
@@ -181,10 +187,15 @@ export function JoinClient({ slug }: { slug: string }) {
   // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
   const notice = locale !== "fr" && program.active !== false;
 
-  const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
-    <p className={styles.welcome}>{t.welcome}</p>
-    <h1 className={styles.business}>{program.businessName}</h1>
-    <p className={styles.location}>{program.locationName}</p>
+  const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview} data-built={built || undefined}>
+    {program.firstTap ? <div className={styles.brand}>
+      <span className={styles.logo} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
+      <div><h1 className={styles.business}>{program.businessName}</h1><p className={styles.location}>{program.locationName}</p></div>
+    </div> : <>
+      <p className={styles.welcome}>{t.welcome}</p>
+      <h1 className={styles.business}>{program.businessName}</h1>
+      <p className={styles.location}>{program.locationName}</p>
+    </>}
     {program.programType === "points"
       ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles />
       : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} />}

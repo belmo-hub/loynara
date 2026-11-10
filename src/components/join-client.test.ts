@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
+import { firstTapWait, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -100,5 +100,27 @@ describe("the join page's ticks (ENG-173, Legal 6 Nov)", () => {
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(page).toContain('Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.');
     expect(page).toContain("`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`");
+  });
+});
+
+describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205)", () => {
+  const read = async (path: string) => (await import("node:fs")).readFileSync(path, "utf8");
+  it("lets the created card settle for --dur-reward, and not at all under reduced motion", async () => {
+    expect(firstTapWait(true)).toBe(0);
+    expect((await read("src/styles/tokens.css")).match(/--dur-reward: (\d+)ms/)?.[1]).toBe(String(firstTapWait(false)));
+    expect(await read("src/components/customer/join.module.css")).toMatch(/prefers-reduced-motion: reduce\) \{ [^}]*\.hero\[data-built\][^}]*animation: none/);
+  });
+  it("draws the build only after the server has created the card, and only with the flag's field", async () => {
+    const source = await read("src/components/join-client.tsx");
+    const built = source.indexOf("setBuilt(true)");
+    expect(built).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
+    expect(built).toBeGreaterThan(source.indexOf("if (!result) return;"));
+    expect(source.slice(source.lastIndexOf("\n", built), built)).toContain("if (program?.firstTap)");
+    expect(source.match(/setBuilt\(/g)).toHaveLength(1);
+  });
+  it("keeps Legal's order of 6 Nov with the field too: only the shop's mark and the build are new", async () => {
+    const source = await read("src/components/join-client.tsx");
+    expect(source).toContain("{program.firstTap ? <div className={styles.brand}>");
+    expect(source.match(/program\??\.firstTap/g)).toHaveLength(2);
   });
 });
