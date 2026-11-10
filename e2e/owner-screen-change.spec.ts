@@ -97,6 +97,42 @@ test("two quick taps on a slow connection: only the tab tapped last looks pendin
   await page.unroute(slow);
 });
 
+test("opening a customer card and going back are screen changes; a filter is not", async () => {
+  await page.goto("/merchant/customers?activity=all");
+  const first = page.locator(".ow-content ul a.ow-prog-row").first();
+  await expect(first).toBeVisible();
+  await settled();
+  // Any layer of a change in the half second around the filter pick.
+  const changed = page.evaluate(() => new Promise<boolean>(done => {
+    let seen = false;
+    const end = performance.now() + 500;
+    const look = () => {
+      seen ||= document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"));
+      if (performance.now() < end) requestAnimationFrame(look); else done(seen);
+    };
+    look();
+  }));
+  await page.getByRole("group", { name: "Kartenstatus" }).getByRole("button", { name: "Aktiv" }).click();
+  expect(await changed, "a filter stays in place").toBe(false);
+  await expect(first).toBeVisible();
+
+  await first.click();
+  await fadeStarted();
+  expect(await inLayer("::view-transition-old(ow-under)"), "the list leaves as the old screen").toBe(true);
+  await expect(page).toHaveURL(/[?&]card=/);
+  await settled();
+  let listReads = 0;
+  const count = (request: { url(): string }) => { if (request.url().includes("/api/merchant/customers?")) listReads++; };
+  page.on("request", count);
+  await page.locator(".ow-content a.ow-back:visible").click();
+  await fadeStarted();
+  expect(await inLayer("::view-transition-new(ow-under)"), "the list comes back as the new screen").toBe(true);
+  await settled();
+  await expect(first).toBeVisible();
+  page.off("request", count);
+  expect(listReads, "the list stayed mounted under the card: it is not read again").toBe(0);
+});
+
 test("reduced motion: the change is a cut", async () => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await tab("Programm").click();

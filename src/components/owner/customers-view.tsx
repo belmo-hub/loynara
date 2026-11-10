@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, ViewTransition, type FormEvent } from "react";
 import { ArrowRight, Check, ChevronLeft, Gift, RefreshCw, Search, Users, X, type LucideIcon } from "lucide-react";
 import { apiJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -118,10 +118,14 @@ export function CustomersView() {
     if (listY?.list === listKey) window.scrollTo({ top: listY.y, behavior: "instant" });
     listY = null;
   }, [card, listKey]);
+  // Opening a card and going back are screen changes (DESIGN.md, Motion), like every other row step: the card enters and
+  // leaves, and the list under it, which stays mounted, is its own layer of that change (.ow-under, owner.css). A search
+  // or a filter starts no change, so those stay in place with no fade. The card's box stays while its loading frame is
+  // swapped for the card.
   return <>
-    {card && <CardScreen key={card} id={card} back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten" }}
-      onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} />}
-    <div ref={listBox} hidden={Boolean(card)}>{params.has("activity") ? <GroupScreen fresh={fresh} /> : <GroupsScreen fresh={fresh} />}</div>
+    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none"><div><CardScreen key={card} id={card} back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten" }}
+      onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} /></div></ViewTransition>}
+    <div ref={listBox} className="ow-under" hidden={Boolean(card)}>{params.has("activity") ? <GroupScreen fresh={fresh} /> : <GroupsScreen fresh={fresh} />}</div>
   </>;
 }
 

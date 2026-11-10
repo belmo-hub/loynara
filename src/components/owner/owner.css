@@ -114,6 +114,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 ::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
 ::view-transition-old(ow-topbar), ::view-transition-old(ow-subnav), ::view-transition-old(ow-tabs) { display: none; }
 ::view-transition-new(ow-topbar), ::view-transition-new(ow-subnav), ::view-transition-new(ow-tabs) { animation: none; }
+/* A customer card opens over its list, which stays mounted and hidden: the list is a layer of its own, so it leaves and
+   comes back with the screens' fade. */
+.ow-under { view-transition-name: ow-under; view-transition-class: ow-screen; }
 /* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
 ::view-transition-old(root) { display: none; }
 ::view-transition-new(root) { animation: none; }
