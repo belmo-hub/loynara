@@ -106,4 +106,18 @@ describe("Apple pass web service", () => {
     expect(JSON.stringify(view)).not.toMatch(/sc_[0-9a-f]{32}/);
     await expect(registerAppleDevice(registration(pass.id), config)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("registers at most ten devices for one pass; a known device still re-registers and a freed place can be taken", async () => {
+    const { pass } = await createMember();
+    const device = (n: number) => `fixture-device-${n}`;
+    for (let n = 1; n <= 10; n++) expect(await registerAppleDevice(registration(pass.id, device(n)), config)).toBe(201);
+    await expect(registerAppleDevice(registration(pass.id, device(11)), config)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.select().from(appleRegistrations).where(eq(appleRegistrations.serialNumber, pass.id))).toHaveLength(10);
+    // The refused device left no row behind.
+    expect(await db.select().from(appleDevices).where(eq(appleDevices.deviceLibraryIdentifier, device(11)))).toEqual([]);
+    // Wallet repeats a registration when its push token changes: a device that holds the pass is never refused.
+    expect(await registerAppleDevice({ ...registration(pass.id, device(3)), pushToken: "b".repeat(64) }, config)).toBe(200);
+    await unregisterAppleDevice(registration(pass.id, device(1)), config);
+    expect(await registerAppleDevice(registration(pass.id, device(11)), config)).toBe(201);
+  });
 });
