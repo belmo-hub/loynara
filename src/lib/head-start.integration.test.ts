@@ -91,6 +91,19 @@ describe("Startbonus at sign-up (ENG-207)", () => {
     }
   });
 
+  it("allows a row without an actor for the Startbonus at sign-up alone: every other source still needs its person, and a head start may not carry one", async () => {
+    const s = await headStartShop(2);
+    await join(s.programSlug);
+    const [entry] = await db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, s.tenantId));
+    const row = (source: string, actorUserId: string | null) => ({ tenantId: entry.tenantId, locationId: entry.locationId, membershipId: entry.membershipId, delta: 1, kind: "award" as const, source, actorUserId, requestId: randomUUID(), idempotencyKey: randomUUID() });
+    // The sources a person or the system books for a person: without an actor the database refuses each.
+    for (const source of ["staff_online", "staff_offline", "staff_correction", "welcome_bonus", "referral_bonus", "happy_hour", "winback_bonus", "birthday_bonus", "challenge_bonus", "synthetic_seed", "legacy_unclassified"]) {
+      await expect(db.insert(ledgerEntries).values(row(source, null)), source).rejects.toThrow();
+    }
+    await expect(db.insert(ledgerEntries).values(row("head_start", s.owner))).rejects.toThrow();
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.tenantId, s.tenantId))).toHaveLength(1);
+  });
+
   it("caps stamps at 2 and at a quarter of the cheapest reward, when saving and again when granting", async () => {
     expect([headStartCap("stamp", [8]), headStartCap("stamp", [6, 12]), headStartCap("stamp", [3]), headStartCap("stamp", [40]), headStartCap("stamp", [])]).toEqual([2, 1, 0, 2, 0]);
     const ten = await headStartShop(2, "stamp", 10);
