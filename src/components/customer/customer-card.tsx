@@ -80,6 +80,8 @@ export type CustomerCardProps = {
   contactPanel?: ReactNode;
   /** ENG-206: „Karte empfehlen“ under the card group, from the card's second team-confirmed booking. */
   referral?: ReactNode;
+  /** ENG-206 (STAMP_ANIMATION_ENABLED on): a ready reward's title stands on its own line under the phrase. */
+  titleAlone?: boolean;
   /** ENG-165: the „E-Mail“ (or, while marketing mail is off, „Karte sichern“) row in „Deine Karte“ and the sheet it opens. */
   email?: { title: string; sub: string; sheet: (open: boolean, onClose: () => void) => ReactNode };
   /** With a confirmed address, „So findest du deine Karte wieder“ names the recovery page as a fourth way (E39). */
@@ -123,11 +125,9 @@ export function CustomerCard(props: CustomerCardProps) {
   const toldReady = rewards.filter((reward) => told >= reward.cost).length;
   const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
   // The reward moment (ENG-206): this booking made a reward ready. Its headline has two lines from the first frame
-  // (Marketing, 10 Nov): the phrase, then the reward's title alone. It keeps them for this view, so nothing wraps anew
-  // when the pill leaves. The card presses once the stamps have landed (CSS).
+  // (Marketing, 10 Nov): the phrase, then the reward's title alone, as on every later visit while the reward is ready
+  // (`titleAlone`), so nothing wraps anew when the pill leaves. The card presses once the stamps have landed (CSS).
   const rewardMoment = Boolean(moment && rewards.some((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited));
-  const [titleAlone, setTitleAlone] = useState(false);
-  if (rewardMoment && !titleAlone) setTitleAlone(true);
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
@@ -154,7 +154,7 @@ export function CustomerCard(props: CustomerCardProps) {
         <p>{t.endsWindow(programType === "points")}</p>
       </section> : null}
 
-      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} titleAlone={titleAlone} />
+      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} titleAlone={props.titleAlone} />
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>

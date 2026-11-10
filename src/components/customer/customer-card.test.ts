@@ -318,7 +318,7 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
 });
 
 describe("the reward moment (ENG-206)", () => {
-  const ready = { ...base, balance: 5, moment: { credited: 1, balance: 5 } };
+  const ready = { ...base, balance: 5, moment: { credited: 1, balance: 5 }, titleAlone: true };
   it("names the reward on its own line from the first frame, and presses the card only once the last stamp has landed", () => {
     // Marketing (10 Nov): the live phrase, then the owner's title alone on its own line, nothing added.
     const headline = /Deine Prämie ist bereit: <span class="goal-reward[^"]*" data-alone="true">Kaffee<\/span><\/h1>/;
@@ -341,6 +341,10 @@ describe("the reward moment (ENG-206)", () => {
   it("is not played by a booking that reaches no reward, nor again for a reward that was ready before", () => {
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3, landed: 3, moment: { credited: 1, balance: 3 } }))).not.toContain("data-card-press");
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 6, landed: 6, moment: { credited: 1, balance: 6 } }))).not.toContain("data-card-press");
+  });
+  it("keeps the reward's title on its own line on a later visit while the reward is ready, and only then", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5, titleAlone: true }))).toMatch(/Deine Prämie ist bereit: <span class="goal-reward[^"]*" data-alone="true">Kaffee<\/span>/);
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3, titleAlone: true }))).not.toContain("data-alone");
   });
   it("without a moment (STAMP_ANIMATION_ENABLED off) the card shows its state: no pill, no landing, no sequence", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5 }));
