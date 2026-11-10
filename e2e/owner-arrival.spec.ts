@@ -93,27 +93,31 @@ test("a page's own back link is a return: the screen it leads to does not arrive
 });
 
 test("a content tap after a tab tap is dropped before 120 ms and lands from 120 ms on", async () => {
-  for (const [wait, lands] of [[60, false], [130, true]] as const) for (let attempt = 1; ; attempt++) {
+  // The row's place, read before the change: during it every round trip pushes the tap later.
+  await page.goto("/merchant/more");
+  const box = (await team().boundingBox())!;
+  // The early tap goes as soon as the change has started: on a slow runner the round trips alone come near 120 ms.
+  for (const [wait, lands] of [[0, false], [130, true]] as const) for (let attempt = 1; ; attempt++) {
     await page.goto("/merchant/program");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(500);
-    // How far into the change the tap really came, by the shell's own clock: the round trips around the wait add to it.
+    // How far into the change the tap really came, by the shell's own clock.
     await page.evaluate(() => window.addEventListener("pointerdown", () => {
       const starts = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")).map(animation => Number(animation.startTime ?? Infinity));
       (window as unknown as { tapSince: number }).tapSince = performance.now() - Math.min(...starts);
     }, true));
     await tab("Mehr").click();
     await changeStarted();
-    const box = (await team().boundingBox())!;
-    await page.waitForTimeout(wait);
+    if (wait) await page.waitForTimeout(wait);
     // A raw tap at the row's place: the new screen is captured for the change and takes no hit tests while it runs.
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    // A slow runner can deliver the early tap after 120 ms, which is the other case: that try is taken again.
-    if (!lands && attempt < 5 && await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince) >= 120) continue;
-    if (lands) await expect(page, `a tap about ${wait} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
+    const since = Math.round(await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince));
+    // A tap the runner delivered after 120 ms tests the other case: the early try is taken again.
+    if (!lands && attempt < 5 && since >= 120) continue;
+    if (lands) await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
     else {
       await page.waitForTimeout(700);
-      await expect(page, `a tap about ${wait} ms into the change is dropped`).toHaveURL(/\/merchant\/more$/);
+      await expect(page, `a tap ${since} ms into the change is dropped`).toHaveURL(/\/merchant\/more$/);
       await expect(team(), "the change ended at the tap").toBeVisible();
     }
     break;
