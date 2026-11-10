@@ -187,6 +187,29 @@ describe("the stamp moment's field on the card (ENG-206)", () => {
     expect((await read(card.cardToken)).stampMoment).toEqual({ ...second, referralNew: false });
   });
 
+  it("on, the open card's timed re-reads carry no share and run no query for one (ENG-218)", async () => {
+    vi.stubEnv("STAMP_ANIMATION_ENABLED", "true");
+    const owner = await user();
+    const merchant = await shop(owner);
+    await configureReferrals({ actorUserId: owner, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
+    const early = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    const due = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+    await visit(owner, merchant.locationId, early.id);
+    for (let i = 0; i < 3; i++) await visit(owner, merchant.locationId, due.id);
+    const timed = async (token: string) => { const response = await GET(new Request(`http://localhost/api/card/${token}`, { headers: { "x-loynara-card-read": "poll" } }), { params: Promise.resolve({ token }) }); expect(response.status).toBe(200); return response.json(); };
+    // A timed re-read of a due card costs what a read of a card that is not due costs: no second transaction.
+    const queries = vi.spyOn(pg.Client.prototype, "query");
+    expect((await timed(early.cardToken)).stampMoment).toEqual({ referralDue: false, referralNew: false });
+    const notDue = queries.mock.calls.length;
+    queries.mockClear();
+    expect((await timed(due.cardToken)).stampMoment).toEqual({ referralDue: true, referralNew: false });
+    expect(queries.mock.calls.length).toBe(notDue);
+    queries.mockClear();
+    // The read the guest causes still brings it.
+    expect((await read(due.cardToken)).stampMoment.referral).toMatchObject({ referrerBonus: 2, referredBonus: 1 });
+    expect(queries.mock.calls.length).toBeGreaterThan(notDue);
+  });
+
   it("on, a shop with referrals off gets the read without a share", async () => {
     vi.stubEnv("STAMP_ANIMATION_ENABLED", "true");
     const owner = await user();

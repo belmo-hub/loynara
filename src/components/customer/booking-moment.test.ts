@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIRST_OPEN_WINDOW_MS, laterMark, momentFor, readSeen, referralHoldFor, referralPlace, unseenAwards } from "./booking-moment";
+import { FIRST_OPEN_WINDOW_MS, keepShare, laterMark, momentFor, readSeen, referralHoldFor, referralPlace, unseenAwards } from "./booking-moment";
 
 const now = Date.parse("2026-11-10T12:00:00Z");
 const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -81,6 +81,21 @@ describe("the referral block while the flag is on", () => {
   });
   it("is not rendered when the read brings nothing to share (the shop has referrals off)", () => {
     expect(referralPlace({ referralDue: true })).toBeNull();
+  });
+  it("keeps the share across the open card's timed re-reads, which bring none (ENG-218)", () => {
+    const untimed = { balance: 3, stampMoment: { referralDue: true, referralNew: false, referral: share } };
+    const timed = { balance: 4, stampMoment: { referralDue: true, referralNew: false } };
+    expect(keepShare(timed, share)).toEqual({ balance: 4, stampMoment: { referralDue: true, referralNew: false, referral: share } });
+    expect(referralPlace(keepShare(timed, share).stampMoment)).toBe("card");
+    // A read that brings its own share keeps it; nothing held means nothing added; a card that is no longer due gets none.
+    const fresher = { shareUrl: "https://example.test/join/x?ref=ref_2" };
+    expect(keepShare({ ...untimed, stampMoment: { ...untimed.stampMoment, referral: fresher } }, share).stampMoment.referral).toBe(fresher);
+    expect(keepShare(timed, undefined)).toBe(timed);
+    const undone = { balance: 1, stampMoment: { referralDue: false, referralNew: false } };
+    expect(keepShare(undone, share)).toBe(undone);
+    // With the flag off there is no field and nothing changes.
+    const off: { balance: number; stampMoment?: { referralDue: boolean; referralNew: boolean } } = { balance: 4 };
+    expect(keepShare(off, share)).toBe(off);
   });
   it("is held shut only on the visit whose booking is the second, until that stamp has landed", () => {
     expect(referralHoldFor({ referralNew: true }, { stepped: false })).toBe("held");

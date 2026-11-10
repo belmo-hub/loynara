@@ -65,6 +65,13 @@ export function markSeen(cardLocator: string, iso: string) {
  * shop with referrals on), and otherwise nowhere, so it is neither rendered nor fetched.
  */
 export const referralPlace = (field: { referralDue: boolean; referral?: object } | undefined) => !field ? "below" as const : field.referral ? "card" as const : null;
+/**
+ * ENG-218: the open card's timed re-reads bring no share (the server skips that transaction). While the block is due the
+ * card keeps the share an earlier read brought, so the block neither vanishes nor asks again.
+ */
+export function keepShare<T extends { stampMoment?: { referralDue: boolean; referral?: object } }>(read: T, held: object | undefined): T {
+  return read.stampMoment?.referralDue && !read.stampMoment.referral && held ? { ...read, stampMoment: { ...read.stampMoment, referral: held } } : read;
+}
 /** Due with a booking whose moment is playing, the block is held shut until the stamp has landed, then opens. */
 export type ReferralHold = "none" | "held" | "released";
 /** Only the visit whose booking is the second opens the block; on every later visit it stands in the first paint. */

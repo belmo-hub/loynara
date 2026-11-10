@@ -3,10 +3,10 @@
 import { CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
+import { apiJson, ClientApiError, postJson, type CardResponse, type ReferralShare } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
 import { CustomerCard, CustomerCardLoading } from "./customer/customer-card";
-import { laterMark, markSeen, MOMENT_LAND_MS, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen, referralHoldFor, referralPlace, type ReferralHold } from "./customer/booking-moment";
+import { keepShare, laterMark, markSeen, MOMENT_LAND_MS, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen, referralHoldFor, referralPlace, type ReferralHold } from "./customer/booking-moment";
 import { CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { EmailOffer, EmailSheet, emailRow, useEmailStatus } from "./card-email";
@@ -127,6 +127,15 @@ export function CardClient({ token }: { token: string }) {
     const timer = setTimeout(() => setReferralHold("released"), MOMENT_LAND_MS);
     return () => clearTimeout(timer);
   }, [referralHold, stepped]);
+  // ENG-218: timed re-reads bring no share. The card keeps the one an untimed read brought; a read the guest caused
+  // that is due and has none means there is nothing to share (referrals off). Only when a timed re-read finds the block
+  // newly due (the second booking arrived while the card was open) does the page ask for the share itself, once.
+  const shareHeld = useRef<ReferralShare | undefined>(undefined), shareOff = useRef(false), shareAsked = useRef(false);
+  const noteShare = useCallback((read: CardResponse, timed: boolean) => {
+    if (read.stampMoment?.referral) shareHeld.current = read.stampMoment.referral;
+    else if (!timed && read.stampMoment?.referralDue) shareOff.current = true;
+    return keepShare(read, shareHeld.current);
+  }, []);
   const balanceSeen = useRef<number | null>(null);
   // The newest entry any read has brought: bookings up to it are shown or were never a moment.
   const newestShown = useRef<string | null>(null);
@@ -140,9 +149,9 @@ export function CardClient({ token }: { token: string }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const unseen = momentFor(result, { balance: null, seenAt: readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const unseen = momentFor(result, { balance: null, seenAt: readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(noteShare(result, false)); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
-  }, [token, playMoment]);
+  }, [token, playMoment, noteShare]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
   // between. So while the card is visible it re-reads the balance by itself for a short window (createAutoRefresh),
   // coalesced and at most every REFRESH_INTERVAL_MS; a grown balance lands the new stamp. A card that stopped existing
@@ -164,7 +173,16 @@ export function CardClient({ token }: { token: string }) {
           if (unseen.credited > 0) playMoment(unseen.credited);
           if (unseen.newest) { newestShown.current = unseen.newest; markSeen(result.cardLocator, unseen.newest); }
           balanceSeen.current = result.balance;
-          setCard(result); setRefreshFailed(false);
+          const kept = noteShare(result, read === "timed");
+          setCard(kept); setRefreshFailed(false);
+          if (read === "timed" && kept.stampMoment?.referralDue && !kept.stampMoment.referral && !shareOff.current && !shareAsked.current) {
+            shareAsked.current = true;
+            void apiJson<ReferralShare>(`/api/card/${encodeURIComponent(token)}/referral`).then(share => {
+              if (!mounted || (share as { enabled?: boolean }).enabled === false) return;
+              shareHeld.current = share;
+              setCard(current => current && keepShare(current, share));
+            }).catch(() => { /* optional block: it comes with the next read the guest causes */ });
+          }
           return grew ? "grew" as const : "ok" as const;
         })
         .catch(cause => {
@@ -183,7 +201,7 @@ export function CardClient({ token }: { token: string }) {
     window.addEventListener("focus", auto.focus);
     window.addEventListener("pageshow", onPageShow);
     return () => { mounted = false; auto.stop(); document.removeEventListener("visibilitychange", auto.visibility); window.removeEventListener("focus", auto.focus); window.removeEventListener("pageshow", onPageShow); };
-  }, [token, playMoment]);
+  }, [token, playMoment, noteShare]);
   useEffect(() => {
     // The Wallet flags are kept under the card number (F-2), so the status is read once the card is in.
     if (!cardLocator) return;
