@@ -1,0 +1,69 @@
+/* ENG-205, the first page behind FIRST_TAP_HOOK_ENABLED (Head of Design's spec, 10 Nov): the shop on the page ground,
+   the card as the only object, then the rules, the terms and one button, with no panel around them. */
+/* Skeleton to content: the placeholder lies over the loaded row and card and fades (the shell's cover); a block that
+   replaces a placeholder never rises. */
+.placeholder, .top { display: grid; gap: var(--space-4); }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+.wait { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.shop { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
+.shop > div { display: grid; gap: var(--space-1); flex: 1; min-width: 0; }
+/* Fixed box, so nothing shifts: the shop's initial on its colour, the same in both themes. */
+.tile { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); }
+.name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-22); line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: anywhere; }
+.location { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
+
+/* The card. Its ground is a layer of its own, so a press moves the ground and the places stand still. */
+/* The same object as on the card page, so the same radius. */
+.card { position: relative; isolation: isolate; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); }
+.card::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); box-shadow: var(--shadow-object); }
+/* Press (card object): the server has created the card. 1 to .985 over --dur-press, back over --dur-ui, no fade. */
+.card[data-created]::before { animation: press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out); }
+@keyframes press { 35% { transform: scale(.985); } }
+/* 32 px places spread across the card's width, as on the card page (Design, 10 Nov); rows 12 apart. */
+.card .stamps { grid-template-columns: repeat(var(--cols), 32px); justify-content: space-between; row-gap: var(--space-3); }
+.card .stamps li { width: 32px; }
+.foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.4; }
+.foot svg { flex: none; }
+.foot strong { font-weight: var(--weight-heavy); }
+
+/* Blocks 3 to 8. After the server's answer they fade and stay in the layout until the next step takes their place. */
+/* Rhythm: 24 under the card, 16 between groups, 8 and 4 inside a group. */
+.blocks { display: grid; gap: var(--space-4); margin-top: var(--space-2); transition: opacity 160ms var(--ease-out); }
+/* The two steps start and end at the group's edge, so the gaps around them are the page's. */
+.blocks ol li:first-child { padding-top: 0; }
+.blocks ol li:last-child { padding-bottom: 0; }
+/* The step badges were made for the white panel; on the page ground they take the surface. */
+.blocks ol span { background: var(--color-surface); }
+/* The way back reads as one line with its question, also where it wraps. */
+.blocks .recover { margin-top: calc(var(--space-1) - var(--space-4)); font-size: var(--text-14); line-height: calc(20 / 14); }
+.blocks .recover a { display: inline; min-height: 0; padding-block: var(--space-3); }
+.blocks[data-leaving] { opacity: 0; pointer-events: none; }
+/* The rules, word for word, set compact under a hairline. */
+.rules { display: grid; gap: var(--space-1); padding-top: var(--space-4); border-top: 1px solid var(--color-line); }
+.rules > div { padding-top: 0; border-top: 0; }
+/* Headings keep the house weight (D-020); the size sets them back. */
+.rules h2 { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: calc(20 / 14); }
+/* Unitless, so the lines keep their distance when the guest enlarges the text. */
+.rules > div p { line-height: calc(20 / 14); }
+.rules > div p + p { margin-top: 0; }
+.rules > p { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
+.form { display: grid; gap: var(--space-4); }
+.form a, .rules a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
+/* The terms sentence belongs to the button: 8 above it. */
+.terms { margin-bottom: calc(var(--space-2) - var(--space-4)); }
+.terms p { font-size: var(--text-14); line-height: calc(20 / 14); color: var(--color-ink-muted); }
+/* The optional message tick below the button: no box, a small heading. */
+.blocks .tick > div { padding-block: 0; border: 0; }
+.blocks .tick h3 { font-size: var(--text-14); font-weight: var(--weight-heavy); }
+/* The Wallet step arrives where the blocks stood. */
+.step { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+
+/* On a dark ground the card keeps its edge; in forced colours it gets a border. */
+@media (prefers-color-scheme: dark) { .card::before { box-shadow: var(--shadow-object), inset 0 0 0 1px color-mix(in oklab, var(--merchant-ink), transparent 90%); } }
+@media (forced-colors: active) { .card { border: 1px solid CanvasText; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .step, .card[data-created]::before { animation: none; }
+  .blocks { transition: none; }
+}

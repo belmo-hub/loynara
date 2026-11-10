@@ -12,15 +12,18 @@ import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
 import { CustomerState } from "./customer/customer-state";
+import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { CustomerShell } from "./ui/customer-shell";
+import { Skeleton } from "./ui/skeleton";
 import { PointsLadder } from "./ui/points-ladder";
-import { StampGrid } from "./ui/stamp-grid";
+import { StampGrid, STAMP_GRID_MAX, stampColumns } from "./ui/stamp-grid";
 import { iphoneDevice, walletPlatform } from "./wallet-preparation";
 import { afterJoin, iphoneJoin, markJoinAsked, markWalletStep, readWalletStep, WalletStep } from "./wallet-step";
 import styles from "./customer/join.module.css";
 import cardStyles from "./customer/customer-card.module.css";
+import first from "./customer/first-page.module.css";
 
 const copy = {
   de: {
@@ -73,9 +76,20 @@ export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CO
 /** W58 on German pages names the button, whose next tap accepts the reloaded rules (Legal, 6 Nov); French pages tick again. */
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
+/** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
+ *  220 ms later, the card page after a 400 ms hold. Reduced motion: at once. */
+export const firstTapHold = (step: boolean, still: boolean) => still ? 0 : step ? 220 : 400;
+/** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
+/** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
+export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
+  if (program?.programType === "points" || (program && program.rewardCost > STAMP_GRID_MAX)) return 120;
+  const rows = program ? Math.ceil(program.rewardCost / stampColumns(program.rewardCost)) : 2;
+  return 16 + rows * 32 + (rows - 1) * 12 + 12 + 20 + 16;
+}
+export const firstPage = (flag: boolean, locale: "de" | "fr") => flag && locale === "de";
 export const joinNeedsTick = (locale: "de" | "fr", accepted: boolean) => locale === "fr" && !accepted;
 
-export function JoinClient({ slug }: { slug: string }) {
+export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?: boolean }) {
   const router = useRouter();
   const [program, setProgram] = useState<PublicProgram | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,11 +110,21 @@ export function JoinClient({ slug }: { slug: string }) {
   const onIphone = useSyncExternalStore(noSubscription, iphoneDevice, serverIphone);
   // ENG-130: the card made here, while the Wallet step shows instead of the join form.
   const [walletStep, setWalletStep] = useState<string | null>(null);
+  // ENG-205: the server has created the card: the form is leaving and the card presses once.
+  const [created, setCreated] = useState(false);
+  // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
+  const [covered, setCovered] = useState(true);
+  useEffect(() => { if (loading) return; const timer = setTimeout(() => setCovered(false), 400); return () => clearTimeout(timer); }, [loading]);
   const locale = program?.locale === "fr" ? "fr" : "de";
   const t = copy[locale];
   const unit = program?.programType === "points" ? t.points : t.stamp;
   const existing = returning.state === "existing" ? returning : null;
   const openHref = `/api/enroll/open?slug=${encodeURIComponent(slug)}`;
+  const newPage = firstPage(firstTap, locale);
+  // The new layout stands for the plain join; the returning, stale, another-card, closed and demo cases keep their panels.
+  const plain = newPage && !existing && returning.state !== "stale" && program?.active !== false && !program?.demo;
+  // The Wallet step arrived under the card: its heading takes the focus.
+  useEffect(() => { if (newPage && walletStep) { const title = document.getElementById("wallet-step-title"); if (title) { title.tabIndex = -1; title.focus(); } } }, [newPage, walletStep]);
 
   useEffect(() => {
     let mounted = true;
@@ -141,6 +165,16 @@ export function JoinClient({ slug }: { slug: string }) {
       const next = afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) });
       if (next.mark) markWalletStep(result.cardToken, next.mark);
       if (program && joinOffersMessages(onIphone, program)) markJoinAsked(result.cardToken);
+      if (plain && next.go !== "tap") {
+        // Nothing is drawn before this point: the card exists. A tap return goes on at once, without this.
+        const cardHref = `/card/${encodeURIComponent(result.cardToken)}`;
+        setCreated(true);
+        if (next.go !== "step") router.prefetch(cardHref);
+        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", matchMedia("(prefers-reduced-motion: reduce)").matches)));
+        leaving = next.go !== "step";
+        if (next.go === "step") setWalletStep(result.cardToken); else router.replace(cardHref);
+        return;
+      }
       leaving = next.go !== "step";
       if (next.go === "tap") router.push(continuation!);
       else if (next.go === "step") setWalletStep(result.cardToken);
@@ -171,8 +205,32 @@ export function JoinClient({ slug }: { slug: string }) {
   const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
+  // ENG-205: a placeholder shaped like the shop row and the card. Once the programme is here it lies over the page and fades.
+  const placeholder = <div className={first.placeholder}>
+    <div className={first.shop}><Skeleton width={48} height={48} radius="var(--radius-md)" /><div><Skeleton width="60%" height={25} /><Skeleton width="40%" height={21} /></div></div>
+    <Skeleton height={firstCardHeight(program ?? undefined)} radius="var(--radius-xl)" />
+  </div>;
+  const cover = newPage && covered ? { main: placeholder } : undefined;
+  if (loading && firstTap) return <CustomerShell locale="de"><div aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>{placeholder}</div></CustomerShell>;
   if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
+  // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
+  const top = newPage && <div className={first.top}>
+    <div className={first.shop}>
+      <span className={first.tile} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
+      <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
+    </div>
+    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined}>
+      {program.programType === "points"
+        ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
+        : <StampGrid earned={0} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
+      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
+    </section>
+  </div>;
+  // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
+  // wording: Design's placeholder, Marketing confirms
+  const createdLine = newPage && <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>;
+  if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}{createdLine}<div className={first.step}><WalletStep token={walletStep} program={program} heading="h2" /></div></CustomerShell>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
@@ -181,6 +239,41 @@ export function JoinClient({ slug }: { slug: string }) {
   // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
   const notice = locale !== "fr" && program.active !== false;
 
+  const referralLines = <>
+    {referralCode && <p className={styles.note}>{program.referral?.enabled && !referralUnavailable
+      ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${withUnit(program.referral.referrerBonus, program.programType, locale)} et vous ${withUnit(program.referral.referredBonus, program.programType, locale)}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${withUnit(program.referral.referrerBonus, program.programType, locale)} und deine Karte ${withUnit(program.referral.referredBonus, program.programType, locale)} erhalten. Das Öffnen des Links bringt keinen Bonus.`
+      : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
+    {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
+  </>;
+  const rulesBlock = <>
+    {/* The rules the guest accepts (German pages: the notice above the button; French: the checkbox): by purchase amount the earning sentence opens them (server), and the fixed
+        exclusions stand on the page itself, not only behind the terms link (Legal). */}
+    <div id="join-rules" className={styles.rules} data-stale={stale || undefined}>{plain ? <h2>{t.rules}</h2> : <h3>{t.rules}</h3>}{(() => {
+      // ENG-100 (W58): reward lines first, the rule's line after the rule, the expiry's after the expiry rule.
+      const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={18} aria-hidden="true" /><span>{text}{extra}</span></p>;
+      const expiryLine = waiting.expiry && change(waiting.expiry);
+      return <>
+        {waiting.rewards.map(line => <Fragment key={line}>{change(line)}</Fragment>)}
+        {signUpRules(program).map((line, index) => <Fragment key={index}>
+          <p>{line}</p>
+          {index === 0 && waiting.rule && change(waiting.rule.text, waiting.rule.link && <> <button type="button" className={styles.ruleToggle} aria-expanded={showRule} aria-controls="join-new-rule" onClick={() => setShowRule(!showRule)}>{showRule ? t.hideRule : t.readRule}</button></>)}
+          {index === 0 && waiting.rule?.link && showRule && <p id="join-new-rule" className={styles.newRule}>{waiting.newRule?.text}</p>}
+          {(index === 0 ? !program.pointsExpiryRule : line === program.pointsExpiryRule) && expiryLine}
+        </Fragment>)}
+      </>;
+    })()}</div>
+  </>;
+  const messagesBox = joinOffersMessages(onIphone, program) && <div className={styles.messages}>
+    {/* A demo names Loynara as the sender (Legal): no heading that names the shop, the demo wording as the server sent it. */}
+    {!program.demo && <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>}
+    {program.demo ? <Checkbox checked={messagesTicked} disabled={plain && busy} onChange={e => setMessagesTicked(e.target.checked)}>{program.demo.consentText}</Checkbox>
+      : <Checkbox checked={messagesTicked} disabled={plain && busy} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>}
+    <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
+  </div>;
+  const noticeLine = <>
+    {notice && program.demo && <p id="join-notice" className={styles.notice}>{demoJoinLine(existing ? t.anotherSubmit : t.submit).replace(`${DEMO_JOIN_PRIVACY}.`, "")}<Link href="/datenschutz" target="_blank">{DEMO_JOIN_PRIVACY}</Link>.</p>}
+    {notice && !program.demo && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
+  </>;
   const preview = <section className={`join-hero ${styles.hero}`} aria-label={t.cardPreview}>
     <p className={styles.welcome}>{t.welcome}</p>
     <h1 className={styles.business}>{program.businessName}</h1>
@@ -191,8 +284,33 @@ export function JoinClient({ slug }: { slug: string }) {
     {rewardLine}
   </section>;
 
-  return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>}>
-    {preview}
+  if (plain) return <CustomerShell brandColor={program.brandColor} locale="de" footer={<p className={styles.footer}>{t.footer}</p>} cover={cover}>
+    {top}
+    {createdLine}
+    <div className={first.blocks} data-leaving={created || undefined}>
+      {iphone && <ol className={styles.steps}>
+        <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
+        <li><span aria-hidden="true">2</span><p><strong>In Apple Wallet legen</strong>Dann ist sie bei deinen Karten</p></li>
+      </ol>}
+      {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label="Weitere Prämien">{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{withUnit(item.cost, program.programType, "de")}</span></li>)}</ul>}
+      <div className={first.rules}>{rulesBlock}{referralLines}</div>
+      {errorLine("rules")}
+      <form className={first.form} onSubmit={submit} noValidate>
+        <div className={first.terms}>{noticeLine}</div>
+        {errorLine("form")}
+        {/* Enabled while the returning check runs: the tap looks again itself, and the server refuses a silent second card. */}
+        <Button type="submit" size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined}>{busy ? t.submitting : t.submit}</Button>
+        {messagesBox && <div className={first.tick}>{messagesBox}</div>}
+        <p className={styles.muted}>{t.noEmail}</p>
+        {/* Below the button: when the check resolves, nothing under the thumb moves. */}
+        <Reveal open={returning.state === "checking"} gap="var(--space-4)"><p className={styles.muted}>{t.checking}</p></Reveal>
+      </form>
+      <p className={`${styles.link} ${first.recover}`}><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></p>
+    </div>
+  </CustomerShell>;
+
+  return <CustomerShell brandColor={program.brandColor} locale={locale} footer={<p className={styles.footer}>{t.footer}</p>} cover={cover}>
+    {top || preview}
     {/* Keyed: a panel that takes another's place arrives, instead of changing under the guest. */}
     {returning.state === "stale" && !wantsAnother ? <section key="stale" className={styles.panel}>
       <h2 className={styles.title}>{locale === "fr" ? "Retrouver votre carte" : "Deine Karte wiederfinden"}</h2>
@@ -223,46 +341,21 @@ export function JoinClient({ slug }: { slug: string }) {
       </>}
       {returning.state === "stale" && <p className={styles.muted} role="status">{t.staleNote}</p>}
       {program.rewards?.length > 1 && <ul className={styles.rewardList} aria-label={locale === "fr" ? "Autres récompenses" : "Weitere Prämien"}>{program.rewards.slice(1).map(item => <li key={item.id}><strong>{item.title}</strong><span>{withUnit(item.cost, program.programType, locale)}</span></li>)}</ul>}
-      {referralCode && <p className={styles.note}>{program.referral?.enabled && !referralUnavailable
-        ? locale === "fr" ? `Lien de parrainage : après votre premier passage confirmé en caisse et la vérification des conditions, votre parrain peut recevoir ${withUnit(program.referral.referrerBonus, program.programType, locale)} et vous ${withUnit(program.referral.referredBonus, program.programType, locale)}. Ouvrir le lien seul ne donne aucun bonus.` : `Empfehlungslink: Erst nach deinem ersten bestätigten Kassenauftrag und Prüfung der Bedingungen kann die empfehlende Karte ${withUnit(program.referral.referrerBonus, program.programType, locale)} und deine Karte ${withUnit(program.referral.referredBonus, program.programType, locale)} erhalten. Das Öffnen des Links bringt keinen Bonus.`
-        : locale === "fr" ? "Ce lien de parrainage est indisponible. Ouvrez le programme sans ce lien pour créer une carte ordinaire." : "Dieser Empfehlungslink ist nicht verfügbar. Öffne das Programm ohne diesen Link für eine normale Karte."}</p>}
-      {referralCode && (referralUnavailable || program.referral?.enabled === false) && <p className={styles.link}><a href={`/join/${encodeURIComponent(slug)}`}>{t.withoutReferral}</a></p>}
-      {/* The rules the guest accepts (German pages: the notice above the button; French: the checkbox): by purchase amount the earning sentence opens them (server), and the fixed
-          exclusions stand on the page itself, not only behind the terms link (Legal). */}
-      <div id="join-rules" className={styles.rules} data-stale={stale || undefined}><h3>{t.rules}</h3>{(() => {
-        // ENG-100 (W58): reward lines first, the rule's line after the rule, the expiry's after the expiry rule.
-        const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={18} aria-hidden="true" /><span>{text}{extra}</span></p>;
-        const expiryLine = waiting.expiry && change(waiting.expiry);
-        return <>
-          {waiting.rewards.map(line => <Fragment key={line}>{change(line)}</Fragment>)}
-          {signUpRules(program).map((line, index) => <Fragment key={index}>
-            <p>{line}</p>
-            {index === 0 && waiting.rule && change(waiting.rule.text, waiting.rule.link && <> <button type="button" className={styles.ruleToggle} aria-expanded={showRule} aria-controls="join-new-rule" onClick={() => setShowRule(!showRule)}>{showRule ? t.hideRule : t.readRule}</button></>)}
-            {index === 0 && waiting.rule?.link && showRule && <p id="join-new-rule" className={styles.newRule}>{waiting.newRule?.text}</p>}
-            {(index === 0 ? !program.pointsExpiryRule : line === program.pointsExpiryRule) && expiryLine}
-          </Fragment>)}
-        </>;
-      })()}</div>
+      {referralLines}
+      {rulesBlock}
       {errorLine("rules")}
       {program.active === false && <p className={styles.warning} role="status">{t.inactive}</p>}
       <form className={styles.form} onSubmit={submit} noValidate>
         {locale === "fr" && <Checkbox id="join-consent" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required aria-invalid={error === copy.fr.acceptError || undefined} aria-describedby={error === copy.fr.acceptError ? "join-error" : undefined}>{copy.fr.consentStart} <Link href="/teilnahmebedingungen" target="_blank">{copy.fr.terms}</Link> {copy.fr.and} <Link href="/datenschutz" target="_blank">{copy.fr.privacy}</Link>.</Checkbox>}
         {(existing || returning.state === "stale") && <Checkbox id="join-confirm" checked={confirmAnother} onChange={e => setConfirmAnother(e.target.checked)} aria-invalid={errorSpot === "confirm" && error ? true : undefined} aria-describedby={errorSpot === "confirm" && error ? "join-error" : undefined}>{t.anotherConfirm}</Checkbox>}
         {errorLine("confirm")}
-        {joinOffersMessages(onIphone, program) && <div className={styles.messages}>
-          {/* A demo names Loynara as the sender (Legal): no heading that names the shop, the demo wording as the server sent it. */}
-          {!program.demo && <h3>{`Darf dir ${program.businessName} Nachrichten auf deine Karte schicken?`}</h3>}
-          {program.demo ? <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{program.demo.consentText}</Checkbox>
-            : <Checkbox checked={messagesTicked} onChange={e => setMessagesTicked(e.target.checked)}>{joinConsentText(program.businessName, program.locationName).replace(PRIVACY_LINK, "")}<Link href="/datenschutz" target="_blank">{PRIVACY_LINK}</Link></Checkbox>}
-          <p className={styles.muted}>{consentLines(program.programType === "points" && Boolean(program.pointsExpiryRule || program.pendingExpiry)).under}</p>
-        </div>}
+        {messagesBox}
         {errorLine("form")}
         {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
         {/* The same tinted panel as the notice on the card. */}
         {program.demo && <div className={cardStyles.ending}><p>{program.demo.notice}</p></div>}
         {/* A demo card accepts no terms (Legal): the demo line and its privacy notice instead. */}
-        {notice && program.demo && <p id="join-notice" className={styles.notice}>{demoJoinLine(existing ? t.anotherSubmit : t.submit).replace(`${DEMO_JOIN_PRIVACY}.`, "")}<Link href="/datenschutz" target="_blank">{DEMO_JOIN_PRIVACY}</Link>.</p>}
-        {notice && !program.demo && <p id="join-notice" className={styles.notice}>Mit „{existing ? t.anotherSubmit : t.submit}“ akzeptierst du die Programmregeln oben und die <Link href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</Link>. Mehr in den <Link href="/datenschutz" target="_blank">Datenschutzhinweisen</Link>.</p>}
+        {noticeLine}
         <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
