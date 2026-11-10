@@ -137,6 +137,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-topbar-brand svg { width: 32px; height: 32px; }
 @media (max-width: 1023px) {
   .ow-content { padding-bottom: calc(var(--space-12) + var(--ow-tabbar)); }
+  /* The bottom bar covers the page's foot: a control the keyboard reaches is scrolled clear of it, ring included.
+     No specificity, so a control with its own margin keeps it. */
+  :where(.ow-content :focus-visible) { scroll-margin-bottom: calc(var(--ow-tabbar) + var(--space-4)); }
   /* Unsaved changes: the bar is pinned above the bottom bar. Sticky stopped at the end of its card and floated
      mid-screen; the page keeps room for the pinned bar so nothing hides behind it. */
   .ow-savebar:not([data-idle]) { position: fixed; left: 0; right: 0; bottom: var(--ow-tabbar); margin: 0; padding-bottom: var(--space-3); }
