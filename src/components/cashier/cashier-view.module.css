@@ -116,10 +116,14 @@
 .band:active:not(:disabled) { transform: scale(.985); }
 .band:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .band:disabled { background: var(--color-action-soft); color: var(--color-ink-muted); cursor: not-allowed; }
-/* A redemption on its way keeps the band green; its arrow turns into a spinner once it has waited 300 ms. */
+/* A redemption on its way keeps the band green; once it has waited 300 ms its arrow crossfades into a spinner. */
 .band[aria-busy="true"] { cursor: progress; }
-.bandWait { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite, appear var(--dur-ui) var(--ease-out) 300ms backwards; }
+.bandNext { display: grid; place-items: center; flex: none; }
+.bandNext > * { grid-area: 1 / 1; }
+.band[aria-busy="true"] .bandNext svg { animation: leave var(--dur-ui) var(--ease-out) 300ms forwards; }
+.bandWait { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite, appear var(--dur-ui) var(--ease-out) 300ms backwards; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes leave { to { opacity: 0; } }
 @media (hover: hover) and (pointer: fine) { .band:hover:not(:disabled) { background: var(--color-action-hover); } }
 .bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 88%); }
 .bandText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -139,7 +143,11 @@
 /* Outcomes answer where they appear: a fade and 4 px down. A rejected card number also shakes its field once
    (2 × 4 px; with reduced motion only the border turns). */
 .outcome { animation: outcome-in var(--dur-ui) var(--ease-out) backwards; }
+/* A second name for the same keyframes: when „Wird gebucht …“ turns into a refusal, the panel answers again without
+   being remounted (it is a live region). */
+.outcome:is([data-tone="rejected"], [data-tone="offline"]) { animation-name: outcome-answer; }
 @keyframes outcome-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes outcome-answer { from { opacity: 0; transform: translateY(-4px); } }
 .rejected input { border-color: var(--color-danger); animation: shake var(--dur-ui) var(--ease-in-out); }
 @keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 .outcome { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }

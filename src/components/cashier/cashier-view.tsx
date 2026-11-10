@@ -255,7 +255,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeeming ? undefined : redeemReady} disabled={busy && !redeeming} aria-busy={redeeming || undefined}>
       <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
       <span className={styles.bandText}><b>{t.redeem}</b>{readyLine && <small>{readyLine}</small>}</span>
-      {redeeming ? <span className={styles.bandWait} aria-hidden="true" /> : <ArrowRight size={22} aria-hidden="true" />}
+      <span className={styles.bandNext} aria-hidden="true"><ArrowRight size={22} />{redeeming && <span className={styles.bandWait} />}</span>
     </button>}
   </> : undefined;
 
@@ -266,7 +266,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={card || preview || booked ? styles.srOnly : styles.title}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
-      {status !== "idle" && !booked && <div key={status} className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
+      {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <span>{message}</span>}</span>
       </div>}
