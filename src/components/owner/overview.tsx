@@ -153,7 +153,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
-              <Strip days={board.days} caption={STRIP_CAPTION} />
+              <Strip days={board.days} caption={STRIP_CAPTION} today={board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} />
               {news && <p className="ow-board-news">{news}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
@@ -177,7 +177,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 /** The board's numbers, the only part of the page kept on this device (board-cache.ts). */
 export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: RetentionSummary | null, locationId: string): BoardData {
   return {
-    timezone: a.timezone, today: a.today, days: a.days, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
+    // Today's count comes from the diary of the same read (it reaches to now); the day series ends yesterday by rule.
+    timezone: a.timezone, today: a.today, days: a.days, todayBookings: a.diary.find(day => day.date === a.today)?.bookings ?? 0, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
     spend: spend ? { currency: spend.currency, figures: locationSpend(spend, locationId) } : undefined,
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };

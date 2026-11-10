@@ -40,21 +40,26 @@ export function BoardPlaceholder() {
   return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
 
-/** The last 7 local days ending yesterday; only yesterday lights up, and only if it had bookings. */
-export function Strip({ days, caption }: { days: DayCount[]; caption: string }) {
-  const week = days.slice(-7);
+/**
+ * The last six complete local days and today. Yesterday lights up if it had bookings; today's bar is an outline, since
+ * its count is not final. `days` end yesterday and stay the headline's only source. Without `today` (numbers this device
+ * kept before today's count was stored) the strip is the seven complete days.
+ */
+export function Strip({ days, caption, today }: { days: DayCount[]; caption: string; today?: DayCount }) {
+  const week = today ? [...days.slice(-6), today] : days.slice(-7);
   const max = Math.max(1, ...week.map(day => day.bookings));
-  const label = (index: number) => index === week.length - 1 ? "gestern" : weekdayShort(week[index].date);
+  const label = (day: DayCount) => day === today ? "heute" : day === days.at(-1) ? "gestern" : weekdayShort(day.date);
   return (
     <>
-      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map((day, index) => `${label(index)} ${bookingsText(day.bookings)}`).join(", ")}`}>
-        {week.map((day, index) => {
-          const yesterday = index === week.length - 1;
+      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map(day => `${label(day)} ${bookingsText(day.bookings)}`).join(", ")}`}>
+        {week.map(day => {
+          const yesterday = day === days.at(-1);
           return (
             <div className="ow-strip-day" key={day.date} aria-hidden="true">
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
-              <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{label(index)}</span>
+              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
+              {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
+              <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
             </div>
           );
         })}
