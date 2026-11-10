@@ -71,9 +71,25 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   expect(await page.evaluate(() => [...document.querySelectorAll(".ow-content *")].filter(node => getComputedStyle(node).transform !== "none" && !node.closest("svg")).length), "no transform is left behind").toBe(0);
 
   // Back in the history is a return to a screen shown before: it does not arrive again.
-  const [returned] = await Promise.all([entrances(800), page.goBack()]);
+  await page.goBack();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
-  expect(returned, "nothing arrives on the way back").toBe(0);
+  await page.waitForTimeout(600);
+  expect(await started("ow-arrive", "ow-row"), "nothing arrives on the way back").toBe(arrived);
+});
+
+test("a page's own back link is a return: the screen it leads to does not arrive", async () => {
+  await page.goto("/merchant/more");
+  const shop = page.locator('.ow-content a.ow-prog-row[href="/merchant/settings"]');
+  await expect(shop).toBeVisible();
+  await shop.click();
+  await expect(page).toHaveURL(/\/merchant\/settings$/);
+  await page.waitForTimeout(600);
+  const opened = await started("ow-arrive", "ow-row");
+  expect(opened, "the screen a row opens arrives").toBeGreaterThan(0);
+  await page.locator(".ow-content a.ow-back").click();
+  await expect(team()).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(await started("ow-arrive", "ow-row"), "the screen its back link leads to does not, and its rows do not stagger").toBe(opened);
 });
 
 test("a content tap after a tab tap is dropped before 120 ms and lands from 120 ms on", async () => {

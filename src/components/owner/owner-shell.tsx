@@ -119,12 +119,13 @@ export function OwnerShell({ children }: { children: ReactNode }) {
     const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
     // The segment picked when the pointer went down; a key press forgets it, so only the pointer's own pick slides.
     let was: Element | null = null;
-    // Back or Forward in the history is a return to a screen that was shown before: it does not arrive again.
+    // Back or Forward in the history, and a page's own back link („‹ Programm“), lead to a screen that was shown before:
+    // it does not arrive again. Any other press forgets it, so the screen a tab or a row opens next arrives as usual.
     let returning = false;
     const back = () => { returning = true; };
     const press = (event: Event) => {
       const keys = event.type === "keydown";
-      returning = false;
+      returning = event.target instanceof Element && event.target.closest(".ow-back") !== null;
       document.documentElement.toggleAttribute("data-keys", keys);
       was = !keys && event.target instanceof Element ? event.target.closest(".ow-seg:not(.ow-seg--chips)")?.querySelector(PICKED) ?? null : null;
     };
