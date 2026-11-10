@@ -100,6 +100,14 @@ Rules for the head start at card creation:
 - Shown as "Startbonus" on the preview, in the pill and in "Letzte Aktivität".
 - The Wallet pass shows the balance including it from the start.
 
+As built (ENG-207, with Legal's and Marketing's answers of 10 Nov):
+- The cap is read when the owner saves and again when the card is created. Stamps: at most 2. Points: at most 50. Both: never more than 25 % of the cheapest live reward's cost, rounded down (a 100-point reward allows 25 points, a 6-stamp reward 1 stamp, a reward under 4 nothing). The grant books the smaller of the owner's amount and the cap; if that is 0, nothing is booked.
+- Owner only, once per card: the key is `headstart:<membershipId>`, and the entry has no actor (like the automatic tap and the expiry job), so `ledger_nfc_actor_valid` is widened with `ledger_source_valid`.
+- Never both, by the card and not by the setting: a card with a `head_start` entry (corrected or not) never gets `welcome_bonus`. A card without one still gets the Startbonus with its first team-confirmed booking, also while the owner's choice is sign-up. That covers cards from before the switch and further cards.
+- A further card on the same device („Weitere Karte erstellen“, `additionalCard: true`) gets no Startbonus at sign-up. The join page must not show the sentence on that path; `headStart` in the public programme data does not know the path.
+- The owner corrects it with the existing correction, under the correction's own key like any directly corrected booking. `headstart-reversal:` is reserved and unused.
+- The Teilnahmebedingungen carry Legal's edits (b) and (d) and the Startbonus paragraph. They are not behind the flag and must be live before the flag goes on.
+
 What stops abuse:
 - A guest can open the link on a second device and get a second card with its own Startbonus. Cards cannot be merged and stamps cannot be moved, so two cards with 2 stamps each are worth less than one. The existing limits on card creation per network and per programme stay.
 - The Kasse cannot grant it. Changing the setting does not touch existing cards.
