@@ -9,51 +9,61 @@ const home = homePage();
 const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 const text = visible(home);
 const section = (id: string, next: string) => visible(home.slice(home.indexOf(`id="${id}"`), home.indexOf(`id="${next}"`)));
-/** The page as a visitor sees it before touching anything: tab panels that are `hidden` do not count. */
-const defaultVisible = visible(home.replace(/<div class="ov"[^>]*\shidden[^>]*>[\s\S]*?(?=<div class="ov"|<\/div><\/div><\/div><\/section>)/g, ' '));
+const browserSrc = readFileSync(resolve(import.meta.dirname, '../src/home-browser.ts'), 'utf8');
 
-test('the page has the Concept D scene order with exactly one h1 and the approved headline', () => {
-  const ids = ['hero', 'ablauf', 'empfehlung', 'gestaltung', 'inhaber', 'rechner', 'angebot', 'anfrage'].map(id => home.indexOf(`id="${id}"`));
+test('the page has the website-set order with exactly one h1 and the approved headlines', () => {
+  const ids = ['top', 'ablauf', 'geschaefte', 'funktionen', 'rechner', 'preis', 'fragen', 'anfrage'].map(id => home.indexOf(`id="${id}"`));
   assert.ok(ids.every(i => i > 0)); assert.deepEqual([...ids].sort((a, b) => a - b), ids);
   assert.equal((home.match(/<h1[ >]/g) ?? []).length, 1);
   assert.match(text, /Ein guter Besuch\. Ein Grund, wiederzukommen\./);
-  assert.match(section('hero', 'ablauf'), /Behalte die Kunden, die du gewonnen hast\. Bring sie zurück\. Lass sie die nächsten mitbringen\./);
-  for (const h of ['Ein Besuch. Ein Stempel. Bestätigt von deinem Team.', 'Deine Stammkunden bringen den nächsten Kunden mit.', 'Deine Marke. Vom Tresen bis zur Kundenkarte.', 'Du siehst, wer wiederkommt. Und wann du etwas tun kannst.', 'Was wäre ein zusätzlicher Besuch wert?', 'Ein Preis pro Standort. Ohne App für deine Kunden.', 'Gib dem nächsten Besuch einen Grund. Und der nächsten Empfehlung einen Weg.']) assert.ok(text.includes(h), h);
+  assert.match(section('top', 'ablauf'), /Die digitale Stempelkarte für deinen Tresen\. Tippe auf das Schild wie dein Kunde: Dein Team bestätigt, der Stempel landet\./);
+  for (const h of ['Für jedes Geschäft mit Stammkunden.', 'Was zu deiner Karte gehört.', 'Was wäre ein zusätzlicher Besuch wert?', 'Ein Preis pro Standort.', 'Gut zu wissen.', 'Gib dem nächsten Besuch einen Grund.']) assert.ok(text.includes(h), h);
+  assert.doesNotMatch(text, /Theke|Inhaber/, 'the place is the Tresen, the reader is du');
 });
-test('hero: one product composition, CTA hierarchy, quiet login, CTA scrolls to the contact section', () => {
-  const hero = home.slice(home.indexOf('id="hero"'), home.indexOf('class="roles"'));
-  assert.match(hero, /<a class="btn btn-primary" href="#anfrage">Demo anfragen<\/a><a class="btn btn-ghost" href="#ablauf">So funktioniert’s<\/a>/);
-  assert.equal((hero.match(/<video /g) ?? []).length, 1, 'one clip');
-  assert.match(hero, /<video muted loop playsinline preload="none" poster="\/assets\/motion\/hero\.jpg"[^>]*><source src="\/assets\/motion\/hero\.webm" type="video\/webm"><source src="\/assets\/motion\/hero\.mp4" type="video\/mp4">/, 'poster first, both formats');
-  assert.doesNotMatch(home, /autoplay/, 'clips never autoplay: d.ts plays them unless reduced motion is set');
-  assert.equal((home.match(/<button type="button" class="clip-toggle" aria-pressed="false" hidden>.*?Animation pausieren<\/span><\/button>/g) ?? []).length, 4, 'every clip has a pause toggle, hidden until it can move');
-  assert.doesNotMatch(hero, /wpass|owner|ref-pair/, 'no Wallet, owner or referral object in the hero');
+test('hero: the sign is a real button that says what it does and that nothing is saved; no video, quiet login', () => {
+  const hero = home.slice(home.indexOf('class="hero"'), home.indexOf('id="ablauf"'));
+  assert.match(hero, /<button class="tap" id="tap" type="button" aria-label="Hier tippen: einen Stempel auf der Beispielkarte vergeben" aria-describedby="tapNote">/);
+  assert.match(hero, /<p class="sr" id="tapNote">Beispiel\. Nichts wird gespeichert\.<\/p>/);
+  assert.match(hero, /<p class="sr" role="status" id="tapStatus"><\/p>/, 'the booking is announced');
+  assert.match(hero, /id="heroPhone" aria-hidden="true"/, 'the drawing is decorative; the status line carries the result');
+  assert.match(visible(hero), /Pizzeria Da Gino Noch 5 Stempel bis zu deiner Prämie: Pizza aufs Haus ab 8 Stempeln Beispiel 3 von 8/);
+  assert.doesNotMatch(home, /<video|autoplay/);
   assert.match(home, /<a class="login" href="https:\/\/app\.getloynara\.com\/login">Anmelden<\/a>/);
+  assert.match(browserSrc, /Noch \$\{STAMPS - have\} Stempel bis zu deiner Prämie:/); assert.match(browserSrc, /Deine Prämie ist bereit:/);
 });
-test('zero interaction: roles, flow, referral rule, owner value, branding, price and next step are visible by default', () => {
-  assert.match(visible(home.slice(home.indexOf('class="roles"'), home.indexOf('id="ablauf"'))), /Kunde Tippt an oder scannt, sammelt bis zur Prämie\. Team Bestätigt den Besuch mit einem Tipp\. Inhaber Sieht, wer wiederkommt – Stand und Verlauf jeder Karte\./);
-  assert.match(section('ablauf', 'empfehlung'), /Karte öffnen[\s\S]*Team bestätigt[\s\S]*Stempel wächst[\s\S]*Prämie einlösen/);
-  assert.match(section('empfehlung', 'gestaltung'), /Link geteilt[\s\S]*Karte erstellt[\s\S]*Erster Besuch bestätigt[\s\S]*Bonus verbucht/);
-  assert.match(section('empfehlung', 'gestaltung'), /Teilen, Öffnen oder Anmelden allein bringt keinen Bonus/);
-  for (const re of [/Wer kommt wieder\?/, /Wer fehlt\?/, /Wann ist es ruhig\?/, /12 wiederholte Besuche/, /Aufsteller/, /Gestaltungsbeispiel/, /Wallet-Vorschau/, /49 € \/ Monat \/ Standort|49 € pro Monat und Standort/, /Demo anfragen/]) assert.match(defaultVisible, re, String(re));
+test('scene: four steps with real headings in the order of one visit, each with a still for reduced motion', () => {
+  const scene = home.slice(home.indexOf('id="ablauf"'), home.indexOf('id="geschaefte"'));
+  assert.deepEqual([...scene.matchAll(/<article class="step[^"]*"><div><h2>([^<]+)<\/h2>/g)].map(m => m[1]), ['Antippen. Ohne App.', 'Dein Team bestätigt.', 'Der Stempel landet.', 'Und manchmal eine Nachricht.']);
+  assert.equal((scene.match(/<div class="still" aria-hidden="true">/g) ?? []).length, 4);
+  assert.match(scene, /<div class="track" aria-hidden="true">/); assert.match(scene, /<div class="objs" aria-hidden="true">/);
+  assert.match(visible(scene), /Höchstens zwei Nachrichten in sieben Tagen, und nur, wenn er zugestimmt hat\./);
+  const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*\.still\{display:flex/, 'reduced motion stacks the stills');
 });
-test('interactive modules: two real tablists (screen, owner), roving tabindex, one tabpanel each', () => {
-  assert.equal((home.match(/role="tablist"/g) ?? []).length, 2);
-  assert.equal((home.match(/role="tab"/g) ?? []).length, 5);
-  assert.equal((home.match(/role="tabpanel"/g) ?? []).length, 2);
-  assert.equal((home.match(/aria-selected="true"/g) ?? []).length, 2);
-  assert.ok(home.includes('data-act="visit"') && home.includes('data-act="ref"'), 'the two demos are single explicit actions, not tabs');
+test('every action leads to the request form with its wish; there is no sign-up link', () => {
+  const actions = [...home.matchAll(/<a class="btn [^"]*"[^>]*>/g)].map(m => m[0]);
+  assert.ok(actions.length >= 8);
+  for (const a of actions) assert.match(a, /href="#rq" data-want="(start|demo)"/, a);
+  assert.match(home, /<select id="rq-want" name="want"><option value="start">Ersten Monat gratis starten<\/option><option value="demo">Erst eine Demo sehen<\/option><\/select>/);
+  assert.doesNotMatch(home, /href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
+  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage"><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen<\/a><a class="btn btn-pri" href="#rq" data-want="start">1\. Monat gratis<\/a><\/nav>/);
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
   assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
-  assert.match(text, /49 € \/ Monat \/ Standort/); assert.match(text, /Kunden und Karten kosten nichts extra\./); assert.doesNotMatch(text, /Vorläufiger Einstiegspreis/);
+  assert.match(text, /49 € pro Monat und Standort/); assert.match(text, /Kunden, Karten und dein Team kosten nichts extra/);
   assert.ok(home.includes('mailto:support@getloynara.com')); assert.ok(home.includes('href="https://app.getloynara.com/login"'));
   assert.doesNotMatch(home, /getlyonara/i);
-  const src = ['../template.ts', '../src/final-parts.ts', '../src/d-parts.ts', '../src/d.ts', '../src/calc.ts', '../src/demo.ts', '../src/ref.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
-  assert.ok(!/(?<![#\d,.])\b39\b(?![\d,.;])/.test(src), 'the fee is never hard-coded outside src/site.ts');
+  const src = ['../template.ts', '../src/home.ts', '../src/home-browser.ts', '../src/calc.ts'].map(f => readFileSync(resolve(import.meta.dirname, f), 'utf8')).join('\n');
+  assert.ok(!/(?<![#\d,.])\b(?:39|49)\b(?![\d,.;])/.test(src), 'the fee is never hard-coded outside src/site.ts');
+});
+test('free month and notice period: only the pilot terms, in Legal\'s wording, and no VAT line', () => {
+  assert.match(text, /Der erste Monat ist gratis\. Zahlungsdaten erst ab dem zweiten Monat\. Monatlich kündbar, keine Einrichtungsgebühr\./);
+  assert.match(text, /Der erste Monat ist gratis, Zahlungsdaten brauchen wir erst ab dem zweiten Monat\. Hörst du im ersten Monat auf, kostet es nichts\. Sonst läuft es Monat für Monat weiter\. Kündigen kannst du zum Ende jedes Abrechnungsmonats, spätestens 14 Tage vorher\. Eine Einrichtungsgebühr gibt es nicht, und Kunden, Karten und dein Team kosten nichts extra\./);
+  assert.doesNotMatch(text, /unverbindlich|endet automatisch|sofort|ab Tag 1|jederzeit kündbar|ohne Risiko/i);
+  assert.doesNotMatch(text, /zzgl\.|inkl\.|MwSt|Umsatzsteuer|netto|brutto/i);
 });
 test('no stale price, internal wording or old brand', () => {
-  assert.doesNotMatch(text, /\b69\s*€|\b99\s*€|\b397\b|Einrichtungsgebühr|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat|Kündigung|zzgl\.|inkl\./i);
+  assert.doesNotMatch(text, /\b39\s*€|\b69\s*€|\b99\s*€|\b397\b|Rabatt|Jahresrabatt|nur noch|begrenzt|kostenlos|Testphase|Probemonat/i);
   assert.doesNotMatch(text, /LoopLocal|synthetic|synthetisch|Audit|Entwurf|nicht geprüft|nicht getestet|in Vorbereitung|Testdaten|lokal getestet/i);
 });
 test('no fabricated proof, misleading referral economics or unsupported availability claims', () => {
@@ -63,53 +73,44 @@ test('no fabricated proof, misleading referral economics or unsupported availabi
   assert.doesNotMatch(text, /[Zz]ertifiziert|Acryl|Lieferzeit|Lieferung|Material|\d+\s?(?:cm|mm)\b|im Preis (?:enthalten|inbegriffen)/);
   assert.doesNotMatch(home, /<img[^>]+(?:logo-wall|partner|kunden-logo)/i);
 });
-test('platform previews are marked as outlook and kept out of the offer, near the point of demonstration', () => {
-  const owner = home.slice(home.indexOf('id="inhaber"'), home.indexOf('id="rechner"'));
-  assert.equal((owner.match(/Plattform-Ausblick · Beispiel/g) ?? []).length, 2, 'both outlook views are labelled');
-  assert.equal((owner.match(/Vorschau · nicht versendet/g) ?? []).length, 2);
-  assert.match(visible(owner), /Der Überblick gehört zum Pilotangebot\. Wer fehlt und ruhige Zeiten sind Plattform-Ausblick; Nachrichten bleiben Vorschau\./);
-  const card = visible(home.slice(home.indexOf('class="price-card"'), home.indexOf('class="faq"')));
-  const included = card.slice(0, card.indexOf('Demo anfragen'));
-  assert.doesNotMatch(included, /Kampagn|Nachricht|Google|Aufsteller|Logo-Darstellung/);
-  assert.equal((included.match(/Wallet/g) ?? []).length, 1, 'Wallet appears once in the offer'); assert.match(included, /Apple Wallet auf Wunsch/);
-  assert.match(card, /Logo-Darstellung, Kampagnen und Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert\./);
-  assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /Aufsteller|Wallet/, 'the stand and Apple Wallet are not outlook');
-  assert.doesNotMatch(card.slice(card.indexOf('Demo anfragen')), /NFC/, 'NFC has left the outlook list');
+test('every invented shop and every drawing with figures is marked as an example', () => {
+  for (const name of ['Barbershop Kaan', 'Studio Aylin', 'Imbiss am Markt', 'Café Morgenlicht']) assert.match(home, new RegExp(`<b>${name}</b><small>Beispiel`), name);
+  assert.match(home, /<p class="ex">Beispielzahlen · Buchungen pro Tag, sonntags geschlossen<\/p>/);
+  assert.ok((home.match(/Beispiel/g) ?? []).length >= 16);
+});
+test('offer: what is included, Wallet messages stay outlook, nothing is sent from this page', () => {
+  const offer = section('preis', 'fragen');
+  assert.match(offer, /49 € pro Monat und Standort/);
+  for (const x of ['Stempel- oder Punktekarte mit deinen Prämien', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Apple Wallet auf Wunsch. Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert', 'Empfehlungen und Willkommen-zurück-Bonus', 'Happy Hour bei Punkten nach Einkaufswert, Geburtstags-Bonus mit Apple Wallet', 'Überblick, wie viele wiederkommen', 'Kunden, Karten und dein Team kosten nichts extra']) assert.ok(offer.includes(x), x);
+  assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures');
   assert.doesNotMatch(text, /Jetzt senden|Nachricht senden|Kampagne starten|wurde gesendet|zugestellt/i);
-  assert.match(section('gestaltung', 'inhaber'), /Gestaltungsbeispiele; Apple Wallet schalten wir für deinen Laden auf Wunsch dazu\. Nichts wird hochgeladen oder gespeichert\./);
+  assert.match(text, /Loynara ist keine Kassenanbindung und kein Bezahlsystem\./);
 });
-test('calculator copy: scope, disclaimer next to the result, honest zero case, ratio only in the details', () => {
-  const calc = section('rechner', 'angebot');
-  assert.match(calc, /Für einen Standort/); assert.match(calc, /Was wäre ein zusätzlicher Besuch wert\?/);
-  assert.match(calc, /Rechenbeispiel, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
-  assert.match(calc, /910 €/); assert.match(calc, /\+861 €/); assert.match(calc, /\+10\.332 €/); assert.match(calc, /9\.100 €/);
-  assert.match(calc, /Bei dieser Annahme übersteigt die Monatsgebühr den Zusatzumsatz\./);
-  assert.ok(home.includes('data-zero-note hidden'));
+test('calculator copy: disclaimer next to the result, the live example figures, sliders that speak', () => {
+  const calc = section('rechner', 'preis');
+  assert.match(calc, /Was wäre ein zusätzlicher Besuch wert\?/); assert.match(calc, /Deine Annahme, kein Erfahrungswert von Loynara\./);
+  assert.match(calc, /Rechenbeispiel bei 26 Öffnungstagen, keine Umsatzprognose\. Wareneinsatz, Prämien, zusätzliche Arbeitskosten und Steuern sind nicht berücksichtigt\./);
+  assert.match(calc, /910 €/); assert.match(calc, /\+861 €/);
   assert.doesNotMatch(calc, /Nettogewinn|Netto-Nutzen|Return on|Ihr Geld|verdienst du|mindestens \d/i);
-  const detailsAt = home.indexOf('<details class="more">'), ratioAt = home.indexOf('data-out="ratio"');
-  assert.ok(detailsAt > 0 && ratioAt > detailsAt, 'the ratio appears only inside the expandable details');
-  assert.match(visible(home.slice(detailsAt, home.indexOf('</details>', detailsAt))), /18,6× .*kein Gewinn und keine garantierte Rendite/);
-  const calcHtml = home.slice(home.indexOf('data-calc'), home.indexOf('id="angebot"'));
-  assert.equal((calcHtml.match(/data-range="/g) ?? []).length, 4); assert.equal((calcHtml.match(/data-in="/g) ?? []).length, 4);
-});
-test('offer: what 49 € means, what is included, the pilot qualifier and what happens next', () => {
-  const offer = section('angebot', 'anfrage');
-  assert.match(offer, /49 € pro Monat und Standort/); assert.match(offer, /Kunden und Karten kosten nichts extra\./); assert.doesNotMatch(offer.slice(0, offer.indexOf('Gut zu wissen')), /Pilotangebot|vorläufig/i, 'no pilot or provisional label next to the price');
-  for (const x of ['Digitale Treuekarte mit Stempeln oder Punkten', 'Prämien und Einlösung', 'NFC-Antippen und QR-Einstieg am Tresen', 'Bestätigung durch dein Team, mit Rollen', 'Empfehlungen', 'Kundenübersicht und Auswertung', 'Mehrere Standorte', 'Apple Wallet auf Wunsch']) assert.ok(offer.includes(x), x);
-  assert.match(offer, /Konditionen besprechen wir vor dem Start persönlich\./); assert.doesNotMatch(offer, /Vorläufiger Einstiegspreis/);
-  assert.equal((home.match(/<details><summary>/g) ?? []).length, 7, 'seven FAQ disclosures including live correction');
-  assert.match(visible(home.slice(home.indexOf('id="anfrage"'))), /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Demo am Beispiel deines Geschäfts/);
+  const calcHtml = home.slice(home.indexOf('id="rechner"'), home.indexOf('id="preis"'));
+  assert.equal((calcHtml.match(/<input id="[kwz]" type="range" [^>]*aria-valuetext="/g) ?? []).length, 3);
+  assert.match(calcHtml, /<p class="sr" aria-live="polite" id="calcSay"><\/p>/);
+  assert.match(browserSrc, /compute\(\{ visits: k, basket: w, days: 26, gain: z \}, SITE\.price\.amount\)/, 'the live maths, not a second formula');
 });
 test('the contact section states the honest mail-draft behaviour and promises no response time', () => {
   const contact = visible(home.slice(home.indexOf('id="anfrage"')));
   assert.match(contact, /Die Anfrage wird in deinem E-Mail-Programm geöffnet\. Gesendet wird sie erst dort\./);
-  assert.match(contact, /E-Mail vorbereiten/); assert.match(contact, /Geschäft[\s\S]*Branche optional[\s\S]*Kurze Nachricht optional/);
+  assert.match(contact, /E-Mail vorbereiten/); assert.match(contact, /Text kopieren/); assert.match(contact, /Geschäft[\s\S]*Branche optional[\s\S]*Was möchtest du\?[\s\S]*Kurze Nachricht optional/);
+  assert.match(contact, /Anfrage senden[\s\S]*Wir melden uns[\s\S]*Start an deinem Tresen/);
   assert.doesNotMatch(contact, /Anfrage gesendet|erfolgreich übermittelt|Vielen Dank für deine Anfrage|innerhalb von|binnen|24 Stunden|werktags/i);
-  assert.match(home, /id="request-copy" type="button" hidden/); assert.match(home, /id="request-figures" hidden/);
+  assert.match(home, /<input id="rq-shop" name="shop" autocomplete="organization" maxlength="120" required aria-describedby="rq-err">/);
+  assert.match(home, /<p class="sent" role="status" id="rq-sent"><\/p>/);
 });
-test('metadata is complete and indexable on the home page', () => {
-  assert.match(home, /<title>Loynara – /);
-  for (const marker of ['name="description"', 'rel="canonical" href="https://getloynara.com/"', 'property="og:title"', 'property="og:description"', 'property="og:image"', 'name="twitter:card"', 'rel="icon"', 'name="robots" content="index,follow"']) assert.ok(home.includes(marker), marker);
+test('metadata is complete and indexable; the page carries no inline style or script (CSP)', () => {
+  assert.match(home, /<title>Loynara: Die Stempelkarte für deinen Tresen<\/title>/);
+  assert.match(home, /name="description" content="Digitale Stempel- und Punktekarte für kleine Geschäfte\. Dein Team bestätigt jeden Stempel\. 49 € pro Monat und Standort, erster Monat gratis\."/);
+  for (const marker of ['rel="canonical" href="https://getloynara.com/"', 'property="og:title"', 'property="og:description"', 'property="og:image"', 'name="twitter:card"', 'rel="icon"', 'name="robots" content="index,follow"', '<link rel="stylesheet" href="/home.css">', '<script type="module" src="/assets/home.js"></script>', '<a class="skip" href="#inhalt">Zum Inhalt springen</a>']) assert.ok(home.includes(marker), marker);
+  assert.doesNotMatch(home, /\sstyle="|<style|<script(?![^>]*\ssrc=)|\son[a-z]+="/);
 });
 test('publication changes survive: legal links, no terms link, legal fragments rendered, placeholders noindex', () => {
   for (const href of ['/impressum/', '/datenschutz/']) assert.ok(home.includes(`href="${href}"`), href);
@@ -128,17 +129,13 @@ test('robustness CSS: solid header fallback, prefixed blur, print shows every ta
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
 test('NFC is live: the tap comes first and the QR code always stays the fallback; Apple Wallet on request, never Google Wallet (set only after the physical NFC acceptance passed in production)', () => {
-  const offerIncluded = visible(home.slice(home.indexOf('class="checks"'), home.indexOf('</ul>', home.indexOf('class="checks"'))));
-  assert.match(offerIncluded, /NFC-Antippen und QR-Einstieg am Tresen/);
   const head = home.slice(0, home.indexOf('</head>'));
   assert.match(head, /property="og:description" content="[^"]*Antippen oder QR-Code, ohne App/, 'social metadata names the tap and the QR code');
   assert.doesNotMatch(head, /Ausblick|vorbereitet/);
-  assert.match(visible(home.slice(home.indexOf('id="hero"'), home.indexOf('id="ablauf"'))), /Antippen oder QR-Code/);
+  assert.match(section('top', 'ablauf'), /Antippen oder QR-Code, ohne App\./);
   const mentions = text.match(/[^.?]*NFC[^.?]*[.?]/g) ?? [];
-  assert.ok(mentions.length > 0 && mentions.every(m => /\?$/.test(m) || (/QR/.test(m) && !/Ausblick|vorbereitet/.test(m))), mentions.join(' | '));
+  assert.ok(mentions.length > 0 && mentions.every(m => !/Ausblick|vorbereitet/.test(m)), mentions.join(' | '));
   assert.match(text, /Und wenn ein Handy kein NFC kann\? Dann scannt dein Kunde den QR-Code\. Er öffnet dieselbe Karte und bleibt immer als Alternative\./);
-  assert.doesNotMatch(text, /Das Antippen per NFC ist vorbereitet|NFC-Antippen, Wallet-Karte/);
   for (const m of text.match(/[^.?]*Wallet[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|auf Wunsch|\?$/, m);
   assert.doesNotMatch(text, /Google Wallet/);
 });
-
