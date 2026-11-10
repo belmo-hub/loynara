@@ -66,7 +66,7 @@ export default function MerchantBillingPage() {
           <Row key="status" icon={Euro} title={billingStatus(o)} sub={o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Beendigung zum ${date(o.currentPeriodEnd)} vorgemerkt.` : o.graceUntil ? `Test-Nachfrist bis ${date(o.graceUntil)}.` : undefined} />
         </Rows>
         <Rows title="Standorte" help={<><p>{o.countingRule} Es gibt keine geprüfte Steuer- oder Zahlungsintegration.</p><p>Geschlossene Karten zählen nicht zum Kartenlimit. Der Preis ist je Standort gespeichert; ein neuer Standort löst keine automatische Zahlung aus.</p></>}>
-          {o.locations.map(location => <Row key={location.locationId} href={`/merchant/locations/${location.locationId}`} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={<Price minor={location.priceMinor} currency={o.currency} />} big />)}
+          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={<Price minor={location.priceMinor} currency={o.currency} />} big />)}
         </Rows>
         <Rows title="Belege">
           {o.invoices.length
@@ -123,7 +123,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
         <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>
-          {o.locations.map(location => <Row key={location.locationId} href={`/merchant/locations/${location.locationId}`} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
+          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
         </Rows>
       </div>
     </div>

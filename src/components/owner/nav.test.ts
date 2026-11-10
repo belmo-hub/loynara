@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { groupHref, routeMove, visibleGroups, visibleItems } from "./nav";
+import { groupHref, visibleGroups, visibleItems } from "./nav";
 
 const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
@@ -50,21 +50,5 @@ describe("navigation with pilot-withheld surfaces", () => {
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
     // Billing, campaigns and automations live on the „Mehr“ page and the Aktionen list, so the navigation is the same either way.
     expect(hrefs).toEqual(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/audiences", "/merchant/actions", "/merchant/more"]);
-  });
-});
-
-describe("the direction of a screen change", () => {
-  it("steps in from a tab's page to a page below it, and back out again", () => {
-    expect(routeMove("/merchant/program", "/merchant/program/rule")).toBe("in");
-    expect(routeMove("/merchant/more", "/merchant/settings")).toBe("in");
-    expect(routeMove("/merchant/settings", "/merchant/settings/absender/kontakt")).toBe("in");
-    expect(routeMove("/merchant", "/merchant/program/winback")).toBe("in");
-    expect(routeMove("/merchant/staff/invite", "/merchant/staff")).toBe("out");
-    expect(routeMove("/merchant/wallet-messages", "/merchant/actions")).toBe("out");
-  });
-  it("does not move sideways between tabs or between the pages of one tab", () => {
-    expect(routeMove("/merchant", "/merchant/customers")).toBe("none");
-    expect(routeMove("/merchant/customers", "/merchant/audiences")).toBe("none");
-    expect(routeMove("/merchant/actions", "/merchant/more")).toBe("none");
   });
 });

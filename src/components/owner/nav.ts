@@ -53,13 +53,3 @@ export function activeItem(group: NavGroup, path: string, role: OwnerRole, hidde
   return visibleItems(group, role, hidden).find(item => under(path, item.href));
 }
 export function groupHref(group: NavGroup, role: OwnerRole, hidden: HiddenSurfaces = []) { return visibleItems(group, role, hidden)[0]?.href ?? "/merchant"; }
-
-/** How deep a screen sits under its tab: a tab's own pages are 0, every path segment below /merchant is one step in. */
-export function routeDepth(path: string) {
-  return NAV_GROUPS.some(group => group.items.some(item => item.href === path)) ? 0 : path.split("/").filter(Boolean).length - 1;
-}
-/** Which way the content moves from one screen to the next: a step in, a step back out, or neither (tab to tab). */
-export function routeMove(from: string, to: string): "in" | "out" | "none" {
-  const step = routeDepth(to) - routeDepth(from);
-  return step > 0 ? "in" : step < 0 ? "out" : "none";
-}
