@@ -285,6 +285,16 @@ describe("Übersicht direction D (ENG-085)", () => {
     const wall = render();
     expect(wall.match(/data-kind="award"/g)).toHaveLength(8);
     expect(wall).toContain(`24${NBSP}weitere`);
+    // A day with more than eight entries keeps its redemptions and corrections in view: bookings are what the count of the rest holds.
+    const award = { kind: "award" as const, amount: 1 }, redemption = { kind: "redemption" as const, amount: 8 }, correction = { kind: "correction" as const, amount: 8 };
+    const mixed = { date: "2026-11-03", bookings: 35, units: 35, more: 0, entries: [...Array.from({ length: 12 }, () => award), redemption, ...Array.from({ length: 11 }, () => award), correction, redemption, correction, ...Array.from({ length: 12 }, () => award), redemption, correction] };
+    expect(mixed.entries).toHaveLength(41);
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [mixed] }));
+    const kept = render();
+    expect(kept.match(/data-kind="redemption"/g)).toHaveLength(3);
+    expect(kept.match(/data-kind="correction"/g)).toHaveLength(3);
+    expect(kept.match(/data-kind="award"/g)).toHaveLength(2);
+    expect(kept).toContain(`33${NBSP}weitere`);
   });
 
   it("leaves the invite link and Tresenschild to Kunden (ENG-122a)", () => {

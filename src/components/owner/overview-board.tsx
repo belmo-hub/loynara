@@ -238,6 +238,8 @@ const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind 
 const DAY_ENTRIES = 8;
 /** The entries not shown: those the read left out and those beyond the first eight. */
 const rest = (day: DiaryDay) => day.more + Math.max(0, day.entries.length - DAY_ENTRIES);
+/** What a busy day shows: redemptions and corrections first, then bookings, so the rarer moments never vanish into the count of the rest. */
+export const shownEntries = (day: DiaryDay) => [...day.entries.filter(entry => entry.kind !== "award"), ...day.entries.filter(entry => entry.kind === "award")].slice(0, DAY_ENTRIES);
 
 /** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */
 export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]; today: string; unit: string; gap?: { from: string; to: string } | null; children?: ReactNode }) {
@@ -255,7 +257,7 @@ export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]
             <h3>{title(day.date)}</h3>
             {day.bookings > 0 && <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>}
             <ul className="ow-pills">
-              {day.entries.slice(0, DAY_ENTRIES).map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
+              {shownEntries(day).map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
               {rest(day) > 0 && <li className="ow-pill" data-kind="more">{nf.format(rest(day))}{NBSP}weitere</li>}
             </ul>
           </div>

@@ -282,5 +282,5 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
   await page.locator('.ow-content a[href="/merchant/analytics"]').click();
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   await page.waitForTimeout(600);
-  for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer"]) expect(await started(name), name).toBe(0);
+  for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer", "ow-pulse"]) expect(await started(name), name).toBe(0);
 });
