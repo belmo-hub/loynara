@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIRST_OPEN_WINDOW_MS, laterMark, markJoined, momentFor, readSeen, takeJoined, unseenAwards } from "./booking-moment";
+import { FIRST_OPEN_WINDOW_MS, laterMark, markJoined, momentFor, peekJoined, readSeen, takeJoined, unseenAwards } from "./booking-moment";
 
 const now = Date.parse("2026-11-10T12:00:00Z");
 const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -66,12 +66,15 @@ describe("the card page after the join page (ENG-205)", () => {
     const store = new Map<string, string>();
     vi.stubGlobal("sessionStorage", { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); }, removeItem: (key: string) => { store.delete(key); } });
     markJoined("card_new");
+    // Peeking (the card page's paint before its read) does not use the mark up.
+    expect([peekJoined("card_new"), peekJoined("card_new"), peekJoined("card_other")]).toEqual([true, true, false]);
     expect(takeJoined("card_other")).toBe(false);
     expect(takeJoined("card_new")).toBe(true);
     expect(takeJoined("card_new")).toBe(false);
     vi.stubGlobal("sessionStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
     expect(() => markJoined("card_new")).not.toThrow();
     expect(takeJoined("card_new")).toBe(false);
+    expect(peekJoined("card_new")).toBe(false);
     vi.unstubAllGlobals();
   });
   it("celebrates nothing on that first read: a booking made before the join page's mark counts as seen", () => {

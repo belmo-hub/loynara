@@ -141,7 +141,7 @@ export function CustomerCard(props: CustomerCardProps) {
     {wallets.length ? <button type="button" className={styles.headerWallet} aria-haspopup="dialog" aria-label={t.walletTitle} onClick={() => setSheet("wallet")}><WalletIcon size={22} aria-hidden="true" /></button> : null}
   </div>;
 
-  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving ? cardSkeleton : undefined}>
+  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving && !quiet ? cardSkeleton : undefined}>
     <div className={styles.lead} data-arriving={arriving || undefined} data-return={quiet || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
@@ -277,6 +277,11 @@ const cardSkeleton = {
 };
 
 /** The card page while it loads: the placeholder alone, in the frame the card then takes. */
+/** ENG-205: the card page's first paint after the join page: the bare ground and its heading, no placeholder. */
+export function CustomerCardReturning({ label }: { label: string }) {
+  return <CustomerShell wide><h1 className={styles.srOnly} aria-busy="true">{label}</h1></CustomerShell>;
+}
+
 export function CustomerCardLoading({ label }: { label: string }) {
   return <CustomerShell wide header={<div className={styles.loadingHead}>{cardSkeleton.header}</div>} footer={<LegalLinks locale="de" />}>
     <div className={styles.loading} aria-busy="true" aria-label={label}>{cardSkeleton.main}</div>

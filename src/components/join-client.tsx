@@ -79,11 +79,13 @@ export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CO
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
 /** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
- *  220 ms later, the card page after a 400 ms hold. With a Startbonus (ENG-207) both wait 820 ms, so the credited
- *  places are seen landing. Reduced motion: at once. */
+ *  220 ms later, the card page after a 400 ms hold, in whose last 160 ms the card and the footer fade out. With a
+ *  Startbonus (ENG-207) both wait 820 ms, so the credited places are seen landing. Reduced motion: the Wallet step at
+ *  once; the card page after the 400 ms hold, without fades, so the status line is heard before the page changes. */
+export const FIRST_TAP_FADE_MS = 160;
 /** ENG-207: the credited places land this long after the answer, once the card has pressed; until then they stay rings. */
 export const FIRST_TAP_STEP_MS = 300;
-export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 0 : bonus ? 820 : step ? 220 : 400;
+export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? (step ? 0 : 400) : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
 export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
@@ -121,6 +123,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [credited, setCredited] = useState(0);
   // The step: the promised rings become the booked places (the press first, then the landing; never both at once).
   const [landedBonus, setLandedBonus] = useState(false);
+  // The last 160 ms before the card page: the card and the footer fade out, so the page changes over the bare ground.
+  const [leavingPage, setLeavingPage] = useState(false);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
   const [covered, setCovered] = useState(true);
   useEffect(() => { if (loading) return; const timer = setTimeout(() => setCovered(false), 400); return () => clearTimeout(timer); }, [loading]);
@@ -181,8 +185,9 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         setCredited(bonus);
         setCreated(true);
         if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }
-        if (next.go !== "step") router.prefetch(cardHref);
-        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", still, bonus > 0)));
+        const hold = firstTapHold(next.go === "step", still, bonus > 0);
+        if (next.go !== "step") { router.prefetch(cardHref); if (!still) setTimeout(() => setLeavingPage(true), hold - FIRST_TAP_FADE_MS); }
+        await new Promise(done => setTimeout(done, hold));
         leaving = next.go !== "step";
         // The card page opens as a return after this page: it celebrates nothing a second time.
         markJoined(result.cardToken);
@@ -234,7 +239,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   // Filled places are what the server booked, from the step on; before it they are rings.
   const filled = landedBonus ? credited : 0;
   // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
-  const top = newPage && <div className={first.top}>
+  const top = newPage && <div className={first.top} data-leaving={leavingPage || undefined}>
     <div className={first.shop}>
       <span className={first.tile} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
       <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
@@ -305,7 +310,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     {rewardLine}
   </section>;
 
-  if (plain) return <CustomerShell brandColor={program.brandColor} locale="de" footer={<p className={styles.footer}>{t.footer}</p>} cover={cover}>
+  if (plain) return <CustomerShell brandColor={program.brandColor} locale="de" footer={<p className={`${styles.footer} ${first.foot2}`} data-leaving={created || undefined}>{t.footer}</p>} cover={cover}>
     {top}
     {createdLine}
     <div className={first.blocks} data-leaving={created || undefined}>
