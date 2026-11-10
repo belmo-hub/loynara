@@ -35,7 +35,7 @@ for (const file of walk(resolve(root, 'assets')).filter(f => f.endsWith('.js')))
 const headers = readFileSync(resolve(root, '_headers'), 'utf8');
 assert.match(headers, /script-src 'self'/); assert.match(headers, /connect-src 'none'/); assert.match(headers, /form-action 'none'/); assert.doesNotMatch(headers, /unsafe-inline|unsafe-eval/);
 const robots = readFileSync(resolve(root, 'robots.txt'), 'utf8'); assert.match(robots, /Sitemap: https:\/\/getloynara\.com\/sitemap\.xml/); assert.doesNotMatch(robots, /Disallow: \//);
-for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/home.js', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/Manrope-OFL.txt', 'styles.css', 'home.css']) assert.ok(existsSync(resolve(root, asset)), asset);
+for (const asset of ['assets/loynara-mark.svg', 'assets/social-preview.png', 'assets/home.js', 'assets/fonts/manrope-latin.woff2', 'assets/fonts/Manrope-OFL.txt', 'styles.css', 'home.css', 'home-static.css']) assert.ok(existsSync(resolve(root, asset)), asset);
 console.log(`PASS: ${pages.length} pages, ${links} links/anchors/assets, metadata, private-output and browser data-flow checks.`);
 for (const b of blockers) console.log(`PUBLICATION BLOCKER: ${b}`);
 

@@ -1,6 +1,6 @@
 /** Home page behaviour. Everything lives in page memory: no network, no storage. The page reads without this file. */
 import { SITE } from './site.js';
-import { compute, euro, signedEuro } from './calc.js';
+import { compute, euro, signedEuro, wholeEuros } from './calc.js';
 
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const $$ = <T extends HTMLElement = HTMLElement>(selector: string) => [...document.querySelectorAll<T>(selector)];
@@ -77,7 +77,8 @@ frame(); syncScene(0);
 // Phone bar: shows once the hero's two buttons have left the screen (at once on short screens), hides at the close.
 const bar = $('#bar');
 let actsGone = innerHeight <= 700, atClose = false;
-const showBar = () => bar.classList.toggle('show', actsGone && !atClose);
+// Hidden, the bar is also out of the tab order and the accessibility tree.
+const showBar = () => { bar.inert = !bar.classList.toggle('show', actsGone && !atClose); };
 new IntersectionObserver(([entry]) => { actsGone = innerHeight <= 700 || (!entry.isIntersecting && entry.boundingClientRect.top < 0); showBar(); }).observe($('#mobileActs'));
 new IntersectionObserver(([entry]) => { atClose = entry.isIntersecting; showBar(); }, { rootMargin: '0px 0px -30% 0px' }).observe($('#anfrage'));
 showBar();
@@ -95,8 +96,8 @@ function calc(announce: boolean) {
   const k = +visits.value, w = +basket.value, z = +gain.value;
   $('#ko').textContent = String(k); $('#wo').textContent = `${w} €`; $('#zo').textContent = `${z} %`;
   visits.setAttribute('aria-valuetext', `${k} Käufe`); basket.setAttribute('aria-valuetext', `${w} €`); gain.setAttribute('aria-valuetext', `${z} %`);
-  const result = compute({ visits: k, basket: w, days: 26, gain: z }, SITE.price.amount);
-  const additional = euro(result.additional), net = signedEuro(result.difference);
+  const result = wholeEuros(compute({ visits: k, basket: w, days: 26, gain: z }, SITE.price.amount));
+  const additional = euro(result.additional), net = signedEuro(result.net);
   $('#res').textContent = additional; $('#net').textContent = net;
   if (announce) $('#calcSay').textContent = `Zusätzlicher Monatsumsatz im Beispiel: ${additional}, nach Gebühr ${net}.`;
 }
@@ -106,6 +107,8 @@ $('#calcForm').addEventListener('change', () => calc(true));
 // Request: prepares an e-mail the visitor sends themselves. Each action sets the wish it stands for.
 const form = $<HTMLFormElement>('#rq'), shop = $<HTMLInputElement>('#rq-shop'), want = $<HTMLSelectElement>('#rq-want'), sent = $('#rq-sent');
 $$('[data-want]').forEach(action => action.addEventListener('click', () => { want.value = action.dataset.want!; }));
+// „Demo anfragen“ on the other pages links straight to this section.
+if (location.hash === '#anfrage') want.value = 'demo';
 const requestText = () => `Geschäft: ${shop.value.trim() || '-'}\nBranche: ${$<HTMLSelectElement>('#rq-type').value || '-'}\nWunsch: ${want.selectedOptions[0].text}\n\n${$<HTMLTextAreaElement>('#rq-msg').value}`;
 $('#rq-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(requestText()); sent.textContent = `Text kopiert. Schicke ihn an ${SITE.supportEmail}.`; }
@@ -117,7 +120,7 @@ form.addEventListener('submit', event => {
   const name = shop.value.trim();
   form.classList.toggle('invalid', !name);
   shop.setAttribute('aria-invalid', String(!name));
-  if (!name) { shop.focus(); return; }
+  if (!name) { form.classList.toggle('ok', false); sent.textContent = ''; shop.focus(); return; }
   form.classList.add('ok');
   sent.textContent = `Falls sich nichts öffnet, kopiere den Text und schicke ihn an ${SITE.supportEmail}.`;
   location.href = `mailto:${SITE.supportEmail}?subject=${encodeURIComponent(`Anfrage: ${name}`)}&body=${encodeURIComponent(requestText())}`;

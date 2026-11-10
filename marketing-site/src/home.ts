@@ -13,7 +13,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
 
 <header class="top" id="top">
   <div class="wrap">
-    <a class="brand" href="/" aria-label="Loynara, zur Startseite"><span class="mark" aria-hidden="true"><i></i></span>Loynara</a>
+    <a class="brand" href="/" aria-label="Loynara, zur Startseite"><img class="mark-img" src="/assets/loynara-mark.svg" width="38" height="38" alt="">Loynara</a>
     <nav class="nav" aria-label="Hauptnavigation"><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a></nav>
     <div class="acts">
       <a class="login" href="${SITE.loginUrl}">Anmelden</a>
@@ -49,7 +49,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
     </div>
     <div class="tapzone">
       <button class="tap" id="tap" type="button" aria-label="Hier tippen: einen Stempel auf der Beispielkarte vergeben" aria-describedby="tapNote">
-        <span class="plate"><span class="pl"><i aria-hidden="true">L<span class="ring"></span></i><b>Hier tippen</b><span class="q" aria-hidden="true"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span>
+        <span class="plate"><span class="pl"><i aria-hidden="true"><img src="/assets/loynara-mark.svg" alt=""><span class="ring"></span></i><b>Hier tippen</b><span class="q" aria-hidden="true"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span>
       </button>
       <p class="sr" id="tapNote">Beispiel. Nichts wird gespeichert.</p>
       <p class="sr" role="status" id="tapStatus"></p>
@@ -69,7 +69,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
       <div class="steps">
         <div class="track" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><b id="trackLabel">1 von 4</b></div>
         <article class="step"><div><h2>Antippen. Ohne App.</h2><p class="lede">Dein Kunde hält sein Handy an das Schild oder scannt den QR-Code. Seine Karte öffnet sich im Browser, ohne Konto.</p></div>
-          <div class="still" aria-hidden="true"><div><div class="tone-terra pw-180 phone"><i class="notch"></i><div class="scr"><div class="shopline"><span class="logo">G</span>Pizzeria Da Gino</div><div class="card"><b>Pizza aufs Haus</b><div class="stamps"><i class="st on"></i><i class="st on"></i><i class="st on"></i><i class="st on"></i><i class="st"></i><i class="st"></i><i class="st"></i><i class="st"></i></div></div></div></div><span class="plate-still plate"><span class="pl"><i>L</i>Antippen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span><p class="ex">Beispiel</p></div></div></article>
+          <div class="still" aria-hidden="true"><div><div class="tone-terra pw-180 phone"><i class="notch"></i><div class="scr"><div class="shopline"><span class="logo">G</span>Pizzeria Da Gino</div><div class="card"><b>Pizza aufs Haus</b><div class="stamps"><i class="st on"></i><i class="st on"></i><i class="st on"></i><i class="st on"></i><i class="st"></i><i class="st"></i><i class="st"></i><i class="st"></i></div></div></div></div><span class="plate-still plate"><span class="pl"><i aria-hidden="true"><img src="/assets/loynara-mark.svg" alt=""></i>Antippen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span><p class="ex">Beispiel</p></div></div></article>
         <article class="step"><div><h2>Dein Team bestätigt.</h2><p class="lede">Ein Stempel zählt erst, wenn dein Team ihn mit einem Tipp bestätigt. So bleibt jeder Stempel echt.</p></div>
           <div class="still" aria-hidden="true"><div><div class="pw-170 phone cashier"><i class="notch"></i><div class="scr"><p class="k">Neue NFC-Anfrage</p><p class="v">K-7QX2MA</p><div class="ok">Stempel bestätigen</div><div class="no">Ablehnen</div></div></div><p class="ex">Beispiel</p></div></div></article>
         <article class="step"><div><h2>Der Stempel landet.</h2><p class="lede">Auf der Karte im Browser und, auf Wunsch, in Apple Wallet. Ein paar Besuche später wartet die Prämie.</p></div>
@@ -80,20 +80,20 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
       <div class="objs" aria-hidden="true">
         <div class="phone" id="scenePhone"><i class="notch"></i><div class="scr">
           <div class="shopline"><span class="logo">G</span>Pizzeria Da Gino</div>
-          <p class="goalline" id="sceneGoal">Noch 4 Stempel bis zu deiner Prämie:</p>
+          <p class="goalline" id="sceneGoal">Noch 5 Stempel bis zu deiner Prämie:</p>
           <div class="card"><b>Pizza aufs Haus</b><small>ab 8 Stempeln</small>
-            <div class="stamps" id="sceneStamps"><i class="st on" data-rot="-8"></i><i class="st on" data-rot="4"></i><i class="st on" data-rot="-2"></i><i class="st on" data-rot="7"></i><i class="st"></i><i class="st"></i><i class="st"></i><i class="st"></i></div>
-            <div class="count"><span>Beispiel</span><span id="sceneCount">4 von 8</span></div>
+            <div class="stamps" id="sceneStamps"><i class="st on" data-rot="-8"></i><i class="st on" data-rot="4"></i><i class="st on" data-rot="-2"></i><i class="st" data-rot="7"></i><i class="st"></i><i class="st"></i><i class="st"></i><i class="st"></i></div>
+            <div class="count"><span>Beispiel</span><span id="sceneCount">3 von 8</span></div>
           </div>
           <div class="ticket"><svg class="qr" viewBox="0 0 21 21"><use href="#qr"/></svg><span>Kartennummer<strong>K-7QX2MA</strong></span></div>
           <p class="walletline"><i></i>Auch in Apple Wallet, auf Wunsch</p>
         </div></div>
         <div class="phone team cashier"><i class="notch"></i><div class="scr"><p class="k">Neue NFC-Anfrage</p><p class="v">K-7QX2MA</p><p class="w">am Schild, gerade eben · Beispiel</p><div class="ok">Stempel bestätigen</div><div class="no">Ablehnen</div></div></div>
-        <span class="plate"><span class="pl"><i>L</i>Antippen oder scannen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span>
+        <span class="plate"><span class="pl"><i aria-hidden="true"><img src="/assets/loynara-mark.svg" alt=""></i>Antippen oder scannen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span>
         <div class="phone wallet lock"><i class="notch"></i><div class="scr">
           <p class="time">9:41</p><p class="date">Donnerstag, 12. November</p>
           <div class="note"><span class="ic">G</span><div><b>Pizzeria Da Gino<em>jetzt</em></b><p>Heute ab 15 Uhr: die zweite Pizza zum halben Preis.</p></div></div>
-          <div class="pass"><b>Pizzeria Da Gino</b> · Beispiel<div class="dots" id="passDots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>
+          <div class="pass"><b>Pizzeria Da Gino</b> · Beispiel<div class="dots" id="passDots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
         </div></div>
       </div>
     </div>
@@ -216,8 +216,8 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
       <p class="sent" role="status" id="rq-sent"></p>
     </form>
   </div>
-  <div class="bookend" aria-hidden="true"><span class="plate"><span class="pl"><i>L</i>Antippen oder scannen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span></div>
+  <div class="bookend" aria-hidden="true"><span class="plate"><span class="pl"><i aria-hidden="true"><img src="/assets/loynara-mark.svg" alt=""></i>Antippen oder scannen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span></div>
 </section>
 <footer><div class="wrap"><div class="rule"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><span class="c">© Loynara</span></div></div></footer>
 
-<nav class="bar" id="bar" aria-label="Anfrage"><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="#rq" data-want="start">1. Monat gratis</a></nav>`;
+<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="#rq" data-want="start">1. Monat gratis</a></nav>`;

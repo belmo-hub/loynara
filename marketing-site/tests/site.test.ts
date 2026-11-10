@@ -46,7 +46,26 @@ test('every action leads to the request form with its wish; there is no sign-up 
   for (const a of actions) assert.match(a, /href="#rq" data-want="(start|demo)"/, a);
   assert.match(home, /<select id="rq-want" name="want"><option value="start">Ersten Monat gratis starten<\/option><option value="demo">Erst eine Demo sehen<\/option><\/select>/);
   assert.doesNotMatch(home, /href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
-  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage"><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen<\/a><a class="btn btn-pri" href="#rq" data-want="start">1\. Monat gratis<\/a><\/nav>/);
+  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen<\/a><a class="btn btn-pri" href="#rq" data-want="start">1\. Monat gratis<\/a><\/nav>/);
+});
+test('nothing covers a control or a jump target: hero buttons take clicks, the header and the bar leave room, no long label from 1024 to 1119 px', () => {
+  const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
+  assert.match(css, /\.tapzone\{[^}]*pointer-events:none\}\n\.tapzone \.tap\{pointer-events:auto\}/, 'the tap zone lies over the hero side buttons');
+  assert.match(css, /@media \(min-width:1024px\)\{html\{scroll-padding-top:96px\}\}/); assert.match(css, /@media \(max-width:1023px\)\{html\{scroll-padding-bottom:calc\(var\(--bar\) \+ 16px\)\}\}/);
+  assert.match(css, /@media \(min-width:1024px\) and \(max-width:1119px\)\{\.long\{display:none\}\.short\{display:inline\}\}/);
+  assert.match(css, /\.shops \.shop:not\(\.show\)\{display:none\}/, 'a chip hides every other shop card, the large one too');
+  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage" inert>/, 'hidden, the bar is out of the tab order until the script shows it');
+  assert.match(browserSrc, /bar\.inert = !bar\.classList\.toggle\('show', actsGone && !atClose\)/);
+});
+test('the brand mark is the real logo, in the header and on every sign; without script the scene is stacked stills', () => {
+  assert.match(home, /<a class="brand" href="\/" aria-label="Loynara, zur Startseite"><img class="mark-img" src="\/assets\/loynara-mark\.svg" width="38" height="38" alt="">Loynara<\/a>/);
+  assert.equal((home.match(/<span class="pl"><i aria-hidden="true"><img src="\/assets\/loynara-mark\.svg" alt="">/g) ?? []).length, 4, 'hero sign, still, scene sign, bookend');
+  assert.doesNotMatch(home, /<i>L<\/i>|class="mark"/, 'no drawn stand-in');
+  assert.match(home, /<noscript><link rel="stylesheet" href="\/home-static\.css"><\/noscript>/);
+  const scene = home.slice(home.indexOf('id="scenePhone"'), home.indexOf('id="geschaefte"'));
+  assert.match(scene, /Noch 5 Stempel bis zu deiner Prämie:/); assert.match(scene, /<span id="sceneCount">3 von 8<\/span>/);
+  assert.equal((scene.slice(scene.indexOf('id="sceneStamps"'), scene.indexOf('id="sceneCount"')).match(/class="st on"/g) ?? []).length, 3, 'the static scene is the state the script starts from');
+  assert.match(browserSrc, /if \(location\.hash === '#anfrage'\) want\.value = 'demo';/, '„Demo anfragen“ on the other pages sets its wish');
 });
 test('price, support address, login and app origin are the approved ones; the price lives in one place', () => {
   assert.equal(SITE.price.amount, 49); assert.equal(SITE.supportEmail, 'support@getloynara.com'); assert.equal(SITE.loginUrl, 'https://app.getloynara.com/login');
@@ -95,7 +114,7 @@ test('calculator copy: disclaimer next to the result, the live example figures, 
   const calcHtml = home.slice(home.indexOf('id="rechner"'), home.indexOf('id="preis"'));
   assert.equal((calcHtml.match(/<input id="[kwz]" type="range" [^>]*aria-valuetext="/g) ?? []).length, 3);
   assert.match(calcHtml, /<p class="sr" aria-live="polite" id="calcSay"><\/p>/);
-  assert.match(browserSrc, /compute\(\{ visits: k, basket: w, days: 26, gain: z \}, SITE\.price\.amount\)/, 'the live maths, not a second formula');
+  assert.match(browserSrc, /wholeEuros\(compute\(\{ visits: k, basket: w, days: 26, gain: z \}, SITE\.price\.amount\)\)/, 'the live maths, not a second formula');
 });
 test('the contact section states the honest mail-draft behaviour and promises no response time', () => {
   const contact = visible(home.slice(home.indexOf('id="anfrage"')));

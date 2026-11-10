@@ -69,6 +69,12 @@ export function compute(input: Inputs, fee: number): Scenario {
   };
 }
 
+/** What the home page shows, in whole euros: the rounded extra, and the net taken from that rounded figure so the two lines add up. */
+export function wholeEuros(s: Scenario): { additional: number; net: number } {
+  const additional = Math.round(s.additional);
+  return { additional, net: additional - s.fee };
+}
+
 export type Point = { month: number; baseline: number; scenario: number; gap: number };
 /** Cumulative revenue per month, months 0…12, constant monthly values. */
 export function series(s: Scenario, months = 12): Point[] {

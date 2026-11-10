@@ -20,7 +20,7 @@ export const header = (home: boolean) => {
 export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
 
 export function homePage(): string {
-  return `${head({ title: TITLE, description: DESCRIPTION, path: '/', robots: 'index,follow', social: true, styles: '/home.css' })}<script type="module" src="/assets/home.js"></script></head>
+  return `${head({ title: TITLE, description: DESCRIPTION, path: '/', robots: 'index,follow', social: true, styles: '/home.css' })}<script type="module" src="/assets/home.js"></script><noscript><link rel="stylesheet" href="/home-static.css"></noscript></head>
 <body>
 ${homeBody()}
 </body></html>`;

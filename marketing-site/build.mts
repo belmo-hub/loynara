@@ -5,8 +5,12 @@ import { resolve } from 'node:path';
 import { homePage, legalPage, subPage, type LegalFragments } from './template.js';
 import { SUB_PAGES } from './src/pages.js';
 import { SITE } from './src/site.js';
+import { RELEASED_GATES } from './src/claims.js';
 
 if (process.env.LOYNARA_TEST_GATES !== undefined) throw new Error('LOYNARA_TEST_GATES is a test-only override; unset it before building. Release gates are set in src/claims.ts.');
+
+// The home page is written for the released state (the sign tap is its hero); it has no pre-release version.
+if (!RELEASED_GATES.nfcAccepted || !RELEASED_GATES.rcDeployed) throw new Error('The home page needs both release gates in src/claims.ts; it has no version for a closed gate.');
 
 const here = import.meta.dirname, root = resolve(here, 'site');
 const concepts = process.env.MARKETING_CONCEPTS === 'true';
@@ -37,7 +41,13 @@ await writeFile(resolve(root, '_headers'), `/*
 `);
 const { brandCss: finalBrandCss } = await import('./src/final-parts.js');
 await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n');
-await writeFile(resolve(root, 'home.css'), await readFile(resolve(here, 'design/home.css'), 'utf8'));
+const homeCss = await readFile(resolve(here, 'design/home.css'), 'utf8');
+await writeFile(resolve(root, 'home.css'), homeCss);
+// Without script the scroll scene cannot advance and the shop chips cannot switch: <noscript> loads the reduced-motion
+// stills unconditionally and shows every shop card.
+const stills = homeCss.match(/^@media \(prefers-reduced-motion:reduce\)\{\n([\s\S]*?)\n\}$/m), stillsPhone = homeCss.match(/^@media \(prefers-reduced-motion:reduce\) and \(max-width:1023px\)\{(.*)\}$/m);
+if (!stills || !stillsPhone) throw new Error('design/home.css: the reduced-motion rules of the scene were not found.');
+await writeFile(resolve(root, 'home-static.css'), `${stills[1]}\n@media (max-width:1023px){${stillsPhone[1]}.chips{display:none}.shops .shop:not(.show){display:flex}}\n`);
 
 // Design-direction prototypes: only with MARKETING_CONCEPTS=true, never in a public build, never in the sitemap.
 for (const dir of ['concepts', 'concept-a', 'concept-b', 'concept-c']) await rm(resolve(root, dir), { recursive: true, force: true });
