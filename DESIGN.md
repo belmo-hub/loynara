@@ -133,6 +133,18 @@ or nothing).
 | Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; swipe to dismiss | fade only |
 | Slide in + fade | toasts from the bottom edge; exit faster than enter | `--dur-ui` | fade only |
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
+| Skeleton to content (card) | customer card page | the placeholder lies over the loaded page in the same frame and fades out, `--dur-ui` `--ease-out`; the page under it takes taps from the first frame | page at once |
+| Card arrive | customer card object, first paint | the card's ground scales .98 → 1 and fades, `--dur-ui`, once; ticket, number and balance stand still | instant |
+| List arrive (guest) | card rows on first paint, rows behind „Alle anzeigen“ | 6 px rise and fade, 30 ms apart, at most 8 rows, done by 420 ms | instant |
+| Arrive (guest) | guest state screens, join hero and panel | 8 px rise and fade, `--dur-ui`, 40 ms apart; blocks that hold a fact only fade | instant |
+| Slots draw | join page preview card | slots scale .6 → 1 and fade, 30 ms apart (ladder marks 40 ms), the goal slot last | instant |
+| Bars grow (guest) | points ladder fill, long-programme track | scaleX from 0, `--dur-reward` `--ease-in-out` | final state |
+| State change | title and message of a guest state screen | old out `--dur-press`, new in `--dur-ui` after `--dur-press`/2 | instant swap |
+| Loading words | a state screen still asking | nothing for 300 ms, then a fade over `--dur-ui` | shown at once |
+| Disclosure (guest) | notices, close confirmation, „Alle anzeigen“ | open: rows 0fr → 1fr over `--dur-ui`, fade after `--dur-press`; close: fade `--dur-press`, rows 160 ms | instant |
+| Field error (guest) | message lines on guest pages | fade and 4 px down, `--dur-ui` | instant |
+| Refresh turn | „Karte aktualisieren“ icon | one full turn per press, `--dur-reward` `--ease-in-out` | none |
+| Sheet backdrop | all sheets | opacity with the panel, 260 ms in and 200 ms out | cut |
 | Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
 | Crossfade | cashier status bar colour (scanning → open → done), dashboard tab content (React `ViewTransition`) | `--dur-ui` | instant |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
