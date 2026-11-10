@@ -1,5 +1,7 @@
 "use client";
 
+import { Ban, CalendarDays } from "lucide-react";
+import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -100,18 +102,12 @@ function DayList({ day, label, onOpen, onBlock }: { day: DayResponse; label: str
   const staffName = (id: string | null) => id ? day.staff.find(s => s.id === id)?.name ?? "Mitarbeiter" : "Ganzer Laden";
   if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title={`${label} keine Termine.`}>Kunden buchen über ihre Karte.</EmptyState></section>;
   return (
-    <section className="ow-card" aria-label="Termine des Tages">
-      <ul className="ow-members">{rows.map(row => row.kind === "block"
-        ? <li key={row.block.id}><button type="button" className="ow-member" style={{ background: "var(--color-fill)" }} onClick={() => onBlock(row.block)}>
-            <span className="ow-member-id"><strong className="ow-num">{wallTime(row.block.start, day.timezone)}–{wallTime(row.block.end, day.timezone)} · Geblockt</strong><small>{[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ")}</small></span>
-          </button></li>
-        : <li key={row.appointment.id}><button type="button" className="ow-member" onClick={() => onOpen(row.appointment)}>
-            <span className="ow-member-id"><strong><span className="ow-num">{wallTime(row.appointment.start, day.timezone)}</span> · {row.appointment.service.name}</strong><small>{row.appointment.customerName} · {row.appointment.staff.name}</small>
-              {row.inBlock && <small style={{ color: "var(--color-warning)", fontWeight: 700 }}>liegt in geblockter Zeit</small>}</span>
-            <span className="ow-member-stat"><span className={STATUS_CHIP[row.appointment.status]} style={{ alignSelf: "flex-start" }}>{statusWord(row.appointment)}</span></span>
-          </button></li>)}
-      </ul>
-    </section>
+    <div className="ow-prog"><Rows title="Termine des Tages">{rows.map(row => row.kind === "block"
+      ? <Row key={row.block.id} icon={Ban} title={`${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
+      : <Row key={row.appointment.id} icon={CalendarDays} title={`${wallTime(row.appointment.start, day.timezone)} · ${row.appointment.service.name}`}
+          sub={<>{row.appointment.customerName} · {row.appointment.staff.name}{row.inBlock && <><br />liegt in geblockter Zeit</>}</>}
+          chip={{ label: statusWord(row.appointment), warn: row.appointment.status === "requested" || row.appointment.status === "no_show" || row.inBlock }} onClick={() => onOpen(row.appointment)} />)}
+    </Rows></div>
   );
 }
 
