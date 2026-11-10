@@ -1,10 +1,10 @@
 # Loynara marketing site
 
-Static, German-only single page (seven scenes: hero, journey, owner workspace, branding studio, calculator, offer/FAQ, closing) for **https://getloynara.com** (plus Impressum and Datenschutz). No database, application or runtime dependency; the generated `site/` bundle is committed so it can be uploaded as-is.
+Static, German-only home page (hero with the sign tap, the four-step scroll scene, shop types, features, calculator, price, FAQ, request) for **https://getloynara.com**, plus three supporting pages, Impressum and Datenschutz. No database, application or runtime dependency; the generated `site/` bundle is committed so it can be uploaded as-is.
 
 ```sh
 npm ci --prefix marketing-site        # once: Motion, esbuild, font packages, axe-core (marketing-site only)
-npm run marketing:build               # typecheck + regenerate site/ (HTML, CSS, one minified app.js with Motion bundled)
+npm run marketing:build               # typecheck + regenerate site/ (HTML, CSS, one minified assets/home.js)
 npm run marketing:test                # unit tests: calculator maths, demo state machine, request builder, copy/claim guards
 npm run marketing:verify              # static checks on site/: links, anchors, metadata, CSP, private/old content
 PORT=8780 npm run marketing:preview   # loopback server (default port 8765)
@@ -16,6 +16,8 @@ BASE=http://127.0.0.1:8780 node marketing-site/measure.mjs <label>  # page heigh
 ```
 
 ## Structure
+- `src/home.ts` – the home page body (website set of 10 Nov 2026); `design/home.css` – its tokens and layout; `src/home-browser.ts` – the sign tap, the scroll scene, shop chips, calculator and request draft. No library; with reduced motion the scene becomes four stacked stills. The supporting pages keep `design/d.css`.
+- The Concept D modules of the previous home page (`src/d.ts`, `d-parts.ts`, `final-parts.ts`, `demo.ts`, `ref.ts`, `brand.ts`, `chart.ts`) are no longer built into the site; `browser-check.mjs`, `perf-check.mjs` and `measure.mjs` still describe that page.
 - `src/site.ts` – single source for support address, app/login URLs, the €39 offer and the eight industry examples (reward, nouns, scene copy).
 - `src/calc.ts` – calculator maths (integer cents), German input parsing/validation, formatting, axis scale. `src/chart.ts` – SVG chart (two geometries), tooltip and table markup.
 - `src/demo.ts` – the counter demo as one deterministic state machine; `src/ref.ts` – the referral example; `src/brand.ts` – the branding example (five colour presets, three logos, three reward options). `src/final-parts.ts` (card, Wallet pass, calculator field, studio controls) and `src/d-parts.ts` (counter stand, phone, counter demo screen, referral picture, owner views) render from those states; `src/d.ts` wires the two demos, the studio, owner tabs, calculator and the mail draft (Motion `animate`); `design/d.css` is the stylesheet. See `CONCEPT_D_HANDOFF.md`.

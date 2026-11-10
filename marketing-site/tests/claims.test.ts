@@ -20,8 +20,11 @@ test('released gates: the NFC tap is primary with QR as the fallback, and the ve
   assert.deepEqual(GATES, RELEASED_GATES, 'tests run without a gate override');
 });
 
-test('pre-gate copy: NFC only as prepared outlook, no RC-only capability claimed', () => {
-  const text = all(render(''));
+// The home page is written for the released gates (the sign tap is its hero), so it has one version; the supporting pages keep both.
+const pagesOnly = (r: { pages: string[] }) => r.pages.map(visible).join(' ');
+
+test('pre-gate copy on the supporting pages: NFC only as prepared outlook, no RC-only capability claimed', () => {
+  const text = pagesOnly(render(''));
   for (const m of text.match(/[^.?]*(?:NFC|Antippen|antippen)[^.?]*[.?]/g) ?? []) assert.match(m, /Ausblick|vorbereitet|\?$/, m);
   assert.doesNotMatch(text, /Kartennummer|neu aus|gleicher Verlauf/);
   assert.match(text, /Per QR-Code/);
@@ -37,10 +40,13 @@ test('post-NFC copy: NFC is primary and QR stays the fallback; Apple Wallet on r
 });
 
 test('post-RC copy: lost link means reissue with the same balance, history and card number; old access stops', () => {
-  const home = visible(render('rcDeployed').home);
-  assert.match(home, /stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft\. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr\./);
-  assert.match(home, /findet dein Team die Karte über ihre kurze Kartennummer/);
-  assert.match(home, /Per QR-Code/, 'the RC gate alone does not switch the entry claim');
+  const rendered = render('rcDeployed');
+  for (const text of [visible(rendered.home), pagesOnly(rendered)]) {
+    assert.match(text, /stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft\. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr\./);
+    assert.match(text, /findet dein Team die Karte über ihre kurze Kartennummer/);
+    assert.match(text, /über „Karte wiederfinden“ selbst zurück\. Der alte Link funktioniert danach nicht mehr\./, 'self-recovery replaces the link only; it claims nothing about the QR code');
+  }
+  assert.match(pagesOnly(rendered), /Per QR-Code/, 'the RC gate alone does not switch the entry claim');
 });
 
 test('every gated pair exists in both versions and no version promises the unbuilt', () => {
