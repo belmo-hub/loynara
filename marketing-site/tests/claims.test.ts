@@ -42,9 +42,9 @@ test('post-NFC copy: NFC is primary and QR stays the fallback; Apple Wallet on r
 test('post-RC copy: lost link means reissue with the same balance, history and card number; old access stops', () => {
   const rendered = render('rcDeployed');
   for (const text of [visible(rendered.home), pagesOnly(rendered)]) {
-    assert.match(text, /stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft\. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr\./);
+    assert.match(text, /stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft\. In beiden Fällen funktionieren der alte Link, der alte QR-Code und eine auf Wunsch gespeicherte Apple-Wallet-Karte danach nicht mehr\./);
     assert.match(text, /findet dein Team die Karte über ihre kurze Kartennummer/);
-    assert.match(text, /über „Karte wiederfinden“ selbst zurück\. Der alte Link funktioniert danach nicht mehr\./, 'self-recovery replaces the link only; it claims nothing about the QR code');
+    assert.match(text, /über „Karte wiederfinden“ selbst zurück\. Sonst stellst du oder deine Leitung/, 'self-recovery leads straight into the reissue; the closing sentence covers both');
   }
   assert.match(pagesOnly(rendered), /Per QR-Code/, 'the RC gate alone does not switch the entry claim');
 });
@@ -70,7 +70,7 @@ test('public home and industry FAQs explain live lookup, correction and secure m
     assert.match(text, /K-XXXXXX/);
     assert.match(text, /korrigier[^.]*Begründung/);
     assert.match(text, /gleiche Mitgliedschaft/);
-    assert.match(text, /alte Link und der alte QR-Code[^.]*nicht mehr/);
+    assert.match(text, /alte Link, der alte QR-Code und eine auf Wunsch gespeicherte Apple-Wallet-Karte[^.]*nicht mehr/);
     assert.doesNotMatch(text, /kommt mit dem nächsten Update|mit dem nächsten Update|comes with the next update/i);
     assert.doesNotMatch(html, /href="[^"\s]*\.invalid[^"\s]*"|href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
   }
