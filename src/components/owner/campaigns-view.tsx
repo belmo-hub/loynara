@@ -212,7 +212,7 @@ export function CampaignsView() {
         </section>
         <section className="ow-card" aria-labelledby="camp-h">
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
-          {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
+          {list.state === "loading" && <div className="ow-stack ow-loading"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
           {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähle oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (

@@ -46,5 +46,6 @@
 @keyframes leave { to { opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes wait { from { opacity: 0; } }
-/* The app-wide reduce rule sets every animation to .01 ms; the spinner turns slowly instead of flickering. */
-@media (prefers-reduced-motion: reduce) { .progress { animation-duration: 2s, .01ms !important; } .button:active:not(:disabled) { transform: none; } }
+/* The app-wide reduce rule gives every animation .01 ms and one turn (globals.css). A spinner is information: it still
+   waits its 300 ms, then keeps turning, slowly. `.button` in front outranks the owner area's own reduce rule. */
+@media (prefers-reduced-motion: reduce) { .button .progress { animation-duration: 2s, .01ms !important; animation-iteration-count: infinite, 1 !important; } .button:active:not(:disabled) { transform: none; } }

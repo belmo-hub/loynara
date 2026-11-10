@@ -3,8 +3,9 @@
 import { DEMO_DATA_NOTE } from "@/lib/demo-texts";
 import Link from "next/link";
 import { ArrowRight, CircleHelp, Flag, RefreshCw, type LucideIcon } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
@@ -14,6 +15,8 @@ import { LinkPending, nf } from "./owner-ui";
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
+/** A formatted figure as the number its digits spell, for the ticker: it rolls when they change, never on arrival. */
+const digits = (text: string) => Number(text.replace(/\D/g, ""));
 
 /**
  * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
@@ -29,7 +32,7 @@ export const DemoDataChip = () => <span className="ow-chip ow-chip--info">{DEMO_
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
 export function BigMoney({ text }: { text: string }) {
   const split = text.match(/^(.*?)(,\d{2}.*)$/);
-  return <p className="ow-board-big">{split ? <>{split[1]}<small>{split[2]}</small></> : text}</p>;
+  return <p className="ow-board-big"><NumberRoll value={digits(text)}>{split ? <>{split[1]}<small>{split[2]}</small></> : text}</NumberRoll></p>;
 }
 
 /** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
@@ -92,8 +95,8 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
   );
 }
 
-/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). No `help`: not in the sheet. */
-export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
+/** No `help`: not in the sheet. */
+export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string };
 /**
  * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
  * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
@@ -117,45 +120,17 @@ export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
 }
 function TileRow({ tile }: { tile: Tile }) {
   const Icon = tile.icon;
-  const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
     {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
     <span className="ow-prog-main">
-      <span className="ow-prog-value" data-big="">{value}</span>
+      <span className="ow-prog-value" data-big=""><NumberRoll value={digits(tile.value)}>{tile.value}</NumberRoll></span>
       <span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span>
     </span>
   </>;
   return tile.href
     ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /><LinkPending /></Link>
     : <div className="ow-prog-row">{body}</div>;
-}
-
-const readSeen = (key: string) => { try { const seen = window.localStorage.getItem(key); return seen === null ? null : Number(seen); } catch { return null; } };
-const motionOk = () => { try { return window.matchMedia("(prefers-reduced-motion: no-preference)").matches; } catch { return false; } };
-
-/**
- * Delight beat 1 (spec §6.1): a number that grew since this browser last showed it counts up once, about 480 ms, eased
- * out; none under reduced motion, without storage or on the first visit. The tiles render only on the client, after the read.
- */
-/** Where the count-up starts: the last shown number when it was lower and motion is welcome; else null (no animation). */
-export const countUpFrom = (seen: number | null, value: number, motion: boolean) => motion && seen !== null && Number.isInteger(seen) && seen >= 0 && seen < value ? seen : null;
-
-function CountUp({ value, seenKey }: { value: number; seenKey: string }) {
-  const [from] = useState(() => countUpFrom(readSeen(seenKey), value, motionOk()));
-  const [shown, setShown] = useState(from ?? value);
-  useEffect(() => {
-    try { window.localStorage.setItem(seenKey, String(value)); } catch { /* no storage: no count-up next time */ }
-    if (from === null) return;
-    const start = performance.now();
-    let frame = requestAnimationFrame(function step(now) {
-      const t = Math.min(1, (now - start) / 480);
-      setShown(Math.round(from + (value - from) * (1 - (1 - t) ** 3)));
-      if (t < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [from, seenKey, value]);
-  return <>{nf.format(shown)}</>;
 }
 
 /**

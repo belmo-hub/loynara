@@ -141,23 +141,33 @@ or nothing).
 | Waiting (after 300 ms) | a state screen still asking; a button's spinner | nothing for 300 ms, then the words fade in over `--dur-ui` or the spinner turns; a quicker answer replaces them unseen | the 300 ms hold stays; no fade, a slow spinner (2 s) |
 | Disclosure (guest) | notices, close confirmation, „Alle anzeigen“ | open: rows 0fr → 1fr over `--dur-ui`, fade after `--dur-press`; close: fade `--dur-press` and rows 160 ms, together | instant |
 | Field error (guest) | message lines on guest pages | fade and 4 px down, `--dur-ui` | instant |
-| Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
+| Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-ui`; the first value stands still (no count-up, no roll on arrival) | instant |
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
-| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay | cut |
+| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay. A tap during it ends it: on a bar link it lands at once; on the content it lands from `--dur-press` on, on what is under the finger on the new screen, and is dropped before | cut |
 | Screen change, in place | title and message of a guest state screen (tap page: waiting, booked, rejected, expired) | the old words leave the layout at once and fade out over `--dur-press`; the new fade in over `--dur-ui` after `--dur-press`/2 | instant swap |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, `--dur-ui` `--ease-in-out` | border colour only |
-| Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
+| Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | a still placeholder |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
 | Arrive | first paint of sign-in, invite and system pages; the Kasse question on the counter's first paint only | opacity 0 → 1 with an 8 px rise, `--dur-ui` `--ease-out`, 40 ms apart, at most 3 to 4 blocks; once per first paint | one instant paint |
+| Arrive (owner) | navigation in to a screen that paints at once: its title, band, overview card and first sections (owner: the direct children of `.ow-page`). A cold load or a location switch takes Skeleton to content; a placeholder, or a block that holds one, never arrives | opacity 0 → 1 and translateY(8px) → 0, `--dur-ui` `--ease-out`; siblings 40 ms apart, top to bottom, the sixth and later together (at most 420 ms) | one instant paint |
 | List arrive | Kasse reward rows, table rows, offline queue | 6 px rise, `--dur-ui` `--ease-out`, 30 ms apart; reward rows and the offline queue group from the 4th row, tables from the 7th. NFC requests fade in as they arrive | instant |
+| List arrive (owner) | a list that appears as a list (rows of a section, customers, rewards, table rows), not one that takes a placeholder's place | as Arrive with 6 px, 30 ms apart; the eighth and later rows together, all within 420 ms | instant |
 | Card arrive (the Kasse extension) | card preview and opened card | the surface scales .98 → 1 and fades, `--dur-ui`; card number, balance and stamps stand still | instant |
 | Kasse states | dock, status strip, booked, camera | dock rises 8 px; strip fades; the booked badge lands with one ring and the tick draws; one ring on the sight when a code is read | colour change only |
-| Field error | fields, form alerts, Kasse outcome | fade and 4 px down, `--dur-ui`; border colour over `--dur-press` | fade only |
-| Toggle | checkbox | box fills over `--dur-press`, tick draws over `--dur-ui` | colour change only |
-| Indicator slide | segmented control | the pill moves, `--dur-ui` `--ease-in-out` | instant |
+| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the loaded content lies under the placeholder in the same frame and the placeholder fades out over it, `--dur-ui`; no frame shows neither; neither the block nor its rows rise or stagger. Owner area for now: the content takes the placeholder's place in one frame, with no fade | instant |
 | Bars grow | stat trend | scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, at most 8; first paint only | final state at once |
-| Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
+| Bars grow (owner) | chart bars (week strip, Ergebnisse), the card stock, step-bar segments | bars: scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, the eighth and later together; outside the 420 ms budget, done by 700 ms. Card stock: opens from the left (`clip-path`). Step segment: scaleX from the left, back again on the way back. Counts above bars stay still. A period switch (30/90 Tage) should grow from the old value to the new; for now it regrows from 0 | final state at once |
+| Toggle | checkbox | box fills over `--dur-press`, tick draws over `--dur-ui` | colour change only |
+| Toggle (owner) | switch, checkbox, radio | the thumb slides and the track fills over `--dur-ui`; the check draws itself and the dot grows over `--dur-ui`. Under forced colours the checkbox and the radio are the native controls | colour change only |
+| Indicator slide | segmented control | the pill moves, `--dur-ui` `--ease-in-out` | instant |
+| Indicator slide (owner) | segmented controls | the picked segment's pill moves over from the segment picked before, `--dur-ui` `--ease-in-out`; after a pointer press only | instant |
+| Select fill | chips, weekday chips, answer rows, swatches, a saved row's outline | fill and ring crossfade over `--dur-press`; a picked answer's check draws itself over `--dur-ui` | instant |
 | Hover | links, tabs, menu button; pointer only | colour over `--dur-press`; nothing lifts | same |
+| Hover (owner) | rows, tiles, links | fill or underline over `--dur-press`; no lift, no scale, no shadow growth | same |
+| Field error | fields, form alerts, Kasse outcome | fade and 4 px down, `--dur-ui`; border colour over `--dur-press` | fade only |
+| Field error (owner) | inline validation, notices and error blocks that appear | the message fades in and settles 4 px down over `--dur-ui`; the field's border changes over `--dur-press` | instant |
+| Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
+| Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui` and the old one leaves at once; „Gespeichert“ wears a check that draws itself and stays until the next edit | instant label swap |
 
 No hover lift on cards, no animation on keyboard-triggered actions. A screen's first paint and navigation in follow Arrive and List arrive; a return (Back, a back link, a cached screen) plays nothing.
 
