@@ -119,23 +119,38 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html.match(/class="ow-strip-day"/g)).toHaveLength(7); // six complete days and today
     expect(html).toContain('<span class="ow-strip-n">29</span><span class="ow-strip-bar" data-today="" style="height:72px">');
     expect(html.match(/data-lit=""/g)).toHaveLength(1); // yesterday, as before
+    expect(html).not.toContain('data-yesterday=""'); // beside „heute“ no label is bold (Design, 10 Nov)
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
   });
 
-  it("a cold load shows nothing before every read the band is chosen from has answered, and writes the greeting once", () => {
+  it("a cold load keeps the band's place, paints the board with its own reads, brings the diary with its data, and writes the greeting once", () => {
     state.me = me({ userId: "first-visit" }); // no greeting kept from an earlier screen
+    const analyticsRead = state.loads["/api/merchant/analytics/location"];
+    delete state.loads["/api/merchant/analytics/location"];
     delete state.loads["/api/merchant/readiness"];
     delete state.loads["/api/auth/get-session"];
     const waiting = render();
     expect(waiting).toContain("ow-board-ph");
     expect(waiting).not.toContain("ow-prog-row");
-    expect(waiting).not.toContain("ow-next");
+    expect(waiting).not.toContain("ow-diary"); // no heading over „Lädt …“ a screen above where the diary lands
+    // The band's place is held by a band-shaped placeholder, so the board stands where it will stay.
+    expect(waiting).toContain(`<div class="ow-next ow-next-ph" aria-hidden="true"><span><span class="ow-band ow-ph"><span class="ow-band-icon"></span><span class="ow-band-text"><b>00 Karten können jetzt eine Prämie einlösen.</b><span class="ow-band-go">${NBSP}</span></span></span></span></div>`);
+    expect(waiting.indexOf("ow-next-ph")).toBeLessThan(waiting.indexOf("ow-board-ph"));
+    expect(waiting).not.toContain('aria-label="Als Nächstes"');
     expect(waiting).not.toContain("<h1");
     expect(waiting).toContain('<div class="ow-hello" aria-hidden="true">'); // the greeting's line is kept free
+    // The board's own reads are in, the band's are not: the numbers and rows show, the slot still holds the band's place.
+    state.loads["/api/merchant/analytics/location"] = analyticsRead;
+    const numbers = render();
+    expect(numbers).not.toContain("ow-board-ph");
+    expect(numbers).toContain("ow-prog-row");
+    expect(numbers).toContain("ow-next-ph");
+    expect(numbers).not.toContain('aria-label="Als Nächstes"');
     state.loads["/api/merchant/readiness"] = ok(readiness());
     state.loads["/api/auth/get-session"] = ok({ user: { name: "Lena Berger" } });
     const there = render();
     expect(there).not.toContain("ow-board-ph");
+    expect(there).not.toContain("ow-next-ph"); // a screen whose reads have answered never shows the slot
     expect(there).toMatch(/<h1 class="ow-hello">.*, Lena<\/h1>/);
   });
 

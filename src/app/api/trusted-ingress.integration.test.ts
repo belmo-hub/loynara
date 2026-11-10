@@ -4,7 +4,7 @@ import { pool } from "@/db";
 import { enforcePeerLimit, peerIdentity, RateLimitError } from "@/lib/rate-limit";
 
 const business = vi.hoisted(() => ({ enroll: vi.fn(), getCard: vi.fn(), recover: vi.fn(), authPost: vi.fn(), authGet: vi.fn() }));
-vi.mock("@/lib/product", () => ({ enroll: business.enroll, getCard: business.getCard }));
+vi.mock("@/lib/product", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/product")>(), enroll: business.enroll, getCard: business.getCard }));
 vi.mock("@/lib/card-recovery", () => ({ normalizeRecoveryEmail: (s: string) => s.toLowerCase(), requestCardRecovery: business.recover }));
 vi.mock("@/lib/auth", () => ({ auth: {} }));
 vi.mock("better-auth/next-js", () => ({ toNextJsHandler: () => ({ POST: business.authPost, GET: business.authGet }) }));
@@ -13,6 +13,7 @@ import { POST as recover } from "./recover/route";
 import { GET as card } from "./card/[token]/route";
 import { POST as signIn, GET as authGet } from "./auth/[...all]/route";
 import { GET as health } from "./health/route";
+import { GET as tap } from "./tap/[ref]/route";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Requires isolated looplocal_test");
 const base = "https://app.example.test";
@@ -84,6 +85,16 @@ describe("trusted ingress through application handlers (isolated PostgreSQL)", (
       expect(await hits("enroll_peer", peerIdentity(request))).toBe(1);
     }
     expect(await hits("enroll_program", slug)).toBe(2);
+  });
+  it("malformed joins and taps never count against the shared programme and plate limits", async () => {
+    const slug = `synthetic-${randomUUID()}`, ref = `synthetic-${randomUUID()}`;
+    const [ip] = ips();
+    key("enroll_peer", peerIdentity(req("/", ip))); key("tap_peer", peerIdentity(req("/", ip)));
+    expect((await enroll(req("/api/enroll", ip, { slug }))).status).toBe(400);
+    expect((await enroll(req("/api/enroll", ip, { slug, acceptedTerms: true, additionalCard: "yes" }))).status).toBe(400);
+    expect(await hits("enroll_program", slug)).toBeUndefined();
+    expect((await tap(req(`/api/tap/${ref}?e=zz&c=zz`, ip), { params: Promise.resolve({ ref }) })).status).toBe(400);
+    expect(await hits("tap_ref", ref)).toBeUndefined();
   });
   it("sign-in, card and recovery retain peer and card/destination limits", async () => {
     const token = `synthetic-${randomUUID()}`, email = `${randomUUID()}@example.test`;

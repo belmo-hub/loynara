@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError, refundRateLimit } from "@/lib/rate-limit";
-import { respondError } from "@/lib/http";
+import { jsonBody, respondError } from "@/lib/http";
 import { queueSignInLockNotice } from "@/lib/sign-in-lock-notice";
 
 const handlers = toNextJsHandler(auth);
@@ -20,11 +20,9 @@ function validateIngress(request: Request) {
 /** The account a sign-in targets. A body this cannot read is refused, so it can never slip past the account limit. */
 async function signInAccount(request: Request) {
   const invalid = new DomainError("INVALID_INPUT", "Die Anmeldung hat nicht geklappt. Bitte lade die Seite neu und versuche es noch einmal.");
-  if (!request.headers.get("content-type")?.startsWith("application/json")) throw invalid;
-  const text = await request.clone().text();
-  if (text.length > 4096) throw invalid;
   let body: unknown;
-  try { body = JSON.parse(text); } catch { throw invalid; }
+  // Read from a copy, with the cap applied while streaming: Better Auth still reads the original.
+  try { body = await jsonBody(request.clone(), 4096); } catch { throw invalid; }
   const email = (body as { email?: unknown } | null)?.email;
   if (typeof email !== "string" || !email.trim() || email.length > 320) throw invalid;
   return email.trim().toLowerCase();
