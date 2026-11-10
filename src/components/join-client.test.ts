@@ -128,13 +128,14 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
   });
   it("draws nothing before the server has created the card, then holds 220 ms for the Wallet step or 400 ms for the card page, and not at all under reduced motion", async () => {
     expect([firstTapHold(true, false), firstTapHold(false, false), firstTapHold(true, true), firstTapHold(false, true)]).toEqual([220, 400, 0, 0]);
+    expect([firstTapHold(true, false, true), firstTapHold(false, false, true), firstTapHold(true, true, true)]).toEqual([820, 820, 0]);
     const source = await read("src/components/join-client.tsx"), created = source.indexOf("setCreated(true)");
     expect(source.match(/setCreated\(/g)).toHaveLength(1);
     expect(created).toBeGreaterThan(source.indexOf('postJson<{ cardToken: string }>("/api/enroll"'));
     expect(created).toBeGreaterThan(source.indexOf("if (!result) return;"));
     expect(source.slice(source.lastIndexOf('if (plain && next.go !== "tap") {', created), created)).not.toContain("\n      }");
     // The preview holds no stamp: nothing lands that the server has not booked.
-    expect(source).toContain('<StampGrid earned={0} total={program.rewardCost} locale="de" size="sm"');
+    expect(source).toContain('<StampGrid earned={credited} landed={credited > 0 ? credited : undefined}');
     expect(source).not.toMatch(/first\.card[^\n]*landed/);
   });
   it("keeps the rules above the terms sentence and the button, and puts the optional tick below the button, locked once sent (Legal, 10 Nov)", async () => {
@@ -160,5 +161,25 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(css).not.toMatch(/\.top \{[^}]*animation/);
     expect(css.match(/animation: [a-z]+ ([^;]+);/g)!.every(rule => /var\(--dur-(press|ui|reward)\)/.test(rule))).toBe(true);
     expect(css).not.toContain("infinite");
+  });
+});
+
+describe("the Startbonus on the first page (ENG-207)", () => {
+  const read = async (path: string) => (await import("node:fs")).readFileSync(path, "utf8");
+  it("promises only what the server said this button gives, on the plain join, after the returning check", async () => {
+    const source = await read("src/components/join-client.tsx");
+    expect(source).toContain('const offer = plain ? program.headStart ?? 0 : 0, offerShown = offer > 0 && returning.state !== "checking";');
+    expect(source).toContain('Zum Start bekommst du {withUnit(offer, program.programType, "de")} geschenkt.');
+    // The join sends the promised amount, so a changed setting is refused as stale instead of breaking the promise.
+    expect(source).toContain("...(plain && program?.headStart ? { headStart: program.headStart } : {}),");
+  });
+  it("fills a place only with what the server booked: rings before, the credited amount after", async () => {
+    const source = await read("src/components/join-client.tsx");
+    expect(source.match(/setCredited\(/g)).toHaveLength(1);
+    expect(source).toContain("const bonus = result.headStart ?? 0;\n        setCredited(bonus);");
+    expect(source).toContain("data-promised={(!created && offerShown && Math.min(offer, 2)) || undefined}");
+    const css = await read("src/components/customer/first-page.module.css");
+    expect(css).toContain('.card[data-promised="1"] .stamps li:nth-child(-n + 1), .card[data-promised="2"] .stamps li:nth-child(-n + 2) { border-color: var(--merchant-ink); }');
+    expect(css).not.toMatch(/data-promised[^{]*\{[^}]*(--color-stamp|background)/);
   });
 });

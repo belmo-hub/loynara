@@ -418,7 +418,7 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
  * It is never a target and leaves by itself. Screen readers hear one sentence: the status region is the hidden line
  * alone, mounted empty and filled a frame later, because a region that arrives with its text is often not read out.
  */
-function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
+export function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
   const { live, announce } = useCardStatus("moment");
   // No new French copy for now: a French card says what was added in the unit words the card already uses.
   const french = locale === "fr" ? withUnit(credited, points ? "points" : "stamps", "fr") : null;

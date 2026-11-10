@@ -11,6 +11,7 @@ import { withUnit } from "@/lib/units";
 import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
+import { BookingPill } from "./customer/customer-card";
 import { CustomerState } from "./customer/customer-state";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
@@ -77,8 +78,9 @@ export const joinConsent = (offered: boolean, ticked: boolean, version = JOIN_CO
 export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr" ? copy.fr.staleError : `Das Geschäft hat das Programm gerade geändert. Bitte lies die Regeln oben noch einmal. Mit „${button}“ akzeptierst du sie. Deine Karte ist noch nicht erstellt.`;
 /** ENG-173: only French pages keep the terms tick; German pages accept by the notice above the button (Legal, 6 Nov). */
 /** ENG-205 (Design's spec 1.2): after the server's answer the form fades and the card presses; the Wallet step arrives
- *  220 ms later, the card page after a 400 ms hold. Reduced motion: at once. */
-export const firstTapHold = (step: boolean, still: boolean) => still ? 0 : step ? 220 : 400;
+ *  220 ms later, the card page after a 400 ms hold. With a Startbonus (ENG-207) both wait 820 ms, so the credited
+ *  places are seen landing. Reduced motion: at once. */
+export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 0 : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the new first page shows for German programmes while the flag is on; French keeps today's page (no French copy). */
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
 export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
@@ -112,6 +114,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [walletStep, setWalletStep] = useState<string | null>(null);
   // ENG-205: the server has created the card: the form is leaving and the card presses once.
   const [created, setCreated] = useState(false);
+  // ENG-207: the Startbonus the server booked with the card; nothing is filled before this is known.
+  const [credited, setCredited] = useState(0);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
   const [covered, setCovered] = useState(true);
   useEffect(() => { if (loading) return; const timer = setTimeout(() => setCovered(false), 400); return () => clearTimeout(timer); }, [loading]);
@@ -156,7 +160,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
           if (latest.state === "existing") { setReturning(latest); setWantsAnother(false); setConfirmAnother(false); return null; }
         }
         // The rule and reward versions this page showed: a change saved since then refuses the join as stale (ENG-100).
-        return postJson<{ cardToken: string }>("/api/enroll", { slug, acceptedTerms: true, ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
+        return postJson<{ cardToken: string; headStart?: number }>("/api/enroll", { slug, acceptedTerms: true, ...(plain && program?.headStart ? { headStart: program.headStart } : {}), ruleVersionId: program?.ruleVersionId, rewardVersionIds: program?.rewardVersionIds, ...(referralCode ? { referralCode } : {}), ...((existing || returning.state === "stale") ? { additionalCard: true } : {}), ...joinConsent(program !== null && joinOffersMessages(onIphone, program), messagesTicked, program?.demo?.consentVersion) });
       };
       const result = navigator.locks ? await navigator.locks.request(`loynara-join:${slug}`, create) : await create();
       if (!result) return;
@@ -168,9 +172,11 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       if (plain && next.go !== "tap") {
         // Nothing is drawn before this point: the card exists. A tap return goes on at once, without this.
         const cardHref = `/card/${encodeURIComponent(result.cardToken)}`;
+        const bonus = result.headStart ?? 0;
+        setCredited(bonus);
         setCreated(true);
         if (next.go !== "step") router.prefetch(cardHref);
-        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", matchMedia("(prefers-reduced-motion: reduce)").matches)));
+        await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", matchMedia("(prefers-reduced-motion: reduce)").matches, bonus > 0)));
         leaving = next.go !== "step";
         if (next.go === "step") setWalletStep(result.cardToken); else router.replace(cardHref);
         return;
@@ -214,22 +220,27 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   if (loading && firstTap) return <CustomerShell locale="de"><div aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>{placeholder}</div></CustomerShell>;
   if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
+  // ENG-207: what the button on screen gives the new card (the owner's Startbonus at sign-up, as the server caps it).
+  // Shown once the returning check has answered, and only on the plain join: a further card gets none.
+  const offer = plain ? program.headStart ?? 0 : 0, offerShown = offer > 0 && returning.state !== "checking";
   // ENG-205 blocks 1 and 2: the shop on the page ground, then the card as the only object. No stamp is drawn that does not exist.
   const top = newPage && <div className={first.top}>
     <div className={first.shop}>
       <span className={first.tile} aria-hidden="true">{Array.from(program.businessName)[0]}</span>
       <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
     </div>
-    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined}>
+    {/* Promised places are rings; a place is filled only with what the server booked (credited). */}
+    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined} data-promised={(!created && offerShown && Math.min(offer, 2)) || undefined}>
       {program.programType === "points"
-        ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
-        : <StampGrid earned={0} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
-      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
+        ? <PointsLadder balance={credited} landedFrom={credited > 0 ? 0 : undefined} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
+        : <StampGrid earned={credited} landed={credited > 0 ? credited : undefined} landedCount={credited || 1} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
+      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}{(offerShown || credited > 0) && <span className={first.bonus}> · Startbonus</span>}</span></p>
     </section>
   </div>;
   // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
   // wording: Design's placeholder, Marketing confirms
-  const createdLine = newPage && <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>;
+  // With a Startbonus the pill is that line („Stempel erhalten +2“, its own status).
+  const createdLine = newPage && (credited > 0 ? <BookingPill points={program.programType === "points"} credited={credited} balance={credited} locale="de" /> : <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>);
   if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}{createdLine}<div className={first.step}><WalletStep token={walletStep} program={program} heading="h2" /></div></CustomerShell>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />
@@ -288,6 +299,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     {top}
     {createdLine}
     <div className={first.blocks} data-leaving={created || undefined}>
+      {/* Marketing and Legal, 10 Nov. Its line is kept free while the returning check runs, so the button does not move. */}
+      {offer > 0 && <p className={first.start} data-wait={!offerShown || undefined}>Zum Start bekommst du {withUnit(offer, program.programType, "de")} geschenkt.</p>}
       {iphone && <ol className={styles.steps}>
         <li><span aria-hidden="true">1</span><p><strong>Karte erstellen</strong>Ohne App und ohne Konto</p></li>
         <li><span aria-hidden="true">2</span><p><strong>In Apple Wallet legen</strong>Dann ist sie bei deinen Karten</p></li>
