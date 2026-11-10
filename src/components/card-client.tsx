@@ -245,7 +245,7 @@ export function CardClient({ token }: { token: string }) {
   const emailStatus = !french && email.status?.available ? email.status : null;
   const notices = <>
     {/* Each notice opens and closes in place (Row add / remove), so the sections below never jump. */}
-    <Reveal open={authenticationRequired} gap="var(--space-4)"><section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section></Reveal>
+    <Reveal open={authenticationRequired} gap="var(--space-4)"><section role="status" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section></Reveal>
     <Reveal open={switchRequired} gap="var(--space-4)"><section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section></Reveal>
     <Reveal open={bindingError.shown} gap="var(--space-4)"><p role="alert" className={noticeClass}>{bindingError.text}</p></Reveal>
     {savedView && <CardWalletMessages token={token} expiry={expiry} onShown={setConsentUp} />}
