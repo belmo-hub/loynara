@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, CircleHelp, Flag, RefreshCw, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
@@ -14,6 +15,8 @@ import { LinkPending, nf } from "./owner-ui";
 /* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
+/** A formatted figure as the number its digits spell, for the ticker: it rolls when they change, never on arrival. */
+const digits = (text: string) => Number(text.replace(/\D/g, ""));
 
 /**
  * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
@@ -29,7 +32,7 @@ export const DemoDataChip = () => <span className="ow-chip ow-chip--info">{DEMO_
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
 export function BigMoney({ text }: { text: string }) {
   const split = text.match(/^(.*?)(,\d{2}.*)$/);
-  return <p className="ow-board-big">{split ? <>{split[1]}<small>{split[2]}</small></> : text}</p>;
+  return <p className="ow-board-big"><NumberRoll value={digits(text)}>{split ? <>{split[1]}<small>{split[2]}</small></> : text}</NumberRoll></p>;
 }
 
 /** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
@@ -117,7 +120,7 @@ export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
 }
 function TileRow({ tile }: { tile: Tile }) {
   const Icon = tile.icon;
-  const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
+  const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : <NumberRoll value={digits(tile.value)}>{tile.value}</NumberRoll>;
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
     {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}

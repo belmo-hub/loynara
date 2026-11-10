@@ -61,7 +61,8 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
   return (
     <div className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
-        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" /><span className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
+        {/* Keyed by state, so each new line fades in (owner.css, Saved); „Gespeichert“ wears a check instead of the dot. */}
+        {state !== "clean" && <>{state === "saved" ? <OwnerIcon name="check" size={16} /> : <span className="ow-dot" aria-hidden="true" />}<span key={state} className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
         {detail && state !== "clean" && <span className="ow-muted ow-savestate-detail" role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>

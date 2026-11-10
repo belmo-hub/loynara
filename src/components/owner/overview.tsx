@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/overview-day";
@@ -136,7 +137,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
           : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
             {!board ? <BoardPlaceholder /> : <>
               {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
-                <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+                <p className="ow-board-big"><NumberRoll value={board.stock.recent}>{nf.format(board.stock.recent)}</NumberRoll>{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
@@ -194,7 +195,7 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     </>;
   }
   return <>
-    <p className="ow-board-big">{nf.format(bookings)}{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
+    <p className="ow-board-big"><NumberRoll value={bookings}>{nf.format(bookings)}</NumberRoll>{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
     <p className="ow-board-sub">letzte 30 Tage, Korrekturen abgezogen</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>

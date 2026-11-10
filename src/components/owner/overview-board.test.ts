@@ -47,7 +47,8 @@ const spend = (here: SpendFigures, overall: SpendFigures = figures({ visits: 40,
   ({ asOf: "", currency: "EUR", overall: { recent: overall, total: overall }, locations: [{ locationId: "loc-1", name: "Kassel Mitte", recentFrom: "", recent: here, total: here, brought: null }] });
 const retention: RetentionSummary = { asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 17, drifting: 0, never: 2, neverAfterWeek: 0, nearReward: 0, rewardReady: 0, driftingWeekAgo: 0, nearRewardMaxRemaining: 0, nearRewardId: null, programCount: 1, rules: RETENTION_RULES };
 const readiness = (steps: Array<Partial<LaunchReadiness["steps"][number]>> = []) => ({ locationId: "loc-1", steps, next: null, requiredDone: 1, requiredTotal: 3 });
-const render = () => renderToStaticMarkup(createElement(Overview));
+// The board's and the tiles' figures sit in the ticker's span (NumberRoll); the pins below read the figures themselves.
+const render = () => renderToStaticMarkup(createElement(Overview)).replace(/<span class="[^"]*num[^"]*">([^<]*(?:<small>[^<]*<\/small>)?)<\/span>/g, "$1");
 /** The 30-day rows' labels, in order. */
 const labels = (html: string) => [...html.matchAll(/<div class="ow-prog-row">|<a class="ow-prog-row"[^>]*>/g)].map(match => html.slice(match.index).match(/<strong>([^<]+)<\/strong>/)![1]);
 

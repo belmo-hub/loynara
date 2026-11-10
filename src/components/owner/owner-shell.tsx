@@ -81,6 +81,37 @@ export function OwnerShell({ children }: { children: ReactNode }) {
     return () => { document.removeEventListener("pointerdown", down, true); document.removeEventListener("click", click, true); };
   }, []);
 
+  // The motion that depends on what was on screen before (DESIGN.md, Motion); owner.css draws it.
+  // Arrive: the blocks a screen has at its first paint are marked, so only they rise in, once. Skeleton to content: what
+  // takes a placeholder's place is marked to fade in. Indicator slide: a segmented control's pill moves over from the
+  // segment picked before, after a pointer press only (a keyboard pick changes at once).
+  useEffect(() => {
+    const holds = (node: Node, selector: string) => node instanceof Element && (node.matches(selector) || node.querySelector(selector) !== null);
+    const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
+    let was: Element | null = null;
+    const press = (event: PointerEvent) => { was = event.target instanceof Element ? event.target.closest(".ow-seg:not(.ow-seg--chips)")?.querySelector(PICKED) ?? null : null; };
+    const watch = new MutationObserver(records => {
+      const emptied = new Set(records.filter(record => [...record.removedNodes].some(node => holds(node, ".ow-skel, .ow-ph"))).map(record => record.target));
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (holds(node, ".ow-screen")) for (const block of (node as Element).querySelectorAll(".ow-page > *, .ow-q > *")) block.setAttribute("data-arrive", "");
+          else if (node instanceof Element && emptied.has(record.target) && node.closest(".ow-content")) node.setAttribute("data-swap", ""); // the bars stay still
+        }
+        const now = record.target;
+        if (record.type !== "attributes" || !(now instanceof Element) || !was || now === was || !now.matches(PICKED) || now.parentElement !== was.parentElement) continue;
+        // Only where the pill starts is measured here; owner.css moves it from there (data-slide), in the tokens' time.
+        const from = was.getBoundingClientRect(), to = now.getBoundingClientRect();
+        was.removeAttribute("data-slide");
+        (now as HTMLElement).style.setProperty("--ow-slide", `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`);
+        now.setAttribute("data-slide", "");
+        was = now;
+      }
+    });
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-pressed", "aria-selected"] });
+    document.addEventListener("pointerdown", press, true);
+    return () => { watch.disconnect(); document.removeEventListener("pointerdown", press, true); };
+  }, []);
+
   // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
   useEffect(() => {
     const row = subnav.current;

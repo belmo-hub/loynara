@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { nearestReward } from "@/components/customer/card-face";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
 import type { MerchantMember, MerchantMemberDetail } from "@/lib/merchant-members";
 import { unitWord, withUnit } from "@/lib/units";
@@ -102,7 +103,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
       <div className="ow-prog">
         <section className="ow-board ow-stand" aria-labelledby="cu-stand">
           <p className="ow-board-kicker" id="cu-stand">Aktueller Stand</p>
-          <p className="ow-board-big">{nf.format(member.balance)}{NBSP}<small>{grid ? `von ${withUnit(grid.cost, kind, "de", "dat")}` : unitWord(member.balance, kind)}</small></p>
+          <p className="ow-board-big"><NumberRoll value={member.balance}>{nf.format(member.balance)}</NumberRoll>{NBSP}<small>{grid ? `von ${withUnit(grid.cost, kind, "de", "dat")}` : unitWord(member.balance, kind)}</small></p>
           {grid && <div className="ow-stand-grid"><StampGrid earned={member.balance} total={grid.cost} reward={<Gift size={22} />} /></div>}
           {target && <p className="ow-board-news">{progressLine(member.balance, target, kind)}</p>}
         </section>

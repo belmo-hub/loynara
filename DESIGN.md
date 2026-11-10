@@ -16,7 +16,7 @@ objects and CSS inside strings. Each exception names the exact rule and its reas
 2. **Facts never move.** Balances, codes and prices do not animate in ways that hide their value; numbers use tabular figures.
 3. **The stamp is the reward moment.** Coral (`--color-stamp`) appears only where something was earned or is redeemable. It is decorative, never text.
 4. **Merchant colour, guaranteed contrast.** Every shop picks its colour; the system derives readable companions automatically.
-5. **Calm by default.** Motion answers an action or marks a reward. No idle loops, no scroll theatre.
+5. **Alive, never busy.** Every screen arrives and every change is shown, in the house durations. No idle loops, no scroll theatre, no motion on facts, and nothing waits on an animation.
 
 ## Surfaces
 
@@ -139,8 +139,21 @@ or nothing).
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
+| Arrive | first paint of a screen: its title, band, overview card and first sections (owner: the direct children of `.ow-page`) | opacity 0 → 1 and translateY(8px) → 0, `--dur-ui` `--ease-out`; siblings 40 ms apart, top to bottom, the sixth and later together (at most 420 ms) | one instant paint |
+| List arrive | a list that appears as a list (rows of a section, customers, rewards, table rows) | as Arrive with 6 px, 30 ms apart; the eighth and later rows together, all within 420 ms | instant |
+| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the content fades in over `--dur-ui` where the placeholder stood; no rise and no stagger on top | instant |
+| Bars grow | chart bars (week strip, Ergebnisse), the card stock, step-bar segments | bars: scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, the eighth and later together; card stock: opens from the left (`clip-path`); step segment: scaleX from the left, back again on the way back; counts above bars stay still | final state at once |
+| Toggle | switch, checkbox, radio | the thumb slides and the track fills over `--dur-ui`; the check draws itself and the dot grows over `--dur-ui` | colour change only |
+| Indicator slide | segmented controls | the picked segment's pill moves over from the segment picked before, `--dur-ui` `--ease-in-out`; after a pointer press only | instant |
+| Select fill | chips, weekday chips, answer rows, swatches, a saved row's outline | fill and ring crossfade over `--dur-press`; a picked answer's check draws itself over `--dur-ui` | instant |
+| Hover (pointer only) | rows, tiles, links | fill or underline over `--dur-press`; no lift, no scale, no shadow growth | same |
+| Field error | inline validation, notices and error blocks that appear | the message fades in and settles 4 px down over `--dur-ui`; the field's border changes over `--dur-press` | instant |
+| Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui`; „Gespeichert“ wears a check that draws itself | instant label swap |
+| Card arrive | customer card page, first open | the card object scales .98 → 1 and fades over `--dur-ui`, once; the code ticket and number stay still | instant |
+| Scan success ring | cashier camera frame after a successful scan | one ring pulse, `--dur-reward`, once | colour change only |
+| Sign-in and auth | `AuthShell` pages | Arrive for the form block (at most 3 items); the button's loading state after 300 ms | instant |
 
-No hover lift on cards, no stagger on page load, no animation on keyboard-triggered actions.
+No hover lift on cards and no scale on hover. An arrival plays once, on a screen's first paint (navigation in or page load); a re-render, a refresh or polling never replays it. Content takes a tap from the first frame: entrances fill backwards only and nothing is hidden until JavaScript runs. Facts (prices, dates, codes, a balance on arrival), the top bar, the tab bar, the sidebar and a field being typed in stay still. A keyboard-triggered action shows the same change at once. The only loops are the skeleton shimmer and a spinner once an action has waited 300 ms.
 
 ## Layout patterns
 

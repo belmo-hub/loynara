@@ -241,7 +241,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-more { font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Body text runs at most 65 characters a line (SF-6). */
 .ow-notice > div, .ow-hint, .ow-prog-note, .ow-rows-note, .ow-card p, .ow-card ul, .ow-card ol { max-width: 65ch; }
-.ow-more-body { max-width: 65ch; padding-bottom: var(--space-2); }
+.ow-more-body { max-width: 65ch; }
+.ow-more-body::after { content: ""; display: block; height: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
@@ -262,12 +263,20 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
 .ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
-.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
+.ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { color: var(--color-ink); }
+/* The picked segment's pill is its ::before, so it can slide over from the segment picked before (Indicator slide,
+   owner-shell). The picked segment sits under its neighbours, so the pill never covers a label on its way. Chips have no
+   track and keep their fill and ring on the button. */
+.ow-seg:not(.ow-seg--chips) { isolation: isolate; }
+.ow-seg:not(.ow-seg--chips) button { position: relative; }
+.ow-seg:not(.ow-seg--chips) button:is([aria-pressed="true"], [aria-selected="true"]) { z-index: calc(var(--z-sticky) * -1); }
+.ow-seg:not(.ow-seg--chips) button:is([aria-pressed="true"], [aria-selected="true"])::before { content: ""; position: absolute; inset: 0; z-index: calc(var(--z-sticky) * -1); border-radius: inherit; transform-origin: 0 0; background: var(--color-raised); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
+.ow-seg--chips button[aria-pressed="true"] { background: var(--color-raised); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
 .ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
 .ow-radio-card:has(input:checked) { border-color: var(--color-ink); background: var(--color-fill); }
 .ow-radio-card:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.ow-radio-card input { margin-top: 3px; accent-color: var(--color-action); width: 18px; height: 18px; flex: none; }
+.ow-radio-card input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
 .ow-radio-card strong { display: block; }
 .ow-radio-card span { color: var(--color-ink-muted); font-size: var(--text-14); }
 
@@ -305,6 +314,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-savestate-label { flex: 1 1 min(12rem, calc(100% - 8px - var(--space-2))); min-width: 0; } /* never on a line without its dot */
 .ow-savestate-detail { font-weight: var(--weight-body); }
 .ow-savestate > .ow-dot { align-self: flex-start; margin-top: calc((1lh - 8px) / 2); } /* on the first line, not between two */
+.ow-savestate > svg { flex: none; align-self: flex-start; margin: calc((1lh - 16px) / 2) calc(var(--space-1) * -1) 0; } /* in the dot's 8 px, so the line does not shift */
 .ow-savestate[data-state="dirty"] { color: var(--color-warning); }
 .ow-savestate[data-state="saving"] { color: var(--color-ink-muted); }
 .ow-savestate[data-state="saved"] { color: var(--color-success); }
@@ -378,8 +388,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-group + .ow-group { border-top: 1px solid var(--color-line); padding-top: var(--space-6); margin-top: var(--space-6); }
 .ow-group > legend { padding: 0; margin-bottom: var(--space-3); }
 .ow-swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.ow-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--color-raised); box-shadow: 0 0 0 1px var(--color-line-strong); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
-.ow-swatch:hover { transform: scale(1.06); }
+.ow-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--color-raised); box-shadow: 0 0 0 1px var(--color-line-strong); cursor: pointer; }
 .ow-swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--color-ink); }
 .ow-colorrow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: end; }
 .ow-colorrow input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; }
@@ -454,8 +463,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 @media (max-width: 1280px) { .ow-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ow-goals { grid-template-columns: minmax(0, 1fr); } }
-.ow-goal { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; transition: border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
-.ow-goal:hover { border-color: var(--color-ink); transform: translateY(-1px); }
+.ow-goal { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; text-align: left; padding: var(--space-4) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); font: inherit; color: inherit; cursor: pointer; }
+.ow-goal:hover { border-color: var(--color-ink); }
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-mail { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-fill); }
@@ -495,7 +504,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog ul { display: grid; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
 /* 12/16 with gap 12 (SF-7). Long titles („Google-Bewertung“, „Durchschnittsbon“) stay whole at 360 because the value
    wraps under the text instead of splitting a word (.ow-prog-text min-width, Design FIX 1). */
-.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out); }
+.ow-prog-row { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out); }
 .ow-prog-row:active { transform: scale(.985); }
 .ow-prog-row[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
 /* A tapped row holds the selected fill until its screen shows. */
@@ -542,9 +551,9 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
 /* NFC-Tap's disclosure: its title and state chip on one 44 px line. */
 .ow-tap-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
-.ow-check input { width: 20px; height: 20px; accent-color: var(--color-action); }
+.ow-check input { width: 20px; height: 20px; }
 /* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
-.ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
+.ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-ui) var(--ease-out); }
 .ow-check input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-knob); box-shadow: none; transition: transform var(--dur-ui) var(--ease-out); }
 .ow-check input[role="switch"]:checked { background: var(--color-action); }
 .ow-check input[role="switch"]:checked::before { transform: translateX(18px); }
@@ -751,8 +760,11 @@ div.ow-prog-row:active { transform: none; }
 .ow-qhead { width: 100%; max-width: 40rem; }
 .ow-qstep { display: grid; gap: var(--space-2); margin: var(--space-1) 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qbar { display: flex; gap: var(--space-2); }
-.ow-qbar i { flex: 1; height: 4px; border-radius: var(--radius-pill); background: var(--color-line); }
-.ow-qbar i[data-on] { background: var(--color-ink); }
+.ow-qbar i { flex: 1; height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-line); }
+/* A reached step's segment fills from the left (Bars grow) and empties again on the way back. */
+.ow-qbar i::after { content: ""; display: block; height: 100%; background: var(--color-ink); transform: scaleX(0); transform-origin: 0 50%; transition: transform var(--dur-reward) var(--ease-in-out); }
+.ow-qbar i[data-on]::after { transform: scaleX(1); }
+@starting-style { .ow-qbar i[data-on]::after { transform: scaleX(0); } }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
 .ow-qpanel { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .ow-qpanel .ow-input { min-height: 52px; }
@@ -793,7 +805,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
@@ -1048,11 +1060,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* The closed fold's 44 px target reaches into the card's padding, so the space under „Mehr dazu“ matches the space above
    the title. Open, the last line does. */
 .ow-advice .ow-more:not([open]) { margin-bottom: calc(var(--space-3) * -1); }
-.ow-advice .ow-more-body { padding-bottom: 0; }
+.ow-advice .ow-more-body::after { display: none; }
 /* Fold: one drawn chevron instead of the browser triangle. */
 .ow-more > summary { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); list-style: none; cursor: pointer; }
 .ow-more > summary::-webkit-details-marker { display: none; }
-.ow-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; }
+.ow-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; transition: translate var(--dur-ui) var(--ease-out), rotate var(--dur-ui) var(--ease-out); }
 .ow-more[open] > summary::after { translate: 0 2px; rotate: -135deg; }
 /* A stepper or segment beside other fields (decision 12): label over it, the control across the panel, one hint under all.
    Number and unit are one group centred between the buttons; the digits' box stays a 44 px target but takes only the
@@ -1068,4 +1080,84 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 @media (prefers-color-scheme: light) {
   .ow-qchoice:has(:checked) { background: var(--color-surface); }
   .ow-notice--danger { background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)); }
+}
+
+/* ───────────── Motion (ENG-198; DESIGN.md Motion, by the names used there) ─────────────
+   Every screen arrives and every change shows, and nothing waits on it: content is in the page and takes a tap from the
+   first frame, entrances only fill backwards (no transform stays behind, which would unpin a fixed child), and under
+   reduced motion none of the entrances exists. Facts (prices, dates, a balance on arrival) and the bars stay still. */
+@keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
+@keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
+@keyframes ow-grow { from { transform: scaleY(0); } }
+@keyframes ow-wipe { from { clip-path: inset(0 100% 0 0); } }
+@keyframes ow-draw { from { stroke-dashoffset: -24; } }
+@keyframes ow-slide { from { transform: var(--ow-slide, none); } } /* owner-shell sets where the pill starts */
+@media (prefers-reduced-motion: no-preference) {
+  /* Arrive: the blocks of a screen's first paint rise in once, top to bottom, 40 ms apart, the sixth and later together
+     (5 × 40 + 220 = 420 ms). A question page's column holds the pinned button, so its children are the blocks, not itself. */
+  :is(.ow-page, .ow-q) > * { --ow-i: 5; }
+  .ow-page > :nth-child(1) { --ow-i: 0; }
+  .ow-page > :nth-child(2), .ow-q > :nth-child(1) { --ow-i: 1; }
+  .ow-page > :nth-child(3), .ow-q > :nth-child(2) { --ow-i: 2; }
+  .ow-page > :nth-child(4), .ow-q > :nth-child(3) { --ow-i: 3; }
+  .ow-page > :nth-child(5), .ow-q > :nth-child(4) { --ow-i: 4; }
+  :is(.ow-page, .ow-q) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
+  /* Skeleton to content. Inside the shell only the blocks of the first paint arrive (owner-shell marks them); a block that
+     comes later (data in a placeholder's place, a step, a notice) fades in where the placeholder stood and never rises
+     or waits. data-swap marks the same below the page's first level. */
+  .ow-screen :is(.ow-page, .ow-q) > :not([data-arrive], .ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, dialog), [data-swap]:not(dialog) { animation: ow-fade var(--dur-ui) var(--ease-out) backwards; }
+  /* List arrive: the rows of a list come in 30 ms apart, 6 px, the eighth and later together and all within 420 ms. */
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary):where(:not(dialog *)) > :is(li, tr, .ow-goal, .ow-day) { --ow-r: 7; animation: ow-row var(--dur-ui) var(--ease-out) min(var(--ow-r) * 30ms, 200ms) backwards; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(1) { --ow-r: 0; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(2) { --ow-r: 1; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(3) { --ow-r: 2; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(4) { --ow-r: 3; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(5) { --ow-r: 4; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(6) { --ow-r: 5; }
+  :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(7) { --ow-r: 6; }
+  /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
+     is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no measure. */
+  .ow-strip-day { --ow-r: 7; }
+  .ow-strip-day:nth-child(1) { --ow-r: 0; } .ow-strip-day:nth-child(2) { --ow-r: 1; } .ow-strip-day:nth-child(3) { --ow-r: 2; } .ow-strip-day:nth-child(4) { --ow-r: 3; }
+  .ow-strip-day:nth-child(5) { --ow-r: 4; } .ow-strip-day:nth-child(6) { --ow-r: 5; } .ow-strip-day:nth-child(7) { --ow-r: 6; }
+  .ow-strip-bar:not([data-empty]) { transform-origin: 50% 100%; animation: ow-grow var(--dur-reward) var(--ease-in-out) calc(var(--ow-r) * 30ms) backwards; }
+  .ow-stock { animation: ow-wipe var(--dur-reward) var(--ease-in-out) backwards; }
+  /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
+  .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
+  /* Field error and notices: a message that appears fades in and settles 4 px down; the field's border changes with it. */
+  .ow-error, .ow-notice, .ow-board-help { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  /* Disclosure: a fold's content that the browser cannot open by its row height (below) settles in the same way. */
+  .owner-app details[open]:not(.ow-more) > :not(summary) { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  /* Saved: the bar comes up when there is something to save, its line changes with a short fade, and a check draws
+     itself (on „Gespeichert“ and on a picked answer). */
+  .ow-savebar:not([data-idle]) { animation: ow-arrive var(--dur-ui) var(--ease-out) backwards; }
+  .ow-savestate-label { animation: ow-fade var(--dur-ui) var(--ease-out) backwards; }
+  :is(.ow-savestate, .ow-qchoice) > svg path { stroke-dasharray: 24; animation: ow-draw var(--dur-ui) var(--ease-out) backwards; }
+}
+/* Disclosure: „Mehr dazu“ opens and closes by its row height (0fr → 1fr) over --dur-ui where the browser exposes the
+   fold's content box; elsewhere it opens at once. The body's foot is a block, not padding, so the row can close to nothing. */
+.ow-more::details-content { display: grid; grid-template-rows: 0fr; }
+@media (prefers-reduced-motion: no-preference) { .ow-more::details-content { transition: grid-template-rows var(--dur-ui) var(--ease-out), content-visibility var(--dur-ui) allow-discrete; } }
+.ow-more[open]::details-content { grid-template-rows: 1fr; }
+.ow-more-body { min-height: 0; overflow: hidden; }
+/* Press, Select fill and Hover: every pressable control answers a press by the same .97, a pick crossfades its fill and
+   ring, and a row a pointer rests on takes a fill. Hover changes colour only: no lift, no scale. */
+:is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card) { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out); }
+:is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active:not(:disabled) { transform: scale(.97); }
+@media (hover: hover) { :is(a, button).ow-prog-row:hover { background-color: color-mix(in oklab, var(--color-fill) 55%, transparent); } }
+.ow-input:focus-visible, .ow-select:focus-visible, .ow-textarea:focus-visible { border-color: var(--color-ink); }
+/* Toggle: a house box and dot in the native ones' colours, so the check can draw itself and the dot can grow. */
+.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input { appearance: none; display: grid; place-items: center; flex: none; border: 1.5px solid var(--color-ink-muted); background: var(--color-raised); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
+.ow-check input[type="checkbox"]:not([role="switch"]) { margin: 0; border-radius: calc(var(--radius-sm) / 2); }
+.ow-check input[type="checkbox"]:not([role="switch"])::before { content: ""; width: 14px; height: 14px; background: var(--color-on-action); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-ui) var(--ease-out); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; }
+.ow-check input[type="checkbox"]:not([role="switch"]):checked { border-color: var(--color-action); background: var(--color-action); }
+.ow-check input[type="checkbox"]:not([role="switch"]):checked::before { clip-path: inset(0); }
+.ow-radio-card input { border-radius: 50%; }
+.ow-radio-card input::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--color-action); transform: scale(0); transition: transform var(--dur-ui) var(--ease-out); }
+.ow-radio-card input:checked { border-color: var(--color-action); }
+.ow-radio-card input:checked::before { transform: scale(1); }
+:is(.ow-check, .ow-radio-card) input:disabled { border-color: var(--color-line-strong); cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
 }
