@@ -188,6 +188,11 @@ test("forced colours: the checkbox is the native control again", async () => {
   expect(await box.evaluate(node => getComputedStyle(node).appearance), "the house box where colours are free").toBe("none");
   await page.emulateMedia({ forcedColors: "active" });
   expect(await box.evaluate(node => getComputedStyle(node).appearance), "the native box under forced colours").toBe("auto");
+  // A transparent border is drawn under forced colours: only the current sub-tab may keep its line.
+  const line = (current: boolean) => page.locator(`.ow-subnav a${current ? '[aria-current="page"]' : ':not([aria-current="page"])'}`).first().evaluate(node => getComputedStyle(node).borderBottomColor);
+  const canvas = await page.locator(".ow-subnav").evaluate(node => { const probe = document.createElement("i"); probe.style.color = "Canvas"; node.append(probe); const colour = getComputedStyle(probe).color; probe.remove(); return colour; });
+  expect(await line(false), "the other sub-tab's line is the canvas").toBe(canvas);
+  expect(await line(true), "the current sub-tab's line shows").not.toBe(canvas);
 });
 
 test("a segmented control's pill slides after a pointer pick and not after keyboard picks", async () => {

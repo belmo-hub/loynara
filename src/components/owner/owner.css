@@ -1201,6 +1201,10 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* A pick shown by a fill or a ring alone would vanish too: it gets an outline. */
   .ow-seg button:is([aria-pressed="true"], [aria-selected="true"]) { outline: 2px solid Highlight; outline-offset: -2px; }
   .ow-swatch[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
+  /* A picked weekday too; while it has the keyboard, the focus ring stays the one outline. */
+  .ow-days button[aria-pressed="true"]:not(:focus-visible) { outline: 2px solid Highlight; outline-offset: -2px; }
+  /* A transparent border is drawn here, so every sub-tab was underlined: only the current one keeps its line. */
+  .ow-subnav a:not([aria-current="page"], [data-pending]) { border-bottom-color: Canvas; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
