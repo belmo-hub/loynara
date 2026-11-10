@@ -105,7 +105,7 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
 }
 
 export function LoadingBlock({ rows = 2, height = 96 }: { rows?: number; height?: number }) {
-  return <div className="ow-stack" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
+  return <div className="ow-stack ow-loading" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
 }
 
 export type NumberUnit = { one: string; many: string };

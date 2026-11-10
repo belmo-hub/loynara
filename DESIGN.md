@@ -25,6 +25,7 @@ objects and CSS inside strings. Each exception names the exact rule and its reas
 | Customer: /join, /card, /tap, /recover, /verify-email, /unsubscribe | `CustomerShell` | single column, max 440 px | light + dark (system) |
 | Cashier: /cashier | `CashierShell` | single column, max 560 px | always dark (`.ly-theme-dark`) |
 | Owner: /merchant/* | `OwnerShell` (src/components/owner) | sidebar ≥ 1024 px; top bar + bottom bar + "Mehr" sheet below | light + dark (system) |
+| Sign-in, invite, legal, system pages | `AuthShell` | centred column, max 480 px (legal 720 px) | light + dark (system) |
 
 Dark values apply only inside an element with `.ly-theme-auto` (follows `prefers-color-scheme`) or `.ly-theme-dark`
 (forced). Pages that are not migrated yet stay light.
@@ -132,24 +133,24 @@ or nothing).
 | Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; swipe to dismiss | fade only |
 | Slide in + fade | toasts from the bottom edge; exit faster than enter | `--dur-ui` | fade only |
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
-| Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
+| Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-ui`; the first value stands still (no count-up, no roll on arrival) | instant |
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
-| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay | cut |
+| Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay. A tap during it ends it: on a bar link it lands at once; on the content it lands from `--dur-press` on, on what is under the finger on the new screen, and is dropped before | cut |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
-| Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
+| Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | a still placeholder |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
-| Arrive | first paint of a screen: its title, band, overview card and first sections (owner: the direct children of `.ow-page`) | opacity 0 → 1 and translateY(8px) → 0, `--dur-ui` `--ease-out`; siblings 40 ms apart, top to bottom, the sixth and later together (at most 420 ms) | one instant paint |
-| List arrive | a list that appears as a list (rows of a section, customers, rewards, table rows) | as Arrive with 6 px, 30 ms apart; the eighth and later rows together, all within 420 ms | instant |
-| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the content fades in over `--dur-ui` where the placeholder stood; no rise and no stagger on top | instant |
-| Bars grow | chart bars (week strip, Ergebnisse), the card stock, step-bar segments | bars: scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, the eighth and later together; card stock: opens from the left (`clip-path`); step segment: scaleX from the left, back again on the way back; counts above bars stay still | final state at once |
-| Toggle | switch, checkbox, radio | the thumb slides and the track fills over `--dur-ui`; the check draws itself and the dot grows over `--dur-ui` | colour change only |
+| Arrive | navigation in to a screen that paints at once: its title, band, overview card and first sections (owner: the direct children of `.ow-page`). A cold load or a location switch takes Skeleton to content; a placeholder, or a block that holds one, never arrives | opacity 0 → 1 and translateY(8px) → 0, `--dur-ui` `--ease-out`; siblings 40 ms apart, top to bottom, the sixth and later together (at most 420 ms) | one instant paint |
+| List arrive | a list that appears as a list (rows of a section, customers, rewards, table rows), not one that takes a placeholder's place | as Arrive with 6 px, 30 ms apart; the eighth and later rows together, all within 420 ms | instant |
+| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the loaded content lies under the placeholder in the same frame and the placeholder fades out over it, `--dur-ui`; no frame shows neither; neither the block nor its rows rise or stagger. Owner area for now: the content takes the placeholder's place in one frame, with no fade | instant |
+| Bars grow | chart bars (week strip, Ergebnisse), the card stock, step-bar segments | bars: scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, the eighth and later together; outside the 420 ms budget, done by 700 ms. Card stock: opens from the left (`clip-path`). Step segment: scaleX from the left, back again on the way back. Counts above bars stay still. A period switch (30/90 Tage) should grow from the old value to the new; for now it regrows from 0 | final state at once |
+| Toggle | switch, checkbox, radio | the thumb slides and the track fills over `--dur-ui`; the check draws itself and the dot grows over `--dur-ui`. Under forced colours the checkbox and the radio are the native controls | colour change only |
 | Indicator slide | segmented controls | the picked segment's pill moves over from the segment picked before, `--dur-ui` `--ease-in-out`; after a pointer press only | instant |
 | Select fill | chips, weekday chips, answer rows, swatches, a saved row's outline | fill and ring crossfade over `--dur-press`; a picked answer's check draws itself over `--dur-ui` | instant |
 | Hover (pointer only) | rows, tiles, links | fill or underline over `--dur-press`; no lift, no scale, no shadow growth | same |
 | Field error | inline validation, notices and error blocks that appear | the message fades in and settles 4 px down over `--dur-ui`; the field's border changes over `--dur-press` | instant |
-| Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui`; „Gespeichert“ wears a check that draws itself | instant label swap |
+| Saved | the save bar | the bar rises in when there is something to save; each new line of its state fades in over `--dur-ui` and the old one leaves at once; „Gespeichert“ wears a check that draws itself and stays until the next edit | instant label swap |
 
-No hover lift on cards and no scale on hover. An arrival plays once, on a screen's first paint (navigation in or page load); a re-render, a refresh or polling never replays it. Content takes a tap from the first frame: entrances fill backwards only and nothing is hidden until JavaScript runs. Facts (prices, dates, codes, a balance on arrival), the top bar, the tab bar, the sidebar and a field being typed in stay still. A keyboard-triggered action shows the same change at once. The only loops are the skeleton shimmer and a spinner once an action has waited 300 ms.
+No hover lift on cards and no scale on hover. An arrival plays once, on a screen's first paint; a re-render, a refresh, polling or a return (Back from a card, back to a tab or a cached screen) never replays it. Content takes a tap from the first frame of a first paint: entrances fill backwards only and nothing is hidden until JavaScript runs. A fact (a price, a date, a code, a balance) may arrive with its row or block, never on its own: no count-up, no roll on arrival. The top bar, the tab bar, the sidebar and a field being typed in stay still. A keyboard-triggered action shows the same change at once. The only loops are the skeleton shimmer and a spinner once an action has waited 300 ms; under reduced motion loops stop and the spinner turns at 2 s.
 
 ## Layout patterns
 

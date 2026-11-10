@@ -307,7 +307,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-dl dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 
 /* Skeleton / states */
-.ow-skel { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--color-fill), var(--color-raised), var(--color-fill)); background-size: 200% 100%; animation: ow-shimmer 1.4s linear infinite; }
+.ow-skel { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--color-fill), var(--color-raised), var(--color-fill)); background-size: 200% 100%; }
 @keyframes ow-shimmer { to { background-position: -200% 0; } }
 
 /* Sticky save bar (safe-area aware) */
@@ -1093,7 +1093,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* ───────────── Motion (ENG-198; DESIGN.md Motion, by the names used there) ─────────────
    Every screen arrives and every change shows, and nothing waits on it: content is in the page and takes a tap from the
    first frame, entrances only fill backwards (no transform stays behind, which would unpin a fixed child), and under
-   reduced motion none of the entrances exists. Facts (prices, dates, a balance on arrival) and the bars stay still. */
+   reduced motion none of the entrances exists and no loop runs (the placeholder is still). A fact (a price, a date, a
+   balance) may arrive with its row or block, never on its own; the bars stay still. */
 @keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
 @keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
@@ -1102,19 +1103,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 @keyframes ow-draw { from { stroke-dashoffset: -24; } }
 @keyframes ow-slide { from { transform: var(--ow-slide, none); } } /* owner-shell sets where the pill starts */
 @media (prefers-reduced-motion: no-preference) {
-  /* Arrive: the blocks of a screen's first paint rise in once, top to bottom, 40 ms apart, the sixth and later together
-     (5 × 40 + 220 = 420 ms). A question page's column holds the pinned button, so its children are the blocks, not itself. */
+  .ow-skel { animation: ow-shimmer 1.4s linear infinite; }
+  /* Arrive: the blocks of a screen that is navigated to and paints at once rise in once, top to bottom, 40 ms apart, the
+     sixth and later together (5 × 40 + 220 = 420 ms). Inside the shell only the blocks owner-shell marks arrive: never a
+     placeholder, a block that holds one, or what comes later. A question page's column holds the pinned button, so its
+     children are the blocks, not itself. */
   :is(.ow-page, .ow-q) > * { --ow-i: 5; }
   .ow-page > :nth-child(1) { --ow-i: 0; }
   .ow-page > :nth-child(2), .ow-q > :nth-child(1) { --ow-i: 1; }
   .ow-page > :nth-child(3), .ow-q > :nth-child(2) { --ow-i: 2; }
   .ow-page > :nth-child(4), .ow-q > :nth-child(3) { --ow-i: 3; }
   .ow-page > :nth-child(5), .ow-q > :nth-child(4) { --ow-i: 4; }
-  :is(.ow-page, .ow-q) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
-  /* Skeleton to content. Inside the shell only the blocks of the first paint arrive (owner-shell marks them); a block that
-     comes later (data in a placeholder's place, a step, a notice) fades in where the placeholder stood and never rises
-     or waits. data-swap marks the same below the page's first level. */
-  .ow-screen :is(.ow-page, .ow-q) > :not([data-arrive], .ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, dialog), [data-swap]:not(dialog) { animation: ow-fade var(--dur-ui) var(--ease-out) backwards; }
+  .ow-screen :is(.ow-page, .ow-q) > [data-arrive]:not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog), :is(.ow-page, .ow-q):not(.ow-screen *) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
   /* List arrive: the rows of a list come in 30 ms apart, 6 px, the eighth and later together and all within 420 ms. */
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary):where(:not(dialog *)) > :is(li, tr, .ow-goal, .ow-day) { --ow-r: 7; animation: ow-row var(--dur-ui) var(--ease-out) min(var(--ow-r) * 30ms, 200ms) backwards; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(1) { --ow-r: 0; }
@@ -1124,6 +1124,10 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(5) { --ow-r: 4; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(6) { --ow-r: 5; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(7) { --ow-r: 6; }
+  /* Skeleton to content: what takes a placeholder's place (owner-shell marks it data-swap) stands there at once. Neither
+     it nor its rows or notices rise, fade or stagger; a fade from nothing would show an empty frame. A screen come back
+     to through the history (data-return) is treated the same, and its bars do not grow again. */
+  .ow-content :is([data-swap], [data-return]):is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock) { animation: none; }
   /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
      is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no measure. */
   .ow-strip-day { --ow-r: 7; }
@@ -1155,6 +1159,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active:not(:disabled) { transform: scale(.97); }
 @media (hover: hover) { :is(a, button).ow-prog-row:hover { background-color: color-mix(in oklab, var(--color-fill) 55%, transparent); } }
 .ow-input:focus-visible, .ow-select:focus-visible, .ow-textarea:focus-visible { border-color: var(--color-ink); }
+/* A keyboard action shows the same change at once (owner-shell sets data-keys from a key press to the next pointer press). */
+[data-keys] .ow-check input, [data-keys] .ow-check input::before, [data-keys] .ow-radio-card input::before, [data-keys] .ow-more::details-content, [data-keys] .ow-more > summary::after, [data-keys] .ow-qchoice, [data-keys] :is(.ow-savestate, .ow-qchoice) > svg path, [data-keys] .ow-savestate-label { transition: none !important; animation: none !important; }
 /* Toggle: a house box and dot in the native ones' colours, so the check can draw itself and the dot can grow. */
 .ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input { appearance: none; display: grid; place-items: center; flex: none; border: 1.5px solid var(--color-ink-muted); background: var(--color-raised); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-check input[type="checkbox"]:not([role="switch"]) { margin: 0; border-radius: calc(var(--radius-sm) / 2); }
@@ -1166,6 +1172,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-radio-card input:checked { border-color: var(--color-action); }
 .ow-radio-card input:checked::before { transform: scale(1); }
 :is(.ow-check, .ow-radio-card) input:disabled { border-color: var(--color-line-strong); cursor: not-allowed; }
+/* Forced colours paint backgrounds as the canvas, so a drawn check or dot would vanish: the native controls come back. */
+@media (forced-colors: active) {
+  :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input) { appearance: auto; }
+  :is(.ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input)::before { content: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
 }

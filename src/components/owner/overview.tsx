@@ -5,7 +5,7 @@ import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { NumberRoll } from "@/components/ui/number-roll";
-import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
+import { boardCacheKey, readBoardCache, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/overview-day";
 import type { LaunchReadiness } from "@/lib/readiness";
@@ -151,12 +151,12 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
+          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
       {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
       {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
-        {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
+        {!a && <p className="ow-muted ow-loading" aria-busy="true">Lädt …</p>}
       </Diary>}
     </div>
   );
@@ -230,11 +230,14 @@ export function milestoneToShow(cards: number, seen: string, locationId: string)
 function useMilestone(locationId: string, cards: number): number | null {
   const seen = useSyncExternalStore(onStorage, readMilestones, () => "-");
   const show = milestoneToShow(cards, seen, locationId);
+  // Marking it as shown makes the next render read „seen“; the card that is on screen stays until the page is left.
+  const [kept, setKept] = useState<number | null>(null);
+  if (show !== null && kept === null) setKept(show);
   useEffect(() => {
     if (show === null) return;
     try { window.localStorage.setItem(MILESTONE_KEY, [...seen.split(",").filter(Boolean), `${locationId}:${show}`].join(",")); } catch { /* shown this once anyway */ }
   }, [show, seen, locationId]);
-  return show;
+  return kept ?? show;
 }
 
 /**
@@ -244,7 +247,7 @@ function useMilestone(locationId: string, cards: number): number | null {
  * „vorher N“ once there is a full previous period (O7), else what was counted. Only the Buchungen tile links to a Kunden
  * filter that exists today; the others come with ENG-086.
  */
-export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; seenKey?: string; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
+export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
   const sinceStart = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
     sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
@@ -253,7 +256,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
-    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
     { key: "back", icon: Undo2, label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
     { key: "rewards", icon: Gift, label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },

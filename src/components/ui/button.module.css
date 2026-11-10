@@ -38,4 +38,5 @@
 .button[aria-busy="true"] .label { opacity: .8; }
 .progress { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .progress { animation-duration: 2s; } .button:active:not(:disabled) { transform: none; } }
+/* Loops stop under reduced motion (globals.css); a spinner is information, so it keeps turning, slowly. */
+@media (prefers-reduced-motion: reduce) { .button .progress { animation-duration: 2s !important; animation-iteration-count: infinite !important; } .button:active:not(:disabled) { transform: none; } }

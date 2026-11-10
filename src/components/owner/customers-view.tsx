@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLayoutEffect, useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Check, ChevronLeft, Gift, RefreshCw, Search, Users, X, type LucideIcon } from "lucide-react";
 import { apiJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -108,7 +108,12 @@ export function CustomersView() {
   list.delete("card");
   const listKey = list.toString();
   const [fresh, setFresh] = useState<Record<string, MerchantMember>>({});
+  const listBox = useRef<HTMLDivElement>(null), hadCard = useRef(false);
   useLayoutEffect(() => {
+    // Back from a card is a return, not an arrival: showing the list again restarts its entrances, so they end before
+    // the paint. A loop (the placeholder's shimmer) has no end to jump to and is left alone.
+    if (!card && hadCard.current) for (const animation of listBox.current?.getAnimations({ subtree: true }) ?? []) if (Number.isFinite(Number(animation.effect?.getComputedTiming().endTime))) animation.finish();
+    hadCard.current = Boolean(card);
     if (card) { window.scrollTo({ top: 0, behavior: "instant" }); return; }
     if (listY?.list === listKey) window.scrollTo({ top: listY.y, behavior: "instant" });
     listY = null;
@@ -116,7 +121,7 @@ export function CustomersView() {
   return <>
     {card && <CardScreen key={card} id={card} back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten" }}
       onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} />}
-    <div hidden={Boolean(card)}>{params.has("activity") ? <GroupScreen fresh={fresh} /> : <GroupsScreen fresh={fresh} />}</div>
+    <div ref={listBox} hidden={Boolean(card)}>{params.has("activity") ? <GroupScreen fresh={fresh} /> : <GroupsScreen fresh={fresh} />}</div>
   </>;
 }
 
