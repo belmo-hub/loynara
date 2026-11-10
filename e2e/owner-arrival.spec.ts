@@ -52,6 +52,29 @@ test("the milestone card stays once it is shown", async () => {
   await expect(card).toBeVisible();
 });
 
+test("a cold load of the Übersicht paints the band and the numbers together and writes the greeting once", async () => {
+  // The reads the greeting and the band wait for answer last: before, „Guten Abend.“ was rewritten with the name and
+  // the band landed after the board and pushed it down the screen.
+  const late = /\/api\/(auth\/get-session|merchant\/readiness)/;
+  await page.route(late, async route => { await new Promise(done => setTimeout(done, 400)); await route.continue(); });
+  await page.goto("/merchant");
+  const seen = await page.evaluate(() => new Promise<Array<{ hello: string | null; top: number | null; band: boolean }>>(done => {
+    const frames: Array<{ hello: string | null; top: number | null; band: boolean }> = [];
+    const end = performance.now() + 2500;
+    const look = () => {
+      frames.push({ hello: document.querySelector<HTMLElement>(".ow-content h1")?.innerText ?? null, top: document.querySelector(".ow-content .ow-board-big")?.getBoundingClientRect().top ?? null, band: document.querySelector(".ow-content .ow-next") !== null });
+      if (performance.now() < end) requestAnimationFrame(look); else done(frames);
+    };
+    look();
+  }));
+  await page.unroute(late);
+  const withNumber = seen.filter(frame => frame.top !== null);
+  expect(withNumber.length, "the board's number showed").toBeGreaterThan(0);
+  expect(new Set(seen.map(frame => frame.hello).filter(Boolean)).size, "the greeting is written once").toBe(1);
+  expect(new Set(withNumber.map(frame => frame.top)).size, "the number never moves once it is shown").toBe(1);
+  expect(new Set(withNumber.map(frame => frame.band)).size, "a band is there from the number's first frame, or never").toBe(1);
+});
+
 test("a cold load does not arrive; a screen that is navigated to arrives once", async () => {
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

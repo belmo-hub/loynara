@@ -39,11 +39,19 @@ const MILESTONE_KEY = "loynara:milestones-seen";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
-/** The signed-in person's first name, if the account has one (never the shop's name). */
-function useFirstName(): string {
+// The last answer, so a return to the Übersicht greets at once; per user, so the next person never gets this name.
+let greeted: { userId: string; name: string } | null = null;
+/**
+ * The signed-in person's first name, if the account has one (never the shop's name); null until the account read has
+ * answered, so the greeting is written once and never rewritten with the name.
+ */
+function useFirstName(userId: string): string | null {
   const [session] = useLoad<{ user?: { name?: string | null } } | null>("/api/auth/get-session");
+  if (session.state === "loading") return greeted?.userId === userId ? greeted.name : null;
   const name = session.state === "ok" ? session.data?.user?.name?.trim() ?? "" : "";
-  return name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  const first = name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  greeted = { userId, name: first };
+  return first;
 }
 
 const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
@@ -78,13 +86,16 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
   const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const firstName = useFirstName();
+  const firstName = useFirstName(me.userId);
   const [signError, setSignError] = useState("");
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
-  const a = analytics.state === "ok" ? analytics.data : null;
-  const r = retention.state === "ok" ? retention.data : null;
+  // One paint for the cold load: the band stands above the board and the rows, so nothing shows before every read the
+  // band is chosen from has answered. A band that came later pushed the numbers down the screen.
+  const answered = [analytics, spend, retention, referrals, readiness].every(state => state.state !== "loading");
+  const a = answered && analytics.state === "ok" ? analytics.data : null;
+  const r = answered && retention.state === "ok" ? retention.data : null;
   const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
@@ -111,7 +122,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
-  const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+  const next = failed || !answered ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
@@ -129,7 +140,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     <div className="ow-page ow-dash">
       <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
       {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
-      <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>
+      {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
+      {firstName === null ? <div className="ow-hello" aria-hidden="true">{NBSP}</div> : <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>}
       {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
       {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
       <div className="ow-dash-lead ow-stack">
