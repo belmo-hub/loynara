@@ -40,6 +40,9 @@ export function rewardChip(type: PublicProgram["programType"], reward: PublicPro
   return cost !== reward.cost ? `Ab ${day}: ${nf.format(cost)} ${unitName(type, cost)}` : `Ab ${day}: neuer Name`;
 }
 
+/** ENG-207: the Startbonus row's line, for the owner's list and the Leitung's read-only row: when and how much, or „Aus“. */
+export const startbonusLine = (me: Pick<MeResponse, "welcomeBonus" | "welcomeBonusAt" | "programType">) => me.welcomeBonus ? `${HEAD_START_COPY[me.welcomeBonusAt === "enrollment" ? "enrollment" : "firstAward"].label} · +${withUnit(me.welcomeBonus, me.programType === "points" ? "points" : "stamp")}` : "Aus";
+
 /** Every setting as one row with its current value (Design's list rules; copy W1–W32 FINAL). Text values are muted, numbers big. */
 export function programSections({ me, program, winback, referrals, nfc, logo, archived = 0, messages = false }: ListData) {
   const type = program.programType, points = type === "points", referral = program.referral, rate = program.pointsPerCurrencyUnit;
@@ -69,7 +72,7 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       // ENG-207 (Design § 4): with the flag the sub-line names the time and the amount, or the row says „Aus“.
       me.welcomeBonusAt === undefined
         ? { ...ask("welcome-bonus"), icon: BadgePlus, sub: "Mit der ersten Buchung, einmal pro Karte", ...(me.welcomeBonus ? big(`+${me.welcomeBonus}`) : off("Aus")) }
-        : { ...ask("welcome-bonus"), icon: BadgePlus, ...(me.welcomeBonus ? { sub: `${HEAD_START_COPY[me.welcomeBonusAt === "enrollment" ? "enrollment" : "firstAward"].label} · +${withUnit(me.welcomeBonus, type)}` } : off("Aus")) },
+        : { ...ask("welcome-bonus"), icon: BadgePlus, ...(me.welcomeBonus ? { sub: startbonusLine(me) } : off("Aus")) },
       { ...ask("winback"), icon: RefreshCw, ...(winback && { sub: `Nach ${winback.days} Tagen ohne Buchung`, ...(!winback.enabled ? off("Aus") : winback.bonus ? big(`+${winback.bonus}`) : off("Kein Bonus")) }) },
       // Moved here from Nachricht (Design, 6 Nov); both live on the Wallet-message surface.
       ...(messages ? [

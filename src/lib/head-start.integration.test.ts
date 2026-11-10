@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, memberships, outboxJobs, referrals } from "@/db/schema";
+import { ledgerEntries, memberships, outboxJobs, referrals, staffRoles } from "@/db/schema";
 import { POST as enrollRoute } from "@/app/api/enroll/route";
 import { sourceLabel } from "@/components/owner/card-actions";
 import { upsertAutomationRule } from "./automations";
@@ -245,6 +245,13 @@ describe("Startbonus at sign-up (ENG-207)", () => {
     const other = await user();
     await shop(other);
     await expect(updateProgramExtras({ actorUserId: other, programId: s.programId, welcomeBonusAt: "first_award" })).rejects.toMatchObject({ code: "NOT_FOUND" }); // another business's programme does not exist for them (ENG-197)
+    expect(await getMerchantContext(s.owner)).toMatchObject({ welcomeBonusAt: "enrollment" });
+    // The Leitung reads it (a row without a link) and cannot change it; the Kasse does not get it.
+    const manager = await user(), cashier = await user();
+    await db.insert(staffRoles).values([{ tenantId: s.tenantId, userId: manager, role: "manager", locationId: s.locationId }, { tenantId: s.tenantId, userId: cashier, role: "cashier", locationId: s.locationId }]);
+    expect(await getMerchantContext(manager)).toMatchObject({ role: "manager", welcomeBonus: 2, welcomeBonusAt: "enrollment" });
+    expect(await getMerchantContext(cashier)).not.toHaveProperty("welcomeBonusAt");
+    await expect(updateProgramExtras({ actorUserId: manager, programId: s.programId, welcomeBonusAt: "first_award" })).rejects.toThrow();
     expect(await getMerchantContext(s.owner)).toMatchObject({ welcomeBonusAt: "enrollment" });
     await updateProgram({ actorUserId: s.owner, programSlug: s.programSlug, name: "Kaffeekarte", rulesText: "Ein Stempel pro Kaffee.", programType: "points", earningMode: "manual" });
     expect(await updateProgramExtras({ actorUserId: s.owner, programId: s.programId })).toMatchObject({ welcomeBonus: 0, welcomeBonusAt: "first_award" });

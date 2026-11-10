@@ -119,7 +119,7 @@ export type MeResponse = {
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;
-  /** ENG-207: when the Startbonus is given. Present only for the owner while HEAD_START_ENABLED is on. */
+  /** ENG-207: when the Startbonus is given. Present for the owner and the Leitung (who only reads it) while HEAD_START_ENABLED is on. */
   welcomeBonusAt?: "first_award" | "enrollment";
   /** Short plain-text news on the customer card; empty = hidden. */
   cardNews?: string;
