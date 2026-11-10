@@ -90,8 +90,13 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const restoredToken = new URL(page.url()).pathname.split("/").pop()!;
     const restored = await (await customer.request.get(`/api/card/${restoredToken}`)).json();
     expect(restored.balance).toBe(1); expect(restored.rewards).toEqual(before.rewards); expect(restored.activity).toEqual(before.activity);
-    expect((await sql("SELECT id,card_locator,scan_code FROM memberships WHERE program_id=$1", [a.me.programId]))).toEqual([{ id: original.id,card_locator:original.card_locator,scan_code:original.scan_code }]);
-    expect(await sql("SELECT id,provider_object_id,revoked_at FROM wallet_passes WHERE membership_id=$1", [original.id])).toEqual([{ id:passId,provider_object_id:passObject,revoked_at:null }]);
+    // Same card and number; the QR code is new and the pass saved from the old link is withdrawn.
+    const after = await sql<{ id: string; card_locator: string; scan_code: string }>("SELECT id,card_locator,scan_code FROM memberships WHERE program_id=$1", [a.me.programId]);
+    expect(after).toMatchObject([{ id: original.id, card_locator: original.card_locator }]);
+    expect(after[0].scan_code).not.toBe(original.scan_code);
+    const passes = await sql<{ id: string; provider_object_id: string; revoked_at: Date | null; revoke_reason: string | null }>("SELECT id,provider_object_id,revoked_at,revoke_reason FROM wallet_passes WHERE membership_id=$1", [original.id]);
+    expect(passes).toMatchObject([{ id: passId, provider_object_id: passObject, revoke_reason: "reissued" }]);
+    expect(passes[0].revoked_at).not.toBeNull();
     // The same verified inbox can recover separate merchant memberships only through explicit selection.
     const second = await customer.request.post("/api/enroll", { headers: origin, data: { slug:b.me.programSlug,acceptedTerms:true } });
     expect(second.status()).toBe(201);
