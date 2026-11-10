@@ -17,6 +17,13 @@ button.secondary { border-color: var(--line); background: transparent; color: va
 button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 code { font: .875rem ui-monospace, Menlo, monospace; color: var(--ink); overflow-wrap: anywhere; }
 small { color: var(--muted); font-size: .875rem; }
+main > * { animation: arrive 220ms cubic-bezier(.23, 1, .32, 1) backwards; }
+main > :nth-child(2) { animation-delay: 40ms; }
+main > :nth-child(n + 3) { animation-delay: 80ms; }
+button { transition: transform 120ms cubic-bezier(.23, 1, .32, 1); }
+button:active { transform: scale(.97); }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { main > * { animation: none; } button { transition: none; } button:active { transform: none; } }
 `;
 
 export default function GlobalError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {

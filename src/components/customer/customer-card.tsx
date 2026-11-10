@@ -2,7 +2,7 @@
 
 import { ArrowRight, CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Download, Gift, Hourglass, Link2, Mail, Medal, Megaphone, RefreshCw, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ import type { ChangeLine } from "@/lib/change-lines";
 import { copyFor, type Copy } from "./customer-card-copy";
 import styles from "./customer-card.module.css";
 import { copyText } from "@/components/copy-text";
+import { stampAnnouncement, tapCopy } from "@/components/tap-client";
+import { MOMENT_PILL_MS } from "./booking-moment";
+import { withUnit } from "@/lib/units";
 
 type Reward = CardReward;
 export type CardActivity = { id: string; label: string; date: string; change: number };
@@ -24,8 +27,11 @@ export type CustomerCardProps = {
   locationName: string;
   programType: "stamps" | "points";
   balance: number;
-  /** A stamp count reached while the card was open; that stamp lands once. */
+  /** A stamp count just reached; the last `landedCount` stamps land once. */
   landed?: number;
+  landedCount?: number;
+  /** A booking this device has not shown yet: the pill over the header says what was added and the balance it led to, until the page takes it away. */
+  moment?: { credited: number; balance: number };
   rewards: Reward[];
   cardLocator?: string;
   qrSrc?: string;
@@ -89,7 +95,7 @@ export type CustomerCardProps = {
  * on the left and the sections run on the right.
  */
 export function CustomerCard(props: CustomerCardProps) {
-  const { businessName, locationName, programType, balance, landed, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, demoNotice, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
+  const { businessName, locationName, programType, balance, landed, landedCount, moment, rewards, cardLocator, qrSrc, brandColor, activity = [], rulesText, news, demoNotice, reviewUrl, happyHourUntil, pointsExpiry, challenge, level, winback, locale = "de", endsOn, notices, exportUrl, contactPanel, changes } = props;
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -100,7 +106,12 @@ export function CustomerCard(props: CustomerCardProps) {
   const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
-  const nextGoal = [...rewards].filter((reward) => reward.cost > balance).sort((a, b) => a.cost - b.cost)[0];
+  // During a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak of
+  // the real balance from the start: a line count that changed at the step would move the card as the stamp lands.
+  const told = moment ? moment.balance : balance;
+  const toldSelected = rewards.find((reward) => reward.id === selectedId) ?? nearestReward(rewards, told);
+  const toldReady = rewards.filter((reward) => told >= reward.cost).length;
+  const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
@@ -116,24 +127,29 @@ export function CustomerCard(props: CustomerCardProps) {
 
   return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>}>
     <div className={styles.lead}>
+      {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
+      {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
       {endsOn ? <section className={styles.ending} aria-labelledby="customer-ending-title">
         <h2 id="customer-ending-title" className={styles.endingTitle}>{t.endsOn(endsOn)}</h2>
         <p>{t.endsWindow(programType === "points")}</p>
       </section> : null}
 
-      <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
+      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
-        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} locale={locale} progress={false} tag={level?.name ?? undefined}>
+        <div>
+        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined}>
           <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
             {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
-            {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{readyCount > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
+            {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{toldReady > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
           </section>
         </CardFace>
         {/* The band sits right under the card, before the refresh row (mock 24). */}
-        {readyCount > 0 ? <p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p> : null}
+        {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
+        {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
+        </div>
         {props.onRefresh ? <div className={styles.refresh}>
           <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw size={16} />} onClick={props.onRefresh} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -157,12 +173,13 @@ export function CustomerCard(props: CustomerCardProps) {
       {rewards.length ? <Section name="rewards" title={t.chooseReward}>
         <div role="group" aria-labelledby="customer-rewards-title" className={styles.rows}>
           {rewards.map((reward) => {
-            const ready = balance >= reward.cost;
+            // Like the goal line, the row speaks of the real balance during a booking moment, so it keeps its height at the step.
+            const ready = told >= reward.cost;
             return <button key={reward.id} type="button" aria-pressed={rewards.length > 1 ? selected?.id === reward.id : undefined} className={styles.row} onClick={() => setSelectedId(reward.id)}>
               <span className={styles.rowIcon}><Gift size={22} aria-hidden="true" /></span>
               <span className={styles.rowMain}>
                 <span className={styles.rowText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
-                {ready ? null : <span className={styles.rowValue}>{t.short(number.format(reward.cost - balance))}</span>}
+                {ready ? null : <span className={styles.rowValue}>{t.short(number.format(reward.cost - told))}</span>}
               </span>
               {ready ? <span className={styles.chipLine}><span className={styles.chip}><Check size={16} strokeWidth={3} aria-hidden="true" />{t.redeemable}</span></span> : null}
             </button>;
@@ -347,4 +364,31 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
       {closeError ? <p className={styles.alert} role="alert">{closeError}</p> : null}
     </div> : null}
   </section>;
+}
+
+/**
+ * The booking moment: „Stempel erhalten“ with what was added, floating over the shop header so nothing below moves.
+ * It is never a target and leaves by itself. Screen readers hear one sentence: the status region is the hidden line
+ * alone, mounted empty and filled a frame later, because a region that arrives with its text is often not read out.
+ */
+function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
+  const { live, announce } = useCardStatus("moment");
+  // No new French copy for now: a French card says what was added in the unit words the card already uses.
+  const french = locale === "fr" ? withUnit(credited, points ? "points" : "stamps", "fr") : null;
+  const title = french ?? tapCopy("confirmed", undefined, points).title;
+  const said = french ?? stampAnnouncement("confirmed", balance, points, credited) ?? "";
+  const [spoken, setSpoken] = useState("");
+  useEffect(() => { announce(said); }, [announce, said]);
+  // The line is filled only once it is the page's status region, a frame after the role is on it.
+  useEffect(() => {
+    if (!live) return;
+    const frame = requestAnimationFrame(() => setSpoken(said));
+    return () => cancelAnimationFrame(frame);
+  }, [live, said]);
+  return <div className={styles.pill} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
+    <span className={styles.pillCheck} aria-hidden="true"><Check size={22} strokeWidth={3} /></span>
+    <strong aria-hidden="true">{title}</strong>
+    <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
+    <span className={styles.srOnly} role={live ? "status" : undefined}>{spoken}</span>
+  </div>;
 }

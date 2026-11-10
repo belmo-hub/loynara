@@ -52,10 +52,12 @@ type QrScannerProps = {
   paused?: boolean;
   /** Called when the camera cannot start (permission, busy device, no camera). */
   onFailure?: (cause: unknown) => void;
+  /** A card code was read and is being looked up: the sight answers with one ring. */
+  reading?: boolean;
 };
 
 /** The counter camera: inline on the cashier screen and kept running between customers. */
-export function QrScanner({ onDetected, onClose, locale = "de", paused = false, onFailure }: QrScannerProps) {
+export function QrScanner({ onDetected, onClose, locale = "de", paused = false, onFailure, reading = false }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const callbackRef = useRef(onDetected);
   const failureRef = useRef(onFailure);
@@ -171,7 +173,7 @@ export function QrScanner({ onDetected, onClose, locale = "de", paused = false, 
   return <section className={cx("counter-camera", styles.camera)} aria-label={french ? "Caméra de caisse" : "Kassenkamera"} lang={locale} hidden={paused}>
     <div className={cx("scanner-video-wrap", styles.video)}>
       <video ref={videoRef} autoPlay muted playsInline aria-label={french ? "Aperçu de la caméra" : "Kameravorschau für den QR-Code"} />
-      <span className={styles.sight} aria-hidden="true" />
+      <span className={styles.sight} data-read={reading || undefined} aria-hidden="true" />
     </div>
     <p className={styles.state} data-state={state} role={state === "error" ? "alert" : "status"}>{status}</p>
     <div className={styles.actions}>

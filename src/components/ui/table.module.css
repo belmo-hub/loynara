@@ -5,7 +5,7 @@
 .hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .caption { padding-bottom: var(--space-2); text-align: left; font-weight: var(--weight-strong); }
 .table th { position: sticky; top: var(--sticky-offset, 0px); z-index: var(--z-sticky); padding: var(--space-3); background: var(--color-surface); border-bottom: 1px solid var(--color-line); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-align: left; white-space: nowrap; }
-.table td { padding: var(--space-3); height: 52px; border-bottom: 1px solid var(--color-line); vertical-align: middle; }
+.table td { padding: var(--space-3); height: 52px; border-bottom: 1px solid var(--color-line); vertical-align: middle; transition: background-color var(--dur-press) var(--ease-out); }
 .table tbody tr:last-child td { border-bottom: 0; }
 .table :is(th, td)[data-align="end"] { text-align: right; }
 @media (hover: hover) and (pointer: fine) { .table tbody tr:has(a, button):hover td { background: color-mix(in oklab, var(--color-action-soft), transparent 40%); } }
@@ -15,3 +15,13 @@
   .table[data-stack] td { display: flex; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 32px; padding: var(--space-1) 0; border: 0; text-align: right; }
   .table[data-stack] td::before { content: attr(data-label); color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); text-align: left; }
 }
+/* List arrive: rows come in 30 ms apart, once, when they first render; from the seventh on they arrive together. */
+.table tbody tr { animation: row-in var(--dur-ui) var(--ease-out) backwards; }
+.table tbody tr:nth-child(2) { animation-delay: 30ms; }
+.table tbody tr:nth-child(3) { animation-delay: 60ms; }
+.table tbody tr:nth-child(4) { animation-delay: 90ms; }
+.table tbody tr:nth-child(5) { animation-delay: 120ms; }
+.table tbody tr:nth-child(6) { animation-delay: 150ms; }
+.table tbody tr:nth-child(n + 7) { animation-delay: 180ms; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .table tbody tr { animation: none; } }

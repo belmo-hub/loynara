@@ -223,3 +223,9 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+
+/* A request fades in once when it first shows (rows are keyed by request, so a poll never replays it); it carries a
+   card number, so it does not move. Notices fade in too. */
+.item, .notice, .outcome { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .item, .notice, .outcome { animation: none; } }

@@ -1,7 +1,17 @@
-.segmented { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
-.segment { min-height: var(--target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color var(--dur-press) ease, color var(--dur-press) ease; }
-.segment[aria-pressed="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
+.segmented { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
+/* Indicator slide: one pill behind the equal-width segments, moved to the selected one (--at of --count). */
+.segmented::before {
+  content: ""; position: absolute; top: var(--space-1); bottom: var(--space-1); left: var(--space-1);
+  width: calc((100% - var(--space-1) * (var(--count) + 1)) / var(--count)); border-radius: var(--radius-pill);
+  background: var(--color-raised); box-shadow: 0 0 0 1.5px var(--color-line-strong);
+  transform: translateX(calc(var(--at) * (100% + var(--space-1)))); transition: transform var(--dur-ui) var(--ease-in-out);
+}
+.segmented[data-none]::before { display: none; }
+.segment { position: relative; min-height: var(--target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-ink-muted); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); white-space: nowrap; cursor: pointer; transition: color var(--dur-press) var(--ease-out); }
+.segment[aria-pressed="true"] { color: var(--color-ink); }
 .segment:focus-visible, .tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .tabnav { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--color-line); }
-.tab { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--space-3); border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-decoration: none; white-space: nowrap; }
+.tab { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--space-3); border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-strong); text-decoration: none; white-space: nowrap; transition: color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .tab[aria-current="page"] { color: var(--color-ink); border-bottom-color: var(--color-action); }
+@media (hover: hover) and (pointer: fine) { .segment:hover, .tab:hover { color: var(--color-ink); } }
+@media (prefers-reduced-motion: reduce) { .segmented::before { transition: none; } }

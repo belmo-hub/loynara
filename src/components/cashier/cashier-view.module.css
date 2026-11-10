@@ -10,25 +10,31 @@
   background: var(--color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23CFD8D2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
 }
 .locale:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.menuButton { display: grid; place-items: center; width: var(--target); height: var(--target); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); }
+.menuButton { display: grid; place-items: center; width: var(--target); height: var(--target); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
+.menuButton:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .menuButton:hover { border-color: var(--color-ink); } }
 .menuButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* Opens under the header, at the right edge of the 560 px counter column. */
 .menu {
   position: fixed; inset: calc(env(safe-area-inset-top) + 60px) max(var(--gutter), calc((100vw - 560px) / 2 + var(--gutter))) auto auto; margin: 0;
   min-width: 220px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
+  /* Menu: fades and scales out of the button's corner, and leaves faster than it came. */
+  opacity: 0; transform: scale(.96); transform-origin: top right;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), overlay 160ms allow-discrete, display 160ms allow-discrete;
 }
-.menu:popover-open { display: grid; gap: var(--space-2); }
+.menu:popover-open { display: grid; gap: var(--space-2); opacity: 1; transform: none; transition-duration: var(--dur-ui); }
+@starting-style { .menu:popover-open { opacity: 0; transform: scale(.96); } }
 /* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
 .menu:popover-open > * { width: 100%; }
 .menu:popover-open :is(a, button, select) { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: var(--target-cashier); font-size: var(--text-18); }
 /* Browsers without the popover attribute show the three controls in the header, as before. */
-@supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; } }
+@supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; opacity: 1; transform: none; } }
 
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* The scan state's question; on every other state the heading stays for screen readers only. */
 .title { margin: var(--space-1) 2px 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
 
-.panel { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); background: var(--color-surface); }
+.panel { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); }
 .ready, .stack { display: grid; gap: var(--space-3); }
 .stack > :global(button):last-child:not(:first-child) { justify-self: start; }
 .eyebrow { color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
@@ -37,7 +43,22 @@
 .help { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 
 /* Open card: the one panel. The balance, its unit and the level on one line, the stamps under it, then the rewards. */
-.card { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-xl); background: var(--color-surface); }
+.card { position: relative; display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-xl); }
+/* Card arrive: the surface is its own layer, so it can settle (.98 to 1, fading in) while the card number and the
+   balance on it stand still from the first frame. */
+.panel::before, .card::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--color-surface); animation: surface var(--dur-ui) var(--ease-out) backwards; }
+.panel > *, .card > :not(dialog) { position: relative; }
+@keyframes surface { from { opacity: 0; transform: scale(.98); } }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes appear { from { opacity: 0; } }
+/* What is not a fact arrives in reading order: the preview's actions, notes, reward rows. The stamps are the balance,
+   so they stand still like the number; so does the scan form, which comes back after every booking. The question
+   arrives with the counter's first paint only (the heading stays mounted, so it never plays again). */
+.question, .panel > .stack, .card > .note, .card > .winback { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+.reward:nth-child(2) { animation-delay: 30ms; }
+.reward:nth-child(3) { animation-delay: 60ms; }
+.reward:nth-child(n + 4) { animation-delay: 90ms; }
 .cardHead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 .cardHead > div { display: grid; gap: var(--space-1); }
 .cardHead > :global(button) { margin-right: calc(-1 * var(--space-2)); }
@@ -55,7 +76,8 @@
 .reward {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--target-cashier); padding: var(--space-2) var(--space-4);
   border: 0; border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) ease;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
+  animation: row-in var(--dur-ui) var(--ease-out) backwards;
 }
 .reward > span:first-child { display: grid; gap: 2px; min-width: 0; }
 .reward strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -83,11 +105,19 @@
 .band {
   display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg);
   background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) ease;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
 }
 .band:active:not(:disabled) { transform: scale(.985); }
 .band:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .band:disabled { background: var(--color-action-soft); color: var(--color-ink-muted); cursor: not-allowed; }
+/* A redemption on its way keeps the band green; once it has waited 300 ms its arrow crossfades into a spinner. */
+.band[aria-busy="true"] { cursor: progress; }
+.bandNext { display: grid; place-items: center; flex: none; }
+.bandNext > * { grid-area: 1 / 1; }
+.band[aria-busy="true"] .bandNext svg { animation: leave var(--dur-ui) var(--ease-out) 300ms forwards; }
+.bandWait { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite, appear var(--dur-ui) var(--ease-out) 300ms backwards; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes leave { to { opacity: 0; } }
 @media (hover: hover) and (pointer: fine) { .band:hover:not(:disabled) { background: var(--color-action-hover); } }
 .bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 88%); }
 .bandText { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -97,11 +127,24 @@
 @media (max-width: 359px) { .bandIcon { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .reward, .band { transition: none; }
-  .reward:active:not(:disabled), .band:active:not(:disabled) { transform: none; }
+  .reward, .band, .menuButton { transition: none; }
+  .reward:active:not(:disabled), .band:active:not(:disabled), .menuButton:active { transform: none; }
+  .menu, .menu:popover-open { transform: none; }
+  .panel::before, .card::before, .question, .panel > .stack, .card > .note, .card > .winback, .reward { animation: none; }
+  /* The app-wide reduce rule sets every animation to .01 ms; the spinner turns slowly instead of flickering. */
+  .bandWait { animation-duration: 2s, .01ms !important; }
 }
 
-/* Outcomes. Reduced motion: no animation. */
+/* Outcomes answer where they appear: a fade and 4 px down. A typed card number that was rejected also shakes its
+   field once (2 × 4 px); the field is aria-invalid then, so with reduced motion the border alone turns. */
+.outcome { animation: outcome-in var(--dur-ui) var(--ease-out) backwards; }
+/* A second name for the same keyframes: when „Wird gebucht …“ turns into a refusal, the panel answers again without
+   being remounted (it is a live region). */
+.outcome:is([data-tone="rejected"], [data-tone="offline"]) { animation-name: outcome-answer; }
+@keyframes outcome-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes outcome-answer { from { opacity: 0; transform: translateY(-4px); } }
+.rejected input { animation: shake var(--dur-ui) var(--ease-in-out); }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 .outcome { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .outcomeIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-raised); color: var(--color-ink); }
 .outcomeText { display: grid; gap: var(--space-1); min-width: 0; overflow-wrap: anywhere; }
@@ -113,15 +156,16 @@
 .outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
 
 /* „Gebucht“ owns the top of the screen after a booking: the badge, the title, what was booked as a chip, the new
-   balance, the card number. The camera keeps running under it for the next card. It fades in over 160 ms with no
-   movement (cashiers see it dozens of times a shift, it must never hold up the next scan) and the tick draws once;
-   that is the screen's only motion. */
+   balance, the card number. The camera keeps running under it for the next card. It is the counter's reward moment,
+   all inside --dur-reward: the panel fades in over 160 ms and never moves itself (e2e/cashier.mobile.spec.ts pins
+   that); on it the badge lands like a pressed stamp (Stamp pop) with one ring and the tick draws. Every word on it
+   („Gebucht“, the amount, the new balance, the card number) stands still, and nothing here holds up the next scan. */
 .booked {
   display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-4) var(--space-2);
   text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
 }
 @starting-style { .booked { opacity: 0; } }
-.bookedIcon { display: grid; place-items: center; width: 112px; height: 112px; margin-bottom: var(--space-2); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
+.bookedIcon { position: relative; display: grid; place-items: center; width: 112px; height: 112px; margin-bottom: var(--space-2); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
 .booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
 .booked h2 { margin: 0; font: var(--weight-heavy) var(--display-num)/1.05 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
@@ -138,9 +182,16 @@
 .bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
 .bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
-.booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick 220ms var(--ease-out) 60ms both; }
+.bookedIcon { animation: land var(--dur-reward) var(--ease-out) backwards; }
+.booked[data-tone="success"] .bookedIcon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: ring var(--dur-reward) var(--ease-out); }
+.booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick var(--dur-ui) var(--ease-out) 140ms backwards; }
+@keyframes land { 0% { opacity: 0; transform: scale(1.3); } 60% { opacity: 1; transform: scale(.94); } }
+@keyframes ring { from { opacity: .7; transform: scale(.9); } to { opacity: 0; transform: scale(1.3); } }
 @keyframes tick { from { stroke-dashoffset: 24; } }
-@media (prefers-reduced-motion: reduce) { .booked { transition: none; } .bookedIcon path, .outcomeIcon path { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .booked { transition: none; }
+  .outcome, .rejected input, .bookedIcon, .booked[data-tone="success"] .bookedIcon::after, .booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { animation: none; }
+}
 
 /* Loading and blocked access */
 .access { width: auto; display: grid; gap: var(--space-3); padding: var(--space-6) var(--space-4); border: 0; border-radius: var(--radius-xl); background: var(--color-surface); }

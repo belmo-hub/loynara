@@ -4,8 +4,10 @@
   width: 100%; min-width: 0; min-height: 48px; padding: 0 var(--space-4);
   border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink);
   font: var(--weight-body) var(--text-16)/1.4 var(--font-sans);
-  transition: border-color var(--dur-press) ease, box-shadow var(--dur-press) ease;
+  transition: border-color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), outline-color var(--dur-press) var(--ease-out);
 }
+/* The focus ring fades in from a transparent one; forced colours would draw that, so it stays out there. */
+@media (forced-colors: none) { .input { outline: 2px solid transparent; outline-offset: 2px; } }
 .input::placeholder { color: var(--color-ink-muted); opacity: 1; }
 .input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .input[aria-invalid="true"] { border-color: var(--color-danger); }
@@ -14,3 +16,8 @@
 .hint { font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 .error { font-size: var(--text-14); line-height: 1.45; font-weight: var(--weight-label); color: var(--color-danger); }
 .hint, .error { margin: 0; }
+/* Field error: the message fades in and settles 4 px down; the border above changes over --dur-press. */
+.error { animation: error-in var(--dur-ui) var(--ease-out) backwards; }
+@keyframes error-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes error-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .error { animation-name: error-fade; } }
