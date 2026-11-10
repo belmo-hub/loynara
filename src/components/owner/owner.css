@@ -679,6 +679,8 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 .ly-theme-dark .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
 @media (prefers-color-scheme: dark) { .ly-theme-auto .ow-strip-bar[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); } }
 .ow-strip-bar[data-empty] { background: none; border: 1px dashed var(--color-line-strong); }
+/* Today, or the week still running: an outline, since its count is not final. */
+.ow-strip-bar[data-today] { background: none; border: 1.5px solid var(--color-action); }
 /* Equal columns (a wider bar would read as more, Design 24 Oct): „gestern“ may overflow its column, centred, into the gaps. */
 .ow-strip-d { font-size: var(--text-14); color: var(--color-ink-muted); white-space: nowrap; }
 .ow-strip-d[data-yesterday] { font-weight: var(--weight-heavy); color: var(--color-ink); }

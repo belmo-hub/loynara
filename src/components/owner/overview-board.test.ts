@@ -111,6 +111,17 @@ describe("Übersicht direction D (ENG-085)", () => {
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
+  it("the strip ends on today, drawn as not final from the same read's diary; the headline stays on the complete days", () => {
+    expect(render()).toMatch(new RegExp(`letzte 7 Tage: [^"]*gestern 3${NBSP}Buchungen, heute 0${NBSP}Buchungen"`)); // no entry today: a true 0
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [{ date: "2026-11-04", bookings: 29, units: 29, more: 0, entries: [] }, ...analytics().diary] }));
+    const html = render();
+    expect(html).toMatch(new RegExp(`letzte 7 Tage: [^"]*gestern 3${NBSP}Buchungen, heute 29${NBSP}Buchungen"`));
+    expect(html.match(/class="ow-strip-day"/g)).toHaveLength(7); // six complete days and today
+    expect(html).toContain('<span class="ow-strip-n">29</span><span class="ow-strip-bar" data-today="" style="height:72px">');
+    expect(html.match(/data-lit=""/g)).toHaveLength(1); // yesterday, as before
+    expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
+  });
+
   it("a cold load shows nothing before every read the band is chosen from has answered, and writes the greeting once", () => {
     state.me = me({ userId: "first-visit" }); // no greeting kept from an earlier screen
     delete state.loads["/api/merchant/readiness"];
