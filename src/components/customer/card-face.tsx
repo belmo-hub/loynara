@@ -19,7 +19,7 @@ export function nearestReward<T extends CardReward>(rewards: T[], balance: numbe
  * next reward, with the code ticket passed in as children. The guest's card page and the owner's previews both use
  * it, so the owner sees exactly what guests see. Colours come from the merchant palette variables on an ancestor.
  */
-export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, landedCount, locale = "de", progress = true, business = true, tag, className, children }: {
+export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, landedCount, locale = "de", progress = true, business = true, tag, grow, className, children }: {
   businessName: string; locationName: string; programType: "stamps" | "points"; balance: number; rewards: CardReward[];
   /** The reward the progress line refers to. */
   selected?: CardReward;
@@ -31,6 +31,8 @@ export function CardFace({ businessName, locationName, programType, balance, rew
   business?: boolean;
   /** The card's level (Bronze, Silber, Gold) in the top corner; the guest's page shows its ready band instead of the ready tag. */
   tag?: string; className?: string; children?: ReactNode;
+  /** The ladder fill (or a long programme's track) grows from the start: the guest card page's first paint, and nowhere else. */
+  grow?: boolean;
 }) {
   const t = copyFor(locale);
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
@@ -43,8 +45,8 @@ export function CardFace({ businessName, locationName, programType, balance, rew
     </div>
     {programType === "points" ? <p className={`customer-balance-line ${styles.pointsLead}`}><strong><NumberRoll value={balance}>{number.format(balance)}</NumberRoll> <em>{t.unit(balance, programType)}</em></strong></p> : null}
     {programType === "stamps" && selected
-      ? <StampGrid earned={balance} total={selected.cost} landed={landed} landedCount={landedCount} locale={locale} reward={<Gift size={22} />} className={styles.stamps} />
-      : <PointsLadder balance={balance} rewards={rewards} landedFrom={landed === undefined ? undefined : landed - (landedCount ?? 1)} locale={locale} titles className={styles.ladder} />}
+      ? <StampGrid earned={balance} total={selected.cost} landed={landed} landedCount={landedCount} locale={locale} reward={<Gift size={22} />} className={styles.stamps} grow={grow} />
+      : <PointsLadder balance={balance} rewards={rewards} landedFrom={landed === undefined ? undefined : landed - (landedCount ?? 1)} locale={locale} titles className={styles.ladder} grow={grow} />}
     {programType === "stamps" && selected ? <p className={`customer-balance-line ${styles.balanceLine}`}><span><Gift size={18} aria-hidden="true" />{selected.title}</span><strong>{t.of(number.format(Math.min(balance, selected.cost)), number.format(selected.cost))}</strong></p> : null}
     {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), t.unit(remaining, programType), selected.title)}</p> : null}
     {children}

@@ -34,13 +34,15 @@
 .body > :nth-child(3) { animation-delay: 160ms; }
 .body > :nth-child(n + 4) { animation-delay: 200ms; }
 @keyframes arrive { from { opacity: 0; transform: translateY(var(--arrive-shift, 8px)); } }
-/* Still asking: nothing for the first 300 ms, then a fade, so a quick answer never flashes the waiting words. */
-.state[data-loading] > * { animation: appear var(--dur-ui) var(--ease-out) 300ms backwards; }
+/* Waiting (after 300 ms): nothing for the first 300 ms, then a fade, so a quick answer never flashes the waiting words.
+   The actions below them arrive as usual and can be seen and tapped at once. */
+.state[data-loading] > :not(.body) { animation: appear var(--dur-ui) var(--ease-out) 300ms backwards; }
 @keyframes appear { from { opacity: 0; } }
-/* State change (the tap page waiting, booked, rejected, expired): the old words fade out under the new ones. */
-.swap { display: grid; }
-.swap > * { grid-area: 1 / 1; }
-.out { animation: swap-out var(--dur-press) var(--ease-out) forwards; }
+/* Screen change, in place (the tap page waiting, booked, rejected, expired): the old words leave the layout at once
+   and fade out over the new ones, so nothing below waits for them or moves a second time. */
+.swap { display: grid; position: relative; }
+.out { position: absolute; inset: 0 0 auto 0; animation: swap-out var(--dur-press) var(--ease-out) forwards; }
 .in { animation: appear var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) backwards; }
 @keyframes swap-out { to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .state > :not(.body), .body > *, .state[data-loading] > *, .in { animation: none; } }
+/* Reduced motion keeps the 300 ms hold of the waiting words; the app-wide rule shortens their fade. */
+@media (prefers-reduced-motion: reduce) { .state:not([data-loading]) > :not(.body), .body > *, .in { animation: none; } }

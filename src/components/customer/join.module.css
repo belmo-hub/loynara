@@ -67,8 +67,8 @@
 .messages h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; text-wrap: balance; }
 .notice { margin: 0; line-height: 1.5; }
 
-/* Arrive (first paint): the preview card, then the panel 40 ms later; its slots draw in meanwhile (stamp-grid.module.css),
-   so the card is the page's one rich moment. A panel that shows a card number only fades: the number does not move. */
+/* Arrive (first paint): the preview card as one block, then the panel 40 ms later. A panel that shows a card number
+   only fades: the number does not move. */
 .hero, .panel { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
 .panel { animation-delay: 40ms; }
 .panel:has(.cardNumber) { --arrive-shift: 0px; }

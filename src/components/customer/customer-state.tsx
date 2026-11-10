@@ -32,16 +32,17 @@ export function CustomerState({ title, message, tone = "info", icon, locale = "d
     <section className={`card-state-page ${styles.state}`} data-tone={tone} data-loading={loading || undefined}>
       {/* The tile marks an error before a word is read (G-07); other states carry no decorative icon. */}
       {icon && tone === "error" ? <span className={styles.icon} data-tone={tone} aria-hidden="true">{icon}</span> : null}
-      <h1 ref={heading} tabIndex={-1} className={styles.title}><Swap id={state}>{title}</Swap></h1>
-      {message ? <p key={tone} className={styles.message} role={tone === "error" ? "alert" : live ? "status" : undefined} aria-live={live && tone !== "error" ? "polite" : undefined}><Swap id={state}>{message}</Swap></p> : null}
+      <h1 ref={heading} tabIndex={-1} className={styles.title}><Swap key={String(loading)} id={state}>{title}</Swap></h1>
+      {message ? <p key={tone} className={styles.message} role={tone === "error" ? "alert" : live ? "status" : undefined} aria-live={live && tone !== "error" ? "polite" : undefined}><Swap key={String(loading)} id={state}>{message}</Swap></p> : null}
       {children ? <div className={styles.body}>{children}</div> : null}
     </section>
   </CustomerShell>;
 }
 
 /**
- * State change: words that change in place. The old ones fade out under the new ones, which fade in after them. The
- * first state is plain text, as the server sent it.
+ * Screen change, in place: words that change where they stand. The old ones leave the layout at once and fade out
+ * over the new ones, which fade in after them. The first state is plain text, as the server sent it. The screen keys
+ * it by its `loading`, so the first real state follows the waiting words by arriving, never by fading them out.
  */
 function Swap({ id, children }: { id: string; children: ReactNode }) {
   const [first] = useState(id);

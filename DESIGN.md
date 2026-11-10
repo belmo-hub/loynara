@@ -16,7 +16,7 @@ objects and CSS inside strings. Each exception names the exact rule and its reas
 2. **Facts never move.** Balances, codes and prices do not animate in ways that hide their value; numbers use tabular figures.
 3. **The stamp is the reward moment.** Coral (`--color-stamp`) appears only where something was earned or is redeemable. It is decorative, never text.
 4. **Merchant colour, guaranteed contrast.** Every shop picks its colour; the system derives readable companions automatically.
-5. **Calm by default.** Motion answers an action or marks a reward. No idle loops, no scroll theatre.
+5. **Alive, never busy.** Every screen arrives and every change is shown, in the house durations. No idle loops, no scroll theatre, no motion on facts, and nothing waits on an animation.
 
 ## Surfaces
 
@@ -128,31 +128,28 @@ or nothing).
 
 | Motion (vocabulary name) | Where | Spec | Reduced motion |
 |---|---|---|---|
-| Press / tap feedback | every button and pressable row | scale .97, `--dur-press` `--ease-out`, transform only | none |
+| Press / tap feedback | every button and pressable row | scale .97, `--dur-press` `--ease-out`, transform only; „Karte aktualisieren“ also turns its icon once per press, `--dur-ui` `--ease-out` | none |
 | Fade in + scale in | dialogs (centred origin), menus (origin-aware) | from opacity 0, scale .96; exit 160 ms | fade only |
-| Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; swipe to dismiss | fade only |
+| Slide in | sheets from the bottom, "Mehr" drawer | translateY(100%) → 0, 260 ms `--ease-drawer`; exit 160 ms `--ease-out`; the backdrop fades with the panel, 260 ms in and 160 ms out, `--ease-out`; swipe to dismiss | fade only |
 | Slide in + fade | toasts from the bottom edge; exit faster than enter | `--dur-ui` | fade only |
 | Pop in | the newest stamp after a booking (once per change) | scale 1.3 → .94 → 1 with its resting rotation, `--dur-reward` | instant |
 | Skeleton to content (card) | customer card page | the placeholder lies over the loaded page in the same frame and fades out, `--dur-ui` `--ease-out`; the page under it takes taps from the first frame | page at once |
 | Card arrive | customer card object, first paint | the card's ground scales .98 → 1 and fades, `--dur-ui`, once; ticket, number and balance stand still | instant |
-| List arrive (guest) | card rows on first paint, rows behind „Alle anzeigen“ | 6 px rise and fade, 30 ms apart, at most 8 rows, done by 420 ms | instant |
-| Arrive (guest) | guest state screens, join hero and panel | 8 px rise and fade, `--dur-ui`, 40 ms apart; blocks that hold a fact only fade | instant |
-| Slots draw | join page preview card | slots scale .6 → 1 and fade, 30 ms apart (ladder marks 40 ms), the goal slot last | instant |
-| Bars grow (guest) | points ladder fill, long-programme track | scaleX from 0, `--dur-reward` `--ease-in-out` | final state |
-| State change | title and message of a guest state screen | old out `--dur-press`, new in `--dur-ui` after `--dur-press`/2 | instant swap |
-| Loading words | a state screen still asking | nothing for 300 ms, then a fade over `--dur-ui` | shown at once |
-| Disclosure (guest) | notices, close confirmation, „Alle anzeigen“ | open: rows 0fr → 1fr over `--dur-ui`, fade after `--dur-press`; close: fade `--dur-press`, rows 160 ms | instant |
+| List arrive (guest) | rows opened by „Alle anzeigen“ and rows a later read adds; rows under the page's placeholder don't rise | 6 px rise and fade, 30 ms apart, at most 8 rows, done by 420 ms | instant |
+| Arrive (guest) | guest state screens, join preview card and panel (each as one block) | 8 px rise and fade, `--dur-ui`, 40 ms apart; blocks that hold a fact only fade | instant |
+| Bars grow (guest) | points ladder fill and long-programme track, on the card page's first paint only | scaleX from 0, `--dur-reward` `--ease-in-out`; outside the 420 ms budget, done by 700 ms; a later change grows from the old value to the new | final state |
+| Waiting (after 300 ms) | a state screen still asking; a button's spinner | nothing for 300 ms, then the words fade in over `--dur-ui` or the spinner turns; a quicker answer replaces them unseen | the 300 ms hold stays; no fade, a slow spinner (2 s) |
+| Disclosure (guest) | notices, close confirmation, „Alle anzeigen“ | open: rows 0fr → 1fr over `--dur-ui`, fade after `--dur-press`; close: fade `--dur-press` and rows 160 ms, together | instant |
 | Field error (guest) | message lines on guest pages | fade and 4 px down, `--dur-ui` | instant |
-| Refresh turn | „Karte aktualisieren“ icon | one full turn per press, `--dur-reward` `--ease-in-out` | none |
-| Sheet backdrop | all sheets | opacity with the panel, 260 ms in and 200 ms out | cut |
 | Number ticker | balance and KPI values when they change | digits roll, tabular numbers, `--dur-reward` | instant |
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
 | Screen change | owner screens: tabs, rows, back links (React `ViewTransition`) | old out `--dur-press` `--ease-out`, new in `--dur-ui` `--ease-out` after `--dur-press`/2, bars stay | cut |
+| Screen change, in place | title and message of a guest state screen (tap page: waiting, booked, rejected, expired) | the old words leave the layout at once and fade out over `--dur-press`; the new fade in over `--dur-ui` after `--dur-press`/2 | instant swap |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, 240 ms | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content | linear 1.4 s loop | static tint |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
 
-No hover lift on cards, no stagger on page load, no animation on keyboard-triggered actions.
+No hover lift on cards, no animation on keyboard-triggered actions; a screen's first paint follows Arrive.
 
 ## Layout patterns
 

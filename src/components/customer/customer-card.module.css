@@ -65,8 +65,8 @@
 /* Not green: the one next step is the band (Design, 31 Oct). */
 .refresh .refreshButton { color: var(--color-ink-muted); }
 @media (hover: hover) { .refresh .refreshButton:hover { background: var(--color-fill); color: var(--color-ink); } }
-/* „Karte aktualisieren“ answers the press with one full turn of its icon, whatever the read takes; never a loop. */
-.turn { animation: turn var(--dur-reward) var(--ease-in-out); }
+/* „Karte aktualisieren“ answers the press with one turn of its icon (Press), whatever the read takes; never a loop. */
+.turn { animation: turn var(--dur-ui) var(--ease-out); }
 @keyframes turn { to { transform: rotate(360deg); } }
 
 /* Phone: one column in source order. From 960 px the shell runs two columns and these become them (G-34). */
@@ -231,19 +231,20 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 
 /* First paint only (data-arriving, taken away after half a second, so a re-read replays nothing).
    Card arrive: the card's ground settles from .98 and fades in while the code, the number and the balance stay still;
-   for that moment ::before paints the ground. List arrive: rows come in 30 ms apart, at most 8, done by 420 ms; the rows
-   behind „Alle anzeigen“ arrive the same way when they open. */
-.rows > :nth-child(2), .activityRows > :nth-child(2) { --row: 1; }
-.rows > :nth-child(3), .activityRows > :nth-child(3) { --row: 2; }
-.rows > :nth-child(4), .activityRows > :nth-child(4) { --row: 3; }
-.rows > :nth-child(5), .activityRows > :nth-child(5) { --row: 4; }
-.rows > :nth-child(6), .activityRows > :nth-child(6) { --row: 5; }
-.rows > :nth-child(7), .activityRows > :nth-child(7) { --row: 6; }
-.rows > :nth-child(n + 8), .activityRows > :nth-child(n + 8) { --row: 7; }
+   for that moment ::before paints the ground. Rows under the placeholder do not rise.
+   List arrive: an activity row that joins the painted page (opened by „Alle anzeigen“, or added by a later read)
+   rises 6 px and fades, 30 ms apart, at most 8, done by 420 ms. */
+.activityRows > :nth-child(2) { --row: 1; }
+.activityRows > :nth-child(3) { --row: 2; }
+.activityRows > :nth-child(4) { --row: 3; }
+.activityRows > :nth-child(5) { --row: 4; }
+.activityRows > :nth-child(6) { --row: 5; }
+.activityRows > :nth-child(7) { --row: 6; }
+.activityRows > :nth-child(n + 8) { --row: 7; }
 @media (prefers-reduced-motion: no-preference) {
   .lead[data-arriving] .object { isolation: isolate; background: none; box-shadow: none; }
   .lead[data-arriving] .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
-  .rest[data-arriving] .rows > *, .rest[data-arriving] .activityRows > li, .activityMore li { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
+  .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
 }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }

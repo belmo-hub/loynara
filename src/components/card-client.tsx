@@ -61,7 +61,8 @@ export function CardClient({ token }: { token: string }) {
   const [card, setCard] = useState<CardResponse | null>(null);
   const [switchRequired, setSwitchRequired] = useState(false);
   const [authenticationRequired, setAuthenticationRequired] = useState(false);
-  const [bindingError, setBindingError] = useState("");
+  // The words stay while the notice closes; `shown` opens and closes it.
+  const [bindingError, setBindingError] = useState({ text: "", shown: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [walletScope, setWalletScope] = useState<{ token: string; availability: WalletAvailability } | null>(null);
@@ -206,14 +207,14 @@ export function CardClient({ token }: { token: string }) {
   }
 
   async function bindBrowser(data: { authenticate: true } | { switchAccount: true }) {
-    setBindingError("");
+    setBindingError(current => ({ ...current, shown: false }));
     try {
       await postJson(`/api/tap/card/${encodeURIComponent(token)}/session`, data);
       setAuthenticationRequired(false); setSwitchRequired(false); continueTap();
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") {
         setAuthenticationRequired(false); setSwitchRequired(true);
-      } else setBindingError(cardError(cause));
+      } else setBindingError({ text: cardError(cause), shown: true });
     }
   }
 
@@ -237,14 +238,16 @@ export function CardClient({ token }: { token: string }) {
   </CardState>;
   const french = card.locale === "fr";
   const expiry = card.programType === "points" && Boolean(card.pointsExpiry || card.pendingExpiry);
-  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${index}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Gesammelt" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: activityDay(entry.createdAt, french ? "fr-FR" : "de-DE"), change: entry.delta }));
+  // Keyed from the old end (entries of one instant are told apart by how many older ones share it), so a new booking
+  // adds one row and leaves the others as they are.
+  const activity = card.activity.map((entry, index) => ({ id: `${entry.createdAt}-${card.activity.slice(index + 1).filter(older => older.createdAt === entry.createdAt).length}`, label: entry.kind === "award" && entry.isWelcomeBonus ? french ? "Bonus de bienvenue" : "Startbonus" : entry.kind === "award" && entry.isHappyHour ? "Happy Hour" : entry.kind === "award" && entry.isWinbackBonus ? french ? "Bonus de retour" : "Willkommen-zurück-Bonus" : entry.kind === "award" && entry.isBirthdayBonus ? french ? "Bonus d’anniversaire" : "Geburtstags-Bonus" : entry.kind === "award" && entry.isChallengeBonus ? french ? "Défi du mois" : "Monats-Challenge" : entry.kind === "award" ? entry.isPurchase ? french ? "Achat enregistré" : "Kauf erfasst" : french ? "Visite enregistrée" : "Gesammelt" : entry.kind === "redeem" ? french ? "Récompense utilisée" : "Prämie eingelöst" : entry.kind === "expiry" ? french ? "Points expirés" : "Punkte verfallen" : french ? "Correction" : "Korrektur", date: activityDay(entry.createdAt, french ? "fr-FR" : "de-DE"), change: entry.delta }));
   const shop = { shop: card.merchantName, location: card.locationName };
   const emailStatus = !french && email.status?.available ? email.status : null;
   const notices = <>
     {/* Each notice opens and closes in place (Row add / remove), so the sections below never jump. */}
     <Reveal open={authenticationRequired} gap="var(--space-4)"><section role="alert" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section></Reveal>
     <Reveal open={switchRequired} gap="var(--space-4)"><section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section></Reveal>
-    <Reveal open={Boolean(bindingError)} gap="var(--space-4)"><p role="alert" className={noticeClass}>{bindingError}</p></Reveal>
+    <Reveal open={bindingError.shown} gap="var(--space-4)"><p role="alert" className={noticeClass}>{bindingError.text}</p></Reveal>
     {savedView && <CardWalletMessages token={token} expiry={expiry} onShown={setConsentUp} />}
     <Reveal open={!french && offerShown && !savedView} gap="var(--space-4)"><EmailOffer token={token} shop={shop} reload={email.reload} onSent={() => setOfferKept(true)} onClose={() => setOfferClosed(true)} /></Reveal>
     <Reveal open={wallet?.apple === "available" && wallet.appleReAdd === true && platform !== "android"} gap="var(--space-4)"><section role="status" className={noticeClass}><p>{french ? "Votre carte Apple Wallet change de version. Ajoutez-la une nouvelle fois pour que votre solde y reste à jour. L’ancienne carte ne sera ensuite plus mise à jour : vous pouvez la supprimer." : "Deine Karte in Apple Wallet bekommt eine neue Version. Füge sie bitte einmal neu hinzu, damit dein Stand dort aktuell bleibt. Die alte Karte wird danach nicht mehr aktualisiert. Du kannst sie aus Wallet löschen."}</p><Button variant="secondary" size="sm" disabled={walletBusy !== null} onClick={() => void addToAppleWallet()}>{french ? "Ajouter de nouveau à Apple Wallet" : "Neu zu Apple Wallet hinzufügen"}</Button></section></Reveal>

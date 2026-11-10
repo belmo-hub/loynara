@@ -186,8 +186,8 @@ export function JoinClient({ slug }: { slug: string }) {
     <h1 className={styles.business}>{program.businessName}</h1>
     <p className={styles.location}>{program.locationName}</p>
     {program.programType === "points"
-      ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles draw />
-      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} draw />}
+      ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles />
+      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} />}
     {rewardLine}
   </section>;
 

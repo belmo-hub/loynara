@@ -104,11 +104,11 @@ export function CustomerCard(props: CustomerCardProps) {
   const [sheet, setSheet] = useState<"wallet" | "rules" | "return" | "email" | null>(null);
   const [allActivity, setAllActivity] = useState(false);
   const closeSheet = () => setSheet(null);
-  // The first paint only: the placeholder fades off the page, the card settles and the rows arrive. A later re-read
-  // (the page reads itself every few seconds) finds this off and replays nothing.
+  // The first paint only: the placeholder fades off the page, the card settles and, without a booking moment, its
+  // ladder fill grows. A later re-read (the page reads itself every few seconds) finds this off and replays nothing.
   const [arriving, setArriving] = useState(true);
   useEffect(() => { const timer = setTimeout(() => setArriving(false), ARRIVE_MS); return () => clearTimeout(timer); }, []);
-  // One full turn of the icon per press, whatever the read takes.
+  // The icon answers each press with one turn, whatever the read takes.
   const [turn, setTurn] = useState(0);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
   const nearest = nearestReward(rewards, balance);
@@ -123,10 +123,10 @@ export function CustomerCard(props: CustomerCardProps) {
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
-  const activityRow = (item: CardActivity) => <li key={item.id}>
+  const activityRow = (item: CardActivity) => <ActivityRow key={item.id} late={!arriving}>
     <small className={styles.activityDay}>{item.date}</small><strong>{item.label}</strong>
     <b data-sign={item.change < 0 ? "minus" : undefined}>{item.change > 0 ? "+" : ""}{item.change} {t.unit(item.change, programType)}</b>
-  </li>;
+  </ActivityRow>;
   // The goal is the page's heading; a programme without a reward has none, so the shop's name takes the h1.
   const Name = selected ? "p" : "h1";
 
@@ -151,7 +151,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
         <div>
-        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined}>
+        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined} grow={arriving && !moment}>
           <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
             {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
             {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{toldReady > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
@@ -171,7 +171,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
     </div>
 
-    <div className={styles.rest} data-arriving={arriving || undefined}>
+    <div className={styles.rest}>
       {notes.length ? <Section name="notes" title={t.goodToKnow}>
         <ul className={styles.rows}>{notes.map(({ key, icon: Icon, warn, body }) => <li key={key} className={styles.row}>
           <span className={styles.rowIcon} data-tone={warn ? "warn" : undefined}><Icon size={22} aria-hidden="true" /></span>
@@ -244,8 +244,17 @@ export function CustomerCard(props: CustomerCardProps) {
 
 /** Rows of activity before „Alle anzeigen“ (G-21). */
 const ACTIVITY_ROWS = 3;
-/** How long the first paint's motion may run (List arrive ends at 420 ms). */
-const ARRIVE_MS = 480;
+/** How long the first paint's motion may run: Bars grow takes --dur-reward (480 ms) from the first frame. */
+const ARRIVE_MS = 520;
+
+/**
+ * One activity row. A row that joins a page already painted (opened by „Alle anzeigen“, or added by a later read)
+ * arrives; the rows of the first paint stand still under the placeholder. Decided once, when the row is made.
+ */
+function ActivityRow({ late, children }: { late: boolean; children: ReactNode }) {
+  const [arrives] = useState(late);
+  return <li data-arrives={arrives || undefined}>{children}</li>;
+}
 
 /** The card page's placeholder, in the card's own classes, so it has the card's shape and columns. */
 const cardSkeleton = {

@@ -214,8 +214,9 @@ export function TapClient({ refId }: { refId: string }) {
       <p className={styles.muted}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p>
       <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </div>}
-    {/* Keyed: once booked the row is the green next step under the card, so it arrives there instead of jumping. */}
-    {preview?.cardPath && state !== "needs_enrollment" && <StateLink key={done ? "booked" : "open"} href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
+    {/* Keyed by where it stands: under the waiting words, under the state's blocks, or as the green next step under
+        the booked card. In each place it arrives instead of jumping there. */}
+    {preview?.cardPath && state !== "needs_enrollment" && <StateLink key={done ? "booked" : state === "loading" ? "wait" : "open"} href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     {walletProgram && recoveryCard && <WalletStep band stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}
