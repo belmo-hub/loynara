@@ -95,16 +95,16 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
-/* Screen to screen (owner-shell): the old content leaves fast and the new one arrives, 16 px from the side it came from
-   when the step goes in or back out; a page that arrives after its loading state comes in the same way. Browsers
-   without view transitions swap as before. */
+/* Screen to screen (owner-shell): the old content stays until the new screen is ready (the area has no loading route),
+   then fades out, and only after that the new one fades in, 16 px from the side it came from when the step goes in or
+   back out. Never an empty frame, never both at once. Browsers without view transitions swap as before. */
 ::view-transition { pointer-events: none; }
 /* The bars the content scrolls under are captured on their own, or the leaving content would be drawn over them. */
 .ow-topbar { view-transition-name: ow-topbar; }
 .ow-subnav { view-transition-name: ow-subnav; }
 .ow-tabs { view-transition-name: ow-tabs; }
 ::view-transition-old(.ow-screen) { animation: ow-fade var(--dur-press) ease-in both reverse; }
-::view-transition-new(.ow-screen) { animation: ow-screen var(--dur-ui) var(--ease-out) both; }
+::view-transition-new(.ow-screen) { animation: ow-screen var(--dur-ui) var(--ease-out) var(--dur-press) both; }
 :root:has(.ow-body[data-move="in"])::view-transition-new(.ow-screen) { --ow-move: var(--space-4); }
 :root:has(.ow-body[data-move="out"])::view-transition-new(.ow-screen) { --ow-move: calc(-1 * var(--space-4)); }
 @keyframes ow-screen { from { opacity: 0; translate: var(--ow-move, 0) 0; } }

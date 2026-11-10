@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import GlobalError from "./global-error";
 import NotFound from "./not-found";
-import { PageLoading, SystemState } from "@/components/ui/system-state";
+import { SystemState } from "@/components/ui/system-state";
 
 const error = Object.assign(new Error("database password is hunter2"), { digest: "123456" });
 const noop = () => undefined;
@@ -34,22 +34,19 @@ describe("system states", () => {
     expect(recover).toBeLessThan(login);
   });
 
-  it("the loading placeholder is a busy region with a spoken label", () => {
-    const html = renderToStaticMarkup(h(PageLoading));
-    expect(html).toContain('aria-busy="true"');
-    expect(html).toContain("Seite wird geladen");
-    expect(html).not.toContain('role="status"');
-  });
-
   it("no loading boundary sits above the root page or the sign-up redirect", () => {
     // A Suspense boundary there turns redirect("/login") into a 200 with a client-side redirect.
     expect(existsSync("src/app/loading.tsx")).toBe(false);
+  });
+
+  it("the owner area has no loading route: the screen in view stays until the next one is ready, then they change with the screen transition", () => {
+    expect(existsSync("src/app/merchant/loading.tsx")).toBe(false);
   });
 });
 
 describe("route state files", () => {
   it("every loading, error and not-found file exports a default component", async () => {
-    for (const file of ["merchant/loading", "cashier/loading", "error", "merchant/error", "cashier/error", "global-error", "not-found", "merchant/not-found"]) {
+    for (const file of ["cashier/loading", "error", "merchant/error", "cashier/error", "global-error", "not-found", "merchant/not-found"]) {
       const route = await import(`./${file}.tsx`);
       expect(typeof route.default, file).toBe("function");
     }
