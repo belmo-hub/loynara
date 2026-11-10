@@ -96,8 +96,12 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   // The row's place, read before the change: during it every round trip pushes the tap later.
   await page.goto("/merchant/more");
   const box = (await team().boundingBox())!;
-  const token = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--dur-press").trim());
-  expect(await token(), "the drop window is --dur-press").toBe("120ms");
+  // In ms, read the way the shell reads it: the built CSS may write the token as ".12s".
+  const token = () => page.evaluate(() => {
+    const value = getComputedStyle(document.documentElement).getPropertyValue("--dur-press").trim();
+    return Math.round(parseFloat(value) * (value.endsWith("ms") ? 1 : 1000));
+  });
+  expect(await token(), "the drop window is --dur-press").toBe(120);
   // A runner's round trips alone take a tap about 130 ms into the change, so the window and the fade are stretched for
   // this test: the shell reads its window from --dur-press, and the change outlasts the late tap. Same code path, same rule.
   const [press, ui] = [400, 1200];
@@ -105,7 +109,7 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
     await page.goto("/merchant/program");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.addStyleTag({ content: `html:root { --dur-press: ${press}ms; --dur-ui: ${ui}ms; }` });
-    expect(await token()).toBe(`${press}ms`);
+    expect(await token()).toBe(press);
     await page.waitForTimeout(500);
     // How far into the change the tap came, by the shell's own clock.
     await page.evaluate(() => window.addEventListener("pointerdown", () => {
