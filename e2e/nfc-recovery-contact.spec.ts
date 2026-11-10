@@ -136,7 +136,8 @@ test("real isolated email delivery verifies recovery contact and restores origin
     expect(approvals.every(r=>r.status()===200)).toBe(true);
     await expect(fresh.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
     expect(await sql("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award' ORDER BY created_at",[original.id])).toEqual([{delta:1},{delta:1}]);
-    expect(await sql("SELECT id,provider_object_id,revoked_at FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked_at:null}]);
+    // The second recovery leaves the withdrawn pass as it is: still one row, still revoked.
+    expect(await sql("SELECT id,provider_object_id,revoked_at IS NOT NULL AS revoked FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked:true}]);
     expect((await sql("SELECT count(*)::int AS n FROM memberships WHERE program_id=ANY($1::uuid[])",[[a.me.programId,b.me.programId]]))[0].n).toBe(2);
     expect((await sql("SELECT count(*)::int AS n FROM consent_events WHERE membership_id=ANY($1::uuid[]) AND purpose='marketing' AND granted=true",[[original.id,(await sql("SELECT id FROM memberships WHERE program_id=$1",[b.me.programId]))[0].id]]))[0].n).toBe(0);
     const unknown=await newDevice.request.post("/api/recover",{headers:origin,data:{email:`unknown-${randomUUID()}@example.test`}});
