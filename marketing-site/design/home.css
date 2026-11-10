@@ -122,10 +122,12 @@ p{text-wrap:pretty}
 .hero h1 .g{color:var(--action)}
 @media (min-width:1024px){.hero h1{font-size:clamp(60px,5.9vw,86px);line-height:.96}.hero h1 .ln{white-space:nowrap}}
 .hero-stage{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:48px;margin-top:20px}
-/* The sign follows the phone's width, and both shrink on a short desktop screen, so the sign never reaches the side
-   buttons and the whole hero fits the first screen. */
+/* The sign follows the phone's width. On desktop the phone follows the window height, so the sign and both buttons sit
+   on the first screen down to about 640 px, and never below 208 px, where the sign would cover the card's „Beispiel“.
+   Short windows also get a smaller headline. */
 .hero{--hero-pw:268px}
-@media (min-width:1024px) and (max-height:860px){.hero{--hero-pw:228px}}
+@media (min-width:1024px){.hero{--hero-pw:clamp(208px,calc(40vh - 82px),268px)}.hero h1{font-size:clamp(60px,min(5.9vw,10vh),86px)}}
+@media (min-width:1024px) and (max-height:760px){.hero{padding-top:16px}}
 .hero .phone{--pw:var(--hero-pw);--m:var(--tone-terra);--m2:var(--tone-terra-2);z-index:2;margin:0 auto}
 .hero .side{padding-bottom:40px}
 .hero .side .lede{font-size:19px}
@@ -136,6 +138,8 @@ p{text-wrap:pretty}
 .tapzone{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-150px;z-index:3;pointer-events:none}
 .tapzone .tap{pointer-events:auto}
 .tap{position:relative;border:0;background:transparent;cursor:pointer;padding:0;border-radius:40px 40px 0 0;--plw:min(420px,calc(var(--hero-pw) + 96px));font:inherit;color:inherit}
+/* After .tap: a narrower sign keeps a clear gap to the main button from 1024 to 1119 px. */
+@media (min-width:1024px) and (max-width:1119px){.tap{--plw:calc(var(--hero-pw) + 72px)}}
 .tap .pl b{color:#FCD9C8;font-weight:800}
 .tap .ring{position:absolute;left:50%;top:50%;width:calc(100% + 26px);height:calc(100% + 26px);transform:translate(-50%,-50%);border-radius:50%;border:3px solid var(--stamp);pointer-events:none;animation:breathe 2.4s var(--ease-io) 3}
 .tap.done .ring{animation:none;opacity:.55}

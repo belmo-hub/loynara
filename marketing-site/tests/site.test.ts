@@ -52,7 +52,8 @@ test('nothing covers a control or a jump target: hero buttons take clicks, the h
   const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
   assert.match(css, /\.tapzone\{[^}]*pointer-events:none\}\n\.tapzone \.tap\{pointer-events:auto\}/, 'the tap zone lies over the hero side buttons');
   assert.match(css, /\.tap\{[^}]*--plw:min\(420px,calc\(var\(--hero-pw\) \+ 96px\)\)/, 'the sign follows the phone, so it never reaches the side buttons');
-  assert.match(css, /@media \(min-width:1024px\) and \(max-height:860px\)\{\.hero\{--hero-pw:228px\}\}/);
+  assert.match(css, /@media \(min-width:1024px\)\{\.hero\{--hero-pw:clamp\(208px,calc\(40vh - 82px\),268px\)\}/, 'the phone follows the window height, so short laptop windows keep the sign and both buttons on the first screen');
+  assert.ok(css.indexOf('.tap{--plw:calc(var(--hero-pw) + 72px)}') > css.indexOf('.tap{position:relative'), 'the narrow-desktop sign width comes after the base rule, or the base wins');
   assert.match(css, /@media \(min-width:1024px\)\{html\{scroll-padding-top:96px\}\}/); assert.match(css, /@media \(max-width:1023px\)\{html\{scroll-padding-bottom:calc\(var\(--bar\) \+ 16px\)\}\}/);
   assert.match(css, /@media \(min-width:1024px\) and \(max-width:1119px\)\{\.long\{display:none\}\.short\{display:inline\}\}/);
   assert.match(css, /\.shops \.shop:not\(\.show\)\{display:none\}/, 'a chip hides every other shop card, the large one too');
