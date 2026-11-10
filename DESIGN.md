@@ -159,7 +159,7 @@ or nothing).
 | Loading | every loading button, the Kasse redeem band | spinner after 300 ms; the label keeps its place | slower spin |
 | Hover | links, tabs, menu button; pointer only | colour over `--dur-press`; nothing lifts | same |
 
-No hover lift on cards, no animation on keyboard-triggered actions; a screen's first paint and every later arrival follow Arrive and List arrive.
+No hover lift on cards, no animation on keyboard-triggered actions. A screen's first paint and navigation in follow Arrive and List arrive; a return (Back, a back link, a cached screen) plays nothing.
 
 ## Layout patterns
 
