@@ -2,8 +2,9 @@ import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
-import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags, staffRoles } from "@/db/schema";
+import { plateActivationCodes, plateActivationFailures, plateLinkEvents, programs, secureTags } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { ownerTenant } from "./billing";
 import { enforceRateLimit, RateLimitError } from "./rate-limit";
 import { assertPlateOperator, normalizePlateLabel, shopOf } from "./plates";
 
@@ -109,13 +110,12 @@ export async function activatePlate(input: { userId: string; programId: string; 
   // A typo outside the alphabet can never match: say so, and spend no attempt on it. It says nothing about the plate.
   if (code.length !== LENGTH || [...code].some(char => !ALPHABET.includes(char))) throw new DomainError("INVALID_CODE_FORMAT", CODE_FORMAT);
   const outcome = await db.transaction(async tx => {
+    // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.userId, tx);
     // Programme before tag, the order every tap and confirmation takes.
-    await tx.select({ id: programs.id }).from(programs).where(eq(programs.id, input.programId)).for("share");
+    await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId))).for("share");
     const target = await shopOf(tx, input.programId);
-    if (!target) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
-      .where(and(eq(staffRoles.userId, input.userId), eq(staffRoles.tenantId, target.tenantId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
+    if (!target || target.tenantId !== tenantId) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
     if (target.status !== "active" || target.tapMode !== "staff_confirmed" || !target.cooldownSeconds) throw new DomainError("STAFF_CONFIRMATION_REQUIRED", "Schalte zuerst NFC „Mit Bestätigung“ ein.");
     const [tag] = plateLabel ? await tx.select().from(secureTags).where(eq(secureTags.plateLabel, plateLabel)).for("update") : [];
     const [entry] = tag ? await tx.select().from(plateActivationCodes).where(eq(plateActivationCodes.tagId, tag.id)).for("update") : [];

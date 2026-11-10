@@ -26,6 +26,7 @@ import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
+import { ownerTenant } from "./billing";
 import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
 
 const shortText = z.string().trim().min(2).max(180);
@@ -66,7 +67,8 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
-  const logoData = input.logoData ? await checkedLogoUpload(input.logoData) : null;
+  // Decoding a large logo costs real memory, so it waits until the account may set up this shop.
+  const logo = async () => input.logoData ? checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
     // Serialize retries for this authenticated identity, including the first
     // request before a staff row exists. No provisioning happens in auth hooks.
@@ -82,6 +84,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
       if (await awaitsSetup(tx, tenant.id)) {
         // A shop the operator created (ENG-047): the owner's answers replace the operator's draft, then the programme starts.
+        const logoData = await logo();
         await tx.update(tenants).set({ name: input.businessName, currency: input.currency, locale: input.locale }).where(eq(tenants.id, tenant.id));
         const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude })
           .where(and(eq(locations.id, location.id), eq(locations.tenantId, tenant.id))).returning();
@@ -97,7 +100,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
     if (!newShop) throw new DomainError("FORBIDDEN", "Mit diesem Konto kannst du kein Geschäft einrichten. Nimm zuerst deine Einladung an.");
-    const { tenant, location } = await insertShop(tx, input, logoData);
+    const { tenant, location } = await insertShop(tx, input, await logo());
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
@@ -192,10 +195,10 @@ const EXPIRY_FINAL = () => new DomainError("CHANGE_PENDING", "Diese Änderung ka
 export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
   const input = updateProgramInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).for("update");
+    // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const name = input.name ?? program.name, rulesText = input.rulesText ?? program.rulesText;
     const nextType = input.programType ?? program.type;
     const earningMode = input.earningMode ?? program.earningMode;
@@ -307,10 +310,9 @@ async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect
 export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>, now = new Date()) {
   const input = programExtrasInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (input.welcomeBonus !== undefined && input.welcomeBonus > (program.type === "stamp" ? 3 : 50)) throw new DomainError("INVALID_WELCOME_BONUS", "Welcome bonus is 0 to 3 stamps or 0 to 50 points");
     const cardNews = input.cardNews?.trim();
     if (cardNews !== undefined && cardNewsProblem(cardNews)) throw new DomainError("INVALID_CARD_NEWS", "Card news is plain text, at most 140 characters, without links");
@@ -366,10 +368,9 @@ const happyHourInput = z.object({
 export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>) {
   const input = happyHourInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (happyHourProblem(input.happyHourWindows)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour: up to 3 weekly windows with weekdays, start and end time (HH:MM), each ending after it starts the same day (midnight-crossing windows are not supported)");
     if (input.happyHourEnabled && (program.type !== "points" || input.happyHourWindows.length === 0)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour needs a points programme and at least one window");
     const [updated] = await tx.update(programs).set({ happyHourEnabled: input.happyHourEnabled, happyHourWindows: input.happyHourWindows as HappyHourWindow[] }).where(eq(programs.id, program.id)).returning();
@@ -377,7 +378,7 @@ export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>
   });
 }
 
-const enrollInput = z.object({
+export const enrollInput = z.object({
   slug: z.string().min(1).max(120),
   acceptedTerms: z.literal(true),
   referralCode: z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/).optional(),
@@ -471,10 +472,10 @@ const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).
 const rewardTarget = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() });
 
 async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
-  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
+  // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+  const tenantId = await ownerTenant(actorUserId, tx);
+  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
   if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-  const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 

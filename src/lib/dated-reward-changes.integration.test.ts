@@ -221,7 +221,7 @@ describe("dated reward changes (ENG-100 S1a)", () => {
     await editReward({ ...a.owner, rewardId: a.coffee.rewardId, cost: 9 });
     for (const write of [() => editReward({ ...other, rewardId: a.coffee.rewardId, cost: 7 }), () => takeBackRewardChange({ ...other, rewardId: a.coffee.rewardId }), () => archiveReward({ ...other, rewardId: a.coffee.rewardId })])
       await expect(write()).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(takeBackRewardChange({ actorUserId: b.userId, programSlug: a.f.program.slug, rewardId: a.coffee.rewardId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(takeBackRewardChange({ actorUserId: b.userId, programSlug: a.f.program.slug, rewardId: a.coffee.rewardId })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await getMerchantRewards(other)).map(row => [row.title, row.pending])).toEqual([["Coffee", null]]);
     expect(await a.merchantRow(a.coffee.rewardId)).toMatchObject({ pending: { cost: 9 } });
     // The other shop's live reward never counts as A's last one.

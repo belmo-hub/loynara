@@ -75,3 +75,16 @@ it("refuses a sign-in body the account limit cannot read instead of letting it b
   expect((await signIn(email, password, { body: JSON.stringify({ email: [email], password }) })).status).toBe(400);
   expect((await signIn(email, password)).status).toBe(200);
 });
+
+it("stops reading an oversized sign-in body at the cap, before any password check", async () => {
+  // 1 MiB sent without a length header; only a few KiB of it may ever be read.
+  let pulled = 0;
+  const body = new ReadableStream<Uint8Array>({ pull(controller) {
+    if (pulled >= 1024 * 1024) return controller.close();
+    pulled += 1024;
+    controller.enqueue(new Uint8Array(1024).fill(32));
+  } });
+  const response = await POST(new Request(`${origin}/api/auth/sign-in/email`, { method: "POST", headers: { origin, "content-type": "application/json", "cf-connecting-ip": "198.51.100.200" }, body, duplex: "half" } as RequestInit));
+  expect(response.status).toBe(400);
+  expect(pulled).toBeLessThan(16 * 1024);
+});
