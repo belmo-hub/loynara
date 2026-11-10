@@ -33,7 +33,7 @@ export async function sql<T extends pg.QueryResultRow = pg.QueryResultRow>(text:
 // Every request reaches the server through one peer bucket ("untrusted-peer" in local runs), so the tap and enrolment
 // limits are shared by all tests in a file. This is the same reset the per-file runner (.review/e2e-files.mjs) performs,
 // applied before each test so a long file does not exhaust the bucket on its own.
-const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer"];
+const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer", "merchant_onboard_peer", "merchant_export_peer", "staff_invite_peer", "program_read_peer"];
 
 export async function resetPeerLimits() {
   const secret = process.env.BETTER_AUTH_SECRET ?? dotenv.parse(readFileSync(path.resolve(process.cwd(), ".env"))).BETTER_AUTH_SECRET;
@@ -129,7 +129,8 @@ export async function ledgerRowsFor(cardToken: string) {
 
 /** The cashier's open NFC list as the API returns it. */
 export async function pendingOf(api: APIRequestContext) {
-  const response = await api.get("/api/cashier/tap/pending");
+  // Playwright's shared keep-alive pool can hand out a socket the dev server has just dropped; a read is safe to resend once, and maxRetries resends only on ECONNRESET.
+  const response = await api.get("/api/cashier/tap/pending", { maxRetries: 1 });
   expect(response.status()).toBe(200);
   return await response.json() as Array<{ id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string }>;
 }

@@ -6,6 +6,7 @@ import { ledgerEntries, membershipContacts, memberships, programs, referralCodes
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
+import { ownerTenant } from "./billing";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -245,11 +246,10 @@ const reviewInput = z.discriminatedUnion("action", [
 export async function reviewReferral(raw: z.input<typeof reviewInput>) {
   const input = reviewInput.parse(raw);
   return db.transaction(async tx => {
-    const [referral] = await tx.select().from(referrals).where(eq(referrals.id, input.referralId)).for("update");
+    // The owner first: another shop's referral is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [referral] = await tx.select().from(referrals).where(and(eq(referrals.id, input.referralId), eq(referrals.tenantId, tenantId))).for("update");
     if (!referral) throw new DomainError("NOT_FOUND", "Diese Empfehlung haben wir nicht gefunden. Bitte lade die Seite neu.");
-    const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
-      .where(and(eq(staffRoles.tenantId, referral.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (referral.status !== "review") throw new DomainError("INVALID_REFERRAL_STATE", "Referral is not in review");
     if (input.action === "reject") {
       if (referral.referrerBonusEntryId || referral.referredBonusEntryId) throw new DomainError("INVALID_REFERRAL_STATE", "Credited bonuses require reversal review");
