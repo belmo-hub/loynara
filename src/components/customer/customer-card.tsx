@@ -173,12 +173,13 @@ export function CustomerCard(props: CustomerCardProps) {
       {rewards.length ? <Section name="rewards" title={t.chooseReward}>
         <div role="group" aria-labelledby="customer-rewards-title" className={styles.rows}>
           {rewards.map((reward) => {
-            const ready = balance >= reward.cost;
+            // Like the goal line, the row speaks of the real balance during a booking moment, so it keeps its height at the step.
+            const ready = told >= reward.cost;
             return <button key={reward.id} type="button" aria-pressed={rewards.length > 1 ? selected?.id === reward.id : undefined} className={styles.row} onClick={() => setSelectedId(reward.id)}>
               <span className={styles.rowIcon}><Gift size={22} aria-hidden="true" /></span>
               <span className={styles.rowMain}>
                 <span className={styles.rowText}><strong>{reward.title}</strong><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
-                {ready ? null : <span className={styles.rowValue}>{t.short(number.format(reward.cost - balance))}</span>}
+                {ready ? null : <span className={styles.rowValue}>{t.short(number.format(reward.cost - told))}</span>}
               </span>
               {ready ? <span className={styles.chipLine}><span className={styles.chip}><Check size={16} strokeWidth={3} aria-hidden="true" />{t.redeemable}</span></span> : null}
             </button>;
