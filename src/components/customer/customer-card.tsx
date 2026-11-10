@@ -114,7 +114,12 @@ export function CustomerCard(props: CustomerCardProps) {
   const nearest = nearestReward(rewards, balance);
   const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
-  const nextGoal = [...rewards].filter((reward) => reward.cost > balance).sort((a, b) => a.cost - b.cost)[0];
+  // During a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak of
+  // the real balance from the start: a line count that changed at the step would move the card as the stamp lands.
+  const told = moment ? moment.balance : balance;
+  const toldSelected = rewards.find((reward) => reward.id === selectedId) ?? nearestReward(rewards, told);
+  const toldReady = rewards.filter((reward) => told >= reward.cost).length;
+  const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
@@ -141,19 +146,21 @@ export function CustomerCard(props: CustomerCardProps) {
         <p>{t.endsWindow(programType === "points")}</p>
       </section> : null}
 
-      <Goal t={t} number={number} programType={programType} balance={balance} selected={selected} readyCount={readyCount} nextGoal={nextGoal} />
+      <Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
+        <div>
         <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined}>
           <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
             {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
-            {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{readyCount > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
+            {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{toldReady > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
           </section>
         </CardFace>
         {/* The band sits right under the card, before the refresh row (mock 24). */}
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
         {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
+        </div>
         {props.onRefresh ? <div className={styles.refresh}>
           <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw key={turn} size={16} className={turn ? styles.turn : undefined} />} onClick={() => { setTurn(turn + 1); props.onRefresh?.(); }} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
           {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
@@ -408,11 +415,13 @@ function BookingPill({ points, credited, balance, locale }: { points: boolean; c
   const title = french ?? tapCopy("confirmed", undefined, points).title;
   const said = french ?? stampAnnouncement("confirmed", balance, points, credited) ?? "";
   const [spoken, setSpoken] = useState("");
+  useEffect(() => { announce(said); }, [announce, said]);
+  // The line is filled only once it is the page's status region, a frame after the role is on it.
   useEffect(() => {
-    announce(said);
+    if (!live) return;
     const frame = requestAnimationFrame(() => setSpoken(said));
     return () => cancelAnimationFrame(frame);
-  }, [announce, said]);
+  }, [live, said]);
   return <div className={styles.pill} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
     <span className={styles.pillCheck} aria-hidden="true"><Check size={22} strokeWidth={3} /></span>
     <strong aria-hidden="true">{title}</strong>
