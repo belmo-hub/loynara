@@ -78,9 +78,10 @@ export function useReview<Step extends string = "review">() {
 }
 
 /** A question page (Wegweiser 08–16, 18, 19): the question as the heading, the answer on panels, one button at the thumb. */
-export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
+export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, note, busy, busyLabel = "Speichern …", disabled = false, failed, action = "Speichern", tone = "primary", cancel, onSubmit, children }: {
   title: string; lead?: ReactNode; /** A review step goes back to its question instead of the list. */ back?: { label: string; onClick: () => void };
   home?: QuestionHome; /** A preview beside the form from 1024 px, under it on a phone (ENG-164 D-A08). */ aside?: ReactNode;
+  /** One muted line under the button: what a save changes (ENG-207). */ note?: string;
   busy: boolean; busyLabel?: string; /** Kunden's steps keep the live rule: the button waits until the answer is complete. */ disabled?: boolean;
   failed: string; action?: string; /** ENG-100: „Archivieren“ (30) is danger, „Änderung zurücknehmen“ (57) secondary. */ tone?: "primary" | "danger" | "secondary";
   /** „Abbrechen“ under the button (30, 58). */ cancel?: () => void; onSubmit: () => void; children: ReactNode;
@@ -103,7 +104,8 @@ export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, bu
         {/* No action (57 for an expiry shortening): nothing to press, the back link leads on. */}
         {aside && <div className="ow-qaside">{aside}</div>}
         {action && <div className="ow-qsave"><button type="submit" className={`ow-btn ow-btn--${tone}`} aria-busy={busy} disabled={disabled && !busy}>{busy ? busyLabel : action}</button>
-          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}</div>}
+          {cancel && <button type="button" className="ow-btn ow-btn--secondary" disabled={busy} onClick={cancel}>Abbrechen</button>}
+          {note && <p className="ow-hint ow-qsave-note">{note}</p>}</div>}
       </form>
     </div>
   );

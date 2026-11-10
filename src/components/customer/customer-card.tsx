@@ -158,7 +158,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
         <div>
-        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined} grow={arriving && !moment}>
+        <CardFace businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} progress={false} tag={level?.name ?? undefined} grow={arriving && !moment && !quiet}>
           <section className={`customer-qr-panel ${styles.ticket}`} aria-label={t.codeHeading}>
             {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
             {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{toldReady > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
@@ -431,12 +431,15 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
  * It is never a target and leaves by itself. Screen readers hear one sentence: the status region is the hidden line
  * alone, mounted empty and filled a frame later, because a region that arrives with its text is often not read out.
  */
-export function BookingPill({ points, credited, balance, locale }: { points: boolean; credited: number; balance: number; locale: "de" | "fr" }) {
+export function BookingPill({ points, credited, balance, locale, until }: { points: boolean; credited: number; balance: number; locale: "de" | "fr";
+  /** ENG-207: handed over from the join page, which dropped it in and read it out. It stands still until this time and says nothing again. */ until?: number }) {
+  const handed = until !== undefined;
+  const [stay] = useState(() => handed ? Math.max(0, until - Date.now()) : MOMENT_PILL_MS);
   const { live, announce } = useCardStatus("moment");
   // No new French copy for now: a French card says what was added in the unit words the card already uses.
   const french = locale === "fr" ? withUnit(credited, points ? "points" : "stamps", "fr") : null;
   const title = french ?? tapCopy("confirmed", undefined, points).title;
-  const said = french ?? stampAnnouncement("confirmed", balance, points, credited) ?? "";
+  const said = handed ? "" : french ?? stampAnnouncement("confirmed", balance, points, credited) ?? "";
   const [spoken, setSpoken] = useState("");
   useEffect(() => { announce(said); }, [announce, said]);
   // The line is filled only once it is the page's status region, a frame after the role is on it.
@@ -445,10 +448,10 @@ export function BookingPill({ points, credited, balance, locale }: { points: boo
     const frame = requestAnimationFrame(() => setSpoken(said));
     return () => cancelAnimationFrame(frame);
   }, [live, said]);
-  return <div className={styles.pill} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
+  return <div className={styles.pill} data-handed={handed || undefined} style={{ "--pill-stay": `${stay}ms` } as CSSProperties}>
     <span className={styles.pillCheck} aria-hidden="true"><Check size={22} strokeWidth={3} /></span>
     <strong aria-hidden="true">{title}</strong>
     <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
-    <span className={styles.srOnly} role={live ? "status" : undefined}>{spoken}</span>
+    <span className={styles.srOnly} role={live && !handed ? "status" : undefined}>{spoken}</span>
   </div>;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PublicProgram } from "./client-api";
-import { FIRST_TAP_STEP_MS, firstCardHeight, firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
+import { FIRST_TAP_PILL_MS, FIRST_TAP_STEP_MS, firstCardHeight, firstPage, firstTapHold, joinConsent, joinNeedsTick, joinOffersMessages, staleJoin, staleLine } from "./join-client";
 
 describe("a join refused because the shop changed the programme (ENG-100 W58)", () => {
   const shown = { programName: "Alt" } as PublicProgram, fresh = { programName: "Neu" } as PublicProgram;
@@ -136,7 +136,7 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(created).toBeGreaterThan(source.indexOf("if (!result) return;"));
     expect(source.slice(source.lastIndexOf('if (plain && next.go !== "tap") {', created), created)).not.toContain("\n      }");
     // The preview holds no stamp: nothing lands that the server has not booked.
-    expect(source).toContain('<StampGrid earned={filled} landed={filled > 0 ? filled : undefined}');
+    expect(await read("src/components/customer/first-card.tsx")).toContain('<StampGrid earned={filled} landed={filled > 0 ? filled : undefined}');
   });
   it("keeps the rules above the terms sentence and the button, and puts the optional tick below the button, locked once sent (Legal, 10 Nov)", async () => {
     const source = await read("src/components/join-client.tsx"), page = source.indexOf("if (plain) return <CustomerShell"), end = source.indexOf("  return <CustomerShell brandColor={program.brandColor} locale={locale}");
@@ -184,7 +184,7 @@ describe("the Startbonus on the first page (ENG-207)", () => {
     const source = await read("src/components/join-client.tsx");
     expect(source.match(/setCredited\(/g)).toHaveLength(1);
     expect(source).toContain("const bonus = result.headStart ?? 0, still = matchMedia(\"(prefers-reduced-motion: reduce)\").matches;\n        setCredited(bonus);");
-    expect(source).toContain("data-promised={(!landedBonus && offerShown && Math.min(offer, 2)) || undefined}");
+    expect(source).toContain("<FirstCard program={program} label={t.cardPreview} created={created} promised={!landedBonus && offerShown ? offer : 0} filled={filled} bonus={offerShown || credited > 0} />");
     // The rings stay through the card's press; the booked places take their place at the step and land with no delay.
     expect(source).toContain("const filled = landedBonus ? credited : 0;");
     expect(source).toContain("if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }");
@@ -192,5 +192,29 @@ describe("the Startbonus on the first page (ENG-207)", () => {
     const css = await read("src/components/customer/first-page.module.css");
     expect(css).toContain('.card[data-promised="1"] .stamps li:nth-child(-n + 1), .card[data-promised="2"] .stamps li:nth-child(-n + 2) { border-color: var(--merchant-ink); }');
     expect(css).not.toMatch(/data-promised[^{]*\{[^}]*(--color-stamp|background)/);
+  });
+  it("lands the booked places without a hole: no fade on this page, the second 40 ms after the first, none under reduced motion", async () => {
+    const css = await read("src/components/customer/first-page.module.css");
+    expect(css).toContain(".card .stamps li[data-new] { animation-name: first-land; }");
+    expect(css).toContain(".card .stamps li[data-new] + li[data-new] { animation-delay: 40ms; }");
+    // The place is there from its first frame: the landing scales and never fades.
+    const frames = css.slice(css.indexOf("@keyframes first-land"), css.indexOf("\n", css.indexOf("@keyframes first-land")));
+    expect(frames).toMatch(/0% \{ transform: scale\(1\.3\)[^}]*\} 60% \{ transform: scale\(\.94\)[^}]*\} 100% \{ transform: scale\(1\)/);
+    expect(frames).not.toContain("opacity");
+    expect(css.slice(css.indexOf("prefers-reduced-motion: reduce"))).toContain(".card .stamps li[data-new] { animation: none; transition-property: none; }");
+    // Other screens keep the grid's own landing.
+    const grid = await read("src/components/ui/stamp-grid.module.css");
+    expect(grid).toContain(".slot[data-new] { animation: land var(--dur-reward) var(--ease-out) calc(var(--land-delay, 0ms) + var(--land-stagger, 0ms)) both; }");
+    expect(grid).not.toContain("first-land");
+  });
+  it("drops the pill in 220 ms after the answer (at once under reduced motion) and hands its start time to the card page", async () => {
+    expect(FIRST_TAP_PILL_MS).toBe(220);
+    const source = await read("src/components/join-client.tsx");
+    expect(source).toContain("if (bonus > 0) { if (still) showPill(); else setTimeout(showPill, FIRST_TAP_PILL_MS); }");
+    expect(source).toContain("const showPill = () => { pillAt = Date.now(); setPill(true); };");
+    expect(source).toContain('(credited > 0 ? pill && <BookingPill points={program.programType === "points"} credited={credited} balance={credited} locale="de" /> :');
+    // One mark, in the page's memory: what the pill says and when it dropped in. Never the card link.
+    expect(source.match(/markJoined\(/g)).toHaveLength(1);
+    expect(source).toContain('markJoined(Date.now(), pillAt ? { credited: bonus, points: program?.programType === "points", at: pillAt } : undefined);');
   });
 });

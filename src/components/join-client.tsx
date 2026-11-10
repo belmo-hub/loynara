@@ -13,6 +13,7 @@ import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
 import { markJoined } from "./customer/booking-moment";
 import { BookingPill } from "./customer/customer-card";
+import { FirstCard } from "./customer/first-card";
 import { CustomerState } from "./customer/customer-state";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
@@ -85,6 +86,8 @@ export const staleLine = (locale: "de" | "fr", button: string) => locale === "fr
 export const FIRST_TAP_FADE_MS = 160;
 /** ENG-207: the credited places land this long after the answer, once the card has pressed; until then they stay rings. */
 export const FIRST_TAP_STEP_MS = 300;
+/** ENG-207: the pill drops in this long after the answer, as the card comes back from its press; its 6 s start then. */
+export const FIRST_TAP_PILL_MS = 220;
 export const firstTapHold = (step: boolean, still: boolean, bonus = false) => still ? 400 : bonus ? 820 : step ? 220 : 400;
 /** ENG-205: the placeholder's card is as tall as the card it stands for, so nothing moves when it fades (padding 16, 32 px places 12 apart, 12, a 20 px footer, 16). */
 export function firstCardHeight(program?: Pick<PublicProgram, "programType" | "rewardCost">) {
@@ -123,6 +126,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const [credited, setCredited] = useState(0);
   // The step: the promised rings become the booked places (the press first, then the landing; never both at once).
   const [landedBonus, setLandedBonus] = useState(false);
+  const [pill, setPill] = useState(false);
   // The last 160 ms before the card page: the card fades out, so the page changes over the bare ground.
   const [leavingPage, setLeavingPage] = useState(false);
   // The placeholder lies over the loaded page for its fade (Skeleton to content), then it is taken away.
@@ -185,12 +189,16 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         setCredited(bonus);
         setCreated(true);
         if (bonus > 0) { if (still) setLandedBonus(true); else setTimeout(() => setLandedBonus(true), FIRST_TAP_STEP_MS); }
+        // The pill's time starts when it drops in (at once under reduced motion); the card page gets that time.
+        let pillAt = 0;
+        const showPill = () => { pillAt = Date.now(); setPill(true); };
+        if (bonus > 0) { if (still) showPill(); else setTimeout(showPill, FIRST_TAP_PILL_MS); }
         const hold = firstTapHold(next.go === "step", still, bonus > 0);
         if (next.go !== "step") { router.prefetch(cardHref); if (!still) setTimeout(() => setLeavingPage(true), hold - FIRST_TAP_FADE_MS); }
         await new Promise(done => setTimeout(done, hold));
         leaving = next.go !== "step";
-        // The card page opens as a return after this page: it celebrates nothing a second time.
-        markJoined();
+        // The card page opens as a return after this page: it celebrates nothing a second time, and keeps this pill.
+        markJoined(Date.now(), pillAt ? { credited: bonus, points: program?.programType === "points", at: pillAt } : undefined);
         if (next.go === "step") setWalletStep(result.cardToken); else router.replace(cardHref);
         return;
       }
@@ -245,17 +253,12 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       <div><h1 className={first.name}>{program.businessName}</h1><p className={first.location}>{program.locationName}</p></div>
     </div>
     {/* Promised places are rings; a place is filled only with what the server booked (credited). */}
-    <section className={`join-hero ${first.card}`} aria-label={t.cardPreview} data-created={created || undefined} data-promised={(!landedBonus && offerShown && Math.min(offer, 2)) || undefined}>
-      {program.programType === "points"
-        ? <PointsLadder balance={filled} landedFrom={filled > 0 ? 0 : undefined} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
-        : <StampGrid earned={filled} landed={filled > 0 ? filled : undefined} landedCount={filled || 1} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
-      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}{(offerShown || credited > 0) && <span className={first.bonus}> · Startbonus</span>}</span></p>
-    </section>
+    <FirstCard program={program} label={t.cardPreview} created={created} promised={!landedBonus && offerShown ? offer : 0} filled={filled} bonus={offerShown || credited > 0} />
   </div>;
   // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
   // wording: Design's placeholder, Marketing confirms
-  // With a Startbonus the pill is that line („Stempel erhalten +2“, its own status).
-  const createdLine = newPage && (credited > 0 ? <BookingPill points={program.programType === "points"} credited={credited} balance={credited} locale="de" /> : <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>);
+  // With a Startbonus the pill is that line („Stempel erhalten +2“, its own status), 220 ms after the answer.
+  const createdLine = newPage && (credited > 0 ? pill && <BookingPill points={program.programType === "points"} credited={credited} balance={credited} locale="de" /> : <p className={first.wait} role="status">{created ? "Deine Karte ist erstellt." : ""}</p>);
   if (walletStep && newPage) return <CustomerShell brandColor={program.brandColor} locale="de">{top}{createdLine}<div className={first.step}><WalletStep token={walletStep} program={program} heading="h2" /></div></CustomerShell>;
   if (walletStep) return <CustomerShell brandColor={program.brandColor} locale="de" header={<div className={styles.merchant}><span className={styles.mono} aria-hidden="true">{Array.from(program.businessName)[0]}</span><p><strong>{program.businessName}</strong><span>Deine Treuekarte</span></p></div>}>
     <WalletStep token={walletStep} program={program} />

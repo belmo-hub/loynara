@@ -195,6 +195,10 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
   background: var(--color-raised); color: var(--color-ink); box-shadow: 0 0 0 1px var(--color-line), var(--shadow-overlay); pointer-events: none;
   animation: pill-in var(--dur-ui) var(--ease-out) both, pill-out 160ms var(--ease-out) calc(var(--pill-stay) - 160ms) forwards;
 }
+/* ENG-207: handed over from the join page it is already there: no drop-in, nothing inside it moves, and it leaves when
+   what is left of its time (--pill-stay) is over. */
+.pill[data-handed] { animation: pill-out 160ms var(--ease-out) calc(var(--pill-stay) - 160ms) forwards; }
+.pill[data-handed] :is(.pillCheck, .pillCheck path, .pillChip) { animation: none; }
 /* The title may wrap: at large text sizes the amount stays inside the pill. */
 .pill strong { flex: 1; min-width: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.2; }
 .pillCheck { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in oklab, var(--color-success) 16%, transparent); color: var(--color-success); animation: pill-settle var(--dur-ui) var(--ease-out) 60ms both; }
