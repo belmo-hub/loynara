@@ -9,12 +9,14 @@
    slower, the height, both faster than they came and at once, so a block opening beside it never pushes the page out
    and back. --reveal-gap is the parent grid's gap: it opens and closes inside the block, so nothing jumps by it. */
 .reveal { display: grid; grid-template-rows: 0fr; min-width: 0; margin-top: calc(-1 * var(--reveal-gap, 0px)); transition: grid-template-rows 160ms var(--ease-out); }
-.reveal > div { min-width: 0; min-height: 0; overflow: hidden; padding-top: var(--reveal-gap, 0px); opacity: 0; transition: opacity var(--dur-press) var(--ease-out); }
+.reveal > div { min-width: 0; min-height: 0; overflow: hidden; opacity: 0; transition: opacity var(--dur-press) var(--ease-out); }
+/* The gap sits one level in: padding on the clipped box itself would keep the closed block that tall. */
+.reveal > div > div { padding-top: var(--reveal-gap, 0px); }
 .reveal[data-open] { grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
 .reveal[data-open] > div { opacity: 1; transition: opacity var(--dur-ui) var(--ease-out) var(--dur-press); }
 @starting-style {
-  .reveal[data-open] { grid-template-rows: 0fr; }
-  .reveal[data-open] > div { opacity: 0; }
+  .reveal[data-open]:not([data-still]) { grid-template-rows: 0fr; }
+  .reveal[data-open]:not([data-still]) > div { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

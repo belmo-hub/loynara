@@ -12,12 +12,15 @@ const LEAVE_MS = 200;
  */
 export function Reveal({ open, gap, children }: { open: boolean; gap?: string; children: ReactNode }) {
   const [shown, setShown] = useState(open);
+  // Open from the page's first paint: it is simply there. Only a later opening is shown as one.
+  const [still, setStill] = useState(open);
   if (open && !shown) setShown(true);
+  if (!open && still) setStill(false);
   useEffect(() => {
     if (open) return;
     const timer = setTimeout(() => setShown(false), LEAVE_MS);
     return () => clearTimeout(timer);
   }, [open]);
   if (!shown) return null;
-  return <div className={styles.reveal} data-open={open || undefined} style={gap ? { "--reveal-gap": gap } as CSSProperties : undefined}><div>{children}</div></div>;
+  return <div className={styles.reveal} data-open={open || undefined} data-still={still || undefined} style={gap ? { "--reveal-gap": gap } as CSSProperties : undefined}><div><div>{children}</div></div></div>;
 }

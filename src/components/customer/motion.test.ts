@@ -9,10 +9,10 @@ import { CustomerState } from "./customer-state";
 import { Reveal } from "./reveal";
 
 describe("guest page motion", () => {
-  it("opens a block in place with its grid's gap, and renders nothing while closed", () => {
-    const open = renderToStaticMarkup(h(Reveal, { open: true, gap: "var(--space-4)" }, h("p", null, "Hinweis")));
-    expect(open).toMatch(/data-open="true" style="--reveal-gap:var\(--space-4\)"><div><p>Hinweis<\/p><\/div><\/div>$/);
-    expect(renderToStaticMarkup(h(Reveal, { open: false }, h("p", null, "Hinweis")))).toBe("");
+  it("opens a block in place with its grid's gap, still when it is open from the start, and renders nothing while closed", () => {
+    const open = renderToStaticMarkup(h(Reveal, { open: true, gap: "var(--space-4)", children: h("p", null, "Hinweis") }));
+    expect(open).toMatch(/data-open="true" data-still="true" style="--reveal-gap:var\(--space-4\)"><div><div><p>Hinweis<\/p><\/div><\/div><\/div>$/);
+    expect(renderToStaticMarkup(h(Reveal, { open: false, children: h("p", null, "Hinweis") }))).toBe("");
   });
 
   it("draws the stamp slots in only where asked (the join page's preview)", () => {
