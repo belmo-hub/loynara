@@ -111,6 +111,23 @@ describe("Übersicht direction D (ENG-085)", () => {
     for (const gone of ["Was jetzt zählt", "Letzte Vorgänge", "Programm bearbeiten", "Gerade nichts Dringendes", "Für Excel", "↑", "↓"]) expect(html).not.toContain(gone);
   });
 
+  it("a cold load shows nothing before every read the band is chosen from has answered, and writes the greeting once", () => {
+    state.me = me({ userId: "first-visit" }); // no greeting kept from an earlier screen
+    delete state.loads["/api/merchant/readiness"];
+    delete state.loads["/api/auth/get-session"];
+    const waiting = render();
+    expect(waiting).toContain("ow-board-ph");
+    expect(waiting).not.toContain("ow-prog-row");
+    expect(waiting).not.toContain("ow-next");
+    expect(waiting).not.toContain("<h1");
+    expect(waiting).toContain('<div class="ow-hello" aria-hidden="true">'); // the greeting's line is kept free
+    state.loads["/api/merchant/readiness"] = ok(readiness());
+    state.loads["/api/auth/get-session"] = ok({ user: { name: "Lena Berger" } });
+    const there = render();
+    expect(there).not.toContain("ow-board-ph");
+    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena\.<\/h1>/);
+  });
+
   it("a shop without till amounts leads with bookings (Q-81 switch off), whatever the average says", () => {
     state.loads["/api/merchant/spend"] = ok(spend(figures({ visits: 6, spentMinor: 9_000, estimatedMinor: 9_000, averagePerVisitMinor: 1_500 })));
     const html = render();

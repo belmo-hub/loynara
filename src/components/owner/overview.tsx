@@ -47,11 +47,11 @@ let greeted: { userId: string; name: string } | null = null;
  */
 function useFirstName(userId: string): string | null {
   const [session] = useLoad<{ user?: { name?: string | null } } | null>("/api/auth/get-session");
-  if (session.state === "loading") return greeted?.userId === userId ? greeted.name : null;
+  const answered = session.state !== "loading";
   const name = session.state === "ok" ? session.data?.user?.name?.trim() ?? "" : "";
   const first = name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
-  greeted = { userId, name: first };
-  return first;
+  useEffect(() => { if (answered) greeted = { userId, name: first }; }, [answered, userId, first]);
+  return answered ? first : greeted?.userId === userId ? greeted.name : null;
 }
 
 const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
