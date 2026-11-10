@@ -131,8 +131,9 @@
   .reward:active:not(:disabled), .band:active:not(:disabled), .menuButton:active { transform: none; }
   .menu, .menu:popover-open { transform: none; }
   .panel::before, .card::before, .question, .panel > .stack, .card > .note, .card > .winback, .reward { animation: none; }
-  /* The app-wide reduce rule sets every animation to .01 ms; the spinner turns slowly instead of flickering. */
-  .bandWait { animation-duration: 2s, .01ms !important; }
+  /* The app-wide reduce rule gives every animation .01 ms and one turn; the spinner still waits its 300 ms, then keeps
+     turning, slowly. */
+  .bandWait { animation-duration: 2s, .01ms !important; animation-iteration-count: infinite, 1 !important; }
 }
 
 /* Outcomes answer where they appear: a fade and 4 px down. A typed card number that was rejected also shakes its
