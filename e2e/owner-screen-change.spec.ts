@@ -75,10 +75,26 @@ test("on a slow connection a tapped row holds the selected look until its screen
   await page.route(/\/merchant\/program\/rule(\?|$)/, async route => { await held; await route.continue(); });
   await page.getByRole("link", { name: /Regel auf der Karte/ }).click();
   await expect(page.locator(".ow-prog-row:has([data-pending])")).toHaveCount(1);
+  await expect(page.locator(".ow-prog-row:has([data-pending])"), "the fill is visible, not only the mark").toHaveCSS("background-image", /gradient/);
   await expect(page).toHaveURL(/\/merchant\/program$/);
   release();
   await expect(page).toHaveURL(/\/merchant\/program\/rule$/);
   await page.unroute(/\/merchant\/program\/rule(\?|$)/);
+});
+
+test("two quick taps on a slow connection: only the tab tapped last looks pending", async () => {
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  const slow = /\/merchant\/(program|customers)(\?|$)/;
+  await page.route(slow, async route => { await held; await route.continue(); });
+  await tab("Programm").click();
+  await expect(tab("Programm")).toHaveAttribute("data-pending", "true");
+  await tab("Kunden").click();
+  await expect(page.locator(".ow-tabs [data-pending]")).toHaveCount(1);
+  await expect(tab("Kunden")).toHaveAttribute("data-pending", "true");
+  release();
+  await expect(page).toHaveURL(/\/merchant\/customers$/);
+  await page.unroute(slow);
 });
 
 test("reduced motion: the change is a cut", async () => {
