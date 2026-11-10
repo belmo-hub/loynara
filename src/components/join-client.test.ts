@@ -143,6 +143,8 @@ describe("the first page behind FIRST_TAP_HOOK_ENABLED (ENG-205, Design's spec o
     expect(order.every(at => at > page && at < end)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(source.match(/disabled=\{plain && busy\}/g)).toHaveLength(2);
+    // The returning check's line sits below the button, so its going moves nothing under the thumb.
+    expect(source.indexOf('{returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}', page)).toBeGreaterThan(order[4]);
   });
   it("gives every motion of the page a reduced-motion rule, within the house durations", async () => {
     const css = await read("src/components/customer/first-page.module.css");

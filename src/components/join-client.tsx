@@ -196,9 +196,9 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
   // ENG-205: a placeholder shaped like the shop row and the card.
-  if (loading && firstTap) return <CustomerShell locale="de"><div className={first.top} aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>
+  if (loading && firstTap) return <CustomerShell locale="de"><div className={first.placeholder} aria-busy="true"><span className={first.wait} role="status">{t.loadingTitle}</span>
     <div className={first.shop}><Skeleton width={48} height={48} radius="var(--radius-md)" /><div><Skeleton width="60%" height={24} /><Skeleton width="40%" height={16} /></div></div>
-    <Skeleton height={188} radius="var(--radius-lg)" />
+    <Skeleton height={136} radius="var(--radius-lg)" />
   </div></CustomerShell>;
   if (loading) return <CustomerState loading title={t.loadingTitle} message={t.loadingText} locale={locale} />;
   if (!program) return <CustomerState title={t.missingTitle} message={error} tone="error" locale={locale} focusTitle><Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Karte wiederfinden</Link></CustomerState>;
@@ -282,13 +282,14 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       <form className={first.form} onSubmit={submit} noValidate>
         <div className={first.terms}>{noticeLine}</div>
         {errorLine("form")}
-        {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
         {/* Enabled while the returning check runs: the tap looks again itself, and the server refuses a silent second card. */}
         <Button type="submit" size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined}>{busy ? t.submitting : t.submit}</Button>
         {messagesBox && <div className={first.tick}>{messagesBox}</div>}
         <p className={styles.muted}>{t.noEmail}</p>
+        {/* Below the button: when the check resolves, nothing under the thumb moves. */}
+        {returning.state === "checking" && <p className={styles.muted} role="status">{t.checking}</p>}
       </form>
-      <p className={styles.link}><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></p>
+      <p className={`${styles.link} ${first.recover}`}><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></p>
     </div>
   </CustomerShell>;
 

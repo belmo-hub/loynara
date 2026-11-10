@@ -1,5 +1,7 @@
 /* ENG-205, the first page behind FIRST_TAP_HOOK_ENABLED (Head of Design's spec, 10 Nov): the shop on the page ground,
    the card as the only object, then the rules, the terms and one button, with no panel around them. */
+/* The placeholder stands still (Skeleton to content); the loaded row and card arrive as one block. */
+.placeholder { display: grid; gap: var(--space-4); }
 .top { display: grid; gap: var(--space-4); animation: arrive var(--dur-ui) var(--ease-out) backwards; }
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 .wait { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -25,14 +27,18 @@
 .foot strong { font-weight: var(--weight-heavy); }
 
 /* Blocks 3 to 8. After the server's answer they fade and stay in the layout until the next step takes their place. */
-.blocks { display: grid; gap: var(--space-3); transition: opacity 160ms var(--ease-out); }
+.blocks { display: grid; gap: var(--space-3); margin-top: var(--space-2); transition: opacity 160ms var(--ease-out); }
+/* The step badges were made for the white panel; on the page ground they take the surface. */
+.blocks ol span { background: var(--color-surface); }
+/* The way back reads as one line with its question, also where it wraps. */
+.blocks .recover a { display: inline; min-height: 0; padding-block: var(--space-3); }
 .blocks[data-leaving] { opacity: 0; pointer-events: none; }
 /* The rules, word for word, set compact under a hairline. */
 .rules { display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
 .rules > div { padding-top: 0; border-top: 0; }
-.rules h2 { margin: 0; font-size: var(--text-14); font-weight: 650; line-height: 20px; }
+.rules h2 { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 20px; }
 .rules > div p { line-height: 20px; }
-.rules > div p + p { margin-top: var(--space-1); }
+.rules > div p + p { margin-top: 0; }
 .rules > p { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .form { display: grid; gap: var(--space-3); }
 .form a, .rules a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
@@ -40,7 +46,7 @@
 .terms p { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 /* The optional message tick below the button: no box, a small heading. */
 .tick > div { padding-block: 0; border: 0; }
-.tick h3 { font-size: var(--text-14); font-weight: 650; }
+.tick h3 { font-size: var(--text-14); font-weight: var(--weight-label); }
 /* The Wallet step arrives where the blocks stood. */
 .step { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
 
