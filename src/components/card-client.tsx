@@ -16,6 +16,7 @@ import { CardWalletMessages } from "./card-wallet-messages";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
+import { takeJoined } from "./customer/booking-moment";
 import { prepareAppleWallet, readWalletStatus, walletMessage, walletPlatform, type WalletStatus } from "./wallet-preparation";
 import { joinAsked, markWalletStep, readWalletStep } from "./wallet-step";
 import { cardChanges } from "@/lib/change-lines";
@@ -109,7 +110,7 @@ export function CardClient({ token }: { token: string }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const unseen = momentFor(result, { balance: null, seenAt: readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const unseen = momentFor(result, { balance: null, seenAt: takeJoined(token) ? new Date().toISOString() : readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
   }, [token, playMoment]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in

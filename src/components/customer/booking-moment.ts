@@ -44,6 +44,14 @@ export function momentFor(read: { activity: ActivityEntry[]; balance: number }, 
   return { credited, newest: run.newest };
 }
 
+// ENG-205: the join page showed this card being created (and, with a Startbonus, its places landing), then opened the
+// card page. That first read is a return: nothing is celebrated a second time. One tab, one use.
+const JOINED = "loynara_joined";
+export function markJoined(cardToken: string) { try { sessionStorage.setItem(JOINED, cardToken); } catch { /* no storage: the card page may show the moment once */ } }
+export function takeJoined(cardToken: string) {
+  try { if (sessionStorage.getItem(JOINED) !== cardToken) return false; sessionStorage.removeItem(JOINED); return true; } catch { return false; }
+}
+
 /** The later of two marks, either of which may be missing. */
 export const laterMark = (a: string | null | undefined, b: string | null | undefined) => (a && b ? (Date.parse(a) >= Date.parse(b) ? a : b) : a ?? b ?? null);
 
