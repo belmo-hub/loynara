@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIRST_OPEN_WINDOW_MS, laterMark, momentFor, readSeen, unseenAwards } from "./booking-moment";
+import { FIRST_OPEN_WINDOW_MS, laterMark, markJoined, momentFor, readSeen, takeJoined, unseenAwards } from "./booking-moment";
 
 const now = Date.parse("2026-11-10T12:00:00Z");
 const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -58,5 +58,26 @@ describe("what one read of the card may celebrate", () => {
     expect(laterMark(at(5), at(1))).toBe(at(1));
     expect(laterMark(null, at(3))).toBe(at(3));
     expect(laterMark(undefined, null)).toBeNull();
+  });
+});
+
+describe("the card page after the join page (ENG-205)", () => {
+  it("opens as a return once, for the card the join page created, and stays quiet without storage", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); }, removeItem: (key: string) => { store.delete(key); } });
+    markJoined("card_new");
+    expect(takeJoined("card_other")).toBe(false);
+    expect(takeJoined("card_new")).toBe(true);
+    expect(takeJoined("card_new")).toBe(false);
+    vi.stubGlobal("sessionStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
+    expect(() => markJoined("card_new")).not.toThrow();
+    expect(takeJoined("card_new")).toBe(false);
+    vi.unstubAllGlobals();
+  });
+  it("celebrates nothing on that first read: a booking made before the join page's mark counts as seen", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const read = { balance: 2, activity: [{ kind: "award", delta: 2, createdAt: new Date(now - 1500).toISOString() }], stampMoment: {} };
+    expect(momentFor(read, { balance: null, seenAt: null }, now).credited).toBe(2);
+    expect(momentFor(read, { balance: null, seenAt: new Date(now).toISOString() }, now).credited).toBe(0);
   });
 });

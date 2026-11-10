@@ -11,6 +11,7 @@ import { withUnit } from "@/lib/units";
 import { consentLines } from "./card-wallet-messages";
 import { apiJson, ClientApiError, postJson, type PublicProgram } from "./client-api";
 import { CalendarClock, Gift, TriangleAlert } from "lucide-react";
+import { markJoined } from "./customer/booking-moment";
 import { BookingPill } from "./customer/customer-card";
 import { CustomerState } from "./customer/customer-state";
 import { Reveal } from "./customer/reveal";
@@ -178,6 +179,8 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         if (next.go !== "step") router.prefetch(cardHref);
         await new Promise(done => setTimeout(done, firstTapHold(next.go === "step", matchMedia("(prefers-reduced-motion: reduce)").matches, bonus > 0)));
         leaving = next.go !== "step";
+        // The card page opens as a return after this page: it celebrates nothing a second time.
+        markJoined(result.cardToken);
         if (next.go === "step") setWalletStep(result.cardToken); else router.replace(cardHref);
         return;
       }
