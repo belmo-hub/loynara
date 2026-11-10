@@ -8,12 +8,16 @@ if [[ -n "$backup_heartbeat" && ! "$backup_heartbeat" =~ ^https://heartbeat\.upt
   exit 1
 fi
 
+# The monitor URL is itself a secret: curl reads it as config from stdin, so it never shows on a command line. The
+# pattern check above admits no quote or backslash, so it is safe inside the quoted config value.
+ping_monitor() { printf 'url = "%s"\n' "$1" | curl --fail --silent --max-time 5 --output /dev/null --config - >/dev/null 2>&1; }
+
 encrypted=""
 cleanup() {
   local result=$?
   [[ -z "$encrypted" ]] || rm -f "$encrypted"
   if (( result != 0 )) && [[ "$backup_heartbeat" == https://hc-ping.com/* ]]; then
-    curl --fail --silent --max-time 5 --output /dev/null "$backup_heartbeat/fail" >/dev/null 2>&1 || true
+    ping_monitor "$backup_heartbeat/fail" || true
   fi
 }
 trap cleanup EXIT
@@ -31,7 +35,7 @@ for tool in pg_dump psql age aws openssl; do command -v "$tool" >/dev/null || { 
 encrypted="$(mktemp)"
 key="loynara/$(date -u +%Y/%m/%d)/$(date -u +%Y%m%dT%H%M%SZ)-$(openssl rand -hex 6).dump.age"
 if [[ "$backup_heartbeat" == https://hc-ping.com/* ]]; then
-  curl --fail --silent --max-time 5 --output /dev/null "$backup_heartbeat/start" >/dev/null 2>&1 || echo "Backup monitor start signal unavailable." >&2
+  ping_monitor "$backup_heartbeat/start" || echo "Backup monitor start signal unavailable." >&2
 fi
 # Any database these credentials can open would dump and upload fine, so check it is Loynara's before reporting success.
 source_schema="$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.ledger_entries') IS NOT NULL AND to_regclass('drizzle.__drizzle_migrations') IS NOT NULL" 2>/dev/null || true)"
@@ -42,6 +46,6 @@ aws --endpoint-url "$BACKUP_S3_ENDPOINT" s3 cp "$encrypted" "s3://$BACKUP_S3_BUC
 aws --endpoint-url "$BACKUP_S3_ENDPOINT" s3api head-object --bucket "$BACKUP_S3_BUCKET" --key "$key" >/dev/null
 if [[ -n "$backup_heartbeat" ]]; then
   command -v curl >/dev/null || { echo "Missing backup monitor client: curl" >&2; exit 1; }
-  curl --fail --silent --max-time 5 --output /dev/null "$backup_heartbeat" >/dev/null 2>&1 || { echo "Backup uploaded but monitor heartbeat failed." >&2; exit 1; }
+  ping_monitor "$backup_heartbeat" || { echo "Backup uploaded but monitor heartbeat failed." >&2; exit 1; }
 fi
 echo "Encrypted offsite backup uploaded and HEAD-verified: $key"

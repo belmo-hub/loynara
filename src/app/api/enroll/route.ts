@@ -40,6 +40,6 @@ export async function POST(request: Request) {
       headers.append("Set-Cookie", clearLegacyReturningCardCookieHeader(result.programId, request.url));
       headers.append("Set-Cookie", remember);
     }
-    return Response.json({ cardToken: result.cardToken }, { status: 201, headers });
+    return Response.json({ cardToken: result.cardToken, cardLocator: result.cardLocator }, { status: 201, headers });
   } catch (error) { return respondError(error); }
 }
