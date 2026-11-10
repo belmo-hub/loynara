@@ -12,6 +12,7 @@ type RegistrationInput = PassInput & { deviceId: string; pushToken: string };
 
 const serialPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const devicePattern = /^[A-Za-z0-9._-]{1,200}$/;
+const MAX_DEVICES_PER_PASS = 10;
 
 export type ApplePassView =
   | { kind: "active"; passId: string; updatedAt: Date; pass: WalletPassData }
@@ -53,6 +54,10 @@ export async function registerAppleDevice(input: RegistrationInput, config: Appl
     // Lock the pass row: a concurrent reissue/closure revokes it, and then no new registration may appear.
     const [row] = await tx.select().from(walletPasses).where(eq(walletPasses.id, view.passId)).for("update");
     if (!row || row.revokedAt) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
+    // One person's phone, watch and tablet, with room to spare. Without a limit one pass token could register any number
+    // of made-up devices, and every update of the pass would then push to each of them. Counted under the pass row lock.
+    const held = await tx.select({ deviceId: appleRegistrations.deviceLibraryIdentifier }).from(appleRegistrations).where(eq(appleRegistrations.serialNumber, row.id));
+    if (held.length >= MAX_DEVICES_PER_PASS && !held.some(registered => registered.deviceId === input.deviceId)) throw new DomainError("FORBIDDEN", "Pass-Anmeldung ungültig.");
     if (row.status === "pending" || row.status === "downloaded") await tx.update(walletPasses).set({ status: "registered" }).where(eq(walletPasses.id, row.id));
     await tx.insert(appleDevices).values({ deviceLibraryIdentifier: input.deviceId, pushToken: input.pushToken })
       .onConflictDoUpdate({ target: appleDevices.deviceLibraryIdentifier, set: { pushToken: input.pushToken, updatedAt: new Date() } });
