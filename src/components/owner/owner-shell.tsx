@@ -88,8 +88,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const holds = (node: Node, selector: string) => node instanceof Element && (node.matches(selector) || node.querySelector(selector) !== null);
     const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
+    // The segment picked when the pointer went down; a key press forgets it, so only the pointer's own pick slides.
     let was: Element | null = null;
-    const press = (event: PointerEvent) => { was = event.target instanceof Element ? event.target.closest(".ow-seg:not(.ow-seg--chips)")?.querySelector(PICKED) ?? null : null; };
+    const press = (event: Event) => { was = event.type === "pointerdown" && event.target instanceof Element ? event.target.closest(".ow-seg:not(.ow-seg--chips)")?.querySelector(PICKED) ?? null : null; };
     const watch = new MutationObserver(records => {
       const emptied = new Set(records.filter(record => [...record.removedNodes].some(node => holds(node, ".ow-skel, .ow-ph"))).map(record => record.target));
       for (const record of records) {
@@ -104,12 +105,13 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         was.removeAttribute("data-slide");
         (now as HTMLElement).style.setProperty("--ow-slide", `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`);
         now.setAttribute("data-slide", "");
-        was = now;
+        was = null;
       }
     });
     watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-pressed", "aria-selected"] });
     document.addEventListener("pointerdown", press, true);
-    return () => { watch.disconnect(); document.removeEventListener("pointerdown", press, true); };
+    document.addEventListener("keydown", press, true);
+    return () => { watch.disconnect(); document.removeEventListener("pointerdown", press, true); document.removeEventListener("keydown", press, true); };
   }, []);
 
   // Sub-page tabs wider than the phone: bring the current tab into view and fade the edge that hides more tabs.
