@@ -96,12 +96,18 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   // The row's place, read before the change: during it every round trip pushes the tap later.
   await page.goto("/merchant/more");
   const box = (await team().boundingBox())!;
-  // The early tap goes as soon as the change has started: on a slow runner the round trips alone come near 120 ms.
-  for (const [wait, lands] of [[0, false], [130, true]] as const) for (let attempt = 1; ; attempt++) {
+  const token = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--dur-press").trim());
+  expect(await token(), "the drop window is --dur-press").toBe("120ms");
+  // A runner's round trips alone take a tap about 130 ms into the change, so the window and the fade are stretched for
+  // this test: the shell reads its window from --dur-press, and the change outlasts the late tap. Same code path, same rule.
+  const [press, ui] = [400, 1200];
+  for (const [wait, lands] of [[0, false], [press + 100, true]] as const) {
     await page.goto("/merchant/program");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.addStyleTag({ content: `html:root { --dur-press: ${press}ms; --dur-ui: ${ui}ms; }` });
+    expect(await token()).toBe(`${press}ms`);
     await page.waitForTimeout(500);
-    // How far into the change the tap really came, by the shell's own clock.
+    // How far into the change the tap came, by the shell's own clock.
     await page.evaluate(() => window.addEventListener("pointerdown", () => {
       const starts = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")).map(animation => Number(animation.startTime ?? Infinity));
       (window as unknown as { tapSince: number }).tapSince = performance.now() - Math.min(...starts);
@@ -112,15 +118,16 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
     // A raw tap at the row's place: the new screen is captured for the change and takes no hit tests while it runs.
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     const since = Math.round(await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince));
-    // A tap the runner delivered after 120 ms tests the other case: the early try is taken again.
-    if (!lands && attempt < 5 && since >= 120) continue;
-    if (lands) await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
-    else {
+    if (lands) {
+      expect(since, "the late tap came after the window and while the change ran").toBeGreaterThanOrEqual(press);
+      expect(since).toBeLessThan(press / 2 + ui);
+      await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
+    } else {
+      expect(since, "the early tap came inside the window").toBeLessThan(press);
       await page.waitForTimeout(700);
       await expect(page, `a tap ${since} ms into the change is dropped`).toHaveURL(/\/merchant\/more$/);
       await expect(team(), "the change ended at the tap").toBeVisible();
     }
-    break;
   }
 });
 
