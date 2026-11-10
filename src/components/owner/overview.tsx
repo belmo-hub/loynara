@@ -1,5 +1,6 @@
 "use client";
 
+import { weekLine } from "./week-line";
 import Link from "next/link";
 import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
@@ -143,6 +144,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
               </>}
               <Strip days={board.days} caption={STRIP_CAPTION} />
               {news && <p className="ow-board-news">{news}</p>}
+              {!failed && a?.week && <p className="ow-board-news">{weekLine(a.week)}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}
           </Board>}

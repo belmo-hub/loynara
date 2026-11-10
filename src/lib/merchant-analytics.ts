@@ -7,6 +7,7 @@ import { retentionScope, uuidPattern } from "./retention";
 import type { DiaryDay, LocationDays } from "./overview-day";
 import { WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
 import { visitSources } from "./demo-environment";
+import { experienceFlag } from "./experience-flags";
 
 export type AnalyticsWindowDays = 30 | 90;
 /** W is 7 only for the weekly owner report's exact calendar week. */
@@ -481,6 +482,8 @@ export type LocationAnalytics = LocationDays & {
    * messages since ENG-089 (ENG-112).
    */
   winback: { enabled: boolean; inWindow: number } | null;
+  /** The weekly line, present only while OWNER_WEEKLY_LINE_ENABLED is on: Monday (the location's time zone) to now. */
+  week?: { from: string; bookings: number; returning: number; newCards: number };
 };
 
 const LOCATION_WINDOW_DAYS = 30;
@@ -514,6 +517,7 @@ export async function getLocationAnalytics(actorUserId: string, options: { locat
       winback,
       ...await locationDays(client, scope.tenantId, locationId, asOf, program?.effectiveAt ?? null),
       winbackSetting: program ? { enabled: program.winbackOn, days: program.winbackDays } : null,
+      ...(experienceFlag("OWNER_WEEKLY_LINE_ENABLED") ? { week: await locationWeek(client, scope.tenantId, locationId, asOf) } : {}),
     };
   });
 }
@@ -613,6 +617,31 @@ async function locationCounts(client: PoolClient, tenantId: string, locationId: 
       (SELECT count(*) FROM ledger_entries e WHERE e.tenant_id = $1 AND e.location_id = $4 AND e.kind = 'award' AND e.source = 'winback_bonus'
         AND e.created_at >= $2 AND e.created_at < $3 AND ${NOT_REVERSED("$3")})::int AS "winbacks"
   `, [tenantId, from, to, locationId])).rows[0];
+}
+
+/**
+ * The weekly line's numbers: the same counting rule as the 30 days, from Monday in the location's time zone, plus the
+ * bookings whose card had an earlier counted booking (anywhere in the business).
+ */
+async function locationWeek(client: PoolClient, tenantId: string, locationId: string, asOf: Date): Promise<NonNullable<LocationAnalytics["week"]>> {
+  const [bounds] = (await client.query<{ from: Date; monday: string }>(`
+    SELECT (date_trunc('week', $3::timestamptz AT TIME ZONE l.timezone) AT TIME ZONE l.timezone) AS "from",
+      date_trunc('week', $3::timestamptz AT TIME ZONE l.timezone)::date::text AS monday
+    FROM locations l WHERE l.tenant_id = $1 AND l.id = $2
+  `, [tenantId, locationId, asOf])).rows;
+  const counts = await locationCounts(client, tenantId, locationId, bounds.from, asOf);
+  const [{ returning }] = (await client.query<{ returning: number }>(`
+    SELECT count(DISTINCT (e.membership_id, e.request_id))::int AS returning
+    FROM ledger_entries e
+    WHERE e.tenant_id = $1 AND e.location_id = $2 AND ${STAFF_AWARD()} AND e.created_at >= $3 AND e.created_at < $4 AND ${NOT_REVERSED("$4")}
+      AND EXISTS (
+        SELECT 1 FROM ledger_entries p
+        WHERE p.tenant_id = e.tenant_id AND p.membership_id = e.membership_id AND p.kind = 'award' AND p.source IN (${visitSources()})
+          AND p.request_id <> e.request_id AND p.created_at < e.created_at
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries u WHERE u.tenant_id = p.tenant_id AND u.reversal_of_id = p.id AND u.created_at < $4)
+      )
+  `, [tenantId, locationId, bounds.from, asOf])).rows;
+  return { from: bounds.monday, bookings: counts.qualifyingCheckouts, returning, newCards: counts.newCards };
 }
 
 /** Open cards of the programme inside their win-back window at `at`: the same local-day rule as the bonus at the counter (winbackState). */
