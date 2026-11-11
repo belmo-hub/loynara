@@ -57,6 +57,37 @@ test("the old screen is invisible at rest: only its running fade shows it", asyn
   expect(rest, "the old screen's opacity without its fade").toEqual(rest.map(() => "0"));
 });
 
+// ENG-221: WebKit paints the fades only under keyframe names the last change did not use, so the changes alternate two
+// identical pairs. The pixels are checked in WebKit (owner-screen-change.mobile.spec.ts); here the alternation.
+test("each screen change takes the other pair of keyframes", async () => {
+  const names = async () => {
+    await fadeStarted();
+    const used = await page.evaluate(() => document.getAnimations().flatMap(animation => /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []));
+    await settled();
+    return [...new Set(used)].sort().join(" ");
+  };
+  await tab("Programm").click();
+  const first = await names();
+  await tab("Kunden").click();
+  const second = await names();
+  await tab("Programm").click();
+  const third = await names();
+  expect([first, second].sort(), "two changes in a row use both pairs").toEqual(["ow-fade ow-fade-out", "ow-fade-b ow-fade-out-b"]);
+  expect(third, "the third change takes the first pair again").toBe(first);
+  // A customer card opens and closes on the same path: those are changes of their own too.
+  await page.goto("/merchant/customers?activity=all");
+  const row = page.locator(".ow-content ul a.ow-prog-row").first();
+  await expect(row).toBeVisible();
+  await settled();
+  const before = await page.evaluate(() => document.documentElement.hasAttribute("data-ow-fade"));
+  await row.click();
+  const opened = await names();
+  await page.locator(".ow-content a.ow-back:visible").click();
+  const closed = await names();
+  expect(opened, "opening a card takes the pair the list did not").toBe(before ? "ow-fade ow-fade-out" : "ow-fade-b ow-fade-out-b");
+  expect(closed, "closing it takes the other one").not.toBe(opened);
+});
+
 test("a tab opens its screen at the top, also after a little scrolling; going back returns to the place left", async () => {
   // Next.js keeps the offset when the new page's top still counts as in view; on iPhone Safari that left the heading under
   // the bar. Without the bars' scroll padding Chrome takes the same branch, so the shell's own reset is what is tested.

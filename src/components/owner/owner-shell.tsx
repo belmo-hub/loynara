@@ -36,12 +36,22 @@ function GuardedLink({ href, children, ...rest }: { href: string; children: Reac
 }
 export { GuardedLink };
 
+/** ENG-221: WebKit (every iPhone browser) paints a screen change's fades only under keyframe names the last change did
+ *  not use; with the same names it shows just their end states, a cut. Each change therefore takes the other of two
+ *  identical keyframe pairs (owner.css, data-ow-fade). Called in the commit that makes the change, inside the browser's
+ *  update step, before the change's layers exist: renaming their running animations instead crashed WebKit's page when
+ *  a tap read them. */
+export function freshFade() { document.documentElement.toggleAttribute("data-ow-fade"); }
+
 export function OwnerShell({ children }: { children: ReactNode }) {
   const owner = useOwner();
   const router = useRouter();
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
   const locationId = owner.me?.locationId;
+
+  const changed = useRef(false);
+  useLayoutEffect(() => { if (changed.current) freshFade(); changed.current = true; }, [pathname]);
 
   // Every screen change opens at the top, except Back and Forward, which restore the place the browser kept. Next.js keeps
   // the old offset while the new page's top is still in view, so after a little scrolling the next screen opened with its

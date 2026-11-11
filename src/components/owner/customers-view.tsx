@@ -16,6 +16,7 @@ import { CardScreen } from "./card-screen";
 import { InviteRows } from "./join-card";
 import { DemoDataChip, Tiles, type Tile } from "./overview-board";
 import { useOwner } from "./owner-context";
+import { freshFade } from "./owner-shell";
 import { ErrorNotice, LinkPending, LoadingBlock, nf, OwnerIcon, PageHead } from "./owner-ui";
 import { WINBACK_HREF } from "./retention-insights";
 import { useLoad } from "./use-load";
@@ -109,6 +110,9 @@ export function CustomersView() {
   const listKey = list.toString();
   const [fresh, setFresh] = useState<Record<string, MerchantMember>>({});
   const listBox = useRef<HTMLDivElement>(null), hadCard = useRef(false);
+  // Opening and closing a card are screen changes of their own (freshFade); the path stays the same.
+  const shownCard = useRef(card);
+  useLayoutEffect(() => { if (card !== shownCard.current) freshFade(); shownCard.current = card; }, [card]);
   useLayoutEffect(() => {
     // Back from a card is a return, not an arrival: showing the list again restarts its entrances, so they end before
     // the paint. A loop (the placeholder's shimmer) has no end to jump to and is left alone.
