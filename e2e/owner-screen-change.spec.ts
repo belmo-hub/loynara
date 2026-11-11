@@ -41,6 +41,21 @@ test("a step in fades to the end: a page that swaps its loading frame for its fo
   await expect(page, "the new screen names itself to assistive tech").toHaveTitle(/ – Loynara$/);
 });
 
+// ENG-219: WebKit (every iPhone browser) does not always paint the old screen's fade and then draws it as styled at
+// rest for the whole change. At rest it must be invisible, in every browser, so it can never lie over the new screen.
+test("the old screen is invisible at rest: only its running fade shows it", async () => {
+  await tab("Programm").click();
+  await fadeStarted();
+  const rest = await page.evaluate(() => document.getAnimations().flatMap(animation => {
+    const layer = (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "";
+    if (!/^::view-transition-old\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test(layer)) return [];
+    animation.cancel();
+    return [getComputedStyle(document.documentElement, layer).opacity];
+  }));
+  expect(rest.length, "the old screen is a layer of the change").toBeGreaterThan(0);
+  expect(rest, "the old screen's opacity without its fade").toEqual(rest.map(() => "0"));
+});
+
 test("a second tab tap during the change lands", async () => {
   const customers = await tab("Kunden").boundingBox();
   await tab("Programm").click();
