@@ -45,7 +45,7 @@
 @media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press), border-color var(--dur-press); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
 .ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
 .ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
@@ -78,7 +78,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner[data-end="true"] { mask-image: linear-gradient(to left, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
-.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press), border-color var(--dur-press); }
+.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-subnav a:hover { color: var(--color-ink); }
 /* As in the tab bar: the tapped sub-tab looks current from the tap, and the one before no longer does. */
 .ow-subnav:not(:has([data-pending])) a[aria-current="page"], .ow-subnav a[data-pending] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
@@ -114,6 +114,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 ::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
 ::view-transition-old(ow-topbar), ::view-transition-old(ow-subnav), ::view-transition-old(ow-tabs) { display: none; }
 ::view-transition-new(ow-topbar), ::view-transition-new(ow-subnav), ::view-transition-new(ow-tabs) { animation: none; }
+/* A customer card opens over its list, which stays mounted and hidden: the list is a layer of its own, so it leaves and
+   comes back with the screens' fade. */
+.ow-under { view-transition-name: ow-under; view-transition-class: ow-screen; }
 /* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
 ::view-transition-old(root) { display: none; }
 ::view-transition-new(root) { animation: none; }
@@ -134,6 +137,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-topbar-brand svg { width: 32px; height: 32px; }
 @media (max-width: 1023px) {
   .ow-content { padding-bottom: calc(var(--space-12) + var(--ow-tabbar)); }
+  /* The bottom bar covers the page's foot: a control the keyboard reaches is scrolled clear of it, ring included.
+     No specificity, so a control with its own margin keeps it. */
+  :where(.ow-content :focus-visible) { scroll-margin-bottom: calc(var(--ow-tabbar) + var(--space-4)); }
   /* Unsaved changes: the bar is pinned above the bottom bar. Sticky stopped at the end of its card and floated
      mid-screen; the page keeps room for the pinned bar so nothing hides behind it. */
   .ow-savebar:not([data-idle]) { position: fixed; left: 0; right: 0; bottom: var(--ow-tabbar); margin: 0; padding-bottom: var(--space-3); }
@@ -147,7 +153,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
     border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: 600; line-height: 1.1;
     text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-    transition: transform var(--dur-press) var(--ease-out), color var(--dur-press);
+    transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   }
   /* The current tab is marked by more than colour (I-10): the neutral pill behind the icon (as the sidebar), a heavier icon and 800. */
   .ow-tab-icon { display: grid; place-items: center; width: 56px; height: 32px; border-radius: var(--radius-pill); transition: background var(--dur-press) var(--ease-out); }
@@ -181,7 +187,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-card :is(h2, h3) { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: var(--space-1); }
-.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
 .ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
@@ -251,7 +257,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-more-body::after { content: ""; display: block; height: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
-.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press); }
+.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press) var(--ease-out); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input[type="file"] { padding-block: var(--space-2); }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
@@ -268,7 +274,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-grid-2--end { align-items: end; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
-.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press), color var(--dur-press); }
+.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { color: var(--color-ink); }
 /* The picked segment's pill is its ::before, so it can slide over from the segment picked before (Indicator slide,
    owner-shell). The picked segment sits under its neighbours, so the pill never covers a label on its way. Chips have no
@@ -279,7 +285,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-seg:not(.ow-seg--chips) button:is([aria-pressed="true"], [aria-selected="true"])::before { content: ""; position: absolute; inset: 0; z-index: calc(var(--z-sticky) * -1); border-radius: inherit; transform-origin: 0 0; background: var(--color-raised); box-shadow: 0 0 0 1.5px var(--color-line-strong); }
 .ow-seg--chips button[aria-pressed="true"] { background: var(--color-raised); }
 .ow-radio-cards { display: grid; gap: var(--space-2); }
-.ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press), background var(--dur-press); }
+.ow-radio-card { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); cursor: pointer; transition: border-color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out); }
 .ow-radio-card:has(input:checked) { border-color: var(--color-ink); background: var(--color-fill); }
 .ow-radio-card:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-radio-card input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
@@ -528,7 +534,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
 /* Two bonuses („+20 · +10“) one step smaller, so they stay beside „Empfehlungen“ at 375 px. */
 .ow-prog-value[data-pair] { font-size: var(--text-22); }
-.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-prog-arrow { flex: none; color: var(--color-ink-muted); transition: color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
 .ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
@@ -656,7 +662,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
 /* The next step: the one green thing on the page, the whole band one action. */
-.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+.ow-band { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; text-decoration: none; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 a.ow-band, button.ow-band { cursor: pointer; }
 a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 @media (hover: hover) { a.ow-band:hover, button.ow-band:hover { background: var(--color-action-hover); } }
@@ -712,8 +718,6 @@ a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 /* The board's placeholder: number, sub-line, then the strip 20 lower. */
 .ow-board-ph { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
 .ow-board-ph > :last-child { margin-top: var(--space-3); }
-@media (prefers-reduced-motion: no-preference) { :is(.ow-board[aria-busy="true"], .ow-next-ph:not([data-closing])) .ow-ph { animation: ow-pulse 1.6s ease-in-out infinite; } }
-@keyframes ow-pulse { 50% { opacity: .45; } }
 
 /* The 30-day rows: Programm list rows (ENG-099); one „?“ on the section head opens their help. */
 .ow-rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
@@ -742,11 +746,11 @@ div.ow-prog-row:active { transform: none; }
 .ow-day[data-gap] h3 { color: var(--color-ink-muted); }
 .ow-day-sum { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.ow-pill { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); font-size: var(--text-14); font-weight: var(--weight-strong); }
+/* An entry is a record, not a control: a quiet fill and no outline, so it cannot be taken for a secondary button. */
+.ow-pill { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--color-fill); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-pill b { color: var(--color-ink); font-weight: var(--weight-heavy); }
 .ow-pill[data-kind="correction"] b { color: var(--color-ink-muted); }
-/* The redeemed reward is the one coral element on the screen (spec §4.2). */
-.ow-pill[data-kind="redemption"] { border-color: var(--color-stamp); }
+/* The redeemed reward's dot is the one coral element on the screen (spec §4.2). */
 .ow-pill[data-kind="redemption"] b { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--color-stamp); }
 /* The help „?“: lucide CircleHelp at 22 px in a 44 px target (spec §1.3, C-16). */
 .ow-tile-q { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; cursor: pointer; }
@@ -757,7 +761,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
 .ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
-.ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press); }
+.ow-number button { display: grid; place-items: center; flex: none; width: var(--target); height: var(--target); padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 1.5px var(--color-line-strong); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .ow-number button:hover:not(:disabled) { background: var(--color-fill); }
 .ow-number button:active:not(:disabled) { transform: scale(.97); }
 .ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
@@ -835,7 +839,7 @@ div.ow-prog-row:active { transform: none; }
 @media (max-width: 640px) { .ow-qsave { padding-inline: var(--space-4); } }
 /* The other questions (screens 08–16): answers as rows like the list's, a switch per setting, labelled values. */
 .ow-qchoices { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }
-.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), color var(--dur-press), transform var(--dur-press) var(--ease-out); }
+.ow-qchoice { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 .ow-qchoice:active { transform: scale(.985); }
 .ow-qchoice:has(:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .ow-qchoice .ow-prog-text strong { font-size: var(--text-18); }
@@ -1118,6 +1122,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    first frame, entrances only fill backwards (no transform stays behind, which would unpin a fixed child), and under
    reduced motion none of the entrances exists and no loop runs (the placeholder is still). A fact (a price, a date, a
    balance) may arrive with its row or block, never on its own; the bars stay still. */
+@keyframes ow-rise { from { transform: translateY(8px); } }
 @keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
 @keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
@@ -1129,15 +1134,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-skel { animation: ow-shimmer 1.4s linear infinite; }
   /* Arrive: the blocks of a screen that is navigated to and paints at once rise in once, top to bottom, 40 ms apart, the
      sixth and later together (5 × 40 + 220 = 420 ms). Inside the shell only the blocks owner-shell marks arrive: never a
-     placeholder, a block that holds one, or what comes later. A question page's column holds the pinned button, so its
-     children are the blocks, not itself. */
+     placeholder, a block that holds one, or what comes later. There the screen change already fades the whole screen in,
+     so the blocks only rise (a second fade on top left a near-blank frame) and their rows come with them. A page outside
+     the shell has no screen fade, so its blocks fade as they rise. A question page's column holds the pinned button, so
+     its children are the blocks, not itself. */
   :is(.ow-page, .ow-q) > * { --ow-i: 5; }
   .ow-page > :nth-child(1) { --ow-i: 0; }
   .ow-page > :nth-child(2), .ow-q > :nth-child(1) { --ow-i: 1; }
   .ow-page > :nth-child(3), .ow-q > :nth-child(2) { --ow-i: 2; }
   .ow-page > :nth-child(4), .ow-q > :nth-child(3) { --ow-i: 3; }
   .ow-page > :nth-child(5), .ow-q > :nth-child(4) { --ow-i: 4; }
-  .ow-screen :is(.ow-page, .ow-q) > [data-arrive]:not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog), :is(.ow-page, .ow-q):not(.ow-screen *) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
+  .ow-screen :is(.ow-page, .ow-q) > [data-arrive]:not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-rise var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
+  :is(.ow-page, .ow-q):not(.ow-screen *) > :not(.ow-q, .ow-qsave, .ow-savebar, .ow-toast-region, .ow-dialog-scrim, .ow-skel, .ow-loading, dialog) { animation: ow-arrive var(--dur-ui) var(--ease-out) calc(var(--ow-i) * 40ms) backwards; }
   /* List arrive: the rows of a list come in 30 ms apart, 6 px, the eighth and later together and all within 420 ms. */
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary):where(:not(dialog *)) > :is(li, tr, .ow-goal, .ow-day) { --ow-r: 7; animation: ow-row var(--dur-ui) var(--ease-out) min(var(--ow-r) * 30ms, 200ms) backwards; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(1) { --ow-r: 0; }
@@ -1149,14 +1157,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(7) { --ow-r: 6; }
   /* Skeleton to content: what takes a placeholder's place (owner-shell marks it data-swap) stands there at once. Neither
      it nor its rows or notices rise, fade or stagger; a fade from nothing would show an empty frame. A screen come back
-     to through the history (data-return) is treated the same, and its bars do not grow again. */
-  .ow-content :is([data-swap], [data-return]):is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock) { animation: none; }
+     to through the history (data-return) is treated the same, and its bars do not grow again. Nor do the bars of a new
+     period (data-switched): they would grow from 0, not from the value before. */
+  .ow-content :is([data-swap], [data-return]):is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
+  /* The rows of a block that arrives come with their block. */
+  .ow-content [data-arrive]:is(li, tr, .ow-goal, .ow-day), .ow-content [data-arrive] :is(li, tr, .ow-goal, .ow-day) { animation: none; }
   /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
-     is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no measure. */
+     is a fact and stands still. The card stock is one bar and opens from the left. The dashed bars of days to come are no
+     measure, and a day without a booking has nothing to grow. */
   .ow-strip-day { --ow-r: 7; }
   .ow-strip-day:nth-child(1) { --ow-r: 0; } .ow-strip-day:nth-child(2) { --ow-r: 1; } .ow-strip-day:nth-child(3) { --ow-r: 2; } .ow-strip-day:nth-child(4) { --ow-r: 3; }
   .ow-strip-day:nth-child(5) { --ow-r: 4; } .ow-strip-day:nth-child(6) { --ow-r: 5; } .ow-strip-day:nth-child(7) { --ow-r: 6; }
-  .ow-strip-bar:not([data-empty]) { transform-origin: 50% 100%; animation: ow-grow var(--dur-reward) var(--ease-in-out) calc(var(--ow-r) * 30ms) backwards; }
+  .ow-strip-bar:not([data-empty], [data-zero]) { transform-origin: 50% 100%; animation: ow-grow var(--dur-reward) var(--ease-in-out) calc(var(--ow-r) * 30ms) backwards; }
   .ow-stock { animation: ow-wipe var(--dur-reward) var(--ease-in-out) backwards; }
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
@@ -1216,6 +1228,10 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* A pick shown by a fill or a ring alone would vanish too: it gets an outline. */
   .ow-seg button:is([aria-pressed="true"], [aria-selected="true"]) { outline: 2px solid Highlight; outline-offset: -2px; }
   .ow-swatch[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
+  /* A picked weekday too; while it has the keyboard, the focus ring stays the one outline. */
+  .ow-days button[aria-pressed="true"]:not(:focus-visible) { outline: 2px solid Highlight; outline-offset: -2px; }
+  /* A transparent border is drawn here, so every sub-tab was underlined: only the current one keeps its line. */
+  .ow-subnav a:not([aria-current="page"], [data-pending]) { border-bottom-color: Canvas; }
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }

@@ -152,7 +152,6 @@
 .outcomeText strong { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.25; }
 .outcomeText > span { margin: 0; font-size: var(--text-16); line-height: var(--leading-body); }
 .outcome[data-tone="success"] .outcomeIcon { background: var(--color-success); color: var(--color-bg); }
-.outcome[data-tone="rejected"] { box-shadow: inset 0 0 0 1.5px var(--color-danger); }
 .outcome[data-tone="rejected"] .outcomeIcon { background: var(--color-danger); color: var(--color-on-danger); }
 .outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
 

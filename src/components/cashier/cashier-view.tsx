@@ -43,6 +43,8 @@ export type CashierViewProps = {
   busy?: boolean;
   status?: "idle" | "success" | "pending" | "rejected" | "offline";
   message?: string;
+  /** The cause of a refusal, where the page knows it: the panel's title instead of the strip's own word. */
+  rejectedTitle?: string;
   onLookup: (code: string) => void | Promise<void>;
   /** The typed card number was rejected (unknown or malformed): its field shakes once and is marked invalid until it is edited. */
   codeRejected?: boolean;
@@ -135,7 +137,7 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale === "fr" ? "fr-FR" : "de-DE", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-export function CashierView({ locationName, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, onLookup, codeRejected = false, onCodeEdit, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
+export function CashierView({ locationName, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, rejectedTitle, onLookup, codeRejected = false, onCodeEdit, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
   const fields = useFormCheck();
   const [quantity, setQuantity] = useState(1);
@@ -272,7 +274,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {/* While a booking is on its way the strip and the button already say so: the panel stays the same live region but takes no room, so the open card does not move. A refusal or an unclear result shows it again. */}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, awarding || redeeming ? styles.srOnly : styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
-        <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : t.rejected}</strong>{message && <span>{message}</span>}</span>
+        <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : rejectedTitle ?? t.rejected}</strong>{message && <span id="cashier-outcome-text">{message}</span>}</span>
       </div>}
       {/* After a booking the result owns the top of the screen, readable from arm's length: what was booked, the new balance. */}
       {booked && <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
@@ -304,7 +306,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
       <form className={cx(styles.stack, codeRejected && styles.rejected)} onSubmit={lookup} onInput={fields.onInput} noValidate>
         <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
-          autoFocus={focusCodeInput} value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} {...(codeRejected ? { "aria-invalid": true } : {})} autoComplete="off" autoCapitalize="characters" spellCheck={false}
+          autoFocus={focusCodeInput} value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} {...(codeRejected ? { "aria-invalid": true, "aria-describedby": "cashier-code-hint cashier-outcome-text" } : {})} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           placeholder={locale === "fr" ? "p. ex. K-7QX2MA" : "z. B. K-7QX2MA"} required />
         <Button type="submit" variant={camera || onStartCamera ? "secondary" : "primary"} size="lg" block disabled={busy}>{t.check}</Button>
       </form>

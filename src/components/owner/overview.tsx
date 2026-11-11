@@ -123,7 +123,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   // A failed read shows the last numbers this device loaded, with their „Stand …“; the error card only without them.
   const board = failed ? cached?.board ?? null : live;
   const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
-  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
+  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}`;
   const quiet = a ? quietOf(a) : null;
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
@@ -172,7 +172,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       <div className="ow-dash-side">
         {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
           // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
+          : a && <Tiles title="Letzte 30 Tage an diesem Standort" note={firstWeeks(a)} tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
       </div>
       {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
       {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
@@ -264,14 +264,19 @@ function useMilestone(locationId: string, cards: number): number | null {
 /**
  * The four tiles (spec §1.3, copy T0–T6, Q1–Q4). A tile whose event never happened at this location shows „–“ and when it
  * will appear (lifetime counts from /api/me); a real 0 after earlier activity stays 0. The page only shows after the first
- * booking, so the Buchungen tile always has a number. Notes: „erste/zweite Woche“ in the programme's first 14 days,
- * „vorher N“ once there is a full previous period (O7), else what was counted. Only the Buchungen tile links to a Kunden
+ * booking, so the Buchungen tile always has a number. Notes: „vorher N“ once there is a full previous period (O7), else
+ * what was counted; in the programme's first 14 days always what was counted, and the section head says which week. Only the Buchungen tile links to a Kunden
  * filter that exists today; the others come with ENG-086.
  */
+/** „erste Woche“ or „zweite Woche“ in the programme's first 14 days: said once, in the head over the four rows. */
+export function firstWeeks(a: Pick<LocationAnalytics, "programStartedOn" | "today">): string | undefined {
+  const since = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
+  return since === null || since >= 14 ? undefined : since < 7 ? "erste Woche" : "zweite Woche";
+}
+
 export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
-  const sinceStart = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
-  const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
-    sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
+  const young = firstWeeks(a) !== undefined;
+  const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) => !young && a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
   const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
@@ -287,7 +292,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
 const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}Karte ${one}` : `${nf.format(n)}${NBSP}Karten ${many}`;
 
 /**
- * „Als Nächstes“: one line, one verb (copy N1–N3), status by exception. A quiet week (7+ days without a booking) first,
+ * „Als Nächstes“: one line, one verb (copy N1–N3), no final period on the one-line title, status by exception. A quiet week (7+ days without a booking) first,
  * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
  * ending, the end-date card leads instead.
  */
@@ -304,10 +309,10 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen", "fehlen seit über 30 Tagen"), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
-  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
-  if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen", "können jetzt eine Prämie einlösen"), action: { label: "Ansehen", href: insight.actions[0].href } };
+  if (insight) return { kind: insight.id, title: insight.title, text: insight.next, action: insight.actions.at(-1) };
   return null;
 }
 

@@ -63,10 +63,10 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     await counter.getByRole("button", { name: /Andere Karte/ }).click();
     await counter.getByLabel("Kartennummer oder Kartencode").fill("K-AAAAAA");
     await counter.getByRole("button", { name: "Prüfen" }).click();
-    await expect(counter.getByText("Keine aktive Karte mit dieser Nummer", { exact: false })).toBeVisible();
+    await expect(counter.getByText("Eine Karte von einem anderen Standort findest du nur dort.", { exact: false })).toBeVisible();
     await counter.getByLabel("Kartennummer oder Kartencode").fill("K-0O1ILA");
     await counter.getByRole("button", { name: "Prüfen" }).click();
-    await expect(counter.getByText("enthält weder 0, O, 1, I noch L", { exact: false })).toBeVisible();
+    await expect(counter.getByText("0, O, 1, I und L kommen darin nicht vor.", { exact: false })).toBeVisible();
 
     // ── Owner: correct the award (only the existing reversal endpoint is used) ──
     const ownerContext = await browser.newContext({ baseURL: url, storageState: await owner.context.storageState() });
