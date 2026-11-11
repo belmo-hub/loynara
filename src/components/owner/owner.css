@@ -99,16 +99,15 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Screen change (owner-shell, DESIGN.md Motion): the screen in view stays until the next one is ready (the area has no
-   loading route). Then the old one fades out over --dur-press and the new one fades in over --dur-ui, starting half a
-   --dur-press later. For those 60 ms both show faintly. One fade everywhere.
-   Browsers without view transitions swap as before. */
+   loading route). Then old and new crossfade together over --dur-ui, linear, so their strengths add up to one in every
+   frame: no dip to bare ground, no frame with both at full. Browsers without view transitions swap as before. */
 ::view-transition { pointer-events: none; }
-/* ENG-219: the old screen is invisible at rest and only its running fade shows it. WebKit (every iPhone browser) does
-   not paint that fade from the second change on and draws the old screen as styled here for the whole change: with
-   opacity 1 at rest it lay over the new one. Where the fade is not painted the change is a cut. */
-::view-transition-old(.ow-screen) { opacity: 0; animation: ow-fade-out var(--dur-press) var(--ease-out); }
+/* ENG-219: the old screen is invisible at rest and only its running fade shows it. Where WebKit (every iPhone browser)
+   does not paint that fade it draws the old screen as styled here for the whole change: with opacity 1 at rest it lay
+   over the new one. Where the fade is not painted the change is a cut. */
+::view-transition-old(.ow-screen) { opacity: 0; animation: ow-fade-out var(--dur-ui) linear; }
 @keyframes ow-fade-out { from { opacity: 1; } }
-::view-transition-new(.ow-screen) { animation: ow-fade var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) both; }
+::view-transition-new(.ow-screen) { animation: ow-fade var(--dur-ui) linear both; }
 /* ENG-221: every other change uses a second, identical pair of keyframes (owner-shell's freshFade): under the name the
    last change used WebKit shows only the fades' end states, so the change was a cut with the new screen popping in. */
 :root[data-ow-fade]::view-transition-old(.ow-screen) { animation-name: ow-fade-out-b; }
