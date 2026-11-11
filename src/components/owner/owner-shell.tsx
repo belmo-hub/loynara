@@ -71,7 +71,11 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     let meant: HTMLElement | null = null;
     let late: { x: number; y: number; since: number } | null = null;
-    const changing = () => document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"));
+    // ENG-219: WebKit keeps the hidden root layer's finished fade for good after a change, and every later tap on the
+    // content then counted as one during a change: swallowed and replayed by script. Where the browser says itself
+    // whether a change is active, that decides.
+    const told = CSS.supports("selector(:active-view-transition)");
+    const changing = () => told && !document.documentElement.matches(":active-view-transition") ? [] : document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"));
     const down = (event: PointerEvent) => {
       const running = changing();
       if (!running.length) { meant = null; late = null; return; }
