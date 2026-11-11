@@ -67,6 +67,26 @@ test("in the second screen change the old screen is not painted over the new one
   expect(share, "share of the screen that shows something the settled screen does not").toBeLessThan(0.002);
 });
 
+// ENG-221: WebKit painted the fades only in the first change after a load; from the second on the old screen cut away
+// at once and the new one popped in. Slowed down tenfold, the old screen must still show while the second change runs.
+test("in the second screen change the old screen fades out instead of cutting away", async ({ page, browser }) => {
+  await openOwner(page);
+  await page.addStyleTag({ content: ":root { --dur-press: 1200ms !important; --dur-ui: 2200ms !important; }" });
+  await toCustomers(page);
+  await tab(page, "Programm").click();
+  await page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+  const frames = [await page.screenshot(), await page.screenshot(), await page.screenshot()];
+  await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
+  await page.waitForFunction(() => !document.getAnimations().some(animation => animation.playState !== "finished" && (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
+  const settled = await page.screenshot();
+  const helper = await browser.newPage();
+  const shares = [];
+  for (const frame of frames) shares.push(await foreignShare(helper, frame, settled));
+  await helper.close();
+  // The fading Kundenkarten page leaves dark text where the settled Programm page is light; a cut leaves none.
+  expect(Math.max(...shares), "the old screen is still drawn while its fade runs").toBeGreaterThan(0.005);
+});
+
 // ENG-219: WebKit keeps a finished layer animation after a change. The shell took that for a running change and
 // swallowed every later tap on the content, replaying it by script: a text field then got focus without a tap of its own.
 test("after a screen change has ended a tap on the content is the browser's own", async ({ page }) => {

@@ -109,6 +109,12 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 ::view-transition-old(.ow-screen) { opacity: 0; animation: ow-fade-out var(--dur-press) var(--ease-out); }
 @keyframes ow-fade-out { from { opacity: 1; } }
 ::view-transition-new(.ow-screen) { animation: ow-fade var(--dur-ui) var(--ease-out) calc(var(--dur-press) / 2) both; }
+/* ENG-221: every other change uses a second, identical pair of keyframes (owner-shell's freshFade): under the name the
+   last change used WebKit shows only the fades' end states, so the change was a cut with the new screen popping in. */
+:root[data-ow-fade]::view-transition-old(.ow-screen) { animation-name: ow-fade-out-b; }
+:root[data-ow-fade]::view-transition-new(.ow-screen) { animation-name: ow-fade-b; }
+@keyframes ow-fade-out-b { from { opacity: 1; } }
+@keyframes ow-fade-b { from { opacity: 0; } to { opacity: 1; } }
 /* The bars stay: each is captured on its own layer above the screens and shows its new state at once, without the
    browser's own crossfade. */
 .ow-topbar { view-transition-name: ow-topbar; }
