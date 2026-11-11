@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIRST_OPEN_WINDOW_MS, keepShare, laterMark, momentFor, readSeen, referralHoldFor, referralPlace, unseenAwards } from "./booking-moment";
+import { FIRST_OPEN_WINDOW_MS, JOINED_WINDOW_MS, keepShare, laterMark, markJoined, momentFor, peekJoined, readSeen, referralHoldFor, referralPlace, takeJoined, unseenAwards } from "./booking-moment";
 
 const now = Date.parse("2026-11-10T12:00:00Z");
 const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -113,5 +113,34 @@ describe("the referral block while the flag is on", () => {
     expect(referralHoldFor({ referralNew: true }, { stepped: false }, true)).toBe("held");
     expect(referralHoldFor({ referralNew: false }, { stepped: false }, true)).toBe("released");
     expect(referralHoldFor({ referralNew: true }, null, true)).toBe("released");
+  });
+});
+
+describe("the card page after the join page (ENG-205)", () => {
+  it("opens as a return once, within a few seconds of the join, and keeps the mark in the page's memory only", () => {
+    const stored: string[] = [];
+    const spy = { getItem: () => null, setItem: (key: string) => { stored.push(key); }, removeItem: () => {} };
+    vi.stubGlobal("sessionStorage", spy);
+    vi.stubGlobal("localStorage", spy);
+    const at = Date.parse("2026-11-10T12:00:00Z");
+    expect(peekJoined(at)).toBe(false);
+    markJoined(at);
+    // Nothing is written to the browser's storage: no card link, no card number, not even the time (ENG-214).
+    expect(stored).toEqual([]);
+    // Peeking (the card page's paint before its read) does not use the mark up.
+    expect([peekJoined(at + 500), peekJoined(at + 900)]).toEqual([true, true]);
+    expect(takeJoined(at + 1000)).toBe(true);
+    expect([takeJoined(at + 1100), peekJoined(at + 1100)]).toEqual([false, false]);
+    // A mark older than the window (the tab was left open, another card is opened later) no longer counts.
+    markJoined(at);
+    expect([peekJoined(at + JOINED_WINDOW_MS), takeJoined(at + JOINED_WINDOW_MS)]).toEqual([false, false]);
+    expect(takeJoined(at + 1)).toBe(true); // leave no mark behind for the next test
+    vi.unstubAllGlobals();
+  });
+  it("celebrates nothing on that first read: a booking made before the join page's mark counts as seen", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const read = { balance: 2, activity: [{ kind: "award", delta: 2, createdAt: new Date(now - 1500).toISOString() }], stampMoment: {} };
+    expect(momentFor(read, { balance: null, seenAt: null }, now).credited).toBe(2);
+    expect(momentFor(read, { balance: null, seenAt: new Date(now).toISOString() }, now).credited).toBe(0);
   });
 });

@@ -56,7 +56,8 @@ Rules:
 - **Card picture:** with head start on for this shop, the preview shows the head-start stamps, labelled "Startbonus". Without it, an empty card with the reward named, as today.
 - **After the tap:** the request is sent at once. When it answers, the card settles in ("Card arrive") and the head-start stamps land. Only then the Wallet step opens. If the shop has no head start, **no stamp lands**: the card builds empty. A stamp the customer did not get is never shown.
 - **Terms and tick:** the existing sentence and the existing consent text and version (Legal's decision of 6 Nov) are kept word for word; only their position changes. The tick stays unchecked and stays limited to the cases where it is offered today.
-- **Weight:** HTML and CSS only, no library, no image except the logo. The page keeps working without script (the form posts, the card page opens).
+- **Weight:** HTML and CSS only, no library, no image except the logo. As today the page needs script: it is client-rendered and the enroll route takes JSON, and ENG-205 does not change that. Server rendering plus a form post, so the page works without script, is an option for the founder as its own ticket.
+- **Screens:** Head of Design's spec of 10 Nov (revision 2) sets the order, sizes and the steps after the tap; where it differs from the sketch above, the spec is what is built. The shop's uploaded logo needs a public image route that does not exist for browser pages; until that is decided the tile shows the shop's initial.
 
 ## 4. Stamp and reward moment (ENG-206)
 

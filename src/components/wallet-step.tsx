@@ -59,10 +59,12 @@ type Props = { token: string; program: Pick<PublicProgram, "businessName" | "pro
    *  request still shows its state (ENG-160). */
   stay?: boolean;
   /** Told once Apple's sheet opens, so the tap page leaves the stamp's scroll to the sheet's return. */
-  onAdd?: () => void };
+  onAdd?: () => void;
+  /** Where the page already has its h1 (the first page's shop name, ENG-205). */
+  heading?: "h1" | "h2" };
 
 /** Screens 03–07: why Wallet, a lock-screen picture (the example owner message only while walletMessages is on), the Apple button and the skip link. */
-export function WalletStep({ token, program: { businessName, programType, walletMessages }, band, stay = false, onAdd }: Props) {
+export function WalletStep({ token, program: { businessName, programType, walletMessages }, band, stay = false, onAdd, heading }: Props) {
   const messages = walletMessages === true;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -102,7 +104,7 @@ export function WalletStep({ token, program: { businessName, programType, wallet
     }
   }
 
-  const Heading = band ? "h2" : "h1";
+  const Heading = heading ?? (band ? "h2" : "h1");
   return <section className={styles.step} data-band={band || undefined} aria-labelledby="wallet-step-title">
     <Heading id="wallet-step-title" className={styles.title}>Deine Karte ist fertig. Leg sie in Apple Wallet.</Heading>
     <p className={styles.lead}>Dann ist sie immer griffbereit, bei deinen anderen Karten. Kein Link, den du suchen musst.</p>
