@@ -27,7 +27,8 @@ const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" })
 const inLayer = (prefix: string, running = false) => page.evaluate(([start, mustRun]) => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(start as string) && (!mustRun || animation.playState === "running")), [prefix, running] as const);
 /** Resolves in the frame in which the incoming screen's fade exists. */
 const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
-const settled = () => page.waitForFunction(() => !document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
+// WebKit keeps a finished layer animation after a change (#263), so only unfinished ones count.
+const settled = () => page.waitForFunction(() => !document.getAnimations().some(animation => animation.playState !== "finished" && (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
 
 test("a step in fades to the end: a page that swaps its loading frame for its form does not cut the change short", async () => {
   await tab("Programm").click();
@@ -109,12 +110,74 @@ test("a tab opens its screen at the top, also after a little scrolling; going ba
   await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(left);
 });
 
+/** Takes the bars' scroll padding away: Next.js then keeps a small offset on a change, as iPhone Safari did. */
+const withoutPadding = () => page.addStyleTag({ content: "html:root { scroll-padding-top: 0 !important; }" });
+const y = () => page.evaluate(() => Math.round(window.scrollY));
+
+test("a back link opens its screen at the top too", async () => {
+  await withoutPadding();
+  await tab("Aktionen").click();
+  await page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Kampagnen" }).click();
+  await expect(page).toHaveURL(/\/merchant\/campaigns/);
+  await settled();
+  await page.evaluate(() => window.scrollTo({ top: 20, behavior: "instant" }));
+  await page.locator(".ow-content a.ow-back:visible").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Aktionen" })).toBeVisible();
+  await settled();
+  expect(await y(), "„‹ Aktionen“ after 20 px of scrolling").toBe(0);
+});
+
+test("„‹ Programm“ returns to the row it was left from", async () => {
+  await tab("Programm").click();
+  await settled();
+  // The whole list is there once its side reads are in (the reminder row needs them); then its last row is furthest down.
+  await expect(page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Erinnerung vor der Prämie" })).toBeAttached();
+  const last = page.locator(".ow-content a.ow-prog-row").last();
+  // The list swaps its first rows once the side reads are in; scrolling waits until the row stays put.
+  await expect(async () => { await last.scrollIntoViewIfNeeded({ timeout: 500 }); }).toPass();
+  expect(await y()).toBeGreaterThan(100);
+  const href = await last.getAttribute("href");
+  await last.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeHidden();
+  await settled();
+  await page.locator(".ow-content a.ow-back:visible").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
+  // Programm puts the row back in view by itself, clear of the bars, and gives it the focus.
+  const row = page.locator(`.ow-content a.ow-prog-row[href="${href}"]`);
+  await expect(row).toBeFocused();
+  await expect(row).toBeInViewport({ ratio: 1 });
+  expect(await y(), "not the page's top").toBeGreaterThan(100);
+});
+
+test("Enter on a focused tab opens its screen at the top and keeps the focus on the tab", async () => {
+  await withoutPadding();
+  await page.evaluate(() => window.scrollTo({ top: 20, behavior: "instant" }));
+  await tab("Programm").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
+  await settled();
+  expect(await y()).toBe(0);
+  await expect(tab("Programm")).toBeFocused();
+});
+
+test("a push to a section of a page lands on that section, not at the page's top", async () => {
+  await page.goto("/merchant/automations");
+  await page.getByRole("link", { name: "Absender eintragen" }).click();
+  await expect(page).toHaveURL(/\/merchant\/settings#absender$/);
+  await settled();
+  await expect.poll(() => page.evaluate(() => {
+    const bars = Math.max(...[...document.querySelectorAll(".ow-topbar, .ow-subnav")].map(bar => bar.getBoundingClientRect().bottom));
+    return Math.abs(Math.round(document.getElementById("absender")!.getBoundingClientRect().top - bars));
+  }), { message: "the section's top sits at the bars" }).toBeLessThanOrEqual(2);
+});
+
 test("a second tab tap during the change lands", async () => {
   const customers = await tab("Kunden").boundingBox();
   await tab("Programm").click();
   await fadeStarted();
   // A raw tap at the tab's place: the bar is captured for the change and takes no hit tests while it runs.
-  await page.mouse.click(customers!.x + customers!.width / 2, customers!.y + customers!.height / 2);
+  const [x, y] = [customers!.x + customers!.width / 2, customers!.y + customers!.height / 2];
+  if (test.info().project.use.hasTouch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y);
   await expect(page).toHaveURL(/\/merchant\/customers$/);
   await expect(page.getByRole("heading", { name: "Kundenkarten", level: 1 })).toBeVisible();
 });

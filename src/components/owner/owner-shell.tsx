@@ -53,21 +53,22 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const changed = useRef(false);
   useLayoutEffect(() => { if (changed.current) freshFade(); changed.current = true; }, [pathname]);
 
-  // A screen opened by a tap starts at its top. Next.js keeps the old offset while the new page's top is still in view, so
-  // after a little scrolling the next screen opened with its heading under the bar. Back, Forward and a back link („‹ …“)
-  // return to a screen shown before, which restores its own place.
+  // Every screen change opens at the top, except Back and Forward, which restore the place the browser kept. Next.js keeps
+  // the old offset while the new page's top is still in view, so after a little scrolling the next screen opened with its
+  // heading under the bar. A back link („‹ …“) is a change like any other; Programm returns to its row by itself, after
+  // its data. A push to a #target is left to Next's own scroll to that section.
   const restoring = useRef(false);
   const opened = useRef(false);
   useEffect(() => {
     const back = () => { restoring.current = true; };
-    const press = (event: Event) => { restoring.current = event.target instanceof Element && event.target.closest(".ow-back") !== null; };
+    // Any activation (a tap, Enter, VoiceOver, the shell's own replayed click) is a change of its own.
+    const press = () => { restoring.current = false; };
     window.addEventListener("popstate", back);
-    document.addEventListener("pointerdown", press, true);
-    document.addEventListener("keydown", press, true);
-    return () => { window.removeEventListener("popstate", back); document.removeEventListener("pointerdown", press, true); document.removeEventListener("keydown", press, true); };
+    document.addEventListener("click", press, true);
+    return () => { window.removeEventListener("popstate", back); document.removeEventListener("click", press, true); };
   }, []);
   useLayoutEffect(() => {
-    if (opened.current && !restoring.current) window.scrollTo({ top: 0, behavior: "instant" });
+    if (opened.current && !restoring.current && !location.hash) window.scrollTo({ top: 0, behavior: "instant" });
     opened.current = true;
     restoring.current = false;
   }, [pathname]);
