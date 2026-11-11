@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
@@ -42,6 +42,26 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
   const locationId = owner.me?.locationId;
+
+  // Every screen change opens at the top, except Back and Forward, which restore the place the browser kept. Next.js keeps
+  // the old offset while the new page's top is still in view, so after a little scrolling the next screen opened with its
+  // heading under the bar. A back link („‹ …“) is a change like any other; Programm returns to its row by itself, after
+  // its data. A push to a #target is left to Next's own scroll to that section.
+  const restoring = useRef(false);
+  const opened = useRef(false);
+  useEffect(() => {
+    const back = () => { restoring.current = true; };
+    // Any activation (a tap, Enter, VoiceOver, the shell's own replayed click) is a change of its own.
+    const press = () => { restoring.current = false; };
+    window.addEventListener("popstate", back);
+    document.addEventListener("click", press, true);
+    return () => { window.removeEventListener("popstate", back); document.removeEventListener("click", press, true); };
+  }, []);
+  useLayoutEffect(() => {
+    if (opened.current && !restoring.current && !location.hash) window.scrollTo({ top: 0, behavior: "instant" });
+    opened.current = true;
+    restoring.current = false;
+  }, [pathname]);
 
   // A new screen names itself: the document title follows its heading, so a screen reader announces the change. After a
   // row or a back link (the tapped link left the page) focus moves to the content; a tab keeps it, so the bar stays
