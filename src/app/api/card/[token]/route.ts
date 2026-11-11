@@ -1,6 +1,7 @@
 import { customerCookieAttributes, LEGACY_CUSTOMER_SESSION_DEADLINE } from "@/lib/customer-session";
 import { bindTapCard } from "@/lib/secure-tap";
 import { getCard } from "@/lib/product";
+import { withReferralShare } from "@/lib/referrals";
 import { respondError } from "@/lib/http";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { clearLegacyReturningCardCookieHeader, returningCardCookieName, returningMemberSession } from "@/lib/returning-card";
@@ -10,11 +11,15 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     // The open card marks its timed re-reads (card-client.tsx): they get their own, lower per-network limit (15 guests
     // with a full automatic budget of 14), so polling never uses up the one page loads, returns, the button and the tap
     // page share. A forged mark only adds this capped scope; the per-card limit below covers both.
-    if (request.headers.get("x-loynara-card-read") === "poll") await enforcePeerLimit(request, "card_poll_peer", 210, 15 * 60);
+    const poll = request.headers.get("x-loynara-card-read") === "poll";
+    if (poll) await enforcePeerLimit(request, "card_poll_peer", 210, 15 * 60);
     else await enforcePeerLimit(request, "card_read_peer", 240, 15 * 60);
     const { token } = await context.params;
     await enforceRateLimit({ scope: "card_read_token", identity: token, max: 90, windowSeconds: 15 * 60 });
-    const { programId, ...card } = await getCard(token);
+    // ENG-218: the referral share is a second transaction, so only a read the guest caused brings it (the page load, a
+    // return, the button). The open card's timed re-reads go without; the page keeps the share it has.
+    const read = await getCard(token);
+    const { programId, ...card } = poll ? read : await withReferralShare(read, token);
     const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
     // Preserve legacy ownership before binding, but never bootstrap/renew a signed session on GET.
     // This path cannot see /api/tap cookies. Only the binding POST can reconcile both scopes safely,

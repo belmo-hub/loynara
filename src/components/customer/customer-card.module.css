@@ -15,6 +15,8 @@
 .goalNum { font-variant-numeric: tabular-nums; }
 /* The reward is a name: inline in the sentence, it wraps at spaces only, very long single words may still break. */
 .rewardName { hyphens: manual; overflow-wrap: anywhere; }
+/* The reward moment's headline (ENG-206): „Deine Prämie ist bereit:“, then the title alone on the next line. */
+.rewardName[data-alone] { display: block; }
 /* ENG-130 (08): a muted line under the goal, once, after the pass is saved in Apple Wallet. */
 .saved { composes: message from "./motion.module.css"; display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
@@ -242,8 +244,9 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .activityRows > :nth-child(7) { --row: 6; }
 .activityRows > :nth-child(n + 8) { --row: 7; }
 @media (prefers-reduced-motion: no-preference) {
-  .lead[data-arriving] .object { isolation: isolate; background: none; box-shadow: none; }
-  .lead[data-arriving] .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
+  .lead:is([data-arriving], [data-card-press]) .object { isolation: isolate; background: none; box-shadow: none; }
+  .lead:is([data-arriving], [data-card-press]) .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); }
+  .lead[data-arriving] .object::before { animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
 }
 /* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no
@@ -257,6 +260,15 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .late > footer { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
 @media (prefers-reduced-motion: reduce) { .returning > :is(header, main, footer), .late > footer { animation: none; } }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
+/* The reward moment (ENG-206): the booking made a reward ready. The pill at 0, the last stamp lands at 420 ms (Pop in),
+   the card's ground presses once at the stamp's impact (about 710 ms: down over --dur-press, back over --dur-ui) while
+   the stamps, the code and the number stand still as in Card arrive, and the band opens at 900 ms as shipped. Settled
+   by about 1.1 s. Reduced motion: the end state at once, no press. */
+@media (prefers-reduced-motion: no-preference) {
+  .lead[data-card-press] .object::before { animation: card-press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out) calc(.6 * var(--dur-reward)); }
+}
+/* 35 %: --dur-press of the two durations together. Each half eases out by itself. */
+@keyframes card-press { 35% { transform: scale(.985); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }
 /* Forced colours take the fills and shadows these shapes are drawn with: a line gives each its edge back. */
 @media (forced-colors: active) { .object, .ticket, .band { border: 1px solid CanvasText; } }

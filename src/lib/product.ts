@@ -28,6 +28,7 @@ import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
 import { ownerTenant } from "./billing";
 import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
+import { experienceFlag } from "./experience-flags";
 
 const shortText = z.string().trim().min(2).max(180);
 export const merchantInput = z.object({
@@ -665,6 +666,9 @@ export function capLevelUntil<T extends { until?: string }>(level: T | undefined
   return iso > programmeEnd ? { ...level, until: germanDate(programmeEnd) } : level;
 }
 
+/** ENG-206: the card shows „Karte empfehlen“ from this many team-confirmed bookings on; the block opens once, with exactly this one. */
+const REFERRAL_AFTER_BOOKINGS = 2;
+
 export async function getCard(token: string, explicitNow?: Date) {
   const now = explicitNow ?? new Date();
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
@@ -685,14 +689,16 @@ export async function getCard(token: string, explicitNow?: Date) {
       .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
       .orderBy(desc(ledgerEntries.createdAt)).limit(10);
     // The review link is only a link: no reward, stamp, points or draw is ever tied to it.
-    const [visits] = row.program.reviewUrl ? await tx.select({ count: sql<number>`count(*)::int` }).from(ledgerEntries).where(and(
+    // ENG-206: while STAMP_ANIMATION_ENABLED is on the card page needs the same count for the referral block's timing; off, no extra read.
+    const stampMoment = experienceFlag("STAMP_ANIMATION_ENABLED");
+    const [visits] = row.program.reviewUrl || stampMoment ? await tx.select({ count: sql<number>`count(*)::int` }).from(ledgerEntries).where(and(
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
     // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
     const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
     const demo = shopDemo(row.tenant, row.location.timezone);
-    return { ...(demo ? { demoNotice: demo.line } : {}), programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    return { ...(demo ? { demoNotice: demo.line } : {}), ...(stampMoment ? { stampMoment: { referralDue: visits.count >= REFERRAL_AFTER_BOOKINGS, referralNew: visits.count === REFERRAL_AFTER_BOOKINGS } } : {}), programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 

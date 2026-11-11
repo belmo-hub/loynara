@@ -190,7 +190,14 @@ export type PublicProgram = {
   rewardVersionIds?: string[];
 };
 
+/** What the referral block shows; `/api/card/<token>/referral` answers it, and so does the card read once the block is due. */
+export type ReferralShare = { enabled?: true; shareUrl: string; referrerBonus: number; referredBonus: number; programType: "stamp" | "points"; progress?: { signedUp: number; qualified: number } };
+
 export type CardResponse = {
+  /** Present only while STAMP_ANIMATION_ENABLED is on (ENG-206): the card page plays the booking moment, and shows the
+   *  referral block once the card has two team-confirmed bookings: `referral` is its content (absent while the shop has
+   *  referrals off), `referralNew` marks the read after exactly the second. Absent: no moment, the referral block as before. */
+  stampMoment?: { referralDue: boolean; referralNew: boolean; referral?: ReferralShare };
   /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für …“ at the top of the card. */
   demoNotice?: string;
   scanCode: string;

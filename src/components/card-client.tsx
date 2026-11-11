@@ -3,10 +3,10 @@
 import { CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { apiJson, ClientApiError, postJson, type CardResponse } from "./client-api";
+import { apiJson, ClientApiError, postJson, type CardResponse, type ReferralShare } from "./client-api";
 import { type CardRead, type CardReadOutcome, createAutoRefresh, createRefreshGate } from "@/lib/refresh-gate";
 import { CustomerCard, CustomerCardLoading, CustomerCardReturning } from "./customer/customer-card";
-import { laterMark, markSeen, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen } from "./customer/booking-moment";
+import { keepShare, laterMark, markSeen, MOMENT_LAND_MS, MOMENT_PILL_MS, MOMENT_STEP_MS, momentFor, readSeen, referralHoldFor, referralPlace, type ReferralHold } from "./customer/booking-moment";
 import { CustomerState } from "./customer/customer-state";
 import { CardContact } from "./card-contact";
 import { EmailOffer, EmailSheet, emailRow, useEmailStatus } from "./card-email";
@@ -118,10 +118,38 @@ export function CardClient({ token }: { token: string }) {
     timers.splice(0).forEach(clearTimeout);
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     setMoment({ credited, stepped: still });
-    if (!still) timers.push(setTimeout(() => setMoment(current => current && { ...current, stepped: true }), MOMENT_STEP_MS));
+    // ENG-206: as the stamp lands, one short buzz where the browser has it (Chrome on Android; no iPhone browser does)
+    // and the guest has touched the page (Chrome refuses it before). Never under reduced motion.
+    if (!still) timers.push(setTimeout(() => { setMoment(current => current && { ...current, stepped: true }); if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(10); }, MOMENT_STEP_MS));
     timers.push(setTimeout(() => setMoment(null), MOMENT_PILL_MS));
   }, []);
   useEffect(() => { const timers = momentTimers.current; return () => timers.forEach(clearTimeout); }, []);
+  // ENG-206: „Karte empfehlen“ becomes due with the second team-confirmed booking, and the card read brings its content.
+  // Only when the read after exactly that booking also plays a moment is the block held shut until the stamp has landed
+  // (900 ms, with the reward band if there is one) and then opened; under reduced motion it is there at once. On every
+  // later visit it stands in the card's first paint.
+  const referralDue = card?.stampMoment?.referralDue === true;
+  const [referralHold, setReferralHold] = useState<ReferralHold>("none");
+  const [referralWasDue, setReferralWasDue] = useState(false);
+  // ENG-218: the block became due on a timed re-read, which brings no share; it mounts shut and asks for it itself.
+  const [shareAwaited, setShareAwaited] = useState(false);
+  if (referralDue && !referralWasDue) { setReferralWasDue(true); setReferralHold(referralHoldFor(card?.stampMoment, moment, shareAwaited)); }
+  // One clock with the band: the landing counts from the step itself.
+  const stepped = moment?.stepped === true;
+  useEffect(() => {
+    if (referralHold !== "held" || !stepped) return;
+    const timer = setTimeout(() => setReferralHold("released"), MOMENT_LAND_MS);
+    return () => clearTimeout(timer);
+  }, [referralHold, stepped]);
+  // ENG-218: timed re-reads bring no share. The card keeps the one an untimed read brought; a read the guest caused
+  // that is due and has none means there is nothing to share (referrals off). Only when a timed re-read finds the block
+  // newly due (the second booking arrived while the card was open) does the block ask for the share itself, once.
+  const shareHeld = useRef<ReferralShare | undefined>(undefined), shareOff = useRef(false);
+  const noteShare = useCallback((read: CardResponse, timed: boolean) => {
+    if (read.stampMoment?.referral) shareHeld.current = read.stampMoment.referral;
+    else if (!timed && read.stampMoment?.referralDue) shareOff.current = true;
+    return keepShare(read, shareHeld.current);
+  }, []);
   const balanceSeen = useRef<number | null>(null);
   // The newest entry any read has brought: bookings up to it are shown or were never a moment.
   const newestShown = useRef<string | null>(null);
@@ -135,9 +163,9 @@ export function CardClient({ token }: { token: string }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const back = takeJoined(); if (back) setReturned(true); const unseen = momentFor(result, { balance: null, seenAt: back ? new Date().toISOString() : readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(result); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
+    void apiJson<CardResponse>(`/api/enroll/card/${encodeURIComponent(token)}`).then(result => { if (mounted) { const back = takeJoined(); if (back) setReturned(true); const unseen = momentFor(result, { balance: null, seenAt: back ? new Date().toISOString() : readSeen(result.cardLocator) }, Date.now()); balanceSeen.current = result.balance; newestShown.current = unseen.newest; if (unseen.newest) markSeen(result.cardLocator, unseen.newest); if (unseen.credited > 0) playMoment(unseen.credited); setCard(noteShare(result, false)); setRefreshFailed(false); setLoading(false); live.current = true; gate.current.markLoaded(); startAutoRefresh.current(); } void apiJson(`/api/tap/card/${encodeURIComponent(token)}/session`, { method: "POST" }).then(() => { if (mounted) setSwitchRequired(false); continueTap(); }).catch(cause => { if (mounted) { if (cause instanceof ClientApiError && cause.code === "ACCOUNT_SWITCH_REQUIRED") setSwitchRequired(true); else setAuthenticationRequired(true); } }); }).catch(cause => { if (mounted) { setError(cardError(cause)); setLoading(false); } });
     return () => { mounted = false; };
-  }, [token, playMoment]);
+  }, [token, playMoment, noteShare]);
   // The guest shows the phone and the cashier books on another device, often with no focus or visibility event in
   // between. So while the card is visible it re-reads the balance by itself for a short window (createAutoRefresh),
   // coalesced and at most every REFRESH_INTERVAL_MS; a grown balance lands the new stamp. A card that stopped existing
@@ -159,7 +187,9 @@ export function CardClient({ token }: { token: string }) {
           if (unseen.credited > 0) playMoment(unseen.credited);
           if (unseen.newest) { newestShown.current = unseen.newest; markSeen(result.cardLocator, unseen.newest); }
           balanceSeen.current = result.balance;
-          setCard(result); setRefreshFailed(false);
+          const kept = noteShare(result, read === "timed");
+          if (read === "timed" && kept.stampMoment?.referralDue && !kept.stampMoment.referral && !shareOff.current) setShareAwaited(true);
+          setCard(kept); setRefreshFailed(false);
           return grew ? "grew" as const : "ok" as const;
         })
         .catch(cause => {
@@ -178,7 +208,7 @@ export function CardClient({ token }: { token: string }) {
     window.addEventListener("focus", auto.focus);
     window.addEventListener("pageshow", onPageShow);
     return () => { mounted = false; auto.stop(); document.removeEventListener("visibilitychange", auto.visibility); window.removeEventListener("focus", auto.focus); window.removeEventListener("pageshow", onPageShow); };
-  }, [token, playMoment]);
+  }, [token, playMoment, noteShare]);
   useEffect(() => {
     // The Wallet flags are kept under the card number (F-2), so the status is read once the card is in.
     if (!cardLocator) return;
@@ -280,7 +310,7 @@ export function CardClient({ token }: { token: string }) {
     <Reveal open={!french && offerShown && !savedView} gap="var(--space-4)"><EmailOffer token={token} shop={shop} reload={email.reload} onSent={() => setOfferKept(true)} onClose={() => setOfferClosed(true)} /></Reveal>
     <Reveal open={wallet?.apple === "available" && wallet.appleReAdd === true && platform !== "android"} gap="var(--space-4)"><section role="status" className={noticeClass}><p>{french ? "Votre carte Apple Wallet change de version. Ajoutez-la une nouvelle fois pour que votre solde y reste à jour. L’ancienne carte ne sera ensuite plus mise à jour : vous pouvez la supprimer." : "Deine Karte in Apple Wallet bekommt eine neue Version. Füge sie bitte einmal neu hinzu, damit dein Stand dort aktuell bleibt. Die alte Karte wird danach nicht mehr aktualisiert. Du kannst sie aus Wallet löschen."}</p><Button variant="secondary" size="sm" disabled={walletBusy !== null} onClick={() => void addToAppleWallet()}>{french ? "Ajouter de nouveau à Apple Wallet" : "Neu zu Apple Wallet hinzufügen"}</Button></section></Reveal>
   </>;
-  return <CustomerCard changes={cardChanges({ programType: card.programType === "points" ? "points" : "stamp", rewards: card.rewards, pending: card.pending, pendingExpiry: card.pendingExpiry })} notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={moment && !moment.stepped ? Math.max(0, card.balance - moment.credited) : card.balance} landed={moment?.stepped ? card.balance : undefined} landedCount={moment?.credited} quiet={returned} waited={waited} moment={moment ? { credited: moment.credited, balance: card.balance } : undefined} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} demoNotice={card.demoNotice} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} walletSaved={savedLine && !french} appleSaved={wallet?.appleSaved === true} email={emailStatus ? { ...emailRow(emailStatus), sheet: (open, onClose) => <EmailSheet token={token} shop={shop} status={emailStatus} reload={email.reload} open={open} onClose={onClose} /> } : undefined} recoverUrl={emailStatus?.emailVerified ? emailStatus.recoverUrl : undefined} contactPanel={<>{french && !(savedView && consentUp) && <CardContact token={token} locale="fr" />}{!savedView && <CardWalletMessages token={token} expiry={expiry} />}<CardBirthday token={token} /><CardReferral token={token} locale={french ? "fr" : "de"} /></>} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
+  return <CustomerCard changes={cardChanges({ programType: card.programType === "points" ? "points" : "stamp", rewards: card.rewards, pending: card.pending, pendingExpiry: card.pendingExpiry })} notices={notices} businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={moment && !moment.stepped ? Math.max(0, card.balance - moment.credited) : card.balance} landed={moment?.stepped ? card.balance : undefined} landedCount={moment?.credited} quiet={returned} waited={waited} moment={moment ? { credited: moment.credited, balance: card.balance } : undefined} rewards={card.rewards.map(reward => ({ id: reward.id, title: reward.title, cost: reward.cost }))} cardLocator={card.cardLocator} qrSrc={`/api/qr?value=${encodeURIComponent(card.scanCode)}`} brandColor={card.brandColor} activity={activity} rulesText={card.rulesText} news={card.news} demoNotice={card.demoNotice} reviewUrl={card.reviewUrl} pointsExpiry={card.pointsExpiry} winback={card.winback} challenge={card.challenge} level={card.level} endsOn={card.endsOn ? new Intl.DateTimeFormat(french ? "fr-FR" : "de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${card.endsOn}T00:00:00Z`)) : undefined} happyHourUntil={card.happyHourUntil} locale={french ? "fr" : "de"} exportUrl={`/api/card/${encodeURIComponent(token)}/export`} walletSaved={savedLine && !french} appleSaved={wallet?.appleSaved === true} email={emailStatus ? { ...emailRow(emailStatus), sheet: (open, onClose) => <EmailSheet token={token} shop={shop} status={emailStatus} reload={email.reload} open={open} onClose={onClose} /> } : undefined} recoverUrl={emailStatus?.emailVerified ? emailStatus.recoverUrl : undefined} contactPanel={<>{french && !(savedView && consentUp) && <CardContact token={token} locale="fr" />}{!savedView && <CardWalletMessages token={token} expiry={expiry} />}<CardBirthday token={token} />{referralPlace(card.stampMoment) === "below" && <CardReferral token={token} locale={french ? "fr" : "de"} />}</>} referral={referralPlace(card.stampMoment, shareAwaited) === "card" && <CardReferral token={token} locale={french ? "fr" : "de"} hold={referralHold} share={card.stampMoment?.referral} />} titleAlone={card.stampMoment !== undefined} onRefresh={() => refreshNow.current()} refreshing={refreshing} refreshFailed={refreshFailed} onCloseCard={closeCurrentCard} closeBusy={closeBusy} closeError={closeError} onAppleWallet={wallet?.apple === "available" ? addToAppleWallet : undefined} onGoogleWallet={wallet && wallet.google !== "unavailable" ? addToGoogleWallet : undefined} walletBusy={walletBusy} googleTestOnly={wallet?.google === "test_only"} walletPlatform={platform} walletError={walletError} />;
 }
 
 function CardState({ title, message, tone = "info", icon, children }: { title: string; message: string; tone?: "info" | "error"; icon?: ReactNode; children?: ReactNode }) {

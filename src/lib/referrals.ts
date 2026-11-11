@@ -89,6 +89,20 @@ export async function getCardReferralShare(cardToken: string) {
   });
 }
 
+/**
+ * ENG-206: once the referral block is due, the card read carries the share, so the block stands in the card's first
+ * paint. Without the field (STAMP_ANIMATION_ENABLED off) or before the block is due: the read as it is, no query. The
+ * block is optional: with nothing to share (referrals off, programme paused) or a failed read, the card goes out without it.
+ */
+export async function withReferralShare<T extends { stampMoment?: { referralDue: boolean } }>(card: T, cardToken: string) {
+  if (!card.stampMoment?.referralDue) return card;
+  try { return { ...card, stampMoment: { ...card.stampMoment, referral: await getCardReferralShare(cardToken) } }; }
+  catch (error) {
+    if (!(error instanceof DomainError)) console.error("Card referral share failed", error instanceof Error ? error.name : "unknown");
+    return card;
+  }
+}
+
 /** Runs inside the card-enrollment transaction. An opened link never earns credit. */
 export async function recordReferralAttribution(tx: Transaction, input: { tenantId: string; programId: string; referredMembershipId: string; referralCode: string }) {
   const code = codeSchema.parse(input.referralCode);
