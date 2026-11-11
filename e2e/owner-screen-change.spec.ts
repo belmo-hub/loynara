@@ -56,6 +56,28 @@ test("the old screen is invisible at rest: only its running fade shows it", asyn
   expect(rest, "the old screen's opacity without its fade").toEqual(rest.map(() => "0"));
 });
 
+test("a tab opens its screen at the top, also after a little scrolling; going back returns to the place left", async () => {
+  // Next.js keeps the offset when the new page's top still counts as in view; on iPhone Safari that left the heading under
+  // the bar. Without the bars' scroll padding Chrome takes the same branch, so the shell's own reset is what is tested.
+  const padding = await page.addStyleTag({ content: "html:root { scroll-padding-top: 0 !important; }" });
+  await page.evaluate(() => window.scrollTo({ top: 20, behavior: "instant" }));
+  await tab("Programm").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
+  await settled();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await padding.evaluate(node => (node as Element).remove());
+
+  const row = page.locator(".ow-prog-row").last();
+  await row.scrollIntoViewIfNeeded();
+  const left = await page.evaluate(() => Math.round(window.scrollY));
+  expect(left).toBeGreaterThan(100);
+  await row.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeHidden();
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(left);
+});
+
 test("a second tab tap during the change lands", async () => {
   const customers = await tab("Kunden").boundingBox();
   await tab("Programm").click();
