@@ -1,5 +1,6 @@
 "use client";
 
+import { weekLine } from "./week-line";
 import Link from "next/link";
 import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
@@ -162,7 +163,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
                 <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
               </>}
-              <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} />
+              {/* ENG-210: the week in words, as the strip's heading (Design, 10 Nov). Facts: no motion of their own. The strip
+                  marks the same days (Monday to today), so the sentence and the bars say one thing. */}
+              {!failed && a?.week && <p className="ow-week-line">{weekLine(a.week)}</p>}
+              <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} week={!failed && a?.week ? { from: a.week.from, line: weekLine(a.week) } : undefined} />
               {news && <p className="ow-board-news">{news}</p>}
               {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
             </>}

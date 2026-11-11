@@ -43,21 +43,26 @@ export function BoardPlaceholder() {
 /**
  * The last six complete local days and today. Yesterday lights up if it had bookings; today's bar is an outline, since
  * its count is not final. `days` end yesterday and stay the headline's only source. Without `today` (numbers this device
- * kept before today's count was stored) the strip is the seven complete days.
+ * kept before today's count was stored) the strip is the seven complete days. With `week` (ENG-210, the weekly line
+ * above it): this week's complete days that had bookings are lit like yesterday's bar, the other days are muted, and a
+ * hairline stands before Monday, so the week is not marked by colour alone; a day without bookings is never the
+ * darkest mark, and today keeps its outline. The spoken label leads with the week's sentence.
  */
-export function Strip({ days, caption, today }: { days: DayCount[]; caption: string; today?: DayCount }) {
+export function Strip({ days, caption, today, week: thisWeek }: { days: DayCount[]; caption: string; today?: DayCount; week?: { from: string; line: string } }) {
   const week = today ? [...days.slice(-6), today] : days.slice(-7);
   const max = Math.max(1, ...week.map(day => day.bookings));
   const label = (day: DayCount) => day === today ? "heute" : day === days.at(-1) ? "gestern" : weekdayShort(day.date);
   return (
     <>
-      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map(day => `${label(day)} ${bookingsText(day.bookings)}`).join(", ")}`}>
-        {week.map(day => {
+      <div className="ow-strip" data-week={thisWeek ? "" : undefined} role="img" aria-label={`${thisWeek ? `${thisWeek.line} ` : ""}${caption}: ${week.map(day => `${label(day)} ${bookingsText(day.bookings)}`).join(", ")}`}>
+        {week.map((day, index) => {
           const yesterday = day === days.at(-1);
+          // ISO dates compare as text. The hairline stands before Monday unless Monday is the strip's first column.
+          const inWeek = thisWeek !== undefined && day.date >= thisWeek.from;
           return (
-            <div className="ow-strip-day" key={day.date} aria-hidden="true">
+            <div className="ow-strip-day" key={day.date} aria-hidden="true" data-in-week={inWeek ? "" : undefined} data-week-start={inWeek && index > 0 && week[index - 1].date < thisWeek.from ? "" : undefined}>
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
+              <span className="ow-strip-bar" data-lit={(thisWeek ? inWeek && day !== today : yesterday) && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
               {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
               {/* Beside „heute“ nothing is bold: a bold weekday next to it reads as today (Design, 10 Nov). */}
               <span className="ow-strip-d" data-yesterday={yesterday && !today ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>

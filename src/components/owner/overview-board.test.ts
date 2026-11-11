@@ -123,6 +123,34 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`Gestern war der beste Tag seit zwei Wochen: 3${NBSP}Buchungen am${NBSP}Tresen.`);
   });
 
+  it("with the weekly line the strip marks the same days: Monday to today, a hairline before Monday, the sentence first in the spoken label (ENG-210)", () => {
+    const today = analytics().today; // the fixture's day
+    const monday = (() => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ week: { from: monday, bookings: 12, returning: 8, newCards: 3 } }));
+    const html = render();
+    const line = `Diese Woche: 12${NBSP}Buchungen, 8${NBSP}davon von Karten mit früherer Buchung, und 3${NBSP}neue Karten.`;
+    expect(html).toContain(`<p class="ow-week-line">${line}</p><div class="ow-strip" data-week="" role="img" aria-label="${line} `);
+    const days = [...html.matchAll(/<div class="ow-strip-day"([^>]*)>/g)].map(match => match[1]);
+    expect(days).toHaveLength(7);
+    // Monday to today are in the week; the days before are not; exactly one column starts the week unless Monday is the first.
+    const inWeek = days.map(attrs => attrs.includes("data-in-week"));
+    expect(inWeek.at(-1)).toBe(true);
+    expect(inWeek.indexOf(true)).toBe(inWeek.lastIndexOf(false) + 1);
+    expect(days.filter(attrs => attrs.includes("data-week-start"))).toHaveLength(inWeek[0] ? 0 : 1);
+    // A day of this week is lit only if it had bookings and is over: a 0-booking Monday is not the darkest mark, and today keeps its outline alone.
+    const bars = [...html.matchAll(/<span class="ow-strip-n">([^<]*)<\/span><span class="ow-strip-bar"([^>]*)>/g)].map(match => ({ count: match[1], attrs: match[2] }));
+    expect(bars).toHaveLength(7);
+    bars.forEach((bar, index) => expect(bar.attrs.includes("data-lit"), `bar ${index}`).toBe(inWeek[index] && bar.count !== "" && !bar.attrs.includes("data-today")));
+    expect(bars.at(-1)!.attrs).toContain("data-today");
+    expect(bars.at(-1)!.attrs).not.toContain("data-lit");
+    // Without the field (flag off) the strip is #253's: no week marks, the caption leads the label.
+    state.loads["/api/merchant/analytics/location"] = ok(analytics());
+    const plain = render();
+    expect(plain).not.toContain("data-week");
+    expect(plain).not.toContain("data-in-week");
+    expect(plain).not.toContain("ow-week-line");
+  });
+
   it("a cold load keeps the band's place, paints the board with its own reads, brings the diary with its data, and writes the greeting once", () => {
     state.me = me({ userId: "first-visit" }); // no greeting kept from an earlier screen
     const analyticsRead = state.loads["/api/merchant/analytics/location"];
