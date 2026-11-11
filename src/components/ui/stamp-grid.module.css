@@ -6,6 +6,8 @@
   border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; transform: rotate(var(--r));
   box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--stamp-fill, var(--color-stamp)), var(--color-qr-ground) 22%);
 }
+/* Forced colours would take the disc and leave a bare tick beside dashed rings: an earned stamp stays a filled disc. */
+@media (forced-colors: active) { .slot[data-earned] { forced-color-adjust: none; background: CanvasText; color: Canvas; box-shadow: none; } }
 /* The goal slot: a solid ink ring and the reward icon; coral only once it is earned (Design, 28 Oct). */
 .slot[data-reward] { border: 2px solid var(--merchant-ink, var(--color-ink)); color: var(--merchant-ink, var(--color-ink)); }
 .slot[data-new] { animation: land var(--dur-reward) var(--ease-out) calc(var(--land-delay, 0ms) + var(--land-stagger, 0ms)) both; }

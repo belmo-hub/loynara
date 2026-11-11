@@ -21,7 +21,7 @@ vi.mock("./use-load", () => ({
   },
 }));
 
-import { boardOf, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
+import { boardOf, firstWeeks, milestoneToShow, Overview, quietOf, tilesOf } from "./overview";
 
 const ok = (data: unknown): Load => ({ state: "ok", data, at: 0 });
 const NBSP = "\u00a0";
@@ -76,7 +76,7 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("normal owner: this location's till amounts, the strip, the best-day headline and the four tiles; the old cards are gone", () => {
     const html = render();
-    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena\.<\/h1>/); // the visible heading, outside the card
+    expect(html).toMatch(/<h1 class="ow-hello"><span class="ow-sr">Übersicht: <\/span>Guten (Morgen|Tag|Abend), Lena<\/h1>/); // the visible heading, outside the card
     expect(html).not.toContain("Café Lindenblatt.");
     expect(html).toContain('aria-label="Umsatz deiner Loynara-Kunden, letzte 30 Tage"'); // no kicker: the sub-line says the days
     expect(html).not.toContain("ow-board-kicker");
@@ -179,7 +179,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     const there = render();
     expect(there).not.toContain("ow-board-ph");
     expect(there).not.toContain("ow-next-ph"); // a screen whose reads have answered never shows the slot
-    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena\.<\/h1>/);
+    expect(there).toMatch(/<h1 class="ow-hello">.*, Lena<\/h1>/);
   });
 
   it("a shop without till amounts leads with bookings (Q-81 switch off), whatever the average says", () => {
@@ -230,14 +230,14 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
     state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
-    expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen.</b>`);
+    expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen</b>`);
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
     expect(render()).toMatch(/<a class="ow-band" href="\/merchant\/program\/winback">[^]*<span class="ow-band-go">Willkommen-zurück-Bonus einschalten<svg/);
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
-    expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen.</b>`);
+    expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen</b>`);
     expect(html).toMatch(/<a class="ow-band" href="[^"]+">[^]*<span class="ow-band-go">Ansehen<svg/);
     expect(html.indexOf('class="ow-next"')).toBeLessThan(html.indexOf('class="ow-board"')); // in the flow, under the greeting
   });
@@ -307,6 +307,22 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html.match(/data-kind="redemption"/g)).toHaveLength(1);
     expect(html).toContain(`3${NBSP}weitere`);
     expect(html).not.toMatch(/\d{1,2}:\d{2}/);
+    // A busy day shows its first eight entries; the others join the read's own rest in the one count.
+    const busy = { date: "2026-11-03", bookings: 30, units: 30, more: 2, entries: Array.from({ length: 30 }, () => ({ kind: "award" as const, amount: 1 })) };
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [busy] }));
+    const wall = render();
+    expect(wall.match(/data-kind="award"/g)).toHaveLength(8);
+    expect(wall).toContain(`24${NBSP}weitere`);
+    // A day with more than eight entries keeps its redemptions and corrections in view: bookings are what the count of the rest holds.
+    const award = { kind: "award" as const, amount: 1 }, redemption = { kind: "redemption" as const, amount: 8 }, correction = { kind: "correction" as const, amount: 8 };
+    const mixed = { date: "2026-11-03", bookings: 35, units: 35, more: 0, entries: [...Array.from({ length: 12 }, () => award), redemption, ...Array.from({ length: 11 }, () => award), correction, redemption, correction, ...Array.from({ length: 12 }, () => award), redemption, correction] };
+    expect(mixed.entries).toHaveLength(41);
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ diary: [mixed] }));
+    const kept = render();
+    expect(kept.match(/data-kind="redemption"/g)).toHaveLength(3);
+    expect(kept.match(/data-kind="correction"/g)).toHaveLength(3);
+    expect(kept.match(/data-kind="award"/g)).toHaveLength(2);
+    expect(kept).toContain(`33${NBSP}weitere`);
   });
 
   it("leaves the invite link and Tresenschild to Kunden (ENG-122a)", () => {
@@ -396,10 +412,18 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
 });
 
 describe("the four tiles (spec §1.3, copy T1–T5)", () => {
-  it("say „erste Woche“ and „zweite Woche“ after the programme start, „vorher N“ with a full previous period, else what was counted", () => {
+  it("say „vorher N“ with a full previous period, else what was counted; the first two weeks are named once, in the head", () => {
     const notes = (patch: Partial<LocationAnalytics>) => tilesOf(analytics(patch), { owner: true, bookingsHref: null, bonusHref: "/merchant/wallet-messages#winback-title" }).map(tile => typeof tile.note === "string" ? tile.note : "link");
-    expect(notes({ programStartedOn: "2026-10-29", previous: null })).toEqual(["erste Woche", "erste Woche", "erste Woche", "erste Woche"]);
-    expect(notes({ programStartedOn: "2026-10-22", previous: null })).toEqual(["zweite Woche", "zweite Woche", "zweite Woche", "zweite Woche"]);
+    const counted = ["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"];
+    expect(notes({ programStartedOn: "2026-10-29", previous: null })).toEqual(counted);
+    expect(notes({ programStartedOn: "2026-10-22" })).toEqual(counted); // never „vorher“ against days before the programme
+    expect(firstWeeks({ programStartedOn: "2026-10-29", today: "2026-11-04" })).toBe("erste Woche");
+    expect(firstWeeks({ programStartedOn: "2026-10-22", today: "2026-11-04" })).toBe("zweite Woche");
+    expect(firstWeeks({ programStartedOn: "2026-10-21", today: "2026-11-04" })).toBeUndefined();
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ programStartedOn: "2026-10-22", previous: null }));
+    const html = render();
+    expect(html).toContain(">Letzte 30 Tage an diesem Standort · zweite Woche</h2>");
+    expect(html.match(/zweite Woche/g)).toHaveLength(1);
     expect(notes({})).toEqual(["vorher 10", "vorher 0", "vorher 1", "vorher 1"]);
     expect(notes({ previous: null })).toEqual(["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"]);
   });

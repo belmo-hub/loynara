@@ -56,7 +56,8 @@ for (const width of [375, 1280]) test(`actual denied camera preserves scoped man
     await expect(code).toBeVisible();
     for (const invalid of ["K-000001", "not-a-card"]) {
       await code.fill(invalid); await code.press("Enter");
-      await expect(page.locator(".cashier-status")).toContainText("Kartennummer nicht erkannt");
+      await expect(page.locator(".cashier-status")).toContainText("Karte nicht gefunden");
+      await expect(page.locator(".cashier-status")).toContainText("0, O, 1, I und L kommen darin nicht vor.");
       await expect(page.getByRole("button", { name: "Karte öffnen", exact: true })).toHaveCount(0);
     }
     const foreignJoin = await guest.request.post("/api/enroll", { data: { slug: foreign.programSlug, acceptedTerms: true, marketingOptIn: false } });

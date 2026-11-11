@@ -103,3 +103,22 @@ describe("the booked screen, the purchase preview and the lookup keep every bonu
     expect(renderToStaticMarkup(h(CashierView, { locationName: "Kassel", card: opened, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }))).toContain("1 Punkt + 5 Startbonus");
   });
 });
+
+describe("a typed card number that opens no card (ENG-203)", () => {
+  const rejected = (props: Record<string, unknown>) => renderToStaticMarkup(h(CashierView, { locationName: "Kassel", status: "rejected", message: "Prüfe die Nummer.", onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, ...props }));
+  const field = (html: string) => html.match(/<input id="cashier-code"[^>]*>/)![0];
+
+  it("titles the panel with the cause and ties the message to the field", () => {
+    const html = rejected({ codeRejected: true, rejectedTitle: "Karte nicht gefunden" });
+    expect(html).toContain('<strong>Karte nicht gefunden</strong><span id="cashier-outcome-text">Prüfe die Nummer.</span>');
+    expect(field(html)).toContain('aria-describedby="cashier-code-hint cashier-outcome-text"');
+    expect(field(html)).toContain('aria-invalid="true"');
+  });
+
+  it("another refusal keeps the status' own word, and the field describes itself by its hint alone", () => {
+    const html = rejected({});
+    expect(html).toContain("<strong>Nicht möglich</strong>");
+    expect(field(html)).toContain('aria-describedby="cashier-code-hint"');
+    expect(field(html)).not.toContain("aria-invalid");
+  });
+});

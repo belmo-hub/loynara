@@ -35,7 +35,7 @@ export function BigMoney({ text }: { text: string }) {
   return <p className="ow-board-big"><NumberRoll value={digits(text)}>{split ? <>{split[1]}<small>{split[2]}</small></> : text}</NumberRoll></p>;
 }
 
-/** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
+/** Still placeholders while the board's numbers load. */
 export function BoardPlaceholder() {
   return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
@@ -62,7 +62,7 @@ export function Strip({ days, caption, today, week: thisWeek }: { days: DayCount
           return (
             <div className="ow-strip-day" key={day.date} aria-hidden="true" data-in-week={inWeek ? "" : undefined} data-week-start={inWeek && index > 0 && week[index - 1].date < thisWeek.from ? "" : undefined}>
               <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={(thisWeek ? inWeek && day !== today : yesterday) && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
+              <span className="ow-strip-bar" data-lit={(thisWeek ? inWeek && day !== today : yesterday) && day.bookings > 0 ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
               {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
               {/* Beside „heute“ nothing is bold: a bold weekday next to it reads as today (Design, 10 Nov). */}
               <span className="ow-strip-d" data-yesterday={yesterday && !today ? "" : undefined}>{today && yesterday ? weekdayShort(day.date) : label(day)}</span>
@@ -112,14 +112,14 @@ export type Tile = { key: string; icon: LucideIcon; label: string; value: string
  * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
  * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
  */
-export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
+export function Tiles({ title, note, tiles }: { title: string; /** Said once after the title, for all rows („zweite Woche“). */ note?: string; tiles: Tile[] }) {
   const [help, setHelp] = useState(false);
   const titleId = useId();
   const close = () => setHelp(false);
   return (
     <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
       <div className="ow-rows-head">
-        <h2 id={titleId} className="ow-tiles-title">{title}</h2>
+        <h2 id={titleId} className="ow-tiles-title">{title}{note && ` · ${note}`}</h2>
         <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
       </div>
       <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
@@ -190,7 +190,7 @@ export function BonusOffBand({ href }: { href: string }) {
 export function Milestone({ cards, action }: { cards: number; action: () => void }) {
   return (
     <section className="ow-card ow-row" style={{ justifyContent: "space-between", alignItems: "center" }} aria-label="Meilenstein">
-      <h2>Deine {nf.format(cards)}. Karte.</h2>
+      <h2>Deine {nf.format(cards)}. Karte</h2>
       <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={action}>Tresenschild laden</button>
     </section>
   );
@@ -239,6 +239,13 @@ const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind 
     : entry.kind === "correction" ? { mark: "", text: "Einlösung rückgängig", label: `Einlösung rückgängig gemacht, ${nf.format(entry.amount)} ${entry.amount === 1 && unit === "Punkte" ? "Punkt" : unit} wieder auf der Karte` }
     : { mark: "", text: "Prämie eingelöst", label: "Prämie eingelöst" };
 
+/** A busy day's first entries; the rest is one „… weitere“ count, so thirty bookings are not a wall of thirty pills. */
+const DAY_ENTRIES = 8;
+/** The entries not shown: those the read left out and those beyond the first eight. */
+const rest = (day: DiaryDay) => day.more + Math.max(0, day.entries.length - DAY_ENTRIES);
+/** What a busy day shows: redemptions and corrections first, then bookings, so the rarer moments never vanish into the count of the rest. */
+export const shownEntries = (day: DiaryDay) => [...day.entries.filter(entry => entry.kind !== "award"), ...day.entries.filter(entry => entry.kind === "award")].slice(0, DAY_ENTRIES);
+
 /** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */
 export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]; today: string; unit: string; gap?: { from: string; to: string } | null; children?: ReactNode }) {
   const yesterday = today ? new Date(new Date(`${today}T12:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10) : "";
@@ -255,8 +262,8 @@ export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]
             <h3>{title(day.date)}</h3>
             {day.bookings > 0 && <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>}
             <ul className="ow-pills">
-              {day.entries.map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
-              {day.more > 0 && <li className="ow-pill" data-kind="more">{nf.format(day.more)}{NBSP}weitere</li>}
+              {shownEntries(day).map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
+              {rest(day) > 0 && <li className="ow-pill" data-kind="more">{nf.format(rest(day))}{NBSP}weitere</li>}
             </ul>
           </div>
         </div>
