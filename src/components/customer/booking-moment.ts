@@ -44,6 +44,23 @@ export function momentFor(read: { activity: ActivityEntry[]; balance: number }, 
   return { credited, newest: run.newest };
 }
 
+// ENG-205: the join page showed a card being created (and, with a Startbonus, its places landing), then opened the
+// card page. That first read is a return: nothing is celebrated a second time. The mark is a time in this page's
+// memory: it outlives the soft change to the card page, but not a reload or another tab, names no card and holds no
+// card link (ENG-214). It counts for a few seconds.
+export const JOINED_WINDOW_MS = 15_000;
+let joinedAt = 0;
+const fresh = (now: number) => joinedAt > 0 && now - joinedAt >= 0 && now - joinedAt < JOINED_WINDOW_MS;
+export function markJoined(now = Date.now()) { joinedAt = now; }
+/** The card page's paint before its first read: asks without using the mark up. */
+export function peekJoined(now = Date.now()) { return fresh(now); }
+/** The first read: true once, then the mark is gone. */
+export function takeJoined(now = Date.now()) {
+  if (!fresh(now)) return false;
+  joinedAt = 0;
+  return true;
+}
+
 /** The later of two marks, either of which may be missing. */
 export const laterMark = (a: string | null | undefined, b: string | null | undefined) => (a && b ? (Date.parse(a) >= Date.parse(b) ? a : b) : a ?? b ?? null);
 

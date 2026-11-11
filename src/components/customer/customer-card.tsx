@@ -34,6 +34,10 @@ export type CustomerCardProps = {
   landedCount?: number;
   /** A booking this device has not shown yet: the pill over the header says what was added and the balance it led to, until the page takes it away. */
   moment?: { credited: number; balance: number };
+  /** ENG-205: the join page just showed this card being created. It opens as a return: no Card arrive, focus on its heading. */
+  quiet?: boolean;
+  /** That return's read was slow and the placeholder came in: the content takes its place as Skeleton to content. */
+  waited?: boolean;
   rewards: Reward[];
   cardLocator?: string;
   qrSrc?: string;
@@ -108,6 +112,9 @@ export function CustomerCard(props: CustomerCardProps) {
   // ladder fill grows. A later re-read (the page reads itself every few seconds) finds this off and replays nothing.
   const [arriving, setArriving] = useState(true);
   useEffect(() => { const timer = setTimeout(() => setArriving(false), ARRIVE_MS); return () => clearTimeout(timer); }, []);
+  // After the join page the guest is told where they are: the card's heading takes the focus.
+  const quiet = props.quiet === true;
+  useEffect(() => { if (!quiet) return; const heading = document.querySelector<HTMLElement>("main h1"); if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); } }, [quiet]);
   // The icon answers each press with one turn, whatever the read takes.
   const [turn, setTurn] = useState(0);
   // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
@@ -136,8 +143,8 @@ export function CustomerCard(props: CustomerCardProps) {
     {wallets.length ? <button type="button" className={styles.headerWallet} aria-haspopup="dialog" aria-label={t.walletTitle} onClick={() => setSheet("wallet")}><WalletIcon size={22} aria-hidden="true" /></button> : null}
   </div>;
 
-  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving ? cardSkeleton : undefined}>
-    <div className={styles.lead} data-arriving={arriving || undefined}>
+  return <CardStatusProvider><CustomerShell wide brandColor={brandColor} locale={locale} header={header} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? styles.returning : undefined}>
+    <div className={styles.lead} data-arriving={arriving || undefined} data-return={quiet || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
       {demoNotice ? <div className={styles.ending}><p>{demoNotice}</p></div> : null}
@@ -261,7 +268,8 @@ const cardSkeleton = {
   header: <div className={styles.merchant}><Skeleton width={36} height={36} radius={14} /><Skeleton width="45%" height={40} /></div>,
   main: <>
     <div className={styles.lead}>
-      <div className={styles.goal}><Skeleton height={64} width="85%" /></div>
+      {/* Three lines of the goal line's own size, so the card below stands where the loaded card stands at every width. */}
+      <div className={styles.goal}><Skeleton className={styles.goalLine} height="3lh" width="85%" /></div>
       <div className={styles.cardGroup}><Skeleton height={420} radius={28} /></div>
     </div>
     <div className={styles.rest}>
@@ -271,9 +279,15 @@ const cardSkeleton = {
   </>,
 };
 
-/** The card page while it loads: the placeholder alone, in the frame the card then takes. */
-export function CustomerCardLoading({ label }: { label: string }) {
-  return <CustomerShell wide header={<div className={styles.loadingHead}>{cardSkeleton.header}</div>} footer={<LegalLinks locale="de" />}>
+/** ENG-205: the card page's first paint after the join page: the bare ground and its heading, no placeholder. */
+export function CustomerCardReturning({ label }: { label: string }) {
+  return <CustomerShell wide><h1 className={styles.srOnly} aria-busy="true">{label}</h1></CustomerShell>;
+}
+
+/** The card page while it loads: the placeholder alone, in the frame the card then takes. `late`: it comes in over
+ *  the bare ground of a return whose read has taken more than 300 ms, so it fades in. */
+export function CustomerCardLoading({ label, late = false }: { label: string; late?: boolean }) {
+  return <CustomerShell wide className={late ? styles.late : undefined} header={<div className={styles.loadingHead}>{cardSkeleton.header}</div>} footer={<LegalLinks locale="de" />}>
     <div className={styles.loading} aria-busy="true" aria-label={label}>{cardSkeleton.main}</div>
     <h1 className={styles.srOnly}>{label}</h1>
   </CustomerShell>;
