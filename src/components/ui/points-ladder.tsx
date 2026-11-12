@@ -26,6 +26,13 @@ const PRICE = 12;
 /** Before the page measures: about the track of a card on a 375 px phone, and Manrope 14/650's average letter. */
 const DEFAULT_TRACK = 260;
 const estimate = (title: string) => Math.ceil(Array.from(title).length * 7.6);
+/** A price before the page measures: Manrope 14/720 tabular digits and a narrower separator. */
+const estimatePrice = (text: string) => Math.ceil(Array.from(text).reduce((sum, ch) => sum + (/\d/.test(ch) ? 8.7 : 4), 0));
+/** Where a price label lies on the track, as the CSS aligns it: from the start, to the end, or centred under its marker. */
+const priceSpan = (at: number, track: number, width: number): [number, number] => {
+  const x = at * track;
+  return at === 1 ? [x + EDGE - width, x + EDGE] : at < START_ALIGN ? [x - EDGE, x - EDGE + width] : [x - width / 2, x + width / 2];
+};
 
 /**
  * Marker positions (0..1) and which cost labels to hide so neighbours never collide. The goal's (last) label always
@@ -47,6 +54,23 @@ export function ladderMarks(sorted: Reward[], max: number, balance: number, gap 
   return marks;
 }
 
+/**
+ * ladderMarks keeps labels a fixed share of the track apart, which fits a three-digit price. Longer prices could still
+ * touch (Design, 12 Nov): those hide too, by the labels' own widths. The goal's always shows; of the others the
+ * earlier one wins, as before. Their prices stay in „Deine Prämien“.
+ */
+export function hideTouchingPrices<T extends { at: number; hideLabel: boolean }>(marks: T[], track: number, widths: number[]): T[] {
+  const goal = marks.length - 1;
+  const shown: Array<[number, number]> = goal >= 0 ? [priceSpan(marks[goal].at, track, widths[goal])] : [];
+  return marks.map((m, i) => {
+    if (i === goal || m.hideLabel) return m;
+    const [left, right] = priceSpan(m.at, track, widths[i]);
+    if (shown.some(([l, r]) => left < r + GAP && right > l - GAP)) return { ...m, hideLabel: true };
+    shown.push([left, right]);
+    return m;
+  });
+}
+
 const rank = (at: number) => (at === 1 ? 0 : at < START_ALIGN ? 1 : 2);
 
 /**
@@ -57,7 +81,7 @@ const rank = (at: number) => (at === 1 ? 0 : at < START_ALIGN ? 1 : 2);
  * still sits under its marker. The ellipsis is the last resort, for a goal wider than the whole track. A price under
  * another reward's shown name is hidden too (`covered`), so no price reads as that name's; its dot stays.
  */
-export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[]): { titles: Array<{ width: number; shift: number } | null>; covered: boolean[] } {
+export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[], prices?: number[]): { titles: Array<{ width: number; shift: number } | null>; covered: boolean[] } {
   const placed: Array<[number, number, number]> = [];
   const result: Array<{ width: number; shift: number } | null> = marks.map(() => null);
   const order = marks.map((_, i) => i).filter((i) => !marks[i].hideLabel).sort((a, b) => rank(marks[a].at) - rank(marks[b].at) || marks[b].at - marks[a].at);
@@ -77,31 +101,35 @@ export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, tr
     result[i] = { width, shift };
     placed.push([from, from + width, i]);
   }
-  const covered = marks.map((m, j) => m.at !== 1 && placed.some(([l, r, i]) => i !== j && l < m.at * track + PRICE && r > m.at * track - PRICE));
+  const covered = marks.map((m, j) => {
+    const [from, to] = prices ? priceSpan(m.at, track, prices[j]) : [m.at * track - PRICE, m.at * track + PRICE];
+    return m.at !== 1 && placed.some(([l, r, i]) => i !== j && l < to && r > from);
+  });
   return { titles: result, covered };
 }
 
 /** One track to the most expensive reward; a marker per reward becomes a pressed mark once affordable. */
 export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titles = false, className, grow = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [measured, setMeasured] = useState<{ track: number; needs: number[] } | null>(null);
+  const [measured, setMeasured] = useState<{ track: number; needs: number[]; prices: number[] } | null>(null);
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
-  const key = sorted.map((r) => r.title).join("\u0000");
-  // The names need the track's real width and their own: measured once here and again when the card resizes.
+  const key = sorted.map((r) => `${r.title}\u0000${r.cost}`).join("\u0000");
+  // The names and the prices need the track's real width and their own: measured once here and again when the card resizes.
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!titles || !el) return;
+    if (!el) return;
     const context = document.createElement("canvas").getContext("2d");
     const measure = () => {
       const names = [...el.querySelectorAll<HTMLElement>("[data-title]")];
-      const next = { track: el.clientWidth, needs: names.map((n) => {
+      const prices = [...el.querySelectorAll<HTMLElement>("small:not([data-title])")].map((n) => Math.ceil(n.getBoundingClientRect().width));
+      const next = { track: el.clientWidth, prices, needs: names.map((n) => {
         if (!context) return estimate(n.textContent ?? "");
         // Longhands: an engine may return the `font` shorthand empty.
         const style = getComputedStyle(n);
         context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
         return Math.ceil(context.measureText(n.textContent ?? "").width) + 1;
       }) };
-      setMeasured((last) => last && last.track === next.track && last.needs.join() === next.needs.join() ? last : next);
+      setMeasured((last) => last && last.track === next.track && last.needs.join() === next.needs.join() && last.prices.join() === next.prices.join() ? last : next);
     };
     measure();
     // Names measured in the fallback font are too wide; measure again whenever a web font finishes loading.
@@ -117,9 +145,11 @@ export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titl
   }, [titles, key]);
   if (!rewards.length) return null;
   const max = Math.max(1, sorted.at(-1)?.cost ?? 1);
-  const marks = ladderMarks(sorted, max, balance);
-  const layout = titles ? titleLayout(marks, measured?.track ?? DEFAULT_TRACK, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title))) : null;
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format;
+  const track = measured?.track ?? DEFAULT_TRACK;
+  const prices = measured?.prices.length === sorted.length ? measured.prices : sorted.map((r) => estimatePrice(number(r.cost)));
+  const marks = hideTouchingPrices(ladderMarks(sorted, max, balance), track, prices);
+  const layout = titles ? titleLayout(marks, track, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title)), prices) : null;
   const label = locale === "fr" ? `${number(balance)} ${unitWord(balance, "points", "fr")} sur ${number(max)}` : `${number(balance)} von ${number(max)} ${unitWord(max, "points", "de", "dat")}`;
   return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined} data-grow={grow || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
