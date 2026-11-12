@@ -28,7 +28,7 @@ const PROVIDER: Record<OwnerWalletReadiness["google"], { tone: Tone; label: stri
 const LOGO: Record<OwnerWalletReadiness["logo"], { tone: Tone; label: string; hint: string }> = {
   needs_review: { tone: "warn", label: "Design prüfen", hint: "Loynara prüft das Wallet-Design vor der Freigabe. Änderungen an Logo und Farben müssen dort gesondert übernommen werden." },
   ready: { tone: "ok", label: "Bereit", hint: "Dein Logo erscheint auf der Wallet-Karte." },
-  low_contrast: { tone: "warn", label: "Schwer zu sehen", hint: "Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos. Bis dahin zeigt Apple Wallet statt des Logos deinen Geschäftsnamen und Google Wallet deinen Anfangsbuchstaben." },
+  low_contrast: { tone: "warn", label: "Schwer zu sehen", hint: "Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos." },
   missing: { tone: "info", label: "Ohne Logo", hint: "Ohne Logo steht dein Geschäftsname auf der Wallet-Karte. Das sieht ordentlich aus; ein Logo wirkt persönlicher." },
 };
 

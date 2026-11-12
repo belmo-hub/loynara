@@ -17,20 +17,19 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
     expect(pass("apple", { programType: "stamp" })).toContain("<b>Noch 1 Stempel</b>");
   });
 
-  it("shows the logo as the pass does: uncropped, the name only when the pass shows it, the name alone for a faint logo (ENG-134)", () => {
+  it("shows the logo as the pass does: uncropped, the name only when the pass shows it, a faint logo stays on the pass (founder, 12 Nov)", () => {
     const logoData = "data:image/png;base64,iVBORw0KGgo=";
     expect(pass("apple", { logoData, logoWallet: { showName: false, faint: false, upscaled: false } })).not.toContain("Synthetic Café</strong>");
     expect(pass("apple", { logoData, logoWallet: { showName: true, faint: false, upscaled: false } })).toContain("Synthetic Café</strong>");
     const faint = pass("apple", { logoData, logoWallet: { showName: true, faint: true, upscaled: false } });
-    expect(faint).not.toContain("<img");
+    expect(faint).toContain("<img");
     expect(faint).toContain("Synthetic Café</strong>");
   });
 
-  it("Google: a faint logo gives way to the initial and the name (ENG-134)", () => {
+  it("Google: a faint logo stays on the pass (founder, 12 Nov)", () => {
     const faint = pass("google", { logoData: "data:image/png;base64,iVBORw0KGgo=", logoWallet: { showName: true, faint: true, upscaled: false } });
-    expect(faint).not.toContain("<img");
-    expect(faint).toContain("ow-pass-initial");
-    expect(faint).toContain("Synthetic Café</strong>");
+    expect(faint).toContain("<img");
+    expect(faint).not.toContain("ow-pass-initial");
   });
 
   it("Google: until the logo's shape is known, the name stays beside it (ENG-153)", () => {
