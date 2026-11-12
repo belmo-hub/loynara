@@ -38,7 +38,7 @@ export async function ownerWalletReadiness(raw: { actorUserId: string; programSl
   if (!role) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
 
   const availability = walletAvailability(await googleDirectEnv(program.tenantId, program.locationId, program.id, db, await passFastEnv(program.tenantId, program.locationId)), program.tenantId, program.locationId, program.id);
-  // Every accepted upload is converted and resized; a stored logo is left off when it is too faint, or (unreadable) treated as absent.
+  // Every accepted upload is converted and resized; a faint logo is reported as low_contrast but still goes on the pass; an unreadable one is treated as absent.
   const view = await walletLogoView(program.logoData, program.brandColor);
   const logo = !view ? "missing" : view.faint ? "low_contrast" : "ready";
   const counts = await db.execute<{ provider: string; n: number }>(sql`

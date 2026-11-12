@@ -96,20 +96,51 @@ file; no external requests.
 Dashboard data (Stat values, tables, charts) stays in Manrope: values 800 with proportional figures, columns with
 tabular figures.
 
-Weights: 400 body, 650 labels, 720 buttons and emphasis, 800 card codes and cashier numerals. Headings use
+Weights are four tokens and nothing else: `--weight-body` 400 (body), `--weight-label` 650 (labels, table heads, nav
+and tab labels), `--weight-strong` 720 (buttons, links, chips, emphasis), `--weight-heavy` 800 (display titles, card
+codes, cashier numerals). The only other weights are inside the drawings of Apple's pass and lock screen. Headings use
 `text-wrap: balance`, paragraphs `pretty`. Long German compounds: `hyphens: auto` on headings with `lang="de"`,
 `overflow-wrap: anywhere` on names, codes and reward titles.
+
+Tracking: nothing under 22 px has negative tracking. Display sizes keep their own (-0.025em on page titles, the board
+and tile numbers); the brand word mark and the pass drawings keep theirs.
+
+`global-error` is the one page without Manrope: it loads no app CSS or fonts, so it uses the system sans stack
+(`system-ui, -apple-system, "Segoe UI", sans-serif`) with the same weights.
+
+Icons (lucide) come in four sizes, set by the text beside them: 16 with 14 px text (chips, segmented buttons, small
+notes and their checks); 20 with 16 px text and controls (notices, field alerts, toasts, back links, icon buttons, the
+select chevron); 22 in tiles, bands, the tab bar, the sidebar and row arrows; 24 for the glyph in a state-screen tile.
+Stroke 2 everywhere, 2.5 only on the current tab or nav icon, 3 only for a check at 16 px or under. Illustrations are
+not icons.
 
 ## Space, shape, depth
 
 - Space (4 px base): `--space-1` 4 · `--space-2` 8 · `--space-3` 12 · `--space-4` 16 · `--space-5` 20 · `--space-6` 24 · `--space-8` 32 · `--space-10` 40 · `--space-12` 48. Page gutter 16 px on phones, 40 px ≥ 1024 px.
-- Radius: `--radius-sm` 8 (badges, chips) · `--radius-md` 14 (inputs, small controls) · `--radius-lg` 20 (panels, cards) · `--radius-xl` 28 (card object, camera, sheets) · `--radius-pill` 999 (buttons, segmented controls).
+- Radius: `--radius-sm` 8 (badges, chips) · `--radius-md` 14 (inputs, small controls, state-screen tiles) · `--radius-lg` 20 (panels, cards) · `--radius-xl` 28 (card object, camera, sheets, dialogs) · `--radius-pill` 999 (buttons, segmented controls, toasts).
 - Elevation: `--shadow-hairline` (1 px line, lists) · `--shadow-raised` (menus, popovers) · `--shadow-object` (card object, tinted with the merchant colour) · `--shadow-overlay` (dialogs, sheets). Panels have borders, not shadows.
 - Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px. A link that stands on its
   own (a footer row, a line of its own, beside a button) is a target too: `min-height: var(--target)` or a positioned
   `::after` that extends its hit area. A link inside a sentence is exempt (WCAG 2.5.8 inline exception) and is always
   underlined, `--color-ink`, at least 14 px, with the focus ring. `e2e/support/targets.ts` is the one check every
   phone spec uses.
+- Heights per area: one field height and one primary height in each.
+
+  | Area | Fields and selects | Primary button | Dense controls |
+  |---|---|---|---|
+  | Owner | 52 | 52 (the button that ends a form) | 44: inline and row buttons, segments, chips |
+  | Kasse | 56 | 56; booking 64 | none |
+  | Customer, sign-in, invite | 48 | 48 | none |
+  | Dialogs and sheets | the area's | 48 | none |
+
+  System pages take their area's primary: root not-found, error and global-error 48, the Kasse error 56, the owner
+  error and not-found 52. The Apple and Google Wallet badges keep their own artwork's 52.
+- Overlays: dialogs and sheets are one family. Radius `--radius-xl`; inset 20; the title 20 from the top edge (8 under
+  a phone sheet's handle); 12 from the title to the first text, 24 from the last text to the actions; buttons 48. A
+  pinned footer has its hairline 12 below the content and 12 above its buttons. The Kasse amount sheet keeps its 64
+  booking button; the Kasse menu is a popover, with a 12 inset and 56 rows.
+- Toasts: one look everywhere, the ink pill: `--radius-pill`, min-height 48, padding 8 16, a 20 px icon, and a 44 px
+  close button inside it where it has one.
 - Z-index: `--z-sticky` 10 · `--z-nav` 20 · `--z-sheet` 40 · `--z-dialog` 50 · `--z-toast` 60.
 
 ## Motion
@@ -147,6 +178,7 @@ or nothing).
 | Crossfade | cashier status bar colour (scanning → open → done) | `--dur-ui` | instant |
 | Screen change | owner screens: tabs, rows, back links, a customer card opening over its list and closing again (React `ViewTransition`); a search or a filter is no screen change | old out and new in together, `--dur-ui`, linear, no delay; bars stay. A tap during it ends it: on a bar link it lands at once; on the content it lands from `--dur-press` on, on what is under the finger on the new screen, and is dropped before | cut |
 | Screen change, in place | title and message of a guest state screen (tap page: waiting, booked, rejected, expired) | the old words leave the layout at once and fade out over `--dur-press`; the new fade in over `--dur-ui` after `--dur-press`/2 | instant swap |
+| Screen change, in place (owner preview) | the Kundenkarte preview stage when „Darstellung“ or „Beispielzustand“ changes | the old preview fades out over `--dur-press` `--ease-out`, the new one fades in over `--dur-ui` `--ease-out` after `--dur-press`/2; opacity only, the stage box stays still and balances inside the preview never roll. The pickers themselves take Indicator slide (owner) | cut |
 | Shake | failed code entry or rejected amount, field only | 2 × 4 px, `--dur-ui` `--ease-in-out` | border colour only |
 | Skeleton shimmer | loading placeholders shaped like the content; the owner board's placeholder stands still | linear 1.4 s loop | a still placeholder |
 | Accordion | disclosures (rules, "So zählen wir") | height via `grid-template-rows` 0fr → 1fr, `--dur-ui` | instant |
@@ -156,7 +188,7 @@ or nothing).
 | List arrive (owner) | a list that appears as a list (rows of a section, customers, rewards, table rows), not one that takes a placeholder's place and not the rows of a block that arrives: they come with their block | as Arrive with 6 px, 30 ms apart; the eighth and later rows together, all within 420 ms | instant |
 | Card arrive (the Kasse extension) | card preview and opened card | the surface scales .98 → 1 and fades, `--dur-ui`; card number, balance and stamps stand still | instant |
 | Kasse states | dock, status strip, booked, camera | dock rises 8 px; strip fades; the booked badge lands with one ring and the tick draws; one ring on the sight when a code is read | colour change only |
-| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the loaded content lies under the placeholder in the same frame and the placeholder fades out over it, `--dur-ui`; no frame shows neither; neither the block nor its rows rise or stagger. Owner area for now: the content takes the placeholder's place in one frame, with no fade | instant |
+| Skeleton to content | whatever takes the place of a `LoadingBlock`, `Skeleton` or board placeholder | the loaded content lies under the placeholder in the same frame and the placeholder fades out over it, `--dur-ui`; no frame shows neither; neither the block nor its rows rise or stagger. In the owner area (`.ow-skel`, `.ow-ph`, `.ow-board-ph`) the fade is `--dur-ui` `--ease-out` and the content under it takes taps from the first frame | instant |
 | Bars grow | stat trend | scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, at most 8; first paint only | final state at once |
 | Bars grow (owner) | chart bars (week strip, Ergebnisse), the card stock, step-bar segments | bars: scaleY from the base, `--dur-reward` `--ease-in-out`, 30 ms apart, the eighth and later together; outside the 420 ms budget, done by 700 ms. Card stock: opens from the left (`clip-path`). Step segment: scaleX from the left, back again on the way back. Counts above bars stay still. First paint only: a bar without a count does not grow, and after a period switch (30/90 Tage) the new bars stand at once, never regrown from 0 (growing from the old value to the new is not built yet) | final state at once |
 | Toggle | checkbox | box fills over `--dur-press`, tick draws over `--dur-ui` | colour change only |
@@ -179,15 +211,40 @@ No hover lift on cards, no animation on keyboard-triggered actions. A screen's f
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
 - **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
-- **Dashboard.** Sidebar (≥ 1024 px): brand, then the location (one location as plain text, name 16/720 over the card type 14 muted; several as a 48 px select labelled „Standort“), then Übersicht · Programm · Kunden · Aktionen · Einstellungen, with "Kasse öffnen" (48 px) and the who-line with a quiet „Abmelden“ at the bottom. Sidebar rows are 36 px with 4 px between them for a fine pointer and 44 px for a coarse one; the current row has the neutral fill, 800 and a 2.5 icon stroke, and is the only filled thing in the sidebar. Phones: top bar with the shop name (16/800) over the location (14/500 muted), bottom bar (Übersicht, Programm, Kunden, Aktionen, Mehr) and a "Mehr" page with the rest. Bottom-bar labels are 12 px below 420 px wide and 14 px from 420, at 600 (current 800); the current tab has a 56×32 neutral pill behind its icon and a 2.5 stroke. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Dashboard controls are dense (44 px
-  high instead of 48) but keep the shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation, sticky save bar when dirty.
+- **Dashboard.** Sidebar (≥ 1024 px): brand, then the location (one location as plain text, name 16/720 over the card type 14 muted; several as a 48 px select labelled „Standort“), then Übersicht · Programm · Kunden · Aktionen · Einstellungen, with "Kasse öffnen" (48 px) and the who-line with a quiet „Abmelden“ at the bottom. Sidebar rows are 36 px with 4 px between them for a fine pointer and 44 px for a coarse one; the current row has the neutral fill, 800 and a 2.5 icon stroke, and is the only filled thing in the sidebar. Phones: top bar with the shop name (16/800) over the location (14/400 muted), bottom bar (Übersicht, Programm, Kunden, Aktionen, Mehr) and a "Mehr" page with the rest. Bottom-bar labels are 12 px below 420 px wide and 14 px from 420, at 650 (current 800); the current tab has a 56×32 neutral pill behind its icon and a 2.5 stroke. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Owner forms are 52 px high (fields, selects
+  and the button that ends the form); inline and row controls are dense at 44 (see Heights per area). Both keep the
+  shared shapes: pill buttons and segmented controls, `--radius-md` inputs. Forms: titled sections, inline validation,
+  sticky save bar when dirty; on screens up to 600 px tall the save bar is not fixed and sits at the end of the form,
+  and the bottom bar stays.
 
 ## Copy rules
 
-- Du-form, sentence case, plain verbs. A button says what happens ("1 Stempel vergeben"), and the toast repeats it ("Stempel vergeben").
-- Never build grammar around a reward title: write "Noch 2 Besuche bis zur Prämie" and show the title on its own, not "bis zum {Titel}".
+Marketing writes every string; these rules are what a string is checked against.
+
+- Du-form, sentence case, plain verbs. A button says what happens, and the result repeats it: the Kasse's „Buchen“
+  ends in „Gebucht“.
+- Never build grammar around a reward title: write „Stempel bis zu deiner Prämie:“ and show the title on its own, not
+  "bis zum {Titel}". Customers never read „Buchung“; their text says „sammeln“ or names the unit.
 - Errors say what happened and what to do. No apologies, no vague "Etwas ist schiefgelaufen".
 - No em dashes in UI text. Middle dots at most once per line.
+- **Full stops (C-R1).** A title, label, button, chip, tab, row title or row sub without a finite verb has no full
+  stop („Noch keine Karten“). A title that is a full sentence keeps it („Diese Seite gibt es nicht.“). Body text ends
+  with one; abbreviations keep their dot.
+- **No exclamation marks (C-R2)** in product text: app, Kasse, Wallet, e-mail and the site's forms.
+- **Apostrophe (C-R3):** ’ (U+2019), never '.
+- **One fact once per view (C-R4).** A strip, its title and its body never repeat each other; the body says the
+  consequence and the next step.
+- **Help sheets (C-R5):** one „So zählen wir“ sheet per page; each block is an h3 and at most 3 lines.
+- **One name per thing (C-R6):** Karte (Kundenkarte only as the Programm page name); the owner's Buchung against the
+  customer's „sammeln“ or the unit, „Besuch“ only in „beim nächsten Besuch“ and the challenge and level lines; Prämie
+  and Bonus are two things; Team, Person, Kasse, Leitung; übertragen; Kündigung, beenden, schließen and löschen are four
+  different actions. The weekly e-mail uses the app's labels. Open terms (buchen at the Kasse, Geschäft, Kasse against
+  Tresen, one word per message channel, Ergebnisse, Stand) are Marketing's to decide.
+- **The Kasse (C-R7)** shows no system words (Server, Puffer, Freigabe, Prüfaktion) and never a reason code; plurals
+  follow the count, never „(n)“; times read „12.11., 20:14“ and amounts „16,70 €“; buttons fit on one line at 390 px.
+- **Owner-only screens (C-R8):** the sentence is always „Nur die Inhaberin oder der Inhaber kann …“. The screen shows
+  its head without a lead, then a default Notice with the info icon, never an alert.
+- **Help text (C-R9)** never repeats its field's label.
 - German labels that e2e specs find by role and name stay unchanged unless the spec changes in the same PR.
 
 ## Accessibility checklist (every PR)

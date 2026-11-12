@@ -138,7 +138,7 @@ export function CardStudio({ me, program, initial, onSaved }: { me: MeResponse; 
               </div>
               <span className="ow-hint">PNG, JPG oder WebP bis 2 MB. Wir schneiden dein Logo nicht zu, ob rund, eckig oder breit.</span>
               {logoError && <span className="ow-error" role="alert">{logoError}</span>}
-              {savedLogo && saved.logoWallet?.faint && <span className="ow-hint">Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos. Bis dahin zeigt Apple Wallet statt des Logos deinen Geschäftsnamen und Google Wallet deinen Anfangsbuchstaben.</span>}
+              {savedLogo && saved.logoWallet?.faint && <span className="ow-hint">Dein Logo ist auf dieser Farbe schwer zu sehen. Wähle eine andere Farbe oder eine andere Version deines Logos.</span>}
               {savedLogo && !saved.logoWallet?.faint && saved.logoWallet?.upscaled && <span className="ow-hint">Dein Logo ist sehr klein und kann auf der Karte unscharf wirken.</span>}
             </div>
             )}

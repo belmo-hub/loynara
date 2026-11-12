@@ -419,7 +419,7 @@ describe("merchant logo handling", () => {
     }
   });
 
-  it("gives Apple every readable logo in its own shape and leaves out a missing, unreadable or faint one (ENG-134)", async () => {
+  it("gives Apple every readable logo in its own shape and leaves out a missing or unreadable one (ENG-134)", async () => {
     expect(await appleLogoFromData(await wordmark(), pass.brandColor)).toMatchObject({ width: 150, height: 50, showName: false });
     const square = await svgLogo(400, 400, `<rect width="400" height="400" fill="#B3261E"/><rect x="80" y="160" width="240" height="80" fill="#fff"/>`);
     const jpeg = `data:image/jpeg;base64,${(await sharp(Buffer.from(square.split(",")[1], "base64")).jpeg().toBuffer()).toString("base64")}`;
@@ -430,7 +430,7 @@ describe("merchant logo handling", () => {
     expect(await appleLogoFromData("data:image/png;base64,not-base64!", pass.brandColor)).toBeUndefined();
     const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
     const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
-    expect(await appleLogoFromData(darkLogo, "#1F4D3A")).toBeUndefined(); // too faint on Waldgrün: the pass shows the name instead
+    expect(await appleLogoFromData(darkLogo, "#1F4D3A")).toMatchObject({ width: 150, height: 50 }); // faint on Waldgrün, still on the pass
   });
 
   it("gives Google a versioned URL per asset only with an explicitly enabled HTTPS asset origin (ENG-153)", async () => {
@@ -451,7 +451,7 @@ describe("merchant logo handling", () => {
     expect(await urls("data:image/jpeg;base64,YWJj")).toEqual({ googleLogoUrl: wide.googleLogoUrl }); // unreadable: the initial only
   });
 
-  it("never squeezes a wide logo into Google's circle and drops a faint one for the initial, like Apple (ENG-153)", async () => {
+  it("never squeezes a wide logo into Google's circle and keeps a faint one, like Apple (ENG-153)", async () => {
     const size = async (bytes?: Buffer) => { const { width, height } = await sharp(bytes!).metadata(); return [width, height]; };
     const logo = await wordmark();
     const circle = await googleLogoAsset("square", logo, pass.brandColor, pass.merchantName);
@@ -461,7 +461,7 @@ describe("merchant logo handling", () => {
     expect(await size(await googleLogoAsset("wide", logo, pass.brandColor, pass.merchantName))).toEqual([1280, 400]);
     const dark = (await wordmark()).replace(/^data:image\/png;base64,/, "");
     const darkLogo = `data:image/png;base64,${(await sharp(Buffer.from(dark, "base64")).negate({ alpha: false }).png().toBuffer()).toString("base64")}`;
-    expect(await googleLogoAsset("wide", darkLogo, "#1F4D3A", pass.merchantName)).toBeUndefined();
+    expect(await size(await googleLogoAsset("wide", darkLogo, "#1F4D3A", pass.merchantName))).toEqual([1280, 400]);
     expect(await googleLogoAsset("square", darkLogo, "#1F4D3A", pass.merchantName)).toEqual(await initialLogo("K", "#1F4D3A"));
     const square = await svgLogo(400, 400, `<circle cx="200" cy="200" r="180" fill="#fff"/>`);
     expect(await googleLogoAsset("wide", square, pass.brandColor, pass.merchantName)).toBeUndefined();

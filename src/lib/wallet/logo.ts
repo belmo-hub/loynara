@@ -34,19 +34,19 @@ function processedLogo(logoData: string | null | undefined, brandColor: string, 
 const faint = (logo: ProcessedLogo) => !logo.meta.boxed && logo.meta.contrast < 3;
 
 /**
- * The merchant logo for the Apple pass, or undefined so the pass shows the merchant name as logo text instead: no logo,
- * an unreadable one, or one too faint on the brand colour (a boxed logo carries its own background).
+ * The merchant logo for the Apple pass, or undefined so the pass shows the merchant name as logo text instead: no logo or
+ * an unreadable one. A logo that is faint on the brand colour still goes on the pass (founder, 12 Nov); the studio tells the owner.
  */
 export async function appleLogoFromData(logoData: string | null | undefined, brandColor: string): Promise<AppleLogo | undefined> {
   const logo = await processedLogo(logoData, brandColor);
-  if (!logo || faint(logo)) return undefined;
+  if (!logo) return undefined;
   return { ...logo.wallet, ...(logo.icon ? { icon: logo.icon } : {}), showName: logo.meta.showName };
 }
 
 /** What the pass does with the saved logo, so the studio preview can show the same. */
 export async function walletLogoView(logoData: string | null | undefined, brandColor: string): Promise<{ showName: boolean; faint: boolean; upscaled: boolean; box?: string } | null> {
   const logo = await processedLogo(logoData, brandColor);
-  return logo && { showName: logo.meta.showName || faint(logo), faint: faint(logo), upscaled: logo.meta.upscaled, ...(logo.meta.box ? { box: logo.meta.box } : {}) };
+  return logo && { showName: logo.meta.showName, faint: faint(logo), upscaled: logo.meta.upscaled, ...(logo.meta.box ? { box: logo.meta.box } : {}) };
 }
 
 export function approvedGoogleAssetOrigin(env: Record<string, string | undefined> = process.env): string | undefined {
@@ -60,12 +60,12 @@ export function approvedGoogleAssetOrigin(env: Record<string, string | undefined
 
 /**
  * The PNG Google fetches for a programme. Square: a mark up to 1.25 wide in the circle, otherwise the shop's initial (also
- * with no logo, or a faint one), so a wordmark is never squeezed into it; none when the name has nothing to draw. Wide: the
+ * with no or an unreadable logo), so a wordmark is never squeezed into it; none when the name has nothing to draw. Wide: the
  * wide logo, only for a logo wider than 1.25.
  */
 export async function googleLogoAsset(kind: "square" | "wide", logoData: string | null | undefined, brandColor: string, merchantName: string, onMiss?: () => Promise<void>): Promise<Buffer | undefined> {
   const logo = await processedLogo(logoData, brandColor, onMiss);
-  const shown = logo && !faint(logo) ? logo.google : undefined;
+  const shown = logo?.google;
   if (kind === "wide") return shown && "wide" in shown ? shown.wide : undefined;
   if (shown && "square660" in shown) return shown.square660;
   const initial = initialOf(merchantName);

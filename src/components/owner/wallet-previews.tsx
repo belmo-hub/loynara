@@ -34,8 +34,7 @@ function ApplePass({ data }: { data: PreviewData }) {
   const ink = readableInk(data.brandColor);
   const label = ink === "#ffffff" ? "rgba(255, 255, 255, .78)" : "rgba(17, 17, 17, .72)";
   const p = progress(data);
-  // A logo too faint on the brand colour stays off the pass, which shows the name instead.
-  const logo = data.logoWallet?.faint ? null : data.logoData;
+  const logo = data.logoData;
   const [ratio, onLoad] = useLogoRatio();
   const showName = !logo || (data.logoWallet ? data.logoWallet.showName : ratio < 2.2);
   const name = data.businessName || "Dein Geschäft";
@@ -60,8 +59,7 @@ function ApplePass({ data }: { data: PreviewData }) {
 function GooglePass({ data }: { data: PreviewData }) {
   const ink = readableInk(data.brandColor);
   const p = progress(data);
-  // Same contrast rule as Apple: a faint logo gives way to the initial and the name.
-  const logo = data.logoWallet?.faint ? null : data.logoData;
+  const logo = data.logoData;
   const [ratio, onLoad] = useLogoRatio();
   // Same split as lib/wallet/logo-process. Google's loyalty template: with wideProgramLogo the card title is the wide logo
   // and the programme name, no issuer name. Until the image loads its shape is unknown, so the name stays.
