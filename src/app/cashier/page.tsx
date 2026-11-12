@@ -17,6 +17,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
+import { formatMinor } from "@/lib/spend-copy";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
 type LookupResult = CashierLookup & { stage: "open" };
@@ -79,6 +80,8 @@ export default function CashierPage() {
   const [actorUserId, setActorUserId] = useState("");
   const [offlineLease, setOfflineLease] = useState<OfflineLease | null>(null);
   const [offlineEvents, setOfflineEvents] = useState<OfflineQueuedEvent[]>([]);
+  // The queue's amounts carry no currency of their own; the last card booked here names it (one shop, one currency).
+  const [offlineCurrency, setOfflineCurrency] = useState<CashierCard["currency"]>();
   const [offlineError, setOfflineError] = useState("");
   const [offlineBusy, setOfflineBusy] = useState(false);
   // The NFC confirmation panel only means something where the programme uses staff-confirmed NFC taps; otherwise it is dead weight on the counter screen.
@@ -297,11 +300,12 @@ export default function CashierPage() {
       if (!actorUserId || !offlineLease || offlineLease.membershipId !== selectedCard.id || new Date(offlineLease.expiresAt).getTime() <= Date.now()) throw new Error("Offline-Freigabe fehlt oder ist abgelaufen. Karte online erneut prüfen.");
       if (pendingRef.current) throw new Error("Ein Online-Vorgang hat ein unklares Ergebnis. Zuerst diesen Vorgang prüfen.");
       getOfflineDeviceId(localStorage);
-      addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, cardLocator: selectedCard.cardLocator, ...("quantity" in award ? {} : { currency: selectedCard.currency }), eventAt: new Date().toISOString(), award, state: "pending" });
+      addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, cardLocator: selectedCard.cardLocator, eventAt: new Date().toISOString(), award, state: "pending" });
       setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
+      setOfflineCurrency(selectedCard.currency);
       setOfflineError("");
       const fr = locale === "fr";
-      const what = "quantity" in award ? `${award.quantity} ${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : `Kauf über ${(award.purchaseAmountMinor / 100).toFixed(2).replace(".", ",")} ${selectedCard.currency}`;
+      const what = "quantity" in award ? `${award.quantity} ${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : `Kauf über ${formatMinor(award.purchaseAmountMinor, selectedCard.currency)}`;
       const detail = fr ? `${what} pour ${selectedCard.cardLocator} mis en attente hors ligne. Rien n’est encore enregistré ; le solde ne change qu’après la synchronisation.` : `${what} für ${selectedCard.cardLocator} offline vorgemerkt. Noch nichts gebucht; der Kontostand ändert sich erst nach der Synchronisierung.`;
       rememberBooking(selectedCard.id, fr ? `${what}, hors ligne` : `${what}, offline vorgemerkt`);
       finishBooking({ tone: "pending", title: fr ? "En attente, pas encore enregistré" : "Vorgemerkt, noch nicht gebucht", detail }, "pending", detail);
@@ -369,7 +373,7 @@ export default function CashierPage() {
     try { pending = operationFor(signature); }
     catch (cause) { setStatus("rejected"); setMessage(cause instanceof Error ? cause.message : "Buchung nicht möglich."); return; }
     const fr = locale === "fr";
-    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity} ${unitLabel(selectedCard, operation.award.quantity, fr)}` : `${(operation.award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}`;
+    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity} ${unitLabel(selectedCard, operation.award.quantity, fr)}` : fr ? `${(operation.award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : formatMinor(operation.award.purchaseAmountMinor, selectedCard.currency);
     const settle = (unclear: boolean) => {
       if (unclear) unresolvedRef.current.set(selectedCard.id, { pending, label, at: Date.now() });
       else if (unresolvedRef.current.get(selectedCard.id)?.pending.signature === signature) unresolvedRef.current.delete(selectedCard.id);
@@ -453,7 +457,7 @@ export default function CashierPage() {
       : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} rejectedTitle={message === NO_CARD.malformed || message === NO_CARD.elsewhere ? NO_CARD.title : undefined} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
+  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} rejectedTitle={message === NO_CARD.malformed || message === NO_CARD.elsewhere ? NO_CARD.title : undefined} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} currency={card?.currency ?? offlineCurrency} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {

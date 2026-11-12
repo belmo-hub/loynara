@@ -8,7 +8,7 @@ const event = (over: Partial<OfflineQueuedEvent>): OfflineQueuedEvent => ({
   eventId: "0b0e6c0e-3d5c-4d0e-9a55-0d6c3a1f2b01", leaseId: "0b0e6c0e-3d5c-4d0e-9a55-0d6c3a1f2b02", actorUserId: "synthetic-user",
   membershipId: "0b0e6c0e-3d5c-4d0e-9a55-0d6c3a1f2b03", cardLocator: "K-ABCDEF", eventAt: "2026-11-12T19:14:02.000Z", award: { quantity: 1 }, state: "pending", ...over,
 });
-const panel = (events: OfflineQueuedEvent[]) => renderToStaticMarkup(h(OfflineQueuePanel, { events, busy: false, onSync: () => {}, onAcknowledge: () => {}, locale: "de" }));
+const panel = (events: OfflineQueuedEvent[], currency?: string) => renderToStaticMarkup(h(OfflineQueuePanel, { events, currency, busy: false, onSync: () => {}, onAcknowledge: () => {}, locale: "de" }));
 
 // The cashier reads sentences, never the system's reason codes (Design, 12 Nov, rule C-R7).
 describe("OfflineQueuePanel", () => {
@@ -26,9 +26,9 @@ describe("OfflineQueuePanel", () => {
     const out = panel([event({})]);
     expect(out).toMatch(/K-ABCDEF · \d{1,2}\.\d{1,2}\., \d{2}:\d{2}</);
   });
-  it("shows a purchase as money, with its currency when the event carries one", () => {
+  it("shows a purchase as money, with the shop's currency once the Kasse knows it", () => {
     const award = { purchaseAmountMinor: 1670, ruleVersionId: "0b0e6c0e-3d5c-4d0e-9a55-0d6c3a1f2b04" };
-    expect(panel([event({ award, currency: "EUR" })])).toContain("Kaufbetrag: 16,70 €");
+    expect(panel([event({ award })], "EUR")).toContain("Kaufbetrag: 16,70 €");
     expect(panel([event({ award })])).toContain("Kaufbetrag: 16,70<");
   });
 });
