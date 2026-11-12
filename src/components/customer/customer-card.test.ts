@@ -407,3 +407,14 @@ describe("the card after the join page (ENG-205)", () => {
     expect(waited.length).toBeGreaterThan(direct.length); // the cover's placeholder is in the markup
   });
 });
+
+describe("closing the card", () => {
+  // At 320 px the confirmation grew past the column: a start-aligned grid item sizes to its content.
+  it("lets the confirmation take the column's width and keeps the toggle a left-aligned link", async () => {
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css.match(/\.close\s*{([^}]*)}/)?.[1]).toMatch(/justify-items:\s*stretch/);
+    expect(css.match(/\.closeToggle\s*{([^}]*)}/)?.[1]).toMatch(/justify-self:\s*start/);
+    // The long confirm label must not set the panel's width: the track may shrink and the button wraps (block).
+    expect(css.match(/\.closeConfirm\s*{([^}]*)}/)?.[1]).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  });
+});
