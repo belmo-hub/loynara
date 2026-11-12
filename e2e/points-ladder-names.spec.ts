@@ -36,3 +36,23 @@ test("no shown name sits under another reward's shown price (80 / 160 / 250 at 3
     }));
   })).toEqual([]);
 });
+
+// Design, 12 Nov (ruling 49): with the thousands separator a price is wider than the 24 px the layout once assumed.
+for (const width of [320, 375]) for (const [name, costs] of [["1.000 / 2.500 / 10.000", [1000, 2500, 10000]], ["two six-figure costs close together", [500, 240000, 250000]], ["a six-figure cost near a seven-figure goal", [833250, 1000000]], ["four five-figure costs", [62700, 77100, 96750, 100000]]] as const) {
+  test(`no two shown prices touch at ${width}px (${name})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const real = await (await page.request.get(`/api/enroll/card/${demo.cardToken}`)).json();
+    // Short names, so no price hides under a name and every label has to find its own room.
+    const rewards = costs.map((cost, i) => ({ id: String(i), title: ["Tee", "Öl", "Bad", "Ei"][i], cost }));
+    await page.route(new RegExp(`/api/(enroll/)?card/${demo.cardToken}$`), route => route.fulfill({ json: { ...real, programType: "points", balance: 12, rewards, activity: [] } }));
+    await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+    const ladder = page.locator(".customer-card [data-titles]");
+    await expect(ladder).toBeVisible();
+    const goal = ladder.locator("> span").last().locator("small").first();
+    await expect(goal).toBeVisible();
+    await expect.poll(() => ladder.evaluate(el => {
+      const prices = [...el.children].slice(1).map(mark => mark.querySelector("small")!).filter(price => getComputedStyle(price).visibility !== "hidden");
+      return prices.flatMap((a, i) => prices.slice(i + 1).filter(b => { const p = a.getBoundingClientRect(), q = b.getBoundingClientRect(); return p.left < q.right && p.right > q.left; }).map(b => `${a.textContent} touches ${b.textContent}`));
+    })).toEqual([]);
+  });
+}

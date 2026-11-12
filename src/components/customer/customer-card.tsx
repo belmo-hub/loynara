@@ -430,7 +430,7 @@ function CloseCard({ onCloseCard, closeBusy, closeError, onAppleWallet, onGoogle
     <button type="button" className={styles.closeToggle} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{t.closeCard}<ChevronRight size={16} aria-hidden="true" /></button>
     <Reveal open={open} gap="var(--space-3)"><div className={`customer-close-confirm ${styles.closeConfirm}`}>
       <p>{t.closeMessage(Boolean(onAppleWallet || onGoogleWallet))}</p>
-      <Button variant="danger" size="sm" onClick={() => void onCloseCard?.()} loading={closeBusy}>{closeBusy ? t.closing : t.confirmClose}</Button>
+      <Button variant="danger" size="sm" block onClick={() => void onCloseCard?.()} loading={closeBusy}>{closeBusy ? t.closing : t.confirmClose}</Button>
       {closeError ? <p className={styles.alert} role="alert">{closeError}</p> : null}
     </div></Reveal>
   </section>;

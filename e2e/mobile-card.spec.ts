@@ -133,3 +133,26 @@ test("invite-only signup stays inside narrow viewports and enters the invited ca
     }
   } finally { await api.dispose(); await guest.dispose(); }
 });
+
+// Design, 12 Nov (rulings 40 and 44c).
+test("the close confirmation fits a 320 px screen: nothing reaches past its panel", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  await page.getByRole("button", { name: "Karte schließen" }).click();
+  const panel = page.locator(".customer-close-confirm");
+  await expect(panel).toBeVisible();
+  await expect.poll(() => panel.evaluate(el => {
+    const box = el.getBoundingClientRect(), button = el.querySelector("button")!, label = button.querySelector("span:last-child") ?? button;
+    return { inside: [...el.querySelectorAll("p, button")].every(child => child.getBoundingClientRect().right <= box.right - 1), onScreen: box.right <= innerWidth && document.documentElement.scrollWidth <= innerWidth, whole: label.scrollWidth <= label.clientWidth + 1 };
+  })).toEqual({ inside: true, onScreen: true, whole: true });
+});
+
+test("the e-mail offer does not take focus when the card opens", async ({ page }) => {
+  const offer = { available: true, marketingAvailable: true, contactPresent: false, emailVerified: false, marketingEmail: false, maskedEmail: null, pending: null, linkExpired: false, marketingSince: null, recoverUrl: "app.test/recover", offer: true };
+  await page.route("**/api/card/*/contact", route => route.request().method() === "GET" ? route.fulfill({ json: offer }) : route.continue());
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  const field = page.getByLabel("E-Mail-Adresse");
+  await expect(field).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(field).not.toBeFocused();
+});

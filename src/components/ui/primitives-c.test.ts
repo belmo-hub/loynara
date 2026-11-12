@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
-import { PointsLadder } from "./points-ladder";
+import { hideTouchingPrices, PointsLadder } from "./points-ladder";
 import { ProgressRing } from "./progress-ring";
 import { Skeleton } from "./skeleton";
 import { StampGrid } from "./stamp-grid";
@@ -53,6 +53,12 @@ describe("PointsLadder", () => {
     expect(html(h(PointsLadder, { balance: 1, rewards, locale: "fr" }))).toContain('aria-label="1 point sur 150"');
     expect(html(h(PointsLadder, { balance: 2, rewards, locale: "fr" }))).toContain('aria-label="2 points sur 150"');
     expect(html(h(PointsLadder, { balance: 1, rewards }))).toContain('aria-label="1 von 150 Punkten"');
+  });
+  it("writes large numbers with the thousands separator, on the markers and in its name", () => {
+    const out = html(h(PointsLadder, { balance: 124800, rewards: [{ title: "Gratis-Getränk", cost: 500 }, { title: "Wochenende", cost: 250000 }] }));
+    expect(out).toContain(">250.000</small>");
+    expect(out).not.toContain(">250000<");
+    expect(out).toContain('aria-label="124.800 von 250.000 Punkten"');
   });
   it("says a one-point reward in the singular, and French zero too (ENG-108)", () => {
     expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 1 }] }))).toContain('aria-label="0 von 1 Punkt"');
@@ -106,5 +112,21 @@ describe("EmptyState, Skeleton, PageHeader", () => {
     const out = html(h(PageHeader, { title: "Übersicht", description: "Kassel Mitte, letzte 30 Tage", actions: h("button", null, "Kasse öffnen") }));
     expect(out.match(/<h1/g)).toHaveLength(1);
     expect(out).toContain("Kasse öffnen");
+  });
+});
+
+// Design, 12 Nov (ruling 49): a price with its thousands separator is wider than the 24 px the fixed gap assumed.
+describe("hideTouchingPrices", () => {
+  const marks = (...at: number[]) => at.map(a => ({ at: a, hideLabel: false }));
+  const hidden = (list: Array<{ hideLabel: boolean }>) => list.map(m => m.hideLabel);
+  it("hides a price that would touch the goal's, by the labels' own widths", () => {
+    expect(hidden(hideTouchingPrices(marks(0.83, 1), 300, [56, 72]))).toEqual([true, false]);
+  });
+  it("keeps a price that has room, and lets the earlier one win among the others", () => {
+    expect(hidden(hideTouchingPrices(marks(0.4, 1), 300, [56, 72]))).toEqual([false, false]);
+    expect(hidden(hideTouchingPrices(marks(0.4, 0.55, 1), 300, [56, 56, 72]))).toEqual([false, true, false]);
+  });
+  it("leaves three-digit prices as they were", () => {
+    expect(hidden(hideTouchingPrices(marks(0.4, 0.6, 1), 228, [24, 24, 24]))).toEqual([false, false, false]);
   });
 });
