@@ -164,12 +164,12 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .export :global(.auth-error) { flex-basis: 100%; margin: 0; padding-left: 52px; font-size: var(--text-14); color: var(--color-danger); }
 
 /* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */
-.close { display: grid; justify-items: start; gap: var(--space-3); margin-top: var(--space-2); }
-.closeToggle { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
+.close { display: grid; justify-items: stretch; gap: var(--space-3); margin-top: var(--space-2); }
+.closeToggle { display: inline-flex; justify-self: start; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
 .closeToggle svg { transition: transform var(--dur-ui) var(--ease-out); }
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
-.closeConfirm { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
+.closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 .closeConfirm p { margin: 0; }
 .footer { display: grid; justify-items: center; gap: var(--space-2); }
 .footer p { margin: 0; }
