@@ -22,3 +22,14 @@ test("/unsubscribe posts the token from its link, also when effects run twice in
   await expect(page.getByRole("heading", { name: "Abgemeldet", exact: true })).toBeVisible();
   expect(posted).toEqual({ token: "synthetic_token_value" });
 });
+
+test("/recover/confirm names each restore button by its card", async ({ page }) => {
+  const cards = [{ membershipId: "m1", merchantName: "Synthetic Café", programmeName: "Stempelkarte" }, { membershipId: "m2", merchantName: "Synthetic Salon", programmeName: "Punktekarte" }];
+  await page.route("**/api/recover/confirm", route => route.fulfill({ json: { cards } }));
+  await page.goto("/recover/confirm#token=synthetic_token_value");
+  await page.getByRole("button", { name: "Meine Karten anzeigen" }).click();
+  const buttons = page.getByRole("button", { name: "Diese Karte wiederherstellen" });
+  await expect(buttons).toHaveCount(2);
+  await expect(buttons.nth(0)).toHaveAccessibleDescription("Synthetic Café");
+  await expect(buttons.nth(1)).toHaveAccessibleDescription("Synthetic Salon");
+});

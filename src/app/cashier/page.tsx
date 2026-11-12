@@ -297,7 +297,7 @@ export default function CashierPage() {
       if (!actorUserId || !offlineLease || offlineLease.membershipId !== selectedCard.id || new Date(offlineLease.expiresAt).getTime() <= Date.now()) throw new Error("Offline-Freigabe fehlt oder ist abgelaufen. Karte online erneut prüfen.");
       if (pendingRef.current) throw new Error("Ein Online-Vorgang hat ein unklares Ergebnis. Zuerst diesen Vorgang prüfen.");
       getOfflineDeviceId(localStorage);
-      addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, cardLocator: selectedCard.cardLocator, eventAt: new Date().toISOString(), award, state: "pending" });
+      addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, cardLocator: selectedCard.cardLocator, ...("quantity" in award ? {} : { currency: selectedCard.currency }), eventAt: new Date().toISOString(), award, state: "pending" });
       setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
       setOfflineError("");
       const fr = locale === "fr";

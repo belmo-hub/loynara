@@ -54,6 +54,12 @@ describe("PointsLadder", () => {
     expect(html(h(PointsLadder, { balance: 2, rewards, locale: "fr" }))).toContain('aria-label="2 points sur 150"');
     expect(html(h(PointsLadder, { balance: 1, rewards }))).toContain('aria-label="1 von 150 Punkten"');
   });
+  it("writes large numbers with the thousands separator, on the markers and in its name", () => {
+    const out = html(h(PointsLadder, { balance: 124800, rewards: [{ title: "Gratis-Getränk", cost: 500 }, { title: "Wochenende", cost: 250000 }] }));
+    expect(out).toContain(">250.000</small>");
+    expect(out).not.toContain(">250000<");
+    expect(out).toContain('aria-label="124.800 von 250.000 Punkten"');
+  });
   it("says a one-point reward in the singular, and French zero too (ENG-108)", () => {
     expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 1 }] }))).toContain('aria-label="0 von 1 Punkt"');
     expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 2 }] }))).toContain('aria-label="0 von 2 Punkten"');

@@ -1,5 +1,6 @@
 "use client";
 
+import { germanDate } from "@/lib/german-date";
 import type { OfflineQueuedEvent } from "@/lib/offline-queue";
 import type { UiLocale } from "./loyalty-ui";
 import styles from "./offline-queue-panel.module.css";
@@ -12,6 +13,10 @@ const reasons: Record<string, string> = {
   LIMIT_EXCEEDED: "Die Vergabe überschreitet das Rollenlimit.", CARD_PACE_LIMIT: "Die Karte wurde in kurzer Zeit zu oft gebucht.",
 };
 
+/** „16,70 €“; an event stored before it carried its currency shows the amount alone. */
+const amount = (minor: number, currency: string | undefined, locale: UiLocale) =>
+  new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", currency ? { style: "currency", currency } : { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
+
 export function OfflineQueuePanel({ events, busy, error, onSync, onAcknowledge, locale }: {
   events: OfflineQueuedEvent[]; busy: boolean; error?: string;
   onSync: () => void; onAcknowledge: (eventId: string) => void; locale: UiLocale;
@@ -23,9 +28,9 @@ export function OfflineQueuePanel({ events, busy, error, onSync, onAcknowledge, 
     {pending > 0 && <button type="button" className={buttonClassName({ variant: "secondary" })} onClick={onSync} disabled={busy}>{locale === "fr" ? "Synchroniser les ajouts en attente" : "Ausstehende Vergaben synchronisieren"}</button>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {events.length > 0 && <ul className={styles.list}>{events.map(item => <li className={styles.item} key={item.eventId}>
-      <strong>{"quantity" in item.award ? `${locale === "fr" ? "Quantité" : "Menge"}: ${item.award.quantity}` : `${locale === "fr" ? "Achat" : "Kaufbetrag"}: ${(item.award.purchaseAmountMinor / 100).toFixed(2)}`}</strong>
-      <small>{item.cardLocator ?? (locale === "fr" ? "Carte sans numéro" : "Karte ohne Nummer")} · {new Date(item.eventAt).toLocaleString(locale === "fr" ? "fr-FR" : "de-DE")}</small>
-      <span className={item.state === "rejected" ? styles.rejected : styles.state}>{item.state === "pending" ? locale === "fr" ? "En attente du serveur" : "Wartet auf Server" : item.state === "accepted" ? locale === "fr" ? "Accepté par le serveur" : "Vom Server angenommen" : locale === "fr" ? `Refusé : ${item.reason ?? "inconnu"}` : `Abgelehnt: ${reasons[item.reason ?? ""] ?? item.reason ?? "Unbekannter Grund"} (${item.reason ?? "UNKNOWN"})`}</span>
+      <strong>{"quantity" in item.award ? `${locale === "fr" ? "Quantité" : "Menge"}: ${item.award.quantity}` : `${locale === "fr" ? "Achat" : "Kaufbetrag"}: ${amount(item.award.purchaseAmountMinor, item.currency, locale)}`}</strong>
+      <small>{item.cardLocator ?? (locale === "fr" ? "Carte sans numéro" : "Karte ohne Nummer")} · {locale === "fr" ? new Date(item.eventAt).toLocaleString("fr-FR") : germanDate(item.eventAt, "feed")}</small>
+      <span className={item.state === "rejected" ? styles.rejected : styles.state}>{item.state === "pending" ? locale === "fr" ? "En attente du serveur" : "Wartet auf Server" : item.state === "accepted" ? locale === "fr" ? "Accepté par le serveur" : "Vom Server angenommen" : locale === "fr" ? `Refusé : ${item.reason ?? "inconnu"}` : `Abgelehnt: ${reasons[item.reason ?? ""] ?? "Unbekannter Grund"}`}</span>
       {item.state !== "pending" && <button type="button" className={buttonClassName({ variant: "quiet", size: "sm" })} onClick={() => onAcknowledge(item.eventId)}>{locale === "fr" ? "Vérifié, retirer" : "Geprüft, aus Liste entfernen"}</button>}
     </li>)}</ul>}
   </section>;
