@@ -117,7 +117,7 @@ export function Tiles({ title, note, tiles }: { title: string; /** Said once aft
   const titleId = useId();
   const close = () => setHelp(false);
   return (
-    <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
+    <section className="ow-rows-section" aria-labelledby={titleId}>
       <div className="ow-rows-head">
         <h2 id={titleId} className="ow-tiles-title">{title}{note && ` · ${note}`}</h2>
         <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
