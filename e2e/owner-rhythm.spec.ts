@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { smallTargets } from "./support/targets";
 
 // The owner area's one rhythm (Design, 12 Nov, rulings SP1 to SP5 and SP9), measured on the rendered pages:
 // 24 from the page head to the first block; 20 above a section label and 8 below it, with or without its „?“;
@@ -23,27 +24,33 @@ const rhythm = () => page.evaluate(() => {
   const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2, main = document.getElementById("ow-main")!;
   const before = (el: Element | null) => { let p = el?.previousElementSibling ?? null; while (p && box(p).height === 0) p = p.previousElementSibling; return p; };
   const head = main.querySelector(".ow-page > .ow-pagehead");
-  const labels = [...main.querySelectorAll(".ow-rows-head, .ow-section-head, .ow-prog h2")].filter(el => !el.closest("dialog") && !(el.matches("h2") && el.closest(".ow-rows-head")));
+  const labels = [...main.querySelectorAll(".ow-rows-head, .ow-section-head, .ow-prog h2, .ow-diary > h2, .ow-group > legend:not(.ow-sr)")].filter(el => !el.closest("dialog") && !(el.matches("h2") && el.closest(".ow-rows-head")));
   return {
     head: head?.nextElementSibling ? px(box(head.nextElementSibling).top - box(head).bottom) : null,
-    above: labels.flatMap(el => { const block = el.closest(".ow-rows-section, .ow-prog > div") ?? el, prev = before(block) ?? before(block.parentElement); return prev ? [px(box(block).top - box(prev).bottom)] : []; }),
+    // A legend's space above is its group's hairline (16, line, 16), not a label gap.
+    above: labels.filter(el => !el.matches("legend")).flatMap(el => { const block = el.closest(".ow-rows-section, .ow-diary, .ow-prog > div") ?? el, prev = before(block) ?? before(block.parentElement); return prev ? [px(box(block).top - box(prev).bottom)] : []; }),
     below: labels.flatMap(el => el.nextElementSibling ? [px(box(el.nextElementSibling).top - box(el).bottom)] : []),
     helpGrowsRow: [...main.querySelectorAll(".ow-rows-head")].map(el => px(box(el).height - box(el.querySelector("h2")!).height)),
     padding: [...new Set([...main.querySelectorAll(".ow-card, .ow-board, .ow-qpanel")].map(el => getComputedStyle(el).padding))],
     chips: [...main.querySelectorAll(".ow-prog-text .ow-chip")].flatMap(el => el.previousElementSibling ? [px(box(el).top - box(el.previousElementSibling).bottom)] : []),
-    hints: [...main.querySelectorAll(".ow-page > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
+    // The „?“ beside a label is a 44 px target that stops where the first row's target begins.
+    helpIntoRow: [...main.querySelectorAll(".ow-rows-head > button")].flatMap(el => { const row = el.parentElement!.nextElementSibling; return row ? [px(Math.max(0, box(el).bottom - box(row).top))] : []; }),
+    hints: [...main.querySelectorAll(".ow-page > .ow-hint, .ow-q > .ow-hint, .ow-group > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
   };
 });
 const only = (values: Array<number | string>, ...allowed: Array<number | string>) => values.filter(value => !allowed.includes(value));
 
-for (const path of ["/merchant/analytics", "/merchant/program", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/settings", "/merchant/referrals", "/merchant/adviser"]) {
+// Screens whose content has no section label of the kinds above; the rest must show at least one before they pass.
+const NO_LABELS = ["/merchant/adviser", "/merchant/staff/invite", "/merchant/customers/import"];
+for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
   test(`${path} keeps the owner rhythm`, async () => {
     await page.goto(path);
     await expect(page.locator("#ow-main h1")).toBeVisible();
     await expect.poll(async () => {
       const m = await rhythm();
       // `loaded`: the page's own content is there (labels, or the adviser's panels), so an empty list is not a pass.
-      return { loaded: m.below.length > 0 || path.endsWith("/adviser"), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
-    }).toEqual({ loaded: true, head: 24, above: [], below: [], helpGrowsRow: [], padding: [], chips: [], hints: [] });
+      return { loaded: m.below.length > 0 || NO_LABELS.includes(path), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
+    }).toEqual({ loaded: true, head: path === "/merchant" ? null : 24, above: [], below: [], helpGrowsRow: [], helpIntoRow: [], padding: [], chips: [], hints: [] }); // Übersicht greets instead of a page head
+    expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });
 }

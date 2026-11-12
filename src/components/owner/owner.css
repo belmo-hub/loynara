@@ -468,7 +468,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-search .ow-input { min-height: 52px; padding-left: 48px; -webkit-appearance: none; appearance: none; }
 /* A copy, a download or a step is a row too: the button wears the link row's shape. */
 button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.ow-prog-text .ow-chip { margin-top: var(--space-1); }
+.ow-prog-text .ow-chip, .ow-qhead > .ow-chip { margin-top: var(--space-1); } /* a chip 4 under its title: a row's, or a closed card's */
 /* A card's balance: the number reads first, its unit one step quieter, so „Zuletzt vor 34 Tagen“ keeps one line. */
 .ow-prog-value small { font-size: var(--text-14); font-weight: var(--weight-label); letter-spacing: 0; }
 .ow-page > a.ow-band { max-width: 40rem; }
@@ -517,6 +517,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* One section head (SF-4): 14/800 muted on the grey, on the rows' left edge, 8 above its rows and 20 below the block
    above. Every label over a group wears it; its margins come from where it stands. */
 .owner-app .ow-section-head, .ow-prog h2:where(:not(dialog *)), .owner-app .ow-tiles-title, .ow-diary h2, .ow-group > legend, .ow-qlegend, .ow-q .ow-qsub, .ow-q .ow-qlabel, .ow-cardline-label {
+  /* 14 px at 1.3: .ow-rows-head's --label-line repeats this line for the „?“ overhang. */
   padding: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.3; letter-spacing: 0; color: var(--color-ink-muted);
 }
 .owner-app .ow-section-head { margin: 0 0 var(--space-2); }
@@ -605,6 +606,13 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-group { border: 0; }
 .ow-group > legend:not(.ow-sr) { float: left; width: 100%; padding: 0; margin: 0 0 var(--space-2); }
 .ow-group > legend + * { clear: both; }
+/* A fieldset's floated legend is a flex item in one engine and not in the other, so the gap after it differed
+   (20 in Chrome; 8, 24, 24 in Safari). A fieldset group is a plain block: 12 between its fields, 8 under its legend
+   and 8 above a hint that closes it. */
+fieldset.ow-group { display: block; }
+fieldset.ow-group > * + * { margin-top: var(--space-3); }
+fieldset.ow-group > legend + * { margin-top: 0; }
+fieldset.ow-group > .ow-hint { margin-top: var(--space-2); }
 .ow-group + .ow-group { border-top: 0; margin-top: var(--space-4); padding-top: var(--space-4); box-shadow: 0 -1px 0 var(--color-line); }
 @media (min-width: 640px) { .ow-radio-cards--row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ow-metrics--auto { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -757,6 +765,7 @@ div.ow-prog-row:active { transform: none; }
 
 .ow-diary h2 { margin-bottom: var(--space-2); }
 .ow-day { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-5); }
+.ow-diary h2 + .ow-day { margin-top: 0; } /* the label's own 8 stands; the 20 is between days */
 .ow-day-rail { display: flex; flex-direction: column; align-items: center; }
 .ow-day-rail i { width: 12px; height: 12px; margin-top: var(--space-1); border-radius: var(--radius-pill); background: var(--color-ink-muted); }
 .ow-day-rail span { flex: 1; width: 2px; margin-top: var(--space-1); background: var(--color-line); }
@@ -783,9 +792,12 @@ div.ow-prog-row:active { transform: none; }
 /* The board's „?“ ends its sub-line, a 22 px CircleHelp in a 44 px target; the negative margins keep the line's height. */
 .ow-board-q { display: inline-grid; place-items: center; width: var(--target); height: var(--target); margin: -10px; padding: 0; border: 0; background: none; color: var(--color-ink-muted); font: inherit; vertical-align: middle; cursor: pointer; }
 .ow-tile-q svg, .ow-board-q svg { flex: none; }
-/* Beside a section label the 44 px target overhangs the label's line (14 px at 1.3), so the row is as high as a label
-   without a „?“: 20 above and 8 below, the same on every label. */
-.ow-rows-head :is(.ow-tile-q, .ow-board-q) { margin-block: calc((var(--text-14) * 1.3 - var(--target)) / 2); }
+/* Beside a section label the 44 px target overhangs the label's line, so the row is as high as a label without a „?“:
+   20 above and 8 below, the same on every label. The overhang ends where the first row begins (8 below), so the two
+   targets never overlap; the glyph moves back onto the label's centre. --label-line is the section head's line (above). */
+.ow-rows-head { --label-line: calc(var(--text-14) * 1.3); }
+.ow-rows-head :is(.ow-tile-q, .ow-board-q) { margin-block: calc(var(--label-line) + var(--space-2) - var(--target)) calc(-1 * var(--space-2)); }
+.ow-rows-head :is(.ow-tile-q, .ow-board-q) svg { translate: 0 calc((var(--target) - var(--label-line)) / 2 - var(--space-2)); }
 .ow-board .ow-board-help { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* Number stepper (owner-fields spec §3): − value + with 44 px round buttons; the value stays a typed field, sized to its digits. */
 .ow-number { display: inline-flex; align-items: center; gap: var(--space-2); }
