@@ -15,7 +15,7 @@
 /* Form-level problem: ink text on a faint danger wash, so it reads in both themes and never only by colour. */
 .alert { display: flex; gap: var(--space-3); align-items: flex-start; margin: 0; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-danger); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-danger) 7%, var(--color-raised)); color: var(--color-ink); font-size: var(--text-14); line-height: 1.45; }
 /* The 20 px icon sits on the first line's centre, whatever the line's height. */
-.alert svg { flex: none; margin-top: calc((1lh - 20px) / 2); color: var(--color-danger); }
+.alert svg { flex: none; margin-top: 0; margin-top: calc((1lh - 20px) / 2); color: var(--color-danger); }
 
 /* Sign-in (ENG-122h, screen 34): the question one step larger on phones too. */
 .signin h1 { font-size: var(--display-36); line-height: 1.1; }

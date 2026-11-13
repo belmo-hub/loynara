@@ -252,7 +252,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <div className="ow-topbar">
           <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.businessName}</strong><span>{me.locationName}</span></> : <Skeleton height={14} width={140} />}</div>
-          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={20} />Kasse</Link>
+          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} />Kasse</Link>
         </div>
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>

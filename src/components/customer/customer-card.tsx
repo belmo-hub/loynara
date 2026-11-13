@@ -456,7 +456,7 @@ function BookingPill({ points, credited, balance, locale }: { points: boolean; c
     return () => cancelAnimationFrame(frame);
   }, [live, said]);
   return <div className={styles.pill} style={{ "--pill-stay": `${MOMENT_PILL_MS}ms` } as CSSProperties}>
-    <span className={styles.pillCheck} aria-hidden="true"><Check size={22} strokeWidth={3} /></span>
+    <span className={styles.pillCheck} aria-hidden="true"><Check size={22} /></span>
     <strong aria-hidden="true">{title}</strong>
     <span className={styles.pillChip} aria-hidden="true">+{credited}</span>
     <span className={styles.srOnly} role={live ? "status" : undefined}>{spoken}</span>

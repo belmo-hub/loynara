@@ -244,7 +244,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
   const iphone = iphoneJoin(platform, program);
-  const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p> : null;
+  const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={20} aria-hidden="true" />{error}</p> : null;
   // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
   const notice = locale !== "fr" && program.active !== false;
 
@@ -289,7 +289,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     <p className={styles.location}>{program.locationName}</p>
     {program.programType === "points"
       ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles />
-      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={20} />} className={styles.stamps} />}
+      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={16} />} className={styles.stamps} />}
     {rewardLine}
   </section>;
 
