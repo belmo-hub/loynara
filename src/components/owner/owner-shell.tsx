@@ -240,7 +240,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="ow-side-foot">
-          <Link href="/cashier" className="ow-utility" onClick={openCashier}><OwnerIcon name="till" size={18} />Kasse öffnen</Link>
+          <Link href="/cashier" className="ow-utility" onClick={openCashier}><OwnerIcon name="till" size={20} />Kasse öffnen</Link>
           {/* Who is signed in, and the rare way out: one quiet block under the daily till button (I-15, F-22). */}
           <div className="ow-side-who">
             {me && <p className="ow-who">{me.businessName}<br />{me.role === "owner" ? "Inhaber:in" : "Manager:in"}</p>}
@@ -252,7 +252,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <div className="ow-topbar">
           <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.businessName}</strong><span>{me.locationName}</span></> : <Skeleton height={14} width={140} />}</div>
-          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={18} />Kasse</Link>
+          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} />Kasse</Link>
         </div>
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>

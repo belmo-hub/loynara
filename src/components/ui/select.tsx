@@ -11,7 +11,7 @@ export function Select({ label, hint, error, id, className, children, ...select 
   return <FieldFrame {...ids} label={label} hint={hint} error={error} className={className}>
     <span className={styles.wrap}>
       <select id={ids.id} className={styles.select} aria-describedby={ids.describedBy} aria-invalid={ids.invalid} {...select}>{children}</select>
-      <ChevronDown className={styles.chevron} size={18} aria-hidden="true" />
+      <ChevronDown className={styles.chevron} size={20} aria-hidden="true" />
     </span>
   </FieldFrame>;
 }

@@ -39,8 +39,8 @@ export function RewardOrder({ slug, program, onChanged }: { slug: string; progra
             <div className="ow-reward-head">
               <div className="ow-reward-main"><strong>{reward.title}</strong><span className="ow-num">{reward.cost} {unitName(program.programType, reward.cost)}</span></div>
               <div className="ow-reward-move">
-                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={18} /></button>
-                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === rewards.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={18} /></button>
+                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === 0} onClick={() => void move(index, -1)} aria-label={`${reward.title} nach oben`}><ArrowUp size={20} /></button>
+                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" disabled={busy || index === rewards.length - 1} onClick={() => void move(index, 1)} aria-label={`${reward.title} nach unten`}><ArrowDown size={20} /></button>
               </div>
             </div>
           </li>

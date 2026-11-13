@@ -35,7 +35,7 @@ export function Row({ icon: Icon, title, sub, value, big, off, href, download, o
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
     <span className="ow-prog-main">
-      <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}{chip && <span className={`ow-chip ow-chip--${chip.warn ? "warn" : "ok"}`}><OwnerIcon name={chip.warn ? "alert" : "check"} size={14} />{chip.label}</span>}</span>
+      <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}{chip && <span className={`ow-chip ow-chip--${chip.warn ? "warn" : "ok"}`}><OwnerIcon name={chip.warn ? "alert" : "check"} size={16} />{chip.label}</span>}</span>
       {value != null && value !== "" && <span className="ow-prog-value" data-big={big || undefined} data-off={off || undefined}>{value}</span>}
     </span>
     {opens && <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />}

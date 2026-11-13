@@ -19,7 +19,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & Look & { loading?: boolea
 
 /** While `loading`, the button stays focusable (aria-disabled) so keyboard and screen-reader users keep their place. */
 /** A danger button always carries the alert icon, so the warning never rests on colour alone. */
-export function Button({ variant, size, block, loading = false, icon = variant === "danger" ? <TriangleAlert size={18} /> : undefined, type = "button", className, disabled, onClick, children, ...rest }: Props) {
+export function Button({ variant, size, block, loading = false, icon = variant === "danger" ? <TriangleAlert size={20} /> : undefined, type = "button", className, disabled, onClick, children, ...rest }: Props) {
   return <button type={type} className={buttonClassName({ variant, size, block }, className)} disabled={disabled} aria-disabled={loading || undefined} aria-busy={loading || undefined}
     onClick={loading ? swallowClick : onClick} {...rest}>
     {icon ? <span className={styles.icon} aria-hidden="true">{icon}</span> : null}

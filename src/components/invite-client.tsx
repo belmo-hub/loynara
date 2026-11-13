@@ -16,7 +16,7 @@ import { CONNECTION_LOST, inviteAcceptMessage, PASSWORD_MAX, PASSWORD_MIN, signU
 type InvitePreview = { email: string; role: "owner" | "cashier" | "manager"; businessName: string; locationName: string };
 
 function Alert({ children }: { children: string }) {
-  return <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{children}</p>;
+  return <p className={styles.alert} role="alert"><CircleAlert size={20} aria-hidden="true" />{children}</p>;
 }
 
 export function InviteClient({ token, registrationOpen = true, invite }: { token: string; registrationOpen?: boolean; invite?: InvitePreview }) {

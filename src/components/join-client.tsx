@@ -211,7 +211,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     finally { if (!leaving) setBusy(false); }
   }
 
-  const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={18} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
+  const rewardLine = program && <p className={`join-reward ${styles.reward}`}><Gift size={20} aria-hidden="true" /><span><small>{t.rewardLabel}</small><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, locale)}</span></p>;
   const cardNumber = existing && <p className={`join-card-number ${styles.cardNumber}`}><span>{t.cardNumber}</span><strong>{existing.cardLocator}</strong></p>;
 
   // ENG-205: a placeholder shaped like the shop row and the card. Once the programme is here it lies over the page and fades.
@@ -233,7 +233,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       {program.programType === "points"
         ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale="de" />
         : <StampGrid earned={0} total={program.rewardCost} locale="de" size="sm" reward={<Gift size={16} />} className={first.stamps} />}
-      <p className={`join-reward ${first.foot}`}><Gift size={18} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
+      <p className={`join-reward ${first.foot}`}><Gift size={20} aria-hidden="true" /><span><strong>{program.rewardTitle}</strong> {t.for} {withUnit(program.rewardCost, program.programType, "de")}</span></p>
     </section>
   </div>;
   // One status line for the page, outside the blocks that fade: it speaks when the server has created the card.
@@ -244,7 +244,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     <WalletStep token={walletStep} program={program} />
   </CustomerShell>;
   const iphone = iphoneJoin(platform, program);
-  const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={16} aria-hidden="true" />{error}</p> : null;
+  const errorLine = (spot: typeof errorSpot) => error && errorSpot === spot ? <p id="join-error" className={styles.error} role="alert"><TriangleAlert size={20} aria-hidden="true" />{error}</p> : null;
   // German pages accept by the notice; a closed programme's button is disabled, so nothing can be accepted there.
   const notice = locale !== "fr" && program.active !== false;
 
@@ -259,7 +259,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         exclusions stand on the page itself, not only behind the terms link (Legal). */}
     <div id="join-rules" className={styles.rules} data-stale={stale || undefined}>{plain ? <h2>{t.rules}</h2> : <h3>{t.rules}</h3>}{(() => {
       // ENG-100 (W58): reward lines first, the rule's line after the rule, the expiry's after the expiry rule.
-      const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={18} aria-hidden="true" /><span>{text}{extra}</span></p>;
+      const waiting = changeLines(program), change = (text: string, extra?: React.ReactNode) => <p className={styles.change}><CalendarClock size={20} aria-hidden="true" /><span>{text}{extra}</span></p>;
       const expiryLine = waiting.expiry && change(waiting.expiry);
       return <>
         {waiting.rewards.map(line => <Fragment key={line}>{change(line)}</Fragment>)}
@@ -289,7 +289,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
     <p className={styles.location}>{program.locationName}</p>
     {program.programType === "points"
       ? <PointsLadder balance={0} rewards={(program.rewards?.length ? program.rewards : [{ title: program.rewardTitle, cost: program.rewardCost }]).map(item => ({ title: item.title, cost: item.cost }))} locale={locale} titles />
-      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={18} />} className={styles.stamps} />}
+      : <StampGrid earned={0} total={program.rewardCost} locale={locale} size="sm" reward={<Gift size={16} />} className={styles.stamps} />}
     {rewardLine}
   </section>;
 

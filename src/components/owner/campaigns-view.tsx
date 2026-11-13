@@ -248,7 +248,7 @@ export function CampaignsView() {
       {head}{notices}
       <SenderMissingBox returnTo="/merchant/campaigns" />
       {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
-      <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol>
+      <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={16} /> : index + 1}</span>{label}</li>)}</ol>
       <section className="ow-card ow-stack ow-stack--wide" aria-labelledby="bs-h">
         {!okStep0 && <Notice tone="danger" role="alert">Prüfe die Zielgruppe: Tage müssen ganze Zahlen von 1 bis 3650 sein, Buchungen von 1 bis 10000 und fehlende Stempel oder Punkte von 1 bis 100000.</Notice>}
         {builder.step === 0 && <>

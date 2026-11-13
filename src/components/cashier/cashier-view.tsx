@@ -317,7 +317,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
           <span className={styles.eyebrow}>{t.verified}</span>
           <h2 id="cashier-card-title" className={styles.locator}>{card.cardLocator}</h2>
         </div>
-        <Button variant="quiet" size="sm" icon={<X size={18} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button>
+        <Button variant="quiet" size="sm" icon={<X size={16} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button>
       </div>
       {card.matchedBy === "locator" && <p className={styles.note} role="note">{t.locatorNote}</p>}
       {winback + birthday > 0 && <p className={styles.winback} role="note">

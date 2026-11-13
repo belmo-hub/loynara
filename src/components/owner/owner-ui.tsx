@@ -61,7 +61,9 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
   // moves above it (owner.css).
   // The page's scrollport ends above the bar (ENG-245). CSS cannot read the bar's height, and the bar wraps with its
   // text, so the bar reports it while it is up.
-  // shortcut: one shown bar per page; with two, the last to resize wins. Upgrade when a page pins two at once.
+  // shortcut: one shown bar per page; with two, the last to resize wins and the first to hide clears the other's
+  // height. Upgrade when a page pins two at once.
+  // This effect stays before the next one: the field is brought above the bar after the bar's height is known.
   useEffect(() => {
     const el = bar.current, root = document.documentElement;
     if (!shown || !el) return;
@@ -89,7 +91,7 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
 
 export function Notice({ tone = "info", children, actions, role }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status" }) {
   const icon = tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info";
-  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={18} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
+  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={20} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
 }
 
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }

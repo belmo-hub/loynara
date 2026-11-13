@@ -63,7 +63,7 @@ export function HappyHourQuestion({ me, home = PROGRAM_HOME }: { me: MeResponse;
           return (
             // A group, not a fieldset: WebKit draws a fieldset's legend outside a grid panel.
             <div key={index} className="ow-qpanel ow-window" role="group" aria-labelledby={`hh-window-${index}`}>
-              {own === "SHAPE" ? <p id={`hh-window-${index}`} className="ow-window-title" data-problem aria-live="polite"><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM.SHAPE}</p> : <p id={`hh-window-${index}`} className="ow-window-title" aria-live="polite">{label}</p>}
+              {own === "SHAPE" ? <p id={`hh-window-${index}`} className="ow-window-title" data-problem aria-live="polite"><OwnerIcon name="alert" size={20} />{HAPPY_HOUR_PROBLEM.SHAPE}</p> : <p id={`hh-window-${index}`} className="ow-window-title" aria-live="polite">{label}</p>}
               {draft.windows.length > 1 && <button type="button" className="ow-iconbtn" aria-label={`Zeitfenster ${index + 1} entfernen`} onClick={() => setDraft({ ...draft, windows: draft.windows.filter((_, i) => i !== index) })}><Trash2 aria-hidden="true" /></button>}
               <div className="ow-days" role="group" aria-label="Wochentage">
                 {DAYS.map((name, d) => <button key={name} type="button" aria-pressed={w.days.includes(d + 1)} onClick={() => toggleDay(index, d + 1)}>{name}</button>)}
@@ -72,11 +72,11 @@ export function HappyHourQuestion({ me, home = PROGRAM_HOME }: { me: MeResponse;
                 <label>Von<input className="ow-input" type="time" value={w.start} aria-invalid={own === "TIME" || undefined} aria-describedby={own === "TIME" ? error : undefined} onChange={event => setWindow(index, { start: event.target.value })} /></label>
                 <label>Bis<input className="ow-input" type="time" value={w.end} aria-invalid={own === "TIME" || own === "MIDNIGHT" || undefined} aria-describedby={error} onChange={event => setWindow(index, { end: event.target.value })} /></label>
               </div>
-              {(own === "TIME" || own === "MIDNIGHT") && <p id={error} className="ow-sent-warn" role="alert"><OwnerIcon name="alert" size={16} />{HAPPY_HOUR_PROBLEM[own]}</p>}
+              {(own === "TIME" || own === "MIDNIGHT") && <p id={error} className="ow-sent-warn" role="alert"><OwnerIcon name="alert" size={20} />{HAPPY_HOUR_PROBLEM[own]}</p>}
             </div>
           );
         })}
-        {problem?.problem === "NONE" && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{HAPPY_HOUR_PROBLEM.NONE}</p>}
+        {problem?.problem === "NONE" && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{HAPPY_HOUR_PROBLEM.NONE}</p>}
         {draft.windows.length < HAPPY_HOUR_MAX_WINDOWS && <div><button type="button" className="ow-add" onClick={() => setDraft({ ...draft, windows: [...draft.windows, DEFAULT_WINDOW] })}><Plus aria-hidden="true" />Zeitfenster hinzufügen</button></div>}
         <MoreInfo><p>Nicht für offline gebuchte Einkäufe.</p></MoreInfo>
       </>}

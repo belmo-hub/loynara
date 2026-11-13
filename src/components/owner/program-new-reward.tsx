@@ -65,7 +65,7 @@ export function NewReward({ slug, program, onSaved }: { slug: string; program: P
       requestAnimationFrame(() => fail.current?.scrollIntoView({ block: "nearest" }));
     }
   }
-  const fieldError = shown && <p id={`${field}-error`} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{problem}</p>;
+  const fieldError = shown && <p id={`${field}-error`} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{problem}</p>;
 
   return (
     <div className="ow-page ow-qpage">
