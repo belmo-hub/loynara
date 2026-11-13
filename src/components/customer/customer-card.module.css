@@ -80,9 +80,9 @@
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 
 /* Section heads on the grey with white rows, as on the owner's Programm list; one green band for the one next step. */
-.section { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.section { display: grid; gap: var(--space-2); margin-top: var(--space-1); }
 .sectionHead { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.4; color: var(--color-ink-muted); }
-.card { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--color-surface); }
+.card { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
 .rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); width: 100%; min-height: 64px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font: inherit; text-align: start; }
 button.row { cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
@@ -151,7 +151,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 8 3 3; -webkit-hyphenate-limit-before: 3; -webkit-hyphenate-limit-after: 3; }
 .activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Below 360 the rows give the label more room, so „Gesammelt“ stays on one line. */
-@media (max-width: 359px) { .card:has(> .activity) { padding-inline: var(--space-4); } .activity li { column-gap: var(--space-2); } }
+@media (max-width: 359px) { .activity li { column-gap: var(--space-2); } }
 .showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .showAll:active { transform: scale(.97); }
 

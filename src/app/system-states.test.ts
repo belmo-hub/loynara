@@ -25,6 +25,14 @@ describe("system states", () => {
     expect(renderToStaticMarkup(h(SystemState, { title: "Titel" }))).not.toContain("mailto:");
   });
 
+  // Design, 12 Nov (sign 15): a tile stands above the title only on an error, the same tile as on a guest's screen.
+  it("only an error carries a tile", () => {
+    const tile = /<span class="[^"]*icon[^"]*" aria-hidden="true"><svg/;
+    expect(renderToStaticMarkup(h(SystemState, { title: "Titel", error: true }))).toMatch(tile);
+    expect(renderToStaticMarkup(h(SystemState, { title: "Titel" }))).not.toMatch(tile);
+    expect(renderToStaticMarkup(h(NotFound))).not.toMatch(tile);
+  });
+
   it("not found keeps its heading and offers card recovery before the business sign-in", () => {
     const html = renderToStaticMarkup(h(NotFound));
     expect(html).toContain("Diese Seite gibt es nicht.");
