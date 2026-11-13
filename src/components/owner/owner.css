@@ -422,7 +422,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 
 /* Card studio */
 .ow-studio { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-.ow-studio-preview { position: sticky; top: 72px; display: flex; flex-direction: column; gap: var(--space-4); align-items: flex-start; }
+.ow-studio-preview { position: sticky; top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); align-items: flex-start; }
 .ow-stage { width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--color-fill); border: 1px dashed var(--color-line-strong); }
 .ow-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-group + .ow-group { border-top: 1px solid var(--color-line); padding-top: var(--space-6); margin-top: var(--space-6); }
