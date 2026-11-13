@@ -188,7 +188,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 
 /* ENG-100: a change waiting for its date is a „Gut zu wissen“ row (mock 25); a long new rule opens under its line. */
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
-.newRule { composes: message from "./motion.module.css"; display: block; margin-top: var(--space-2); font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+.newRule { composes: message from "./motion.module.css"; display: block; margin-top: var(--space-2); font-weight: var(--weight-body); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The booking moment (card-moment spec): a pill over the shop header, so nothing below moves. Never a target; it
    leaves by itself after --pill-stay, faster than it came. Inside it the check settles, then draws, then „+n“ rises.

@@ -23,7 +23,7 @@
   margin: 0;
   font-size: var(--text-18);
   line-height: 1.2;
-  letter-spacing: -.02em;
+  letter-spacing: 0;
 }
 
 .count {
@@ -36,7 +36,7 @@
   background: var(--color-stamp);
   color: var(--color-on-stamp);
   font-size: var(--text-14);
-  font-weight: 800;
+  font-weight: var(--weight-heavy);
 }
 
 /* The empty state stays on the same line as the heading so the panel is one row high. */
@@ -102,7 +102,7 @@
 .locator {
   font-family: var(--font-mono);
   font-size: var(--text-28);
-  font-weight: 800;
+  font-weight: var(--weight-heavy);
   line-height: 1.1;
   letter-spacing: .06em;
   color: var(--color-ink);
@@ -192,7 +192,7 @@
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   font-size: var(--text-14);
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }

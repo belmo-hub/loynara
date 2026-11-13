@@ -10,6 +10,8 @@ button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 a { color: inherit; text-decoration: none; }
+/* The browser's own bold is 700, which is not one of the four weights. */
+b, strong { font-weight: var(--weight-strong); }
 /* Fallback ring for anything without its own focus style (components define theirs). */
 a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* Focus that a script parks on the page itself (a closed dialog, a new screen) is not a stop a person tabs to. */

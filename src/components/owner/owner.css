@@ -18,7 +18,7 @@
 .owner-app *, .owner-app *::before, .owner-app *::after { box-sizing: border-box; }
 .owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* D-020: every heading is Manrope 800 (SF-4); no later rule lowers it (owner-type.test.ts). */
-.owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: -.02em; line-height: 1.2; margin: 0; color: var(--color-ink); text-wrap: balance; }
+.owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: 0; line-height: 1.2; margin: 0; color: var(--color-ink); text-wrap: balance; }
 .owner-app p { margin: 0; }
 /* Running text leaves no word alone on its last line (SF-6). */
 .owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
@@ -34,7 +34,7 @@
 .ow-brand a { display: inline-flex; align-items: center; min-height: 44px; }
 /* Rows 36 px with 4 px between them; every icon sits in one column 12 px in. */
 .ow-nav { display: flex; flex-direction: column; gap: var(--space-1); }
-.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: 600; transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
+.ow-nav a { display: flex; align-items: center; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--color-ink-muted); font-weight: var(--weight-label); transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-nav a:hover:not([aria-current]) { background: color-mix(in oklab, var(--color-fill) 55%, transparent); color: var(--color-ink); }
 /* Where you are is not the next step: the neutral fill, ink, no green (Design, 30 Oct). */
 /* From the tap until its screen shows, the tapped entry already carries this look and the one before no longer does. */
@@ -45,7 +45,7 @@
 @media (pointer: coarse) { .ow-nav a { min-height: 44px; } }
 .ow-nav svg { flex: none; }
 .ow-side-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-4); }
-.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: 700; color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
+.ow-utility { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); font-weight: var(--weight-strong); color: var(--color-ink); background: var(--color-raised); transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-utility:hover { background: var(--color-fill); border-color: var(--color-ink); }
 .ow-side-who { display: flex; flex-direction: column; gap: var(--space-2); }
 .ow-who { font-size: var(--text-14); color: var(--color-ink-muted); overflow-wrap: anywhere; }
@@ -79,7 +79,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-subnav-inner[data-end="true"] { mask-image: linear-gradient(to left, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade)); }
 .ow-subnav-inner[data-start="true"][data-end="true"] { mask-image: linear-gradient(to right, transparent, var(--color-ink) var(--ow-fade), var(--color-ink) calc(100% - var(--ow-fade)), transparent); }
-.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: 600; color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
+.ow-subnav a { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--space-3); font-weight: var(--weight-label); color: var(--color-ink-muted); border-bottom: 2px solid transparent; transition: color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-subnav a:hover { color: var(--color-ink); }
 /* As in the tab bar: the tapped sub-tab looks current from the tap, and the one before no longer does. */
 .ow-subnav:not(:has([data-pending])) a[aria-current="page"], .ow-subnav a[data-pending] { color: var(--color-ink); border-bottom-color: var(--color-ink); }
@@ -92,7 +92,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-topbar-loc { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
   /* The shop over its location, as in the approved mocks (A-22, F-22). */
   .ow-topbar-loc strong { font-size: var(--text-16); font-weight: var(--weight-heavy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ow-topbar-loc span { font-size: var(--text-14); font-weight: 500; color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ow-topbar-loc span { font-size: var(--text-14); font-weight: var(--weight-body); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
   html:has(.ow-topbar) { scroll-padding-top: 56px; }
   html:has(.ow-subnav) { scroll-padding-top: 105px; }
@@ -159,7 +159,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   }
   .ow-tab {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
-    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: 600; line-height: 1.1;
+    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.1;
     text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   }
@@ -197,7 +197,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-card :is(h2, h3) { font-size: var(--text-18); }
 .ow-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap; }
 .ow-card-head p { color: var(--color-ink-muted); font-size: var(--text-14); margin-top: var(--space-1); }
-.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+.ow-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4); border: 1px solid transparent; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); line-height: 1.2; text-align: center; cursor: pointer; transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
 .ow-btn:active:not(:disabled) { transform: scale(.97); }
 /* Disabled has its own colours, never transparency: it reads as "not now", not as a faded copy of the action. */
 .ow-btn:disabled { background: var(--color-fill); border-color: var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
@@ -212,9 +212,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* The primary that ends a form is as high as its fields; in a save bar its partner matches it. */
 form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min-height: 52px; }
 .ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-pill); }
-.ow-link { color: var(--color-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ow-link { color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
-.ow-chip { display: flex; width: fit-content; align-items: center; gap: var(--space-1); min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-sm); font-size: var(--text-14); font-weight: 700; background: var(--color-fill); color: var(--color-ink-muted); }
+.ow-chip { display: flex; width: fit-content; align-items: center; gap: var(--space-1); min-height: 28px; padding: 0 var(--space-3); border-radius: var(--radius-sm); font-size: var(--text-14); font-weight: var(--weight-strong); background: var(--color-fill); color: var(--color-ink-muted); }
 .ow-chip--ok { background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); }
 .ow-chip--warn { background: color-mix(in oklab, var(--color-warning), transparent 90%); color: var(--color-warning); }
 .ow-chip--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); }
@@ -270,7 +270,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-more-body { max-width: 65ch; }
 .ow-more-body::after { content: ""; display: block; height: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
-.ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
+.ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: var(--weight-label); }
 .ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 52px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press) var(--ease-out); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input[type="file"] { padding-block: var(--space-2); }
@@ -288,7 +288,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-grid-2--end { align-items: end; }
 @media (max-width: 640px) { .ow-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 .ow-seg { display: inline-flex; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-pill); background: var(--color-fill); }
-.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: 700; color: var(--color-ink-muted); transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
+.ow-seg button { min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-ink-muted); transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out); }
 .ow-seg button[aria-pressed="true"], .ow-seg button[aria-selected="true"] { color: var(--color-ink); }
 /* The picked segment's pill is its ::before, so it can slide over from the segment picked before (Indicator slide,
    owner-shell). The picked segment sits under its neighbours, so the pill never covers a label on its way. Chips have no
@@ -310,9 +310,9 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 @media (max-width: 900px) { .ow-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ow-metric { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ow-metric dt { font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); }
+.ow-metric dt { font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .ow-metric dd { margin: 0; }
-.ow-metric-value { font-size: var(--text-28); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.ow-metric-value { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1.1; }
 .ow-metric-value--muted { color: var(--color-ink-muted); font-size: var(--text-22); }
 .ow-metric-note { font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -325,7 +325,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-feed time { color: var(--color-ink-muted); font-size: var(--text-14); white-space: nowrap; }
 .ow-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; }
 .ow-dl dt { color: var(--color-ink-muted); font-size: var(--text-14); }
-.ow-dl dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ow-dl dd { margin: 0; font-weight: var(--weight-label); overflow-wrap: anywhere; }
 
 /* Skeleton / states */
 .ow-skel { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--color-fill), var(--color-raised), var(--color-fill)); background-size: 200% 100%; }
@@ -334,7 +334,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 /* Sticky save bar (safe-area aware) */
 .ow-savebar { position: sticky; bottom: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); margin-inline: calc(var(--space-6) * -1); background: var(--color-raised); border-top: 1px solid var(--color-line-strong); }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
-.ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }
+.ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
 .ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
 .ow-savestate-label { flex: 1 1 min(12rem, calc(100% - 8px - var(--space-2))); min-width: 0; } /* never on a line without its dot */
@@ -349,7 +349,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 /* Dialog */
 .ow-dialog-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); display: grid; place-items: center; padding: var(--space-4); background: var(--color-scrim); animation: ow-fade var(--dur-press) linear; }
 .ow-dialog { width: min(100%, 460px); max-height: calc(100dvh - 2 * var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--color-raised); border-radius: var(--radius-xl); padding: var(--space-5); box-shadow: var(--shadow-overlay); display: flex; flex-direction: column; gap: var(--space-3); animation: ow-in var(--dur-ui) var(--ease-out); }
-.ow-dialog h2 { font-size: var(--text-22); }
+.ow-dialog h2 { font-size: var(--text-22); letter-spacing: -.01em; }
 .ow-dialog p { color: var(--color-ink-muted); }
 .ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap-reverse; margin-top: var(--space-3); }
 .ow-dialog-actions .ow-btn { min-height: 48px; }
@@ -360,7 +360,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 }
 @media (max-width: 640px) { .ow-btn, .ow-input, .ow-select { font-size: var(--text-16); } }
 
-.ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
+.ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: var(--weight-strong); }
 .ow-skip:focus { left: var(--space-2); }
 /* The owner area could not load: one narrow column at the page's own padding. */
 .ow-page--alone { max-width: 560px; }
@@ -389,7 +389,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-cardprev-ticket .ow-pass-codewrap { margin: 0; padding: 0; }
 .ow-cardprev-number { display: grid; justify-items: center; margin: 0; }
 .ow-cardprev-number span { font-size: var(--text-14); color: #58645C; }
-.ow-cardprev-number strong { font-size: var(--text-22); font-weight: 800; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.ow-cardprev-number strong { font-size: var(--text-22); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 .ow-pass-codewrap { align-self: center; margin-top: 4px; padding: 10px 10px 6px; border-radius: 10px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ow-pass-code { display: block; width: 96px; height: 96px; fill: #111; }
 .ow-pass-alt { color: #111; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
@@ -430,7 +430,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-readonly dl { margin: 0; }
 .ow-wallet-ready-list { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-wallet-ready-list > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: start; }
-.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: 600; padding-top: var(--space-1); }
+.ow-wallet-ready-list dt { font-size: var(--text-14); font-weight: var(--weight-label); padding-top: var(--space-1); }
 .ow-wallet-ready-list dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 @media (max-width: 420px) { .ow-wallet-ready-list > div { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) {
@@ -462,10 +462,10 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 
 /* Stepper */
 .ow-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: 600; font-size: var(--text-14); color: var(--color-ink-muted); }
+.ow-stepper li { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3) 0 var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--color-line); background: var(--color-raised); font-weight: var(--weight-label); font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-stepper li[aria-current="step"] { color: var(--color-ink); border-color: var(--color-ink); background: var(--color-fill); }
 .ow-stepper li[data-done="true"] { color: var(--color-ink-muted); }
-.ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-fill); font-size: var(--text-14); font-weight: 700; }
+.ow-stepper-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-fill); font-size: var(--text-14); font-weight: var(--weight-strong); }
 .ow-stepper li[aria-current="step"] .ow-stepper-n, .ow-stepper li[data-done="true"] .ow-stepper-n { background: var(--color-ink); color: var(--color-bg); }
 .owner-app h1[tabindex="-1"]:focus, .owner-app main[tabindex="-1"]:focus { outline: none; box-shadow: none; }
 .ow-bare .ow-topbar { padding-inline: var(--space-6); }
@@ -499,7 +499,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-mail { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-fill); }
-.ow-mail small { color: var(--color-ink-muted); font-weight: 700; }
+.ow-mail small { color: var(--color-ink-muted); font-weight: var(--weight-label); }
 .ow-mail h3 { font-size: var(--text-16); margin: 4px 0 8px; }
 .ow-mail p { white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -577,18 +577,18 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 
 /* Tables with an intentional mobile treatment: rows become labelled blocks */
 .ow-table { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
-.ow-table th { text-align: left; font-size: var(--text-14); font-weight: 700; color: var(--color-ink-muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--color-line-strong); white-space: nowrap; }
+.ow-table th { text-align: left; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--color-line-strong); white-space: nowrap; }
 .ow-table td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--color-line); vertical-align: top; overflow-wrap: anywhere; }
 @media (max-width: 640px) {
   .ow-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .ow-table, .ow-table tbody, .ow-table tr, .ow-table td { display: block; width: 100%; }
   .ow-table tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-line); }
   .ow-table td { border: 0; padding: var(--space-1) 0; display: flex; gap: var(--space-3); justify-content: space-between; }
-  .ow-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-weight: 600; flex: none; }
+  .ow-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-weight: var(--weight-label); flex: none; }
 }
-.ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
+.ow-check { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; font-weight: var(--weight-strong); cursor: pointer; }
 /* NFC-Tap's disclosure: its title and state chip on one 44 px line. */
-.ow-tap-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; font-weight: 700; cursor: pointer; }
+.ow-tap-summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; font-weight: var(--weight-strong); cursor: pointer; }
 .ow-check input { width: 20px; height: 20px; }
 /* On/off settings are switches (role="switch"); confirmations and consent stay checkboxes. */
 .ow-check input[role="switch"] { appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--radius-pill); background: var(--color-line-strong); cursor: pointer; transition: background-color var(--dur-ui) var(--ease-out); }
@@ -661,9 +661,9 @@ fieldset.ow-group > .ow-hint { margin-top: var(--space-2); }
 .ow-table-wrap { overflow-x: auto; }
 .ow-perm { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
 .ow-perm th, .ow-perm td { padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-line); text-align: center; }
-.ow-perm thead th { font-size: var(--text-14); color: var(--color-ink-muted); font-weight: 700; }
-.ow-perm th[scope="row"], .ow-perm thead th:first-child { text-align: left; font-weight: 600; }
-.ow-perm-yes { color: var(--color-success); font-weight: 800; }
+.ow-perm thead th { font-size: var(--text-14); color: var(--color-ink-muted); font-weight: var(--weight-label); }
+.ow-perm th[scope="row"], .ow-perm thead th:first-child { text-align: left; font-weight: var(--weight-label); }
+.ow-perm-yes { color: var(--color-success); font-weight: var(--weight-heavy); }
 .ow-perm-no { color: var(--color-ink-muted); }
 @media (max-width: 520px) { .ow-perm th, .ow-perm td { padding: 8px 4px; font-size: var(--text-14); } }
 
@@ -953,7 +953,7 @@ div.ow-prog-row:active { transform: none; }
 /* Nachricht (ENG-122d, screens 10 and 11): the lock screen on the board's dark green in both themes, the send warning, and
    the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
 .ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
-.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; } /* display text: no tabular gap in 9:41 */
+.ow-lock-time { justify-self: center; font: 300 var(--display-num)/1 var(--font-sans); letter-spacing: -.02em; } /* display text: no tabular gap in 9:41; 300 because it draws the phone's lock-screen clock, not our type */
 .ow-lock-note { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-board), transparent 84%); font-size: var(--text-14); overflow-wrap: anywhere; }
 .ow-lock-note b { display: flex; justify-content: space-between; gap: var(--space-3); }
 .ow-lock-note b span + span { flex: none; color: var(--color-on-board-muted); font-weight: var(--weight-label); }
@@ -1093,7 +1093,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 /* Inside a grid .ow-prog the parent's gap is the space above. */
 .ow-prog > .ow-rows { margin-top: 0; }
 /* A number on a row is a label's partner, not a headline (spec rule 6): the board keeps the only big number. */
-.ow-rows .ow-prog-value:is([data-big], [data-pair]) { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: -.01em; line-height: 1.2; }
+.ow-rows .ow-prog-value:is([data-big], [data-pair]) { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: 0; line-height: 1.2; }
 /* Rows with no arrow anywhere need no arrow-sized gap at the edge. */
 .ow-rows:not(:has(a.ow-prog-row, button.ow-prog-row)) div.ow-prog-row::after { display: none; }
 /* Weekdays (decision 28): seven 44 px chips with 3 px gaps fill the panel's 326 px at 390; narrower, two rows. Ink when

@@ -32,6 +32,22 @@ describe("owner heading weight", () => {
     expect(lowered).toEqual([]);
   });
 
+  // DESIGN.md, Tracking: nothing under 22 px is tightened. A rule that tightens must set a display size itself, or be
+  // one of the drawings that keep their own shape.
+  it("tightens tracking only on display sizes, in owner.css or any stylesheet", () => {
+    const DISPLAY = /var\(--(?:text-(?:22|28)|display-[\w-]+)\)/;
+    const OWN_SHAPE = /^\.ow-pass|^\.word$|^\.ow-numcard \.ow-board-big small$/; // Apple's and Google's passes, the brand word mark, a 22 px figure's unit
+    const sheets = files("src").filter(path => path.endsWith(".css"));
+    const tight = sheets.flatMap(path => {
+      const all = cssDeclarations(readFileSync(path, "utf8"));
+      return all.filter(rule => rule.property === "letter-spacing" && rule.value.startsWith("-") && !OWN_SHAPE.test(rule.selector)
+        && !all.some(other => other.selector === rule.selector && (other.property === "font-size" || other.property === "font") && DISPLAY.test(other.value)))
+        .map(rule => `${path} | ${rule.selector} | ${rule.value}`);
+    });
+    expect(tight).toEqual([]);
+    expect(rules.find(rule => rule.selector === ".owner-app :is(h1, h2, h3)" && rule.property === "letter-spacing")?.value).toBe("0");
+  });
+
   it("gives every section head one style: 14/800 muted with no tracking", () => {
     const heads = rules.filter(rule => rule.selector.includes(".owner-app .ow-section-head,"));
     const style = Object.fromEntries(heads.map(rule => [rule.property, rule.value]));
