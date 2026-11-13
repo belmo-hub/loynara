@@ -119,3 +119,29 @@ test("the Kasse's code field is 56 high, like its buttons", async () => {
   await expect(page.locator("#cashier-code")).toBeVisible();
   expect(await heights("#cashier-code, main form button[type=submit]")).toEqual([56]);
 });
+
+// Overlays (ruling SP10 and call 8): the title 8 under a phone sheet's handle and 12 above the text, the footer's line
+// 12 under the content and 12 above its 48 px button; a dialog 20 inside, 12 under its title, 24 above its buttons.
+test("a help sheet and the unsaved-changes dialog keep the overlay rhythm", async () => {
+  await page.goto("/merchant/analytics");
+  await page.locator(".ow-tile-q").first().click();
+  const sheet = page.locator("dialog[open]");
+  await expect(sheet.getByRole("button", { name: "Schließen" }).last()).toBeVisible();
+  await expect.poll(() => sheet.evaluate(el => {
+    const box = (e: Element) => e.getBoundingClientRect(), half = (n: number) => Math.round(n * 2) / 2;
+    const [handle, header, content, footer] = [...el.children], title = header.querySelector("h2")!, button = footer.querySelector("button")!;
+    return { handle: half(box(title).top - box(handle).bottom), text: half(box(content.firstElementChild!).top - box(title).bottom), line: half(box(footer).top - box(content.lastElementChild!).bottom), button: half(box(button).top - box(footer).top - 1), height: box(button).height, radius: getComputedStyle(el).borderTopLeftRadius };
+  })).toEqual({ handle: 8, text: 12, line: 12, button: 12, height: 48, radius: "28px" });
+
+  await page.goto("/merchant/program/card");
+  await page.getByLabel("Programmname").fill("Ein anderer Name");
+  await page.locator(".ow-back").first().click();
+  const dialog = page.locator(".ow-dialog");
+  await expect(dialog).toBeVisible();
+  // Polled: the dialog scales in over --dur-ui.
+  await expect.poll(() => dialog.evaluate(el => {
+    const box = (e: Element) => e.getBoundingClientRect(), half = (n: number) => Math.round(n * 2) / 2, [title, text, actions] = [...el.children];
+    return [half(box(title).top - box(el).top), half(box(title).left - box(el).left), half(box(text).top - box(title).bottom), half(box(actions).top - box(text).bottom), ...[...actions.children].map(b => half(box(b).height)), getComputedStyle(el).borderTopLeftRadius];
+  })).toEqual([20, 20, 12, 24, 48, 48, "28px"]);
+  await page.getByRole("button", { name: "Änderungen verwerfen" }).click();
+});

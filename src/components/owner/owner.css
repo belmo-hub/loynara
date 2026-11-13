@@ -347,10 +347,11 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 
 /* Dialog */
 .ow-dialog-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); display: grid; place-items: center; padding: var(--space-4); background: var(--color-scrim); animation: ow-fade var(--dur-press) linear; }
-.ow-dialog { width: min(100%, 460px); max-height: calc(100dvh - 2 * var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--color-raised); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-overlay); display: flex; flex-direction: column; gap: var(--space-3); animation: ow-in var(--dur-ui) var(--ease-out); }
+.ow-dialog { width: min(100%, 460px); max-height: calc(100dvh - 2 * var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--color-raised); border-radius: var(--radius-xl); padding: var(--space-5); box-shadow: var(--shadow-overlay); display: flex; flex-direction: column; gap: var(--space-3); animation: ow-in var(--dur-ui) var(--ease-out); }
 .ow-dialog h2 { font-size: var(--text-22); }
 .ow-dialog p { color: var(--color-ink-muted); }
-.ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap; margin-top: var(--space-2); }
+.ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap; margin-top: var(--space-3); }
+.ow-dialog-actions .ow-btn { min-height: 48px; }
 
 @media (prefers-reduced-motion: reduce) {
   .owner-app *, .owner-app *::before, .owner-app *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
@@ -569,7 +570,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (min-width: 1024px) { .ow-toast-region { left: var(--ow-sidebar); bottom: var(--space-6); } }
 /* Above the pinned bar where a page has one, so a toast never covers its button. */
 @media (max-width: 1023px) { .ow-content:has(.ow-qsave) .ow-toast-region { bottom: calc(var(--ow-tabbar) + 76px + var(--space-3)); } }
-.ow-toast { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: var(--space-3) var(--space-5) var(--space-3) var(--space-4); border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg); font-weight: var(--weight-strong); box-shadow: var(--shadow-overlay); animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
+.ow-toast { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg); font-weight: var(--weight-strong); box-shadow: var(--shadow-overlay); animation: ow-arrive var(--dur-ui) var(--ease-out) both; }
 .ow-toast svg { flex: none; color: color-mix(in oklab, var(--color-success), var(--color-bg) 55%); }
 
 /* Tables with an intentional mobile treatment: rows become labelled blocks */

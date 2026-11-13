@@ -48,3 +48,29 @@ describe("around the button", () => {
     expect(read("src/components/ui/button.module.css")).toContain(".block .icon + .label { text-align: start; }");
   });
 });
+
+// Overlays and toasts (ruling SP10, calls 8 and 9; DESIGN.md "Overlays" and "Toasts"): one family.
+describe("sheets, dialogs and toasts", () => {
+  const sheet = read("src/components/ui/sheet.module.css"), dialog = read("src/components/ui/dialog.module.css"), toast = read("src/components/ui/toast.module.css");
+  it("a sheet's title sits 8 under the handle and 12 above the text; the close adds no height", () => {
+    expect(sheet).toContain(".header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3) var(--space-3) var(--space-5); }");
+    expect(sheet).toContain("margin-block: calc(var(--target) / -2);");
+    expect(sheet).toContain('.sheet:is([data-side="end"], [data-side="auto"]) .header { padding-top: var(--space-5); }');
+  });
+  it("a pinned footer's line stands 12 under the content", () => {
+    expect(sheet).toMatch(/\n\.content \{[^}]*padding: 0 var\(--space-5\) var\(--space-3\); \}/);
+  });
+  it("both dialogs are 20 inside, with the actions 24 under the text and 48 high", () => {
+    expect(dialog).toContain(".body { display: grid; gap: var(--space-3); padding: var(--space-5); }");
+    expect(dialog).toMatch(/\n\.actions \{[^}]*margin-top: var\(--space-3\); \}/);
+    expect(owner).toMatch(/\n\.ow-dialog \{[^}]*border-radius: var\(--radius-xl\); padding: var\(--space-5\);/);
+    expect(owner).toMatch(/\n\.ow-dialog-actions \{[^}]*margin-top: var\(--space-3\); \}\n\.ow-dialog-actions \.ow-btn \{ min-height: 48px; \}/);
+  });
+  it("both toasts are the 48 px pill", () => {
+    expect(owner).toMatch(/\n\.ow-toast \{[^}]*min-height: 48px; padding: var\(--space-2\) var\(--space-4\); border-radius: var\(--radius-pill\);/);
+    expect(toast).toMatch(/min-height: 48px; padding: var\(--space-2\) calc\(\(48px - var\(--target\)\) \/ 2\) var\(--space-2\) var\(--space-4\);\n  border-radius: var\(--radius-pill\);/);
+  });
+  it("in a customer sheet the actions stand 24 under the last text", () => {
+    expect(read("src/components/customer/customer-card.module.css")).toContain(".sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }");
+  });
+});

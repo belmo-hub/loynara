@@ -117,6 +117,8 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 @media (max-width: 359px) { .rowIcon, .bandIcon { display: none; } .chipLine { padding-left: 0; } }
 @media (prefers-reduced-motion: reduce) { button.row:active, .headerWallet:active, .showAll:active { transform: none; } .turn { animation: none; } .closeToggle svg, .activityMore { transition: none; } }
 .sheetBody { display: grid; gap: var(--space-3); }
+/* In a sheet the actions stand 24 under the last text (DESIGN.md, Overlays). */
+.sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }
 .newsText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
 .walletButtons { display: grid; gap: var(--space-2); }
