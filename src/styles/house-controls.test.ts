@@ -41,8 +41,15 @@ describe("forced colours (35)", () => {
     // After the busy rules it overrides, so the cascade needs no extra weight.
     expect(button.indexOf("@media (forced-colors: active)")).toBeGreaterThan(button.indexOf('.go[aria-busy="true"] { background: var(--color-success)'));
     expect(ownerCss).toContain(".ow-btn--primary:hover:not(:disabled), .ow-btn--danger:hover:not(:disabled), .ow-qsave .ow-btn--primary:hover, a.ow-band:hover, button.ow-band:hover { background: ButtonText; color: ButtonFace; }");
-    expect(ownerCss).toContain(".owner-app .ow-btn--primary:focus-visible, .owner-app .ow-btn--danger:focus-visible, .owner-app .ow-band:focus-visible { outline-color: Highlight; }");
-    expect(ownerCss).toContain(".ow-band * { forced-color-adjust: auto; }");
+    // The area's own ring rule outranks a button's, so the forced block names the same controls.
+    expect(ownerCss).toContain(".owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline-color: Highlight; }");
+    // The band's children stay opted out with it: handed back to the system, their text vanishes into its backplate.
+    expect(ownerCss).toContain(".ow-band :is(.ow-band-icon, small) { background: none; color: ButtonFace; }");
+    expect(ownerCss).not.toMatch(/\.ow-band[^{]*\{[^}]*forced-color-adjust: auto/);
+    // A disabled button in a save bar stays disabled when hovered: its rule follows the hover rule.
+    const disabled = ".ow-btn--primary:disabled, .ow-btn--danger:disabled, .ow-qsave .ow-btn--primary:disabled { background: Canvas; color: GrayText; border-color: GrayText; }";
+    expect(ownerCss).toContain(disabled);
+    expect(ownerCss.indexOf(disabled)).toBeGreaterThan(ownerCss.indexOf(".ow-qsave .ow-btn--primary:hover, a.ow-band:hover"));
   });
   it("the level tag keeps an edge", () => {
     expect(card).toContain(".levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); }");

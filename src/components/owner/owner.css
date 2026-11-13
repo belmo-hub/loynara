@@ -1264,12 +1264,14 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-btn--primary, .ow-btn--danger, .ow-qsave .ow-btn--danger:not(:disabled), .ow-band { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
   /* The hover fills would come back over the system colours. */
   .ow-btn--primary:hover:not(:disabled), .ow-btn--danger:hover:not(:disabled), .ow-qsave .ow-btn--primary:hover, a.ow-band:hover, button.ow-band:hover { background: ButtonText; color: ButtonFace; }
-  .ow-btn--primary:disabled, .ow-btn--danger:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
-  /* Opting out of forced colours also opts the focus ring out: give it the system's own. */
-  .owner-app .ow-btn--primary:focus-visible, .owner-app .ow-btn--danger:focus-visible, .owner-app .ow-band:focus-visible { outline-color: Highlight; } /* over the area's own ring rule */
-  /* Inside the band the system decides again; its tinted icon tile and muted line take the band's text colour. */
-  .ow-band * { forced-color-adjust: auto; }
-  .ow-band :is(.ow-band-icon, small) { forced-color-adjust: none; background: none; color: ButtonFace; }
+  /* After the hover rule, so a disabled button in a save bar does not look enabled when hovered. */
+  .ow-btn--primary:disabled, .ow-btn--danger:disabled, .ow-qsave .ow-btn--primary:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
+  /* Opting out of forced colours also opts the focus ring out, and the area's own ring rule outranks a button's:
+     every control in the owner area takes the system's ring. */
+  .owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline-color: Highlight; }
+  /* The band's children stay opted out with it (handed back, their text vanishes into the system's backplate);
+     its tinted icon tile and muted line take the band's text colour. */
+  .ow-band :is(.ow-band-icon, small) { background: none; color: ButtonFace; }
   /* The strip keeps its bars: every day a solid bar, today an outlined one. */
   .ow-strip-bar { forced-color-adjust: none; background: CanvasText; }
   .ow-strip-bar[data-today] { background: Canvas; border-color: CanvasText; }
