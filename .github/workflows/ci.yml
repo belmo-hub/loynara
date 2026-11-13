@@ -257,5 +257,5 @@ jobs:
       - *start-app
       # Desktop project only, as above; the owner *.mobile.spec.ts files need WebKit.
       - name: Run the owner specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm e2e/guest-rhythm
       - *app-log
