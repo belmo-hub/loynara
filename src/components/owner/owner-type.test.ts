@@ -34,9 +34,11 @@ describe("owner heading weight", () => {
 
   // DESIGN.md, Tracking: nothing under 22 px is tightened. A rule that tightens must set a display size itself, or be
   // one of the drawings that keep their own shape.
+  // Also exempt, and out of this check's sight (it reads stylesheets): the printed counter sign, a standalone
+  // document in src/lib/counter-sign.ts. Print kit v2 redraws it in Manrope (set D6).
   it("tightens tracking only on display sizes, in owner.css or any stylesheet", () => {
     const DISPLAY = /var\(--(?:text-(?:22|28)|display-[\w-]+)\)/;
-    const OWN_SHAPE = /^\.ow-pass|^\.word$|^\.ow-numcard \.ow-board-big small$/; // Apple's and Google's passes, the brand word mark, a 22 px figure's unit
+    const OWN_SHAPE = /^\.ow-pass|^\.word$/; // Apple's and Google's passes, the brand word mark
     const sheets = files("src").filter(path => path.endsWith(".css"));
     const tight = sheets.flatMap(path => {
       const all = cssDeclarations(readFileSync(path, "utf8"));

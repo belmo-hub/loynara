@@ -95,6 +95,7 @@ describe("the checker", () => {
   it("takes a weight only from the four tokens, in font-weight, the font shorthand and inline styles", () => {
     expect(css(".a { font-weight: 700; } .b { font-weight: bold; } .c { font-weight: var(--weight-mine); }")).toEqual(["weight: font-weight", "weight: font-weight", "weight: font-weight"]);
     expect(css(".a { font: 300 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
+    expect(css(".a { font: italic 700 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
     expect(tsx("<p style={{ fontWeight: 600 }} />")).toEqual(["weight: font-weight"]);
     expect(css(".a { font-weight: var(--weight-label); } .b { font-weight: inherit; } .c { font: inherit; } .d { font: var(--weight-heavy) var(--text-16)/1 var(--font-sans); }")).toEqual([]);
     expect(tsx('<p style={{ fontWeight: "var(--weight-strong)" }} />')).toEqual([]);

@@ -31,7 +31,7 @@ export function checkDeclaration(property: string, value: string, tokens: Readon
     if (ABSOLUTE_SIZE.test(val) || foreign) kinds.push("font size");
   }
   if (prop === "font-weight" && val !== "inherit" && !WEIGHT_TOKEN.test(val)) kinds.push("weight");
-  if (prop === "font" && /^(?:\d{1,4}|bold|bolder|lighter)\b/.test(val)) kinds.push("weight");
+  if (prop === "font" && /^(?:(?:italic|oblique|normal|small-caps)\s+)*(?:\d{1,4}|bold|bolder|lighter)\b/.test(val)) kinds.push("weight");
   if (RADIUS_PROPERTY.test(prop)) {
     if (NONZERO_PX.test(val) || varsIn(val).some(name => !name.startsWith("--radius-"))) kinds.push("radius");
   }
