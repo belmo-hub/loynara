@@ -347,6 +347,9 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-page > .ow-seg { align-self: flex-start; }
 /* Aktionen's rows keep the 40rem column of the other list pages (Kundenkarten, Programm). */
 .ow-actions > .ow-rows-section { max-width: 40rem; }
+/* So do Ergebnisse, Beratung and the manager's read-only Programm, and a page's loading rows, so the content does not
+   narrow when it arrives. */
+.ow-column > *, .ow-page > .ow-loading:not(.ow-loading--wide) { max-width: 40rem; }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
 .ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
@@ -497,6 +500,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* The card's „Aktueller Stand“: the unit one step down from the board's, the slots under the number. */
 .ow-stand .ow-board-big small { font-size: var(--text-22); }
 .ow-stand-grid { margin-top: var(--space-3); }
+/* The stamps sit together at their 72 size instead of at the left of four wide cells. */
+.ow-stand-grid > ol { grid-template-columns: repeat(var(--cols), minmax(0, 72px)); }
 .ow-day-sum strong { color: var(--color-ink); font-weight: var(--weight-strong); }
 .ow-qlegend { margin: 0 0 var(--space-2); }
 .ow-qsum dl > div[data-new] dd { color: var(--color-ink); }

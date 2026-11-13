@@ -49,7 +49,7 @@ export default function MerchantAnalyticsPage() {
   const last = weeks.at(-1);
   const lastWasBest = Boolean(last && last.checkouts > 0 && weeks.length > 1 && weeks.slice(0, -1).every(week => week.checkouts < last.checkouts));
   return (
-    <div className="ow-page ow-results">
+    <div className="ow-page ow-results ow-column">
       {head}
       <div className="ow-seg" role="group" aria-label="Zeitraum">
         {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => { setWindowDays(days); setSwitched(true); }}>{days} Tage</button>)}
