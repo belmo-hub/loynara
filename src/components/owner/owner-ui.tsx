@@ -56,10 +56,23 @@ const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeichert
 /** Consistent save pattern: nothing material is saved silently, the state is always visible and announced. */
 export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen", section }: { state: SaveState; /** Names the card while unsaved, where several cards share a page. */ section?: string; errorLabel?: string; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
   const busy = state === "saving", shown = state !== "clean";
-  // On phones the bar pins over the page's foot with the first change: the field being edited moves above it (owner.css).
+  const bar = useRef<HTMLDivElement>(null);
+  // The bar covers the page's foot with the first change (pinned on phones, sticky on desktop): the field being edited
+  // moves above it (owner.css).
+  // The page's scrollport ends above the bar (ENG-245). CSS cannot read the bar's height, and the bar wraps with its
+  // text, so the bar reports it while it is up.
+  // shortcut: one shown bar per page; with two, the last to resize wins. Upgrade when a page pins two at once.
+  useEffect(() => {
+    const el = bar.current, root = document.documentElement;
+    if (!shown || !el) return;
+    const report = () => root.style.setProperty("--ow-savebar-h", `${el.offsetHeight}px`);
+    const observer = new ResizeObserver(report);
+    observer.observe(el); report();
+    return () => { observer.disconnect(); root.style.removeProperty("--ow-savebar-h"); };
+  }, [shown]);
   useEffect(() => { const field = document.activeElement; if (shown && field instanceof HTMLElement && field !== document.body) field.scrollIntoView({ block: "nearest" }); }, [shown]);
   return (
-    <div className="ow-savebar" data-idle={state === "clean" || undefined}>
+    <div ref={bar} className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
         {/* Keyed by state, so each new line fades in (owner.css, Saved); „Gespeichert“ wears a check instead of the dot. */}
         {state !== "clean" && <>{state === "saved" ? <OwnerIcon name="check" size={16} /> : <span className="ow-dot" aria-hidden="true" />}<span key={state} className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
