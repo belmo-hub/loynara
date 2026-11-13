@@ -165,10 +165,14 @@ test("a push to a section of a page lands on that section, not at the page's top
   await page.getByRole("link", { name: "Absender eintragen" }).click();
   await expect(page).toHaveURL(/\/merchant\/settings#absender$/);
   await settled();
+  // On a short page the section cannot reach the bars: the page then stands at its end with the section in view, and no
+  // empty space is added below to make room (Design, 13 Nov).
   await expect.poll(() => page.evaluate(() => {
     const bars = Math.max(...[...document.querySelectorAll(".ow-topbar, .ow-subnav")].map(bar => bar.getBoundingClientRect().bottom));
-    return Math.abs(Math.round(document.getElementById("absender")!.getBoundingClientRect().top - bars));
-  }), { message: "the section's top sits at the bars" }).toBeLessThanOrEqual(2);
+    const top = document.getElementById("absender")!.getBoundingClientRect().top;
+    const atEnd = document.documentElement.scrollHeight - window.innerHeight - window.scrollY <= 2;
+    return Math.abs(Math.round(top - bars)) <= 2 || (atEnd && top >= bars - 2 && top < window.innerHeight);
+  }), { message: "the section's top sits at the bars, or the page is at its end with the section in view" }).toBe(true);
 });
 
 test("a second tab tap during the change lands", async () => {
