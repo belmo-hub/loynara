@@ -57,7 +57,7 @@ export default function ImportPreviewPage() {
     <div className="ow-page">
       {head}
       <Notice><div><strong>Vorschau ohne Import.</strong> Es werden keine Karten, Kontakte, Einwilligungen oder Einladungen angelegt. Nur IDs mit <code>SYN-</code> und Testadressen auf <code>example.test</code> sind zulässig. Duplikate werden nur innerhalb dieser Datei erkannt; bestehende Karten werden nicht abgeglichen.</div></Notice>
-      {access.state === "loading" && <LoadingBlock rows={1} />}
+      {access.state === "loading" && <LoadingBlock rows={1} wide />}
       {access.state === "error" && <div className="ow-stack"><ErrorNotice message={access.status === 404 ? "Diese Vorschau ist noch nicht verfügbar." : access.status === 401 || access.status === 403 ? "Für diese Vorschau ist ein aktiver Inhaberzugang erforderlich." : access.message} onRetry={access.status === 404 || access.status === 403 ? undefined : reload} /><div>{back}</div></div>}
       {access.state === "ok" && !access.data.available && <div className="ow-stack"><Notice tone="warn" role="alert">Diese Vorschau ist auf dieser Instanz nicht verfügbar.</Notice><div>{back}</div></div>}
       {access.state === "ok" && access.data.available && <>

@@ -119,8 +119,9 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
   return <Notice tone="danger" role="alert" actions={onRetry ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={onRetry}>Erneut laden</button> : undefined}>{message}</Notice>;
 }
 
-export function LoadingBlock({ rows = 2, height = 96 }: { rows?: number; height?: number }) {
-  return <div className="ow-stack ow-loading" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
+/** `wide`: the page loads into the full width (two columns or a wide card), not the 40rem column. */
+export function LoadingBlock({ rows = 2, height = 96, wide = false }: { rows?: number; height?: number; wide?: boolean }) {
+  return <div className={wide ? "ow-stack ow-loading ow-loading--wide" : "ow-stack ow-loading"} role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
 }
 
 export type NumberUnit = { one: string; many: string };

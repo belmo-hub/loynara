@@ -21,7 +21,7 @@ export default function MerchantAdviserPage() {
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann diese Hinweise sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
   return (
-    <div className="ow-page">
+    <div className="ow-page ow-column">
       {head}
       <div className="ow-seg" role="group" aria-label="Zeitraum">
         {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}
