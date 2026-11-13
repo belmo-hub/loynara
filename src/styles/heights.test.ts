@@ -14,6 +14,13 @@ describe("owner: fields and the button that ends a form are 52", () => {
   it("a form's submit and the save bar's buttons take it", () => {
     expect(owner).toContain('form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min-height: 52px; }');
   });
+  it("the colour picker is as high as the hex field beside it", () => {
+    expect(owner).toContain('.ow-colorrow input[type="color"] { width: 56px; height: 52px;');
+  });
+  it("the pinned save bar keeps room for two wrapped 52 px buttons", () => {
+    expect(owner).toContain("padding-bottom: calc(var(--space-12) + var(--ow-tabbar) + 136px); }");
+    expect(owner).toContain("scroll-margin-bottom: calc(var(--ow-tabbar) + 184px); }");
+  });
   it("the sidebar's location select stays 48", () => {
     expect(owner).toMatch(/\n\.ow-loc \.ow-select \{ min-height: 48px;/);
   });
@@ -37,6 +44,14 @@ describe("the Kasse: fields are as high as its actions", () => {
   it("every field in the shell takes the Kasse target; its error page keeps the large button", () => {
     expect(read("src/components/ui/cashier-shell.module.css")).toContain('.shell input:not([type="checkbox"], [type="radio"]) { min-height: var(--target-cashier); }');
     expect(read("src/app/cashier/error.tsx").match(/size="lg"/g)).toHaveLength(2);
+  });
+});
+
+describe("the customer's card", () => {
+  it("the confirmation that closes the card is 48; its inline actions stay small", () => {
+    const card = read("src/components/customer/customer-card.tsx");
+    expect(read("src/components/customer/customer-card.module.css")).toContain(".closeConfirm button { min-height: 48px; }");
+    expect(card).toContain('<Button variant="quiet" size="sm" className={styles.refreshButton}');
   });
 });
 
@@ -65,10 +80,11 @@ describe("sheets, dialogs and toasts", () => {
     expect(dialog).toMatch(/\n\.actions \{[^}]*margin-top: var\(--space-3\); \}/);
     expect(owner).toMatch(/\n\.ow-dialog \{[^}]*border-radius: var\(--radius-xl\); padding: var\(--space-5\);/);
     expect(owner).toMatch(/\n\.ow-dialog-actions \{[^}]*margin-top: var\(--space-3\); \}\n\.ow-dialog-actions \.ow-btn \{ min-height: 48px; \}/);
+    expect(owner).toContain("@media (max-width: 479px) { .ow-dialog-actions > * { flex: 1 1 100%; } }");
   });
-  it("both toasts are the 48 px pill", () => {
-    expect(owner).toMatch(/\n\.ow-toast \{[^}]*min-height: 48px; padding: var\(--space-2\) var\(--space-4\); border-radius: var\(--radius-pill\);/);
-    expect(toast).toMatch(/min-height: 48px; padding: var\(--space-2\) calc\(\(48px - var\(--target\)\) \/ 2\) var\(--space-2\) var\(--space-4\);\n  border-radius: var\(--radius-pill\);/);
+  it("both toasts are 48 high with the overlay radius: a pill on one line, clear ends when the text wraps", () => {
+    expect(owner).toMatch(/\n\.ow-toast \{[^}]*min-height: 48px; padding: var\(--space-2\) var\(--space-4\); border-radius: var\(--radius-xl\);/);
+    expect(toast).toMatch(/min-height: 48px; padding: var\(--space-2\) calc\(\(48px - var\(--target\)\) \/ 2\) var\(--space-2\) var\(--space-4\);\n  border-radius: var\(--radius-xl\);/);
   });
   it("in a customer sheet the actions stand 24 under the last text", () => {
     expect(read("src/components/customer/customer-card.module.css")).toContain(".sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }");

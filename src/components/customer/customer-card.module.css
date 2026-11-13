@@ -172,6 +172,8 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 .closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
+/* It ends a destructive flow: 48 high. The small type stays, so the label fits one line at 390 px. */
+.closeConfirm button { min-height: 48px; }
 .closeConfirm p { margin: 0; }
 .footer { display: grid; justify-items: center; gap: var(--space-2); }
 .footer p { margin: 0; }

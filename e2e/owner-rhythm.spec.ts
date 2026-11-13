@@ -95,7 +95,7 @@ const heights = (selector: string) => page.locator(selector).evaluateAll(list =>
 for (const [path, controls] of [
   ["/merchant/locations/new", "main :is(input.ow-input, select.ow-select, button[type=submit])"],
   ["/merchant/customers/import", "main :is(input.ow-input, button[type=submit])"],
-  ["/merchant/program/card", "main :is(input.ow-input, .ow-savebar button)"],
+  ["/merchant/program/card", "main :is(input.ow-input, .ow-colorrow input[type=color], .ow-savebar button)"],
   ["/merchant/program/gibt-es-nicht", "main section a[class*=button]"],
 ] as const) {
   test(`${path}: fields and the closing button are 52 high`, async () => {
@@ -144,4 +144,21 @@ test("a help sheet and the unsaved-changes dialog keep the overlay rhythm", asyn
     return [half(box(title).top - box(el).top), half(box(title).left - box(el).left), half(box(text).top - box(title).bottom), half(box(actions).top - box(text).bottom), ...[...actions.children].map(b => half(box(b).height)), getComputedStyle(el).borderTopLeftRadius];
   })).toEqual([20, 20, 12, 24, 48, 48, "28px"]);
   await page.getByRole("button", { name: "Änderungen verwerfen" }).click();
+});
+
+test("at 320 px the pinned save bar covers neither the card's end nor a field brought up to it", async () => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  try {
+    await page.goto("/merchant/program/card");
+    await page.getByLabel("Programmname").fill("Ein anderer Name");
+    await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.querySelector(".ow-studio")!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    // From the top, so the browser brings the half-hidden field up by its scroll margin. (A field wholly out of view
+    // is centred by the browser instead; the margin does not govern that case.)
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.locator("#cs-name").focus();
+    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.activeElement!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  } finally { await page.setViewportSize({ width: 390, height: 844 }); }
 });
