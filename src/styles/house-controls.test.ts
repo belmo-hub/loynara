@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// Design's rulings of 12 Nov, set D2 (ENG-237), the customer and shared part. The rendered checks are in
-// e2e/guest-rhythm.spec.ts; these pin the rules.
+// Design's rulings of 12 Nov, set D2 (ENG-237), the customer and shared part. These pin the rules. Rendered: the
+// birthday panel in e2e/guest-rhythm.spec.ts. Not in a browser test yet: forced colours, and the first-tap join
+// page's link (that page is behind a switch CI leaves off).
 const read = (file: string) => readFileSync(file, "utf8");
 const card = read("src/components/customer/customer-card.module.css");
 const CLAMP = "display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;";
@@ -32,6 +33,19 @@ describe("forced colours (35)", () => {
   it("filled buttons stay filled, in every area", () => {
     expect(read("src/components/ui/button.module.css")).toContain(".primary, .danger, .go { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }");
     expect(read("src/components/owner/owner.css")).toContain(".ow-btn--primary, .ow-btn--danger, .ow-qsave .ow-btn--danger:not(:disabled), .ow-band { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }");
+  });
+  it("hover and busy keep the system fill, and the focus ring is the system's", () => {
+    const button = read("src/components/ui/button.module.css"), ownerCss = read("src/components/owner/owner.css");
+    expect(button).toContain('.primary:hover:not(:disabled), .danger:hover:not(:disabled), .go:hover:not(:disabled), .primary[aria-busy="true"], .danger[aria-busy="true"], .go[aria-busy="true"] { background: ButtonText; color: ButtonFace; }');
+    expect(button).toContain(".primary:focus-visible, .danger:focus-visible, .go:focus-visible { outline-color: Highlight; }");
+    // After the busy rules it overrides, so the cascade needs no extra weight.
+    expect(button.indexOf("@media (forced-colors: active)")).toBeGreaterThan(button.indexOf('.go[aria-busy="true"] { background: var(--color-success)'));
+    expect(ownerCss).toContain(".ow-btn--primary:hover:not(:disabled), .ow-btn--danger:hover:not(:disabled), .ow-qsave .ow-btn--primary:hover, a.ow-band:hover, button.ow-band:hover { background: ButtonText; color: ButtonFace; }");
+    expect(ownerCss).toContain(".owner-app .ow-btn--primary:focus-visible, .owner-app .ow-btn--danger:focus-visible, .owner-app .ow-band:focus-visible { outline-color: Highlight; }");
+    expect(ownerCss).toContain(".ow-band * { forced-color-adjust: auto; }");
+  });
+  it("the level tag keeps an edge", () => {
+    expect(card).toContain(".levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); }");
   });
   it("the Kasse's status strip keeps an edge and its dot", () => {
     expect(read("src/components/ui/cashier-shell.module.css")).toContain("@media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }");

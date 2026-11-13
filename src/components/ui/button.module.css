@@ -25,11 +25,6 @@
 .primary:disabled, .danger:disabled, .go:disabled { background: var(--color-fill); border-color: transparent; color: var(--color-ink-faint); }
 .secondary:disabled, .quiet:disabled { color: var(--color-ink-muted); border-color: var(--color-line); }
 
-/* Forced colours drop fills, which would leave a primary looking like a secondary: filled buttons stay filled. */
-@media (forced-colors: active) {
-  .primary, .danger, .go { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
-  .primary:disabled, .danger:disabled, .go:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
-}
 
 .sm { min-height: var(--target); padding-inline: var(--space-4); font-size: var(--text-14); }
 .md { min-height: 48px; }
@@ -42,6 +37,15 @@
 
 .primary[aria-busy="true"] { background: var(--color-action); color: var(--color-on-action); }
 .go[aria-busy="true"] { background: var(--color-success); color: var(--color-raised); }
+/* Forced colours drop fills, which would leave a primary looking like a secondary: filled buttons stay filled. */
+@media (forced-colors: active) {
+  .primary, .danger, .go { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
+  /* The area's hover and busy fills would come back over the system colours. */
+  .primary:hover:not(:disabled), .danger:hover:not(:disabled), .go:hover:not(:disabled), .primary[aria-busy="true"], .danger[aria-busy="true"], .go[aria-busy="true"] { background: ButtonText; color: ButtonFace; }
+  .primary:disabled, .danger:disabled, .go:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
+  /* Opting out of forced colours also opts the focus ring out: give it the system's own. */
+  .primary:focus-visible, .danger:focus-visible, .go:focus-visible { outline-color: Highlight; }
+}
 .button[aria-busy="true"] { cursor: progress; }
 .button[aria-busy="true"] .label { opacity: .8; }
 /* Loading: the spinner shows only once the action has waited 300 ms, so a fast answer never flashes it. */

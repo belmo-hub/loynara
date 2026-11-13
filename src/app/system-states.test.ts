@@ -65,10 +65,11 @@ describe("route state files", () => {
 // the house weights and the house focus ring. Never a serif.
 describe("global-error's own styles", () => {
   const source = readFileSync("src/app/global-error.tsx", "utf8");
-  it("has no serif, a title at 800 and a button at 720", () => {
+  // 700, not 720: a system font outside the tokens, and static Segoe UI (Windows 10) would round 720 up to Black.
+  it("has no serif, a title at 800 and a button at 700", () => {
     expect(source).not.toMatch(/Georgia|Times|[^-]serif/);
     expect(source).toContain('h1 { margin: 0; font: 800 1.75rem/1.15 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -.025em;');
-    expect(source).toContain('font: 720 1rem/1 system-ui, -apple-system, "Segoe UI", sans-serif;');
+    expect(source).toContain('font: 700 1rem/1 system-ui, -apple-system, "Segoe UI", sans-serif;');
   });
   it("draws the focus ring as the app does: 2 px, 2 px off, in the focus colour of each theme", () => {
     expect(source).toContain("button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }");

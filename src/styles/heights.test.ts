@@ -36,7 +36,7 @@ describe("customer and sign-in: the primary is the 48 px default", () => {
     expect(read(file)).not.toMatch(/size(=|: )"(lg|xl)"/);
   });
   it("global-error copies the same 48 and 16", () => {
-    expect(read("src/app/global-error.tsx")).toContain("min-height: 48px; padding: 0 24px; border-radius: 999px; font: 720 1rem/1");
+    expect(read("src/app/global-error.tsx")).toContain("min-height: 48px; padding: 0 24px; border-radius: 999px; font: 700 1rem/1");
   });
 });
 

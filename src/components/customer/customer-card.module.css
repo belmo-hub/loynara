@@ -276,4 +276,4 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 @keyframes card-press { 35% { transform: scale(.985); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }
 /* Forced colours take the fills and shadows these shapes are drawn with: a line gives each its edge back. */
-@media (forced-colors: active) { .object, .ticket, .band { border: 1px solid CanvasText; } }
+@media (forced-colors: active) { .object, .ticket, .band { border: 1px solid CanvasText; } .levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); } } /* forced colours drop the tag's box-shadow outline */
