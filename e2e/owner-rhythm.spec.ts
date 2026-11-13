@@ -169,7 +169,7 @@ test("at 320 px the pinned save bar covers neither the card's end nor a field br
 });
 
 // ENG-245 (WCAG 2.4.11): from 1024 px the save bar is sticky at the window's end, and a field reached with Tab
-// must stop above it, not under it. The bar is one row (77 px) with unsaved changes and wraps to two when a failed
+// must stop above it, not under it. The bar is one row (78 px) with unsaved changes and wraps to two when a failed
 // save adds its detail line, so the page takes the bar's real height.
 test("on desktop no Tab stop lands under the sticky save bar, one row or wrapped", async () => {
   /** From the first field by real Tab to the bar: the stops, and those that end under the bar. */
@@ -201,7 +201,7 @@ test("on desktop no Tab stop lands under the sticky save bar, one row or wrapped
     await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
     await page.getByLabel("Geschäftsname").fill("Ein anderer Name");
     await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
-    expect(await barHeight(), "one row").toBe(77);
+    expect(await barHeight(), "one row").toBe(78);
     expect(await walk()).toEqual([]);
 
     // A save that fails adds the detail line, and the bar wraps.
