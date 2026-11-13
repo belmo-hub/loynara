@@ -95,6 +95,9 @@ describe("sheets, dialogs and toasts", () => {
 describe("the sticky save bar on desktop", () => {
   it("ends the page's scrollport above itself while it is up, by the height the bar reports", () => {
     expect(owner).toContain("@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(var(--ow-savebar-h, 78px) + var(--space-4) * 2); } }");
+    // Desktop: the page's bar floats; a bar inside a card stays a flat strip, and the studio's bar stands 16 under its form card.
+    expect(owner).toContain(".ow-savebar:not([data-idle]):not(.ow-card *) { bottom: var(--space-4);");
+    expect(owner).toContain(".ow-studio + .ow-savebar:not([data-idle]) { margin-top: var(--space-4); }");
     const bar = read("src/components/owner/owner-ui.tsx");
     expect(bar).toContain('root.style.setProperty("--ow-savebar-h", `${el.offsetHeight}px`)');
     expect(bar).toContain('root.style.removeProperty("--ow-savebar-h")');
