@@ -110,7 +110,7 @@ export function QuestionForm({ title, lead, back, home = PROGRAM_HOME, aside, bu
 }
 
 export const FieldError = ({ id, children }: { id: string; children: string }) =>
-  children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{children}</p> : null;
+  children ? <p id={id} className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{children}</p> : null;
 
 /** `icon` is left out where every row would repeat the same one (decision 2). */
 export type Choice = { value: string; label: string; sub?: string; icon?: LucideIcon };

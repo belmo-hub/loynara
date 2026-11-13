@@ -154,7 +154,7 @@ export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titl
   return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined} data-grow={grow || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
     {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-new={(m.reached && landedFrom !== undefined && m.cost > landedFrom) || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
-      <span className={styles.dot}>{m.reached ? <Check size={14} strokeWidth={3} /> : null}</span>
+      <span className={styles.dot}>{m.reached ? <Check size={16} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{number(m.cost)}</small>
       {titles ? <small className={styles.title} data-title style={{ "--room": `${layout?.titles[i]?.width ?? 0}px`, "--shift": `${layout?.titles[i]?.shift ?? 0}px` } as CSSProperties} data-title-hidden={!layout?.titles[i] || undefined}>{m.title}</small> : null}
     </span>)}

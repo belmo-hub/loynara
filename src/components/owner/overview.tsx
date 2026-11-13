@@ -141,7 +141,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
       : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
-  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{signError}</p>;
+  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
 
   return (
     <div className="ow-page ow-dash">
@@ -370,7 +370,7 @@ function EmptyShop({ me }: { me: MeResponse }) {
           const copy = FIRST_STEPS[step.id](me);
           return (
             <div className="ow-day" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
-              <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3.5} />}</i><span /></div>
+              <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3} />}</i><span /></div>
               <div>
                 <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip">Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
                 <p className="ow-day-sum">{step.status === "done" || !copy.text ? step.evidence : copy.text}</p>

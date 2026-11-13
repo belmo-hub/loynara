@@ -76,7 +76,7 @@ export function HappyHourQuestion({ me, home = PROGRAM_HOME }: { me: MeResponse;
             </div>
           );
         })}
-        {problem?.problem === "NONE" && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{HAPPY_HOUR_PROBLEM.NONE}</p>}
+        {problem?.problem === "NONE" && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{HAPPY_HOUR_PROBLEM.NONE}</p>}
         {draft.windows.length < HAPPY_HOUR_MAX_WINDOWS && <div><button type="button" className="ow-add" onClick={() => setDraft({ ...draft, windows: [...draft.windows, DEFAULT_WINDOW] })}><Plus aria-hidden="true" />Zeitfenster hinzufügen</button></div>}
         <MoreInfo><p>Nicht für offline gebuchte Einkäufe.</p></MoreInfo>
       </>}

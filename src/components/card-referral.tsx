@@ -71,7 +71,7 @@ export function CardReferral({ token, locale, hold, share: fromCard }: { token: 
     return late ? <Reveal open={hold === "released"} gap="var(--space-4)">{compact}</Reveal> : compact;
   }
   return <section className={styles.panel} aria-label={french ? "Parrainage" : "Empfehlung"}>
-    <h3 className={styles.title}><Gift size={18} aria-hidden="true" /> {french ? "Partager cette carte" : "Karte empfehlen"}</h3>
+    <h3 className={styles.title}><Gift size={20} aria-hidden="true" /> {french ? "Partager cette carte" : "Karte empfehlen"}</h3>
     {share ? <>
       <ol className={styles.steps}>
         <li>{french ? "Vous partagez votre lien." : "Du teilst deinen Link."}</li>

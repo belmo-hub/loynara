@@ -76,7 +76,7 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
 
 export function Notice({ tone = "info", children, actions, role }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status" }) {
   const icon = tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info";
-  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={18} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
+  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={20} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
 }
 
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }
