@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users } from "lucide-react";
@@ -183,7 +184,7 @@ export function ProgramSetup() {
             ]} />
           </>}
           {effectiveMode === "purchase" && <Control id="su-rate" label={`Punkte pro 1 ${currency === "EUR" ? "€" : currency}`} hint={`1 bis ${MAX_POINTS_PER_CURRENCY_UNIT}`} error={err("rate")}>
-            <NumberStepper id="su-rate" value={f.rate} onChange={value => set({ rate: value && String(Math.min(Number(value), MAX_POINTS_PER_CURRENCY_UNIT)) })} min={1} max={MAX_POINTS_PER_CURRENCY_UNIT}
+            <NumberStepper id="su-rate" typed value={f.rate} onChange={value => set({ rate: value && String(Math.min(Number(value), MAX_POINTS_PER_CURRENCY_UNIT)) })} min={1} max={MAX_POINTS_PER_CURRENCY_UNIT}
               unit={{ one: "Punkt", many: "Punkte" }} invalid={Boolean(err("rate"))} describedBy="su-rate-hint" />
           </Control>}
           {example && <>
@@ -230,7 +231,15 @@ export function ProgramSetup() {
                 <input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" />
                 <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
               </div>
-              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><input id="su-logo" className="ow-input" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></Field>}
+              {!logoHidden && <div className="ow-field">
+                <span className="ow-label">Logo (optional)</span>
+                <div className="ow-logo-row">
+                  {f.logoData && <Image unoptimized className="ow-logo-thumb" src={f.logoData} width={112} height={35} alt="Ausgewähltes Logo" style={{ backgroundColor: f.brandColor }} />}
+                  <label htmlFor="su-logo" className="ow-btn ow-btn--secondary ow-filebtn">{f.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="su-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></label>
+                  {f.logoData && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { logoPick.current++; set({ logoData: undefined, logoError: "" }); }}>Logo entfernen</button>}
+                </div>
+                {f.logoError ? <FieldError id="su-logo-error">{f.logoError}</FieldError> : <p className="ow-hint">PNG, JPG oder WebP bis 2 MB.</p>}
+              </div>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input ow-field--narrow" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} /></Field>
               {!walletsHidden && <>

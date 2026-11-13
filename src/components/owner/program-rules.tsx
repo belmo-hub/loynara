@@ -156,7 +156,7 @@ export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program:
       ]} />
       {purchase && <>
         <Control id="earning-rate" label={`Punkte pro 1 ${program.currency === "EUR" ? "€" : program.currency}`} hint={`1 bis ${max}`} error={error}>
-          <NumberStepper id="earning-rate" value={draft.rate} onChange={value => setDraft({ ...draft, rate: value && String(Math.min(Number(value), max)) })} min={1} max={max}
+          <NumberStepper id="earning-rate" typed value={draft.rate} onChange={value => setDraft({ ...draft, rate: value && String(Math.min(Number(value), max)) })} min={1} max={max}
             unit={{ one: "Punkt", many: "Punkte" }} invalid={Boolean(error)} describedBy="earning-rate-hint" />
         </Control>
         {cut && <p className="ow-hint" data-later>Weniger Punkte pro € gelten erst nach vier Wochen, ab {longDay(notice)}.</p>}

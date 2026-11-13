@@ -19,9 +19,9 @@ const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-r
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
 const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
-// Spacing that a later ticket owns: the form controls (ENG-139). The chip and the toast are on the scale since ENG-231;
-// `summary` keeps its 10 px until the house fold replaces the native one (set D2, ENG-237): a flex summary loses its triangle.
-const CONTROLS = [".owner-app summary", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button"];
+// Spacing that a later ticket owns: the form controls (ENG-139). The chip and the toast are on the scale since ENG-231,
+// `summary` since the house fold (ENG-237).
+const CONTROLS = [".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button"];
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },

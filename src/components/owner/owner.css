@@ -24,7 +24,11 @@
 .owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
-.owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
+/* One fold in the owner area (decision 12): no browser triangle, the house chevron after the label. */
+.owner-app summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--target); list-style: none; cursor: pointer; }
+.owner-app summary::-webkit-details-marker { display: none; }
+.owner-app summary::after { content: ""; flex: none; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; transition: translate var(--dur-ui) var(--ease-out), rotate var(--dur-ui) var(--ease-out); }
+.owner-app details[open] > summary::after { translate: 0 2px; rotate: -135deg; }
 
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
@@ -821,9 +825,12 @@ div.ow-prog-row:active { transform: none; }
 .ow-number button:active:not(:disabled) { transform: scale(.97); }
 .ow-number button:disabled { box-shadow: inset 0 0 0 1.5px var(--color-line); color: var(--color-ink-faint); cursor: not-allowed; }
 .ow-number-value { display: inline-flex; align-items: baseline; justify-content: center; gap: var(--space-1); min-width: 6.5rem; font-size: var(--text-18); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-2)); height: var(--target); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: end; }
+.ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-2)); min-width: var(--target); height: var(--target); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: end; }
 .ow-number-value span { font-size: var(--text-16); font-weight: var(--weight-label); }
 .ow-number[data-invalid] .ow-number-value { color: var(--color-danger); }
+/* A value far from a few taps is typed, so its number wears the field's edge (decision 31's box). */
+.ow-number[data-typed] .ow-number-value input { width: calc(var(--ow-number-chars) * 1ch + var(--space-5)); min-width: max(var(--target), calc(3ch + var(--space-5))); padding: var(--space-1) var(--space-2); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); text-align: center; transition: border-color var(--dur-press) var(--ease-out); }
+.ow-number[data-typed] .ow-number-value input:is(:hover, :focus-visible) { border-color: var(--color-ink); }
 /* Card preview (spec §6): the customer's line on a raised mini card in a grey inset; the rules sit under a hairline. */
 .ow-cardline { display: grid; gap: var(--space-2); }
 .ow-cardline-ground { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-bg); }
@@ -977,7 +984,6 @@ div.ow-prog-row:active { transform: none; }
 /* A second question inside a step („So entstehen Punkte“) gets a section head on the grey, as on the Programm list. */
 .ow-q .ow-qsub { margin: var(--space-3) 0 0; }
 .ow-qpanel > summary { font-weight: var(--weight-strong); }
-.ow-qpanel > summary::marker { color: var(--color-ink-muted); }
 .ow-qpanel[open] > summary { margin-bottom: var(--space-3); }
 .ow-qsetup .ow-cardline-rules { white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -1148,10 +1154,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-advice .ow-more:not([open]) { margin-bottom: calc(var(--space-3) * -1); }
 .ow-advice .ow-more-body::after { display: none; }
 /* Fold: one drawn chevron instead of the browser triangle. */
-.ow-more > summary { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target); list-style: none; cursor: pointer; }
-.ow-more > summary::-webkit-details-marker { display: none; }
-.ow-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; translate: 0 -2px; rotate: 45deg; transition: translate var(--dur-ui) var(--ease-out), rotate var(--dur-ui) var(--ease-out); }
-.ow-more[open] > summary::after { translate: 0 2px; rotate: -135deg; }
+.ow-more > summary { display: inline-flex; }
 /* A stepper or segment beside other fields (decision 12): label over it, the control across the panel, one hint under all.
    Number and unit are one group centred between the buttons; the digits' box stays a 44 px target but takes only the
    digits' width in the line. The big centred .ow-qnumber stays only where the number is the whole page. */
@@ -1235,10 +1238,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 }
 /* Disclosure: „Mehr dazu“ opens and closes by its row height (0fr → 1fr) over --dur-ui where the browser exposes the
    fold's content box; elsewhere it opens at once. The body's foot is a block, not padding, so the row can close to nothing. */
-.ow-more::details-content { display: grid; grid-template-rows: 0fr; }
-@media (prefers-reduced-motion: no-preference) { .ow-more::details-content { transition: grid-template-rows var(--dur-ui) var(--ease-out), content-visibility var(--dur-ui) allow-discrete; } }
-.ow-more[open]::details-content { grid-template-rows: 1fr; }
+:is(.ow-more, .ow-qpanel)::details-content { display: grid; grid-template-rows: 0fr; }
+@media (prefers-reduced-motion: no-preference) { :is(.ow-more, .ow-qpanel)::details-content { transition: grid-template-rows var(--dur-ui) var(--ease-out), content-visibility var(--dur-ui) allow-discrete; } }
+:is(.ow-more, .ow-qpanel)[open]::details-content { grid-template-rows: 1fr; }
 .ow-more-body { min-height: 0; overflow: hidden; }
+/* A panel's fold holds fields: the 4 px around it leaves room for their focus rings while it is cut to its row. */
+.ow-qpanel > summary ~ * { min-height: 0; overflow: hidden; padding: var(--space-1); margin: calc(var(--space-1) * -1); }
 /* Press, Select fill and Hover: every pressable control answers a press by the same .97, a pick crossfades its fill and
    ring, and a row a pointer rests on takes a fill. Hover changes colour only: no lift, no scale. */
 :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card) { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out); }
@@ -1246,7 +1251,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 @media (hover: hover) { :is(a, button).ow-prog-row:hover { background-color: color-mix(in oklab, var(--color-fill) 55%, transparent); } }
 .ow-input:focus-visible, .ow-select:focus-visible, .ow-textarea:focus-visible { border-color: var(--color-ink); }
 /* A keyboard action shows the same change at once (owner-shell sets data-keys from a key press to the next pointer press). */
-[data-keys] .ow-check input, [data-keys] .ow-check input::before, [data-keys] .ow-radio-card input::before, [data-keys] .ow-more::details-content, [data-keys] .ow-more > summary::after, [data-keys] .ow-qchoice, [data-keys] :is(.ow-savestate, .ow-qchoice) > svg path, [data-keys] .ow-savestate-label { transition: none !important; animation: none !important; }
+[data-keys] .ow-check input, [data-keys] .ow-check input::before, [data-keys] .ow-radio-card input::before, [data-keys] :is(.ow-more, .ow-qpanel)::details-content, [data-keys] .owner-app summary::after, [data-keys] .ow-qchoice, [data-keys] :is(.ow-savestate, .ow-qchoice) > svg path, [data-keys] .ow-savestate-label { transition: none !important; animation: none !important; }
 /* Toggle: a house box and dot in the native ones' colours, so the check can draw itself and the dot can grow. */
 .ow-check input[type="checkbox"]:not([role="switch"]), .ow-radio-card input { appearance: none; display: grid; place-items: center; flex: none; border: 1.5px solid var(--color-ink-muted); background: var(--color-raised); cursor: pointer; transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .ow-check input[type="checkbox"]:not([role="switch"]) { margin: 0; border-radius: calc(var(--radius-sm) / 2); }

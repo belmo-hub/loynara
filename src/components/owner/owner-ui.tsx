@@ -140,7 +140,7 @@ export const stepValue = (draft: string, by: number, { min, max }: { min: number
   String(Math.min(max, Math.max(min, (/^\d+$/.test(draft) ? Number(draft) : min) + by)));
 
 /** − value + (owner-fields spec §3): the value stays a typed field, the buttons step by `stepSize` (one unless given) and stop at the limits. */
-export function NumberStepper({ id, value, onChange, describedBy, invalid = false, stepSize = 1, ...shape }: NumberShape & { id: string; value: string; onChange: (next: string) => void; describedBy?: string; invalid?: boolean; stepSize?: number }) {
+export function NumberStepper({ id, value, onChange, describedBy, invalid = false, stepSize = 1, typed = false, ...shape }: NumberShape & { id: string; value: string; onChange: (next: string) => void; describedBy?: string; invalid?: boolean; stepSize?: number; /** The range is too wide to tap through, so the number wears a field's edge. */ typed?: boolean }) {
   const { min, max, unit } = shape;
   const shown = numberText(value, shape);
   const n = shown ? Number(value) : null;
@@ -149,7 +149,7 @@ export function NumberStepper({ id, value, onChange, describedBy, invalid = fals
   // The field keeps showing „+2“ or „Aus“ while it is typed in; only its digits count, so typing over either works.
   const display = shown ? shown.value : value, unitShown = shown ? shown.unit : unit.many;
   return (
-    <div className="ow-number" data-invalid={invalid || undefined}>
+    <div className="ow-number" data-invalid={invalid || undefined} data-typed={typed || undefined}>
       <button type="button" aria-label={`${by} weniger`} aria-controls={id} disabled={n !== null && n <= min} onClick={() => step(-1)}><OwnerIcon name="minus" /></button>
       <span className="ow-number-value">
         <input id={id} role="spinbutton" inputMode="numeric" autoComplete="off" value={display} style={{ "--ow-number-chars": Math.max(1, display.length) } as React.CSSProperties}
