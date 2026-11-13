@@ -334,10 +334,19 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 /* Sticky save bar (safe-area aware) */
 /* ENG-245: a sticky bar covers what scrolls under it, so while it is up the page's scrollport ends above it and a
    field reached with Tab stops clear of it (WCAG 2.4.11). The bar reports its own height (SaveBar), since it wraps with
-   its text; 77 is one row (the 52 px buttons, 12 above and below, the line) for the first frame. */
-@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(var(--ow-savebar-h, 77px) + var(--space-4)); } }
+   its text; 78 is one row (the 52 px buttons, 12 above and below, the border above and below) for the first frame. */
+@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(var(--ow-savebar-h, 78px) + var(--space-4) * 2); } }
 .ow-savebar { position: sticky; bottom: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); margin-inline: calc(var(--space-6) * -1); background: var(--color-raised); border-top: 1px solid var(--color-line-strong); }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
+/* Desktop: the bar floats 16 above the window's end and keeps to the content's edges, not a strip cut off at the page's (founder, 13 Nov). */
+@media (min-width: 1024px) {
+  .ow-savebar:not([data-idle]):not(.ow-card *) { bottom: var(--space-4); margin-inline: 0; padding-inline: var(--space-5) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); box-shadow: var(--shadow-overlay); }
+  .ow-studio + .ow-savebar:not([data-idle]) { margin-top: var(--space-4); } /* two radius-20 cards must not touch */
+}
+/* A segmented control is as wide as its options, not the page (founder, 13 Nov); on a phone it still fills the line. */
+.ow-page > .ow-seg { align-self: flex-start; }
+/* Aktionen's rows keep the 40rem column of the other list pages (Kundenkarten, Programm). */
+.ow-actions > .ow-rows-section { max-width: 40rem; }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); font-size: var(--text-14); }
 /* A long label (with the card's name) wraps beside the dot instead of pushing it onto its own line. */
 .ow-mail-domain { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* moves whole after the „@“, breaks inside only when wider than the line */
@@ -416,7 +425,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 
 /* Card studio */
 .ow-studio { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-.ow-studio-preview { position: sticky; top: 72px; display: flex; flex-direction: column; gap: var(--space-4); align-items: flex-start; }
+.ow-studio-preview { position: sticky; top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); align-items: flex-start; }
 .ow-stage { width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--color-fill); border: 1px dashed var(--color-line-strong); }
 .ow-group { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .ow-group + .ow-group { border-top: 1px solid var(--color-line); padding-top: var(--space-6); margin-top: var(--space-6); }

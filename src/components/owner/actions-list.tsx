@@ -91,7 +91,7 @@ export function ActionsList() {
   useEffect(() => { if (me && !owner) router.replace("/merchant"); }, [me, owner, router]);
   if (!me || !owner) return null;
   return (
-    <div className="ow-page ow-results">
+    <div className="ow-page ow-actions">
       <PageHead title="Aktionen" />
       {actionSections({ me, hidden: hiddenSurfaces, room: wallet.state === "ok" ? wallet.data : null }).map(section =>
         <RowSection key={section.title} title={section.title}><Rows rows={section.rows} /></RowSection>)}
