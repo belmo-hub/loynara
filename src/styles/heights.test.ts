@@ -90,3 +90,10 @@ describe("sheets, dialogs and toasts", () => {
     expect(read("src/components/customer/customer-card.module.css")).toContain(".sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }");
   });
 });
+
+// ENG-245 (WCAG 2.4.11): the rendered Tab order is walked in e2e/owner-rhythm.spec.ts.
+describe("the sticky save bar on desktop", () => {
+  it("ends the page's scrollport above itself while it is up", () => {
+    expect(owner).toContain("@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(77px + var(--space-4)); } }");
+  });
+});

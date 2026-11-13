@@ -332,6 +332,9 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 @keyframes ow-shimmer { to { background-position: -200% 0; } }
 
 /* Sticky save bar (safe-area aware) */
+/* ENG-245: a sticky bar covers what scrolls under it, so while it is up the page's scrollport ends above it and a
+   field reached with Tab stops clear of it (WCAG 2.4.11). 77 = one row: the 52 px buttons, 12 above and below, the line. */
+@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(77px + var(--space-4)); } }
 .ow-savebar { position: sticky; bottom: 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); margin-inline: calc(var(--space-6) * -1); background: var(--color-raised); border-top: 1px solid var(--color-line-strong); }
 @media (max-width: 640px) { .ow-savebar { margin-inline: calc(var(--space-4) * -1); } }
 .ow-savestate { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: var(--text-14); }

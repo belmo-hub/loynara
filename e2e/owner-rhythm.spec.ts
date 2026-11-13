@@ -152,13 +152,47 @@ test("at 320 px the pinned save bar covers neither the card's end nor a field br
     await page.goto("/merchant/program/card");
     await page.getByLabel("Programmname").fill("Ein anderer Name");
     await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.querySelector(".ow-studio")!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    // Scrolled inside the poll: the page may still be growing when the bar appears.
+    await expect.poll(() => page.evaluate(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+      return Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.querySelector(".ow-studio")!.getBoundingClientRect().bottom);
+    })).toBeGreaterThanOrEqual(0);
     // From the top, so the browser brings the half-hidden field up by its scroll margin. (A field wholly out of view
     // is centred by the browser instead; the margin does not govern that case.)
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    // It starts under the bar, so the check below cannot pass with nothing to do.
+    expect(await page.evaluate(() => document.querySelector("#cs-name")!.getBoundingClientRect().bottom > document.querySelector(".ow-savebar")!.getBoundingClientRect().top)).toBe(true);
     await page.locator("#cs-name").focus();
     await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.activeElement!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  } finally { await page.setViewportSize({ width: 390, height: 844 }); }
+});
+
+// ENG-245 (WCAG 2.4.11): from 1024 px the save bar is sticky at the window's end, and a field reached with Tab
+// must stop above it, not under it.
+test("on desktop no Tab stop lands under the sticky save bar", async () => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  try {
+    await page.goto("/merchant/program/card");
+    await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
+    await page.getByLabel("Geschäftsname").fill("Ein anderer Name");
+    await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
+    const stops: string[] = [], covered: string[] = [];
+    let scrolled = false;
+    for (let press = 0; press < 40; press++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const el = document.activeElement!, bar = document.querySelector(".ow-savebar")!, box = el.getBoundingClientRect(), top = bar.getBoundingClientRect().top;
+        return { name: el.getAttribute("aria-label") || el.id || el.textContent?.trim().slice(0, 30) || el.tagName, inBar: bar.contains(el), inMain: Boolean(el.closest("main")), under: box.bottom > top + 1, scrollY: window.scrollY };
+      });
+      if (stop.inBar || !stop.inMain) break;
+      stops.push(stop.name);
+      if (stop.scrollY > 0) scrolled = true;
+      if (stop.under) covered.push(stop.name);
+    }
+    expect(stops.length, "the form's controls were reached").toBeGreaterThan(5);
+    expect(scrolled, "the page had to scroll to reach them").toBe(true);
+    expect(covered).toEqual([]);
     await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
   } finally { await page.setViewportSize({ width: 390, height: 844 }); }
 });
