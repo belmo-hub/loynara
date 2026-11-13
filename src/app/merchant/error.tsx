@@ -8,7 +8,7 @@ import { SystemState } from "@/components/ui/system-state";
 export default function MerchantError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   return <div className="ow-page">
     <SystemState error title="Dieser Bereich hat nicht geladen." reference={error.digest}
-      actions={<><Button size="lg" onClick={() => retry()}>Noch einmal versuchen</Button><Link href="/merchant" className={buttonClassName({ size: "lg", variant: "secondary" })}>Zur Übersicht</Link></>}>
+      actions={<><Button className="ow-state-btn" onClick={() => retry()}>Noch einmal versuchen</Button><Link href="/merchant" className={buttonClassName({ variant: "secondary" }, "ow-state-btn")}>Zur Übersicht</Link></>}>
       Versuch es noch einmal. Änderungen, die du auf dieser Seite noch nicht gespeichert hattest, sind dabei eventuell verloren.
     </SystemState>
   </div>;

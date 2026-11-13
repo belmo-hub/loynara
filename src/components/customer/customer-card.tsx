@@ -418,7 +418,7 @@ function ReturnSteps({ t, french, cardLocator, recoverUrl, open, onClose }: { t:
         {recoverUrl ? <li>Oder gib unter {recoverUrl} deine bestätigte E-Mail-Adresse ein.</li> : null}
       </ol>
       <p className={styles.muted}>{t.linkWarning}</p>
-      <Button variant="secondary" size="sm" onClick={copyLink}><CopyLabel copied={copied} label={t.copyLink} done={french ? "Copié" : undefined} /></Button>
+      <Button variant="secondary" onClick={copyLink}><CopyLabel copied={copied} label={t.copyLink} done={french ? "Copié" : undefined} /></Button>
       <CardStatusLine text={status} live={live} className={styles.muted} />
     </div>
   </Sheet>;

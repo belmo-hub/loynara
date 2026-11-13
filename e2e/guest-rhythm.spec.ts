@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 // The customer, sign-in and state screens' rhythm at 390 px (Design, 12 Nov, rulings SP5, SP7, SP11 and sign 15),
 // measured on the rendered pages: the first block 24 under the bar; a tile only on an error, the title 16 under it;
 // a lead 4 under its title; 16 between fields and 24 above a form's button; cards 16 inside; 20 above a label, 8 below.
-const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cardToken: string };
+const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cardToken: string; programSlug: string };
 test.use({ viewport: { width: 390, height: 844 } });
 
 const read = (page: Page) => page.evaluate(() => {
@@ -51,4 +51,29 @@ test("the customer's card: 16 inside every card, 20 above a section label and 8 
       padding: [...new Set(sections.map(el => getComputedStyle(el.querySelector("h2")!.nextElementSibling!).padding).filter(value => value !== "0px" && value !== "16px"))],
     };
   })).toEqual({ sections: true, above: [], below: [], padding: [] });
+});
+
+// Heights (Design, 12 Nov, ruling SP6 and call 6): customer and sign-in fields and primaries are 48.
+const heights = (page: Page, selector: string) => page.locator(selector).evaluateAll(list => [...new Set(list.filter(el => el.getBoundingClientRect().height > 0).map(el => Math.round(el.getBoundingClientRect().height)))]);
+
+test("sign-in: fields and the button are 48 high", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
+  expect(await heights(page, "main input, main button[type=submit]")).toEqual([48]);
+});
+
+test("a page that does not exist ends in 48 px ways out", async ({ page }) => {
+  await page.goto("/gibt-es-nicht");
+  await expect(page.locator("main h1")).toBeVisible();
+  expect(await heights(page, "main section a[class*=button]")).toEqual([48]);
+});
+
+test("join: the button is 48 high and the sentence that names it sits 8 above it", async ({ page }) => {
+  await page.goto(`/join/${encodeURIComponent(demo.programSlug)}`);
+  const button = page.getByRole("button", { name: "Meine Karte erstellen" });
+  await expect(button).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const button = document.querySelector("main form button[type=submit]")!, notice = document.getElementById("join-notice")!;
+    return { button: Math.round(button.getBoundingClientRect().height), caption: Math.round(button.getBoundingClientRect().top - notice.getBoundingClientRect().bottom) };
+  })).toEqual({ button: 48, caption: 8 });
 });

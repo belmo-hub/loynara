@@ -65,13 +65,13 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   if (done && invite?.role === "owner") return <AuthShell>
     <div key="done" className={`invite-card ${styles.page}`}>
       <PageHeader title="Willkommen bei Loynara." description={`Dein Konto für ${invite.businessName} ist aktiv. Jetzt richtest du deine Treuekarte ein: Programm, Prämie und Farbe.`} />
-      <Link href="/merchant/program" className={buttonClassName({ size: "lg", block: true })}>Treuekarte einrichten</Link>
+      <Link href="/merchant/program" className={buttonClassName({ block: true })}>Treuekarte einrichten</Link>
     </div>
   </AuthShell>;
   if (done) return <AuthShell>
     <div key="done" className={`invite-card ${styles.page}`}>
       <PageHeader title="Willkommen im Team." description={`${invite ? `Dein Zugang für ${invite.locationName} ist aktiv.` : "Dein Teamzugang ist aktiv."} An der Kasse buchst du ab jetzt Besuche und Prämien.`} />
-      <Link href="/cashier" className={buttonClassName({ size: "lg", block: true })}>Zur Kasse</Link>
+      <Link href="/cashier" className={buttonClassName({ block: true })}>Zur Kasse</Link>
     </div>
   </AuthShell>;
 
@@ -94,7 +94,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
             <TextField id="iv-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
               error={fields.error("iv-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
             {error ? <Alert>{error}</Alert> : null}
-            <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
+            <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
           </form>
         </div>
         <div className={styles.alternative}>
@@ -108,7 +108,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
         <PageHeader title="Deine Teameinladung" description="Melde dich mit der E-Mail-Adresse an, an die diese Einladung ging. Danach nimmst du sie hier an." />
         <div className={styles.sheet}>
           {error ? <Alert>{error}</Alert> : null}
-          <Button size="lg" block onClick={accept} loading={busy}>{busy ? "Einladung wird geprüft …" : "Einladung annehmen"}</Button>
+          <Button block onClick={accept} loading={busy}>{busy ? "Einladung wird geprüft …" : "Einladung annehmen"}</Button>
           <p className={styles.note}>Noch nicht angemeldet? <Link className={styles.link} href="/login">Zur Anmeldung</Link>{registrationOpen ? <> oder <Link className={styles.link} href="/register">Konto erstellen</Link></> : null}</p>
         </div>
       </>}

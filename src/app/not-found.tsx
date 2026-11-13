@@ -7,7 +7,7 @@ import { SystemState } from "@/components/ui/system-state";
 export default function NotFound() {
   return <AuthShell>
     <SystemState title="Diese Seite gibt es nicht."
-      actions={<><Link href="/recover" className={buttonClassName({ size: "lg" })}>Karte wiederfinden</Link><Link href="/login" className={buttonClassName({ size: "lg", variant: "quiet" })}>Anmeldung für Geschäfte</Link></>}>
+      actions={<><Link href="/recover" className={buttonClassName()}>Karte wiederfinden</Link><Link href="/login" className={buttonClassName({ variant: "quiet" })}>Anmeldung für Geschäfte</Link></>}>
       Prüf den Link auf Tippfehler. Suchst du deine Treuekarte? Mit deiner E-Mail-Adresse findest du sie wieder.
     </SystemState>
   </AuthShell>;

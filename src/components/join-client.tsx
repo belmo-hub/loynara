@@ -308,7 +308,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         <div className={first.terms}>{noticeLine}</div>
         {errorLine("form")}
         {/* Enabled while the returning check runs: the tap looks again itself, and the server refuses a silent second card. */}
-        <Button type="submit" size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined}>{busy ? t.submitting : t.submit}</Button>
+        <Button type="submit" block loading={busy} aria-describedby={notice ? "join-notice" : undefined}>{busy ? t.submitting : t.submit}</Button>
         {messagesBox && <div className={first.tick}>{messagesBox}</div>}
         <p className={styles.muted}>{t.noEmail}</p>
         {/* Below the button: when the check resolves, nothing under the thumb moves. */}
@@ -331,7 +331,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
       <h2 className={styles.title}>{t.welcomeBack}</h2>
       <p className={styles.muted}>{t.savedHere}</p>
       {cardNumber}
-      <a className={buttonClassName({ size: "lg", block: true })} href={openHref}>{t.openCard}</a>
+      <a className={buttonClassName({ block: true })} href={openHref}>{t.openCard}</a>
       <Button variant="quiet" className="join-another-link" onClick={() => { setWantsAnother(true); setError(""); }}>{t.anotherLink}</Button>
     </section> : <section key="join" className={styles.panel}>
       {existing ? <>
@@ -365,7 +365,7 @@ export function JoinClient({ slug, firstTap = false }: { slug: string; firstTap?
         {program.demo && <div className={cardStyles.ending}><p>{program.demo.notice}</p></div>}
         {/* A demo card accepts no terms (Legal): the demo line and its privacy notice instead. */}
         {noticeLine}
-        <Button type="submit" variant={existing ? "secondary" : "primary"} size="lg" block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
+        <Button type="submit" variant={existing ? "secondary" : "primary"} block loading={busy} aria-describedby={notice ? "join-notice" : undefined} disabled={program.active === false || returning.state === "checking"}>{busy ? t.submitting : existing ? t.anotherSubmit : t.submit}</Button>
         <p className={styles.muted}>{t.noEmail}</p>
       </form>
       <p className={styles.link}>{locale === "fr" ? <Link href="/recover">Vous avez déjà une carte ? Récupération sécurisée</Link> : <><span className={styles.muted}>Du hast schon eine Karte?</span> <Link href="/recover">Karte wiederfinden</Link></>}</p>

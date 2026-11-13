@@ -8,7 +8,7 @@ import { SystemState } from "@/components/ui/system-state";
 export default function AppError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   return <AuthShell>
     <SystemState error title="Diese Seite hat nicht geladen." reference={error.digest}
-      actions={<><Button size="lg" onClick={() => retry()}>Noch einmal versuchen</Button><Button size="lg" variant="secondary" onClick={() => window.location.reload()}>Seite neu laden</Button></>}>
+      actions={<><Button onClick={() => retry()}>Noch einmal versuchen</Button><Button variant="secondary" onClick={() => window.location.reload()}>Seite neu laden</Button></>}>
       Versuch es noch einmal. Klappt es dann immer noch nicht, schreib uns und nenne den Fehlercode.
     </SystemState>
   </AuthShell>;

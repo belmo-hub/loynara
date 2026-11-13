@@ -87,3 +87,78 @@ test("a card's „Kartenverlauf“ keeps the diary rhythm", async () => {
   })).toEqual({ entries: true, toFirst: 8, between: [] });
 });
 
+
+// Heights (Design, 12 Nov, ruling SP6 and call 6): owner fields, selects and the button that ends a form are 52;
+// the Kasse's field is 56.
+const heights = (selector: string) => page.locator(selector).evaluateAll(list => [...new Set(list.filter(el => el.getBoundingClientRect().height > 0).map(el => Math.round(el.getBoundingClientRect().height)))]);
+
+for (const [path, controls] of [
+  ["/merchant/locations/new", "main :is(input.ow-input, select.ow-select, button[type=submit])"],
+  ["/merchant/customers/import", "main :is(input.ow-input, button[type=submit])"],
+  ["/merchant/program/card", "main :is(input.ow-input, .ow-colorrow input[type=color], .ow-savebar button)"],
+  ["/merchant/program/gibt-es-nicht", "main section a[class*=button]"],
+] as const) {
+  test(`${path}: fields and the closing button are 52 high`, async () => {
+    await page.goto(path);
+    await expect(page.locator(controls).first()).toBeVisible();
+    expect(await heights(controls)).toEqual([52]);
+  });
+}
+
+test("the Kundenkarte's idle save bar stands 16 under the card, with no line against it", async () => {
+  await page.goto("/merchant/program/card");
+  await expect(page.locator(".ow-savebar[data-idle]")).toBeVisible();
+  expect(await page.evaluate(() => {
+    const bar = document.querySelector(".ow-savebar")!, state = bar.querySelector(".ow-savestate")!, card = bar.previousElementSibling!;
+    return { gap: Math.round(state.getBoundingClientRect().top - card.getBoundingClientRect().bottom), line: getComputedStyle(bar).borderTopWidth };
+  })).toEqual({ gap: 16, line: "0px" });
+});
+
+test("the Kasse's code field is 56 high, like its buttons", async () => {
+  await page.goto("/cashier");
+  await expect(page.locator("#cashier-code")).toBeVisible();
+  expect(await heights("#cashier-code, main form button[type=submit]")).toEqual([56]);
+});
+
+// Overlays (ruling SP10 and call 8): the title 8 under a phone sheet's handle and 12 above the text, the footer's line
+// 12 under the content and 12 above its 48 px button; a dialog 20 inside, 12 under its title, 24 above its buttons.
+test("a help sheet and the unsaved-changes dialog keep the overlay rhythm", async () => {
+  await page.goto("/merchant/analytics");
+  await page.locator(".ow-tile-q").first().click();
+  const sheet = page.locator("dialog[open]");
+  await expect(sheet.getByRole("button", { name: "Schließen" }).last()).toBeVisible();
+  await expect.poll(() => sheet.evaluate(el => {
+    const box = (e: Element) => e.getBoundingClientRect(), half = (n: number) => Math.round(n * 2) / 2;
+    const [handle, header, content, footer] = [...el.children], title = header.querySelector("h2")!, button = footer.querySelector("button")!;
+    return { handle: half(box(title).top - box(handle).bottom), text: half(box(content.firstElementChild!).top - box(title).bottom), line: half(box(footer).top - box(content.lastElementChild!).bottom), button: half(box(button).top - box(footer).top - 1), height: box(button).height, radius: getComputedStyle(el).borderTopLeftRadius };
+  })).toEqual({ handle: 8, text: 12, line: 12, button: 12, height: 48, radius: "28px" });
+
+  await page.goto("/merchant/program/card");
+  await page.getByLabel("Programmname").fill("Ein anderer Name");
+  await page.locator(".ow-back").first().click();
+  const dialog = page.locator(".ow-dialog");
+  await expect(dialog).toBeVisible();
+  // Polled: the dialog scales in over --dur-ui.
+  await expect.poll(() => dialog.evaluate(el => {
+    const box = (e: Element) => e.getBoundingClientRect(), half = (n: number) => Math.round(n * 2) / 2, [title, text, actions] = [...el.children];
+    return [half(box(title).top - box(el).top), half(box(title).left - box(el).left), half(box(text).top - box(title).bottom), half(box(actions).top - box(text).bottom), ...[...actions.children].map(b => half(box(b).height)), getComputedStyle(el).borderTopLeftRadius];
+  })).toEqual([20, 20, 12, 24, 48, 48, "28px"]);
+  await page.getByRole("button", { name: "Änderungen verwerfen" }).click();
+});
+
+test("at 320 px the pinned save bar covers neither the card's end nor a field brought up to it", async () => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  try {
+    await page.goto("/merchant/program/card");
+    await page.getByLabel("Programmname").fill("Ein anderer Name");
+    await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.querySelector(".ow-studio")!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    // From the top, so the browser brings the half-hidden field up by its scroll margin. (A field wholly out of view
+    // is centred by the browser instead; the margin does not govern that case.)
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.locator("#cs-name").focus();
+    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".ow-savebar")!.getBoundingClientRect().top - document.activeElement!.getBoundingClientRect().bottom))).toBeGreaterThanOrEqual(0);
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
+  } finally { await page.setViewportSize({ width: 390, height: 844 }); }
+});
