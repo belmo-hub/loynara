@@ -94,7 +94,7 @@ describe("sheets, dialogs and toasts", () => {
 // ENG-245 (WCAG 2.4.11): the rendered Tab order is walked in e2e/owner-rhythm.spec.ts.
 describe("the sticky save bar on desktop", () => {
   it("ends the page's scrollport above itself while it is up, by the height the bar reports", () => {
-    expect(owner).toContain("@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(var(--ow-savebar-h, 77px) + var(--space-4)); } }");
+    expect(owner).toContain("@media (min-width: 1024px) { html:has(.ow-savebar:not([data-idle])) { scroll-padding-bottom: calc(var(--ow-savebar-h, 77px) + var(--space-4) * 2); } }");
     const bar = read("src/components/owner/owner-ui.tsx");
     expect(bar).toContain('root.style.setProperty("--ow-savebar-h", `${el.offsetHeight}px`)');
     expect(bar).toContain('root.style.removeProperty("--ow-savebar-h")');
