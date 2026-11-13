@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyExceptions, cssFindings, sourceFindings, type Exception } from "./raw-values";
 
-// DESIGN.md: nothing outside src/styles/tokens.css defines a colour, font size, radius or layer. Before Phase 7 the
+// DESIGN.md: nothing outside src/styles/tokens.css defines a colour, font size, weight, radius or layer. Before Phase 7 the
 // dashboard had grown its own scale next to the tokens; this keeps any stylesheet, inline style or CSS string from doing
 // that again. Each exception names the file, the kind, the exact rule or value and why. Dev-only previews (src/app/dev)
 // and SVG artwork attributes (logos) are not checked.
@@ -28,6 +28,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/app/global-error.tsx", kind: "colour", selectors: [":root"], reason: "global-error renders without the app's CSS, so it inlines the token values" },
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
+  { file: "src/app/global-error.tsx", kind: "weight", reason: "global-error renders without the app's CSS, so it writes its weights as numbers (set D2 moves them to the tokens' values)" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
   { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
@@ -35,6 +36,8 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "weight", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "weight", selectors: [".ow-lock-time"], reason: "the lock-screen clock is drawn as the phone draws it, in a light 300" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, ENG-139 (SF-8, SF-9)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [".ow-days"], value: "calc(var(--space-1) - 1px)", reason: "seven 44 px day chips with 3 px gaps fill the panel's 326 px at 390 (Design decision 28)" },
@@ -43,7 +46,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   { file: "src/components/ui/sheet.module.css", kind: "colour", selectors: [".sheet::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
-  ...(["colour", "font size"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
+  ...(["colour", "font size", "weight"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
   ...(["colour", "font size", "radius"] as const).map(kind => ({ file: "src/lib/wallet/http.ts", kind, reason: `wallet hand-off page: ${STANDALONE}` })),
 ];
 
@@ -67,7 +70,7 @@ function repositoryFindings() {
 describe("raw design values in the repository", () => {
   const { rest, unused } = applyExceptions(repositoryFindings(), EXCEPTIONS);
 
-  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens, spacing from the scale", () => {
+  it("stylesheets, inline styles and CSS strings take colours, font sizes, weights, radii and layers from the tokens, spacing from the scale", () => {
     expect(rest.map(f => `${f.file} | ${f.selector} | ${f.property}: ${f.value} (${f.kind})`)).toEqual([]);
   });
 
@@ -82,11 +85,20 @@ describe("the checker", () => {
   const tsx = (text: string) => sourceFindings("x.tsx", text, tokens).map(f => `${f.kind}: ${f.property}`);
 
   it("reads shorthands, corner radii and custom-property indirection", () => {
-    expect(css(".a { font: 700 13px/1.5 sans-serif; }")).toEqual(["font size: font"]);
+    expect(css(".a { font: 700 13px/1.5 sans-serif; }")).toEqual(["font size: font", "weight: font"]);
     expect(css(".a { border-top-left-radius: 7px; }")).toEqual(["radius: border-top-left-radius"]);
     expect(css(".a { --local-layer: 999; z-index: var(--local-layer); }")).toEqual(["layer: z-index"]);
     expect(css(".a { --local-size: 13px; font-size: var(--local-size); }")).toEqual(["font size: font-size"]);
     expect(css(".a { border-radius: calc(4px + var(--radius-sm)); box-shadow: inset 0 0 0 1px #123456; }")).toEqual(["radius: border-radius", "colour: box-shadow"]);
+  });
+
+  it("takes a weight only from the four tokens, in font-weight, the font shorthand and inline styles", () => {
+    expect(css(".a { font-weight: 700; } .b { font-weight: bold; } .c { font-weight: var(--weight-mine); }")).toEqual(["weight: font-weight", "weight: font-weight", "weight: font-weight"]);
+    expect(css(".a { font: 300 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
+    expect(css(".a { font: italic 700 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
+    expect(tsx("<p style={{ fontWeight: 600 }} />")).toEqual(["weight: font-weight"]);
+    expect(css(".a { font-weight: var(--weight-label); } .b { font-weight: inherit; } .c { font: inherit; } .d { font: var(--weight-heavy) var(--text-16)/1 var(--font-sans); }")).toEqual([]);
+    expect(tsx('<p style={{ fontWeight: "var(--weight-strong)" }} />')).toEqual([]);
   });
 
   it("accepts token values", () => {

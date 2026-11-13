@@ -12,3 +12,10 @@ describe("focus parked on the page", () => {
     expect(globals).toMatch(/button:focus-visible[^{]*{\s*outline:\s*2px solid var\(--color-focus\)/);
   });
 });
+
+// ENG-234: an unstyled <strong> would render at the browser's 700, outside the four weight tokens.
+describe("emphasis without a class", () => {
+  it("takes the strong token", () => {
+    expect(readFileSync("src/app/globals.css", "utf8")).toContain("b, strong { font-weight: var(--weight-strong); }");
+  });
+});
