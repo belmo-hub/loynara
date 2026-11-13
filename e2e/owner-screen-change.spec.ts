@@ -193,7 +193,7 @@ test("on a slow connection the tapped tab looks current at once and the screen i
   await tab("Mehr").click();
   await expect(tab("Mehr")).toHaveAttribute("data-pending", "true");
   await expect(tab("Mehr")).toHaveCSS("font-weight", "800");
-  await expect(tab("Übersicht")).toHaveCSS("font-weight", "600");
+  await expect(tab("Übersicht")).toHaveCSS("font-weight", "650");
   await expect(page).toHaveURL(/\/merchant$/);
   release();
   await expect(page).toHaveURL(/\/merchant\/more$/);

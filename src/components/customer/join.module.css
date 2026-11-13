@@ -46,7 +46,7 @@
 .footer { margin: 0; text-align: center; }
 
 /* ENG-100: a change waiting for its date, after the text it changes (Design 63, 67); the stale join's ring (64). */
-.change { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: 650; }
+.change { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: var(--weight-label); }
 .change svg { flex: none; margin-top: calc((1lh - 20px) / 2); color: var(--color-warning); }
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
 .newRule { composes: message from "./motion.module.css"; white-space: pre-wrap; }
