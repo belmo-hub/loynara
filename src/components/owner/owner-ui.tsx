@@ -61,7 +61,9 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
   // moves above it (owner.css).
   // The page's scrollport ends above the bar (ENG-245). CSS cannot read the bar's height, and the bar wraps with its
   // text, so the bar reports it while it is up.
-  // shortcut: one shown bar per page; with two, the last to resize wins. Upgrade when a page pins two at once.
+  // shortcut: one shown bar per page; with two, the last to resize wins and the first to hide clears the other's
+  // height. Upgrade when a page pins two at once.
+  // This effect stays before the next one: the field is brought above the bar after the bar's height is known.
   useEffect(() => {
     const el = bar.current, root = document.documentElement;
     if (!shown || !el) return;
