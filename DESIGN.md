@@ -96,9 +96,11 @@ file; no external requests.
 Dashboard data (Stat values, tables, charts) stays in Manrope: values 800 with proportional figures, columns with
 tabular figures.
 
-Weights are four tokens and nothing else: `--weight-body` 400 (body), `--weight-label` 650 (labels, table heads, nav
-and tab labels), `--weight-strong` 720 (buttons, links, chips, emphasis), `--weight-heavy` 800 (display titles, card
-codes, cashier numerals). The only other weights are inside the drawings of Apple's pass and lock screen. Headings use
+Weights are four tokens and nothing else: `--weight-body` 400 (body), `--weight-label` 650 (muted meta labels, table
+heads, nav and tab labels), `--weight-strong` 720 (field labels by decision 20, buttons, links, chips, inline `b` and
+`strong`, overlay titles), `--weight-heavy` 800 (display titles, the owner's section and page heads, card codes,
+cashier numerals). The only other weights are inside the drawings of Apple's pass and lock screen. Dialog titles (22)
+and sheet titles (18) are 720 in every area, the owner's dialog included: overlays are one family. Headings use
 `text-wrap: balance`, paragraphs `pretty`. Long German compounds: `hyphens: auto` on headings with `lang="de"`,
 `overflow-wrap: anywhere` on names, codes and reward titles.
 
@@ -108,16 +110,22 @@ and tile numbers); the brand word mark and the pass drawings keep theirs.
 `global-error` is the one page without Manrope: it loads no app CSS or fonts, so it uses the system sans stack
 (`system-ui, -apple-system, "Segoe UI", sans-serif`) with the same weights.
 
-Icons (lucide) come in four sizes, set by the text beside them: 16 with 14 px text (chips, segmented buttons, small
-notes and their checks); 20 with 16 px text and controls (notices, field alerts, toasts, back links, icon buttons, the
-select chevron); 22 in tiles, bands, the tab bar, the sidebar and row arrows; 24 for the glyph in a state-screen tile.
-Stroke 2 everywhere, 2.5 only on the current tab or nav icon, 3 only for a check at 16 px or under. Illustrations are
-not icons.
+Icons (lucide) come in four sizes:
+- 16 beside 14 px text (chips, segmented buttons, small notes and their checks) and in a small button with a label;
+- 20 with 16 px text and controls (back links, icon-only buttons, the select chevron), and for every status icon in a
+  notice, alert, field error or toast, whatever the size of its text;
+- 22 in tiles, bands, the tab bar, the sidebar and row arrows;
+- 24 for the glyph in a state-screen tile and the number stepper's minus and plus.
+
+A status icon sits on its first line's centre (`margin-top: calc((1lh - 20px) / 2)`), not nudged by hand. Stroke 2
+everywhere, 2.5 only on the current tab or nav icon, 3 only for a check at 16 px or under. Drawn marks are not icons
+and take their measure from the drawing they sit in: stamps and a stamp grid's goal glyph (16 in the small grid, 22 in
+the card's), the setup steps' tick in its dot, checkbox ticks, the brand mark, and illustrations (48 px and up).
 
 ## Space, shape, depth
 
 - Space (4 px base): `--space-1` 4 · `--space-2` 8 · `--space-3` 12 · `--space-4` 16 · `--space-5` 20 · `--space-6` 24 · `--space-8` 32 · `--space-10` 40 · `--space-12` 48. Page gutter 16 px on phones, 40 px ≥ 1024 px.
-- Radius: `--radius-sm` 8 (badges, chips) · `--radius-md` 14 (inputs, small controls, state-screen tiles) · `--radius-lg` 20 (panels, cards) · `--radius-xl` 28 (card object, camera, sheets, dialogs) · `--radius-pill` 999 (buttons, segmented controls, toasts).
+- Radius: `--radius-sm` 8 (badges, chips) · `--radius-md` 14 (inputs, small controls, state-screen tiles) · `--radius-lg` 20 (panels, cards) · `--radius-xl` 28 (card object, camera, sheets, dialogs, toasts) · `--radius-pill` 999 (buttons, segmented controls).
 - Elevation: `--shadow-hairline` (1 px line, lists) · `--shadow-raised` (menus, popovers) · `--shadow-object` (card object, tinted with the merchant colour) · `--shadow-overlay` (dialogs, sheets). Panels have borders, not shadows.
 - Touch targets: 44 × 44 px minimum; cashier actions 56 px, primary booking button 64 px. A link that stands on its
   own (a footer row, a line of its own, beside a button) is a target too: `min-height: var(--target)` or a positioned
@@ -130,17 +138,22 @@ not icons.
   |---|---|---|---|
   | Owner | 52 | 52 (the button that ends a form) | 44: inline and row buttons, segments, chips |
   | Kasse | 56 | 56; booking 64 | none |
-  | Customer, sign-in, invite | 48 | 48 | none |
+  | Customer, sign-in, invite | 48 | 48 | 44: the card's small inline actions („Karte aktualisieren“, the link copy) |
   | Dialogs and sheets | the area's | 48 | none |
 
   System pages take their area's primary: root not-found, error and global-error 48, the Kasse error 56, the owner
   error and not-found 52. The Apple and Google Wallet badges keep their own artwork's 52.
 - Overlays: dialogs and sheets are one family. Radius `--radius-xl`; inset 20; the title 20 from the top edge (8 under
   a phone sheet's handle); 12 from the title to the first text, 24 from the last text to the actions; buttons 48. A
-  pinned footer has its hairline 12 below the content and 12 above its buttons. The Kasse amount sheet keeps its 64
-  booking button; the Kasse menu is a popover, with a 12 inset and 56 rows.
-- Toasts: one look everywhere, the ink pill: `--radius-pill`, min-height 48, padding 8 16, a 20 px icon, and a 44 px
-  close button inside it where it has one.
+  pinned footer has its hairline 12 below the content and 12 above its buttons. Below 480 px a dialog's actions stack
+  full width with the confirming one on top, as `ui/dialog` draws it; Tab order stays the source order. The Kasse
+  amount sheet keeps its 64 booking button; the Kasse menu is a popover, with a 12 inset and 56 rows.
+- Toasts: one look everywhere, ink on `--radius-xl` (a pill on one line, since 28 is clamped to half of 48; rounded
+  corners when a message wraps), min-height 48, padding 8 16, a 20 px icon, and a 44 px close button inside it where it
+  has one.
+- Next to a button: a sentence that names the button (the join page's consent, „Mit ‚Meine Karte erstellen‘ …“) is its
+  caption and sits 8 above it. A destructive confirm inside a panel („Schließung verbindlich bestätigen“) is a
+  full-width button at least 48 high; its label may wrap.
 - Z-index: `--z-sticky` 10 · `--z-nav` 20 · `--z-sheet` 40 · `--z-dialog` 50 · `--z-toast` 60.
 
 ## Motion
@@ -209,7 +222,7 @@ No hover lift on cards, no animation on keyboard-triggered actions. A screen's f
 
 - **Customer card.** Merchant row → goal line (display) → card object (stamp grid or points ladder) → code ticket (QR on white, card number 28 px, tabular) → Wallet buttons → rewards list (points) → invite → optional "Karte sichern" row → recent visits → legal links. The QR always sits on `#FFFFFF`, in both themes.
 - **Stamps.** Grid of 4 columns (up to 12 stamps; 5 columns for 10, 15). Earned stamps are pressed coral marks with a small resting rotation; empty slots are dashed rings.
-- **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track; the rewards list below always carries the names.
+- **Points.** Balance numeral, then a ladder: one track to the most expensive reward, a marker per reward that turns into a pressed mark once affordable. Marker labels hide when two are closer than 14 % of the track, and a price also hides when its measured label would come within 8 px of a shown one (the goal's always shows; of the rest the earlier one wins). Prices use the thousands dot („250.000“). The rewards list below always carries every name and price.
 - **Cashier.** Status bar (Scannen / Karte offen / Wird gebucht / Erledigt / Fehler) → camera or opened card → stepper (stamps) or amount field (points) → bottom dock with the primary booking button (thumb zone). Destructive actions only get a confirm dialog.
 - **Dashboard.** Sidebar (≥ 1024 px): brand, then the location (one location as plain text, name 16/720 over the card type 14 muted; several as a 48 px select labelled „Standort“), then Übersicht · Programm · Kunden · Aktionen · Einstellungen, with "Kasse öffnen" (48 px) and the who-line with a quiet „Abmelden“ at the bottom. Sidebar rows are 36 px with 4 px between them for a fine pointer and 44 px for a coarse one; the current row has the neutral fill, 800 and a 2.5 icon stroke, and is the only filled thing in the sidebar. Phones: top bar with the shop name (16/800) over the location (14/400 muted), bottom bar (Übersicht, Programm, Kunden, Aktionen, Mehr) and a "Mehr" page with the rest. Bottom-bar labels are 12 px below 420 px wide and 14 px from 420, at 650 (current 800); the current tab has a 56×32 neutral pill behind its icon and a 2.5 stroke. Page header = display title + one line of context + page actions. Tables: sticky header, search, filter chips, row opens a side sheet. Owner forms are 52 px high (fields, selects
   and the button that ends the form); inline and row controls are dense at 44 (see Heights per area). Both keep the
@@ -241,7 +254,9 @@ Marketing writes every string; these rules are what a string is checked against.
   different actions. The weekly e-mail uses the app's labels. Open terms (buchen at the Kasse, Geschäft, Kasse against
   Tresen, one word per message channel, Ergebnisse, Stand) are Marketing's to decide.
 - **The Kasse (C-R7)** shows no system words (Server, Puffer, Freigabe, Prüfaktion) and never a reason code; plurals
-  follow the count, never „(n)“; times read „12.11., 20:14“ and amounts „16,70 €“; buttons fit on one line at 390 px.
+  follow the count, never „(n)“; times read „12.11., 20:14“ and amounts „16,70 €“ (one exception: after a reload,
+  until a card is open, a queued offline purchase shows its amount alone, „16,70“, because nothing is stored on the
+  device for it); buttons fit on one line at 390 px.
 - **Owner-only screens (C-R8):** the sentence is always „Nur die Inhaberin oder der Inhaber kann …“. The screen shows
   its head without a lead, then a default Notice with the info icon, never an alert.
 - **Help text (C-R9)** never repeats its field's label.
