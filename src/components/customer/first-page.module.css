@@ -40,7 +40,10 @@
 .blocks ol span { background: var(--color-surface); }
 /* The way back reads as one line with its question, also where it wraps. */
 .blocks .recover { margin-top: calc(var(--space-1) - var(--space-4)); font-size: var(--text-14); line-height: calc(20 / 14); }
-.blocks .recover a { display: inline; min-height: 0; padding-block: var(--space-3); }
+.blocks .recover a { position: relative; display: inline; min-height: 0; white-space: nowrap; }
+/* A link on its own line is a target too: the hit area reaches 44 px while the link stays in its line. The link
+   never breaks in two (on a narrow phone it moves to the next line whole), so the area is one box. */
+.blocks .recover a::after { content: ""; position: absolute; inset: calc((var(--target) - 1lh) / -2) 0; }
 .blocks .recover span, .foot2 { line-height: calc(20 / 14); }
 .blocks[data-leaving] { opacity: 0; pointer-events: none; }
 /* The rules, word for word, set compact under a hairline. */

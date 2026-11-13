@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import GlobalError from "./global-error";
 import NotFound from "./not-found";
@@ -58,5 +58,21 @@ describe("route state files", () => {
       const route = await import(`./${file}.tsx`);
       expect(typeof route.default, file).toBe("function");
     }
+  });
+});
+
+// D-020 and Design's call 4 (12 Nov): this page loads no app CSS or fonts, so it is set in the system sans stack with
+// the house weights and the house focus ring. Never a serif.
+describe("global-error's own styles", () => {
+  const source = readFileSync("src/app/global-error.tsx", "utf8");
+  it("has no serif, a title at 800 and a button at 720", () => {
+    expect(source).not.toMatch(/Georgia|Times|[^-]serif/);
+    expect(source).toContain('h1 { margin: 0; font: 800 1.75rem/1.15 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -.025em;');
+    expect(source).toContain('font: 720 1rem/1 system-ui, -apple-system, "Segoe UI", sans-serif;');
+  });
+  it("draws the focus ring as the app does: 2 px, 2 px off, in the focus colour of each theme", () => {
+    expect(source).toContain("button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }");
+    expect(source).toContain("--focus: #17291F;");
+    expect(source).toContain("--focus: #E8ECEA;");
   });
 });

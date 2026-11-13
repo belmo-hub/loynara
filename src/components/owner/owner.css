@@ -1260,6 +1260,9 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 :is(.ow-check, .ow-radio-card) input:disabled { border-color: var(--color-line-strong); cursor: not-allowed; }
 /* Forced colours paint backgrounds as the canvas, so a drawn check or dot would vanish: the native controls come back. */
 @media (forced-colors: active) {
+  /* Filled buttons and the one green band stay filled; a disabled one is an outline in GrayText. */
+  .ow-btn--primary, .ow-btn--danger, .ow-qsave .ow-btn--danger:not(:disabled), .ow-band { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
+  .ow-btn--primary:disabled, .ow-btn--danger:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
   /* The strip keeps its bars: every day a solid bar, today an outlined one. */
   .ow-strip-bar { forced-color-adjust: none; background: CanvasText; }
   .ow-strip-bar[data-today] { background: Canvas; border-color: CanvasText; }

@@ -25,6 +25,12 @@
 .primary:disabled, .danger:disabled, .go:disabled { background: var(--color-fill); border-color: transparent; color: var(--color-ink-faint); }
 .secondary:disabled, .quiet:disabled { color: var(--color-ink-muted); border-color: var(--color-line); }
 
+/* Forced colours drop fills, which would leave a primary looking like a secondary: filled buttons stay filled. */
+@media (forced-colors: active) {
+  .primary, .danger, .go { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
+  .primary:disabled, .danger:disabled, .go:disabled { background: Canvas; color: GrayText; border-color: GrayText; }
+}
+
 .sm { min-height: var(--target); padding-inline: var(--space-4); font-size: var(--text-14); }
 .md { min-height: 48px; }
 .lg { min-height: var(--target-cashier); font-size: var(--text-18); }

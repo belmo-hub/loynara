@@ -4,6 +4,8 @@
 .title svg { color: var(--color-action); flex: none; }
 .optional { margin-left: auto; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
+/* The birthday's day and month: two house selects side by side, the month twice as wide. */
+.dayMonth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-3); }
 .form { display: grid; gap: var(--space-4); }
 .form > button { justify-self: start; margin-top: var(--space-2); }
 .preference { display: grid; gap: var(--space-2); justify-items: start; }

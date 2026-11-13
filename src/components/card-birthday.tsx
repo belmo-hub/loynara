@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
+import { Select } from "./ui/select";
 import styles from "./customer/panels.module.css";
 
 type Birthday = { available: boolean; day: number | null; month: number | null; text: string };
@@ -37,12 +38,12 @@ export function CardBirthday({ token }: { token: string }) {
   if (!state?.available) return null;
   return <section className={styles.panel} aria-labelledby="birthday-title">
     <h2 id="birthday-title">Geburtstag (freiwillig)</h2>
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-      <label>Tag <select value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
-      <label>Monat <select value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</select></label>
+    <div className={styles.dayMonth}>
+      <Select label="Tag" value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
+      <Select label="Monat" value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
     </div>
     <p className={styles.muted}>{state.text}</p>
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+    <div className={styles.actions}>
       <Button size="sm" loading={busy} disabled={!day || !month} onClick={() => void save()}>Speichern</Button>
       {state.day !== null && <Button size="sm" variant="secondary" disabled={busy} onClick={() => void remove()}>Löschen</Button>}
     </div>
