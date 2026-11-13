@@ -72,7 +72,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
           <TextField id="login-email" error={fields.error("login-email")} label="E-Mail-Adresse" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" required placeholder="du@geschaeft.de" />
           <TextField id="login-password" error={fields.error("login-password")} label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
           <a className={styles.forgot} href={RESET_MAIL}>Passwort vergessen?</a>
-          {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
+          {error ? <p className={styles.alert} role="alert"><CircleAlert size={20} aria-hidden="true" />{error}</p> : null}
           <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
         </form>
         <p className={styles.note}>{registrationOpen

@@ -43,7 +43,7 @@ export function InviteRows({ me }: { me: MeResponse }) {
           () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
-      {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={18} />{error}</p>}
+      {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
     </div>
   );
 }
@@ -70,10 +70,10 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
       <div className="ow-field"><label htmlFor="ow-join-url" className="ow-sr">Anmeldelink</label><input id="ow-join-url" className="ow-input" readOnly value={joinUrl} onFocus={event => event.currentTarget.select()} /></div>
       <div className="ow-row">
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}><CopyLabel copied={copied} label="Link kopieren" /></button>
-        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={18} />Tresenschild laden</button>
+        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={20} />Tresenschild laden</button>
       </div>
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
-      {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{error}</p>}
+      {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
       {exportUrl && <div className="ow-hint">
         <p>Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>

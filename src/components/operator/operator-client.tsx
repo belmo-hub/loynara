@@ -272,7 +272,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-plates">
-      <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
+      <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={20} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
       {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
       <form noValidate onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
@@ -357,7 +357,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
         {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
-        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={18} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
         {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>

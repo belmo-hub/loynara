@@ -72,12 +72,12 @@ export function CardContact({ token, locale, recoveryOnly = false }: { token: st
   const withoutRecovery = french ? "Sans adresse vérifiée, votre lien privé est la seule preuve que la carte vous appartient. Le numéro de carte seul ne suffit pas." : "Ohne bestätigte Adresse ist dein privater Kartenlink der einzige Nachweis, dass die Karte dir gehört. Die Kartennummer allein reicht dafür nicht.";
   const label = french ? "Sécuriser la carte" : "Karte sichern";
   if (recoveryOnly && (!status.available || deferred)) return <section className={styles.panel} aria-label={label}>
-    <h3 className={styles.title}><ShieldCheck size={18} aria-hidden="true" /> {label}</h3>
+    <h3 className={styles.title}><ShieldCheck size={20} aria-hidden="true" /> {label}</h3>
     <p className={styles.muted}>{withoutRecovery}</p>
     {status.available ? <Button variant="secondary" size="sm" onClick={() => setDeferred(false)}>{french ? "Configurer la récupération" : "Wiederherstellung einrichten"}</Button> : <p className={styles.muted}>{french ? "La vérification par e-mail n’est pas disponible actuellement." : "E-Mail-Verifizierung ist derzeit nicht verfügbar."}</p>}
   </section>;
   return <section className={styles.panel} aria-label={label}>
-    <h3 className={styles.title}><ShieldCheck size={18} aria-hidden="true" /> {status.available ? label : french ? "Préférences e-mail" : "E-Mail-Einstellungen"}{status.available && !status.emailVerified ? <span className={styles.optional}>{french ? "facultatif" : "optional"}</span> : null}</h3>
+    <h3 className={styles.title}><ShieldCheck size={20} aria-hidden="true" /> {status.available ? label : french ? "Préférences e-mail" : "E-Mail-Einstellungen"}{status.available && !status.emailVerified ? <span className={styles.optional}>{french ? "facultatif" : "optional"}</span> : null}</h3>
     {status.available && (!recoveryOnly || !status.emailVerified) && <>
       <p className={styles.muted}>{french ? "Avec une adresse vérifiée, vous retrouvez votre carte si vous perdez ce lien. Sans publicité : aucun consentement marketing n’est ajouté." : "Mit einer bestätigten E-Mail-Adresse findest du deine Karte wieder, falls du diesen Link verlierst. Werbung abonnierst du damit nicht."}</p>
       <p className={styles.muted}>{withoutRecovery}</p>
