@@ -1,15 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request as apiRequest, test, type Page } from "@playwright/test";
 import { smallTargets } from "./support/targets";
 
 // The owner area's one rhythm (Design, 12 Nov, rulings SP1 to SP5 and SP9), measured on the rendered pages:
 // 24 from the page head to the first block; 20 above a section label and 8 below it, with or without its „?“;
 // every card and panel 16 inside; a chip 4 under its title; a hint 8 under its block.
-const access = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
+const access = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string; programSlug: string };
 
 test.describe.configure({ mode: "serial" });
 let page: Page;
+/** The card booked below: Übersicht's diary and this card's „Kartenverlauf“ have entries to measure. */
+let cardId = "";
 test.beforeAll(async ({ browser }) => {
   page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto("/login");
@@ -17,6 +20,20 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Passwort").fill(access.ownerPassword);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await page.waitForURL("/merchant");
+  // The seed's own bookings do not count outside the demo environment, so the diary and a card's history would be
+  // empty. One synthetic card gets two stamps the way the Kasse books them.
+  const origin = new URL(page.url()).origin, headers = { Origin: origin };
+  const guest = await apiRequest.newContext({ baseURL: origin, extraHTTPHeaders: headers });
+  const joined = await (await guest.post("/api/enroll", { data: { slug: access.programSlug, acceptedTerms: true, marketingOptIn: false } })).json() as { cardToken?: string };
+  expect(joined.cardToken, "a synthetic card was created").toBeTruthy();
+  const card = await (await guest.get(`/api/card/${joined.cardToken}`)).json() as { scanCode: string };
+  await guest.dispose();
+  const found = await (await page.request.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+  cardId = found.membershipId;
+  for (let stamp = 0; stamp < 2; stamp++) {
+    const booked = await page.request.post("/api/cashier/award", { headers, data: { membershipId: cardId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } });
+    expect(booked.ok(), `stamp ${stamp + 1} booked at the Kasse`).toBe(true);
+  }
 });
 test.afterAll(() => page.close());
 
@@ -57,16 +74,16 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
   });
 }
 
-// The card screen's „Kartenverlauf“ wears the diary's label: 8 above the first entry, 20 between entries.
+// The card screen's „Kartenverlauf“ wears the diary's label: 8 above the first entry, 20 between entries (the two
+// stamps booked in the setup).
 test("a card's „Kartenverlauf“ keeps the diary rhythm", async () => {
-  await page.goto("/merchant/customers?activity=recent");
-  await page.locator("#ow-main a[href*='card=']").first().click();
+  await page.goto(`/merchant/customers?activity=all&card=${cardId}`);
   const label = page.locator("#ow-main .ow-diary > h2");
   await expect(label).toHaveText("Kartenverlauf");
   await expect.poll(() => page.evaluate(() => {
     const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2;
     const diary = document.querySelector("#ow-main .ow-diary")!, entries = [...diary.querySelectorAll(":scope > .ow-day")];
-    return { entries: entries.length > 0, toFirst: entries[0] ? px(box(entries[0]).top - box(diary.querySelector("h2")!).bottom) : null, between: entries.slice(1).map((entry, i) => px(box(entry).top - box(entries[i]).bottom)).filter(gap => gap !== 20) };
+    return { entries: entries.length >= 2, toFirst: entries[0] ? px(box(entries[0]).top - box(diary.querySelector("h2")!).bottom) : null, between: entries.slice(1).map((entry, i) => px(box(entry).top - box(entries[i]).bottom)).filter(gap => gap !== 20) };
   })).toEqual({ entries: true, toFirst: 8, between: [] });
 });
 
