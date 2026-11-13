@@ -35,6 +35,7 @@ const rhythm = () => page.evaluate(() => {
     chips: [...main.querySelectorAll(".ow-prog-text .ow-chip")].flatMap(el => el.previousElementSibling ? [px(box(el).top - box(el.previousElementSibling).bottom)] : []),
     // The „?“ beside a label is a 44 px target that stops where the first row's target begins.
     helpIntoRow: [...main.querySelectorAll(".ow-rows-head > button")].flatMap(el => { const row = el.parentElement!.nextElementSibling; return row ? [px(Math.max(0, box(el).bottom - box(row).top))] : []; }),
+    diaries: main.querySelectorAll(".ow-diary > h2").length,
     hints: [...main.querySelectorAll(".ow-page > .ow-hint, .ow-q > .ow-hint, .ow-group > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
   };
 });
@@ -49,8 +50,23 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
     await expect.poll(async () => {
       const m = await rhythm();
       // `loaded`: the page's own content is there (labels, or the adviser's panels), so an empty list is not a pass.
-      return { loaded: m.below.length > 0 || NO_LABELS.includes(path), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
+      // Übersicht must show a diary label (the last days, or the first steps), so its 8 is really measured.
+      return { loaded: (m.below.length > 0 || NO_LABELS.includes(path)) && (path !== "/merchant" || m.diaries > 0), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
     }).toEqual({ loaded: true, head: path === "/merchant" ? null : 24, above: [], below: [], helpGrowsRow: [], helpIntoRow: [], padding: [], chips: [], hints: [] }); // Übersicht greets instead of a page head
     expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });
 }
+
+// The card screen's „Kartenverlauf“ wears the diary's label: 8 above the first entry, 20 between entries.
+test("a card's „Kartenverlauf“ keeps the diary rhythm", async () => {
+  await page.goto("/merchant/customers?activity=recent");
+  await page.locator("#ow-main a[href*='card=']").first().click();
+  const label = page.locator("#ow-main .ow-diary > h2");
+  await expect(label).toHaveText("Kartenverlauf");
+  await expect.poll(() => page.evaluate(() => {
+    const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2;
+    const diary = document.querySelector("#ow-main .ow-diary")!, entries = [...diary.querySelectorAll(":scope > .ow-day")];
+    return { entries: entries.length > 0, toFirst: entries[0] ? px(box(entries[0]).top - box(diary.querySelector("h2")!).bottom) : null, between: entries.slice(1).map((entry, i) => px(box(entry).top - box(entries[i]).bottom)).filter(gap => gap !== 20) };
+  })).toEqual({ entries: true, toFirst: 8, between: [] });
+});
+
