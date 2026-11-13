@@ -358,7 +358,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
 .ow-skip:focus { left: var(--space-2); }
 /* The owner area could not load: one card, centred lower on the page. */
-.ow-page--alone { max-width: 560px; padding-top: calc(var(--space-12) * 2); }
+.ow-page--alone { max-width: 560px; }
 .ow-bare .ow-topbar { position: static; padding-block: var(--space-3); }
 
 /* Card preview */

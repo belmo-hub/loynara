@@ -1,11 +1,11 @@
 /* Panels below the card: keep the card findable (recovery e-mail) and recommend it. Quiet, optional, never modal. */
-.panel { display: grid; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); min-width: 0; }
+.panel { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); min-width: 0; }
 .title { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); text-wrap: balance; }
 .title svg { color: var(--color-action); flex: none; }
 .optional { margin-left: auto; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
-.form { display: grid; gap: var(--space-3); }
-.form > button { justify-self: start; }
+.form { display: grid; gap: var(--space-4); }
+.form > button { justify-self: start; margin-top: var(--space-2); }
 .preference { display: grid; gap: var(--space-2); justify-items: start; }
 .state { composes: message from "./motion.module.css"; margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-success); }
 .error { composes: message from "./motion.module.css"; margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }

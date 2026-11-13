@@ -1,5 +1,5 @@
 /* Join page: a preview of the card the guest is about to get, then one clear way to get it. */
-.hero { display: grid; gap: var(--space-2); padding: var(--space-5) var(--space-4) var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
+.hero { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
 .welcome { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); }
 .business { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
 .location { margin: 0 0 var(--space-3); font-size: var(--text-14); overflow-wrap: anywhere; }
@@ -11,10 +11,11 @@
 .reward small { display: block; font-size: var(--text-14); }
 .reward strong { font-size: var(--text-16); font-weight: var(--weight-heavy); }
 
-.panel { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
+.panel { display: grid; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
 .headline { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; }
 .lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
+.headline + .lead { margin-top: calc(var(--space-1) - var(--space-4)); } /* a title's lead sits 4 under it */
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
 .note { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-action-soft); font-size: var(--text-14); line-height: 1.5; }
 .warning { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-warning), transparent 88%); font-size: var(--text-14); line-height: 1.5; }
@@ -35,7 +36,8 @@
 /* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
 .rules p + p { margin-top: var(--space-4); }
 
-.form { display: grid; gap: var(--space-3); }
+.form { display: grid; gap: var(--space-4); }
+.form > button { margin-top: var(--space-2); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }
