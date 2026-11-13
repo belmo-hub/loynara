@@ -169,14 +169,13 @@ test("at 320 px the pinned save bar covers neither the card's end nor a field br
 });
 
 // ENG-245 (WCAG 2.4.11): from 1024 px the save bar is sticky at the window's end, and a field reached with Tab
-// must stop above it, not under it.
-test("on desktop no Tab stop lands under the sticky save bar", async () => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  try {
-    await page.goto("/merchant/program/card");
-    await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
-    await page.getByLabel("Geschäftsname").fill("Ein anderer Name");
-    await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
+// must stop above it, not under it. The bar is one row (77 px) with unsaved changes and wraps to two when a failed
+// save adds its detail line, so the page takes the bar's real height.
+test("on desktop no Tab stop lands under the sticky save bar, one row or wrapped", async () => {
+  /** From the first field by real Tab to the bar: the stops, and those that end under the bar. */
+  const walk = async () => {
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.getByLabel("Geschäftsname").focus();
     const stops: string[] = [], covered: string[] = [];
     let scrolled = false;
     for (let press = 0; press < 40; press++) {
@@ -192,7 +191,27 @@ test("on desktop no Tab stop lands under the sticky save bar", async () => {
     }
     expect(stops.length, "the form's controls were reached").toBeGreaterThan(5);
     expect(scrolled, "the page had to scroll to reach them").toBe(true);
-    expect(covered).toEqual([]);
-    await page.getByRole("button", { name: "Verwerfen", exact: true }).click();
-  } finally { await page.setViewportSize({ width: 390, height: 844 }); }
+    return covered;
+  };
+  const barHeight = () => page.locator(".ow-savebar").evaluate(el => Math.round(el.getBoundingClientRect().height));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.route("**/api/merchant/program/brand", route => route.request().method() === "POST" ? route.fulfill({ status: 500, contentType: "application/json", body: "{}" }) : route.continue());
+  try {
+    await page.goto("/merchant/program/card");
+    await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" });
+    await page.getByLabel("Geschäftsname").fill("Ein anderer Name");
+    await expect(page.locator(".ow-savebar:not([data-idle])")).toBeVisible();
+    expect(await barHeight(), "one row").toBe(77);
+    expect(await walk()).toEqual([]);
+
+    // A save that fails adds the detail line, and the bar wraps.
+    await page.getByRole("button", { name: "Kundenkarte speichern" }).click();
+    await expect(page.locator('.ow-savestate[data-state="error"]')).toBeVisible();
+    expect(await barHeight(), "wrapped").toBeGreaterThan(110);
+    expect(await walk()).toEqual([]);
+  } finally {
+    await page.unroute("**/api/merchant/program/brand");
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).click().catch(() => {});
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
 });
