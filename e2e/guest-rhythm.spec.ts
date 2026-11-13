@@ -77,3 +77,18 @@ test("join: the button is 48 high and the sentence that names it sits 8 above it
     return { button: Math.round(button.getBoundingClientRect().height), caption: Math.round(button.getBoundingClientRect().top - notice.getBoundingClientRect().bottom) };
   })).toEqual({ button: 48, caption: 8 });
 });
+
+// ENG-237 (owner spec rule 4, no native controls): the birthday's day and month are house selects, 48 high, side by
+// side. The panel's own read is answered here, so the shop's setting does not matter.
+test("the card's birthday panel uses the house selects", async ({ page }) => {
+  await page.route("**/api/card/*/birthday", route => route.request().method() === "GET"
+    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: null, month: null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) })
+    : route.continue());
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  const panel = page.locator("section[aria-labelledby=birthday-title]");
+  await expect(panel).toBeVisible();
+  await expect.poll(() => panel.evaluate(el => {
+    const [day, month] = [...el.querySelectorAll("select")].map(select => select.getBoundingClientRect());
+    return { fields: el.querySelectorAll("select").length, heights: [Math.round(day.height), Math.round(month.height)], sameRow: Math.round(day.top) === Math.round(month.top), gap: Math.round(month.left - day.right), monthTwiceAsWide: Math.abs(month.width - 2 * day.width) <= 1, labels: [...el.querySelectorAll("label")].map(label => label.textContent) };
+  })).toEqual({ fields: 2, heights: [48, 48], sameRow: true, gap: 12, monthTwiceAsWide: true, labels: ["Tag", "Monat"] });
+});
