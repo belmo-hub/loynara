@@ -56,7 +56,7 @@
 
 /* No box and no fill: the current nav item is the only filled thing in the sidebar. */
 .ow-loc { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }
-.ow-loc .ow-select { height: 48px; font-weight: var(--weight-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ow-loc .ow-select { min-height: 48px; font-weight: var(--weight-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ow-loc-name { font-weight: var(--weight-strong); color: var(--color-ink); overflow-wrap: anywhere; }
 .ow-loc-sub { font-size: var(--text-14); color: var(--color-ink-muted); }
 
@@ -208,6 +208,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-btn--ghost { background: transparent; color: var(--color-ink-muted); }
 .ow-btn--ghost:hover:not(:disabled) { background: var(--color-fill); }
 .ow-btn--danger { background: color-mix(in oklab, var(--color-danger), transparent 90%); color: var(--color-danger); border-color: color-mix(in oklab, var(--color-danger), transparent 60%); }
+/* The primary that ends a form is as high as its fields; in a save bar its partner matches it. */
+form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min-height: 52px; }
 .ow-btn--sm { min-height: 44px; min-width: 44px; padding: 0 var(--space-3); font-size: var(--text-14); border-radius: var(--radius-pill); }
 .ow-link { color: var(--color-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .ow-link--block { display: inline-flex; align-items: center; min-height: 44px; }
@@ -268,7 +270,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-more-body::after { content: ""; display: block; height: var(--space-2); }
 .ow-more-body > p { margin: 0 0 var(--space-2); }
 .ow-error { font-size: var(--text-14); color: var(--color-danger); font-weight: 600; }
-.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press) var(--ease-out); }
+.ow-input, .ow-select, .ow-textarea { width: 100%; min-height: 52px; padding: 0 var(--space-3); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; transition: border-color var(--dur-press) var(--ease-out); }
 .ow-textarea { padding: var(--space-3); min-height: 96px; resize: vertical; line-height: 1.5; }
 .ow-input[type="file"] { padding-block: var(--space-2); }
 .ow-input::placeholder, .ow-textarea::placeholder { color: var(--color-ink-muted); opacity: 1; }
@@ -357,7 +359,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 
 .ow-skip { position: absolute; left: -9999px; top: var(--space-2); z-index: var(--z-toast); padding: var(--space-3) var(--space-4); background: var(--color-ink); color: var(--color-bg); border-radius: var(--radius-sm); font-weight: 700; }
 .ow-skip:focus { left: var(--space-2); }
-/* The owner area could not load: one card, centred lower on the page. */
+/* The owner area could not load: one narrow column at the page's own padding. */
+/* An error or a missing page inside the owner area ends in the area's 52 px primary. */
+.owner-app .ow-state-btn { min-height: 52px; }
 .ow-page--alone { max-width: 560px; }
 .ow-bare .ow-topbar { position: static; padding-block: var(--space-3); }
 
@@ -450,7 +454,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-reward-move { display: flex; flex: none; }
 .ow-reward-move .ow-btn { width: 44px; padding: 0; }
 .ow-reward-move .ow-btn:disabled { border-color: transparent; opacity: .35; }
-.ow-savebar[data-idle] { position: static; box-shadow: none; border-top: 1px solid var(--color-line); background: transparent; margin-inline: 0; padding-inline: 0; }
+/* Idle, it is the page's last block: 16 under the card above it and no line of its own against that card's edge. */
+.ow-savebar[data-idle] { position: static; box-shadow: none; border-top: 0; background: transparent; margin-inline: 0; padding: var(--space-4) 0 var(--space-3); }
 
 /* Stepper */
 .ow-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
@@ -465,7 +470,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* Kunden (ENG-122a, rest 01–06) on the Übersicht's and Programm's parts: the search field on top, then their rows. */
 .ow-search { position: relative; display: grid; gap: var(--space-1); max-width: 40rem; }
 .ow-search > svg { position: absolute; top: 16px; left: var(--space-4); color: var(--color-ink-muted); pointer-events: none; }
-.ow-search .ow-input { min-height: 52px; padding-left: 48px; -webkit-appearance: none; appearance: none; }
+.ow-search .ow-input { padding-left: 48px; -webkit-appearance: none; appearance: none; }
 /* A copy, a download or a step is a row too: the button wears the link row's shape. */
 button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .ow-prog-text .ow-chip, .ow-qhead > .ow-chip { margin-top: var(--space-1); } /* a chip 4 under its title: a row's, or a closed card's */
@@ -844,7 +849,6 @@ div.ow-prog-row:active { transform: none; }
 @starting-style { .ow-qbar i[data-on]::after { transform: scaleX(0); } }
 .ow-q { display: flex; flex-direction: column; gap: var(--space-2); max-width: 40rem; }
 .ow-qpanel { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
-.ow-qpanel .ow-input { min-height: 52px; }
 /* The shop's colour keeps an edge on a card of the same tone, as the card studio's swatches do. On a panel the preview is one
    surface with a round mark (Design, 6 Nov). */
 .ow-qpanel .ow-cardline-shop i { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-line-strong); }
@@ -904,7 +908,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-qcontrol .ow-seg button { flex: 1 1 auto; white-space: nowrap; }
 .ow-qpanel .ow-textarea { resize: none; }
 .ow-qmoney { position: relative; display: block; max-width: 12rem; }
-.ow-qmoney .ow-input { min-height: 56px; padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.ow-qmoney .ow-input { padding-right: var(--space-10); font-size: var(--text-22); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .ow-qmoney span { position: absolute; top: 50%; right: var(--space-4); transform: translateY(-50%); font-size: var(--text-22); font-weight: var(--weight-strong); pointer-events: none; }
 /* A text action under the answer: „Vorteile pro Level“ opens more fields, „Neuigkeit entfernen“ saves at once. */
 .ow-qlink { display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; cursor: pointer; }

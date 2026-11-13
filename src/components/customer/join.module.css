@@ -38,6 +38,8 @@
 
 .form { display: grid; gap: var(--space-4); }
 .form > button { margin-top: var(--space-2); }
+/* A sentence that names the button is its caption: 8 above it. */
+.form > .notice + button { margin-top: calc(var(--space-2) - var(--space-4)); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }

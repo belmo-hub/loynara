@@ -73,7 +73,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
           <TextField id="login-password" error={fields.error("login-password")} label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
           <a className={styles.forgot} href={RESET_MAIL}>Passwort vergessen?</a>
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
-          <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
+          <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
         </form>
         <p className={styles.note}>{registrationOpen
           ? <>Noch kein Konto? <Link className={styles.link} href="/register">Konto erstellen</Link></>

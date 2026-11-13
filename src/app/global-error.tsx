@@ -11,7 +11,7 @@ main { max-width: 480px; margin: 0 auto; padding: calc(48px + env(safe-area-inse
 h1 { margin: 0; font: 600 1.75rem/1.15 Georgia, "Times New Roman", serif; letter-spacing: -.015em; text-wrap: balance; }
 p { margin: 0; color: var(--muted); }
 .actions { display: grid; gap: 12px; margin-top: 8px; }
-button { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 24px; border-radius: 999px; font: 700 1.125rem/1 system-ui, -apple-system, sans-serif; text-decoration: none; cursor: pointer; }
+button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 999px; font: 700 1rem/1 system-ui, -apple-system, sans-serif; text-decoration: none; cursor: pointer; }
 button { border: 1.5px solid transparent; background: var(--action); color: var(--on-action); }
 button.secondary { border-color: var(--line); background: transparent; color: var(--ink); }
 button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
