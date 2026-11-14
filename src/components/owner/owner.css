@@ -366,6 +366,8 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-dialog p { color: var(--color-ink-muted); }
 .ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap-reverse; margin-top: var(--space-3); }
 .ow-dialog-actions .ow-btn { min-height: 48px; }
+/* Buttons share the row, or each takes the full width once they wrap, never a ragged stack of two widths. */
+.ow-dialog-actions > * { flex: 1 1 auto; }
 @media (max-width: 479px) { .ow-dialog-actions > * { flex: 1 1 100%; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -513,6 +515,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-goal:hover { border-color: var(--color-ink); }
 .ow-goal strong { font-size: var(--text-16); }
 .ow-goal span:not(.ow-link) { color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-goal .ow-link { margin-top: auto; } /* the four links share one line, whatever each text's length */
 .ow-mail { border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-fill); }
 .ow-mail small { color: var(--color-ink-muted); font-weight: var(--weight-label); }
 .ow-mail h3 { font-size: var(--text-16); margin: 4px 0 8px; }
@@ -841,9 +844,10 @@ div.ow-prog-row:active { transform: none; }
 .ow-cardline-card { padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-raised); }
 .ow-cardline-shop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .ow-cardline-shop i { flex: none; width: 16px; height: 16px; border-radius: calc(var(--radius-sm) / 2); background: var(--color-action); }
-.ow-cardline-text { margin-top: var(--space-2); font-size: var(--text-14); text-wrap: pretty; }
+/* `.owner-app` beats `.owner-app p { margin: 0 }`, which flattened the card's three lines together. */
+.owner-app .ow-cardline-text { margin-top: var(--space-2); font-size: var(--text-14); text-wrap: pretty; }
 .ow-cardline-text u { color: var(--color-ink); font-weight: var(--weight-strong); text-underline-offset: 3px; }
-.ow-cardline-rules { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+.owner-app .ow-cardline-rules { margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-line); font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
 /* The preview's reward lines (screen 07): name, then the threshold; the new reward in the action colour. */
 .ow-cardline-reward { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); }
 .ow-cardline-reward + .ow-cardline-reward { border-top: 1px solid var(--color-line); }
@@ -858,7 +862,7 @@ div.ow-prog-row:active { transform: none; }
 .ow-qpage > .ow-pagehead { margin-bottom: var(--space-3); }
 .ow-qpage [aria-invalid="true"]:focus-visible { outline-color: var(--color-danger); }
 .ow-qhead { width: 100%; max-width: 40rem; }
-.ow-qstep { display: grid; gap: var(--space-2); margin: var(--space-1) 0; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.ow-qstep { display: grid; gap: var(--space-2); margin: var(--space-1) 0 var(--space-3); font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .ow-qbar { display: flex; gap: var(--space-2); }
 .ow-qbar i { flex: 1; height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-line); }
 /* A reached step's segment fills from the left (Bars grow) and empties again on the way back. */
