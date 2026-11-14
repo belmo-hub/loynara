@@ -227,7 +227,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 /* Until the desktop grid (SF-1), a notice on the page is as wide as its text, not half empty (Design FIX 8). */
 @media (min-width: 1024px) { .ow-notice:not(:is(.ow-card, .ow-qpanel) .ow-notice) { width: fit-content; max-width: 100%; } }
 /* Except above a full-width grid (Kampagnen's goal cards): there the notice spans with it, so the right edges line up. */
-@media (min-width: 1024px) { .ow-page.ow-page--wide > .ow-notice { width: auto; } }
+@media (min-width: 1024px) { .ow-page.ow-page--wide > .ow-notice, .ow-page.ow-page--wide > [role="status"] > .ow-notice { width: auto; } } /* also a notice in a live region */
 .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { box-shadow: inset 0 0 0 1px var(--color-line); }
 :is(.ow-card, .ow-qpanel) .ow-notice:not(.ow-notice--ok, .ow-notice--danger) { background: none; box-shadow: none; border-radius: 0; padding: var(--space-3) 0 0; border-top: 1px solid var(--color-line); }
 .ow-notice--warn > span:first-child { color: var(--color-warning); }
