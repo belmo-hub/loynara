@@ -37,6 +37,7 @@ describe("Aktionen list (ENG-122d, screen 08)", () => {
 describe("send confirmation (R12 FINAL)", () => {
   it("says what is left after this message", () => {
     expect(sendNote(18, 2, null)).toBe("Die Nachricht geht sofort an 18 Kunden mit Apple Wallet, die Nachrichten erlaubt haben. Danach ist noch 1 Nachricht frei, höchstens 2 in 7 Tagen.");
+    expect(sendNote(18, 3, null)).toBe("Die Nachricht geht sofort an 18 Kunden mit Apple Wallet, die Nachrichten erlaubt haben. Danach sind noch 2 Nachrichten frei, höchstens 2 in 7 Tagen.");
     expect(sendNote(18, 1, "30. Oktober")).toBe("Die Nachricht geht sofort an 18 Kunden mit Apple Wallet, die Nachrichten erlaubt haben. Danach ist bis 30. Oktober keine Nachricht mehr frei.");
   });
 

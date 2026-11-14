@@ -204,7 +204,7 @@ export function CampaignsView() {
 
   if (!builder) {
     return (
-      <div className="ow-page">
+      <div className="ow-page ow-page--wide">
         {head}{notices}
         <Notice tone={mode === "disabled" ? "warn" : "info"}>{mode === "mailpit" ? "Lokaler Mailpit-Testkanal: nur synthetische .test-Adressen, keine externe Zustellung." : mode === "mailgun_eu" ? "Freigeschalteter EU-Versandkanal. Vor jeder Zustellung werden Einwilligung, Adresse, Zielgruppe und Versandgrenzen erneut geprüft." : <><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Zielgruppen prüfen und Entwürfe vollständig vorbereiten. Gesendet wird nichts, bis der Versand freigegeben ist und du selbst planst.</>}</Notice>
         <section aria-labelledby="goal-h"><h2 id="goal-h" className="ow-section-head">Womit möchtest du starten?</h2>
