@@ -96,8 +96,8 @@ export function SenderQuestionPage({ question }: { question: SenderQuestion }) {
   const { me, locations } = useOwner();
   const params = useSearchParams();
   if (!me) return null;
-  // Opened by URL as a manager: the notice Geschäft shows, not an empty page.
-  if (me.role !== "owner") return <div className="ow-page ow-qpage"><PageTitle back={{ href: SENDER_HOME.href, label: SENDER_HOME.label }} title={SENDER_TITLES[question]} /><Notice>Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
+  // Opened by URL as a manager: the owner-only head and notice (DESIGN C-R8), not an empty page.
+  if (me.role !== "owner") return <div className="ow-page ow-qpage"><PageTitle back={{ href: SENDER_HOME.href, label: SENDER_HOME.label }} title={SENDER_TITLES[question]} /><Notice>Nur die Inhaberin oder der Inhaber kann den Absender ändern.</Notice></div>;
   const active = locations.find(location => location.id === me.locationId);
   const scoped = locations.find(location => location.id === params.get("standort"));
   const location = scoped ?? active;
