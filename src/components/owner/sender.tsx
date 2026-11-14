@@ -6,6 +6,7 @@ import { addressProblems, contactProblems, LOCATION_PARTS, missingParts, missing
   representativeProblems, footerPreview, type PreviewPiece, type SenderDetails, type SenderPart } from "@/lib/sender-details";
 import { useOwner, type OwnerLocation } from "./owner-context";
 import type { MeResponse } from "@/components/client-api";
+import { PageTitle } from "./owner-rows";
 import { GuardedLink } from "./owner-shell";
 import { Notice } from "./owner-ui";
 import { FieldError, QuestionForm, useQuestion, type QuestionHome } from "./question-form";
@@ -17,6 +18,8 @@ import { senderHref, type SenderQuestion } from "./sender-routes";
 export const SENDER_LIST = "owner-geschaeft-return";
 export const SENDER_HOME: QuestionHome = { href: "/merchant/settings", label: "Geschäft", list: SENDER_LIST };
 export const SENDER_ANCHOR = "absender";
+/** The row titles on Geschäft. */
+const SENDER_TITLES: Record<SenderQuestion, string> = { anschrift: "Anschrift", kontakt: "Kontakt", vertretung: "Vertreten durch", register: "Rechtsform und Register" };
 
 /** Email sends exist where campaigns or automations are offered; elsewhere the sender section and its screens are withheld. */
 export const senderOffered = (hidden: readonly string[]) => !hidden.includes("campaigns") || !hidden.includes("automations");
@@ -93,6 +96,8 @@ export function SenderQuestionPage({ question }: { question: SenderQuestion }) {
   const { me, locations } = useOwner();
   const params = useSearchParams();
   if (!me) return null;
+  // Opened by URL as a manager: the notice Geschäft shows, not an empty page.
+  if (me.role !== "owner") return <div className="ow-page ow-qpage"><PageTitle back={{ href: SENDER_HOME.href, label: SENDER_HOME.label }} title={SENDER_TITLES[question]} /><Notice>Die Einstellungen sind Inhaber:innen vorbehalten.</Notice></div>;
   const active = locations.find(location => location.id === me.locationId);
   const scoped = locations.find(location => location.id === params.get("standort"));
   const location = scoped ?? active;
