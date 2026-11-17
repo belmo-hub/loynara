@@ -60,7 +60,7 @@ const only = (values: Array<number | string>, ...allowed: Array<number | string>
 
 // Screens whose content has no section label of the kinds above; the rest must show at least one before they pass.
 const NO_LABELS = ["/merchant/adviser", "/merchant/staff/invite", "/merchant/customers/import"];
-for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
+for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
   test(`${path} keeps the owner rhythm`, async () => {
     await page.goto(path);
     await expect(page.locator("#ow-main h1")).toBeVisible();
@@ -76,6 +76,18 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
 
 // The card screen's „Kartenverlauf“ wears the diary's label: 8 above the first entry, 20 between entries (the two
 // stamps booked in the setup).
+// Kunden is drawn in the founder's mix (ENG-257, mock mix/kunden.html), not the house rhythm above: 24 from the title to
+// the search, 16 between blocks, 32 above a section title, 12 from a title to its panel and from a panel to its note.
+test("/merchant/customers keeps the mix rhythm", async () => {
+  await page.goto("/merchant/customers");
+  await expect(page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first()).toBeVisible();
+  expect(await page.evaluate(() => {
+    const box = (q: string) => document.querySelector(`#ow-main ${q}`)!.getBoundingClientRect(), gap = (a: string, b: string) => Math.round(box(b).top - box(a).bottom);
+    return { search: gap("h1", "form[role=search]"), picker: gap("form[role=search]", "label:has(> select)"), invite: gap('section[aria-labelledby="cu-h"] ul', ".ow-prog:has(> div > h2) h2"),
+      panel: gap(".ow-prog:has(> div > h2) h2", ".ow-prog:has(> div > h2) ul"), note: gap(".ow-prog:has(> div > h2) ul", ".ow-prog:has(> div > h2) > .ow-prog-note") };
+  })).toEqual({ search: 24, picker: 16, invite: 32, panel: 12, note: 12 });
+});
+
 test("a card's „Kartenverlauf“ keeps the diary rhythm", async () => {
   await page.goto(`/merchant/customers?activity=all&card=${cardId}`);
   const label = page.locator("#ow-main .ow-diary > h2");
