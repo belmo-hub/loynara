@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 import { progressLine } from "@/components/customer/mix-card";
-import { groupTiles, searchHref } from "./customers-view";
+import { cardLead, groupTiles, searchHref } from "./customers-view";
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
   nearReward: 3, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 3, nearRewardId: null, programCount: 1, rules: RETENTION_RULES, ...patch });
@@ -52,5 +52,15 @@ describe("card search (ENG-179, fault 18)", () => {
     expect(searchHref(" K-39BVGN ", "owner")).toBe("/merchant/customers?q=K-39BVGN&scope=all");
     expect(searchHref("K-39BVGN", "manager")).toBe("/merchant/customers?q=K-39BVGN");
     expect(searchHref("  ", "owner")).toBe("/merchant/customers");
+  });
+});
+
+describe("Kunden rows in the mix (ENG-257)", () => {
+  const render = (node: ReturnType<typeof cardLead>) => renderToStaticMarkup(createElement("div", null, node));
+  const coffee = { id: "r", title: "Gratiskaffee", cost: 8 };
+  it("leads a stamp card with the mix thumbnail and a points card with nothing until Design draws a points card", () => {
+    expect(render(cardLead({ programType: "stamp", balance: 5 }, coffee))).toContain('role="img"');
+    expect(render(cardLead({ programType: "stamp", balance: 5 }))).toContain('aria-hidden="true"'); // the shop's colour, no dots
+    expect(cardLead({ programType: "points", balance: 186 }, coffee)).toBeNull();
   });
 });

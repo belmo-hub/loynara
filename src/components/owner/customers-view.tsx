@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLayoutEffect, useRef, useState, ViewTransition, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Activity as ActivityIcon, ArrowRight, ChevronDown, ChevronRight, Clock, Gift, RefreshCw, ScanLine, Search, Target, Users, type LucideIcon } from "lucide-react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
-import { nearestReward } from "@/components/customer/card-face";
+import { nearestReward, type CardReward } from "@/components/customer/card-face";
 import { MixCard } from "@/components/customer/mix-card";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,6 +16,7 @@ import type { MerchantMember, MerchantMemberList } from "@/lib/merchant-members"
 import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import { germanDate } from "@/lib/german-date";
+import { unitWord } from "@/lib/units";
 import { bookingsText } from "@/lib/overview-day";
 import { BROUGHT_COPY } from "@/lib/spend-copy";
 import { CardScreen } from "./card-screen";
@@ -229,6 +230,16 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   );
 }
 
+/**
+ * A card row's lead: the mix thumbnail counting to `target`, or the shop's colour alone where the card has no target here.
+ * Points programmes keep today's row with no lead until Design draws a points card (Design, 18 Nov).
+ */
+export function cardLead(member: Pick<MerchantMember, "programType" | "balance">, target?: CardReward) {
+  if (member.programType === "points") return null;
+  return target ? <MixCard size="thumb" businessName="" locationName="" programType="stamps" balance={member.balance} reward={target} />
+    : <span className={styles.blank} aria-hidden="true" />;
+}
+
 /** The cards of a group or a search, 25 at a time. A row opens its card over the list; `fresh` holds what a card screen read since. */
 function CardList({ filters, fresh, title, count, lead, controls }: { filters: Filters; fresh: Record<string, MerchantMember>; title?: string; count?: string; lead?: string; controls?: ReactNode }) {
   const owner = useOwner();
@@ -288,7 +299,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
         : n === 0 ? <EmptyState level={3} title={filters.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : filters.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}>
           {filters.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Buchungen und keiner in den letzten ${filters.days} Tagen.` : "Ändere oben die Auswahl, um weitere Karten zu sehen."}
         </EmptyState>
-        : <ul style={palette}>{members.map(listed => {
+        : <ul style={palette} data-points={me.programType === "points" || undefined}>{members.map(listed => {
           const member = fresh[listed.id] ?? listed;
           const href = new URLSearchParams(list);
           href.set("card", member.id);
@@ -296,13 +307,13 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
           const ours = !member.closedAt && member.locationId === me.locationId;
           const target = ours ? nearestReward(rewards, member.balance) : undefined;
           return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={() => { listY = { list: list.toString(), y: window.scrollY }; }}>
-            {target ? <MixCard size="thumb" businessName="" locationName="" programType={member.programType === "points" ? "points" : "stamps"} balance={member.balance} reward={target} />
-              : <span className={styles.blank} aria-hidden="true" />}
+            {cardLead(member, target)}
             <span className="ow-prog-main">
               <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <MixChip>Geschlossen</MixChip>
                 : ours && member.balance >= cheapest && <MixChip warm><Gift size={16} aria-hidden="true" />Prämie verdient</MixChip>}</strong>
                 <small>{member.lastQualifyingAt ? `Letzte Buchung ${germanDate(member.lastQualifyingAt, "feed")}` : "Noch nie an der Kasse"}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
-              <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>
+              {member.programType === "points" ? <span className="ow-prog-value" data-pair="">{member.balance}<small> {unitWord(member.balance, "points")}</small></span>
+                : <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>}
             </span>
             <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
             <LinkPending />
