@@ -25,10 +25,10 @@ type Props = {
   reward: CardReward;
   /** Points: the ladder's rewards (the programme's); the card keeps the house ladder, no stamp grid. */
   rewards?: CardReward[];
-  /** full: guest card, Kartenseite and Programm example; kasse: the counter's card; thumb: 64 × 44 for list rows. */
-  size?: "full" | "kasse" | "thumb";
-  /** The foot: the guest's line and reward, the owner's neutral line, or Programm's two fields. */
-  voice?: "guest" | "owner" | "example";
+  /** full: guest card and Kartenseite; example: Programm's card with its two fields; kasse: the counter's card; thumb: 64 × 44 for list rows. */
+  size?: "full" | "example" | "kasse" | "thumb";
+  /** The full card's foot: the guest's line and reward, or the owner's neutral line. */
+  voice?: "guest" | "owner";
   /** In place of the shop's name and location (the Kasse: the card number and its note). */
   title?: string; sub?: string;
   /** A label under the balance (the Kasse); „von 8“ then stands beside the figure. */
@@ -53,7 +53,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   const t = copyFor(locale), number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const figure = number.format(points ? balance : have), of = points ? t.unit(balance, "points") : `von ${goal}`;
   const body = foot ?? (size === "kasse" ? null : voice === "owner" ? <p className={styles.line}>{progressLine(balance, reward, programType)}</p>
-    : voice === "example" ? <div className={styles.fields}><span><small>Prämie</small><strong>{reward.title}</strong></span><span><small>Einlösbar ab</small><strong>{withUnit(goal, programType, "de", "dat")}</strong></span></div>
+    : size === "example" ? <div className={styles.fields}><span><small>Prämie</small><strong>{reward.title}</strong></span><span><small>Einlösbar ab</small><strong>{withUnit(goal, programType, "de", "dat")}</strong></span></div>
     : <><p className={styles.line}>{left ? `${t.still} ${number.format(left)} ${t.toReward(t.unit(left, programType))}` : t.readyFor}</p><p className={styles.reward}>{reward.title}</p></>);
   return <section className={cx(styles.card, size === "kasse" && styles.kasse, className)} aria-label={t.cardLabel}>
     <div className={styles.top}>

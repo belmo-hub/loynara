@@ -1,0 +1,58 @@
+/* The founder's mix (17 Nov): the shared page rhythm, panel, rows, section title, chips and buttons, copied from the
+   approved mock's mix.css. Only mix screens use these classes; the house components keep their own look. */
+
+/* Page rhythm: blocks 16 apart, a titled section 32 under the block before it, its title 12 above its panel. */
+.stack, .sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.stack > .sec:not(:first-child) { margin-top: calc(var(--space-8) - var(--space-4)); }
+.sec > .h, .sec > .secHead { margin-bottom: calc(var(--space-3) - var(--space-4)); }
+.secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+
+/* Type roles. */
+.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
+.h > svg { color: var(--color-action); }
+.kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.h + .sub { margin-top: var(--space-1); }
+
+/* The panel (ruling 2): white, 1 px line, radius 20, no shadow. Rows bring their own inset; .pad is for free content.
+   The inset is 20 from the outer edge, so 19 inside the border. */
+.panel { min-width: 0; overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-lg); }
+.pad { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: calc(var(--space-5) - 1px); }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: calc(var(--space-5) - 1px) calc(var(--space-5) - 1px) var(--space-2); }
+/* A panel that opens with a head ends 8 under its last row. */
+.panel:has(> .ph) > .row:last-child { margin-bottom: var(--space-2); }
+
+/* Rows: a lead, then the body. The body carries the hairline, from the text column to the panel's right edge. Heights
+   include the 1 px line (1 + 7 above the text, 8 under it), so a row that grows stays on the 4 px grid. */
+.row { display: flex; align-items: center; gap: var(--space-3); padding-left: calc(var(--space-5) - 1px); color: inherit; text-decoration: none; }
+.body { display: flex; flex: 1; align-items: center; gap: var(--space-3); min-width: 0; min-height: var(--mix-row); padding: 7px calc(var(--space-5) - 1px) var(--space-2) 0; border-top: 1px solid transparent; }
+.row + .row > .body { border-top-color: var(--color-line); }
+.body:has(.text > small), .row[data-lead="tile"] > .body { min-height: var(--mix-row-2); }
+.row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
+.text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
+.text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
+.text > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
+/* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
+.chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
+.more { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row-2); margin-top: var(--space-2); border-top: 1px solid var(--color-line); color: var(--color-action); font-weight: var(--weight-strong); text-decoration: none; }
+
+/* The icon tile, 40 with a 14 radius. */
+.tile { display: grid; flex: none; place-items: center; width: var(--mix-tile); height: var(--mix-tile); border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
+.tile[data-tone="coral"] { background: var(--color-stamp); color: var(--color-on-stamp); }
+.tile[data-tone="mute"] { background: var(--color-fill); color: var(--color-ink-muted); }
+
+/* Chips. */
+.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
+.warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }
+
+/* Buttons: 44 high (.lg 52), the primary filled green, the quiet one outlined. */
+.btn { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: var(--space-2); height: var(--target); padding: 0 var(--space-5); border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; text-decoration: none; cursor: pointer; }
+.btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.primary { background: var(--color-action); color: var(--color-on-action); }
+.quiet { border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-ink); }
+.lg { height: var(--mix-row); padding: 0 var(--space-6); }
+.block { display: flex; width: 100%; }
+/* The underlined ink link beside a title or in a row; 44 tall without pushing the row apart. */
+.link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
