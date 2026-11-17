@@ -57,11 +57,11 @@ for(const width of [1440,390])test(`safe production configuration owner, cashier
   const m=await(await manager.get("/api/merchant/retention")).json();expect(m.locationId).toBe(f.locationId);
   for(const days of [14,30,60,90]){const summaryResponse=await owner.get(`/api/merchant/retention?days=${days}&locationId=${f.locationId}`);expect(summaryResponse.status()).toBe(200);const summary=await summaryResponse.json();const listResponse=await owner.get(`/api/merchant/customers?activity=drifting&days=${days}&locationId=${f.locationId}`);expect(listResponse.status()).toBe(200);const list=await listResponse.json();expect(summary.drifting).toBe(list.members.length);}
   await page.goto("/merchant/customers?activity=drifting&days=30&scope=all");
-  await expect(page.getByRole("heading",{level:1,name:"Länger nicht da"})).toBeVisible(); // ENG-122a: the group's own screen
+  await expect(page.getByRole("heading",{level:2,name:"Länger nicht da"})).toBeVisible(); // ENG-122a, ENG-257: the group heads its cards
   await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const filteredCard=(await(await owner.get(`/api/merchant/customers?activity=drifting&days=30&locationId=${f.locationId}`)).json()).members[0].cardLocator;
   await page.goto(`/merchant/customers?activity=drifting&days=30&locationId=${f.locationId}&q=${encodeURIComponent(filteredCard)}`);
-  await expect(page.getByRole("heading",{level:1,name:"Länger nicht da"})).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
+  await expect(page.getByRole("heading",{level:2,name:"Länger nicht da"})).toBeVisible();await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0);
   const progress=await(await owner.get(`/api/card/${f.referrerToken}/referral`)).json();expect(JSON.stringify(progress)).not.toContain("@example.test");
   await page.goto("/merchant");await expect(page.getByRole("link",{name:"Rückhol-Aktion vorbereiten"})).toHaveCount(0); // Product, 24 Oct: no e-mail campaign is offered while e-mail is off
   await context.addInitScript(()=>{

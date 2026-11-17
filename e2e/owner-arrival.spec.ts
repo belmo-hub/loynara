@@ -212,7 +212,7 @@ test("Back from a card and a filter chip are returns: nothing arrives again", as
   await page.goto("/merchant/customers");
   await page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Alle Karten" }).click();
   await expect(page.getByRole("heading", { name: "Alle Karten" })).toBeVisible();
-  const first = page.locator(".ow-content ul a.ow-prog-row").first();
+  const first = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(first).toBeVisible();
   await page.getByRole("group", { name: "Kartenstatus" }).getByRole("button", { name: "Aktiv" }).click();
   expect(await entrances(), "the filtered list does not arrive").toBe(0);
@@ -228,7 +228,7 @@ test("Back from a card and a filter chip are returns: nothing arrives again", as
 
 test("forced colours: the checkbox is the native control again", async () => {
   // Goes on from the list the test before ends on: the list's reads are rate-limited, so it is not loaded a second time.
-  await page.locator(".ow-content ul a.ow-prog-row").first().click();
+  await page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first().click();
   await page.getByRole("button", { name: /Karte neu ausstellen/ }).click();
   const box = page.getByRole("checkbox", { name: "Berechtigung geprüft" });
   await expect(box).toBeVisible();

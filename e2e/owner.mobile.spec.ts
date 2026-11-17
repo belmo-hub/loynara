@@ -81,7 +81,7 @@ test.describe("owner dashboard on phones", () => {
       return { rows: [...new Set(rows)], broken };
     });
     await page.goto("/merchant/customers?activity=all");
-    await expect(page.locator("section.ow-prog .ow-prog-row").first()).toBeVisible();
+    await expect(page.locator('section[aria-labelledby="cu-h"] .ow-prog-row').first()).toBeVisible();
     expect(await layout()).toEqual({ rows: [1], broken: [] });
     await page.goto("/merchant/program/card");
     await page.getByRole("button", { name: "Vorschau" }).click();
