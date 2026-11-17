@@ -11,7 +11,7 @@ const rule = (file: string, selector: string) => {
 const C = "src/components/customer";
 
 describe("cards and panels are 16 inside", () => {
-  it.each([[`${C}/customer-card.module.css`, ".card"], [`${C}/panels.module.css`, ".panel"], [`${C}/join.module.css`, ".panel"], [`${C}/join.module.css`, ".hero"]])("%s %s", (file, selector) => {
+  it.each([[`${C}/panels.module.css`, ".panel"], [`${C}/join.module.css`, ".panel"], [`${C}/join.module.css`, ".hero"]])("%s %s", (file, selector) => {
     expect(rule(file, selector)).toMatch(/padding: var\(--space-4\);/);
   });
 });

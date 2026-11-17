@@ -64,7 +64,7 @@ for (const [width, missingBody] of [[375, ""], [1280, "{"]] as const) test(`comm
     await f.customerPage.bringToFront();
     await f.customerPage.getByRole("button", { name: "Karte aktualisieren", exact: true }).click();
     expect(await (await refreshed).json()).toMatchObject({ balance: 6 });
-    await expect(f.customerPage.locator(".customer-balance-line strong")).toHaveText(/6\s*Punkte/);
+    await expect(f.customerPage.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", /^6 von \d+ Punkten$/);
     const customerState = await (await f.customer.request.get(`/api/card/${f.cardToken}`)).json(); expect.soft(customerState.balance).toBe(6); expect.soft(customerState.activity.filter((r: { kind: string }) => r.kind === "redeem")).toHaveLength(1);
     expect(await f.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   } finally { await f.context.close(); await f.customer.close(); }

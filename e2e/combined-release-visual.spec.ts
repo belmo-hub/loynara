@@ -46,7 +46,7 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
         expect((await owner.post("/api/cashier/award", { data: { membershipId: lookup.membershipId, quantity: 1, requestId: randomUUID(), idempotencyKey: randomUUID() } })).status()).toBe(200);
         await page.clock.fastForward(5100);
         await page.getByRole("button", { name: "Karte aktualisieren", exact: true }).click();
-        await expect(page.locator(".customer-balance-line strong")).toContainText("1");
+        await expect(page.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", /^1 von /);
         await capture(page, "manual-refresh", viewport.width);
         await page.goto(`/join/${programSlug}`);
         await expect(page.getByRole("heading", { name: "Willkommen zurück." })).toBeVisible();

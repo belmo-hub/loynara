@@ -43,7 +43,7 @@ test("tap, enroll, wait, cashier confirms, exactly one stamp, calm reload, owner
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible({ timeout: 15_000 });
     await page.reload();
     await expect(page.getByRole("heading", { name: "Stempel erhalten" })).toBeVisible();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
+    await expect(page.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", /^1 von \d+ Stempeln$/);
     await expect(page.locator("main [role=alert], [role=alert]:not(#__next-route-announcer__):not(:empty)")).toHaveCount(0);   // no error banner (Next's empty route announcer excluded)
 
     // owner view agrees: one confirmed award

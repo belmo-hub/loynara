@@ -1,198 +1,141 @@
-/* Guest card (DESIGN.md, "Customer card"). Budget: merchant, balance and the QR fit a 360 × 800 screen. */
-.merchant { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; }
-.headerWallet { display: grid; place-items: center; flex: none; width: 48px; height: 48px; margin-left: auto; border: 0; border-radius: 50%; background: var(--color-surface); color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
-.headerWallet:active { transform: scale(.97); }
-@media (hover: hover) { .headerWallet:hover { background: color-mix(in oklab, var(--color-surface), var(--color-ink) 7%); } }
-.headerWallet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.mono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--merchant); color: var(--merchant-ink); font-weight: var(--weight-heavy); font-size: var(--text-18); }
-.merchantText { display: grid; flex: 1; min-width: 0; }
-/* The shop's name is cut at two lines, as on the join page; the whole name stays in the page for screen readers. */
-.merchantName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: 1.3; overflow-wrap: anywhere; }
-.merchantText span { font-size: var(--text-14); color: var(--color-ink-muted); }
+/* The guest's card in the founder's mix (ENG-255; mock src/mix/gast.html, png/mix-gast-390.png). Panels, rows and
+   section titles are the mix patterns (@/components/ui/mix); this file holds the page's own parts and its motion.
+   One centred column at every width (the shell's 440). */
 
-.goal { display: grid; gap: var(--space-1); padding-inline: var(--space-1); }
-.goalLine { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: break-word; }
-@media (min-width: 1024px) { .goalLine { font-size: var(--display-36); } }
+/* „Deine Treuekarte“: the page's own line, 16 above the card (the founder's first picture). */
+.eyebrow { margin: 0; padding-top: var(--space-1); font-size: var(--text-16); line-height: 24px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+/* ENG-130 (08): a muted line above the card, once, after the pass is saved in Apple Wallet. */
+.saved { composes: message from "./motion.module.css"; display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
+
+/* The goal in the card's foot: the line, then the reward alone on its own line (the mix card's own sizes). */
+.goalLine { margin: 0; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); font-weight: var(--weight-label); }
 .goalNum { font-variant-numeric: tabular-nums; }
-/* The reward is a name: inline in the sentence, it wraps at spaces only, very long single words may still break. */
-.rewardName { hyphens: manual; overflow-wrap: anywhere; }
-/* The reward moment's headline (ENG-206): „Deine Prämie ist bereit:“, then the title alone on the next line. */
-.rewardName[data-alone] { display: block; }
-/* ENG-130 (08): a muted line under the goal, once, after the pass is saved in Apple Wallet. */
-.saved { composes: message from "./motion.module.css"; display: flex; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-2)) 0 0; padding-inline: var(--space-1); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
-.goalSub { margin: 0; font-size: var(--text-14); color: var(--color-ink-muted); text-wrap: pretty; }
+.rewardName { display: block; color: var(--merchant-ink); font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; hyphens: manual; overflow-wrap: anywhere; }
+.goalSub { margin: var(--space-1) 0 0; font-size: var(--text-14); line-height: 20px; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); text-wrap: pretty; }
+/* A programme without a reward: no foot, no hairline. */
+.object section > div:last-child:empty { display: none; }
 
-.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); --card-ground: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); background: var(--card-ground); box-shadow: var(--shadow-object); }
-.objectTop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
-.business { display: grid; margin: 0; min-width: 0; }
-.business strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
-.business span { font-size: var(--text-14); overflow-wrap: anywhere; }
-/* The reward moment is the stamp coral (design bar); --stamp-fill/--stamp-ink keep it readable on every shop colour. */
-.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--stamp-fill); color: var(--stamp-ink); font-size: var(--text-14); font-weight: var(--weight-heavy); animation: press var(--dur-reward) var(--ease-out); }
-/* „Prämie bereit“ lands like a stamp: a little large and tilted, then pressed flat. Once, on arrival. */
-@keyframes press { from { transform: scale(1.35) rotate(-8deg); opacity: 0; } 60% { transform: scale(.96) rotate(1deg); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .readyTag { animation: none; } }
-.stamps { margin: 0; }
-.stamps li { max-width: 56px; justify-self: center; width: 100%; }
-.ladder { margin-block: var(--space-1) 0; }
-/* Stamps: the reward and „7 von 10“ under the grid (mock 23). */
-.balanceLine { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; font-weight: var(--weight-strong); }
-.balanceLine span { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow-wrap: anywhere; }
-.balanceLine svg { flex: none; }
-.balanceLine strong { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Points: the balance leads the card (mock 24). */
-.pointsLead { margin: 0; line-height: 1; }
-.pointsLead strong { font-family: var(--font-display); font-size: var(--display-num); font-weight: var(--weight-heavy); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.pointsLead em { margin-left: var(--space-1); font-style: normal; font-family: var(--font-sans); font-size: var(--text-18); font-weight: var(--weight-strong); letter-spacing: 0; }
-.levelTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-sm); background: none; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--merchant-ink), transparent 50%); font-size: var(--text-14); font-weight: var(--weight-heavy); }
-.remaining { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.4; text-wrap: pretty; }
+.cardGroup { display: grid; }
+.object { position: relative; }
 
-/* The code: inset in the card on white, in both themes, for the counter's camera. */
-/* The QR and the number side by side (mock 23), so the card stays short. */
-.ticket { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; gap: var(--space-3); margin-top: var(--space-1); padding: var(--space-3); border-radius: var(--radius-lg); background: #FFFFFF; color: #17291F; }
-/* 140 px keeps a module about 4.4 px for the counter camera (jsQR on 640 px frames); never below 128 (Design, 31 Oct). */
+/* The ticket: the code left, the number right, in a mix panel, white in both themes so scanners read dark on light.
+   140 keeps a module about 4.4 px for the counter camera; 128 below 360 (Design, 31 Oct). */
+section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-5); background: #FFFFFF; color: #17291F; }
 .qr { width: 140px; aspect-ratio: 1; }
 .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .missingQr { margin: 0; font-size: var(--text-14); }
-.locator { display: grid; gap: var(--space-1); min-width: 0; margin: 0; container-type: inline-size; }
-.locator span { font-size: var(--text-14); color: #58645C; }
+.locator { display: grid; gap: 2px; min-width: 0; margin: 0; container-type: inline-size; }
+.locator span, .locator small { font-size: var(--text-14); line-height: 20px; color: #58645C; text-wrap: pretty; }
 /* Read aloud at the counter, so it stays on one line (G-05); a step smaller on narrow phones. */
-.locator strong { font-size: clamp(var(--text-16), 14cqi, var(--text-28)); font-weight: var(--weight-heavy); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.locator small { font-size: var(--text-14); line-height: 1.4; color: #58645C; text-wrap: pretty; }
-/* Below 360 the number goes under a 128 px QR: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
-@media (max-width: 359px) { .ticket { grid-template-columns: minmax(0, 1fr); } .qr { justify-self: start; width: 128px; } }
+.locator strong { font-size: clamp(var(--text-16), 18cqi, var(--text-28)); line-height: 34px; font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Below 360 the number goes under the code: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
+@media (max-width: 359px) { section.ticket { grid-template-columns: minmax(0, 1fr); } .qr { width: 128px; } }
 
-.cardGroup { display: grid; gap: var(--space-3); }
+/* Add to Wallet: a black bar 52 high, Apple's badge artwork in its middle (ENG-132: the official badge, German). */
+.walletButtons { display: grid; gap: var(--space-2); }
+.walletButton { display: flex; align-items: center; justify-content: center; width: 100%; min-height: var(--mix-row); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: #000000; color: #FFFFFF; font: var(--weight-label) var(--text-16)/1.2 var(--font-sans); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+.walletButton:active:not(:disabled) { transform: scale(.98); }
+.walletButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.walletButton:disabled { cursor: progress; opacity: .7; }
+/* Apple's guidelines: a badge is never shown dimmed; the quiet line under it says it is busy. */
+.walletButton[data-badge]:disabled { opacity: 1; }
+.walletButton img { display: block; height: 44px; width: auto; }
+.walletBusy { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
+/* Always mounted so it is announced; out of the grid's flow while it says nothing. */
+.walletBusy:empty { position: absolute; }
+
 .alert { composes: message from "./motion.module.css"; margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .refresh { display: grid; justify-items: center; gap: var(--space-1); }
-/* Not green: the one next step is the band (Design, 31 Oct). */
 .refresh .refreshButton { color: var(--color-ink-muted); }
 @media (hover: hover) { .refresh .refreshButton:hover { background: var(--color-fill); color: var(--color-ink); } }
 /* „Karte aktualisieren“ answers the press with one turn of its icon (Press), whatever the read takes; never a loop. */
 .turn { animation: turn var(--dur-ui) var(--ease-out); }
 @keyframes turn { to { transform: rotate(360deg); } }
 
-/* Phone: one column in source order. From 960 px the shell runs two columns and these become them (G-34). */
+/* One column in source order: the two groups are the shell's grid items. */
 .lead, .rest { display: contents; }
-@media (min-width: 960px) {
-  .lead, .rest { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
-  .lead { position: sticky; top: var(--space-6); }
-}
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 
-/* Section heads on the grey with white rows, as on the owner's Programm list; one green band for the one next step. */
-.section { display: grid; gap: var(--space-2); margin-top: var(--space-1); }
-.sectionHead { margin: 0; font-size: var(--text-14); font-weight: var(--weight-heavy); line-height: 1.4; color: var(--color-ink-muted); }
-.card { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); }
-.rows { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); width: 100%; min-height: 64px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font: inherit; text-align: start; }
-button.row { cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
-button.row:active { transform: scale(.985); }
-button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-/* The reward the goal and the card refer to: a neutral ring, not green (D-020). The ring fades between rows (Select fill). */
-.row[aria-pressed] { position: relative; }
-.row[aria-pressed]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--color-line-strong); opacity: 0; pointer-events: none; transition: opacity var(--dur-press) var(--ease-out); }
-.row[aria-pressed="true"]::after { opacity: 1; }
-.rowIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--color-fill); color: var(--color-ink); }
-.rowIcon[data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
-/* A value sits beside the words while they fit, else on a line of its own. */
-.rowMain { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); }
-.rowText { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-.rowText > strong, .rowText > small, .rowText > span { display: block; }
-.rowText > strong { font-weight: var(--weight-strong); line-height: 1.35; }
-.rowText > span { font-weight: var(--weight-label); line-height: 1.4; text-wrap: pretty; }
-.rowText > small { margin-top: 2px; font-size: var(--text-14); line-height: 1.4; color: var(--color-ink-muted); }
+/* A titled section stands 32 under the block before it (16 of the shell's gap and 16 here); the first after the
+   44 px refresh target 20 under it, as the mock joins its two pictures. */
+.section { margin-top: calc(var(--space-8) - var(--space-4)); }
+.lead:has(> .refresh:last-child) + .rest > .section:first-child { margin-top: var(--space-1); }
+.list { margin: 0; padding: 0; list-style: none; }
+.rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
+.rowButton:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+@media (hover: hover) { .rowButton:hover { background: var(--color-fill); } }
+/* The reward the goal refers to: a neutral ring, not green (D-020). */
+.rowButton[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-line-strong); }
+.rowButton[aria-pressed]:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.rowButton[aria-pressed]:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+/* „Gut zu wissen“: lines of text beside the tile; a dated change is the warning tint. */
+.list [data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
+.noteText { overflow-wrap: anywhere; }
+.noteText > :is(strong, small, span) { display: block; }
+.noteText > strong { font-weight: var(--weight-strong); }
+.noteText > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 .ink { color: var(--color-ink); font-weight: var(--weight-strong); }
-.rowValue { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rowArrow { flex: none; margin-left: auto; color: var(--color-ink-muted); transition: color var(--dur-press) var(--ease-out); }
-@media (hover: hover) { button.row:hover .rowArrow { color: var(--color-ink); } }
-/* „Einlösbar“ stands on its own line under the reward's text. */
-.chipLine { flex-basis: 100%; padding-left: 52px; }
-.chip { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 28px; margin-top: var(--space-1); padding: 0 var(--space-3); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--color-success), transparent 90%); color: var(--color-success); font-size: var(--text-14); font-weight: var(--weight-strong); }
-/* The one green surface on the card: shown only while a reward is ready. */
-.band { display: flex; align-items: center; gap: var(--space-3); min-height: 76px; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); }
-.bandIcon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
-.band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; }
-.band small { display: block; margin-top: 2px; font-size: var(--text-16); line-height: 1.4; }
-/* Below 360 px the icons give their room to the words. */
-@media (max-width: 359px) { .rowIcon, .bandIcon { display: none; } .chipLine { padding-left: 0; } }
-@media (prefers-reduced-motion: reduce) { button.row:active, .headerWallet:active, .showAll:active { transform: none; } .turn { animation: none; } .closeToggle svg, .activityMore { transition: none; } }
+.newsText { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+
+/* „Letzte Aktivität“: the check tile, the label over the day, the amount right (green for a booking). */
+.activityDay { font-variant-numeric: tabular-nums; }
+.amount { flex: none; white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; color: var(--color-success); }
+.amount b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
+.amount small { font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.amount[data-sign="minus"] { color: var(--color-ink); }
+/* The later rows open in place under the first three (Disclosure); their first row draws its hairline. */
+.activityMore { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
+.activityMore > ul { min-height: 0; overflow: hidden; }
+.activityMore li:first-child > span { border-top-color: var(--color-line); }
+@starting-style { .activityMore { grid-template-rows: 0fr; } }
+.showAll { width: 100%; border-inline: 0; border-bottom: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.showAll:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+
 .sheetBody { display: grid; gap: var(--space-3); }
 /* In a sheet the actions stand 24 under the last text (DESIGN.md, Overlays). */
-.sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }
-.newsText { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
-
-.walletButtons { display: grid; gap: var(--space-2); }
-.walletButton { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: #111111; color: #FFFFFF; font: var(--weight-label) var(--text-16)/1.2 var(--font-sans); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
-.walletButton:active:not(:disabled) { transform: scale(.98); }
-.walletButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.walletButton:disabled { cursor: progress; opacity: .7; }
-.walletButton[data-badge] { justify-self: center; width: fit-content; padding: 0; background: transparent; }
-/* Apple's guidelines: a badge is never shown dimmed; the quiet line under it says it is busy. */
-.walletButton[data-badge]:disabled { opacity: 1; }
-.walletBusy { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
-/* Always mounted so it is announced; out of the grid's flow while it says nothing. */
-.walletBusy:empty { position: absolute; }
-.walletButton img { display: block; height: 52px; width: auto; }
-
-.steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }
-.steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-/* One day column for all rows (subgrid), so labels after „Gestern“ and „Mi“ start on one edge. The first three rows and
-   the rows behind „Alle anzeigen“ are two lists on that one grid; the second opens in place (Disclosure). */
-.activity { display: grid; grid-template-columns: minmax(2.5rem, max-content) minmax(0, 1fr) auto; }
-.activityRows, .activityMore { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; margin: 0; padding: 0; list-style: none; }
-.activityMore { grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
-.activityMore > ul { min-height: 0; overflow: hidden; }
-@starting-style { .activityMore { grid-template-rows: 0fr; } }
-/* The day first as a muted column, the label, the value in ink (G-21: no green here). */
-.activity li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: var(--space-3); min-height: 52px; border-top: 1px solid var(--color-line); }
-.activity > ul:first-child > li:first-child { border-top: 0; }
-.activityDay { font-size: var(--text-14); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
-/* Hyphenate only long words, and leave at least three letters on each side („Kauf erfasst“ stays whole). */
-.activity strong { font-weight: var(--weight-strong); overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 8 3 3; -webkit-hyphenate-limit-before: 3; -webkit-hyphenate-limit-after: 3; }
-.activity b { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Below 360 the rows give the label more room, so „Gesammelt“ stays on one line. */
-@media (max-width: 359px) { .activity li { column-gap: var(--space-2); } }
-.showAll { justify-self: start; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-14)/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
-.showAll:active { transform: scale(.97); }
-
+.sheetBody > button { margin-top: var(--space-3); }
 .rules { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-5); margin: 0; }
 .links a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
-/* The export as a „Deine Karte“ row; its own button and error line keep their behaviour. */
-.export :global(.customer-export) { flex: 1; min-width: 0; }
-.export :global(.terms-link) { display: flex; align-items: center; min-height: var(--target); padding: 0; border: 0; background: none; color: var(--color-ink); font: var(--weight-strong) var(--text-16)/1.35 var(--font-sans); text-align: start; text-decoration: none; cursor: pointer; }
-.export :global(.auth-error) { flex-basis: 100%; margin: 0; padding-left: 52px; font-size: var(--text-14); color: var(--color-danger); }
+.steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }
+.steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The export as a „Deine Karte“ row: the link fills the row; its own error line keeps its behaviour. */
+.export :global(.customer-export) { display: grid; flex: 1; min-width: 0; }
+.export :global(.terms-link) { display: flex; align-items: center; min-height: var(--target); color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: none; cursor: pointer; }
+.export :global(.auth-error) { margin: 0; font-size: var(--text-14); color: var(--color-danger); }
 
-/* „Karte schließen“ comes last, as a danger link; the binding step stays behind it. */
-.close { display: grid; justify-items: stretch; gap: var(--space-3); margin-top: var(--space-2); }
-.closeToggle { display: inline-flex; justify-self: start; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: transparent; color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
-.closeToggle svg { transition: transform var(--dur-ui) var(--ease-out); }
-.closeToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
-.closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
-.closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
+/* „Karte schließen“: a panel one row high; the binding step stays behind it. */
+.close { display: grid; justify-items: stretch; gap: var(--space-3); }
+.closeToggle { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row); padding: 0 var(--space-5); color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
+.closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: calc(var(--space-5) - 1px); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 /* It ends a destructive flow: 48 high. The small type stays, so the label fits one line at 390 px. */
 .closeConfirm button { min-height: 48px; }
 .closeConfirm p { margin: 0; }
-.footer { display: grid; justify-items: center; gap: var(--space-2); }
+.footer { display: grid; justify-items: center; gap: var(--space-1); }
 .footer p { margin: 0; }
 
 /* An ending programme opens the card (ENG-075): the date, then what still works until then. */
-.ending { display: grid; gap: var(--space-1); padding: var(--space-4); border-radius: var(--radius-lg); background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-ink); }
+.ending { display: grid; gap: var(--space-1); padding: calc(var(--space-5) - 1px); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-ink); }
 .ending p { margin: 0; font-size: var(--text-14); line-height: 1.45; }
 .endingTitle { margin: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.3; text-wrap: balance; }
 
 /* „Bedingungen“ after the win-back line: an inline link to the programme rules (Legal: the rules one tap away). */
 .inlineLink { display: inline; padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-
-/* ENG-100: a change waiting for its date is a „Gut zu wissen“ row (mock 25); a long new rule opens under its line. */
+/* ENG-100: a change waiting for its date is a „Gut zu wissen“ row; a long new rule opens under its line. */
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
 .newRule { composes: message from "./motion.module.css"; display: block; margin-top: var(--space-2); font-weight: var(--weight-body); white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* The booking moment (card-moment spec): a pill over the shop header, so nothing below moves. Never a target; it
-   leaves by itself after --pill-stay, faster than it came. Inside it the check settles, then draws, then „+n“ rises.
+/* The one green surface on the card: shown only while a reward is ready. */
+.band { display: flex; align-items: center; gap: var(--space-3); min-height: 76px; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action); color: var(--color-on-action); }
+.bandIcon { display: grid; place-items: center; flex: none; width: var(--mix-tile); height: var(--mix-tile); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
+.band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; }
+.band small { display: block; margin-top: 2px; font-size: var(--text-16); line-height: 1.4; }
+@media (max-width: 359px) { .bandIcon { display: none; } }
+
+/* The booking moment (card-moment spec): a pill at the top, so nothing below moves. Never a target; it leaves by
+   itself after --pill-stay, faster than it came. Inside it the check settles, then draws, then „+n“ rises.
    Reduced motion keeps everything in place. */
 .pill {
   --pill-shift: -12px;
@@ -214,7 +157,7 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
    The band's distance to the card is its own margin, inside the clipped wrapper, so a closed slot is 0 px tall. */
 .bandSlot { display: grid; grid-template-rows: 1fr; }
 .bandSlot > div { min-height: 0; overflow: hidden; }
-.bandSlot .band { margin-top: var(--space-3); }
+.bandSlot .band { margin-top: var(--space-4); }
 .bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
 .bandSlot[data-arrive] .band { animation: band-in var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
 @keyframes slot-open { from { grid-template-rows: 0fr; } }
@@ -229,16 +172,16 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
   .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band { animation: none; }
 }
 
-/* The placeholder's two columns are the page's own (.lead, .rest), so its wrapper takes no box. Its blocks fade in, so
+/* The placeholder's groups are the page's own (.lead, .rest), so its wrapper takes no box. Its blocks fade in, so
    the page a guest comes from (the join page) does not cut to grey blocks. */
 .loading { display: contents; }
-.loadingHead, .loading :is(.goal, .cardGroup, .section) { animation: fade-in var(--dur-ui) var(--ease-out) backwards; }
+.loading :is(.eyebrow, .cardGroup, .section) { animation: fade-in var(--dur-ui) var(--ease-out) backwards; }
 @keyframes fade-in { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .loadingHead, .loading :is(.goal, .cardGroup, .section) { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .loading :is(.eyebrow, .cardGroup, .section) { animation: none; } }
 
 /* First paint only (data-arriving, taken away after half a second, so a re-read replays nothing).
-   Card arrive: the card's ground settles from .98 and fades in while the code, the number and the balance stay still;
-   for that moment ::before paints the ground. Rows under the placeholder do not rise.
+   Card arrive: the card's ground settles from .98 and fades in while the stamps and the words stay still; for that
+   moment ::before paints the ground. Rows under the placeholder do not rise.
    List arrive: an activity row that joins the painted page (opened by „Alle anzeigen“, or added by a later read)
    rises 6 px and fades, 30 ms apart, at most 8, done by 420 ms. */
 .activityRows > :nth-child(2) { --row: 1; }
@@ -248,32 +191,33 @@ button.row:focus-visible { outline: 3px solid var(--color-focus); outline-offset
 .activityRows > :nth-child(6) { --row: 5; }
 .activityRows > :nth-child(7) { --row: 6; }
 .activityRows > :nth-child(n + 8) { --row: 7; }
+.object > section { position: relative; }
 @media (prefers-reduced-motion: no-preference) {
-  .lead:is([data-arriving], [data-card-press]) .object { isolation: isolate; background: none; box-shadow: none; }
-  .lead:is([data-arriving], [data-card-press]) .object::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground); box-shadow: var(--shadow-object); }
-  .lead[data-arriving] .object::before { animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
+  .lead:is([data-arriving], [data-card-press]) .object > section { isolation: isolate; background: none; box-shadow: none; }
+  .lead:is([data-arriving], [data-card-press]) .object > section::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); box-shadow: var(--shadow-object); }
+  .lead[data-arriving] .object > section::before { animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
+  /* Pop in (ENG-008): a stamp the booking just reached lands once, 90 ms apart (GuestMixCard marks it). */
+  .object [role="img"] > span[data-new] { animation: land var(--dur-reward) var(--ease-out) var(--land-stagger, 0ms) both; }
 }
+@keyframes land { 0% { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: scale(1); } }
 /* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no
    placeholder stands in between unless its read is slow. The page fades in once, over --dur-ui. */
-.lead[data-return] .object::before { animation: none; }
-/* The fade sits on the shell's own boxes: .lead is display: contents on a phone and paints nothing itself. */
+.lead[data-return] .object > section::before { animation: none; }
 .returning > :is(header, main, footer) { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
 @keyframes return-in { from { opacity: 0; } }
-/* A return whose read takes longer than 300 ms: the placeholder fades in over the bare ground. Its header and main
-   fade by the loading rules they already have; only the footer needs this. */
+/* A return whose read takes longer than 300 ms: the placeholder fades in over the bare ground; only the footer needs this. */
 .late > footer { animation: return-in var(--dur-ui) var(--ease-out) backwards; }
 @media (prefers-reduced-motion: reduce) { .returning > :is(header, main, footer), .late > footer { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .walletButton:active:not(:disabled) { transform: none; } .turn { animation: none; } .activityMore { transition: none; } }
 @keyframes card-arrive { from { opacity: 0; transform: scale(.98); } }
-/* The reward moment (ENG-206): the booking made a reward ready. The pill at 0, the last stamp lands at 420 ms (Pop in),
-   the card's ground presses once at the stamp's impact (about 710 ms: down over --dur-press, back over --dur-ui) while
-   the stamps, the code and the number stand still as in Card arrive, and the band opens at 900 ms as shipped. Settled
-   by about 1.1 s. Reduced motion: the end state at once, no press. */
+/* The reward moment (ENG-206): the card's ground presses once at the last stamp's impact (about 710 ms) while the
+   stamps and the words stand still, and the band opens at 900 ms. Reduced motion: the end state at once, no press. */
 @media (prefers-reduced-motion: no-preference) {
-  .lead[data-card-press] .object::before { animation: card-press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out) calc(.6 * var(--dur-reward)); }
+  .lead[data-card-press] .object > section::before { animation: card-press calc(var(--dur-press) + var(--dur-ui)) var(--ease-out) calc(.6 * var(--dur-reward)); }
 }
 /* 35 %: --dur-press of the two durations together. Each half eases out by itself. */
 @keyframes card-press { 35% { transform: scale(.985); } }
 @keyframes list-arrive { from { opacity: 0; transform: translateY(6px); } }
 /* Forced colours take the fills and shadows these shapes are drawn with: a line gives each its edge back. */
-@media (forced-colors: active) { .object, .ticket, .band { border: 1px solid CanvasText; } .levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); } } /* forced colours drop the tag's box-shadow outline */
+@media (forced-colors: active) { .object > section, .band { border: 1px solid CanvasText; } }

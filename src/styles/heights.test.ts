@@ -87,7 +87,7 @@ describe("sheets, dialogs and toasts", () => {
     expect(toast).toMatch(/min-height: 48px; padding: var\(--space-2\) calc\(\(48px - var\(--target\)\) \/ 2\) var\(--space-2\) var\(--space-4\);\n  border-radius: var\(--radius-xl\);/);
   });
   it("in a customer sheet the actions stand 24 under the last text", () => {
-    expect(read("src/components/customer/customer-card.module.css")).toContain(".sheetBody > :is(.walletButtons, button) { margin-top: var(--space-3); }");
+    expect(read("src/components/customer/customer-card.module.css")).toContain(".sheetBody > button { margin-top: var(--space-3); }");
   });
 });
 

@@ -30,11 +30,11 @@ describe("review link", () => {
 
 describe("progress (Impeccable K1, K3)", () => {
   const count = (out: string, text: string) => out.split(text).length - 1;
-  it("states the progress once, above the card, and names the reward", () => {
+  it("states the progress once, in the card's foot, and names the reward (mix, ENG-255)", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3 }));
     expect(count(out, "reward-remaining")).toBe(1);
-    expect(out).toMatch(/<h1 class="reward-remaining[^"]*">Noch <span[^>]*>2<\/span> Stempel bis zu deiner Prämie: <span[^>]*>Kaffee<\/span><\/h1>/);
-    expect(out.indexOf("reward-remaining")).toBeLessThan(out.indexOf("customer-card "));
+    expect(out).toMatch(/<p class="reward-remaining[^"]*">Noch <span[^>]*>2<\/span> Stempel bis zu deiner Prämie: <span[^>]*>Kaffee<\/span><\/p>/);
+    expect(out.indexOf("customer-card ")).toBeLessThan(out.indexOf("reward-remaining"));
   });
   it("names the ready reward, and the next goal underneath", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, cardLocator: "K-ABC234", balance: 5, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
@@ -46,7 +46,7 @@ describe("progress (Impeccable K1, K3)", () => {
     const out = renderToStaticMarkup(h(CustomerCard, base));
     expect(out).not.toContain("Buchungen müssen an der Kasse bestätigt werden");
     expect(out).not.toContain("Kontostand");
-    expect(out).toMatch(/customer-balance-line[^"]*"><span><svg[^]*?<\/svg>Kaffee<\/span><strong>1 von 5<\/strong>/);
+    expect(out).toContain("<b>1</b><span>von 5</span>");
   });
 });
 
@@ -54,21 +54,21 @@ describe("one point in the singular on the card (ENG-104)", () => {
   const card = (locale: "de" | "fr", balance: number, change: number, programType: "points" | "stamps" = "points") =>
     renderToStaticMarkup(h(CustomerCard, { ...base, programType, locale, balance, activity: [{ id: "a", label: "x", date: "d", change }] }));
   it("balance line, in German and French", () => {
-    expect(card("de", 1, 1)).toMatch(/>1<\/span> <em>Punkt<\/em>/);
-    expect(card("de", 2, 1)).toMatch(/>2<\/span> <em>Punkte<\/em>/);
-    expect(card("fr", 1, 1)).toMatch(/>1<\/span> <em>point<\/em>/);
-    expect(card("fr", 2, 1)).toMatch(/>2<\/span> <em>points<\/em>/);
-    expect(card("de", 1, 1, "stamps")).toContain("<strong>1 von 5</strong>");
+    expect(card("de", 1, 1)).toContain("<b>1</b><span>Punkt</span>");
+    expect(card("de", 2, 1)).toContain("<b>2</b><span>Punkte</span>");
+    expect(card("fr", 1, 1)).toContain("<b>1</b><span>point</span>");
+    expect(card("fr", 2, 1)).toContain("<b>2</b><span>points</span>");
+    expect(card("de", 1, 1, "stamps")).toContain("<b>1</b><span>von 5</span>");
   });
   it("activity line, for a booking and a redemption, in German and French", () => {
-    expect(card("de", 5, 1)).toContain('<b>+1 Punkt</b>');
-    expect(card("de", 5, 2)).toContain('<b>+2 Punkte</b>');
-    expect(card("de", 5, -1)).toContain('<b data-sign="minus">-1 Punkt</b>');
-    expect(card("de", 5, -2)).toContain('<b data-sign="minus">-2 Punkte</b>');
-    expect(card("fr", 5, 1)).toContain('<b>+1 point</b>');
-    expect(card("fr", 5, 2)).toContain('<b>+2 points</b>');
-    expect(card("fr", 5, -1)).toContain('<b data-sign="minus">-1 point</b>');
-    expect(card("de", 5, 1, "stamps")).toContain('<b>+1 Stempel</b>');
+    expect(card("de", 5, 1)).toContain('<b>+1</b> <small>Punkt</small>');
+    expect(card("de", 5, 2)).toContain('<b>+2</b> <small>Punkte</small>');
+    expect(card("de", 5, -1)).toMatch(/data-sign="minus"><b>-1<\/b> <small>Punkt<\/small>/);
+    expect(card("de", 5, -2)).toMatch(/data-sign="minus"><b>-2<\/b> <small>Punkte<\/small>/);
+    expect(card("fr", 5, 1)).toContain('<b>+1</b> <small>point</small>');
+    expect(card("fr", 5, 2)).toContain('<b>+2</b> <small>points</small>');
+    expect(card("fr", 5, -1)).toMatch(/data-sign="minus"><b>-1<\/b> <small>point<\/small>/);
+    expect(card("de", 5, 1, "stamps")).toContain('<b>+1</b> <small>Stempel</small>');
   });
 });
 
@@ -76,9 +76,8 @@ describe("counts on the card, French zero and French stamps included (ENG-108)",
   const card = (locale: "de" | "fr", programType: "points" | "stamps", balance: number, extra: Partial<CustomerCardProps> = {}) =>
     renderToStaticMarkup(h(CustomerCard, { ...base, locale, programType, balance, ...extra }));
   it("balance line: French takes the singular for 0 and 1", () => {
-    expect(card("fr", "points", 0)).toMatch(/>0<\/span> <em>point<\/em>/);
-    expect(card("fr", "stamps", 2)).toContain("<strong>2 sur 5</strong>");
-    expect(card("de", "points", 0)).toMatch(/>0<\/span> <em>Punkte<\/em>/);
+    expect(card("fr", "points", 0)).toContain("<b>0</b><span>point</span>");
+    expect(card("de", "points", 0)).toContain("<b>0</b><span>Punkte</span>");
   });
   it("progress line with one stamp missing, in French", () => {
     expect(card("fr", "stamps", 4)).toMatch(/Encore <span[^>]*>1<\/span> tampon avant votre récompense :/);
@@ -95,8 +94,8 @@ describe("counts on the card, French zero and French stamps included (ENG-108)",
   });
   it("activity line for French stamps", () => {
     const activity = (change: number) => ({ activity: [{ id: "a", label: "x", date: "d", change }] });
-    expect(card("fr", "stamps", 5, activity(1))).toContain('<b>+1 tampon</b>');
-    expect(card("fr", "stamps", 5, activity(2))).toContain('<b>+2 tampons</b>');
+    expect(card("fr", "stamps", 5, activity(1))).toContain('<b>+1</b> <small>tampon</small>');
+    expect(card("fr", "stamps", 5, activity(2))).toContain('<b>+2</b> <small>tampons</small>');
   });
 });
 
@@ -146,7 +145,7 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
   });
   it("leads a points card with the balance and names each reward on the ladder", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 112, rewards: [{ id: "a", title: "Bartöl", cost: 100 }, { id: "b", title: "Haarschnitt", cost: 250 }] }));
-    expect(out).toMatch(/customer-balance-line[^"]*"><strong><span[^>]*>112<\/span> <em>Punkte<\/em><\/strong>/);
+    expect(out).toContain("<b>112</b><span>Punkte</span>");
     expect(out).toMatch(/>100<\/small><small[^>]*>Bartöl<\/small>/);
   });
   it("aligns an early reward's labels to the ladder's start and the last one's to its end (Design FIX 4)", () => {
@@ -154,13 +153,23 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     expect(out).toMatch(/data-start="true"[^>]*><span[^>]*><\/span><small[^>]*>20<\/small><small[^>]*>Ein sehr langer Prämienname/);
     expect(out).toMatch(/data-end="true"[^>]*><span[^>]*><\/span><small[^>]*>250<\/small>/);
   });
-  it("puts the goal slot with the gift on the stamp grid", () => {
-    expect(renderToStaticMarkup(h(CustomerCard, base))).toContain("data-reward=\"true\"");
+  it("draws the stamps as the mix card: open slots are plain discs, no gift slot (mix ruling 1)", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("data-reward");
   });
-  it("offers Wallet, rules and recovery as „Deine Karte“ rows, and the legal links open beside the card", () => {
-    const out = renderToStaticMarkup(h(CustomerCard, { ...base, rulesText: "Ein Stempel pro Kaffee.", onAppleWallet: () => {} }));
+  it("lists „Deine Prämien“ only when there is a choice of rewards (ENG-255)", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("customer-rewards-title");
+    const two = renderToStaticMarkup(h(CustomerCard, { ...base, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
+    expect(two).toContain("Deine Prämien");
+    expect(two).toMatch(/aria-pressed="true"[^>]*>.*?<b>Kaffee<\/b>/);
+  });
+  it("puts the Wallet button under the ticket, rules and recovery in „Deine Karte“, and the legal links open beside the card", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, cardLocator: "K-ABC234", qrSrc: "/api/qr?value=x", rulesText: "Ein Stempel pro Kaffee.", onAppleWallet: () => {} }));
+    const order = ["customer-qr-panel", "wallet-add--apple", "customer-activity-title", "customer-more-title"].map(text => out.indexOf(text));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order[0]).toBeGreaterThan(-1);
+    expect(out).not.toContain("In Wallet speichern");
     const rows = out.slice(out.indexOf("customer-more-title"));
-    for (const title of ["In Wallet speichern", "Programmregeln", "So findest du deine Karte wieder"]) expect(rows).toContain(`<strong>${title}</strong>`);
+    for (const title of ["Programmregeln", "So findest du deine Karte wieder"]) expect(rows).toContain(`<b>${title}</b>`);
     expect(out).toContain('<a target="_blank" rel="noopener" href="/datenschutz">Datenschutz</a>');
   });
   it("caps the activity at three rows behind „Alle anzeigen“", () => {
@@ -172,10 +181,11 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
 });
 
 describe("round 2 (Impeccable batch 2, PR I)", () => {
-  it("names the shop in the header, as a paragraph under the goal heading, and on the card like a pass (mock 23)", () => {
+  it("heads the page „Deine Treuekarte“ and names the shop once, on the card (mix, ENG-255)", () => {
     const out = renderToStaticMarkup(h(CustomerCard, base));
-    expect(out).toMatch(/<p class="customer-header-merchant[^"]*">Synthetic Café<\/p>/);
-    expect(out).toMatch(/customer-card-business[^"]*"><strong>Synthetic Café<\/strong><span>Kassel<\/span><\/p>/);
+    expect(out).toMatch(/<h1 class="customer-header [^"]*">Deine Treuekarte<\/h1>/);
+    expect(out).toContain("<b>Synthetic Café</b><span>Kassel</span>");
+    expect(out.split("Synthetic Café").length - 1).toBe(1);
   });
   it("puts the reward's name on its own line under the headline", () => {
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3 }))).toMatch(/bis zu deiner Prämie: <span class="goal-reward [^"]*">Kaffee<\/span>/);
@@ -318,10 +328,10 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
 });
 
 describe("the reward moment (ENG-206)", () => {
-  const ready = { ...base, balance: 5, moment: { credited: 1, balance: 5 }, titleAlone: true };
+  const ready = { ...base, balance: 5, moment: { credited: 1, balance: 5 } };
   it("names the reward on its own line from the first frame, and presses the card only once the last stamp has landed", () => {
     // Marketing (10 Nov): the live phrase, then the owner's title alone on its own line, nothing added.
-    const headline = /Deine Prämie ist bereit: <span class="goal-reward[^"]*" data-alone="true">Kaffee<\/span><\/h1>/;
+    const headline = /Deine Prämie ist bereit: <span class="goal-reward[^"]*">Kaffee<\/span><\/p>/;
     const waiting = renderToStaticMarkup(h(CustomerCard, { ...ready, balance: 4 }));
     expect(waiting).toMatch(headline);
     expect(waiting).not.toContain("data-card-press");
@@ -342,9 +352,9 @@ describe("the reward moment (ENG-206)", () => {
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3, landed: 3, moment: { credited: 1, balance: 3 } }))).not.toContain("data-card-press");
     expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 6, landed: 6, moment: { credited: 1, balance: 6 } }))).not.toContain("data-card-press");
   });
-  it("keeps the reward's title on its own line on a later visit while the reward is ready, and only then", () => {
-    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5, titleAlone: true }))).toMatch(/Deine Prämie ist bereit: <span class="goal-reward[^"]*" data-alone="true">Kaffee<\/span>/);
-    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 3, titleAlone: true }))).not.toContain("data-alone");
+  it("keeps the reward's title on its own line in the card's foot, ready or not", async () => {
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toMatch(/\n\.rewardName \{ display: block;/);
   });
   it("without a moment (STAMP_ANIMATION_ENABLED off) the card shows its state: no pill, no landing, no sequence", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5 }));
@@ -365,8 +375,8 @@ describe("the card after the join page (ENG-205)", () => {
     expect(renderToStaticMarkup(createElement(CustomerCard, card))).not.toContain("data-return");
     expect(renderToStaticMarkup(createElement(CustomerCard, { ...card, quiet: true }))).toContain('data-return="true"');
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
-    expect(css).toContain(".lead[data-return] .object::before { animation: none; }");
-    expect(css.indexOf(".lead[data-return] .object::before")).toBeGreaterThan(css.indexOf(".lead[data-arriving] .object::before"));
+    expect(css).toContain(".lead[data-return] .object > section::before { animation: none; }");
+    expect(css.indexOf(".lead[data-return] .object > section::before")).toBeGreaterThan(css.indexOf(".lead[data-arriving] .object > section::before"));
   });
   it("has no placeholder on a return: the bare ground with its heading while the read is pending, then the content fades in once", async () => {
     const { renderToStaticMarkup } = await import("react-dom/server");
@@ -410,10 +420,10 @@ describe("the card after the join page (ENG-205)", () => {
 
 describe("closing the card", () => {
   // At 320 px the confirmation grew past the column: a start-aligned grid item sizes to its content.
-  it("lets the confirmation take the column's width and keeps the toggle a left-aligned link", async () => {
+  it("lets the confirmation take the column's width; the toggle is a panel one row high (mix, ENG-255)", async () => {
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
     expect(css.match(/\.close\s*{([^}]*)}/)?.[1]).toMatch(/justify-items:\s*stretch/);
-    expect(css.match(/\.closeToggle\s*{([^}]*)}/)?.[1]).toMatch(/justify-self:\s*start/);
+    expect(css.match(/\.closeToggle\s*{([^}]*)}/)?.[1]).toMatch(/min-height:\s*var\(--mix-row\)/);
     // The long confirm label must not set the panel's width: the track may shrink and the button wraps (block).
     expect(css.match(/\.closeConfirm\s*{([^}]*)}/)?.[1]).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   });

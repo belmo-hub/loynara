@@ -9,19 +9,19 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   test(`card checkout essentials fit ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
-    await expect(page.locator(".customer-header-merchant")).toBeVisible();
-    await expect(page.locator(".customer-balance-line strong")).toBeVisible();
+    await expect(page.locator(".customer-card")).toBeVisible();
+    await expect(page.locator(".customer-card [role=img]")).toBeVisible();
     const qr = page.locator(".customer-qr img");
     await expect(qr).toBeVisible();
     await expect.poll(() => qr.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     const qrBox = await qr.boundingBox();
-    const merchantBox = await page.locator(".customer-header-merchant").boundingBox();
-    const balanceBox = await page.locator(".customer-balance-line strong").boundingBox();
+    const merchantBox = await page.locator(".customer-card section > div").first().boundingBox();
+    const balanceBox = await page.locator(".customer-card [role=img]").boundingBox();
     expect(qrBox).not.toBeNull();
     expect(merchantBox).not.toBeNull();
     expect(balanceBox).not.toBeNull();
-    expect(qrBox!.width).toBeGreaterThanOrEqual(188);
-    expect(qrBox!.height).toBeGreaterThanOrEqual(188);
+    expect(qrBox!.width).toBeGreaterThanOrEqual(140);
+    expect(qrBox!.height).toBeGreaterThanOrEqual(140);
     expect(qrBox!.y).toBeGreaterThan(0);
     expect(qrBox!.y + qrBox!.height).toBeLessThanOrEqual(viewport.height);
     expect(merchantBox!.y + merchantBox!.height).toBeLessThanOrEqual(viewport.height);
@@ -40,8 +40,8 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   const card = await response.json() as { merchantName: string; cardLocator: string; balance: number; rewards: { title: string; cost: number }[] };
   const reward = card.rewards[0];
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
-  await expect(page.locator(".customer-header-merchant")).toHaveText(card.merchantName);
-  // The shop is named once, in the header; the card object shows the location (Impeccable batch 2).
+  await expect(page.locator(".customer-card")).toContainText(card.merchantName);
+  // The shop is named once, on the card (mix, ENG-255).
   await expect(page.getByRole("link", { name: "Apple Wallet" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google Wallet" })).toHaveCount(0);
   if (reward && card.balance < reward.cost) {
@@ -58,8 +58,8 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   expect(new URL(copied).search).toBe("");
   const reopened = await context.newPage();
   await reopened.goto(copied);
-  await expect(reopened.locator(".customer-header-merchant")).toHaveText(card.merchantName);
-  await expect(reopened.locator(".customer-balance-line strong")).toContainText(String(card.balance));
+  await expect(reopened.locator(".customer-card")).toContainText(card.merchantName);
+  await expect(reopened.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", new RegExp(`^${card.balance} von `));
   await reopened.close();
 });
 

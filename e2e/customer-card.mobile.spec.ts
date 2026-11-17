@@ -8,7 +8,7 @@ const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) a
 test.describe("guest card on phones", () => {
   test("shows goal, balance and a scannable code on the first screen", async ({ page }) => {
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
-    await expect(page.locator(".customer-balance-line strong")).toBeVisible();
+    await expect(page.locator(".customer-card [role=img]")).toBeVisible();
     const qr = page.locator(".customer-qr img");
     await expect(qr).toBeVisible();
     const box = await qr.boundingBox();

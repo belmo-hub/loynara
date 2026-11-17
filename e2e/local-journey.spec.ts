@@ -28,7 +28,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(page.getByRole("checkbox")).toHaveCount(0);
     await page.getByRole("button", { name: "Meine Karte erstellen" }).click();
     await expect.poll(() => new URL(page.url()).pathname.startsWith("/card/")).toBe(true);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `0 von ${program.rewardCost}` : `0 ${unit}`);
+    await expect(page.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", new RegExp(`^0 von ${program.rewardCost} `));
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
     // The card no longer reveals the raw scan code as text; the QR image carries it, as a camera would read it.
     await expect(page.getByRole("button", { name: "Kartencode anzeigen" })).toHaveCount(0);
@@ -72,7 +72,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(cashier.locator(".reward-action-list button").first()).toBeEnabled();
 
     await page.reload();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `${program.rewardCost} von ${program.rewardCost}` : `${program.rewardCost} ${unit}`);
+    await expect(page.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", new RegExp(`^${program.rewardCost} von ${program.rewardCost} `));
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText("Deine Prämie ist bereit");
 
@@ -93,7 +93,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await expect(cashier.locator(".quantity-row output")).toHaveText("1");
 
     await page.reload();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(unit === "Stempel" ? `0 von ${program.rewardCost}` : `0 ${unit}`);
+    await expect(page.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", new RegExp(`^0 von ${program.rewardCost} `));
     await expect(page.locator(".customer-activity-list")).toContainText(`+${program.rewardCost} ${unit}`);
     await expect(page.locator(".customer-activity-list")).toContainText(`-${program.rewardCost} ${unit}`);
     await expect(page.locator(".reward-remaining")).toContainText(`Noch ${program.rewardCost} ${unit} bis zu deiner Prämie: ${program.rewardTitle}`);
