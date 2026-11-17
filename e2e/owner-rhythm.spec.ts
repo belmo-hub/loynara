@@ -52,7 +52,8 @@ const rhythm = () => page.evaluate(() => {
     chips: [...main.querySelectorAll(".ow-prog-text .ow-chip")].flatMap(el => el.previousElementSibling ? [px(box(el).top - box(el.previousElementSibling).bottom)] : []),
     // The „?“ beside a label is a 44 px target that stops where the first row's target begins.
     helpIntoRow: [...main.querySelectorAll(".ow-rows-head > button")].flatMap(el => { const row = el.parentElement!.nextElementSibling; return row ? [px(Math.max(0, box(el).bottom - box(row).top))] : []; }),
-    diaries: main.querySelectorAll(".ow-diary > h2").length,
+    // The Übersicht's diary is a mix panel since ENG-260 (its rhythm is the mix's, measured on the ticket's pictures).
+    diaries: main.querySelectorAll('.ow-diary > h2, [data-ow="diary"] h2').length,
     hints: [...main.querySelectorAll(".ow-page > .ow-hint, .ow-q > .ow-hint, .ow-group > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
   };
 });
