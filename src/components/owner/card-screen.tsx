@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, Gift, Link2, Plus, ReceiptText, RefreshCw, typ
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { nearestReward } from "@/components/customer/card-face";
+import { progressLine } from "@/components/customer/mix-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
@@ -25,12 +26,6 @@ function eligibilityLabel(value: MerchantMember["eligibility"]) {
 }
 function referralLabel(value: MerchantMember["referralStatus"]) {
   return ({ none: "Keine Zuordnung", pending: "Wartet auf den ersten bestätigten Vorgang", qualified: "Bonus gutgeschrieben", review: "In Prüfung", rejected: "Abgelehnt", reversed: "Nach Korrektur zurückgenommen" } as const)[value];
-}
-
-/** R4: the line under the stamps, to the reward the guest's own card names (nearestReward), the title always in quotes. */
-export function progressLine(balance: number, reward: { title: string; cost: number }, kind: "stamp" | "points") {
-  const left = reward.cost - balance;
-  return left <= 0 ? `Stand reicht für „${reward.title}“.` : `Noch ${nf.format(left)} ${unitWord(left, kind)} bis „${reward.title}“.`;
 }
 
 /** A fact as a row without an arrow: the label, its note, the value at the right edge. */

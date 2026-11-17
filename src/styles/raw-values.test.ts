@@ -31,6 +31,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/app/global-error.tsx", kind: "weight", reason: "global-error renders without the app's CSS, so it writes its weights as numbers (set D2 moves them to the tokens' values)" },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
+  { file: "src/components/customer/mix-card.module.css", kind: "radius", selectors: [".mark"], value: "10px", reason: "the mix card's shop mark is drawn from the founder's picture (mix NOTES, Deviations); not a house radius" },
   { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },

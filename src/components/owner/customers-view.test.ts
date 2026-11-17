@@ -4,7 +4,7 @@ import { Gift } from "lucide-react";
 import { describe, expect, it } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
-import { progressLine } from "./card-screen";
+import { progressLine } from "@/components/customer/mix-card";
 import { groupTiles, searchHref } from "./customers-view";
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
