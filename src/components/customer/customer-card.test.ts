@@ -325,6 +325,11 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
     expect(css).toContain(".walletButton[data-badge]:disabled { opacity: 1; }");
   });
+  it("shows the official badge on its own, not inside a black bar (Design, 18 Nov)", async () => {
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".walletButton[data-badge] { justify-self: center; width: fit-content; min-height: 0; padding: 0; border-radius: 0; background: transparent; }");
+    expect(css).toContain(".walletButton img { display: block; height: 48px; width: auto; }");
+  });
 });
 
 describe("the reward moment (ENG-206)", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Gift, Hourglass, Medal, Minus, RefreshCw, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CalendarClock, Check, ChevronRight, Clock, Gift, Hourglass, Medal, Minus, RefreshCw, RotateCw, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { CustomerExportLink } from "@/components/customer-export-link";
@@ -170,7 +170,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
       {wallets.length ? <Wallet {...props} t={t} buttons={wallets} /> : null}
       {props.onRefresh ? <div className={styles.refresh}>
-        <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RefreshCw key={turn} size={20} className={turn ? styles.turn : undefined} />} onClick={() => { setTurn(turn + 1); props.onRefresh?.(); }} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
+        <Button variant="quiet" size="sm" className={styles.refreshButton} icon={<RotateCw key={turn} size={20} className={turn ? styles.turn : undefined} />} onClick={() => { setTurn(turn + 1); props.onRefresh?.(); }} loading={props.refreshing}>{props.refreshing ? t.refreshing : t.refresh}</Button>
         {props.refreshFailed ? <p className={styles.alert} role="alert">{t.refreshFailed}</p> : null}
       </div> : null}
 
