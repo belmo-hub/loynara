@@ -14,6 +14,10 @@
 .kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 .h + .sub { margin-top: var(--space-1); }
+/* Inside the owner app, `.owner-app :is(h1, h2, h3)` (one class and a tag) sets every heading's line height, weight and
+   colour; a mix title or kicker that is a heading keeps its own. Non-mix owner headings are untouched. */
+:global(.owner-app) .h { line-height: 26px; }
+:global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* The panel (ruling 2): white, 1 px line, radius 20, no shadow. Rows bring their own inset; .pad is for free content.
    The inset is 20 from the outer edge, so 19 inside the border. */

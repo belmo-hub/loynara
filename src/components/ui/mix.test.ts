@@ -45,6 +45,13 @@ describe("mix tokens and patterns (ENG-254)", () => {
     expect(mixButton({ variant: "quiet", lg: true, block: true }).split(" ")).toHaveLength(4);
   });
 
+  it("keeps a mix title's 26 px line and a kicker's weight and colour inside the owner app, whose heading rule would win", () => {
+    const owner = readFileSync(join(__dirname, "../owner/owner.css"), "utf8");
+    expect(owner).toContain(".owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: 0; line-height: 1.2;");
+    expect(css).toContain(":global(.owner-app) .h { line-height: 26px; }");
+    expect(css).toContain(":global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }");
+  });
+
   it("keeps the warm chip's text at 4.5:1 on its tint over white", () => {
     expect(css).toContain(".warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }");
     expect(contrast("#9E4B2D", mix("#FFFFFF", "#9E4B2D", 0.1))).toBeGreaterThanOrEqual(4.5);
