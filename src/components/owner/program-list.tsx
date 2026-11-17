@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Archive, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { MixCard } from "@/components/customer/mix-card";
+import { cx } from "@/components/ui/cx";
+import { merchantPalette } from "@/components/ui/merchant-color";
+import { MixChip, MixPanel, MixRow, MixSection, mixStyles } from "@/components/ui/mix";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LinkPending, LoadingBlock, nf, PageHead } from "./owner-ui";
@@ -11,6 +14,7 @@ import { cardDay } from "@/lib/change-lines";
 import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
+import styles from "./program-list.module.css";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -80,8 +84,9 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(program.earningMode !== "purchase" ? { sub: "Nur bei Punkten nach Einkaufswert", ...off("Aus") } : me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
     ] },
     // The card studio holds the names (W38); where the logo upload is withheld (pilot surfaces) it offers the colour, no logo.
-    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" }] },
+    // Mix A: its row leads the infos; „Aussehen“ is the card example above them.
     { title: "Infos auf der Karte", rows: [
+      { href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" },
       { ...ask("news"), icon: Megaphone, ...(me.cardNews ? { sub: quoteStart(me.cardNews) } : off("Keine")) },
       { ...ask("review-link"), icon: Star, ...(me.reviewUrl ? { sub: host(me.reviewUrl) } : off("Kein Link")) },
     ] },
@@ -97,6 +102,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
 // and the toast's words when a save did more than save („Neuigkeit entfernt“).
 type Return = { row: string; y?: number; saved?: boolean; toast?: string };
 const RETURN = "owner-programm-return";
+/** Where each section stands in the mix layout (program-list.module.css). */
+const AREA: Record<string, "rule" | "rew" | "ext" | "info" | "res"> = { "So sammeln Kunden": "rule", "Prämien": "rew", "Extras": "ext", "Infos auf der Karte": "info", "Für die Ergebnisse": "res" };
 /** `list` names another list's return (Geschäft's sender rows, ENG-164); Programm's by default. */
 export function readReturn(list = RETURN): Return | null {
   try { const value = JSON.parse(sessionStorage.getItem(list) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
@@ -126,6 +133,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
     if (typeof back.y === "number") window.scrollTo({ top: back.y, behavior: "instant" });
     const row = Array.from(list.current?.querySelectorAll("a") ?? []).find(link => link.getAttribute("href") === back.row);
     row?.scrollIntoView({ block: "nearest", behavior: "instant" });
+    if (back.saved) row?.setAttribute("data-saved", "");
     row?.focus({ preventScroll: true });
   }, [ready, back]);
   useEffect(() => {
@@ -138,27 +146,36 @@ export function ProgramList({ me }: { me: MeResponse }) {
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"), messages: !owner.hiddenSurfaces.includes("walletMessages"),
     referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
+  const section = (title: string) => {
+    const found = sections?.find(item => item.title === title);
+    return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel>{found.rows.map(({ icon: Icon, ...row }) =>
+      <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub}
+        title={<>{row.title}{row.pending && <span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span>}<LinkPending /></>}
+        end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} />)}</MixPanel></MixSection></div>;
+  };
+  const reward = program.state === "ok" ? program.data.rewards[0] : undefined;
   return (
     <div className="ow-page">
       <PageHead title="Programm" />
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
-        <div ref={list} className="ow-prog">
-          {sections.map(section => <div key={section.title}>
-            <h2>{section.title}</h2>
-            <ul>{section.rows.map(({ icon: Icon, ...row }) => <li key={row.href}>
-              <Link href={row.href} className="ow-prog-row" data-saved={(back?.saved && back.row === row.href) || undefined} onClick={() => writeReturn({ row: row.href, y: window.scrollY })}>
-                <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
-                <span className="ow-prog-main">
-                  <span className="ow-prog-text"><strong>{row.title}</strong>{row.sub && <small>{row.sub}</small>}</span>
-                  {row.value && <span className="ow-prog-value" data-big={row.big || undefined} data-pair={row.pair || undefined} data-off={row.off || undefined}>{row.value}</span>}
-                  {row.pending && <span className="ow-prog-pend"><span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span></span>}
-                </span>
-                <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
-                <LinkPending />
-              </Link>
-            </li>)}</ul>
-            {section.note && <p className="ow-prog-note">{section.note}</p>}
-          </div>)}
+        // One click handler for every row: the list comes back to the row it was left from.
+        <div ref={list} className={styles.split} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
+          <div className={styles.col}>
+            {reward && <div className={styles.look} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+              <MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}>
+                {/* An example card at five eighths of the first reward, as the picture draws 5 of 8. */}
+                <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={program.state === "ok" && program.data.programType === "points" ? "points" : "stamps"}
+                  balance={Math.floor(reward.cost * 5 / 8)} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} />
+              </MixSection>
+            </div>}
+            {section("So sammeln Kunden")}
+            {section("Infos auf der Karte")}
+          </div>
+          <div className={styles.col}>
+            {section("Prämien")}
+            {section("Extras")}
+            {section("Für die Ergebnisse")}
+          </div>
         </div>
       )}
       <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>

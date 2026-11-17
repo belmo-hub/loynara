@@ -16,7 +16,7 @@ const rows = (data: Partial<ListData>) => Object.fromEntries(programSections({ .
 describe("Programm list", () => {
   it("has the sections in Design's order, a row per reward with its threshold, and „Prämie hinzufügen“ last", () => {
     const sections = programSections(base);
-    expect(sections.map(section => section.title)).toEqual(["Prämien", "So sammeln Kunden", "Extras", "Aussehen", "Infos auf der Karte", "Für die Ergebnisse"]);
+    expect(sections.map(section => section.title)).toEqual(["Prämien", "So sammeln Kunden", "Extras", "Infos auf der Karte", "Für die Ergebnisse"]); // „Aussehen“ is the card example (mix A)
     expect(sections[0].rows.map(row => [row.title, row.sub ?? "", row.href])).toEqual([
       ["Gratiskaffee", "Einlösbar ab 10 Stempeln", "/merchant/program/rewards/r1"], ["Keks", "Einlösbar ab 1 Stempel", "/merchant/program/rewards/r2"], ["Reihenfolge ändern", "", "/merchant/program/rewards/order"], ["Prämie hinzufügen", "", "/merchant/program/rewards/new"],
     ]);
@@ -34,6 +34,10 @@ describe("Programm list", () => {
     expect(Object.keys(all)).not.toContain("Punkte verfallen");
     expect(Object.keys(all)).not.toContain("Happy Hour"); // points shops only
     expect(Object.keys(all)).not.toContain("NFC-Tap");
+  });
+
+  it("leads „Infos auf der Karte“ with the card page's row (mix A)", () => {
+    expect(programSections(base).find(section => section.title === "Infos auf der Karte")!.rows.map(row => row.title)).toEqual(["Kundenkarte", "Neuigkeit", "Google-Bewertung"]);
   });
 
   it("names the card page's names and promises the logo only where the logo upload is offered (W38)", () => {
