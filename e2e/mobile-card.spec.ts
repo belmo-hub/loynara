@@ -52,7 +52,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   await expect(page.locator(".customer-wallet")).not.toContainText("nicht wiederherstellbar");
   await page.getByRole("button", { name: "So findest du deine Karte wieder" }).click();
   await page.getByRole("button", { name: "Kartenlink kopieren" }).click();
-  await expect(page.getByRole("status")).toContainText("Kartenlink kopiert");
+  await expect(page.getByRole("status").filter({ hasText: "Kartenlink kopiert" })).toBeVisible();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(new URL(copied).pathname).toBe(`/card/${demo.cardToken}`);
   expect(new URL(copied).search).toBe("");
@@ -74,15 +74,16 @@ test("long merchant and location names remain readable without horizontal overfl
   await page.route(new RegExp(`/api/(enroll/)?card/${token}$`), route => route.fulfill({ json: { ...card, merchantName, locationName } }));
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(`/card/${token}`);
-  const heading = page.locator(".customer-header-merchant");
-  await expect(heading).toHaveText(merchantName);
-  await expect(page.locator(".customer-card-business span")).toHaveText(locationName);
-  const headerBox = await page.locator(".customer-header").boundingBox();
-  const headingBox = await heading.boundingBox();
-  expect(headerBox).not.toBeNull();
-  expect(headingBox).not.toBeNull();
-  expect(headingBox!.y).toBeGreaterThanOrEqual(headerBox!.y);
-  expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(headerBox!.y + headerBox!.height);
+  // The mix card names the shop and the location once, inside the card (ENG-255).
+  const face = page.locator(".customer-card");
+  await expect(face).toContainText(merchantName);
+  await expect(face).toContainText(locationName);
+  const cardBox = (await face.boundingBox())!;
+  for (const text of [merchantName, locationName]) {
+    const box = (await face.getByText(text, { exact: true }).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(cardBox.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width);
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   const qr = page.locator(".customer-qr img");
   await expect(qr).toBeVisible();

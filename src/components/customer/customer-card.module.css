@@ -15,8 +15,10 @@
 /* A programme without a reward: no foot, no hairline. */
 .object section > div:last-child:empty { display: none; }
 
-.cardGroup { display: grid; }
-.object { position: relative; }
+.cardGroup { display: grid; grid-template-columns: minmax(0, 1fr); }
+.object { position: relative; min-width: 0; }
+/* A very long shop or location name wraps inside the card (the mix card does not break words yet). */
+.object section > div:first-child b, .object section > div:first-child span { overflow-wrap: anywhere; }
 
 /* The ticket: the code left, the number right, in a mix panel, white in both themes so scanners read dark on light.
    140 keeps a module about 4.4 px for the counter camera; 128 below 360 (Design, 31 Oct). */
