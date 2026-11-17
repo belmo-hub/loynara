@@ -5,9 +5,10 @@ import { Check, ChevronLeft, ChevronRight, Gift, Hourglass, Link2, Undo2 } from 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { nearestReward } from "@/components/customer/card-face";
-import { MixCard } from "@/components/customer/mix-card";
+import { MixCard, progressLine } from "@/components/customer/mix-card";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { merchantPalette } from "@/components/ui/merchant-color";
 import { MixChip, MixPanel, mixStyles, MixTile } from "@/components/ui/mix";
 import type { MerchantMember, MerchantMemberDetail } from "@/lib/merchant-members";
@@ -72,6 +73,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     onDone={() => { done("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); stepBack(); }} /></div>;
 
   const target = !member.closedAt && member.locationId === me.locationId && program.state === "ok" ? nearestReward(program.data.rewards, member.balance) : undefined;
+  const mixTarget = mixCardReward(kind, target);
   async function loadOlder() {
     if (!nextCursor || olderBusy) return;
     setOlderBusy(true); setOlderError("");
@@ -101,12 +103,17 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
       <Head back={back} title={member.cardLocator} closed={Boolean(member.closedAt)} />
       {notice && <Notice tone="ok" role="status">{notice}</Notice>}
       <div className={s.layout}>
-        {target && program.state === "ok"
+        {mixTarget && program.state === "ok"
           ? <div className={s.card} style={merchantPalette(program.data.brandColor ?? "", "light").cssVars as CSSProperties}>
-            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType={kind === "points" ? "points" : "stamps"}
-              balance={member.balance} reward={target} rewards={program.data.rewards} voice="owner" />
+            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType="stamps"
+              balance={member.balance} reward={mixTarget} voice="owner" />
           </div>
-          : <MixPanel pad className={s.card}><p className={mixStyles.kicker}>Aktueller Stand</p><p className={s.stand}>{nf.format(member.balance)}{NBSP}<small>{unitWord(member.balance, kind)}</small></p></MixPanel>}
+          // Points (not drawn in the mix yet) and cards without a target keep the house balance block.
+          : <section className={cx("ow-board ow-stand", s.card)} aria-labelledby="cu-stand">
+            <p className="ow-board-kicker" id="cu-stand">Aktueller Stand</p>
+            <p className="ow-board-big"><NumberRoll value={member.balance}>{nf.format(member.balance)}</NumberRoll>{NBSP}<small>{unitWord(member.balance, kind)}</small></p>
+            {target && <p className="ow-board-news">{progressLine(member.balance, target, kind)}</p>}
+          </section>}
         <MixPanel pad className={s.facts}>
           <Fact value={nf.format(member.qualifyingCheckouts)} label={member.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"} />
           <Fact value={nf.format(member.redemptionCount)} label={member.redemptionCount === 1 ? "Einlösung" : "Einlösungen"} />
@@ -158,6 +165,9 @@ function CardLoading() {
     </section>
   </div>;
 }
+
+/** The reward the mix card counts to, or none: points programmes stay off the mix card until Design draws one (18 Nov). */
+export const mixCardReward = <T,>(kind: MerchantMember["programType"], target: T | undefined) => kind === "stamp" ? target : undefined;
 
 /** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
 function Fact({ value, label }: { value: string; label: string }) {

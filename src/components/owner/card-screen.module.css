@@ -7,8 +7,6 @@
 .feed { grid-area: feed; }
 .details { grid-area: details; }
 .action { grid-area: action; }
-.stand { margin: 0; font-size: var(--display-tile); line-height: 44px; font-weight: var(--weight-heavy); }
-.stand small { font-size: var(--text-16); font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* The three figures: a figure over its label, spread from inset to inset. */
 .facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
