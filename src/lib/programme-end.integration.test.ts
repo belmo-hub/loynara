@@ -159,7 +159,7 @@ describe("owner request and withdrawal", () => {
     expect(await getMerchantContext(f.userId)).toMatchObject({ cancellationEndDate: null, cancellationConfirmed: false });
     await requestCancellation({ actorUserId: f.userId, programSlug: f.program.slug, now: at("2026-10-10T10:00:00Z") });
     expect(await getMerchantContext(f.userId)).toMatchObject({ cancellationEndDate: "2026-10-31", cancellationConfirmed: true });
-    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2026-11-15", consent: true, execute: true });
+    await operatorProgramme({ actorUserId: operator, env, programId: f.program.id, command: "schedule", endDate: "2026-11-15", consent: true, execute: true, now: at("2026-10-10T10:00:00Z") });
     expect(await getMerchantContext(f.userId)).toMatchObject({ cancellationEndDate: "2026-11-15", cancellationConfirmed: true });
   });
 
