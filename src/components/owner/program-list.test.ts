@@ -29,7 +29,7 @@ describe("Programm list", () => {
     for (const [title, value] of [["Startbonus", "Aus"], ["Monats-Challenge", "Aus"], ["Kundenlevel", "Aus"], ["Empfehlungen", "Aus"], ["Neuigkeit", "Keine"], ["Google-Bewertung", "Kein Link"], ["Durchschnittsbon", "Kein Betrag"]]) {
       expect([all[title].value, all[title].off], title).toEqual([value, true]);
     }
-    expect(all["Regel auf der Karte"].sub).toBe("„Ein Stempel pro Heißgetränk. Zehn Stempel …“");
+    expect(all["Regel auf der Karte"].sub).toBe("„Ein Stempel pro Heißgetränk. Zehn Stempel ergeben einen Gratiskaffee.“"); // whole, the row clamps it
     expect([all["Willkommen zurück"].sub, all["Willkommen zurück"].value]).toEqual([undefined, undefined]); // win-back read failed or pending
     expect(Object.keys(all)).not.toContain("Punkte verfallen");
     expect(Object.keys(all)).not.toContain("Happy Hour"); // points shops only

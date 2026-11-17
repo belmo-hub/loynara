@@ -53,7 +53,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
   const rules = program.ownerRulesText ?? program.rulesText, extras = ruleKind(type, program.earningMode) === "purchase";
   // ENG-100: rows keep the value in force; a change waiting for its date shows as a chip (Design gaps §1).
   const chips = ruleChips(program), expiry = program.pendingExpiry ? program.pendingExpiry.before : me.pointsExpiryMonths;
-  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
+  // The whole rule, as the customer reads it; the row clamps it after two lines (Design, 18 Nov).
+  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules, Infinity) } : off("Keine")) } : { sub: quoteStart(rules, Infinity) }) };
   const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, pending: chips.earning, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
@@ -149,7 +150,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
   const section = (title: string) => {
     const found = sections?.find(item => item.title === title);
     return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel>{found.rows.map(({ icon: Icon, ...row }) =>
-      <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub}
+      <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub && row.href === "/merchant/program/rule" ? <span className={styles.clamp}>{row.sub}</span> : row.sub}
         title={<>{row.title}{row.pending && <span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span>}<LinkPending /></>}
         end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} />)}</MixPanel></MixSection></div>;
   };
