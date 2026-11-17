@@ -209,8 +209,7 @@ test("data that takes a placeholder's place stands there at once, and a new peri
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {
-  await page.goto("/merchant/customers");
-  await page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Alle Karten" }).click();
+  await page.goto("/merchant/customers"); // opens on „Alle Karten“ since the mix (ENG-257)
   await expect(page.getByRole("heading", { name: "Alle Karten" })).toBeVisible();
   const first = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(first).toBeVisible();

@@ -1,5 +1,6 @@
 /* Kunden in the founder's mix (A · Pass, MIX.md; mock src/mix/kunden.html): panels with a 1 px line and radius 20, rows
-   inset 20 with the hairline from the text column, section titles 18/26 12 over their panel. Phone and 880: the cards,
+   inset 20 with the hairline from the text column, section titles 18/26 12 over their panel. The rows stay the house
+   .ow-prog rows (not MixRow): a card row records the list's scroll for Back, keeps its pending fill and the rows' entrance. Phone and 880: the cards,
    then the invite; from 1200 A's two panes. Line heights (24, 26, 20) are the mock's. */
 /* The mix's page (common.css .page): 32 over the title and 16 at the sides on a phone, 40 and 24 from 600, 40 from 1024. */
 :global(.ow-page).page { max-width: 1180px; padding: var(--space-8) var(--space-4) 0; }
@@ -10,7 +11,6 @@
 .title { align-items: center; flex-wrap: nowrap; }
 .title h1 { line-height: 34px; }
 @media (min-width: 1024px) { .title h1 { line-height: 40px; } }
-.link { display: inline-flex; align-items: center; min-height: 44px; margin: calc(var(--space-3) * -1) 0; flex: none; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .search { max-width: none; }
 .search > svg { left: var(--space-5); }
 .search :global(.ow-input) { padding-left: 52px; background: var(--color-surface); }
@@ -23,7 +23,7 @@
 
 /* Section titles and panels. */
 .page :global(.ow-prog) { max-width: none; }
-.page :global(.ow-prog) h2 { margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); color: var(--color-ink); }
+.page :global(.ow-prog) h2 { margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); color: var(--color-ink); } /* mixStyles.h, over the house label rule */
 .named { display: flex; align-items: baseline; gap: var(--space-2); }
 .named > span { font-size: var(--text-16); line-height: 24px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .page :global(.ow-prog) ul { margin-top: var(--space-3); border-radius: var(--radius-lg); outline: 1px solid var(--color-line); outline-offset: -1px; }
@@ -36,21 +36,19 @@
 .cards ul > li:has(> .more)::before { left: 0; }
 
 /* Rows: inset 20, 12 between lead and text, 64 high with a tile, 72 with the card thumbnail. */
-.page :global(.ow-prog) ul :global(.ow-prog-row) { min-height: 64px; padding: var(--space-2) var(--space-5); gap: var(--space-3); }
-.page .cards ul :global(.ow-prog-row) { min-height: 72px; }
+.page :global(.ow-prog) ul :global(.ow-prog-row) { min-height: var(--mix-row-2); padding: var(--space-2) var(--space-5); gap: var(--space-3); }
+.page .cards ul :global(.ow-prog-row) { min-height: var(--mix-row-card); }
 .page :global(.ow-prog-text) strong { line-height: 24px; }
 .page :global(.ow-prog-text) small { margin-top: 0; line-height: 20px; }
 .page :global(.ow-prog-arrow) { margin: 0 -6px; color: var(--color-ink-faint); }
 .groups :global(.ow-prog-value) { font-size: var(--text-16); color: var(--color-ink); }
 .groups ul a[aria-current] { background-color: var(--color-fill); }
 .cards :global(.ow-prog-text) strong { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
-.cards :global(.ow-prog-text) :global(.ow-chip) { margin-top: 0; min-height: 24px; padding: 0 var(--space-2); }
-.earned { gap: var(--space-1); background: color-mix(in oklab, var(--color-accent-text) 10%, transparent); color: var(--color-accent-text); }
 .bookings { display: none; font-size: var(--text-16); font-weight: var(--weight-label); }
 @media (min-width: 600px) { .bookings { display: block; } }
 /* A card with no target here (closed, or another location's): the thumbnail's colour without dots. */
 .blank { flex: none; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
-.more { width: 100%; min-height: 64px; border: 0; background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-action); cursor: pointer; }
+.more { width: 100%; min-height: var(--mix-row-2); border: 0; background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-action); cursor: pointer; }
 .more:disabled { cursor: progress; }
 
 /* The group picker (phone and 880): a field showing the group and its count over a native select. */

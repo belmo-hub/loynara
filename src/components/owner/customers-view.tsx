@@ -10,6 +10,7 @@ import { MixCard } from "@/components/customer/mix-card";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
 import { merchantPalette } from "@/components/ui/merchant-color";
+import { MixChip, mixStyles } from "@/components/ui/mix";
 import { parseCardLocator } from "@/lib/card-locator";
 import type { MerchantMember, MerchantMemberList } from "@/lib/merchant-members";
 import type { RetentionSummary } from "@/lib/retention";
@@ -168,7 +169,7 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
     <div className={cx("ow-page", styles.page)}>
       <header className={styles.head}>
         <div className={cx("ow-pagehead", styles.title)}><h1>Kundenkarten</h1>
-          {me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <Link className={styles.link} href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
+          {me.role === "owner" && isLocalOrigin(me.publicBaseUrl) && <Link className={cx(mixStyles.link, styles.link)} href="/merchant/customers/import">CSV-Vorschau</Link>}</div>
         <form className={cx("ow-search", styles.search)} role="search" onSubmit={submit} noValidate>
           <label htmlFor="cu-q" className="ow-sr">Kartennummer suchen</label>
           <Search size={20} aria-hidden="true" />
@@ -298,8 +299,8 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
             {target ? <MixCard size="thumb" businessName="" locationName="" programType={member.programType === "points" ? "points" : "stamps"} balance={member.balance} reward={target} />
               : <span className={styles.blank} aria-hidden="true" />}
             <span className="ow-prog-main">
-              <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <span className="ow-chip">Geschlossen</span>
-                : ours && member.balance >= cheapest && <span className={cx("ow-chip", styles.earned)}><Gift size={16} aria-hidden="true" />Prämie verdient</span>}</strong>
+              <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <MixChip>Geschlossen</MixChip>
+                : ours && member.balance >= cheapest && <MixChip warm><Gift size={16} aria-hidden="true" />Prämie verdient</MixChip>}</strong>
                 <small>{member.lastQualifyingAt ? `Letzte Buchung ${germanDate(member.lastQualifyingAt, "feed")}` : "Noch nie an der Kasse"}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
               <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>
             </span>
