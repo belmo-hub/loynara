@@ -1,7 +1,9 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { isQuestion } from "./program-helpers";
-import { programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+import { ProgramExample, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
 import { ruleChips } from "./program-rule-changes";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
@@ -156,5 +158,20 @@ describe("Wallet-message settings on Programm (ENG-180)", () => {
       ["Erinnerung vor der Prämie", "Wenn nur noch wenig fehlt", "An", "/merchant/program/almost"],
     ]);
     expect(isQuestion("birthday") && isQuestion("almost")).toBe(true);
+  });
+});
+
+describe("the example card under „Aussehen“ (mix A)", () => {
+  const shop = { businessName: "Demo Kaffeebar Kassel", locationName: "Kassel Mitte", brandColor: "#1F3A5F" };
+  const render = (type: "stamp" | "points", cost: number) => renderToStaticMarkup(createElement(ProgramExample, { me: shop, type, reward: { id: "r1", title: "Gratiskaffee", cost } }));
+  it("draws the mix card with its two fields for stamps", () => {
+    const html = render("stamp", 8);
+    expect(html).toContain("Einlösbar ab");
+    expect(html).not.toContain("ow-cardprev");
+  });
+  it("keeps points on the house example until a points mix card is drawn (Design, 18 Nov)", () => {
+    const html = render("points", 250);
+    expect(html).toContain("ow-cardprev");
+    expect(html).not.toContain("Einlösbar ab");
   });
 });

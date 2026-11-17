@@ -15,6 +15,7 @@ import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
 import styles from "./program-list.module.css";
+import { BrowserCardPreview } from "./card-preview";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -115,6 +116,18 @@ export function writeReturn(value: Return | null, list = RETURN) {
 /** A row's page saved: the list outlines `row` and says `toast`, scrolled as when the owner tapped `from`. */
 export function markSaved(row: string, from = row, toast = "Gespeichert", list = RETURN) { const last = readReturn(list); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }, list); }
 
+/**
+ * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. Points stay on the
+ * house example (the ladder) until Design draws a points mix card (Design, 18 Nov).
+ */
+export function ProgramExample({ me, type, reward }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number } }) {
+  const balance = Math.floor(reward.cost * 5 / 8);
+  if (type === "points") return <BrowserCardPreview businessName={me.businessName} locationName={me.locationName} brandColor={me.brandColor ?? ""} programType="points" rewardTitle={reward.title} rewardCost={reward.cost} balance={balance} showCode={false} />;
+  return <div style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={balance} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} />
+  </div>;
+}
+
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {
   const owner = useOwner();
@@ -162,13 +175,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
         // One click handler for every row: the list comes back to the row it was left from.
         <div ref={list} className={styles.split} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
           <div className={styles.col}>
-            {reward && <div className={styles.look} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
-              <MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}>
-                {/* An example card at five eighths of the first reward, as the picture draws 5 of 8. */}
-                <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={program.state === "ok" && program.data.programType === "points" ? "points" : "stamps"}
-                  balance={Math.floor(reward.cost * 5 / 8)} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} />
-              </MixSection>
-            </div>}
+            {reward && program.state === "ok" && <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>}
             {section("So sammeln Kunden")}
             {section("Infos auf der Karte")}
           </div>
