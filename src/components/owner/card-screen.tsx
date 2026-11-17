@@ -14,7 +14,7 @@ import type { MerchantMember, MerchantMemberDetail } from "@/lib/merchant-member
 import { unitWord, withUnit } from "@/lib/units";
 import { correctable, CorrectionStep, ReissueStep, sourceLabel } from "./card-actions";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, germanDate, LoadingBlock, nf, Notice, Skeleton } from "./owner-ui";
+import { ErrorNotice, germanDate, nf, Notice } from "./owner-ui";
 import { useReview } from "./question-form";
 import { useLoad } from "./use-load";
 import s from "./card-screen.module.css";
@@ -54,8 +54,9 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     box.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
   }, [step, loaded]);
 
-  if (first.state === "error") return <div ref={box} className="ow-page"><Head back={back} /><ErrorNotice message={first.message} onRetry={reload} /></div>;
-  if (!detail) return <div ref={box} className="ow-page"><Head back={back} /><LoadingBlock rows={3} height={64} /></div>;
+  // A failed read shows no title placeholder; a card that is not there (404) gets no retry, which could not find it.
+  if (first.state === "error") return <div ref={box} className="ow-page"><Head back={back} title={null} /><div className={s.alert}><ErrorNotice message={first.message} onRetry={first.status === 404 ? undefined : reload} /></div></div>;
+  if (!detail) return <div ref={box} className="ow-page"><Head back={back} /><CardLoading /></div>;
 
   const member = detail.member, kind = member.programType;
   const timeline = [...detail.timeline, ...older?.timeline ?? []];
@@ -137,6 +138,27 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
   );
 }
 
+/** A flat placeholder of `width` × `height` with the house shimmer passing over it (still under reduced motion). */
+const Bar = ({ width, height, className }: { width: number | string; height: number; className?: string }) =>
+  <span className={cx(s.sk, s.bar, className)} style={{ width, height }} />;
+
+/** While the card loads: the page's own shapes at each width (card, figures, „Verlauf“ with three lines), no Details yet. */
+function CardLoading() {
+  return <div className={s.layout} role="status" aria-label="Wird geladen" aria-busy="true">
+    <div className={cx(s.sk, s.card, s.ghost)} aria-hidden="true" />
+    <MixPanel pad className={s.facts}>
+      {[[32, 72], [32, 64], [128, 64]].map(([figure, label], i) => <div key={i} aria-hidden="true"><Bar width={figure} height={20} /><span className={s.label}><Bar width={label} height={12} /></span></div>)}
+    </MixPanel>
+    <section className={cx(mixStyles.panel, s.feed)}>
+      <div className={mixStyles.ph}><h2 className={mixStyles.h}>Verlauf</h2></div>
+      {[0, 1, 2].map(i => <div key={i} className={mixStyles.row} data-lead="tile" aria-hidden="true">
+        <span className={cx(s.sk, s.tileBar)} />
+        <div className={mixStyles.body}><span className={mixStyles.text}><Bar width={96} height={16} /><Bar width={110} height={12} /></span><Bar width={40} height={16} className={s.amountBar} /></div>
+      </div>)}
+    </section>
+  </div>;
+}
+
 /** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
 function Fact({ value, label }: { value: string; label: string }) {
   return <div><b className={s.figure}>{value}</b><span className={s.label}>{label}</span></div>;
@@ -183,10 +205,10 @@ export function dayLabel(at: string, today = new Date()) {
 }
 
 /** Back to the list the card came from, and the card number as the heading (a placeholder while it loads). */
-function Head({ back, title, closed = false }: { back: { href: string; label: string }; title?: string; closed?: boolean }) {
+function Head({ back, title, closed = false }: { back: { href: string; label: string }; title?: string | null; closed?: boolean }) {
   return <header className="ow-pagehead"><div className="ow-qhead">
     <Link href={back.href} scroll={false} className="ow-back"><ChevronLeft size={20} aria-hidden="true" />{back.label}</Link>
-    {title ? <h1 tabIndex={-1}>{title}</h1> : <Skeleton height={34} width={200} />}
+    {title ? <h1 tabIndex={-1} className={s.cardNumber}>{title}</h1> : title === null ? null : <Bar width={200} height={34} className={s.titleBar} />}
     {closed && <span className="ow-chip">Geschlossen</span>}
   </div></header>;
 }

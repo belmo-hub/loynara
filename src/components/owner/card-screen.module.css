@@ -13,6 +13,12 @@
 /* The three figures: a figure over its label, spread from inset to inset. */
 .facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
 .facts > div { display: grid; gap: var(--space-1); }
+/* Under 600 a long date („15. Nov. 2026“) gets the rest of the line and wraps there instead of running out. */
+@media (max-width: 599px) {
+  .facts.facts { grid-template-columns: auto auto minmax(0, 1fr); }
+  .facts > div:last-child { justify-self: end; }
+  .facts > div:last-child .figure { white-space: normal; }
+}
 .figure { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
 .label { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 
@@ -20,7 +26,8 @@
 /* A headed panel ends 8 under its last line when no „Ältere Vorgänge laden“ closes it. */
 .feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
 .day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); }
-.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); }
+.empty.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); animation: none; }
+.empty.empty p { font-size: var(--text-14); line-height: 20px; }
 .olderError { padding: var(--space-2) calc(var(--space-5) - 1px); }
 .more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
 .more:disabled { color: var(--color-ink-muted); cursor: default; }
@@ -42,14 +49,34 @@
 .correct { margin: calc(-1 * var(--space-3)) calc(1px - var(--space-5)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)); padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-3) var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 /* „Details“: a label and its value. */
-.key { flex: 1; min-width: 0; color: var(--color-ink-muted); }
-.value { font-weight: var(--weight-strong); text-align: right; }
+.key { flex: none; color: var(--color-ink-muted); }
+.value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
 
 /* „Karte neu ausstellen“ as one tappable row. */
 .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .wideBreak { display: none; }
 
+/* A failed read: the danger notice with the panel's inset and radius, 16/24 (mix .m-alert); from 1024 as wide as its text. */
+.alert > :global(.ow-notice) { padding: var(--space-5); border-radius: var(--radius-lg); font-size: var(--text-16); outline: 1px solid transparent; outline-offset: -1px; }
+.alert :global(.ow-notice-actions) { margin-top: var(--space-3); }
+.alert :global(.ow-btn) { font-size: var(--text-14); }
+@media (min-width: 1024px) { .alert { width: fit-content; max-width: 100%; } }
+
+/* Loading: placeholders in the loaded page's places. The card's is a neutral card-shaped block, never the shop colour. */
+.sk { border-radius: var(--radius-sm); background: var(--color-fill) linear-gradient(90deg, transparent, var(--color-surface), transparent) -100% 0 / 50% 100% no-repeat; }
+@keyframes shimmer { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: no-preference) { .sk { animation: shimmer 1.4s linear infinite; } }
+.bar { display: block; flex: none; margin-block: var(--space-1); }
+/* The card number stands 4 under the back link (mix .m-pagehead); its placeholder too. */
+.cardNumber.cardNumber { margin-top: var(--space-1); }
+.titleBar.titleBar { margin-block: var(--space-1) 0; }
+.ghost.ghost { min-height: 281px; border-radius: var(--radius-xl); }
+@media (min-width: 1024px) { .titleBar.titleBar { margin-block: 7px 3px; } } /* the h1 is 40 high there: the bar keeps its box */
+.tileBar.tileBar { flex: none; width: var(--mix-tile); height: var(--mix-tile); border-radius: var(--radius-md); }
+
 @media (min-width: 600px) {
+  .ghost.ghost { min-height: 299px; }
+  .amountBar { margin-right: calc(96px + var(--space-3)); } /* the loaded amount stands left of the „Korrigieren“ column */
   /* D's wide statement: amount and „Korrigieren“ side by side on the title's line, amounts in one column. */
   .end { grid-template-columns: auto 96px; column-gap: var(--space-3); align-content: center; align-items: center; }
   .stmt[data-hang] .end { align-content: start; }
@@ -73,4 +100,5 @@
   .layout { grid-template-columns: 400px minmax(0, 1fr); column-gap: var(--space-10); align-items: start;
     grid-template-areas: "card feed" "facts feed" "details feed" "action feed"; grid-template-rows: repeat(3, auto) 1fr; }
   .wideBreak { display: inline; }
+  .ghost.ghost { min-height: 297px; }
 }

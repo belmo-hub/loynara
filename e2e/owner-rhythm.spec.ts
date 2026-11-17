@@ -85,6 +85,14 @@ test("a card's „Verlauf“ keeps the mix rhythm", async () => {
   })).toEqual({ entries: true, off: [] });
 });
 
+// A card that is not there (ENG-258 states): the notice alone, no retry that could not find it, no title placeholder.
+test("a missing card says so without a retry or a title placeholder", async () => {
+  await page.goto("/merchant/customers?activity=all&card=00000000-0000-4000-8000-000000000000");
+  await expect(page.getByText("Diese Karte haben wir nicht gefunden.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Erneut laden" })).toHaveCount(0);
+  await expect(page.locator("#ow-main .ow-pagehead :is(h1, [class*=titleBar]):visible")).toHaveCount(0); // the list waits hidden under the card
+});
+
 // Heights (Design, 12 Nov, ruling SP6 and call 6): owner fields, selects and the button that ends a form are 52;
 // the Kasse's field is 56.
 const heights = (selector: string) => page.locator(selector).evaluateAll(list => [...new Set(list.filter(el => el.getBoundingClientRect().height > 0).map(el => Math.round(el.getBoundingClientRect().height)))]);
