@@ -69,6 +69,11 @@
   --target: 44px;
   /* A row in a panel (Design decision 1). */
   --row-min: 56px;
+  /* The founder's mix (17 Nov): rows of one line, of two lines or with an icon tile, with the card thumbnail; the icon tile. */
+  --mix-row: 52px;
+  --mix-row-2: 64px;
+  --mix-row-card: 72px;
+  --mix-tile: 40px;
   --target-cashier: 56px;
 
   --radius-sm: 8px;

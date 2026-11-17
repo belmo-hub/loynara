@@ -21,7 +21,7 @@ export default function MixPage() {
     <Spec name="full 5 von 8 (guest)"><MixCard {...shop} /></Spec>
     <Spec name="full 0 · 8"><MixCard {...shop} balance={0} /><MixCard {...shop} balance={8} /></Spec>
     <Spec name="full, owner voice"><MixCard {...shop} voice="owner" /></Spec>
-    <Spec name="Programm example"><MixCard {...shop} voice="example" /></Spec>
+    <Spec name="Programm example"><MixCard {...shop} size="example" /></Spec>
     <Spec name="thumb 0 … 8"><div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{Array.from({ length: 9 }, (_, n) => <MixCard key={n} {...shop} balance={n} size="thumb" />)}</div></Spec>
     <Spec name="10 and 12 stamps"><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} />
       <div style={{ display: "flex", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" /></div></Spec>

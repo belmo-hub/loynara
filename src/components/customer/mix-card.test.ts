@@ -46,7 +46,7 @@ describe("the mix card (ENG-253)", () => {
   });
 
   it("shows Programm's two fields", () => {
-    expect(text(card({ voice: "example" }))).toContain("Prämie Gratiskaffee Einlösbar ab 8 Stempeln");
+    expect(text(card({ size: "example" }))).toContain("Prämie Gratiskaffee Einlösbar ab 8 Stempeln");
   });
 
   it("at the Kasse: the card number, its note, the labelled balance and the page's own foot", () => {
