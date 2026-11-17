@@ -54,10 +54,10 @@ describe("one point in the singular on the card (ENG-104)", () => {
   const card = (locale: "de" | "fr", balance: number, change: number, programType: "points" | "stamps" = "points") =>
     renderToStaticMarkup(h(CustomerCard, { ...base, programType, locale, balance, activity: [{ id: "a", label: "x", date: "d", change }] }));
   it("balance line, in German and French", () => {
-    expect(card("de", 1, 1)).toContain("<b>1</b><span>Punkt</span>");
-    expect(card("de", 2, 1)).toContain("<b>2</b><span>Punkte</span>");
-    expect(card("fr", 1, 1)).toContain("<b>1</b><span>point</span>");
-    expect(card("fr", 2, 1)).toContain("<b>2</b><span>points</span>");
+    expect(card("de", 1, 1)).toMatch(/>1<\/span> <em>Punkt<\/em>/);
+    expect(card("de", 2, 1)).toMatch(/>2<\/span> <em>Punkte<\/em>/);
+    expect(card("fr", 1, 1)).toMatch(/>1<\/span> <em>point<\/em>/);
+    expect(card("fr", 2, 1)).toMatch(/>2<\/span> <em>points<\/em>/);
     expect(card("de", 1, 1, "stamps")).toContain("<b>1</b><span>von 5</span>");
   });
   it("activity line, for a booking and a redemption, in German and French", () => {
@@ -76,8 +76,8 @@ describe("counts on the card, French zero and French stamps included (ENG-108)",
   const card = (locale: "de" | "fr", programType: "points" | "stamps", balance: number, extra: Partial<CustomerCardProps> = {}) =>
     renderToStaticMarkup(h(CustomerCard, { ...base, locale, programType, balance, ...extra }));
   it("balance line: French takes the singular for 0 and 1", () => {
-    expect(card("fr", "points", 0)).toContain("<b>0</b><span>point</span>");
-    expect(card("de", "points", 0)).toContain("<b>0</b><span>Punkte</span>");
+    expect(card("fr", "points", 0)).toMatch(/>0<\/span> <em>point<\/em>/);
+    expect(card("de", "points", 0)).toMatch(/>0<\/span> <em>Punkte<\/em>/);
   });
   it("progress line with one stamp missing, in French", () => {
     expect(card("fr", "stamps", 4)).toMatch(/Encore <span[^>]*>1<\/span> tampon avant votre récompense :/);
@@ -145,13 +145,24 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
   });
   it("leads a points card with the balance and names each reward on the ladder", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 112, rewards: [{ id: "a", title: "Bartöl", cost: 100 }, { id: "b", title: "Haarschnitt", cost: 250 }] }));
-    expect(out).toContain("<b>112</b><span>Punkte</span>");
+    expect(out).toMatch(/customer-balance-line[^"]*"><strong><span[^>]*>112<\/span> <em>Punkte<\/em><\/strong>/);
     expect(out).toMatch(/>100<\/small><small[^>]*>Bartöl<\/small>/);
   });
   it("aligns an early reward's labels to the ladder's start and the last one's to its end (Design FIX 4)", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 0, rewards: [{ id: "a", title: "Ein sehr langer Prämienname", cost: 20 }, { id: "b", title: "Haarschnitt", cost: 250 }] }));
     expect(out).toMatch(/data-start="true"[^>]*><span[^>]*><\/span><small[^>]*>20<\/small><small[^>]*>Ein sehr langer Prämienname/);
     expect(out).toMatch(/data-end="true"[^>]*><span[^>]*><\/span><small[^>]*>250<\/small>/);
+  });
+  it("keeps a points programme on the house card with its ladder, never the mix card (Design, 18 Nov)", () => {
+    const points = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 40, rewards: [{ id: "a", title: "Kaffee", cost: 50 }, { id: "b", title: "Kuchen", cost: 100 }] }));
+    expect(points).toContain('class="customer-card ');
+    expect(points).toContain("customer-balance-line");
+    expect(points).toContain("customer-card-business");
+    expect(points).not.toContain("<b>Synthetic Café</b>");
+    expect(points).toMatch(/Noch <span[^>]*>10<\/span> Punkte bis zu deiner Prämie: <span class="goal-reward/);
+    const stamps = renderToStaticMarkup(h(CustomerCard, base));
+    expect(stamps).toContain("<b>Synthetic Café</b>");
+    expect(stamps).not.toContain("customer-card-business");
   });
   it("draws the stamps as the mix card: open slots are plain discs, no gift slot (mix ruling 1)", () => {
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("data-reward");

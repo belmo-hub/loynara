@@ -19,8 +19,12 @@ describe("no native controls on the card (45a)", () => {
 });
 
 describe("the shop colour's contrast and long names", () => {
-  // The guest card's level tag and its own name clamp went with the mix card (ENG-255); the card is MixCard's.
-  it("the shop's name is cut at two lines in the Kasse's header (31)", () => {
+  const face = read("src/components/customer/card-face.module.css");
+  it("the level tag is outlined, not tinted (45b)", () => {
+    expect(face).toMatch(/\n\.levelTag \{[^}]*background: none; box-shadow: inset 0 0 0 1px color-mix\(in oklab, var\(--merchant-ink\), transparent 50%\);/);
+  });
+  it("the shop's name is cut at two lines on the house card and in the Kasse's header (31)", () => {
+    expect(face).toContain(`.business strong { ${CLAMP}`);
     expect(read("src/components/ui/cashier-shell.module.css")).toContain(`.location { ${CLAMP}`);
   });
 });
@@ -46,6 +50,9 @@ describe("forced colours (35)", () => {
     const disabled = ".ow-btn--primary:disabled, .ow-btn--danger:disabled, .ow-qsave .ow-btn--primary:disabled { background: Canvas; color: GrayText; border-color: GrayText; }";
     expect(ownerCss).toContain(disabled);
     expect(ownerCss.indexOf(disabled)).toBeGreaterThan(ownerCss.indexOf(".ow-qsave .ow-btn--primary:hover, a.ow-band:hover"));
+  });
+  it("the level tag keeps an edge", () => {
+    expect(read("src/components/customer/card-face.module.css")).toContain(".levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); }");
   });
   it("the guest card's ticket and band keep an edge", () => {
     expect(card).toContain("@media (forced-colors: active) { .object > section, .band { border: 1px solid CanvasText; } }");

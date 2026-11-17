@@ -12,6 +12,10 @@
 .goalNum { font-variant-numeric: tabular-nums; }
 .rewardName { display: block; color: var(--merchant-ink); font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; hyphens: manual; overflow-wrap: anywhere; }
 .goalSub { margin: var(--space-1) 0 0; font-size: var(--text-14); line-height: 20px; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); text-wrap: pretty; }
+/* Points (house card): the same goal above the card, on the page's ground. */
+.pointsGoal { display: grid; margin-bottom: var(--space-4); }
+.pointsGoal :is(.goalLine, .goalSub) { color: var(--color-ink-muted); }
+.pointsGoal .rewardName { color: var(--color-ink); }
 /* A programme without a reward: no foot, no hairline. */
 .object section > div:last-child:empty { display: none; }
 

@@ -10,7 +10,7 @@ import { CustomerShell } from "@/components/ui/customer-shell";
 import { Sheet } from "@/components/ui/sheet";
 import { LegalLinks } from "@/components/ui/legal-links";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
-import { nearestReward, type CardReward } from "./card-face";
+import { CardFace, nearestReward, type CardReward } from "./card-face";
 import { MixCard } from "./mix-card";
 import { MixTile, mixStyles as mix } from "@/components/ui/mix";
 import type { ChangeLine } from "@/lib/change-lines";
@@ -157,8 +157,11 @@ export function CustomerCard(props: CustomerCardProps) {
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
-        <GuestMixCard className={`customer-card ${styles.object}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
-          foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />
+        {programType === "points"
+          // Points stay on the house card with its ladder until Design draws a points mix card (Design, 18 Nov).
+          ? <><div className={styles.pointsGoal}><Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} /></div><div className={styles.object}><CardFace progress={false} businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} tag={level?.name ?? undefined} grow={arriving && !moment} /></div></>
+          : <GuestMixCard className={`customer-card ${styles.object}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
+            foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />}
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
         {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
       </div>
