@@ -29,8 +29,8 @@ async function fixture(browser: Browser, baseURL: string | undefined, quantity =
   async function open() {
     await page.goto("/merchant/customers?activity=all");
     await page.getByRole("link", { name: new RegExp(`K-${member.card_locator}`) }).click({ timeout: 10000 });
-    await expect(page.getByRole("heading", { name: "Kartenverlauf", exact: true })).toBeVisible();
-    await page.locator(".ow-diary .ow-day").filter({ hasText: `+${quantity} Stempel` }).getByRole("button", { name: "Korrigieren", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
+    await page.locator("[data-entry]").filter({ hasText: `+${quantity} Stempel` }).getByRole("button", { name: "Korrigieren", exact: true }).click();
     // A screen since ENG-122a: its form holds the reason, the button and the alerts.
     await expect(page.getByRole("heading", { name: "Vorgang korrigieren", exact: true })).toBeVisible();
     const dialog = page.locator("form.ow-q");

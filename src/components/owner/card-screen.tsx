@@ -1,21 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, Gift, Link2, Plus, ReceiptText, RefreshCw, type LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Gift, Hourglass, Link2, Undo2 } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { nearestReward } from "@/components/customer/card-face";
-import { progressLine } from "@/components/customer/mix-card";
+import { MixCard } from "@/components/customer/mix-card";
+import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NumberRoll } from "@/components/ui/number-roll";
-import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
+import { merchantPalette } from "@/components/ui/merchant-color";
+import { MixChip, MixPanel, mixStyles, MixTile } from "@/components/ui/mix";
 import type { MerchantMember, MerchantMemberDetail } from "@/lib/merchant-members";
 import { unitWord, withUnit } from "@/lib/units";
 import { correctable, CorrectionStep, ReissueStep, sourceLabel } from "./card-actions";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, germanDate, LoadingBlock, MoreInfo, nf, Notice, Skeleton } from "./owner-ui";
+import { ErrorNotice, germanDate, LoadingBlock, nf, Notice, Skeleton } from "./owner-ui";
 import { useReview } from "./question-form";
 import { useLoad } from "./use-load";
+import s from "./card-screen.module.css";
 
 type Entry = MerchantMemberDetail["timeline"][number];
 const NBSP = " ";
@@ -28,20 +30,9 @@ function referralLabel(value: MerchantMember["referralStatus"]) {
   return ({ none: "Keine Zuordnung", pending: "Wartet auf den ersten bestätigten Vorgang", qualified: "Bonus gutgeschrieben", review: "In Prüfung", rejected: "Abgelehnt", reversed: "Nach Korrektur zurückgenommen" } as const)[value];
 }
 
-/** A fact as a row without an arrow: the label, its note, the value at the right edge. */
-function Fact({ icon: Icon, label, sub, value, big = false }: { icon: LucideIcon; label: string; sub?: string; value: string; big?: boolean }) {
-  return <li><div className="ow-prog-row">
-    <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
-    <span className="ow-prog-main">
-      <span className="ow-prog-text"><strong>{label}</strong>{sub && <small>{sub}</small>}</span>
-      <span className="ow-prog-value" data-big={big || undefined} data-off={!big || undefined}>{value}</span>
-    </span>
-  </div></li>;
-}
-
 /**
- * Kunden 03 (ENG-122a): one card. The balance card with the slots, the facts as rows, the Kartenverlauf in the Übersicht's
- * diary look with „Korrigieren“ per entry, then „Karte neu ausstellen“. Correcting (04) and reissuing (05/06) are steps in
+ * Kunden 03 (ENG-122a), in the founder's mix (ENG-258, D's Kartenseite): the mix card with the owner's line, the three
+ * figures, „Verlauf“ grouped by day with „Korrigieren“ per entry, „Details“, then „Karte neu ausstellen“. Correcting (04) and reissuing (05/06) are steps in
  * this page's history (useReview), so Back returns to the card. `onMember` tells the list what the card read says now.
  */
 export function CardScreen({ id, back, onMember }: { id: string; back: { href: string; label: string }; onMember: (member: MerchantMember) => void }) {
@@ -80,7 +71,6 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     onDone={() => { done("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); stepBack(); }} /></div>;
 
   const target = !member.closedAt && member.locationId === me.locationId && program.state === "ok" ? nearestReward(program.data.rewards, member.balance) : undefined;
-  const grid = target && kind === "stamp" && target.cost <= STAMP_GRID_MAX ? target : undefined;
   async function loadOlder() {
     if (!nextCursor || olderBusy) return;
     setOlderBusy(true); setOlderError("");
@@ -90,66 +80,106 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     } catch (cause) { setOlderError(cause instanceof Error ? cause.message : "Die Daten konnten nicht geladen werden."); }
     finally { setOlderBusy(false); }
   }
+  const days = timeline.reduce<Array<[string, Entry[]]>>((list, entry) => {
+    const day = dayLabel(entry.createdAt), last = list.at(-1);
+    if (last?.[0] === day) last[1].push(entry); else list.push([day, [entry]]);
+    return list;
+  }, []);
+  const details: Array<[string, string | number]> = [
+    ["Prämienstatus", eligibilityLabel(member.eligibility)],
+    ...detail.eligibleRewards.length > 0 ? [["Jetzt einlösbar", detail.eligibleRewards.map(reward => `${reward.title} · ${withUnit(reward.cost, kind)}`).join(", ")] as [string, string]] : [],
+    ["Erste Buchung", when(member.firstQualifyingAt)],
+    ["Erfasste Käufe", member.purchaseCount === null ? "Nicht erfasst" : member.purchaseCount],
+    ["E-Mail-Marketing", member.emailMarketingEligible ? "Verifiziert und zugestimmt" : "Nicht berechtigt"],
+    ["Als geworbene Karte", referralLabel(member.referralStatus)],
+    ["Erfolgreich geworben", member.qualifiedReferrals],
+  ];
 
   return (
     <div ref={box} className="ow-page">
       <Head back={back} title={member.cardLocator} closed={Boolean(member.closedAt)} />
       {notice && <Notice tone="ok" role="status">{notice}</Notice>}
-      <div className="ow-prog">
-        <section className="ow-board ow-stand" aria-labelledby="cu-stand">
-          <p className="ow-board-kicker" id="cu-stand">Aktueller Stand</p>
-          <p className="ow-board-big"><NumberRoll value={member.balance}>{nf.format(member.balance)}</NumberRoll>{NBSP}<small>{grid ? `von ${withUnit(grid.cost, kind, "de", "dat")}` : unitWord(member.balance, kind)}</small></p>
-          {grid && <div className="ow-stand-grid"><StampGrid earned={member.balance} total={grid.cost} reward={<Gift size={22} />} /></div>}
-          {target && <p className="ow-board-news">{progressLine(member.balance, target, kind)}</p>}
+      <div className={s.layout}>
+        {target && program.state === "ok"
+          ? <div className={s.card} style={merchantPalette(program.data.brandColor ?? "", "light").cssVars as CSSProperties}>
+            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType={kind === "points" ? "points" : "stamps"}
+              balance={member.balance} reward={target} rewards={program.data.rewards} voice="owner" />
+          </div>
+          : <MixPanel pad className={s.card}><p className={mixStyles.kicker}>Aktueller Stand</p><p className={s.stand}>{nf.format(member.balance)}{NBSP}<small>{unitWord(member.balance, kind)}</small></p></MixPanel>}
+        <MixPanel pad className={s.facts}>
+          <Fact value={nf.format(member.qualifyingCheckouts)} label={member.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"} />
+          <Fact value={nf.format(member.redemptionCount)} label={member.redemptionCount === 1 ? "Einlösung" : "Einlösungen"} />
+          <Fact value={sinceDate.format(new Date(member.createdAt))} label="Karte seit" />
+        </MixPanel>
+        <section className={cx(mixStyles.panel, s.feed)} aria-labelledby="cu-verlauf">
+          <div className={mixStyles.ph}><h2 className={mixStyles.h} id="cu-verlauf">Verlauf</h2></div>
+          {timeline.length === 0 ? <EmptyState level={3} size="compact" className={s.empty} title="Noch keine Buchungen.">Buchungen und Einlösungen dieser Karte erscheinen hier.</EmptyState>
+            : days.map(([day, entries]) => <div key={day} role="group" aria-label={day}>
+              <p className={s.day} aria-hidden="true">{day}</p>
+              {entries.map(entry => <Statement key={entry.id} entry={entry} kind={kind} timeline={timeline}
+                onCorrect={canAct && correctable(entry) ? () => openStep(`correct:${entry.id}`) : undefined} />)}
+            </div>)}
+          {olderError && <div className={s.olderError}><ErrorNotice message={olderError} onRetry={() => void loadOlder()} /></div>}
+          {nextCursor && <button type="button" className={cx(mixStyles.more, s.more)} onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
         </section>
-        <ul>
-          <Fact icon={ReceiptText} label="Bestätigte Buchungen" sub={`Zählt einmal, egal wie viele ${kind === "points" ? "Punkte" : "Stempel"}`} value={nf.format(member.qualifyingCheckouts)} big />
-          <Fact icon={RefreshCw} label="Letzter Vorgang" value={when(member.lastQualifyingAt)} />
-          <Fact icon={Plus} label="Erster Vorgang" value={when(member.firstQualifyingAt)} />
-        </ul>
-        <MoreInfo>
-          <dl className="ow-dl">
-            <dt>Erfasste Käufe</dt><dd>{member.purchaseCount === null ? "Nicht erfasst" : member.purchaseCount}</dd>
-            <dt>Einlösungen</dt><dd>{member.redemptionCount}</dd>
-            <dt>E-Mail-Marketing</dt><dd>{member.emailMarketingEligible ? "Verifiziert und zugestimmt" : "Nicht berechtigt"}</dd>
-            <dt>Als geworbene Karte</dt><dd>{referralLabel(member.referralStatus)}</dd>
-            <dt>Erfolgreich geworben</dt><dd>{member.qualifiedReferrals}</dd>
-            <dt>Prämienstatus</dt><dd>{eligibilityLabel(member.eligibility)}</dd>
-            {detail.eligibleRewards.length > 0 && <><dt>Jetzt einlösbar</dt><dd>{detail.eligibleRewards.map(reward => `${reward.title} · ${withUnit(reward.cost, kind)}`).join(", ")}</dd></>}
-          </dl>
-        </MoreInfo>
-        <section className="ow-diary" aria-labelledby="cu-verlauf">
-          <h2 id="cu-verlauf">Kartenverlauf</h2>
-          {timeline.length === 0 ? <EmptyState level={3} size="compact" title="Noch keine Buchungen.">Buchungen und Einlösungen dieser Karte erscheinen hier.</EmptyState>
-            : timeline.map(entry => {
-              const original = entry.kind === "reversal" && entry.reversalOfId ? timeline.find(item => item.id === entry.reversalOfId) : undefined;
-              return <div className="ow-day" key={entry.id}>
-                <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
-                <div>
-                  <h3><time dateTime={entry.createdAt}>{germanDate(entry.createdAt, "feed")}</time></h3>
-                  <p className="ow-day-sum"><strong>{entry.kind === "award" ? "Gutschrift" : entry.kind === "redeem" ? "Einlösung" : entry.kind === "expiry" ? "Verfallen" : "Korrektur"}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</strong>
-                    {` · ${entry.delta > 0 ? "+" : ""}${entry.delta} ${unitWord(entry.delta, kind)}`}{entry.kind !== "reversal" && ` · ${sourceLabel(entry.source)}`}{entry.reversed && " · später korrigiert"}
-                    {entry.kind === "reversal" && entry.reversalOfId && (original ? ` · hebt ${original.kind === "award" ? "Gutschrift" : "Einlösung"} vom ${germanDate(original.createdAt, "feed")} auf` : " · hebt einen älteren Vorgang auf")}</p>
-                  {entry.reason && <p className="ow-day-sum">Grund: {entry.reason}</p>}
-                  {canAct && correctable(entry) && <button type="button" className="ow-qlink" onClick={() => openStep(`correct:${entry.id}`)}>Korrigieren</button>}
-                </div>
-              </div>;
-            })}
-          {olderError && <ErrorNotice message={olderError} onRetry={() => void loadOlder()} />}
-          {nextCursor && <div className="ow-mt-3"><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button></div>}
-        </section>
-        {!member.closedAt && <div>
-          <h2>Karte</h2>
-          {canAct ? <ul><li><button type="button" className="ow-prog-row" onClick={() => openStep("reissue")}>
-            <span className="ow-prog-icon"><Link2 size={22} aria-hidden="true" /></span>
-            <span className="ow-prog-main"><span className="ow-prog-text"><strong>Karte neu ausstellen</strong><small>Neuer Link bei verlorenem Kartenlink; Stand bleibt.</small></span></span>
-            <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
-          </button></li></ul>
-            : <p className="ow-prog-note">Korrigieren und neu ausstellen ist am Standort {member.locationName} möglich. Wechsle dazu den aktiven Standort.</p>}
-        </div>}
+        <MixPanel className={s.details} head={<h2 className={mixStyles.h}>Details</h2>}>
+          {details.map(([label, value]) => <div key={label} className={mixStyles.row}><div className={mixStyles.body}><span className={s.key}>{label}</span><span className={s.value}>{value}</span></div></div>)}
+        </MixPanel>
+        {!member.closedAt && (canAct
+          ? <MixPanel className={s.action}><button type="button" className={cx(mixStyles.row, s.rowButton)} data-lead="tile" onClick={() => openStep("reissue")}>
+            <MixTile><Link2 size={20} /></MixTile>
+            <span className={mixStyles.body}><span className={mixStyles.text}><b>Karte neu ausstellen</b><small>Neuer Link bei verlorenem Kartenlink. <br className={s.wideBreak} />Der Stand bleibt.</small></span>
+              <ChevronRight className={mixStyles.chev} size={20} aria-hidden="true" /></span>
+          </button></MixPanel>
+          : <MixPanel pad className={s.action}><p className={mixStyles.sub}>Korrigieren und neu ausstellen ist am Standort {member.locationName} möglich. Wechsle dazu den aktiven Standort.</p></MixPanel>)}
       </div>
     </div>
   );
+}
+
+/** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
+function Fact({ value, label }: { value: string; label: string }) {
+  return <div><b className={s.figure}>{value}</b><span className={s.label}>{label}</span></div>;
+}
+
+const KIND = { award: "Gutschrift", redeem: "Einlösung", expiry: "Verfallen", reversal: "Korrektur" } as const;
+const time = (at: string) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date(at));
+const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${nf.format(Math.abs(n))}`;
+
+/**
+ * One statement line (D): tile, what happened, its time and source, the amount at the right with „Korrigieren“ under it
+ * (beside it from 600). A correction hangs from its first line and says what it undoes and why.
+ */
+function Statement({ entry, kind, timeline, onCorrect }: { entry: Entry; kind: MerchantMember["programType"]; timeline: Entry[]; onCorrect?: () => void }) {
+  const reversal = entry.kind === "reversal", redeem = entry.kind === "redeem";
+  const original = reversal && entry.reversalOfId ? timeline.find(item => item.id === entry.reversalOfId) : undefined;
+  const subs = reversal
+    ? [time(entry.createdAt), entry.reversalOfId ? (original ? `Hebt die ${KIND[original.kind]} vom ${germanDate(original.createdAt, "feed")} auf.` : "Hebt einen älteren Vorgang auf.") : null, entry.reason ? `Grund: ${entry.reason}` : null]
+    : [`${time(entry.createdAt)} · ${sourceLabel(entry.source)}`];
+  const tone = redeem ? "coral" : reversal || entry.kind === "expiry" || entry.reversed ? "mute" : undefined;
+  const Icon = redeem ? Gift : reversal ? Undo2 : entry.kind === "expiry" ? Hourglass : Check;
+  return <div className={cx(mixStyles.row, s.stmt)} data-lead="tile" data-entry={entry.kind} data-hang={reversal || undefined}>
+    <MixTile tone={tone}><Icon size={20} /></MixTile>
+    <div className={cx(mixStyles.body, s.stmtBody)}>
+      <b className={s.title}>{redeem ? entry.rewardTitle ?? KIND.redeem : KIND[entry.kind]}
+        {redeem && entry.rewardTitle ? <MixChip>{KIND.redeem}</MixChip> : entry.reversed ? <MixChip>Korrigiert</MixChip> : null}</b>
+      {subs.filter(Boolean).map(line => <small key={line} className={s.sub}>{line}</small>)}
+      <span className={s.end}>
+        <span className={s.amount} data-tone={entry.reversed ? "off" : entry.delta > 0 ? "plus" : undefined}>{signed(entry.delta)}<span className="ow-sr"> {unitWord(entry.delta, kind)}</span></span>
+        {onCorrect && <button type="button" className={s.correct} onClick={onCorrect}>Korrigieren</button>}
+      </span>
+    </div>
+  </div>;
+}
+
+const sinceDate = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Berlin" });
+/** The statement's day: „Heute“, „Gestern“ or „Donnerstag, 12.11.“, on the viewer's clock as the feed times. */
+export function dayLabel(at: string, today = new Date()) {
+  const date = new Date(at), key = (d: Date) => d.toDateString(), yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (key(date) === key(today)) return "Heute";
+  if (key(date) === key(yesterday)) return "Gestern";
+  return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" }).format(date);
 }
 
 /** Back to the list the card came from, and the card number as the heading (a placeholder while it loads). */
