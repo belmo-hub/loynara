@@ -347,12 +347,21 @@ test.describe("cashier on phones", () => {
     // its lower edge is flat.
     const corner = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-dock]")!).borderBottomLeftRadius);
     expect(await corner()).toBe("20px");
+    // Floating, the dock is a panel on the card's edges; reaching the bottom it is full width.
+    const sides = () => page.evaluate(() => {
+      const dock = document.querySelector("[data-dock]")!.getBoundingClientRect(), card = document.querySelector(".card-result-head > section")!.getBoundingClientRect();
+      return { left: Math.round(dock.left - card.left), right: Math.round(dock.right - card.right), width: Math.round(dock.width), page: innerWidth };
+    });
+    expect(await sides()).toMatchObject({ left: 0, right: 0 });
     await page.setViewportSize({ width: 820, height: 640 });
     await expect.poll(corner).toBe("0px");
+    expect((await sides()).width).toBe(820);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(corner).toBe("0px");
+    expect((await sides()).width).toBe(390);
     await page.setViewportSize({ width: 820, height: 1180 });
     await expect.poll(corner).toBe("20px");
+    await expect.poll(sides).toMatchObject({ left: 0, right: 0 });
     await page.locator(".cashier-award-now").click();
     await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
     expect(Math.abs((await layout()).dockTop - open.dockTop)).toBeLessThanOrEqual(4); // up to 3.5 px of rounding at 2.625 (0 at a ratio of 2)
