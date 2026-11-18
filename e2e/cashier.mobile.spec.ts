@@ -131,6 +131,34 @@ test.describe("cashier on phones", () => {
     expect(noteBox!.y + noteBox!.height).toBeLessThanOrEqual(dockBox!.y);
   });
 
+  test("while a slow access check runs the Kasse shows its own placeholders, and words only once it is late", async ({ page }) => {
+    await signIn(page);
+    await page.route("**/api/me", async route => { await new Promise(done => setTimeout(done, 1_500)); await route.continue(); });
+    await page.goto("/cashier");
+    await expect(page.locator(".cashier-placeholder")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
+  });
+
+  test("after a booking on the typed path the code field is in view in the Gebucht dock and keeps the focus (390 × 844)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signIn(page);
+    const { rows } = await pool.query<{ card_locator: string }>(
+      "select m.card_locator from memberships m join programs p on p.id = m.program_id where p.slug = $1 and m.closed_at is null and m.card_locator <> '' order by m.created_at desc limit 1",
+      [demo.programSlug]);
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(`K-${rows[0].card_locator}`);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+    await page.locator(".cashier-award-now").click();
+    const field = page.locator(".cashier-booked #cashier-code");
+    await expect(field).toBeFocused();
+    await expect(field).toBeInViewport({ ratio: 1 });
+    await expect(field).toHaveAttribute("placeholder", "Kartennummer oder Kartencode");
+    expect(Math.round((await field.boundingBox())!.height)).toBe(44);
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);

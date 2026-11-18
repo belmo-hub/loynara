@@ -1,7 +1,7 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { awardDelta, awardParts, bookedAward, cashierCard, CashierView, purchasePreviewOf, type CashierCard, type CashierLookup } from "./cashier-view";
+import { awardDelta, awardParts, bookedAward, CashierAccessState, cashierCard, CashierView, purchasePreviewOf, type CashierCard, type CashierLookup } from "./cashier-view";
 
 const card: CashierCard = {
   id: "m1", code: "sc_synthetic", cardLocator: "K-7QX2MA", balance: 1, programType: "points", earningMode: "manual", pointsPerCurrencyUnit: 1, currency: "EUR", ruleVersionId: "rv1",
@@ -167,5 +167,26 @@ describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
     expect(out).toMatch(/<h2 id="cashier-card-title"[^>]*>K-7QX2MA<\/h2>/);
     expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span> <em>Punkt<\/em>/);
     expect(out).toContain("aria-label=\"1 von 2 Punkten\"");
+  });
+});
+
+describe("the Kasse's waits (Design, 18 Nov)", () => {
+  it("while the access check runs, the sheet shows the Kasse's own still placeholders and no words", () => {
+    const out = renderToStaticMarkup(h(CashierAccessState, { state: "loading", message: "" }));
+    expect(out).toContain("cashier-placeholder");
+    expect(out).toContain('aria-busy="true"');
+    expect(out).not.toContain("<h1>Kassenzugang wird geprüft</h1>");
+    expect(out).not.toContain("Einen Moment");
+  });
+
+  it("after a typed booking the code field stands in the Gebucht dock, and the scan path keeps the form out of sight", () => {
+    const stamps: CashierCard = { ...card, programType: "stamps", balance: 6, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: false }] };
+    const booked = { tone: "success" as const, title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: stamps };
+    const base = { locationName: "Kassel Mitte", locale: "de" as const, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, booked };
+    const typed = renderToStaticMarkup(h(CashierView, { ...base, focusCodeInput: true }));
+    expect(typed).toMatch(/Bereit für die nächste Karte<\/p><form[^>]*><input id="cashier-code" aria-label="Kartennummer oder Kartencode" placeholder="Kartennummer oder Kartencode"/);
+    expect(typed.match(/id="cashier-code"/g)).toHaveLength(1);
+    const scanned = renderToStaticMarkup(h(CashierView, base));
+    expect(scanned).not.toMatch(/<form[^>]*><input id="cashier-code" aria-label/);
   });
 });

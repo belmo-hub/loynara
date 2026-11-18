@@ -188,14 +188,14 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    that); on it the badge lands like a pressed stamp (Stamp pop) with one ring and the tick draws. Every word on it
    („Gebucht“, the amount, the new balance, the card number) stands still, and nothing here holds up the next scan. */
 .booked {
-  flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-1); padding: 0;
+  flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-1); padding: 0; margin-top: calc(-1 * var(--space-6));
   text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
 }
 @starting-style { .booked { opacity: 0; } }
-.bookedIcon { position: relative; display: grid; place-items: center; width: 104px; height: 104px; margin-bottom: var(--space-1); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
+.bookedIcon { position: relative; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
 .booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
-.booked h2 { margin: 0; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
+.booked h2 { margin: 0; font: var(--weight-heavy) var(--display-tile)/1 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
 /* Longer titles („Vorgemerkt, noch nicht gebucht“, „Rückgängig gemacht“) step down so they keep two lines at most. */
 .booked:not([data-tone="success"]) h2 { font-size: var(--text-28); letter-spacing: -.015em; }
 .booked p { margin: 0; max-width: 32ch; }
@@ -229,3 +229,23 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 /* Win-back bonus (ENG-044): coral because it is a stamp moment; the amount is also in words, never colour alone. */
 .winback { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-stamp); color: var(--color-on-stamp); line-height: var(--leading-body); }
 .winback small { font-size: var(--text-14); }
+
+/* The access check's wait, drawn as the Kasse itself (Design, 18 Nov): the card block (r28), the reward row, the dock
+   with the keys' circles and the button. Still, no shimmer; the sizes are the open card's at 390 and from 800. */
+.phMain { display: grid; gap: var(--space-4); }
+.phCard, .phRow, .phStep i, .phNew, .phBook { display: block; background: var(--color-raised); }
+.phCard { height: 339px; border-radius: var(--radius-xl); }
+.phRow { height: 66px; border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); }
+.phDock { display: contents; }
+.phStep { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: calc(40px * 2 + 72px); min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
+.phStep i { width: 72px; height: 72px; border-radius: 50%; background: transparent; border: 1px solid var(--color-line-strong); }
+.phNew { height: 56px; margin-bottom: var(--space-4); border-radius: var(--radius-md); }
+.phBook { height: 64px; border-radius: var(--radius-pill); }
+@media (min-width: 800px) { .phCard { height: 375px; } }
+@media (forced-colors: active) { .phCard, .phNew, .phBook { border: 1px solid CanvasText; } }
+
+/* Typed path after a booking: the code field in the „Gebucht“ dock, 44 high with the house focus ring (Design, 18 Nov). */
+.dockCode { width: 100%; max-width: 440px; }
+.dockCode.dockCode.dockCode input { box-sizing: border-box; width: 100%; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: center; letter-spacing: .02em; }
+.dockCode input::placeholder { color: var(--color-ink-muted); }
+.dockCode input:focus-visible, .dockCode input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { MixCard } from "@/components/customer/mix-card";
 import { useKasseLocation } from "./kasse-sheet";
 import { flushSync } from "react-dom";
@@ -251,6 +251,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // Design draws them on the mix card (Design, 17 Nov).
   const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.reduce((low, reward) => reward.cost < low.cost ? reward : low) : null;
   const bookedGoal = Boolean(booked?.card && goal);
+  // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
+  const typedNext = Boolean(booked?.card && focusCodeInput);
   const ofGoal = (n: number) => goal && shown?.programType !== "points" ? `${number.format(n)} von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
@@ -278,6 +280,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
     {booked.tone !== "pending" && <p className={styles.bookedMeta}>{t.ready}</p>}
+    {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
+    {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
+      <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+    </form>}
   </section> : card ? <>
     {purchaseMode
       ? <Button {...earnLook} block loading={awarding} disabled={busy && !awarding}
@@ -380,7 +386,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <Button variant="primary" size="lg" block onClick={onConfirmPreview} disabled={busy} data-autofocus>{locale === "fr" ? "Ouvrir la carte" : "Karte öffnen"}</Button>
         <Button variant="quiet" size="sm" onClick={onCancelPreview} disabled={busy}>{locale === "fr" ? "Autre numéro" : "Andere Nummer"}</Button>
       </div>
-    </section> : !card ? <section className={cx(styles.ready, booked?.card && styles.srOnly)} aria-label={t.ready}>
+    </section> : !card && !typedNext ? <section className={cx(styles.ready, booked?.card && styles.srOnly)} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
       <form className={cx(styles.stack, codeRejected && styles.rejected)} onSubmit={lookup} onInput={fields.onInput} noValidate>
         <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
@@ -430,6 +436,13 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   const loading = state === "loading";
   // Opened from the owner's „Kasse“ link the frame already names the location, so the sliding sheet's head does not change.
   const location = useKasseLocation("Kasse");
+  const late = useLateWait(loading);
+  // While the access check runs, the sheet arrives looking like the Kasse: its own still placeholders (DESIGN › Waiting).
+  // Only a check still running 300 ms after the slide says so in words.
+  if (loading && !late) return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" stateLabel={null}
+    dock={<div className={styles.phDock} aria-hidden="true"><span className={styles.phStep}><i /><i /></span><span className={styles.phNew} /><span className={styles.phBook} /></div>}>
+    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft"><span className={styles.phCard} /><span className={styles.phRow} /></section>
+  </CashierShell>;
   return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
     <section className={cx("app-state-card", styles.access)}>
       <h1>{loading ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1>
@@ -440,4 +453,19 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
       </div>}
     </section>
   </CashierShell>;
+}
+
+/** The slide (260 ms) plus 300 ms, counted from the first waiting frame (the route's loading frame or the page's). */
+const LATE_MS = 560;
+let waitingSince = 0;
+function useLateWait(waiting: boolean) {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (!waiting) { waitingSince = 0; return; }
+    const now = performance.now();
+    if (!waitingSince || now - waitingSince > 10_000) waitingSince = now;
+    const timer = setTimeout(() => setLate(true), Math.max(0, LATE_MS - (now - waitingSince)));
+    return () => clearTimeout(timer);
+  }, [waiting]);
+  return late;
 }
