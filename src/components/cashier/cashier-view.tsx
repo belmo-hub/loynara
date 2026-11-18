@@ -354,7 +354,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       <small>{WINBACK_EXCLUSIONS}</small></p>}
     {card?.level && goal && <p className={styles.note} role="note"><b>{card.level.name}</b>{card.level.perk && <> · {locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</>}</p>}
     {card?.level?.perk && !goal && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
-    {camera}
+    {/* While „Gebucht“ holds the dock over the closed card, the camera and the scan form stay mounted and working (a
+        read or a handheld scanner opens the next card at once) but out of sight, under the dock. */}
+    <div className={booked?.card ? styles.srOnly : styles.contents}>{camera}</div>
     {!card && preview ? <section className={cx("cashier-preview", styles.panel)} aria-labelledby="cashier-preview-title">
       <span className={styles.eyebrow}>{t.cardFound}</span>
       <h2 id="cashier-preview-title" className={styles.locator}>{preview.cardLocator}</h2>
@@ -364,7 +366,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <Button variant="primary" size="lg" block onClick={onConfirmPreview} disabled={busy} data-autofocus>{locale === "fr" ? "Ouvrir la carte" : "Karte öffnen"}</Button>
         <Button variant="quiet" size="sm" onClick={onCancelPreview} disabled={busy}>{locale === "fr" ? "Autre numéro" : "Andere Nummer"}</Button>
       </div>
-    </section> : !card ? <section className={styles.ready} aria-label={t.ready}>
+    </section> : !card ? <section className={cx(styles.ready, booked?.card && styles.srOnly)} aria-label={t.ready}>
       {onStartCamera && !camera && <Button variant="primary" size="lg" block icon={<ScanLine size={20} />} onClick={onStartCamera} disabled={busy}>{t.camera}</Button>}
       <form className={cx(styles.stack, codeRejected && styles.rejected)} onSubmit={lookup} onInput={fields.onInput} noValidate>
         <TextField id="cashier-code" error={fields.error("cashier-code")} label={t.manual} hint={t.codeHint}
