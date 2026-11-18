@@ -80,6 +80,8 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* The reward the goal refers to: its weight and a check, no ring, in both programmes (Design, 18 Nov). */
 .rowButton[aria-pressed="true"] b { font-weight: var(--weight-heavy); }
 .picked { flex: none; color: var(--color-ink); }
+/* Every row keeps the check's width, so the values share one right edge. */
+.picked:not([data-on]) { visibility: hidden; }
 /* „Gut zu wissen“: lines of text beside the tile; a dated change is the warning tint. */
 .list [data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
 .noteText { overflow-wrap: anywhere; }
@@ -98,7 +100,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* The later rows open in place under the first three (Disclosure); their first row draws its hairline. */
 .activityMore { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
 .activityMore > ul { min-height: 0; overflow: hidden; }
-.activityMore li:first-child > span { padding-top: 7px; border-top: 1px solid var(--color-line); }
+.activityMore li:first-child > span:last-child { padding-top: 7px; border-top: 1px solid var(--color-line); } /* the body, not the tile */
 @starting-style { .activityMore { grid-template-rows: 0fr; } }
 .showAll { width: 100%; border-inline: 0; border-bottom: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
 .showAll:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
@@ -126,7 +128,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* It presses and hovers like the rows. */
 .closeToggle { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .closeToggle:active { transform: scale(.985); }
-@media (hover: hover) { .closeToggle:hover { background: color-mix(in oklab, var(--color-fill) 55%, var(--color-surface)); } }
+@media (hover: hover) { .closeToggle:hover { background: linear-gradient(color-mix(in oklab, var(--color-fill) 55%, transparent) 0 0), var(--color-surface); } }
 @media (prefers-reduced-motion: reduce) { .closeToggle:active { transform: none; } }
 .closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: calc(var(--space-5) - 1px); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 /* It ends a destructive flow: 48 high. The small type stays, so the label fits one line at 390 px. */

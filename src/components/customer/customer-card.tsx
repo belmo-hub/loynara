@@ -201,7 +201,7 @@ export function CustomerCard(props: CustomerCardProps) {
               <MixTile tone={ready ? "coral" : undefined}><Gift size={20} /></MixTile>
               <span className={mix.body}><span className={mix.text}><b>{reward.title}</b><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
                 {ready ? <span className={`${mix.chip} ${mix.warm}`}>{t.redeemable}</span> : <span className={mix.val}>{t.short(number.format(reward.cost - told))}</span>}
-                {selected?.id === reward.id ? <Check className={styles.picked} size={20} aria-hidden="true" /> : null}</span>
+                <Check className={styles.picked} data-on={selected?.id === reward.id || undefined} size={20} aria-hidden="true" /></span>
             </button>;
           })}
         </div>

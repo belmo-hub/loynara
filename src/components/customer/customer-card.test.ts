@@ -164,10 +164,21 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     for (const programType of ["points", "stamps"] as const) {
       const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
       expect(out.split('aria-pressed="true"').length - 1).toBe(1);
-      expect(out).toMatch(/aria-pressed="true"[^>]*>(?:(?!aria-pressed).)*?<svg[^>]*lucide-check/);
+      expect(out).toMatch(/aria-pressed="true"[^>]*>(?:(?!aria-pressed).)*?<svg[^>]*lucide-check[^>]*data-on="true"/);
+      // Every row reserves the check's width; only the picked one shows it.
+      expect(out.split("lucide-check").length - 1).toBeGreaterThanOrEqual(2);
     }
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
     expect(css).not.toMatch(/aria-pressed="true"\] \{[^}]*box-shadow/);
+  });
+  it("draws the later activity rows' first hairline on the row's body, not its tile (Design, 18 Nov)", async () => {
+    const activity = Array.from({ length: 5 }, (_, i) => ({ id: String(i), label: "Gesammelt", date: "Mo", change: 1 }));
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, activity }));
+    // A row is the tile first, the body last.
+    expect(out).toMatch(/<li class="[^"]*" data-lead="tile"><span class="[^"]*tile[^"]*" aria-hidden="true">.*?<\/span><span class="[^"]*body[^"]*">/);
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".activityMore li:first-child > span:last-child { padding-top: 7px; border-top: 1px solid var(--color-line); }");
+    expect(css).not.toMatch(/\.activityMore li:first-child > span \{/);
   });
   it("draws the export row's hairline itself and keeps it ink in forced colours (Design, 18 Nov)", async () => {
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
