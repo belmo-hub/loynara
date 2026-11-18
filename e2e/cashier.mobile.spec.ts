@@ -147,6 +147,32 @@ test.describe("cashier on phones", () => {
     expect(Math.round((await page.locator("[data-state]").boundingBox())!.y)).toBe(Math.round(stripTop));
   });
 
+  test("the waits are pinned: nothing for 250 ms after the slide, „Einen Moment …“ after 300 ms, the words panel only after 3 s", async ({ page }) => {
+    await signIn(page);
+    let answer!: () => void;
+    const answered = new Promise<void>(done => { answer = done; });
+    await page.route("**/api/me", async route => { await answered; await route.continue(); });
+    // The page's timers run on a fake clock from its first frame, so the thresholds are read exactly (slide 260 ms).
+    await page.clock.install();
+    await page.goto("/cashier");
+    await expect(page.locator(".cashier-placeholder")).toBeVisible();
+    const strip = page.locator("[data-state]:not([data-placeholder])");
+    const panel = page.getByRole("heading", { name: "Kassenzugang wird geprüft" });
+    await page.clock.runFor(260 + 250);
+    await expect(page.locator("[data-state][data-placeholder]")).toHaveCount(1);
+    await expect(strip).toHaveCount(0);
+    await page.clock.runFor(60);
+    await expect(strip).toContainText("Einen Moment …");
+    await expect(panel).toHaveCount(0);
+    await page.clock.runFor(3_000 - 570 - 10);
+    await expect(panel).toHaveCount(0);
+    await page.clock.runFor(20);
+    await expect(panel).toBeVisible();
+    await expect(page.getByText("Dein Standort und deine Berechtigung werden geladen.")).toBeVisible();
+    answer();
+    await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
+  });
+
   test("after a booking on the typed path the code field is in view in the Gebucht dock and keeps the focus (390 × 844)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page);

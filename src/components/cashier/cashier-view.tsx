@@ -453,7 +453,7 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
     </section>
   </CashierShell>;
   return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
-    <section className={cx("app-state-card", styles.access)}>
+    <section className={cx("app-state-card", styles.access, loading && styles.accessLate)}>
       <h1>{loading ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1>
       <p>{loading ? "Dein Standort und deine Berechtigung werden geladen." : message}</p>
       {!loading && <div className={styles.stack}>
@@ -467,7 +467,7 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
 /**
  * Waiting stages of the access check, counted from the first waiting frame (the route's loading frame or the page's):
  * quiet until the slide (260 ms) plus 300 ms, then the strip's words; past LONG_MS the words panel.
- * shortcut: LONG_MS is this ticket's pick for „the live threshold“ Design named; Design to confirm the number.
+ * LONG_MS: Design confirmed 3 s (18 Nov); the words panel fades in over --dur-ui when it comes.
  */
 const LATE_MS = 560;
 const LONG_MS = 3_000;
