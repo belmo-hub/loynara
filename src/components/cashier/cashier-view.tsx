@@ -439,13 +439,13 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   const loading = state === "loading";
   // Opened from the owner's „Kasse“ link the frame already names the location, so the sliding sheet's head does not change.
   const location = useKasseLocation("Kasse");
-  const wait = useWaitStage(loading);
+  const { stage: wait, since } = useWaitStage(loading);
   // One layout from the slide to the form (Design, 18 Nov): the sheet lands on the scan form's own still shape; 300 ms
   // after the slide the live strip says „Einen Moment …“ above the same shape; the form then replaces it in place. Only a
   // long wait shows the words panel below.
   if (loading && wait !== "long") return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" actions={<span className={styles.phKey} aria-hidden="true" />}
-    stateLabel="Einen Moment …" placeholder={wait === "quiet" || wait === "armed"}>
-    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft" data-armed={wait === "quiet" ? undefined : ""}>
+    stateLabel="Einen Moment …" placeholder={wait === "quiet"}>
+    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft" data-since={since === undefined ? undefined : Math.round(since)}>
       <h1 className={styles.title} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
       <div className={styles.ready} aria-hidden="true">
         <span className={styles.phButton} />
@@ -478,17 +478,18 @@ const LATE_MS = 560;
 const LONG_MS = 3_000;
 let waitingSince = 0;
 function useWaitStage(waiting: boolean) {
-  const [stage, setStage] = useState<"quiet" | "late" | "long" | "armed">("quiet");
+  const [stage, setStage] = useState<"quiet" | "late" | "long">("quiet");
+  const [since, setSince] = useState<number>();
   useEffect(() => {
     if (!waiting) { waitingSince = 0; return; }
-    // The clock is running: the frame says so (data-armed), which is what the waiting spec measures from.
-    setStage(current => current === "quiet" ? "armed" : current);
     const now = performance.now();
     if (!waitingSince || now - waitingSince > 10_000) waitingSince = now;
-    const passed = now - waitingSince;
-    const late = setTimeout(() => setStage(current => current === "quiet" || current === "armed" ? "late" : current), Math.max(0, LATE_MS - passed));
+    const passed = now - waitingSince, start = waitingSince;
+    // The frame carries its clock's start (data-since), which the waiting spec measures from.
+    const arm = setTimeout(() => setSince(start), 0);
+    const late = setTimeout(() => setStage(current => current === "quiet" ? "late" : current), Math.max(0, LATE_MS - passed));
     const long = setTimeout(() => setStage("long"), Math.max(0, LONG_MS - passed));
-    return () => { clearTimeout(late); clearTimeout(long); };
+    return () => { clearTimeout(arm); clearTimeout(late); clearTimeout(long); };
   }, [waiting]);
-  return stage;
+  return { stage, since };
 }

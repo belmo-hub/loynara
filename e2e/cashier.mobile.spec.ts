@@ -152,14 +152,15 @@ test.describe("cashier on phones", () => {
     let answer!: () => void;
     const answered = new Promise<void>(done => { answer = done; });
     await page.route("**/api/me", async route => { await answered; await route.continue(); });
-    // The page notes when the waiting frame's clock starts (data-armed), when the strip gets its words and when the panel
+    // The page notes when the waiting frame's clock started (data-since), when the strip gets its words and when the panel
     // shows; the gaps are the thresholds: 560 ms (the 260 ms slide plus 300 ms) and 3 s.
     await page.addInitScript(() => {
       const marks: Record<string, number> = {};
       (window as unknown as { __marks: typeof marks }).__marks = marks;
       new MutationObserver(() => {
         const now = performance.now();
-        if (!marks.frame && document.querySelector(".cashier-placeholder[data-armed]")) marks.frame = now;
+        const armed = document.querySelector<HTMLElement>(".cashier-placeholder[data-since]");
+        if (!marks.frame && armed) marks.frame = Number(armed.dataset.since);
         if (!marks.words && document.querySelector("[data-state]:not([data-placeholder])")?.textContent?.includes("Einen Moment")) marks.words = now;
         if (!marks.panel && [...document.querySelectorAll("h1")].some(h => h.textContent === "Kassenzugang wird geprüft")) marks.panel = now;
       }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
