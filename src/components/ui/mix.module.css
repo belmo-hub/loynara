@@ -73,7 +73,9 @@
 .row, .more, .btn { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .btn:active { transform: scale(.97); }
 a.row:active, button.row:active, .more:active { transform: scale(.985); }
-.row:focus-visible, .more:focus-visible { outline-offset: -3px; border-radius: var(--radius-lg); }
+/* Tripled classes (0,4,0): inside the owner app `.owner-app :is(a, button, …, [tabindex]):focus-visible` (0,3,0) would
+   put the ring back outside, where the panel clips it. */
+.row.row.row:focus-visible, .more.more.more:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-lg); }
 @media (hover: hover) and (pointer: fine) {
   a.row:hover, button.row:hover, .more:hover { background: color-mix(in oklab, var(--color-fill) 55%, transparent); }
   .primary:hover { background: var(--color-action-hover); }
