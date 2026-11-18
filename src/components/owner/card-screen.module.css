@@ -14,7 +14,8 @@
 /* Under 600 a long date („15. Nov. 2026“) gets the rest of the line and wraps there instead of running out. */
 @media (max-width: 599px) {
   .facts.facts { grid-template-columns: auto auto minmax(0, 1fr); }
-  .facts > div:last-child { justify-self: end; }
+  .facts > div { align-self: end; } /* a wrapped date: the labels keep one line, the figures stand on one base */
+  .facts > div:last-child { justify-self: end; text-align: end; }
   .facts > div:last-child .figure { white-space: normal; }
 }
 .figure { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
@@ -25,11 +26,14 @@
 .feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
 .day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); }
 .empty.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); animation: none; }
-.empty.empty p { font-size: var(--text-14); line-height: 20px; }
+.empty.empty p { max-width: none; font-size: var(--text-14); line-height: 20px; }
 .olderError { padding: var(--space-2) calc(var(--space-5) - 1px); }
 .more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
 .more:disabled { color: var(--color-ink-muted); cursor: default; }
-.more:focus-visible, .correct:focus-visible, .rowButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+/* Inset rings: the panel clips anything outside. Tripled to beat `.owner-app :is(…):focus-visible` (0,3,0). „Korrigieren“'s
+   44 px box reaches 12 past its text, so its ring sits 10 inside, round the word, clear of the amount above. */
+.more.more.more:focus-visible, .rowButton.rowButton.rowButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.correct.correct.correct:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -10px; }
 
 /* A statement line: title and sub lines left, the amount right with „Korrigieren“ on the line's last line. */
 .stmtBody.stmtBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-content: center; align-items: start; }
@@ -44,7 +48,7 @@
 .amount[data-tone="plus"] { color: var(--color-success); }
 .amount[data-tone="off"] { color: var(--color-ink-muted); text-decoration: line-through; }
 /* 44 tall without pushing the line apart. */
-.correct { margin: calc(-1 * var(--space-3)) calc(1px - var(--space-5)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)); padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-3) var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.correct { margin: calc(-1 * var(--space-3)); padding: var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 /* „Details“: a label and its value. */
 .key { flex: none; color: var(--color-ink-muted); }
