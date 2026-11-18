@@ -52,6 +52,32 @@ describe("mix tokens and patterns (ENG-254)", () => {
     expect(css).toContain(":global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }");
   });
 
+  it("draws the focus ring inside a row, so the panel's overflow cannot clip it", () => {
+    expect(css).toContain(".row.row.row:focus-visible, .more.more.more:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-lg); }");
+    // It must outrank the owner app's own ring (one class, :is() with an attribute, :focus-visible = 0,3,0).
+    const owner = readFileSync(join(__dirname, "../owner/owner.css"), "utf8");
+    expect(owner).toContain(".owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }");
+    const classes = (selector: string) => (selector.match(/\.[\w-]+|:focus-visible|\[[^\]]+\]/g) ?? []).length;
+    expect(classes(".row.row.row:focus-visible")).toBeGreaterThan(classes(".owner-app [tabindex]:focus-visible"));
+    expect(css).toMatch(/\.panel \{[^}]*overflow: hidden/);
+  });
+
+  it("presses buttons to .97 and rows to .985, with hover fills for a fine pointer and none of it under reduced motion", () => {
+    expect(css).toContain(".btn:active { transform: scale(.97); }");
+    expect(css).toContain("a.row:active, button.row:active, .more:active { transform: scale(.985); }");
+    expect(css).toContain("transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);");
+    expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\) \{\s*a\.row:hover/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.row, \.more, \.btn \{ transition: none; \}\s*\.btn:active, a\.row:active, button\.row:active, \.more:active \{ transform: none; \}/);
+  });
+
+  it("keeps the primary button's edge in forced colours, a reading measure for notes and the mock's text wrapping", () => {
+    expect(css).toContain("@media (forced-colors: active) { .primary { border: 1px solid ButtonText; } }");
+    expect(css).toContain("@media (min-width: 600px) { .note { max-width: 640px; } }");
+    expect(css).toMatch(/\.h \{[^}]*text-wrap: balance;/);
+    for (const role of [".note", ".sub", ".text > small"]) expect(css).toMatch(new RegExp(`${role.replace(/[.>]/g, m => `\\${m}`)} \\{[^}]*text-wrap: pretty;`));
+    expect(css).toContain(':global(.ly-theme-dark) .tile[data-tone="mute"] { background: var(--color-raised); }');
+  });
+
   it("keeps the warm chip's text at 4.5:1 on its tint over white", () => {
     expect(css).toContain(".warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }");
     expect(contrast("#9E4B2D", mix("#FFFFFF", "#9E4B2D", 0.1))).toBeGreaterThanOrEqual(4.5);
