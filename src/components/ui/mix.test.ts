@@ -53,7 +53,12 @@ describe("mix tokens and patterns (ENG-254)", () => {
   });
 
   it("draws the focus ring inside a row, so the panel's overflow cannot clip it", () => {
-    expect(css).toContain(".row:focus-visible, .more:focus-visible { outline-offset: -3px; border-radius: var(--radius-lg); }");
+    expect(css).toContain(".row.row.row:focus-visible, .more.more.more:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-lg); }");
+    // It must outrank the owner app's own ring (one class, :is() with an attribute, :focus-visible = 0,3,0).
+    const owner = readFileSync(join(__dirname, "../owner/owner.css"), "utf8");
+    expect(owner).toContain(".owner-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }");
+    const classes = (selector: string) => (selector.match(/\.[\w-]+|:focus-visible|\[[^\]]+\]/g) ?? []).length;
+    expect(classes(".row.row.row:focus-visible")).toBeGreaterThan(classes(".owner-app [tabindex]:focus-visible"));
     expect(css).toMatch(/\.panel \{[^}]*overflow: hidden/);
   });
 

@@ -43,8 +43,9 @@
 /* The thumbnail for list rows: the shop's colour and the stamps as dots, 64 x 44, no type. */
 .thumb { display: grid; flex: none; place-content: center; grid-template-columns: repeat(var(--cols), 8px); gap: var(--space-1) 6px; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
 .thumb[data-five] { column-gap: var(--space-1); }
-/* 21 to 30 stamps: six columns of 6 px dots, 3 apart (not drawn; keeps every dot inside 64 x 44). */
-.thumb[data-dense] { grid-template-columns: repeat(var(--cols), 6px); gap: 3px; }
+/* 21 to 30 stamps (Design, 18 Nov): six columns of 6 px dots, 2 apart both ways, at most five rows. 2 centres the block
+   on whole pixels: 9 left and right in 64, 3 above and below in 44 for five rows (7 for four). */
+.thumb[data-dense] { grid-template-columns: repeat(var(--cols), 6px); gap: 2px; }
 .thumb[data-dense] i { width: 6px; height: 6px; } /* not drawn: five columns at 6 would touch the edges */
 .thumb i { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 22%, transparent); }
 .thumb i[data-on] { background: var(--stamp-fill, var(--color-stamp)); }
