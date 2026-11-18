@@ -57,13 +57,15 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 
 .alert { composes: message from "./motion.module.css"; margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
 .refresh { display: grid; justify-items: center; gap: var(--space-1); }
-.refresh .refreshButton { color: var(--color-ink-muted); }
+.refresh .refreshButton { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-strong); } /* 16/720 as in the picture */
 @media (hover: hover) { .refresh .refreshButton:hover { background: var(--color-fill); color: var(--color-ink); } }
 /* „Karte aktualisieren“ answers the press with one turn of its icon (Press), whatever the read takes; never a loop. */
 .turn { animation: turn var(--dur-ui) var(--ease-out); }
 @keyframes turn { to { transform: rotate(360deg); } }
 
-/* One column in source order: the two groups are the shell's grid items. */
+/* One column in source order: the two groups are the shell's grid items. The 16 px gutter holds at every width, so
+   the column stays 408 (the shell's 440) from 600 up instead of narrowing with the wider gutter from 1024. */
+.page { --gutter: var(--space-4); }
 .lead, .rest { display: contents; }
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.45; color: var(--color-ink-muted); }
 
@@ -75,13 +77,8 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; transition: background-color var(--dur-press) var(--ease-out); }
 .rowButton:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
 @media (hover: hover) { .rowButton:hover { background: var(--color-fill); } }
-/* The reward the goal refers to: a neutral ring, not green (D-020). */
-.rowButton[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-line-strong); }
-.rowButton[aria-pressed]:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-.rowButton[aria-pressed]:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
-/* Points (not drawn yet): the picked reward is marked by its weight and the check only, no ring (Design, 18 Nov). */
-[data-points] > .rowButton[aria-pressed="true"] { box-shadow: none; }
-[data-points] > .rowButton[aria-pressed="true"] b { font-weight: var(--weight-heavy); }
+/* The reward the goal refers to: its weight and a check, no ring, in both programmes (Design, 18 Nov). */
+.rowButton[aria-pressed="true"] b { font-weight: var(--weight-heavy); }
 .picked { flex: none; color: var(--color-ink); }
 /* „Gut zu wissen“: lines of text beside the tile; a dated change is the warning tint. */
 .list [data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
@@ -101,7 +98,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* The later rows open in place under the first three (Disclosure); their first row draws its hairline. */
 .activityMore { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
 .activityMore > ul { min-height: 0; overflow: hidden; }
-.activityMore li:first-child > span { border-top-color: var(--color-line); }
+.activityMore li:first-child > span { padding-top: 7px; border-top: 1px solid var(--color-line); }
 @starting-style { .activityMore { grid-template-rows: 0fr; } }
 .showAll { width: 100%; border-inline: 0; border-bottom: 0; background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
 .showAll:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
@@ -118,13 +115,19 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* The export is a „Deine Karte“ row like its neighbours: the link is the row (its hairline too, since a wrapper
    stands between it and the row above); its own error line stands under it at the row's inset. */
 .export :global(.customer-export) { display: grid; }
-.export a > span { border-top-color: var(--color-line); }
+.export a > span { padding-top: 7px; border-top: 1px solid var(--color-line); }
+@media (forced-colors: active) { .export a { color: ButtonText; } }
 .export :global(.auth-error) { margin: 0; padding: 0 calc(var(--space-5) - 1px) var(--space-3); font-size: var(--text-14); color: var(--color-danger); }
 
 /* „Karte schließen“: a panel one row high; the binding step stays behind it. */
 .close { display: grid; justify-items: stretch; gap: var(--space-3); }
 .closeToggle { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row); padding: 0 var(--space-5); color: var(--color-danger); font: var(--weight-strong) var(--text-16)/1 var(--font-sans); cursor: pointer; }
 .closeToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* It presses and hovers like the rows. */
+.closeToggle { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.closeToggle:active { transform: scale(.985); }
+@media (hover: hover) { .closeToggle:hover { background: color-mix(in oklab, var(--color-fill) 55%, var(--color-surface)); } }
+@media (prefers-reduced-motion: reduce) { .closeToggle:active { transform: none; } }
 .closeConfirm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: calc(var(--space-5) - 1px); border: 1px solid color-mix(in oklab, var(--color-danger), transparent 55%); border-radius: var(--radius-lg); background: var(--color-surface); font-size: var(--text-14); line-height: 1.5; }
 /* It ends a destructive flow: 48 high. The small type stays, so the label fits one line at 390 px. */
 .closeConfirm button { min-height: 48px; }

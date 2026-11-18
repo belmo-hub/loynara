@@ -160,10 +160,19 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     expect(css).toContain("background: var(--card-ground, linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%));");
     expect(css).toContain('.mix [role="img"] > span[data-new]');
   });
-  it("marks the picked points reward by weight and a check, without the ring (Design, 18 Nov)", () => {
-    const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
-    expect(out).toContain('data-points="true"');
-    expect(out.split('aria-pressed="true"').length - 1).toBe(1);
+  it("marks the picked reward by weight and a check, without a ring, in both programmes (Design, 18 Nov)", async () => {
+    for (const programType of ["points", "stamps"] as const) {
+      const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
+      expect(out.split('aria-pressed="true"').length - 1).toBe(1);
+      expect(out).toMatch(/aria-pressed="true"[^>]*>(?:(?!aria-pressed).)*?<svg[^>]*lucide-check/);
+    }
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).not.toMatch(/aria-pressed="true"\] \{[^}]*box-shadow/);
+  });
+  it("draws the export row's hairline itself and keeps it ink in forced colours (Design, 18 Nov)", async () => {
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".export a > span { padding-top: 7px; border-top: 1px solid var(--color-line); }");
+    expect(css).toContain("@media (forced-colors: active) { .export a { color: ButtonText; } }");
   });
   it("keeps a points programme on the house card with its ladder, never the mix card (Design, 18 Nov)", () => {
     const points = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 40, rewards: [{ id: "a", title: "Kaffee", cost: 50 }, { id: "b", title: "Kuchen", cost: 100 }] }));
@@ -415,7 +424,7 @@ describe("the card after the join page (ENG-205)", () => {
     expect(bare).not.toMatch(/skeleton/i);
     expect(renderToStaticMarkup(createElement(CustomerCardLoading, { label: "Deine Karte wird geladen." }))).toMatch(/skeleton/i);
     const read = (path: string) => import("node:fs").then(fs => fs.readFileSync(path, "utf8"));
-    expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? styles.returning : undefined}");
+    expect(await read("src/components/customer/customer-card.tsx")).toContain("cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? `${styles.page} ${styles.returning}` : styles.page}");
     // Read hydration-safely: the server never knows about a return and renders the placeholder.
     expect(await read("src/components/card-client.tsx")).toContain("const pendingReturn = useSyncExternalStore(never, () => peekJoined(), () => false);");
     // The fade is on the shell's own boxes (.lead is display: contents on a phone and paints nothing itself).

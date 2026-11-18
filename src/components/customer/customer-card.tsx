@@ -143,7 +143,7 @@ export function CustomerCard(props: CustomerCardProps) {
       <span className={styles.amount} data-sign={item.change < 0 ? "minus" : undefined}><b>{item.change > 0 ? "+" : ""}{item.change}</b> <small>{t.unit(item.change, programType)}</small></span></span>
   </ActivityRow>;
 
-  return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? styles.returning : undefined}>
+  return <CardStatusProvider><CustomerShell brandColor={brandColor} locale={locale} footer={<div className={styles.footer}><LegalLinks locale={locale} newTab /><p>{t.footer}</p></div>} cover={arriving && (!quiet || props.waited) ? cardSkeleton : undefined} className={quiet && !props.waited ? `${styles.page} ${styles.returning}` : styles.page}>
     <div className={styles.lead} data-arriving={arriving || undefined} data-return={quiet || undefined} data-card-press={(rewardMoment && landed !== undefined) || undefined}>
       {/* Keyed by the balance: a second booking while the first pill still shows starts a new pill, with its own six seconds. */}
       {moment ? <BookingPill key={moment.balance} points={programType === "points"} credited={moment.credited} balance={moment.balance} locale={locale} /> : null}
@@ -193,7 +193,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
       {/* „Deine Prämien“ only where there is a choice (ENG-255): with one reward the card's foot already names it. */}
       {rewards.length > 1 ? <Section name="rewards" title={t.chooseReward}>
-        <div role="group" aria-labelledby="customer-rewards-title" className={mix.panel} data-points={programType === "points" || undefined}>
+        <div role="group" aria-labelledby="customer-rewards-title" className={mix.panel}>
           {rewards.map((reward) => {
             // Like the goal line, the row speaks of the real balance during a booking moment, so it keeps its height at the step.
             const ready = told >= reward.cost;
@@ -201,7 +201,7 @@ export function CustomerCard(props: CustomerCardProps) {
               <MixTile tone={ready ? "coral" : undefined}><Gift size={20} /></MixTile>
               <span className={mix.body}><span className={mix.text}><b>{reward.title}</b><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
                 {ready ? <span className={`${mix.chip} ${mix.warm}`}>{t.redeemable}</span> : <span className={mix.val}>{t.short(number.format(reward.cost - told))}</span>}
-                {programType === "points" && selected?.id === reward.id ? <Check className={styles.picked} size={20} aria-hidden="true" /> : null}</span>
+                {selected?.id === reward.id ? <Check className={styles.picked} size={20} aria-hidden="true" /> : null}</span>
             </button>;
           })}
         </div>
