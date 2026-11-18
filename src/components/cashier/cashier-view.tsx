@@ -180,8 +180,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   // A handheld scanner types the QR content into the field; do not leave that code on screen after submitting it.
   function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!fields.check(event.currentTarget)) return; const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
   // One stamp is booked with one tap: the scan identified the card and this button is the deliberate decision. More
-  // than one, or a choice between online and offline booking, still goes through the confirmation dialog. Points are
-  // booked from the amount sheet, whose „Buchen“ is that decision, after the preview of points and new balance.
+  // than one, or a choice between online and offline booking, still goes through the confirmation dialog. A typed amount
+  // always does (ENG-271): „1500“ instead of „15,00“ would otherwise book a hundred times the purchase with one tap.
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
@@ -200,11 +200,11 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     else setConfirm({ kind: "award", award: { quantity: awardCount } });
   }
   const purchaseAward = purchaseMode && purchasePreview ? { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } : null;
-  // The sheet closes on the tap, so the outcome (or an error) shows on the counter; the amount stays for a retry.
-  function bookPurchase(offline: boolean) {
+  // The sheet closes on the tap and the confirmation (with the offline choice, if any) takes over; the amount stays for a retry.
+  function bookPurchase() {
     if (!card || !purchaseAward) return;
     setAmountOpen(false);
-    if (offline) onQueueOffline?.(card, purchaseAward); else award(card, purchaseAward);
+    setConfirm({ kind: "award", award: purchaseAward });
   }
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
@@ -336,8 +336,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {card.level?.perk && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
       {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
         footer={<div className={styles.stack}>
-          {offlineChoice && <Button variant="secondary" size="lg" block disabled={busy || !purchaseAward} onClick={() => bookPurchase(true)}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
-          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
+          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={bookPurchase}>{t.book}</Button>
         </div>}>
         <div className={styles.stack}>
           <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
