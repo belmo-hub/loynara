@@ -1,0 +1,106 @@
+/* The owner's Kartenseite in the founder's mix (ENG-258), from the approved mock's karte.html and mix.css (D's statement).
+   Phone: card, Verlauf, figures, Details, action. 600 to 1199: card beside the figures (rows as tall as the card), the
+   rest full width, Details in two columns. From 1200: D's rail (400) beside the statement, 40 apart. */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); grid-template-areas: "card" "feed" "facts" "details" "action"; }
+.card { grid-area: card; display: grid; }
+.facts { grid-area: facts; }
+.feed { grid-area: feed; }
+.details { grid-area: details; }
+.action { grid-area: action; }
+
+/* The three figures: a figure over its label, spread from inset to inset. */
+.facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
+.facts > div { display: grid; gap: var(--space-1); }
+/* Under 600 a long date („15. Nov. 2026“) gets the rest of the line and wraps there instead of running out. */
+@media (max-width: 599px) {
+  .facts.facts { grid-template-columns: auto auto minmax(0, 1fr); }
+  .facts > div { align-self: end; } /* a wrapped date: the labels keep one line, the figures stand on one base */
+  .facts > div:last-child { justify-self: end; text-align: end; }
+  .facts > div:last-child .figure { white-space: normal; }
+}
+.figure { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
+.label { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+
+/* „Verlauf“: the day, then its lines. */
+/* A headed panel ends 8 under its last line when no „Ältere Vorgänge laden“ closes it. */
+.feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
+.day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); }
+.empty.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); animation: none; }
+.empty.empty p { max-width: none; font-size: var(--text-14); line-height: 20px; }
+.olderError { padding: var(--space-2) calc(var(--space-5) - 1px); }
+.more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.more:disabled { color: var(--color-ink-muted); cursor: default; }
+/* Inset rings: the panel clips anything outside. Tripled to beat `.owner-app :is(…):focus-visible` (0,3,0). „Korrigieren“'s
+   44 px box reaches 12 past its text, so its ring sits 10 inside, round the word, clear of the amount above. */
+.more.more.more:focus-visible, .rowButton.rowButton.rowButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.correct.correct.correct:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -10px; }
+
+/* A statement line: title and sub lines left, the amount right with „Korrigieren“ on the line's last line. */
+.stmtBody.stmtBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-content: center; align-items: start; }
+.title { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); font-weight: var(--weight-strong); }
+.sub { grid-column: 1; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.stmt[data-hang] { align-items: flex-start; }
+.stmt[data-hang] > :first-child { margin-top: var(--space-3); }
+.stmt[data-hang] > .stmtBody { padding-top: 11px; padding-bottom: var(--space-3); }
+.stmt[data-hang] .sub { grid-column: 1 / -1; }
+.end { grid-area: 1 / 2 / span 2; align-self: stretch; display: grid; justify-items: end; align-content: space-between; }
+.amount { font-size: var(--text-18); line-height: 24px; font-weight: var(--weight-heavy); white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; }
+.amount[data-tone="plus"] { color: var(--color-success); }
+.amount[data-tone="off"] { color: var(--color-ink-muted); text-decoration: line-through; }
+/* 44 tall without pushing the line apart. */
+.correct { margin: calc(-1 * var(--space-3)); padding: var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* „Details“: a label and its value. */
+.key { flex: none; color: var(--color-ink-muted); }
+.value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
+
+/* „Karte neu ausstellen“ as one tappable row. */
+.rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.wideBreak { display: none; }
+
+/* A failed read: the danger notice with the panel's inset and radius, 16/24 (mix .m-alert); from 1024 as wide as its text. */
+.alert > :global(.ow-notice) { padding: var(--space-5); border-radius: var(--radius-lg); font-size: var(--text-16); outline: 1px solid transparent; outline-offset: -1px; }
+.alert :global(.ow-notice-actions) { margin-top: var(--space-3); }
+.alert :global(.ow-btn) { font-size: var(--text-14); }
+@media (min-width: 1024px) { .alert { width: fit-content; max-width: 100%; } }
+
+/* Loading: placeholders in the loaded page's places. The card's is a neutral card-shaped block, never the shop colour. */
+.sk { border-radius: var(--radius-sm); background: var(--color-fill) linear-gradient(90deg, transparent, var(--color-surface), transparent) -100% 0 / 50% 100% no-repeat; }
+@keyframes shimmer { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: no-preference) { .sk { animation: shimmer 1.4s linear infinite; } }
+.bar { display: block; flex: none; margin-block: var(--space-1); }
+/* The card number stands 4 under the back link (mix .m-pagehead); its placeholder too. */
+.cardNumber.cardNumber { margin-top: var(--space-1); }
+.titleBar.titleBar { margin-block: var(--space-1) 0; }
+.ghost.ghost { min-height: 281px; border-radius: var(--radius-xl); }
+@media (min-width: 1024px) { .titleBar.titleBar { margin-block: 7px 3px; } } /* the h1 is 40 high there: the bar keeps its box */
+.tileBar.tileBar { flex: none; width: var(--mix-tile); height: var(--mix-tile); border-radius: var(--radius-md); }
+
+@media (min-width: 600px) {
+  .ghost.ghost { min-height: 299px; }
+  .amountBar { margin-right: calc(96px + var(--space-3)); } /* the loaded amount stands left of the „Korrigieren“ column */
+  /* D's wide statement: amount and „Korrigieren“ side by side on the title's line, amounts in one column. */
+  .end { grid-template-columns: auto 96px; column-gap: var(--space-3); align-content: center; align-items: center; }
+  .stmt[data-hang] .end { align-content: start; }
+  .correct { justify-self: end; }
+}
+@media (min-width: 600px) and (max-width: 1199px) {
+  .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
+  /* Beside the card the figures are rows as tall as the card, label left, figure right at 28/32 (Head of Design). */
+  .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; gap: 0; }
+  .facts > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
+  .facts > div:first-child { border-top-color: transparent; }
+  .facts .label { order: -1; font-weight: var(--weight-strong); }
+  .facts .figure { font-size: var(--text-28); line-height: 32px; letter-spacing: -.015em; }
+  /* „Details“ in two columns, read across; the two first rows have no line over them. */
+  .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .details > :first-child { grid-column: 1 / -1; }
+  .details.details > :nth-child(3) > :first-child { border-top-color: transparent; }
+  .details > :nth-last-child(2) { margin-bottom: var(--space-2); } /* the last two rows share one grid line: both end 8 above the edge */
+}
+@media (min-width: 1200px) {
+  .layout { grid-template-columns: 400px minmax(0, 1fr); column-gap: var(--space-10); align-items: start;
+    grid-template-areas: "card feed" "facts feed" "details feed" "action feed"; grid-template-rows: repeat(3, auto) 1fr; }
+  .wideBreak { display: inline; }
+  .ghost.ghost { min-height: 297px; }
+}

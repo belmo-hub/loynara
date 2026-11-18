@@ -74,19 +74,24 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
   });
 }
 
-// The card screen's „Kartenverlauf“ wears the diary's label: 8 above the first entry, 20 between entries (the two
-// stamps booked in the setup).
-test("a card's „Kartenverlauf“ keeps the diary rhythm", async () => {
+// The card screen in the mix (ENG-258): the card 16 above „Verlauf“ on the phone column, every statement line at least
+// 64 high and on the 4 px grid (the two stamps booked in the setup).
+test("a card's „Verlauf“ keeps the mix rhythm", async () => {
   await page.goto(`/merchant/customers?activity=all&card=${cardId}`);
-  const label = page.locator("#ow-main .ow-diary > h2");
-  await expect(label).toHaveText("Kartenverlauf");
+  await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => {
-    const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2;
-    const diary = document.querySelector("#ow-main .ow-diary")!, entries = [...diary.querySelectorAll(":scope > .ow-day")];
-    return { entries: entries.length >= 2, toFirst: entries[0] ? px(box(entries[0]).top - box(diary.querySelector("h2")!).bottom) : null, between: entries.slice(1).map((entry, i) => px(box(entry).top - box(entries[i]).bottom)).filter(gap => gap !== 20) };
-  })).toEqual({ entries: true, toFirst: 8, between: [] });
+    const rows = [...document.querySelectorAll("#ow-main [data-entry]")].map(row => row.getBoundingClientRect().height);
+    return { entries: rows.length >= 2, off: rows.filter(height => height < 64 || Math.round(height) % 4 !== 0) };
+  })).toEqual({ entries: true, off: [] });
 });
 
+// A card that is not there (ENG-258 states): the notice alone, no retry that could not find it, no title placeholder.
+test("a missing card says so without a retry or a title placeholder", async () => {
+  await page.goto("/merchant/customers?activity=all&card=00000000-0000-4000-8000-000000000000");
+  await expect(page.getByText("Diese Karte haben wir nicht gefunden.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Erneut laden" })).toHaveCount(0);
+  await expect(page.locator("#ow-main .ow-pagehead :is(h1, [class*=titleBar]):visible")).toHaveCount(0); // the list waits hidden under the card
+});
 
 // Heights (Design, 12 Nov, ruling SP6 and call 6): owner fields, selects and the button that ends a form are 52;
 // the Kasse's field is 56.
