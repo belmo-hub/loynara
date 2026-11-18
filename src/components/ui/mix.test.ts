@@ -37,6 +37,8 @@ describe("mix tokens and patterns (ENG-254)", () => {
   it("keeps a chip's shape and the chevron's colour in forced colours, with the chip at its normal size (ENG-262)", () => {
     expect(css).toMatch(/\.chip \{[^}]*height: 24px; padding: 0 calc\(var\(--space-2\) - 1px\); border: 1px solid transparent;/);
     expect(css).toContain("@media (forced-colors: active) { .chev { color: currentColor; } }");
+    expect(css).toContain(".h > svg { color: var(--color-action); }");
+    expect(css).toContain("@media (forced-colors: active) { .h > svg { color: CanvasText; } }");
   });
 
   it("links a row with its chevron, and shows a plain value muted", () => {
