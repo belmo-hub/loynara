@@ -57,7 +57,7 @@
 @media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .tile[data-tone="mute"] { background: var(--color-raised); } }
 
 /* Chips. */
-.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
+.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 calc(var(--space-2) - 1px); border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
 .warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }
 
 /* Buttons: 44 high (.lg 52), the primary filled green, the quiet one outlined. */
@@ -89,3 +89,7 @@ a.row:active, button.row:active, .more:active { transform: scale(.985); }
 }
 /* Forced colours drop the filled green: the primary button keeps an edge. */
 @media (forced-colors: active) { .primary { border: 1px solid ButtonText; } }
+/* Forced colours drop the chip's fill and keep its transparent edge (drawn in the text colour), so a chip keeps its
+   shape; the edge takes 1 px of the side padding, so normal pixels do not change. The chevron follows its row's colour
+   instead of the author grey. */
+@media (forced-colors: active) { .chev { color: currentColor; } }
