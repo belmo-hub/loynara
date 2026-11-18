@@ -18,6 +18,8 @@ export function progressLine(balance: number, reward: { title: string; cost: num
 
 /** Columns as the mix draws them: 4 for 8 and 12, 5 for 10 and 15, 4 otherwise. */
 export const mixColumns = (n: number) => n % 4 === 0 ? 4 : n % 5 === 0 ? 5 : 4;
+/** Thumbnail columns: the card's while four rows hold them, then 5, then 6 with smaller dots, so up to 30 fit 64 × 44. */
+export const thumbColumns = (n: number) => Math.ceil(n / mixColumns(n)) <= 4 ? mixColumns(n) : n <= 20 ? 5 : 6;
 
 type Props = {
   businessName: string; locationName: string; programType: "stamps" | "points"; balance: number;
@@ -47,19 +49,20 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   const goal = reward.cost, have = Math.max(0, Math.min(balance, goal)), left = goal - have;
   const points = programType === "points", stamps = !points && goal <= STAMP_GRID_MAX;
   const aria = stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
-  if (size === "thumb") return <span className={cx(styles.thumb, className)} style={cols} data-five={mixColumns(goal) === 5 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
-    {stamps && goal <= 12 ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
+  const tc = thumbColumns(goal);
+  if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={tc === 5 || undefined} data-dense={tc === 6 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
+    {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
   </span>;
   const t = copyFor(locale), number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const figure = number.format(points ? balance : have), of = points ? t.unit(balance, "points") : `von ${goal}`;
   const body = foot ?? (size === "kasse" ? null : voice === "owner" ? <p className={styles.line}>{progressLine(balance, reward, programType)}</p>
     : size === "example" ? <div className={styles.fields}><span><small>Prämie</small><strong>{reward.title}</strong></span><span><small>Einlösbar ab</small><strong>{withUnit(goal, programType, "de", "dat")}</strong></span></div>
     : <><p className={styles.line}>{left ? `${t.still} ${number.format(left)} ${t.toReward(t.unit(left, programType))}` : t.readyFor}</p><p className={styles.reward}>{reward.title}</p></>);
-  return <section className={cx(styles.card, size === "kasse" && styles.kasse, className)} aria-label={t.cardLabel}>
+  return <section className={cx(styles.card, size === "kasse" && styles.kasse, className)} aria-label={size === "full" && voice === "guest" ? t.cardLabel : "Karte"}>
     <div className={styles.top}>
       <span className={styles.mark} aria-hidden="true">{[...businessName][0]}</span>
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
-      <div className={styles.n}>{label ? <><b>{figure}<small>{of}</small></b><span>{label}</span></> : <><b>{figure}</b><span>{of}</span></>}</div>
+      <div className={styles.n}>{label ? <><b>{figure}<small> {of}</small></b><span>{label}</span></> : <><b>{figure}</b><span>{of}</span></>}</div>
     </div>
     {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
       : !stamps ? <StampGrid earned={have} total={goal} locale={locale} />

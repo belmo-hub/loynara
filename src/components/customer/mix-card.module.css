@@ -11,8 +11,9 @@
 .id b { font-weight: var(--weight-strong); line-height: 22px; }
 .id span { font-size: var(--text-14); line-height: 20px; color: var(--on-card); }
 .n { display: grid; flex: none; margin-left: auto; text-align: right; }
-.n b { font-size: var(--text-28); line-height: 30px; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; }
-.n b small { margin-left: var(--space-2); font-size: var(--text-16); line-height: 16px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--on-card); }
+.n b { font-size: var(--text-28); line-height: 30px; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A real space before „von 8“ so it is read as „5 von 8“; the margin takes the space's width (Manrope: .2em) back. */
+.n b small { margin-left: calc(var(--space-2) - .2em); font-size: var(--text-16); line-height: 16px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--on-card); }
 .n span { font-size: var(--text-14); line-height: 18px; font-weight: var(--weight-label); color: var(--on-card); }
 .stamps { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 14px var(--space-2); }
 /* A share of the slot, rounded to a whole pixel (47 in a 358 card); the plain width is for browsers without round(). */
@@ -41,7 +42,10 @@
 
 /* The thumbnail for list rows: the shop's colour and the stamps as dots, 64 x 44, no type. */
 .thumb { display: grid; flex: none; place-content: center; grid-template-columns: repeat(var(--cols), 8px); gap: var(--space-1) 6px; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
-.thumb[data-five] { column-gap: var(--space-1); } /* not drawn: five columns at 6 would touch the edges */
+.thumb[data-five] { column-gap: var(--space-1); }
+/* 21 to 30 stamps: six columns of 6 px dots, 3 apart (not drawn; keeps every dot inside 64 x 44). */
+.thumb[data-dense] { grid-template-columns: repeat(var(--cols), 6px); gap: 3px; }
+.thumb[data-dense] i { width: 6px; height: 6px; } /* not drawn: five columns at 6 would touch the edges */
 .thumb i { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 22%, transparent); }
 .thumb i[data-on] { background: var(--stamp-fill, var(--color-stamp)); }
 
@@ -52,3 +56,13 @@
 }
 /* At 880 the card is 404: 65 % puts the stamps on whole pixels (55 in 85); 400 at 1440 keeps 64 %. */
 @media (min-width: 600px) and (max-width: 1199px) { .card:not(.kasse) .stamp { --st: 65%; } }
+
+/* Forced colours keep the stamps readable: the card gets an edge, open stamps a ring, and the thumbnail draws itself
+   in system colours (earned dots filled, open dots ringed). */
+@media (forced-colors: active) {
+  .card { border: 1px solid CanvasText; }
+  .stamp { border: 1px solid CanvasText; }
+  .thumb { forced-color-adjust: none; background: Canvas; border: 1px solid CanvasText; }
+  .thumb i { background: Canvas; box-shadow: inset 0 0 0 1px CanvasText; }
+  .thumb i[data-on] { background: CanvasText; }
+}
