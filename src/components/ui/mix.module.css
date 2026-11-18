@@ -6,13 +6,17 @@
 .stack > .sec:not(:first-child) { margin-top: calc(var(--space-8) - var(--space-4)); }
 .sec > .h, .sec > .secHead { margin-bottom: calc(var(--space-3) - var(--space-4)); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+/* A note under a full-width panel keeps a reading measure from 600 (two lines of about 70 characters). */
+@media (min-width: 600px) { .note { max-width: 640px; } }
 
 /* Type roles. */
-.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
+.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); text-wrap: balance; }
+/* A title in a padded panel fills its first line, so a hyphenated compound stays whole. */
+.pad .h { text-wrap: wrap; }
 .h > svg { color: var(--color-action); }
 .kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
 .h + .sub { margin-top: var(--space-1); }
 /* Inside the owner app, `.owner-app :is(h1, h2, h3)` (one class and a tag) sets every heading's line height, weight and
    colour; a mix title or kicker that is a heading keeps its own. Non-mix owner headings are untouched. */
@@ -36,7 +40,7 @@
 .row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
 .text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
-.text > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.text > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
 .chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
@@ -46,6 +50,9 @@
 .tile { display: grid; flex: none; place-items: center; width: var(--mix-tile); height: var(--mix-tile); border-radius: var(--radius-md); background: var(--color-action-soft); color: var(--color-action); }
 .tile[data-tone="coral"] { background: var(--color-stamp); color: var(--color-on-stamp); }
 .tile[data-tone="mute"] { background: var(--color-fill); color: var(--color-ink-muted); }
+/* On a dark screen (the Kasse) the muted tile is the raised ground, as in the mock. */
+:global(.ly-theme-dark) .tile[data-tone="mute"] { background: var(--color-raised); }
+@media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .tile[data-tone="mute"] { background: var(--color-raised); } }
 
 /* Chips. */
 .chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
@@ -60,3 +67,23 @@
 .block { display: flex; width: 100%; }
 /* The underlined ink link beside a title or in a row; 44 tall without pushing the row apart. */
 .link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+
+/* Feedback (DESIGN.md › Motion, press): buttons press to .97, rows and the closing row to .985; hover fills only with a
+   fine pointer. The panel's overflow would clip the house ring, so a row's ring is drawn inside it. */
+.row, .more, .btn { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.btn:active { transform: scale(.97); }
+a.row:active, button.row:active, .more:active { transform: scale(.985); }
+/* Tripled classes (0,4,0): inside the owner app `.owner-app :is(a, button, …, [tabindex]):focus-visible` (0,3,0) would
+   put the ring back outside, where the panel clips it. */
+.row.row.row:focus-visible, .more.more.more:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; border-radius: var(--radius-lg); }
+@media (hover: hover) and (pointer: fine) {
+  a.row:hover, button.row:hover, .more:hover { background: color-mix(in oklab, var(--color-fill) 55%, transparent); }
+  .primary:hover { background: var(--color-action-hover); }
+  .quiet:hover { background: var(--color-action-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row, .more, .btn { transition: none; }
+  .btn:active, a.row:active, button.row:active, .more:active { transform: none; }
+}
+/* Forced colours drop the filled green: the primary button keeps an edge. */
+@media (forced-colors: active) { .primary { border: 1px solid ButtonText; } }
