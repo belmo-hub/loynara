@@ -62,7 +62,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
     <div className={styles.top}>
       <span className={styles.mark} aria-hidden="true">{[...businessName][0]}</span>
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
-      <div className={styles.n}>{label ? <><b>{figure}<small> {of}</small></b><span>{label}</span></> : <><b>{figure}</b><span>{of}</span></>}</div>
+      <div className={styles.n}>{label ? <><b data-figure="">{figure}<small> {of}</small></b><span>{label}</span></> : <><b data-figure="">{figure}</b><span>{of}</span></>}</div>
     </div>
     {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
       : !stamps ? <StampGrid earned={have} total={goal} locale={locale} />

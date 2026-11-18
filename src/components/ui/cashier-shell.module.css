@@ -15,7 +15,7 @@
    open or working); only an error or a done booking colours the whole strip. */
 .status {
   display: flex; align-items: center; gap: var(--space-3); margin-inline: var(--gutter); width: auto; max-width: calc(var(--k-col) - 2 * var(--gutter));
-  min-height: 48px; padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action-soft); color: var(--color-ink);
+  min-height: 48px; margin-top: var(--space-3); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action-soft); color: var(--color-ink);
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
 }
 /* Auto margins on a column flex item stop the stretch, so the strip takes the column width explicitly. */

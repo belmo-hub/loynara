@@ -148,10 +148,10 @@ describe("the mix Kasse (ENG-256)", () => {
     const out = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: { ...stamps, balance: 6 } } });
     expect(out).toMatch(/data-dock="true"><section class="cashier-booked/);
     // The card's terms in one line; the live sentence and the number stay for screen readers and the specs.
-    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*>K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
+    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
-    expect(out).toContain("<b>6<small> von 8</small></b>");
+    expect(out).toContain("<b data-figure=\"\">6<small> von 8</small></b>");
     expect(out).toMatch(/<small class="[^"]*">Noch 2 Stempel<\/small>/);
     expect(out).not.toContain("reward-action-list");
     expect(out).not.toContain("cashier-award-now");

@@ -145,6 +145,8 @@ function previewMonth(isoMonth: string, locale: UiLocale) {
 
 export function CashierView({ locationName, businessName = "", brandColor, card, preview, booked, onUndo, onConfirmPreview, onCancelPreview, busy = false, status = "idle", message, rejectedTitle, onLookup, codeRejected = false, onCodeEdit, focusCodeInput = false, camera, nfcPanel, resetToken = 0, onStartCamera, onAward, onRedeem, onQueueOffline, offlineLeaseExpiresAt, offlinePanel, onClear, locale = "de", onLocaleChange, showOverview = true, role, logoutControl }: CashierViewProps) {
   const [code, setCode] = useState("");
+  // The access check answered: the next visit's wait starts its own clock (the waiting frame unmounts, it does not re-render).
+  useEffect(() => { waitingSince = 0; }, []);
   const fields = useFormCheck();
   const [quantity, setQuantity] = useState(1);
   const maxQuantity = quantityPickerMax(role);
@@ -265,21 +267,22 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {/* With a goal the moment reads in the card's terms, one line („6 von 8 · K-…“); the live sentence and the card
         number stay for screen readers and the specs. Without a goal the live lines show. */}
     {bookedGoal ? <>
-      <p className={styles.srOnly}>{booked.detail}</p>{booked.meta && <p className={styles.srOnly}>{booked.meta}</p>}
+      {/* Announced: „Gebucht“, the chip, this sentence. The card number stays in the text (the specs read it), not in the announcement. */}
+      <p className={styles.srOnly}>{booked.detail}</p>{booked.meta && <p className={styles.srOnly} aria-hidden="true">{booked.meta}</p>}
       <p className={styles.bookedDetail} aria-hidden="true">{ofGoal(booked.card!.balance)}{booked.meta && ` · ${booked.meta}`}</p>
     </> : <>
       <p className={styles.bookedDetail}>{booked.detail}</p>
-      {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
+      {booked.meta && <p className={styles.bookedMeta} aria-hidden="true">{booked.meta}</p>}
     </>}
     {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
     {booked.error && <p className={styles.bookedError} role="alert">{booked.error}</p>}
     {/* The open dock already showed who corrects a mistake; here it stays for screen readers only. */}
-    {booked.undo === "staff-only" && <p className={styles.srOnly}>{t.undoStaff}</p>}
+    {booked.undo === "staff-only" && <p className={styles.srOnly} aria-hidden="true">{t.undoStaff}</p>}
     {(booked.undo === "available" && onUndo || !camera && !booked.card) && <div className={styles.bookedActions}>
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
-    {booked.tone !== "pending" && <p className={styles.bookedMeta}>{t.ready}</p>}
+    {booked.tone !== "pending" && <p className={styles.bookedMeta} aria-hidden="true">{t.ready}</p>}
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
       <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
@@ -328,7 +331,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       <MixCard size="kasse" businessName={businessName || locationName} locationName={locationName} programType={shown.programType} balance={shown.balance}
         reward={{ id: goal.id, title: goal.name, cost: goal.cost }} rewards={shown.rewards.map(reward => ({ id: reward.id, title: reward.name, cost: reward.cost }))}
         title={shown.cardLocator} sub={t.verified} label={t.balance} locale={locale}
-        foot={<>{card || !camera ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
+        foot={<>{shown ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
           {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
           {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
           {shown.matchedBy === "locator" ? <p className={cx("cashier-locator-note", styles.footNote)} role="note">{t.locatorNote}</p>
@@ -347,7 +350,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />}
     </section>}
     {/* Today's card (points, no reward) keeps the note right under it. */}
-    {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note)} role="note">{t.locatorNote}</p>}
+    {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.balanced)} role="note">{t.locatorNote}</p>}
     {/* On the mix card the figure is drawn clamped to the goal (its label is the card's); the balance in words stays for screen readers and the specs. */}
     {card && goal && <div className={cx("balance-display", styles.srOnly)}>
       <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
@@ -440,9 +443,9 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   // One layout from the slide to the form (Design, 18 Nov): the sheet lands on the scan form's own still shape; 300 ms
   // after the slide the live strip says „Einen Moment …“ above the same shape; the form then replaces it in place. Only a
   // long wait shows the words panel below.
-  if (loading && wait !== "long") return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy"
-    stateLabel="Einen Moment …" placeholder={wait === "quiet"}>
-    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft">
+  if (loading && wait !== "long") return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" actions={<span className={styles.phKey} aria-hidden="true" />}
+    stateLabel="Einen Moment …" placeholder={wait === "quiet" || wait === "armed"}>
+    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft" data-armed={wait === "quiet" ? undefined : ""}>
       <h1 className={styles.title} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
       <div className={styles.ready} aria-hidden="true">
         <span className={styles.phButton} />
@@ -452,7 +455,9 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
       </div>
     </section>
   </CashierShell>;
-  return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
+  // After LONG_MS the panel is the one waiting message; the strip keeps its slot, empty.
+  return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"} placeholder={loading}
+    actions={loading ? <span className={styles.phKey} aria-hidden="true" /> : undefined}>
     <section className={cx("app-state-card", styles.access, loading && styles.accessLate)}>
       <h1>{loading ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1>
       <p>{loading ? "Dein Standort und deine Berechtigung werden geladen." : message}</p>
@@ -473,13 +478,15 @@ const LATE_MS = 560;
 const LONG_MS = 3_000;
 let waitingSince = 0;
 function useWaitStage(waiting: boolean) {
-  const [stage, setStage] = useState<"quiet" | "late" | "long">("quiet");
+  const [stage, setStage] = useState<"quiet" | "late" | "long" | "armed">("quiet");
   useEffect(() => {
     if (!waiting) { waitingSince = 0; return; }
+    // The clock is running: the frame says so (data-armed), which is what the waiting spec measures from.
+    setStage(current => current === "quiet" ? "armed" : current);
     const now = performance.now();
     if (!waitingSince || now - waitingSince > 10_000) waitingSince = now;
     const passed = now - waitingSince;
-    const late = setTimeout(() => setStage(current => current === "quiet" ? "late" : current), Math.max(0, LATE_MS - passed));
+    const late = setTimeout(() => setStage(current => current === "quiet" || current === "armed" ? "late" : current), Math.max(0, LATE_MS - passed));
     const long = setTimeout(() => setStage("long"), Math.max(0, LONG_MS - passed));
     return () => { clearTimeout(late); clearTimeout(long); };
   }, [waiting]);

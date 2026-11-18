@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
-import { rememberKasseLocation } from "@/components/cashier/kasse-sheet";
+import { holdRootForKasseSheet, kasseSheetReady, rememberKasseLocation } from "@/components/cashier/kasse-sheet";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
@@ -47,6 +47,8 @@ export function freshFade() { document.documentElement.toggleAttribute("data-ow-
 export function OwnerShell({ children }: { children: ReactNode }) {
   const owner = useOwner();
   const router = useRouter();
+  // The sheet needs the Kasse prefetched (kasseSheetReady); warm it once the owner screen is idle.
+  useEffect(() => { const id = window.setTimeout(() => router.prefetch("/cashier"), 1_000); return () => window.clearTimeout(id); }, [router]);
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
   const locationId = owner.me?.locationId;
@@ -228,7 +230,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const subItems = group ? visibleItems(group, role, hidden) : [];
   // The Kasse slides up over the app as a sheet (ENG-256): the navigation carries its transition type, and the Kasse's
   // loading frame shows this location from the first frame.
-  const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => { rememberKasseLocation(me?.locationName); router.push("/cashier", { transitionTypes: ["kasse-sheet"] }); }); } };
+  const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => { rememberKasseLocation(me?.locationName); if (kasseSheetReady()) { holdRootForKasseSheet(); router.push("/cashier", { transitionTypes: ["kasse-sheet"] }); } else router.push("/cashier"); }); } };
 
   return (
     <div className="ow-shell">

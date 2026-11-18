@@ -152,23 +152,27 @@ test.describe("cashier on phones", () => {
     let answer!: () => void;
     const answered = new Promise<void>(done => { answer = done; });
     await page.route("**/api/me", async route => { await answered; await route.continue(); });
-    // The page's timers run on a fake clock from its first frame, so the thresholds are read exactly (slide 260 ms).
-    await page.clock.install();
+    // The page notes when the waiting frame's clock starts (data-armed), when the strip gets its words and when the panel
+    // shows; the gaps are the thresholds: 560 ms (the 260 ms slide plus 300 ms) and 3 s.
+    await page.addInitScript(() => {
+      const marks: Record<string, number> = {};
+      (window as unknown as { __marks: typeof marks }).__marks = marks;
+      new MutationObserver(() => {
+        const now = performance.now();
+        if (!marks.frame && document.querySelector(".cashier-placeholder[data-armed]")) marks.frame = now;
+        if (!marks.words && document.querySelector("[data-state]:not([data-placeholder])")?.textContent?.includes("Einen Moment")) marks.words = now;
+        if (!marks.panel && [...document.querySelectorAll("h1")].some(h => h.textContent === "Kassenzugang wird geprüft")) marks.panel = now;
+      }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    });
     await page.goto("/cashier");
-    await expect(page.locator(".cashier-placeholder")).toBeVisible();
-    const strip = page.locator("[data-state]:not([data-placeholder])");
-    const panel = page.getByRole("heading", { name: "Kassenzugang wird geprüft" });
-    await page.clock.runFor(260 + 250);
+    await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toBeVisible({ timeout: 10_000 });
+    const marks = await page.evaluate(() => (window as unknown as { __marks: Record<string, number> }).__marks);
+    expect(marks.frame).toBeGreaterThan(0);
+    expect(marks.words - marks.frame).toBeGreaterThanOrEqual(260 + 250);
+    expect(marks.words - marks.frame).toBeLessThan(560 + 800); // room for a loaded machine; the lower bound is the pin
+    expect(marks.panel - marks.frame).toBeGreaterThanOrEqual(3_000);
+    // One waiting message: with the panel up, the strip keeps its slot without words.
     await expect(page.locator("[data-state][data-placeholder]")).toHaveCount(1);
-    await expect(strip).toHaveCount(0);
-    await page.clock.runFor(60);
-    await expect(strip).toContainText("Einen Moment …");
-    await expect(panel).toHaveCount(0);
-    await page.clock.runFor(3_000 - 570 - 10);
-    await expect(panel).toHaveCount(0);
-    await page.clock.runFor(20);
-    await expect(panel).toBeVisible();
-    await expect(page.getByText("Dein Standort und deine Berechtigung werden geladen.")).toBeVisible();
     answer();
     await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
   });

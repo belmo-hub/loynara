@@ -6,7 +6,8 @@
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(root),
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
-:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs) { display: block; animation: kasse-dim 260ms var(--ease-out) both; }
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs),
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { display: block; opacity: 1; animation: kasse-dim 260ms var(--ease-out) both; }
 :root:active-view-transition-type(kasse-sheet)::view-transition-new(root) { animation: none; opacity: 0; }
 :root:active-view-transition-type(kasse-sheet)::view-transition-group(.kasse-sheet) { z-index: var(--z-sheet); }
 :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-up 260ms var(--ease-drawer) both; }
@@ -17,6 +18,8 @@
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(root),
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
-  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs) { animation: none; }
-  :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-fade 160ms linear both; }
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs),
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { animation: none; }
+  /* owner.css stops every transition animation with !important under reduced motion; the sheet keeps its fade. */
+  :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-fade 160ms linear both !important; }
 }
