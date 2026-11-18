@@ -71,7 +71,8 @@
 /* The rewards: the mix panel with one row each (tile, name, what is left or its price, the price or „Einlösen“). A ready
    reward is a button; one out of reach is a disabled row; after a booking the rows are plain text. */
 .reward { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; animation: row-in var(--dur-ui) var(--ease-out) backwards; transition: background-color var(--dur-press) var(--ease-out); }
-.reward:disabled { cursor: default; }
+/* A reward out of reach is not a target: no hover fill from the mix row (0,3,0 beats its button.row:hover). */
+.reward.reward:disabled { cursor: default; background: none; }
 .reward:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .reward:active:not(:disabled) { background: var(--color-action-soft); }
 @media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { background: var(--color-action-soft); } }
