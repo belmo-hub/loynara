@@ -27,6 +27,11 @@ export function kasseSheetReady() {
   } catch { return false; }
 }
 
+/** Prefetches the Kasse for the sheet, only while the tab is in view: a backgrounded tab warms it again when it returns. */
+export function warmKasse(prefetch: (href: string) => void) {
+  if (document.visibilityState === "visible") prefetch("/cashier");
+}
+
 /**
  * React hides the page's root snapshot during a transition unless the root names itself; the sheet needs the old page in
  * view to dim it. The browser's own default name is set for this navigation and given back when the transition ends

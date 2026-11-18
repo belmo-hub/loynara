@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
-import { holdRootForKasseSheet, kasseSheetReady, rememberKasseLocation } from "@/components/cashier/kasse-sheet";
+import { holdRootForKasseSheet, kasseSheetReady, rememberKasseLocation, warmKasse } from "@/components/cashier/kasse-sheet";
 // The sheet's transition rules travel with the owner app; every rule is scoped to the kasse-sheet transition type.
 import "@/app/cashier/kasse-sheet.css";
 import { BrandMark } from "@/components/ui/brand-mark";
@@ -52,7 +52,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   // The sheet needs the Kasse prefetched and fresh (kasseSheetReady): warm it once the owner screen is idle, then keep it
   // warm (a no-op while the router still holds it; a new fetch once it went stale, and when the tab comes back).
   useEffect(() => {
-    const warm = () => router.prefetch("/cashier");
+    const warm = () => warmKasse(href => router.prefetch(href));
     const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 60_000);
     const visible = () => { if (document.visibilityState === "visible") warm(); };
     document.addEventListener("visibilitychange", visible);
