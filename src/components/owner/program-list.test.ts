@@ -1,9 +1,13 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { isQuestion } from "./program-helpers";
-import { ProgramExample, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+
+const loaded = vi.hoisted(() => ({ program: null as unknown }));
+vi.mock("./use-load", () => ({ useLoad: (url: string) => [url.startsWith("/api/program/") ? { state: "ok", data: loaded.program, at: 0 } : { state: "error", message: "" }, () => {}] }));
+vi.mock("./owner-context", () => ({ useOwner: () => ({ hiddenSurfaces: [] }) }));
+import { ProgramExample, ProgramList, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
 import { ruleChips } from "./program-rule-changes";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
@@ -173,5 +177,21 @@ describe("the example card under „Aussehen“ (mix A)", () => {
     const html = render("points", 250);
     expect(html).toContain("ow-cardprev");
     expect(html).not.toContain("Einlösbar ab");
+  });
+});
+
+describe("a shop without a reward (Design, 18 Nov)", () => {
+  const page = (rewards: PublicProgram["rewards"]) => { loaded.program = { ...program, rewards }; return renderToStaticMarkup(createElement(ProgramList, { me: { ...me, businessName: "Demo Kaffeebar Kassel", locationName: "Kassel Mitte" } })); };
+  it("has no example card and one full-width column, „Prämie hinzufügen“ in it", () => {
+    const html = page([]);
+    expect(html).toContain("data-bare");
+    expect(html).not.toContain("Aussehen");
+    expect(html).toContain("Prämie hinzufügen");
+    expect(html).toContain("Kundenkarte"); // still in „Infos auf der Karte“
+  });
+  it("keeps the example card and the split while a reward exists", () => {
+    const html = page(program.rewards);
+    expect(html).not.toContain("data-bare");
+    expect(html).toContain("Aussehen");
   });
 });

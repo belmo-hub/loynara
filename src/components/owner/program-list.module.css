@@ -15,6 +15,12 @@
   .col > * { grid-area: auto; }
 }
 
+/* No reward yet, so no example card (Design, 18 Nov): one full-width column at every width, „Prämien“ first. */
+.split[data-bare] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "rew" "rule" "ext" "info" "res"; column-gap: 0; }
+.split[data-bare] > .col { display: contents; }
+.split[data-bare] > .col > .rule { grid-area: rule; } .split[data-bare] > .col > .rew { grid-area: rew; } .split[data-bare] > .col > .ext { grid-area: ext; }
+.split[data-bare] > .col > .info { grid-area: info; } .split[data-bare] > .col > .res { grid-area: res; }
+
 /* A value that is set reads in ink; „Aus“, „Keine“ stay muted (the pattern's plain value). */
 .on { color: var(--color-ink); }
 

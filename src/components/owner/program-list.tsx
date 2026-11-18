@@ -173,7 +173,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
       <PageHead title="Programm" />
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
         // One click handler for every row: the list comes back to the row it was left from.
-        <div ref={list} className={styles.split} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
+        <div ref={list} className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
           <div className={styles.col}>
             {reward && program.state === "ok" && <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>}
             {section("So sammeln Kunden")}
