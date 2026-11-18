@@ -241,7 +241,9 @@ describe("Übersicht direction D (ENG-085)", () => {
 
   it("next step: cards away and rewards ready in one line with „Ansehen“", () => {
     state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
-    expect(render()).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen</b>`);
+    const away = render();
+    expect(away).toContain(`<b>2${NBSP}Karten fehlen seit über 30 Tagen</b>`);
+    expect(away).toMatch(/data-hang="" data-lead="tile"><span class="_tile_[^"]*" data-tone="mute" aria-hidden="true"><svg[^>]*lucide-users/); // every row has a lead
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
     expect(render()).toMatch(/data-ow="next"[^]*<a class="[^"]*" href="\/merchant\/program\/winback">Willkommen-zurück-Bonus einschalten<svg/);
@@ -442,9 +444,9 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winbackSetting: { enabled: false, days: 30 } }));
     const off = showing([row("loc-1", null)]);
     expect(labels(off)).toContain("Wieder­gekommen");
-    expect(off).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
+    expect(off).toContain('href="/merchant/program/winback"><span>Willkommen-zurück-Bonus ist aus</span></a>');
     state.hidden = ["walletMessages"]; // the pilot: the setting is on Programm, so the tile links there too
-    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program/winback">Willkommen-zurück-Bonus ist aus</a>');
+    expect(showing([row("loc-1", null)])).toContain('href="/merchant/program/winback"><span>Willkommen-zurück-Bonus ist aus</span></a>');
   });
 
   it("follows the active location", () => {

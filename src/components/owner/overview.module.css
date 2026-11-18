@@ -15,10 +15,13 @@
 .num[data-none] { color: var(--color-ink-muted); }
 [data-fact] .num { order: 1; }
 /* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it: a 44 target that
-   keeps the 20 line. The focus ring is drawn around the text (::before), so it never crosses the line above. */
-.facts.facts small > a { position: relative; display: inline-flex; align-items: center; min-height: var(--target); margin-block: calc(-1 * var(--space-3)); padding: 0; }
-:is(.facts.facts small > a, .line.line > button[data-link]):focus-visible { outline: none; }
-:is(.facts.facts small > a, .line.line > button[data-link]):focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
+   keeps the 20 line. Its ring is drawn on the text's own line boxes, so a wrapped link is ringed line by line. */
+.facts.facts small > a { display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
+.facts.facts small > a:focus-visible { outline: none; }
+.facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* „Tresenschild laden“ (one line): its ring around the text, the 44 box kept. */
+.line.line > button[data-link]:focus-visible { outline: none; }
+.line.line > button[data-link]:focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
 .facts [data-fact] svg { order: 2; }
 .kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
@@ -33,6 +36,11 @@
 .line b { font-weight: var(--weight-strong); text-wrap: pretty; }
 .line small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 .line > :not(:first-child, [data-link]) { margin-top: var(--space-3); }
+/* Below 600 the step's button stands under its text and may take two lines, never wider than the panel. */
+@media (max-width: 599px) {
+  .line.line > :is(a, button):not([data-link]) { max-width: 100%; height: auto; min-height: var(--target); white-space: normal; text-wrap: balance; text-align: center; }
+  .line.line > :is(a, button):not([data-link]) > svg { flex: none; }
+}
 /* „Tresenschild laden“: the mix link (44 tall, the 20 line kept by its margins), its ring around the text (above). */
 .line.line > button[data-link] { position: relative; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .line.line > button[data-link]:active, .help:active { transform: scale(.97); }
@@ -83,7 +91,7 @@
 @media (forced-colors: active) {
   .bar, .legend i { forced-color-adjust: none; background: Canvas; border: 1px solid CanvasText; }
   .bar[data-lit], .legend i[data-lit] { background: CanvasText; }
-  .bar[data-zero] { border-width: 1px 0 0; }
+  .bar[data-zero] { border: 0; background: CanvasText; }
   .bar[data-today]:not([data-zero]) { border: 2px solid CanvasText; border-bottom: 0; }
 }
 .foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
@@ -116,6 +124,13 @@
   .sec { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
   .sec > .head, .diary { grid-column: 1 / -1; }
   .book { grid-row: span 2; grid-template-rows: auto auto 1fr auto; }
+  /* Without „Vorschlag“ (the suggestion stands in „Als Nächstes“, or nothing to suggest) the tile spans one row and its
+     plot fills it, so the tile and the figure rows end together. */
+  .sec[data-single] { grid-template-rows: auto auto auto; }
+  .sec[data-single] > .book { grid-row: auto; }
+  /* The figure rows share the row's height, so the two tiles end together with no empty foot in either. */
+  .sec[data-single] > .facts { display: grid; grid-auto-rows: 1fr; }
+  .sec[data-single] > .facts > [data-fact] { align-items: stretch; }
   /* The chart takes the tile's spare height: the plot grows, bars scale with it, the guide lines stay at half and full
      height, and the baseline and days end on the tile's bottom inset (Design, 18 Nov). Under 1024 nothing changes. */
   .book > .week { display: flex; flex-direction: column; }

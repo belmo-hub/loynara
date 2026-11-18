@@ -2,7 +2,7 @@
 
 import { weekLine } from "./week-line";
 import Link from "next/link";
-import { ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2, UserPlus } from "lucide-react";
+import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
@@ -165,10 +165,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
       {firstName === null ? <div className={cx("ow-hello", s.hello)} aria-hidden="true">{NBSP}</div> : <h1 className={cx("ow-hello", s.hello)}><span className="ow-sr">Übersicht: </span>{hello}</h1>}
       <div className={mix.stack}>
-        {panel ? <NextPanel next={next} lead={thumb && { kind: "card", node: thumb }} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
+        {panel ? <NextPanel next={next} lead={thumb ? { kind: "card", node: thumb } : next ? { kind: "tile", node: <MixTile tone="mute">{stepIcon(next.kind)}</MixTile> } : undefined} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
-        <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed}>
+        <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={brought ? undefined : ""}>
           <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
             : <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} aria-busy={!board}>
@@ -207,6 +207,10 @@ export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: Re
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };
 }
+
+/** The muted tile's icon for a next step, so every „Als Nächstes“ row has a lead (Design, 18 Nov): cards away and other
+ * observations the users, a quiet week the calendar, an open set-up step the list. */
+const stepIcon = (kind: string) => kind === "quiet" ? <CalendarDays size={20} aria-hidden="true" /> : kind.startsWith("setup:") ? <ListChecks size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />;
 
 /** Whether a next step's action is the win-back bonus switch, so the page offers it once. */
 const offersBonus = (action: NextAction | undefined) => !!action && "href" in action && action.href === WINBACK_HREF;
@@ -298,7 +302,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const young = firstWeeks(a) !== undefined;
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) => !young && a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
-  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
+  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}><span>Willkommen-zurück-Bonus ist aus</span></Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },

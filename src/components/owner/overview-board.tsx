@@ -308,7 +308,7 @@ export function Diary({ diary, today, unit, gap }: { diary: DiaryDay[]; today: s
   ];
   return (
     <section className={cx(mix.panel, s.diary)} data-ow="diary" aria-labelledby="ow-diary-title">
-      <div className={mix.ph}><h2 id="ow-diary-title" className={s.kicker}><CalendarDays size={16} aria-hidden="true" focusable="false" />Die letzten Tage am Tresen</h2></div>
+      <div className={mix.ph}><h3 id="ow-diary-title" className={s.kicker}><CalendarDays size={16} aria-hidden="true" focusable="false" />Die letzten Tage am Tresen</h3></div>
       {rows.map(row => <div className={mix.row} data-day="" key={row.key}><div className={mix.body}><span className={mix.text}><b>{row.title}</b>{row.sub && <small>{row.sub}</small>}</span></div></div>)}
     </section>
   );
