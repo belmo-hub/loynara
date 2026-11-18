@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { ArrowRight, CirclePlus, Gift, Link as LinkIcon, Megaphone, Palette, Printer } from "lucide-react";
+import { ArrowRight, CirclePlus, Gift, Link2, Megaphone, Palette, Printer } from "lucide-react";
 import { MixCard } from "@/components/customer/mix-card";
 import { MixChip, MixPanel, MixRow, MixSection, MixStack, mixButton, mixStyles } from "@/components/ui/mix";
 
@@ -26,14 +26,14 @@ export default function MixPage() {
     <Spec name="Programm example"><MixCard {...shop} size="example" /></Spec>
     <Spec name="thumb 0 … 8"><div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{Array.from({ length: 9 }, (_, n) => <MixCard key={n} {...shop} balance={n} size="thumb" />)}</div></Spec>
     <Spec name="10 and 12 stamps"><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} />
-      <div style={{ display: "flex", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" /></div></Spec>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" />{[16, 20, 30].map(n => <MixCard key={n} {...shop} balance={7} reward={{ ...shop.reward, cost: n }} size="thumb" />)}</div></Spec>
     <Spec name="points (house ladder)"><MixCard {...shop} programType="points" balance={186} reward={breakfast} rewards={[{ id: "a", title: "Kaffee", cost: 60 }, breakfast]} /></Spec>
     <MixStack className="patterns">
       <MixSection title="Deine Karte"><MixPanel>{["Programmregeln", "So findest du deine Karte wieder", "Meine Kartendaten exportieren"].map(t => <MixRow key={t} title={t} href="#" />)}</MixPanel></MixSection>
       <MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>} note="Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.">
         <MixPanel><MixRow icon={<Palette size={20} />} title="Kundenkarte" sub="Namen, Logo und Farbe" href="#" /></MixPanel></MixSection>
       <MixPanel>
-        <MixRow icon={<LinkIcon size={20} />} title="Anmeldelink kopieren" href="#" />
+        <MixRow icon={<Link2 size={20} />} title="Anmeldelink kopieren" href="#" />
         <MixRow icon={<Printer size={20} />} title="Tresenschild laden" sub="Mit QR-Code zum Ausdrucken" href="#" />
         <MixRow icon={<CirclePlus size={20} />} title="Startbonus" sub="Mit der ersten Buchung, einmal pro Karte" end="Aus" href="#" />
         <MixRow icon={<Megaphone size={20} />} title="Neuigkeit" end="Keine" href="#" />
