@@ -36,6 +36,7 @@ describe("the mix card (ENG-253)", () => {
     }
     expect(card({ balance: 9, size: "thumb" })).toContain('aria-label="9 Stempel"');
     expect(text(card({ balance: 9, size: "kasse", label: "Aktueller Kontostand" }))).toContain("9 Stempel Aktueller Kontostand");
+    expect(card({ balance: 35, reward: { ...coffee, cost: 31 } })).toContain('aria-label="35 Stempel"'); // the track above 30
     expect(text(card({ programType: "points", balance: 186, reward: { ...coffee, cost: 120 } }))).toContain("186 Punkte");
   });
 

@@ -332,7 +332,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
-        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} className={styles.stamps} />}
+        : stampGoal > 0 && <StampGrid earned={card.balance} total={stampGoal} locale={locale} className={styles.stamps} />}
       {card.level?.perk && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
       {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
         footer={<div className={styles.stack}>
