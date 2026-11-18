@@ -12,6 +12,10 @@ type Props = { earned: number; total: number; landed?: number; landedCount?: num
 /** Above this many stamps a card of marks stops being readable (and buries the code below it); a track replaces it. */
 export const STAMP_GRID_MAX = 30;
 
+/** What a reader hears for a card of stamps: „5 von 8 Stempeln“. */
+export const stampsLabel = (filled: number, total: number, locale: "de" | "fr" = "de") =>
+  locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
+
 /** Columns that keep rows even: 4 for 8 or 12, 5 for 10 or 15, 3 for 6 or 9. */
 export function stampColumns(total: number) {
   if (total <= 5) return total;
@@ -28,7 +32,7 @@ export function stampColumns(total: number) {
  */
 export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, grow = false }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
-  const label = locale === "fr" ? `${withUnit(filled, "stamps", "fr")} sur ${total}` : `${filled} von ${withUnit(total, "stamps", "de", "dat")}`;
+  const label = stampsLabel(filled, total, locale);
   if (total > STAMP_GRID_MAX) {
     return <div className={cx(styles.track, className)} role="img" aria-label={label} data-grow={grow || undefined}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />
