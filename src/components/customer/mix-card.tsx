@@ -18,7 +18,7 @@ export function progressLine(balance: number, reward: { title: string; cost: num
 
 /** Columns as the mix draws them: 4 for 8 and 12, 5 for 10 and 15, 4 otherwise. */
 export const mixColumns = (n: number) => n % 4 === 0 ? 4 : n % 5 === 0 ? 5 : 4;
-/** Thumbnail columns: the card's while four rows hold them, then 5, then 6 with smaller dots, so up to 30 fit 64 × 44. */
+/** Thumbnail columns: the card's while four rows hold them, then 5, then 6. Up to 12 stamps the dots are 8 px, from 13 they are 6 px. */
 export const thumbColumns = (n: number) => Math.ceil(n / mixColumns(n)) <= 4 ? mixColumns(n) : n <= 20 ? 5 : 6;
 
 type Props = {
@@ -50,7 +50,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   const points = programType === "points", stamps = !points && goal <= STAMP_GRID_MAX;
   const aria = stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
   const tc = thumbColumns(goal);
-  if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={tc === 5 || undefined} data-dense={tc === 6 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
+  if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={(goal <= 12 && tc === 5) || undefined} data-dense={goal > 12 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
     {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
   </span>;
   const t = copyFor(locale), number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
