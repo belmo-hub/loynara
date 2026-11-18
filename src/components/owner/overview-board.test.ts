@@ -122,7 +122,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     const html = render();
     expect(html).toMatch(new RegExp(`letzte 7 Tage: [^"]*gestern 3${NBSP}Buchungen, heute 29${NBSP}Buchungen"`));
     expect(bars(html)).toHaveLength(7); // six complete days and today
-    expect(html).toMatch(/<b>29<\/b><i class="_bar_[^"]*" data-today="" style="height:144px">/);
+    expect(html).toMatch(/<b>29<\/b><i class="_bar_[^"]*" data-today="" style="--v:1">/); // the best day fills the plot
     expect(bars(html).filter(bar => bar.attrs.includes("data-lit"))).toHaveLength(1); // yesterday, as before
     // Beside „heute“ yesterday shows its weekday and nothing is bold (Design, 10 Nov; kept by the ENG-260 legend ruling).
     expect(html).toContain("<span>Di</span><span>heute</span>");

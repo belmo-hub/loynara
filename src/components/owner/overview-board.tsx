@@ -3,7 +3,7 @@
 import { DEMO_DATA_NOTE } from "@/lib/demo-texts";
 import Link from "next/link";
 import { ArrowRight, Award, CalendarDays, ChevronRight, CircleHelp, CirclePlus, Flag, type LucideIcon } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { cx } from "@/components/ui/cx";
@@ -67,7 +67,7 @@ export function Strip({ days, caption, today, week: thisWeek }: { days: DayCount
             return (
               <div className={s.day} key={day.date} aria-hidden="true" data-in-week={inWeek ? "" : undefined} data-week-start={inWeek && index > 0 && week[index - 1].date < thisWeek.from ? "" : undefined}>
                 {day.bookings > 0 && <b>{nf.format(day.bookings)}</b>}
-                <i className={s.bar} data-lit={lit(day) ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={day.bookings > 0 ? { height: `${Math.round(day.bookings / max * 144)}px` } : undefined} />
+                <i className={s.bar} data-lit={lit(day) ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={day.bookings > 0 ? { "--v": +(day.bookings / max).toFixed(4) } as CSSProperties : undefined} />
               </div>
             );
           })}

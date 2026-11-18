@@ -56,12 +56,13 @@
 .legend > span { display: flex; align-items: center; gap: var(--space-2); }
 .legend i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 2px; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
 .legend i[data-lit] { background: var(--color-ink); }
-.chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; height: 168px; border-bottom: 1px solid var(--color-line-strong); background: repeating-linear-gradient(to top, transparent 0 71px, var(--color-line) 71px 72px); }
+/* A size container, so a bar is its share (--v) of the plot: the chart less the 24 over the best bar for its value. */
+.chart { container-type: size; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; height: 168px; border-bottom: 1px solid var(--color-line-strong); background: repeating-linear-gradient(to top, transparent 0 71px, var(--color-line) 71px 72px); }
 /* The empty shop's days to come: no scale, the bar and the 40 over it (live EmptyStrip). */
 .chart[data-empty] { height: 76px; background: none; }
 .day { position: relative; display: grid; justify-items: center; align-content: end; gap: var(--space-1); height: 100%; min-width: 0; }
 .day > b { font-size: var(--text-14); line-height: 16px; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
-.bar { width: 20px; border-radius: var(--space-1) var(--space-1) 0 0; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
+.bar { --h: calc(var(--v, 0) * (100cqh + 1px - var(--space-6))); /* cqh is inside the 1 px baseline */ height: var(--h); height: round(var(--h), 1px); width: 20px; border-radius: var(--space-1) var(--space-1) 0 0; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
 .bar[data-lit] { background: var(--color-ink); }
 .bar[data-zero] { height: 2px; border-radius: 1px; background: color-mix(in oklab, var(--color-ink) 50%, var(--color-surface)); }
 /* Today with bookings: an outline, its count is not final. The empty shop's days to come: dashed. */
@@ -115,7 +116,13 @@
   .sec { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
   .sec > .head, .diary { grid-column: 1 / -1; }
   .book { grid-row: span 2; grid-template-rows: auto auto 1fr auto; }
-  .book > .week { align-self: start; }
+  /* The chart takes the tile's spare height: the plot grows, bars scale with it, the guide lines stay at half and full
+     height, and the baseline and days end on the tile's bottom inset (Design, 18 Nov). Under 1024 nothing changes. */
+  .book > .week { display: flex; flex-direction: column; }
+  .book > .week:last-child { grid-row: span 2; } /* no „Gestern …“ line: the days end on the bottom inset */
+  .book > .week > :last-child { display: flex; flex: 1; flex-direction: column; }
+  /* The lines at full (24 from the top) and half plot height ((H - 1) / 2 + 12.5 from the top = H / 2 + 12). */
+  .book .chart:not([data-empty]) { flex: 1; min-height: 168px; background: linear-gradient(var(--color-line), var(--color-line)) 0 var(--space-6) / 100% 1px no-repeat, linear-gradient(var(--color-line), var(--color-line)) 0 calc(50% + 12.5px) / 100% 1px no-repeat; }
   .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
   .diary > [data-day] > :last-child { min-height: var(--mix-row); }
   .diary [data-day] > :last-child > :first-child { grid-template-columns: 200px minmax(0, 1fr); column-gap: var(--space-4); align-items: baseline; }
