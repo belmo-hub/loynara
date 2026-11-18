@@ -42,6 +42,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, ENG-139 (SF-8, SF-9)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [".ow-days"], value: "calc(var(--space-1) - 1px)", reason: "seven 44 px day chips with 3 px gaps fill the panel's 326 px at 390 (Design decision 28)" },
+  { file: "src/components/owner/card-screen.module.css", kind: "spacing", reason: "the mix inset: 20 from a panel's outer edge is 19 inside its 1 px border (mix NOTES › --m-in), and D's hanging correction starts 11 under its line" },
   { file: "src/components/owner/card-actions.tsx", kind: "spacing", property: "margin", value: "1px", reason: "QRCode.toDataURL's quiet zone in modules, not a style" },
   { file: "src/components/cashier/cashier-view.module.css", kind: "font size", selectors: [".stepper output"], value: "96px", reason: "the Kasse's amount reads across a counter: D's 96 px figure, the one size on that screen that is not a house size (mix NOTES)" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
