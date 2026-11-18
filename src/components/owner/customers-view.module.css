@@ -31,10 +31,10 @@
 @media (min-width: 600px) { .page :global(.ow-prog) :global(.ow-prog-note) { max-width: 640px; } }
 .page :global(.ow-prog) ul > li + li { position: relative; border-top: 0; }
 .page :global(.ow-prog) ul > li + li::before { content: ""; position: absolute; inset: 0 0 auto 72px; border-top: 1px solid var(--color-line); }
-.cards ul > li + li::before { left: 96px; }
-.cards ul[data-points] > li + li::before { left: var(--space-5); } /* points rows have no lead (Design, 18 Nov) */
-.cards ul > li:has(> .more) { margin-top: var(--space-2); }
-.cards ul > li:has(> .more)::before { left: 0; }
+.page .cards ul > li + li::before { left: 96px; }
+.page .cards ul[data-points] > li + li::before { left: var(--space-5); } /* points rows have no lead (Design, 18 Nov) */
+.page .cards ul > li:has(> .more) { margin-top: var(--space-2); }
+.page .cards ul > li:has(> .more)::before { left: 0; }
 
 /* Rows: inset 20, 12 between lead and text, 64 high with a tile, 72 with the card thumbnail. */
 .page :global(.ow-prog) ul :global(.ow-prog-row) { min-height: var(--mix-row-2); padding: var(--space-2) var(--space-5); gap: var(--space-3); }
