@@ -37,7 +37,7 @@ describe("counts on the cashier screen (ENG-108)", () => {
   });
   it("reward prices, with a reward that costs exactly 1", () => {
     expect(view("de")).toContain("<small>1 Punkt</small>");
-    expect(view("de")).toContain("<small>Noch 1 Punkt</small>");
+    expect(view("de")).toMatch(/<small>Noch <span[^>]*>1<\/span> Punkt<\/small>/);
     expect(view("de")).toMatch(/>2 Punkte<\/span>/);
     expect(view("fr")).toContain("<small>1 point</small>");
     expect(view("fr", { programType: "stamps" })).toContain("<small>1 tampon</small>");
@@ -139,9 +139,18 @@ describe("the mix Kasse (ENG-256)", () => {
     const out = render({ card: stamps, role: "cashier" });
     expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
     expect(out).toMatch(/Andere Karte<\/button><span[^>]*data-state="open"><i aria-hidden="true"><\/i>Karte offen<\/span>/);
-    expect(out).toContain("<b>Gratiskaffee</b><small>Noch 3 Stempel</small>");
+    expect(out).toMatch(/<b>Gratiskaffee<\/b><small>Noch <span[^>]*>3<\/span> Stempel<\/small>/);
     expect(out).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>6 von 8<\/span><\/b>/);
     expect(out).toContain("Falsch? Die Leitung kann es korrigieren.");
+  });
+
+  it("above the goal the new balance and the booked line read the true count with its unit, as the card", () => {
+    const over: CashierCard = { ...card, programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: true }] };
+    const open = render({ card: over });
+    expect(open).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>10 Stempel<\/span><\/b>/);
+    const booked = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 10 Stempel.", meta: "K-7QX2MA", card: { ...over, balance: 10 } } });
+    expect(booked).toContain(">10 Stempel · K-7QX2MA<");
+    expect(booked).not.toContain("von 8 ·");
   });
 
   it("after a booking „Gebucht“ holds the dock and the closed card shows the new balance, with nothing to book or redeem", () => {
@@ -151,8 +160,9 @@ describe("the mix Kasse (ENG-256)", () => {
     expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
-    expect(out).toContain("<b data-figure=\"\">6<small> von 8</small></b>");
-    expect(out).toMatch(/<small class="[^"]*">Noch 2 Stempel<\/small>/);
+    expect(out).toMatch(/<b data-figure="">.*>6<\/span><small> von 8<\/small><\/b>/);
+    // Only the digit rolls in: „Noch“ and the unit stand still.
+    expect(out).toMatch(/<small>Noch <span class="[^"]*">2<\/span> Stempel<\/small>/);
     expect(out).not.toContain("reward-action-list");
     expect(out).not.toContain("cashier-award-now");
     expect(out).toMatch(/data-state="open"><i aria-hidden="true"><\/i>Karte offen/);

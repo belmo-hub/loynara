@@ -8,7 +8,7 @@ import styles from "./cashier-shell.module.css";
 export type CashierState = "ready" | "open" | "busy" | "done" | "error";
 type Props = { location: ReactNode; state: CashierState; stateLabel: ReactNode; stateDetail?: ReactNode; actions?: ReactNode; dock?: ReactNode; brandColor?: string | null; lang?: string;
   /** False when the page announces its own outcomes; the strip then only mirrors the state visually. */
-  live?: boolean; /** The strip as a still placeholder while the counter waits (the Kasse's own shape, no words yet). */ placeholder?: boolean; children?: ReactNode };
+  live?: boolean; /** The strip as a still placeholder while the counter waits (the Kasse's own shape, no words yet); "empty" keeps only its slot. */ placeholder?: boolean | "empty"; children?: ReactNode };
 
 /** Dark, camera-first counter frame: location bar, one visible state, content, and the booking dock in thumb reach. */
 export function CashierShell({ location, state, stateLabel, stateDetail, actions, dock, brandColor, lang, live = true, placeholder, children }: Props) {
@@ -21,7 +21,7 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
         {actions ? <div className={styles.actions}>{actions}</div> : null}
       </header>
       {/* No label, no strip: a screen that states its own result (the counter's „Gebucht“) leaves it out. */}
-      {stateLabel == null ? null : <div className={styles.status} data-state={state} data-placeholder={placeholder || undefined} aria-hidden={placeholder || undefined} role={live ? "status" : undefined} aria-live={live ? "polite" : undefined}>
+      {stateLabel == null ? null : <div className={styles.status} data-state={state} data-placeholder={placeholder === "empty" ? "empty" : placeholder || undefined} aria-hidden={placeholder ? true : undefined} role={live ? "status" : undefined} aria-live={live ? "polite" : undefined}>
         <span className={styles.dot} aria-hidden="true" />
         <span className={styles.stateText}>
           <strong className={styles.stateLabel}>{stateLabel}</strong>

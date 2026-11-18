@@ -1,13 +1,16 @@
 /* The Kasse as a sheet (the founder's yes, 17 Nov). From the owner's „Kasse“ link the navigation carries the
    transition type kasse-sheet: the app stays in view as the old snapshot and dims to .6 while the Kasse slides up over
    it from the bottom edge in 260 ms on the drawer curve. The owner screen's own fade, its hidden old root and its bars
-   (owner.css) are switched off for that type, so the whole old page dims as one picture. Loaded with the Kasse's
-   layout, which the navigation waits for before it commits. */
+   (owner.css) are switched off for that type, so the whole old page dims as one picture. Loaded with the owner app
+   (owner-shell.tsx) and with the Kasse's layout; every rule is scoped to the kasse-sheet type, so it acts nowhere else.
+   The ow-under rules also come in a data-ow-fade form (the attribute twice, to outrank owner.css, which uses it after
+   any owner tab change). */
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(root),
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
 :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs),
-:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { display: block; opacity: 1; animation: kasse-dim 260ms var(--ease-out) both; }
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under),
+:root[data-ow-fade][data-ow-fade]:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { display: block; opacity: 1; animation: kasse-dim 260ms var(--ease-out) both; }
 :root:active-view-transition-type(kasse-sheet)::view-transition-new(root) { animation: none; opacity: 0; }
 :root:active-view-transition-type(kasse-sheet)::view-transition-group(.kasse-sheet) { z-index: var(--z-sheet); }
 :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-up 260ms var(--ease-drawer) both; }
@@ -19,7 +22,8 @@
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
   :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs),
-  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { animation: none; }
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under),
+  :root[data-ow-fade][data-ow-fade]:active-view-transition-type(kasse-sheet)::view-transition-old(ow-under) { animation: none; }
   /* owner.css stops every transition animation with !important under reduced motion; the sheet keeps its fade. */
   :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-fade 160ms linear both !important; }
 }

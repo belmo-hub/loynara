@@ -124,8 +124,11 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    replay. The figure carries MixCard's data-figure hook. */
 .kasse :global([data-on]) { animation: land var(--pop, 0s) var(--ease-out) backwards; }
 .kasse[data-booked] { --pop: 480ms; }
-.kasse[data-booked] :global([data-figure]), .rollIn { animation: roll var(--dur-ui) var(--ease-out) 100ms backwards; }
-@keyframes roll { from { transform: translateY(.4em); opacity: 0; } }
+/* The figure (MixCard's NumberRoll) and the reward row's count roll on the digit only, 220 ms from 100 ms after the answer;
+   while they wait they hold the roll's first frame, never blank (opacity .35, as NumberRoll). „von 8“ stands still. */
+.kasse[data-booked] :global([data-figure]) > span { animation-delay: 100ms; animation-fill-mode: backwards; }
+.rollDigit { display: inline-block; animation: roll var(--dur-ui) var(--ease-out) 100ms backwards; }
+@keyframes roll { from { transform: translateY(.4em); opacity: .35; } }
 /* The one green band (ENG-121) for a ready reward. The whole band is the action; it stays last in the dock, in thumb
    reach, and the earning button above it steps back. */
 .band {
@@ -155,7 +158,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 @media (prefers-reduced-motion: reduce) {
   .reward, .band, .menuButton, .pill { transition: none; }
   .band:active:not(:disabled), .menuButton:active, .pill:active { transform: none; }
-  .kasse :global([data-on]), .kasse[data-booked] :global([data-figure]), .rollIn { animation: none; }
+  .kasse :global([data-on]), .rollDigit { animation: none; }
   .menu, .menu:popover-open { transform: none; }
   .panel::before, .card::before, .question, .panel > .stack, .note, .winback, .reward { animation: none; }
   /* The app-wide reduce rule gives every animation .01 ms and one turn; the spinner still waits its 300 ms, then keeps
@@ -188,7 +191,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    that); on it the badge lands like a pressed stamp (Stamp pop) with one ring and the tick draws. Every word on it
    („Gebucht“, the amount, the new balance, the card number) stands still, and nothing here holds up the next scan. */
 .booked {
-  flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-1); padding: 0; margin-top: calc(-1 * var(--space-6));
+  flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: 0; margin-top: calc(-1 * var(--space-6));
   text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
 }
 @starting-style { .booked { opacity: 0; } }
@@ -200,10 +203,13 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .booked:not([data-tone="success"]) h2 { font-size: var(--text-28); letter-spacing: -.015em; }
 .booked p { margin: 0; max-width: 32ch; }
 .bookedHeadline {
-  display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--space-3); border-radius: var(--radius-sm);
-  background: var(--color-success); color: var(--color-bg); font-size: var(--text-18); font-weight: var(--weight-heavy); line-height: 1.2; font-variant-numeric: tabular-nums; text-wrap: balance;
+  display: inline-flex; align-items: center; min-height: 36px; margin-top: calc(var(--space-3) - var(--space-2)); padding: 0 var(--space-3); border-radius: var(--radius-sm);
+  background: var(--color-success); color: var(--color-bg); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.2; font-variant-numeric: tabular-nums; text-wrap: balance;
 }
 .bookedDetail { font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.35; font-variant-numeric: tabular-nums; }
+/* „Bereit für die nächste Karte“ steps back under the chip (Design, 18 Nov). */
+.bookedReady { color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); }
+.bookedHint { text-wrap: balance; }
 .bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
 .bookedHint { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
 .bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
@@ -228,6 +234,9 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .access > div a { color: var(--color-on-action); font-size: var(--text-18); }
 /* A check still running after LONG_MS: the words panel fades in over --dur-ui (DESIGN › Waiting). */
 .accessLate { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+/* Over the waiting frame's shape, not in place of it: no empty frame in between. */
+.phMain { position: relative; }
+.accessOver { position: absolute; inset: 0 0 auto; }
 @media (prefers-reduced-motion: reduce) { .accessLate { animation: none; } }
 /* Win-back bonus (ENG-044): coral because it is a stamp moment; the amount is also in words, never colour alone. */
 .winback { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-stamp); color: var(--color-on-stamp); line-height: var(--leading-body); }
@@ -256,7 +265,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    the foot with 24 under it and its ring (2 + 2) inside the dock's 16 px side inset. */
 .bookedTyped { align-content: start; grid-template-rows: repeat(5, auto) 1fr; margin-top: calc(var(--space-4) - var(--space-6)); }
 .bookedTyped .bookedIcon { width: 64px; height: 64px; }
-.dockCode { align-self: end; box-sizing: border-box; width: 100%; max-width: 440px; padding: 0 var(--space-1); }
-.dockCode.dockCode.dockCode input { box-sizing: border-box; width: 100%; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: center; letter-spacing: .02em; }
+.dockCode { align-self: end; box-sizing: border-box; width: 100%; max-width: 440px; margin-top: var(--space-2); padding: 0 var(--space-1); }
+.dockCode.dockCode.dockCode input { box-sizing: border-box; width: 100%; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
 .dockCode input::placeholder { color: var(--color-ink-muted); }
 .dockCode input:focus-visible, .dockCode input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }

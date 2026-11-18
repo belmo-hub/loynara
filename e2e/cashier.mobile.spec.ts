@@ -97,6 +97,19 @@ test.describe("cashier on phones", () => {
     // The green band: the action, then which reward (copy R21).
     await expect(redeem).toHaveText(/^Prämie einlösen.+ · Stand reicht$/);
     expect(await audit(page)).toEqual({ overflow: 0, smallText: [], smallControls: [] });
+    // At rest at 390 × 844 nothing sits under the dock: with one reward, ready, the band names it and the row is left out.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".reward-action-list")).toHaveCount(0);
+    const atRest = await page.evaluate(() => {
+      const dock = document.querySelector("[data-dock]")!.getBoundingClientRect();
+      const last = [...document.querySelectorAll("main > *")].filter(el => el.getBoundingClientRect().height > 1).pop()!.getBoundingClientRect();
+      const keys = document.querySelector(".quantity-row button")!.getBoundingClientRect();
+      return { gap: Math.round(dock.top - last.bottom), keysInset: Math.round(keys.top - dock.top), scroll: document.documentElement.scrollHeight - innerHeight };
+    });
+    expect(atRest.gap).toBeGreaterThanOrEqual(0);
+    // The sticky dock lands up to 2 px lower from sub-pixel rounding at the 2.625 device-pixel ratio; nothing is under it.
+    expect(atRest.scroll, JSON.stringify(atRest)).toBeLessThanOrEqual(2);
+    expect(atRest.keysInset).toBeGreaterThanOrEqual(24);
     const [redeemBox, earnBox, viewport] = [await redeem.boundingBox(), await page.locator(".cashier-award-now").boundingBox(), page.viewportSize()!];
     // Primary at the bottom, 64 px; earning steps back above it at 56 px.
     expect(Math.round(redeemBox!.height)).toBeGreaterThanOrEqual(64);

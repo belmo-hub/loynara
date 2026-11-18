@@ -7,19 +7,58 @@ import { expect, test, type Page } from "@playwright/test";
 // can never leave the old page out of a later snapshot or freeze the owner screen.
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 
+// One sign-in for the file: a production build's auth limiter allows only a few sign-ins in ten seconds, so the owner's
+// session cookies are taken once and given to every test's page.
+let session: Awaited<ReturnType<import("@playwright/test").APIRequestContext["storageState"]>> | null = null;
 async function signIn(page: Page) {
-  const origin = new URL(test.info().project.use.baseURL!).origin;
-  expect((await page.request.post("/api/auth/sign-in/email", { data: { email: demo.ownerEmail, password: demo.ownerPassword }, headers: { Origin: origin } })).ok()).toBe(true);
+  if (!session) {
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const api = await (await import("@playwright/test")).request.newContext({ baseURL: origin });
+    expect((await api.post("/api/auth/sign-in/email", { data: { email: demo.ownerEmail, password: demo.ownerPassword }, headers: { Origin: origin } })).ok()).toBe(true);
+    session = await api.storageState();
+    await api.dispose();
+  }
+  await page.context().addCookies(session.cookies);
 }
 
-/** Records the transition types React asks the browser for. */
+/**
+ * Records the transition types React asks the browser for, any transition that fails (a DOM-update timeout rejects
+ * `ready`/`finished`), and the view-transition animations seen on screen (pseudo-element and keyframes).
+ */
 async function recordTransitions(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __types: string[][] };
-    w.__types = [];
+    const w = window as unknown as { __types: string[][]; __vtErrors: string[]; __anims: string[] };
+    w.__types = []; w.__vtErrors = []; w.__anims = [];
     const start = document.startViewTransition?.bind(document);
-    if (start) document.startViewTransition = ((arg: StartViewTransitionOptions) => { w.__types.push(arg && typeof arg === "object" && arg.types ? [...arg.types] : []); return start(arg); }) as typeof document.startViewTransition;
+    if (start) document.startViewTransition = ((arg: StartViewTransitionOptions) => {
+      w.__types.push(arg && typeof arg === "object" && arg.types ? [...arg.types] : []);
+      const transition = start(arg);
+      for (const step of [transition.ready, transition.finished]) step.catch((error: Error) => { if (error?.name !== "AbortError") w.__vtErrors.push(`${error?.name}: ${error?.message}`); });
+      return transition;
+    }) as typeof document.startViewTransition;
+    const look = () => {
+      for (const animation of document.getAnimations()) {
+        const pseudo = (animation.effect as KeyframeEffect | null)?.pseudoElement;
+        if (pseudo?.startsWith("::view-transition")) { const seen = `${pseudo} ${(animation as CSSAnimation).animationName}`; if (!w.__anims.includes(seen)) w.__anims.push(seen); }
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
   });
+}
+const vtErrors = (page: Page) => page.evaluate(() => (window as unknown as { __vtErrors: string[] }).__vtErrors);
+const anims = (page: Page) => page.evaluate(() => (window as unknown as { __anims: string[] }).__anims);
+/** Opens the Kasse and returns when the URL committed (ms since the epoch). */
+async function openKasse(page: Page) {
+  await kasseLink(page).click();
+  await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
+  return Date.now();
+}
+/** Holds every /cashier payload 2 s and notes when the last one was let through. */
+async function lateKasse(page: Page) {
+  const released = { at: 0 };
+  await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); released.at = Date.now(); await route.continue(); });
+  return released;
 }
 
 const kasseTypes = (page: Page) => page.evaluate(() => (window as unknown as { __types: string[][] }).__types.filter(types => types.includes("kasse-sheet")).length);
@@ -31,12 +70,13 @@ test("with the Kasse's payload 2 s late, a cold start opens it without the sheet
   await recordTransitions(page);
   await signIn(page);
   // Every /cashier payload, the idle prefetch included, is 2 s late: the open comes before any prefetch has answered.
-  await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); await route.continue(); });
+  const released = await lateKasse(page);
   await page.goto("/merchant");
-  await kasseLink(page).click();
-  await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
+  // The owner screen is never held: the Kasse commits as soon as its payload is through (server render included).
+  expect(await openKasse(page) - released.at).toBeLessThan(1_500);
   await expect(page.locator(".cashier-placeholder, main h1").first()).toBeVisible();
   expect(await kasseTypes(page)).toBe(0);
+  expect(await vtErrors(page)).toEqual([]);
   expect(await rootName(page)).toBe("");
 });
 
@@ -70,10 +110,75 @@ test("after the router cache's window has passed, the open fades instead of hold
     Date.now = () => now() + skip;
     performance.now = () => high() + skip;
   });
-  await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); await route.continue(); });
-  await kasseLink(page).click();
-  await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
+  const released = await lateKasse(page);
+  expect(await openKasse(page) - released.at).toBeLessThan(1_500);
   await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
   expect(await kasseTypes(page)).toBe(0);
+  expect(await vtErrors(page)).toEqual([]);
   expect(await rootName(page)).toBe("");
+});
+
+const kundenTab = (page: Page) => page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Kunden" });
+
+test("from Kunden after a tab change the customer list dims with the page under the sheet", async ({ page }) => {
+  await recordTransitions(page);
+  await signIn(page);
+  await page.goto("/merchant");
+  await prefetched(page);
+  await kundenTab(page).click();
+  await expect(page).toHaveURL(/\/merchant\/customers/);
+  await expect(page.locator(".ow-under")).toBeVisible();
+  await page.waitForTimeout(1_000); // the Kunden screen's own change settles, as a person would wait to read it
+  await openKasse(page);
+  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(1);
+  expect(await anims(page)).toContain("::view-transition-old(ow-under) kasse-dim");
+  expect(await vtErrors(page)).toEqual([]);
+});
+
+test("five opens from Kunden by the tab bar run without a view-transition timeout", async ({ page }) => {
+  test.setTimeout(120_000);
+  await recordTransitions(page);
+  await signIn(page);
+  for (let run = 0; run < 5; run++) {
+    await page.goto("/merchant");
+    await prefetched(page);
+    await kundenTab(page).click();
+    await expect(page.locator(".ow-under")).toBeVisible();
+  await page.waitForTimeout(1_000); // the Kunden screen's own change settles, as a person would wait to read it
+    await openKasse(page);
+    await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+    expect(await vtErrors(page), `run ${run + 1}`).toEqual([]);
+  }
+});
+
+test("a hidden tab sends no Kasse prefetch however long it waits, and exactly one prefetch round when it is back", async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.addInitScript(() => {
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    (window as unknown as { __setVisible: (v: DocumentVisibilityState) => void }).__setVisible = v => { visibility = v; document.dispatchEvent(new Event("visibilitychange")); };
+  });
+  const prefetches: number[] = [];
+  page.on("request", request => { const url = new URL(request.url()); if (url.pathname === "/cashier" && url.searchParams.has("_rsc") && request.headers()["next-router-prefetch"]) prefetches.push(Date.now()); });
+  await signIn(page);
+  await page.goto("/merchant");
+  await prefetched(page);
+  await page.waitForTimeout(1_500);
+  // Hidden, and past the router cache's window: the minute timer comes round while the tab is away.
+  await page.evaluate(() => {
+    const skip = 6 * 60_000, now = Date.now.bind(Date), high = performance.now.bind(performance);
+    Date.now = () => now() + skip; performance.now = () => high() + skip;
+    (window as unknown as { __setVisible: (v: DocumentVisibilityState) => void }).__setVisible("hidden");
+  });
+  const before = prefetches.length;
+  await page.waitForTimeout(62_000);
+  expect(prefetches.length).toBe(before);
+  await page.evaluate(() => (window as unknown as { __setVisible: (v: DocumentVisibilityState) => void }).__setVisible("visible"));
+  await expect.poll(() => prefetches.length, { timeout: 10_000 }).toBeGreaterThan(before);
+  await page.waitForTimeout(2_000);
+  // One round: the router asks for the Kasse's segments together (the route tree and the page), once.
+  const round = prefetches.slice(before);
+  expect(round.length).toBeLessThanOrEqual(2);
+  expect(Math.max(...round) - Math.min(...round)).toBeLessThan(1_000);
 });

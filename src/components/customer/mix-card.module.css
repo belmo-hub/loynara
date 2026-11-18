@@ -14,7 +14,7 @@
 .n b { font-size: var(--text-28); line-height: 30px; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* A real space before „von 8“ so it is read as „5 von 8“; the margin takes the space's width (Manrope: .2em) back. */
 .n b small { margin-left: calc(var(--space-2) - .2em); font-size: var(--text-16); line-height: 16px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--on-card); }
-.n span { font-size: var(--text-14); line-height: 18px; font-weight: var(--weight-label); color: var(--on-card); }
+.n > span { font-size: var(--text-14); line-height: 18px; font-weight: var(--weight-label); color: var(--on-card); }
 .stamps { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 14px var(--space-2); }
 /* A share of the slot, rounded to a whole pixel (47 in a 358 card); the plain width is for browsers without round(). */
 .stamp { --st: 64%; width: var(--st); width: round(var(--st), 1px); justify-self: center; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }
@@ -27,7 +27,7 @@
 .reward { margin: 0; font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; overflow-wrap: anywhere; }
 /* Programm: two fields, a small label over its value. */
 .fields { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); }
-.fields span { display: grid; min-width: 0; }
+.fields span { display: grid; align-content: start; min-width: 0; } /* a long reward name does not push „8 Stempeln“ down (#282) */
 .fields span + span { text-align: right; }
 .fields small { font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); color: var(--on-card); }
 .fields strong { font-weight: var(--weight-strong); }

@@ -255,7 +255,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const bookedGoal = Boolean(booked?.card && goal);
   // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
   const typedNext = Boolean(booked?.card && focusCodeInput);
-  const ofGoal = (n: number) => goal && shown?.programType !== "points" ? `${number.format(n)} von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
+  // The card's terms: „6 von 8“ up to the goal, the true count with its unit above it („10 Stempel“), as the card itself.
+  const ofGoal = (n: number) => goal && shown?.programType !== "points" && n <= goal.cost ? `${number.format(n)} von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
@@ -282,7 +283,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
-    {booked.tone !== "pending" && <p className={styles.bookedMeta} aria-hidden="true">{t.ready}</p>}
+    {booked.tone !== "pending" && <p className={styles.bookedReady} aria-hidden="true">{t.ready}</p>}
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
       <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
@@ -355,14 +356,16 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {card && goal && <div className={cx("balance-display", styles.srOnly)}>
       <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
     </div>}
-    {shown && <section className={styles.rewards} aria-label={t.rewards}>
+    {/* One reward and it is ready: the dock's band names and redeems it, so the row is left out and nothing sits under the
+        dock (Design, 18 Nov). With several the list stays and scrolls clear of the dock. */}
+    {shown && !(shown.rewards.length === 1 && (card ? card.rewards[0].eligible : shown.balance >= shown.rewards[0].cost)) && <section className={styles.rewards} aria-label={t.rewards}>
       {shown.rewards.length ? <div className={cx(card && "reward-action-list", mixStyles.panel)}>
         {shown.rewards.map(reward => {
           const left = reward.cost - shown.balance, ready = card ? reward.eligible : left <= 0;
           const body = <>
             <span className={mixStyles.tile} data-tone={ready ? "coral" : "mute"}><Gift size={20} aria-hidden="true" /></span>
             <span className={mixStyles.body}>
-              <span className={mixStyles.text}><b>{reward.name}</b><small className={card ? undefined : styles.rollIn}>{ready ? withUnit(reward.cost, shown.programType, locale) : `${t.left} ${number.format(left)} ${unitWord(left, shown.programType, locale)}`}</small></span>
+              <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : <>{t.left} <span className={card ? undefined : styles.rollDigit}>{number.format(left)}</span> {unitWord(left, shown.programType, locale)}</>}</small></span>
               <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>
             </span>
           </>;
@@ -443,8 +446,8 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   // One layout from the slide to the form (Design, 18 Nov): the sheet lands on the scan form's own still shape; 300 ms
   // after the slide the live strip says „Einen Moment …“ above the same shape; the form then replaces it in place. Only a
   // long wait shows the words panel below.
-  if (loading && wait !== "long") return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" actions={<span className={styles.phKey} aria-hidden="true" />}
-    stateLabel="Einen Moment …" placeholder={wait === "quiet"}>
+  if (loading) return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" actions={<span className={styles.phKey} aria-hidden="true" />}
+    stateLabel="Einen Moment …" placeholder={wait === "quiet" ? true : wait === "long" ? "empty" : false}>
     <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft" data-since={since === undefined ? undefined : Math.round(since)}>
       <h1 className={styles.title} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
       <div className={styles.ready} aria-hidden="true">
@@ -453,18 +456,21 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
         <span className={cx(styles.phButton, styles.phQuiet)} />
         <span className={styles.phHelp} />
       </div>
+      {/* After LONG_MS the one waiting message fades in over the same shape; the strip keeps its slot, empty. */}
+      {wait === "long" && <div className={cx("app-state-card", styles.access, styles.accessLate, styles.accessOver)}>
+        <h1>Kassenzugang wird geprüft</h1>
+        <p>Dein Standort und deine Berechtigung werden geladen.</p>
+      </div>}
     </section>
   </CashierShell>;
-  // After LONG_MS the panel is the one waiting message; the strip keeps its slot, empty.
-  return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"} placeholder={loading}
-    actions={loading ? <span className={styles.phKey} aria-hidden="true" /> : undefined}>
-    <section className={cx("app-state-card", styles.access, loading && styles.accessLate)}>
-      <h1>{loading ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1>
-      <p>{loading ? "Dein Standort und deine Berechtigung werden geladen." : message}</p>
-      {!loading && <div className={styles.stack}>
+  return <CashierShell lang="de" live={false} location={<span className="cashier-location">Kasse</span>} state="error" stateLabel="Kein Zugang">
+    <section className={cx("app-state-card", styles.access)}>
+      <h1>Zugang gesperrt oder nicht eingerichtet</h1>
+      <p>{message}</p>
+      <div className={styles.stack}>
         <a href="/login" className={buttonClassName({ variant: "primary", size: "lg", block: true })}>Zur Anmeldung</a>
         {logoutControl}
-      </div>}
+      </div>
     </section>
   </CashierShell>;
 }

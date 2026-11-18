@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { STAMP_GRID_MAX, StampGrid, stampsLabel } from "@/components/ui/stamp-grid";
 import { cx } from "@/components/ui/cx";
@@ -48,13 +49,17 @@ type Props = {
 export function MixCard({ businessName, locationName, programType, balance, reward, rewards, size = "full", voice = "guest", title, sub, label, foot, locale = "de", className }: Props) {
   const goal = reward.cost, have = Math.max(0, Math.min(balance, goal)), left = goal - have;
   const points = programType === "points", stamps = !points && goal <= STAMP_GRID_MAX;
-  const aria = stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
+  // Above the goal the card never clamps its count (Design, 18 Nov: one screen, one number): the grid shows all stamps
+  // earned and the figure and its label give the true count with the unit.
+  const over = !points && balance > goal;
+  const aria = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
   const tc = thumbColumns(goal);
   if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={(goal <= 12 && tc === 5) || undefined} data-dense={goal > 12 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
     {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
   </span>;
   const t = copyFor(locale), number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
-  const figure = number.format(points ? balance : have), of = points ? t.unit(balance, "points") : `von ${goal}`;
+  const shown = points || over ? balance : have;
+  const figure = <NumberRoll value={shown}>{number.format(shown)}</NumberRoll>, of = points || over ? t.unit(balance, programType) : `von ${goal}`;
   const body = foot ?? (size === "kasse" ? null : voice === "owner" ? <p className={styles.line}>{progressLine(balance, reward, programType)}</p>
     : size === "example" ? <div className={styles.fields}><span><small>Prämie</small><strong>{reward.title}</strong></span><span><small>Einlösbar ab</small><strong>{withUnit(goal, programType, "de", "dat")}</strong></span></div>
     : <><p className={styles.line}>{left ? `${t.still} ${number.format(left)} ${t.toReward(t.unit(left, programType))}` : t.readyFor}</p><p className={styles.reward}>{reward.title}</p></>);
