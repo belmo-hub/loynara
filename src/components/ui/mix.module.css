@@ -93,5 +93,6 @@ a.row:active, button.row:active, .more:active { transform: scale(.985); }
    shape; the edge takes 1 px of the side padding, so normal pixels do not change. The chevron follows its row's colour
    instead of the author grey. */
 @media (forced-colors: active) { .chev { color: currentColor; } }
-/* A section title's icon is green by author colour, which forced colours leave on an SVG: it takes the text colour. */
-@media (forced-colors: active) { .h > svg { color: CanvasText; } }
+/* A section title's icon is green by author colour, which forced colours leave on an SVG: it follows the title's colour,
+   also inside a link or button. */
+@media (forced-colors: active) { .h > svg { color: currentColor; } }
