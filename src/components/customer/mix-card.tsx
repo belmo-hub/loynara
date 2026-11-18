@@ -74,7 +74,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
     </div>
     {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
       : !stamps ? <StampGrid earned={have} total={goal} locale={locale} />
-      : <div className={styles.stamps} style={cols} role="img" aria-label={aria}>
+      : <div className={styles.stamps} style={cols} data-rows={Math.ceil(goal / kasseCols)} role="img" aria-label={aria}>
         {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have && !plain ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
       </div>}
     {body ? <div className={styles.foot}>{body}</div> : null}

@@ -93,8 +93,7 @@
 /* The keys take the height the page leaves, between 96 and 200, so on a short card (points, no reward) the amount,
    „Neuer Stand“ and the button stay one group at the foot instead of the amount floating in an empty panel. */
 .stepper { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
-/* The line box fits the figures' height, so a forced-colours backplate stays inside the dock's edge. */
-.stepper output { min-width: 72px; font-size: 96px; line-height: 72px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper output { min-width: 72px; font-size: 96px; line-height: 96px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
 /* With the redeem band in the dock the keys keep the open dock's top inset (28): the step area grows to hold them. */
 .stepper:has(~ .band) { min-height: 128px; }
 @media (min-width: 800px) { .stepper:has(~ .band) { min-height: 146px; } } /* the counter tablet's open inset, 38 */
@@ -122,6 +121,8 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .state[data-state="busy"] i { background: var(--color-warning); }
 .state[data-state="error"] i { background: var(--color-danger); }
 @media (forced-colors: active) {
+  /* The numeral keeps its colour instead of a backplate, which Chrome draws over the font's whole content area, across the dock's edge. */
+  .stepper output { forced-color-adjust: none; color: CanvasText; }
   .band.band { border: 1px solid ButtonText; } /* doubled: the base .band { border: 0 } comes later */
   .state i { forced-color-adjust: none; background: CanvasText; }
   .pill { border: 1px solid ButtonText; }
@@ -196,14 +197,13 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 
 /* „Gebucht“ takes the dock after a booking (the founder's yes, 17 Nov), under the card that keeps the new balance: the badge, the title, what was booked as a chip, the new
    balance, the card number. The camera keeps running under it for the next card. It is the counter's reward moment,
-   all inside --dur-reward: the panel fades in over 160 ms and never moves itself (e2e/cashier.mobile.spec.ts pins
-   that); on it the badge lands like a pressed stamp (Stamp pop) with one ring and the tick draws. Every word on it
+   all inside --dur-reward: the panel is there at once and never moves itself (e2e/cashier.mobile.spec.ts pins that);
+   on it the badge pops in with its tick like a pressed stamp (1.3 → .94 → 1) with one ring (Design, 18 Nov). Every word on it
    („Gebucht“, the amount, the new balance, the card number) stands still, and nothing here holds up the next scan. */
 .booked {
   flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: 0; margin-top: calc(-1 * var(--space-6));
-  text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
+  text-align: center; overflow-wrap: anywhere; transition: none; /* no 0.01 ms reduced-motion frame of the old state */
 }
-@starting-style { .booked { opacity: 0; } }
 .bookedIcon { position: relative; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
 .booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
@@ -226,13 +226,12 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .bookedIcon { animation: land var(--dur-reward) var(--ease-out) backwards; }
 .booked[data-tone="success"] .bookedIcon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: ring var(--dur-reward) var(--ease-out); }
-.booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick var(--dur-ui) var(--ease-out) 140ms backwards; }
+.outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick var(--dur-ui) var(--ease-out) 140ms backwards; }
 @keyframes land { 0% { opacity: 0; transform: scale(1.3); } 60% { opacity: 1; transform: scale(.94); } }
 @keyframes ring { from { opacity: .7; transform: scale(.9); } to { opacity: 0; transform: scale(1.3); } }
 @keyframes tick { from { stroke-dashoffset: 24; } }
 @media (prefers-reduced-motion: reduce) {
-  .booked { transition: none; }
-  .outcome, .rejected input, .bookedIcon, .booked[data-tone="success"] .bookedIcon::after, .booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { animation: none; }
+  .outcome, .rejected input, .bookedIcon, .booked[data-tone="success"] .bookedIcon::after, .outcome[data-tone="success"] .outcomeIcon path { animation: none; }
 }
 
 /* Loading and blocked access */
@@ -276,7 +275,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .bookedCompact { gap: 6px; } /* not the 4 px grid: 8 would outgrow the held dock on the typed path, a 16 px badge inset and the 24 under the field are the ruled distances */
 .bookedCompact .bookedActions { margin-top: 0; }
 .bookedCompact .bookedIcon { width: 64px; height: 64px; }
-.bookedTyped { grid-template-columns: minmax(0, 1fr); align-content: start; grid-template-rows: repeat(5, auto) 1fr; margin-top: calc(var(--space-4) - var(--space-6)); }
+.bookedTyped { grid-template-columns: minmax(0, 1fr); align-content: start; grid-template-rows: repeat(5, auto) 1fr; margin-top: calc(var(--space-4) - var(--space-6) - 1px); } /* the badge 16 under the outer edge, so the booked dock is 315 */
 /* With the field below, the typed stack fits the open dock: 12 above the chip (6 + 6), the chip at 32, and 12 clear
    between the line above and the field's focus ring (6 + 10 − the ring's 4). */
 .bookedCompact .bookedHeadline { min-height: 32px; margin-top: 6px; }

@@ -89,10 +89,11 @@ export type AwardBonuses = { welcomeBonus?: number; happyHourBonus?: number; win
 // The names the owner's ledger export uses for these sources (lib/export.ts), in the order the line names them: happy hour
 // first, since it doubles the purchase itself (Marketing, 30 Oct).
 const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy Hour", welcomeBonus: "Startbonus", winbackBonus: "Willkommen-zurück-Bonus", birthdayBonus: "Geburtstags-Bonus", challengeBonus: "Challenge-Bonus", referralBonus: "Empfehlungsbonus" };
+/** The phone's open dock is never shorter than the booked dock it will hold, so a booking keeps its top (Design, 18 Nov).
+ * Typed path, measured at 390: the 64 badge 16 under the outer edge, the 275 px stack, 24 under the field. Scan path:
+ * the 104 badge 16 under it over the 264 px stack, 24 under that; a taller stack takes the compact metrics (`compact`). */
+const TYPED_FLOOR = 315, SCAN_FLOOR = 319;
 /** Only the bonus fields of a server result, so other numbers on it are never summed. */
-/** The typed path's booked dock with the field, measured at 390: the 1 px edge, 16 above the badge, the 275 px stack,
- * 24 under the field. The open dock on that path is never shorter, so the booking holds its top (Design, 18 Nov). */
-const TYPED_STACK = 316;
 export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
 export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
 
@@ -275,11 +276,12 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  // Scan path with a hint: the 104 badge and the scan metrics while it sits at least 16 under the dock's outer edge
-  // (the 1 px edge, then the stack, measured at 264 px or 328 with „Rückgängig“, centred above the 24 px foot);
-  // otherwise the compact 64.
+  // Scan path: the 104 badge and the scan metrics while they sit at least 16 under the held dock's outer edge (the 1 px
+  // edge, then the stack, at most 264 px or 328 with „Rückgängig“, centred above the 24 px foot); otherwise the compact
+  // 64, so the booked stack never outgrows the open dock. Without a held height only a hint asks for the compact stack.
   const scanStack = booked?.undo === "available" ? 328 : 264;
-  const compact = Boolean(booked && (typedNext || (booked.hint && !(dockHold && 1 + (dockHold - 25 - scanStack) / 2 >= 16))));
+  const roomFor104 = dockHold ? 1 + (dockHold - 25 - scanStack) / 2 >= 16 : !booked?.hint;
+  const compact = Boolean(booked && (typedNext || !roomFor104));
   const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, compact && styles.bookedCompact, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
     {/* The live region holds only what is announced; the typed path's code field stands beside it, not in it. */}
     <div className={styles.live} role="status" aria-live="polite">
@@ -344,7 +346,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. With a
   // card on the counter the state sits in the card's foot; after a booking the result carries its own title.
   return <CashierShell lang={locale} live={false} brandColor={brandColor} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : card && focusCodeInput ? TYPED_STACK : undefined}>
+    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : undefined} dockFloor={card && !booked ? (focusCodeInput ? TYPED_FLOOR : SCAN_FLOOR) : undefined}>
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card || booked?.card ? t.found : t.scanTitle}</h1>
     {nfcPanel}

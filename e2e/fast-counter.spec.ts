@@ -206,3 +206,32 @@ test("scan path: the booking that reaches the goal keeps the dock's edge and the
     expect(badge).toBeGreaterThanOrEqual(16);
   } finally { await counter.close(); await shop.owner.dispose(); }
 });
+
+test("scan path, two rewards and none ready: the open dock holds the booked stack, so the keys keep their inset, the badge sits 16 under the edge and the dock keeps one top (390 × 844)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const shop = await merchant(url, "Synthetic Zwei Ziele Pizzeria");
+  expect((await shop.owner.post("/api/merchant/program/rewards", { data: { action: "create", programSlug: shop.programSlug, title: "Großes Frühstück", cost: 20, termsText: "Ein großes Frühstück." } })).status()).toBe(201);
+  const card = await guestCard(url, shop.programSlug);
+  const counter = await browser.newContext({ baseURL: url, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 } });
+  await fakeCamera(counter);
+  try {
+    const { membershipId } = await (await shop.owner.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+    expect((await shop.owner.post("/api/cashier/award", { data: { membershipId, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() } })).ok()).toBe(true);
+    const page = await counter.newPage();
+    await page.goto("/cashier");
+    await page.getByRole("button", { name: "Kamera öffnen" }).click();
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
+    await show(page, card.scanCode);
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    await expect(page.locator(".reward-action-list button")).toHaveCount(2);
+    const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
+    expect(await page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top))).toBeGreaterThanOrEqual(24);
+    const before = await dockTop();
+    await show(page, null);
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(1);
+    const badge = await page.evaluate(() => Math.round(document.querySelector(".cashier-booked [aria-hidden='true'] svg")!.closest("span")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    expect(badge).toBeGreaterThanOrEqual(16);
+  } finally { await counter.close(); await shop.owner.dispose(); }
+});

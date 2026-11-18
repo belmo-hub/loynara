@@ -56,11 +56,18 @@
   padding: var(--space-6) max(var(--gutter), calc(50% - var(--k-col) / 2 + var(--gutter))) calc(var(--space-6) + env(safe-area-inset-bottom));
   background: var(--color-surface); border-top: 1px solid var(--color-line); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
+/* The column and the dock never transition: under reduced motion globals.css gives every property a 0.01 ms transition,
+   which paints one frame of the old layout (the phone layout over a tablet, the dock at its old height). */
+.main, .dock { transition: none; }
+/* On a phone the open Kasse's dock is never shorter than the booked stack it will hold (Design, 18 Nov); an inline
+   minimum (the held height) still wins. */
+@media (max-width: 599px) { .dock { min-height: var(--dock-floor, auto); } }
 /* A dock that stops short of the bottom edge (a centred counter tablet) is a true panel (Design, 18 Nov): the card's
    width with its sides on the card's edges, a full edge, four rounded corners and its own 20 px side insets. Only the
    sides change, never the height, so the measure that sets data-floating cannot flip it back. */
 .dock[data-floating] {
   width: calc(var(--k-col) - 2 * var(--gutter)); margin-inline: auto; padding-inline: calc(var(--space-5) - 1px);
+  padding-bottom: calc(var(--space-6) - 1px + env(safe-area-inset-bottom)); /* its bottom edge comes out of the foot: the same height as the flat dock */
   border: 1px solid var(--color-line); border-radius: var(--radius-lg);
 }
 /* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock's 1 px top edge

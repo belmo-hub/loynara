@@ -17,10 +17,10 @@
 .n > span { font-size: var(--text-14); line-height: 18px; font-weight: var(--weight-label); color: var(--on-card); }
 .stamps { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 14px var(--space-2); }
 /* A share of the slot, rounded to a whole pixel (47 in a 358 card); the plain width is for browsers without round(). */
-.stamp { --st: 64%; width: var(--st); width: round(var(--st), 1px); justify-self: center; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }
+.stamp { --st: 64%; width: var(--st); width: round(var(--st), 1px); justify-self: center; aspect-ratio: 1; min-height: 0; /* the check never stretches a small disc taller than wide */ display: grid; place-items: center; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }
 .stamp[data-on] { background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); }
 /* The check is drawn at the picture's 2.5 stroke: a drawn mark, not an icon. */
-.stamp svg { stroke-width: 2.5; }
+.stamp svg { stroke-width: 2.5; max-width: 70%; height: auto; }
 @media (forced-colors: active) { .stamp[data-on] { forced-color-adjust: none; background: CanvasText; color: Canvas; } }
 .foot { padding-top: var(--space-4); border-top: 1px solid color-mix(in oklab, var(--merchant-ink) 18%, transparent); }
 .line { margin: 0; color: var(--on-card); font-weight: var(--weight-label); }
@@ -38,8 +38,8 @@
    (76 % of a quarter of the width, on whole pixels), so a longer goal's smaller stamps sit centred in it. */
 .kasse { container-type: inline-size; }
 .kasse .stamps { row-gap: var(--space-3); align-content: center; }
-/* A ceiling, not a floor (Design, 18 Nov): a one-row goal (3, 4) keeps its own height. */
-.kasse .stamps:has(> :nth-child(5)) { min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
+/* A ceiling, not a floor (Design, 18 Nov): a one-row goal (3, 4, 5) keeps its own height. */
+.kasse .stamps:not([data-rows="1"]) { min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
 .kasse .stamp { --st: 76%; }
 .kasse .id b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
 .kasse .n b { font-size: var(--display-tile); line-height: 44px; }
