@@ -216,7 +216,7 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain("Eine ruhige Woche. Die letzte Buchung war am Samstag, 24.10.");
     expect(html).toContain("<b>Seit 11 Tagen keine Buchung. Steht das Tresenschild noch gut sichtbar?</b>");
     // The band is the action: a button for the download, its label the last line with the arrow; nothing closes it any more.
-    expect(html).toMatch(/data-ow="next"[^]*<b>Seit 11 Tagen[^]*<button type="button" class="[^"]*">Tresenschild laden<svg/);
+    expect(html).toMatch(/data-ow="next"[^]*<b>Seit 11 Tagen[^]*<button type="button" class="[^"]*" data-go="">Tresenschild laden<svg/);
     expect(html).not.toMatch(/Hinweis schließen|ow-nextbar|data-next/);
     expect(html).toContain("25.10.–03.11.");
     expect(html).toContain(`1${NBSP}Punkt vergeben`);
@@ -246,12 +246,12 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(away).toMatch(/data-hang="" data-lead="tile"><span class="_tile_[^"]*" data-tone="mute" aria-hidden="true"><svg[^>]*lucide-users/); // every row has a lead
     // With the bonus off, the bar's button switches it on, on Programm (not „Ansehen“ to the setting).
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 } }));
-    expect(render()).toMatch(/data-ow="next"[^]*<a class="[^"]*" href="\/merchant\/program\/winback">Willkommen-zurück-Bonus einschalten<svg/);
+    expect(render()).toMatch(/data-ow="next"[^]*<a class="[^"]*" data-go="" href="\/merchant\/program\/winback">Willkommen-zurück-Bonus einschalten<svg/);
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     state.loads["/api/merchant/retention"] = ok({ ...retention, rewardReady: 1 });
     const html = render();
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen</b>`);
-    expect(html).toMatch(/data-ow="next"[^]*<a class="[^"]*" href="[^"]+">Ansehen<svg/);
+    expect(html).toMatch(/data-ow="next"[^]*<a class="[^"]*" data-go="" href="[^"]+">Ansehen<svg/);
     expect(html.indexOf('data-ow="next"')).toBeLessThan(html.indexOf('data-ow="board"')); // in the flow, under the greeting
     // Points stay off the mix card until Design draws a points card (Design, 18 Nov): no thumbnail in „Als Nächstes“.
     const points = html.slice(html.indexOf('data-ow="next"'), html.indexOf('data-ow="board"'));
@@ -522,7 +522,7 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).toMatch(/>1<small>von 3<\/small><\/p><p class="[^"]*">Pflichtschritte erledigt<\/p>/);
     expect(html).toMatch(/<h1 class="ow-hello[^"]*"><span class="ow-sr">Dein Treueprogramm einrichten: <\/span>Willkommen bei Loynara, Café Lindenblatt\.<\/h1>/);
     // The current step leads „Als Nächstes“; its external link opens in a new tab, under the sentence.
-    expect(html).toMatch(/<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><\/span><a class="[^"]*" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">Anmeldelink öffnen<svg/);
+    expect(html).toMatch(/<b>Melde die erste Karte selbst an\.<\/b><small>Mit deinem eigenen Handy\.[^<]*<\/small><\/span><a class="[^"]*" data-go="" target="_blank" rel="noopener noreferrer" href="http:\/\/localhost:3000\/join\/cafe">Anmeldelink öffnen<svg/);
     expect(html.indexOf('data-ow="next"')).toBeLessThan(html.indexOf("Pflichtschritte erledigt")); // the board holds the count and the chart
     expect(html).toContain("Hier siehst du bald jeden Tag am Tresen.");
     for (const text of ["Programm und Prämie", "Stempelkarte · 8 Stempel → Kugel", "Erste Karte anmelden", "Mit Anmeldelink oder Tresenschild", "Erste Buchung an der Kasse", "Ein Stempel auf deine eigene Karte.", "Einlösung einmal durchspielen", "Zeigt deinem Team die Bestätigung."]) expect(html).toContain(text);

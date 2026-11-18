@@ -16,9 +16,12 @@
 [data-fact] .num { order: 1; }
 /* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it: a 44 target that
    keeps the 20 line. Its ring is drawn on the text's own line boxes, so a wrapped link is ringed line by line. */
-.facts.facts small > a { display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
+.facts.facts small > a { position: relative; display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
 .facts.facts small > a:focus-visible { outline: none; }
-.facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The ring sits 2 px inside the content area, so the descenders above keep 2 px of air (measured at 320 and 1440); 4 px of
+   inline padding, taken back by the margin, keeps the glyphs clear of its sides on every line. */
+.facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 /* „Tresenschild laden“ (one line): its ring around the text, the 44 box kept. */
 .line.line > button[data-link]:focus-visible { outline: none; }
 .line.line > button[data-link]:focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
@@ -38,9 +41,13 @@
 .line > :not(:first-child, [data-link]) { margin-top: var(--space-3); }
 /* Below 600 the step's button stands under its text and may take two lines, never wider than the panel. */
 @media (max-width: 599px) {
-  .line.line > :is(a, button):not([data-link]) { max-width: 100%; height: auto; min-height: var(--target); white-space: normal; text-wrap: balance; text-align: center; }
-  .line.line > :is(a, button):not([data-link]) > svg { flex: none; }
+  .line.line > [data-go] { max-width: 100%; height: auto; min-height: var(--target); padding-block: 10px; white-space: normal; text-wrap: balance; text-align: center; }
+  .line.line > [data-go] > svg { flex: none; }
 }
+/* Below 360 the button spans the row under the lead tile, so it keeps two lines. */
+@media (max-width: 359px) { .next > [data-lead="tile"] .line.line > [data-go] { max-width: none; width: calc(100% + var(--mix-tile) + var(--space-3)); margin-left: calc(-1 * (var(--mix-tile) + var(--space-3))); } }
+/* Forced colours drop the muted tiles' fill: a transparent edge (size unchanged) shows as CanvasText there. */
+.next [data-lead="tile"] > :first-child { border: 1px solid transparent; }
 /* „Tresenschild laden“: the mix link (44 tall, the 20 line kept by its margins), its ring around the text (above). */
 .line.line > button[data-link] { position: relative; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .line.line > button[data-link]:active, .help:active { transform: scale(.97); }
@@ -53,7 +60,10 @@
   .next > [data-hang] { align-items: center; }
   .next > [data-hang][data-lead] > :first-child { margin-top: 0; }
   .next > [data-hang] > :last-child { align-items: center; padding-block: var(--space-2); }
-  .line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+  /* The button stays beside its text while the text keeps 14rem; with less room it drops under (Design, 18 Nov). */
+  .line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4); }
+  .line > span { flex: 1 1 14rem; }
+  .line > :is(a, button) { flex: none; }
   .line > :not(:first-child, [data-link]) { margin-top: 0; }
 }
 
@@ -131,6 +141,7 @@
   /* The figure rows share the row's height, so the two tiles end together with no empty foot in either. */
   .sec[data-single] > .facts { display: grid; grid-auto-rows: 1fr; }
   .sec[data-single] > .facts > [data-fact] { align-items: stretch; }
+  .sec[data-single] > .facts > [data-fact]:last-child { margin-bottom: 0; }
   /* The chart takes the tile's spare height: the plot grows, bars scale with it, the guide lines stay at half and full
      height, and the baseline and days end on the tile's bottom inset (Design, 18 Nov). Under 1024 nothing changes. */
   .book > .week { display: flex; flex-direction: column; }
@@ -148,7 +159,7 @@
 @media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .bar[data-lit], :global(.ly-theme-auto) .legend i[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); } }
 
 /* The states (MIX.md › States, STATES-SPEC.md). Loading: still, flat placeholders in the loaded shapes. */
-.sk { display: block; flex: none; border-radius: var(--radius-sm); background: var(--color-fill); }
+.sk { display: block; flex: none; max-width: 100%; border-radius: var(--radius-sm); background: var(--color-fill); }
 .sk[data-line] { height: var(--space-4); margin-block: var(--space-1); }
 .sk[data-small] { height: var(--space-3); margin-block: var(--space-1); }
 .sk[data-fig] { width: 96px; height: 36px; margin-block: var(--space-1); }

@@ -268,8 +268,8 @@ export function NextPanel({ next, lead, milestone, onSign }: { next: { title: st
         {lead?.node}
         <div className={mix.body}><span className={s.line}>
           <span><b>{next.title}</b>{next.text && <small>{next.text}</small>}</span>
-          {!action ? null : "href" in action ? <Link className={mixButton()} href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{go}<LinkPending /></Link>
-            : <button type="button" className={mixButton()} onClick={action.onClick}>{go}</button>}
+          {!action ? null : "href" in action ? <Link className={mixButton()} data-go="" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{go}<LinkPending /></Link>
+            : <button type="button" className={mixButton()} data-go="" onClick={action.onClick}>{go}</button>}
         </span></div>
       </div>}
       {milestone !== null && <div className={mix.row} data-lead="tile">
