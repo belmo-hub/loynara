@@ -36,9 +36,10 @@
 /* The dock is a panel that runs off the bottom edge, edge to edge, and takes the height the page leaves; its content
    keeps the column's edges. */
 .shell[data-has-dock] .main { flex: none; }
-/* Tall phones: the dock takes its content's height and the spare goes to the column above it, so the keys keep the
-   open inset instead of floating far under the dock's edge (Design, 18 Nov). */
-@media (max-width: 599px) and (min-height: 901px) { .shell[data-has-dock] .main { flex: 1 0 auto; } .shell[data-has-dock] .dock { flex: none; } }
+/* Phones: the dock takes its content's height (at least its floor) and the spare goes to the column above it, so the
+   keys keep the open inset on a short card (a one-row goal, a tall phone) instead of floating far under the dock's
+   edge (Design, 18 Nov). */
+@media (max-width: 599px) { .shell[data-has-dock] .main { flex: 1 0 auto; } .shell[data-has-dock] .dock { flex: none; } }
 /* From 600 px wide the counter is tapped from the front, not by thumb (Design, 18 Nov): the content and the dock are
    one group, the dock right under the content, and the group sits centred in the height under the head (auto margins:
    never higher than directly under it). A group taller than that space falls back to the phone layout: it starts

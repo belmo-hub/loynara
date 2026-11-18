@@ -111,7 +111,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 
 /* The card on the dark counter (MixCard size kasse): its 1 px light ring, the foot's pill and state. */
 .kasse > section { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-ink) 6%, transparent), var(--shadow-object); }
-.pill { display: inline-flex; align-items: center; gap: var(--space-2); height: 56px; padding: 0 var(--space-5) 0 var(--space-4); border: 0; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); color: var(--merchant-ink); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--dur-press) var(--ease-out); }
+.pill { display: inline-flex; align-items: center; gap: var(--space-2); height: 56px; padding: 0 calc(var(--space-5) - 1px) 0 calc(var(--space-4) - 1px); border: 1px solid transparent; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); color: var(--merchant-ink); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--dur-press) var(--ease-out); } /* the edge is always there, so forced colours only colour it (Design, 18 Nov) */
 .pill:active { transform: scale(.97); }
 .pill:focus-visible { outline: 2px solid var(--merchant-ink); outline-offset: 2px; }
 .pillSpace { height: 56px; }
@@ -125,7 +125,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
   .stepper output { forced-color-adjust: none; color: CanvasText; }
   .band.band { border: 1px solid ButtonText; } /* doubled: the base .band { border: 0 } comes later */
   .state i { forced-color-adjust: none; background: CanvasText; }
-  .pill { border: 1px solid ButtonText; }
+  .pill { border-color: ButtonText; }
   .bookedIcon { border: 2px solid CanvasText; }
   .bookedHeadline { border: 1px solid CanvasText; }
 }
@@ -280,6 +280,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    between the line above and the field's focus ring (6 + 10 − the ring's 4). */
 .bookedCompact .bookedHeadline { min-height: 32px; margin-top: 6px; }
 .bookedCompact .bookedDetail, .bookedCompact .bookedHint { line-height: 20px; }
+/* margin-top 10: with the line above's 6 gap, 12 clear to the field's focus ring (10 + 6 − the ring's 4). */
 .dockCode { align-self: end; display: flex; align-items: center; gap: var(--space-2); box-sizing: border-box; width: 100%; max-width: 440px; margin-top: 10px; padding: 0 var(--space-1); }
 .dockCode.dockCode.dockCode input { box-sizing: border-box; flex: 1; width: 0; min-width: 0; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
 .dockCode input::placeholder { color: var(--color-ink-muted); }

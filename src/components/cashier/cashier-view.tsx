@@ -93,6 +93,9 @@ const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy
  * Typed path, measured at 390: the 64 badge 16 under the outer edge, the 275 px stack, 24 under the field. Scan path:
  * the 104 badge 16 under it over the 264 px stack, 24 under that; a taller stack takes the compact metrics (`compact`). */
 const TYPED_FLOOR = 315, SCAN_FLOOR = 319;
+/** Focuses the „Gebucht“ dock's field once, where it is: the dock is sticky, and a plain focus scrolls a page taller than
+ * the screen (a card with its notice) to the dock's place in the flow, moving the card under the result. */
+const focusInPlace = (field: HTMLInputElement | null) => field?.focus({ preventScroll: true });
 /** Only the bonus fields of a server result, so other numbers on it are never summed. */
 export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
 export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
@@ -176,6 +179,14 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const [rowGivesWay, setRowGivesWay] = useState(() => Boolean(card && singleReady(card)));
   // The reward the card draws, chosen at the open and held through „Gebucht“ like the row, so the card keeps its size.
   const [goalId, setGoalId] = useState(() => card ? kasseGoal(card)?.id : undefined);
+  // The notice an open card carries (a booking on it seconds ago, an unclear result) stays in its place through the
+  // booking and „Gebucht“: it is still true, and the page must not move under the result. It leaves with the card
+  // (Design, 18 Nov).
+  const [heldNotice, setHeldNotice] = useState<{ id: string; status: string; message: string }>();
+  const liveNotice = card && !booked && !busy && status === "pending" && message ? { id: card.id, status, message } : undefined;
+  const noticeCard = (card ?? booked?.card)?.id;
+  if (liveNotice ? liveNotice.id !== heldNotice?.id || liveNotice.message !== heldNotice?.message : heldNotice && (noticeCard !== heldNotice.id || !(busy || booked))) setHeldNotice(liveNotice);
+  const keptNotice = heldNotice && (busy || booked) && noticeCard === heldNotice.id ? heldNotice : undefined;
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
     if (card) { setRowGivesWay(singleReady(card)); setGoalId(kasseGoal(card)?.id); setDockHold(undefined); }
@@ -315,7 +326,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
       {/* Beside „Rückgängig“ the full words do not fit: the placeholder says „Kartennummer“, the name keeps them all. */}
-      <input id="cashier-code" aria-label={t.manual} placeholder={booked.undo === "available" && onUndo && locale === "de" ? "Kartennummer" : t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+      <input id="cashier-code" aria-label={t.manual} placeholder={booked.undo === "available" && onUndo && locale === "de" ? "Kartennummer" : t.manual} ref={focusInPlace} value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
       {/* On the typed path „Rückgängig“ stands beside the field, so the stack keeps the open dock's height. */}
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="sm" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
     </form>}
@@ -351,6 +362,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card || booked?.card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
       {/* While a booking is on its way the card's foot and the button already say so: the panel stays the same live region but takes no room, so the open card does not move. A refusal or an unclear result shows it again. */}
+      {/* The open card's notice, kept in place while its booking runs and „Gebucht“ holds; already announced, so no live region. */}
+      {keptNotice && <div className={cx("cashier-notice-kept", styles.outcome)} data-tone={keptNotice.status}>
+        <span className={styles.outcomeIcon} aria-hidden="true"><Clock size={22} /></span>
+        <span className={styles.outcomeText}><strong>{t.pending}</strong><span>{keptNotice.message}</span></span>
+      </div>}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, awarding || redeeming ? styles.srOnly : styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : rejectedTitle ?? t.rejected}</strong>{message && <span id="cashier-outcome-text">{message}</span>}</span>

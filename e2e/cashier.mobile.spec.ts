@@ -510,6 +510,36 @@ test.describe("cashier on phones", () => {
   });
 
 
+  test("the same card booked twice in a row: its notice stays through „Gebucht“, one dock top and one card top (820 × 1180, 390 × 844)", async ({ page }) => {
+    await signIn(page);
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    for (const size of [{ width: 820, height: 1180 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(size);
+      const { cardToken } = await (await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } })).json() as { cardToken: string };
+      const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+      await page.goto("/cashier");
+      await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+      await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+      await page.locator(".cashier-award-now").click();
+      await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+      // Reopened at once from the „Gebucht“ dock's field: the card carries the notice of the booking seconds ago.
+      await page.locator(".cashier-booked #cashier-code").fill(code);
+      await page.locator(".cashier-booked #cashier-code").press("Enter");
+      await expect(page.locator(".cashier-status--pending")).toContainText("Auf dieser Karte wurde vor");
+      await expect(page.locator(".cashier-award-now")).toBeVisible();
+      const at = () => page.evaluate(() => ({ dock: Math.round(document.querySelector("[data-dock]")!.getBoundingClientRect().top), card: Math.round(document.querySelector(".card-result-head")!.getBoundingClientRect().top), notice: Math.round(document.querySelector(".cashier-notice-kept, .cashier-status--pending")!.getBoundingClientRect().height) }));
+      const open = await at();
+      // A tap, not Playwright's click: that first scrolls the sticky dock's button to its place in the page flow, which
+      // a finger never does, and would move the card itself.
+      await page.locator(".cashier-award-now").dispatchEvent("click");
+      await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+      await expect(page.locator(".cashier-notice-kept")).toContainText("Auf dieser Karte wurde vor");
+      const booked = await at();
+      expect(Math.abs(booked.dock - open.dock), `${size.width}: ${JSON.stringify({ open, booked })}`).toBeLessThanOrEqual(4); // 2.625 DPR rounding
+      expect(booked.card, `${size.width}: ${JSON.stringify({ open, booked })}`).toBe(open.card);
+    }
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);
