@@ -107,6 +107,14 @@ describe("offline release preflight through the existing migration CLI", () => {
   it("validates complete synthetic declarations for the pinned clean-build release", () => {
     const r = run(fixture()); expect(r.exit, JSON.stringify(r.output)).toBe(0); expect(r.output.executionEnabled).toBe(false);
   });
+  it("accepts public registration on or off, and nothing but a boolean", () => {
+    const on = fixture(); on.configuration.flags.web.PUBLIC_REGISTRATION_ENABLED = true;
+    const r = run(on); expect(r.exit, JSON.stringify(r.output)).toBe(0);
+    for (const value of ["true", "TRUE", 1, null]) {
+      const e = fixture(); (e.configuration.flags.web as Record<string, unknown>).PUBLIC_REGISTRATION_ENABLED = value;
+      const refused = run(e); expect(refused.exit, String(value)).toBe(2); expect(refused.output.status).toBe("BLOCKED");
+    }
+  });
   it("refuses to plan a deployment of the release-tooling commit instead of the pinned application release", () => {
     const head = spawnSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
     const ancestor = spawnSync("git", ["-C", repo, "merge-base", "--is-ancestor", release, "HEAD"]).status;
