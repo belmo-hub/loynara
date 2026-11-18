@@ -54,6 +54,8 @@
   padding: var(--space-6) max(var(--gutter), calc(50% - var(--k-col) / 2 + var(--gutter))) calc(var(--space-6) + env(safe-area-inset-bottom));
   background: var(--color-surface); border-top: 1px solid var(--color-line); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
+/* A dock that stops short of the bottom edge (a centred counter tablet) is a panel: all four corners rounded. */
+.dock[data-floating] { border-radius: var(--radius-lg); }
 /* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock. */
 .dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
 /* Kasse states: the strip fades in when it returns after a booking; the dock rises with the opened card. Both are

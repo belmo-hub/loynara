@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { cx } from "./cx";
 import { merchantPalette } from "./merchant-color";
@@ -29,7 +31,28 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
         </span>
       </div>}
       <main id="inhalt" className={styles.main}>{children}</main>
-      {dock ? <div className={styles.dock} data-dock="true" role={dockLabel ? "region" : undefined} aria-label={dockLabel} style={dockMinHeight ? { minHeight: dockMinHeight } : undefined}>{dock}</div> : null}
+      {dock ? <Dock label={dockLabel} minHeight={dockMinHeight}>{dock}</Dock> : null}
     </ToastProvider>
   </div>;
+}
+
+/**
+ * The booking dock. Where it runs off the screen's bottom edge (a phone, a group too tall to centre) its lower edge is
+ * flat, as drawn; where it stops short of the edge (a centred counter tablet) it is a panel and every corner takes its
+ * top radius (Design, 18 Nov). Which one it is depends on the rendered position, so it is measured, not guessed.
+ */
+function Dock({ label, minHeight, children }: { label?: string; minHeight?: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    const dock = ref.current;
+    if (!dock) return;
+    const check = () => setFloating(dock.getBoundingClientRect().bottom < window.innerHeight - 1);
+    const observer = new ResizeObserver(check);
+    observer.observe(dock); observer.observe(document.documentElement);
+    window.addEventListener("resize", check); window.addEventListener("scroll", check, { passive: true });
+    check();
+    return () => { observer.disconnect(); window.removeEventListener("resize", check); window.removeEventListener("scroll", check); };
+  }, []);
+  return <div ref={ref} className={styles.dock} data-dock="true" data-floating={floating || undefined} role={label ? "region" : undefined} aria-label={label} style={minHeight ? { minHeight } : undefined}>{children}</div>;
 }

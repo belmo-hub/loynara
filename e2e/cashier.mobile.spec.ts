@@ -343,6 +343,16 @@ test.describe("cashier on phones", () => {
     expect(open.follows).toBeGreaterThanOrEqual(0);
     expect(open.follows).toBeLessThanOrEqual(4);
     expect(open.inset).toBeGreaterThanOrEqual(34); // the open inset, 38 from 800 px wide
+    // Short of the bottom edge the dock is a panel with four rounded corners; running off it (too tall a group, a phone)
+    // its lower edge is flat.
+    const corner = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-dock]")!).borderBottomLeftRadius);
+    expect(await corner()).toBe("20px");
+    await page.setViewportSize({ width: 820, height: 640 });
+    await expect.poll(corner).toBe("0px");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(corner).toBe("0px");
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await expect.poll(corner).toBe("20px");
     await page.locator(".cashier-award-now").click();
     await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
     expect(Math.abs((await layout()).dockTop - open.dockTop)).toBeLessThanOrEqual(4); // up to 3.5 px of rounding at 2.625 (0 at a ratio of 2)
