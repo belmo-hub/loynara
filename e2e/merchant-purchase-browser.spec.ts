@@ -72,7 +72,7 @@ test("cashier browser confirms purchase points and selected reward before card r
 
       const card = await browserContext.newPage();
       await card.goto(`/card/${encodeURIComponent(cardToken)}`);
-      await expect(card.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", /^0 von \d+ Punkten$/);
+      await expect(card.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^0 von \d+ Punkten$/);
       await expect(card.locator(".customer-activity-list")).toContainText("+14 Punkte");
       await expect(card.locator(".customer-activity-list")).toContainText("-14 Punkte");
     } finally { await browserContext.close(); }

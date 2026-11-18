@@ -10,13 +10,13 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
     await expect(page.locator(".customer-card")).toBeVisible();
-    await expect(page.locator(".customer-card [role=img]")).toBeVisible();
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toBeVisible();
     const qr = page.locator(".customer-qr img");
     await expect(qr).toBeVisible();
     await expect.poll(() => qr.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     const qrBox = await qr.boundingBox();
     const merchantBox = await page.locator(".customer-card section > div").first().boundingBox();
-    const balanceBox = await page.locator(".customer-card [role=img]").boundingBox();
+    const balanceBox = await page.locator(".customer-card [aria-label*=\" von \"]").boundingBox();
     expect(qrBox).not.toBeNull();
     expect(merchantBox).not.toBeNull();
     expect(balanceBox).not.toBeNull();
@@ -59,7 +59,7 @@ test("card foregrounds the merchant, states the remaining stamps, and can be reo
   const reopened = await context.newPage();
   await reopened.goto(copied);
   await expect(reopened.locator(".customer-card")).toContainText(card.merchantName);
-  await expect(reopened.locator(".customer-card [role=img]")).toHaveAttribute("aria-label", new RegExp(`^${card.balance} von `));
+  await expect(reopened.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", new RegExp(`^${card.balance} von `));
   await reopened.close();
 });
 
