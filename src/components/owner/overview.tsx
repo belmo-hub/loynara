@@ -149,14 +149,13 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
   // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
   const panel = (next !== null || milestone !== null) && (answered || failed) && !(failed && !board);
-  // A ready reward leads with the card's thumbnail: a full card in the shop's colour.
+  // A ready reward leads with the card's thumbnail, full, in the shop's colour. Points stay off the mix card until Design draws one (18 Nov).
   const thumb = next?.kind === "reward-ready" && me.programType === "stamp"
     ? <span className={s.thumb} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}><MixCard size="thumb" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={me.rewardCost} reward={{ id: "", title: me.rewardTitle, cost: me.rewardCost }} /></span> : undefined;
   // The board leads with bookings when the shop has no till amounts: then the Buchungen row would repeat its figure.
   const bookingsBoard = !!board?.spend && !boardEuros(board.spend.figures);
   // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
   const tiles = a ? tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought) : [];
-  const title = `Letzte 30 Tage an diesem Standort${a && firstWeeks(a) ? ` · ${firstWeeks(a)}` : ""}`;
 
   return (
     <div className={cx("ow-page", s.page)}>
@@ -169,7 +168,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
         <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed}>
-          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>{title}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
+          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
             : <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} aria-busy={!board}>
               {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
@@ -187,7 +186,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
                 {failed && cached && <p className={s.offline} role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
               </>}
             </section>}
-          {failed ? <p className={cx(s.offline, s.off)}>{OFFLINE_LINE}</p> : !a ? <FactsPlaceholder /> : <Facts tiles={tiles.filter(tile => tile.key !== "bookings" || !bookingsBoard)} />}
+          {failed ? <p className={cx(s.offline, s.off)}>{OFFLINE_LINE}</p> : !a ? <FactsPlaceholder /> : <Facts note={firstWeeks(a)} tiles={tiles.filter(tile => tile.key !== "bookings" || !bookingsBoard)} />}
           {brought}
           {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
           {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}

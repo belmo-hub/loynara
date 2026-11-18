@@ -52,7 +52,6 @@ const rhythm = () => page.evaluate(() => {
     chips: [...main.querySelectorAll(".ow-prog-text .ow-chip")].flatMap(el => el.previousElementSibling ? [px(box(el).top - box(el.previousElementSibling).bottom)] : []),
     // The „?“ beside a label is a 44 px target that stops where the first row's target begins.
     helpIntoRow: [...main.querySelectorAll(".ow-rows-head > button")].flatMap(el => { const row = el.parentElement!.nextElementSibling; return row ? [px(Math.max(0, box(el).bottom - box(row).top))] : []; }),
-    // The Übersicht's diary is a mix panel since ENG-260 (its rhythm is the mix's, measured on the ticket's pictures).
     diaries: main.querySelectorAll('.ow-diary > h2, [data-ow="diary"] h2').length,
     hints: [...main.querySelectorAll(".ow-page > .ow-hint, .ow-q > .ow-hint, .ow-group > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
   };
@@ -68,8 +67,9 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
     await expect.poll(async () => {
       const m = await rhythm();
       // `loaded`: the page's own content is there (labels, or the adviser's panels), so an empty list is not a pass.
-      // Übersicht must show a diary label (the last days, or the first steps), so its 8 is really measured.
-      return { loaded: (m.below.length > 0 || NO_LABELS.includes(path)) && (path !== "/merchant" || m.diaries > 0), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
+      // Übersicht must show its diary (the last days, or the first steps). Since ENG-260 it is drawn in the mix, whose
+      // rhythm (32 above a section, 12 to its panel) is measured against the approved pictures, not these house labels.
+      return { loaded: (m.below.length > 0 || NO_LABELS.includes(path) || path === "/merchant") && (path !== "/merchant" || m.diaries > 0), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
     }).toEqual({ loaded: true, head: path === "/merchant" ? null : 24, above: [], below: [], helpGrowsRow: [], helpIntoRow: [], padding: [], chips: [], hints: [] }); // Übersicht greets instead of a page head
     expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });

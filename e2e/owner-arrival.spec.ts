@@ -45,7 +45,8 @@ const changeStarted = () => page.waitForFunction(() => document.getAnimations().
 
 test("the milestone card stays once it is shown", async () => {
   // Right after sign-in: this browser has not shown the shop's milestone yet.
-  const card = page.getByRole("region", { name: "Meilenstein" });
+  // Since ENG-260 the milestone is a row of „Als Nächstes“.
+  const card = page.getByRole("region", { name: "Als Nächstes" }).getByText(/^Deine \d+\. Karte$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   test.skip(!(await card.isVisible().catch(() => false)), "this shop has no milestone to show");
   await page.waitForTimeout(1500); // the reads have answered and the page has drawn again

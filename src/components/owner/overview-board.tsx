@@ -108,7 +108,7 @@ export function BookPlaceholder({ caption }: { caption: string }) {
 /** The figure rows' placeholders, each as wide as its loaded title and sub line. */
 export function FactsPlaceholder() {
   return <div className={cx(mix.panel, s.facts)} aria-hidden="true">
-    {[[96, 136], [140, 220], [140, 80]].map(([title, sub]) => <div className={mix.row} key={title + sub}><div className={mix.body}>
+    {[[96, 136], [140, 220], [140, 80]].map(([title, sub]) => <div className={mix.row} data-sk="" key={title + sub}><div className={mix.body}>
       <span className={mix.text}><span className={s.sk} data-line="" style={{ width: title }} /><span className={s.sk} data-small="" style={{ width: sub }} /></span><span className={s.sk} data-num="" />
     </div></div>)}
   </div>;
@@ -210,10 +210,14 @@ export function BonusOffBand({ href }: { href: string }) {
   );
 }
 
-/** C's figure rows for the 30 days (ENG-260): label and note left, the figure on the inset; a linked row is the link. */
-export function Facts({ tiles }: { tiles: Tile[] }) {
+/**
+ * C's figure rows for the 30 days (ENG-260): label and note left, the figure on the inset; a linked row is the link.
+ * `note` („erste Woche“) heads the rows: in the section title it came with the reads and pushed the board down.
+ */
+export function Facts({ tiles, note }: { tiles: Tile[]; note?: string }) {
   return (
     <div className={cx(mix.panel, s.facts)}>
+      {note && <div className={mix.ph}><p className={s.kicker}>{note}</p></div>}
       {tiles.map(tile => {
         // The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the inset.
         const body = <div className={mix.body}>

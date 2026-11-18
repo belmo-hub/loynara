@@ -251,6 +251,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen</b>`);
     expect(html).toMatch(/data-ow="next"[^]*<a class="[^"]*" href="[^"]+">Ansehen<svg/);
     expect(html.indexOf('data-ow="next"')).toBeLessThan(html.indexOf('data-ow="board"')); // in the flow, under the greeting
+    // Points stay off the mix card until Design draws a points card (Design, 18 Nov): no thumbnail in „Als Nächstes“.
+    const points = html.slice(html.indexOf('data-ow="next"'), html.indexOf('data-ow="board"'));
+    expect(points).not.toMatch(/data-lead="card"|role="img"/);
     // A stamp shop's ready reward leads with the card's thumbnail, full (F, ENG-260).
     state.me = me({ programType: "stamp", rewardCost: 8 });
     expect(render()).toMatch(/data-ow="next"[^]*role="img" aria-label="8 von 8 Stempeln"[^]*kann jetzt eine Prämie einlösen/);
@@ -455,7 +458,8 @@ describe("the four tiles (spec §1.3, copy T1–T5)", () => {
     expect(firstWeeks({ programStartedOn: "2026-10-21", today: "2026-11-04" })).toBeUndefined();
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ programStartedOn: "2026-10-22", previous: null }));
     const html = render();
-    expect(html).toContain(">Letzte 30 Tage an diesem Standort · zweite Woche</h2>");
+    expect(html).toContain(">Letzte 30 Tage an diesem Standort</h2>");
+    expect(html).toMatch(/<p class="[^"]*">zweite Woche<\/p><\/div><(a|div) class="[^"]*"[^>]*data-fact/); // heads the figure rows
     expect(html.match(/zweite Woche/g)).toHaveLength(1);
     expect(notes({})).toEqual(["vorher 10", "vorher 0", "vorher 1", "vorher 1"]);
     expect(notes({ previous: null })).toEqual(["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"]);
