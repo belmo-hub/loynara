@@ -115,6 +115,22 @@ test.describe("cashier on phones", () => {
     await expect(page.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText(/kaffee/i);
   });
 
+  test("a card opened by its typed number shows the safety note in view on a 390 × 844 phone, above the dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signIn(page);
+    const { rows } = await pool.query<{ card_locator: string }>(
+      "select m.card_locator from memberships m join programs p on p.id = m.program_id where p.slug = $1 and m.closed_at is null and m.card_locator <> '' order by m.created_at desc limit 1",
+      [demo.programSlug]);
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(`K-${rows[0].card_locator}`);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+    const note = page.getByRole("note").filter({ hasText: "Ohne Scan geöffnet: Prämie nur für die eigene Karte." });
+    await expect(note).toBeInViewport({ ratio: 1 });
+    const [noteBox, dockBox] = await Promise.all([note.boundingBox(), page.locator("[data-dock]").boundingBox()]);
+    expect(noteBox!.y + noteBox!.height).toBeLessThanOrEqual(dockBox!.y);
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);

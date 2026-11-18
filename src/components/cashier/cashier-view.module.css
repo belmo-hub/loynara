@@ -74,6 +74,7 @@
 .reward { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; animation: row-in var(--dur-ui) var(--ease-out) backwards; transition: background-color var(--dur-press) var(--ease-out); }
 /* A reward out of reach is not a target: no hover fill from the mix row (0,3,0 beats its button.row:hover). */
 .reward.reward:disabled { cursor: default; background: none; }
+.reward.reward:disabled:active { transform: none; }
 .reward:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .reward:active:not(:disabled) { background: var(--color-action-soft); }
 @media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { background: var(--color-action-soft); } }
@@ -89,7 +90,9 @@
 /* Dock (D, mix-kasse-390): the amount at 96 between two 72 px keys, standing in the height that is left (never under
    24 above and below), „Neuer Stand“ on a raised row, the 64 px booking button, the note. The value rolls; only the
    press scales. */
-.stepper { flex: 1; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 120px; margin-top: calc(-1 * var(--space-6)); }
+/* The keys take the height the page leaves, between 96 and 200, so on a short card (points, no reward) the amount,
+   „Neuer Stand“ and the button stay one group at the foot instead of the amount floating in an empty panel. */
+.stepper { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
 .stepper output { min-width: 72px; font-size: 96px; line-height: 96px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
 .stepper .step { width: 72px; height: 72px; min-height: 72px; padding: 0; border: 1px solid var(--color-line-strong); border-radius: 50%; background: transparent; }
 .newBalance { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 56px; margin: 0 0 var(--space-4); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-raised); }
@@ -104,17 +107,24 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .pill:active { transform: scale(.97); }
 .pill:focus-visible { outline: 2px solid var(--merchant-ink); outline-offset: 2px; }
 .pillSpace { height: 56px; }
+.footNote { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); text-align: right; text-wrap: balance; }
 .state { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); }
 .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); }
 .state[data-state="busy"] i { background: var(--color-warning); }
 .state[data-state="error"] i { background: var(--color-danger); }
-@media (forced-colors: active) { .state i { forced-color-adjust: none; background: CanvasText; } }
-/* After a booking the same card stays mounted with the new balance: a stamp that turns earned pops (Pop in, 480 ms) and
-   the figure rolls up. Stamps earned before the booking finished their (0 s) pop long ago and do not replay. */
-.kasse :global([data-on]) { animation: pop var(--pop, 0s) var(--ease-out) backwards; }
+@media (forced-colors: active) {
+  .state i { forced-color-adjust: none; background: CanvasText; }
+  .pill { border: 1px solid ButtonText; }
+  .bookedIcon { border: 2px solid CanvasText; }
+  .bookedHeadline { border: 1px solid CanvasText; }
+}
+/* After a booking the same card stays mounted with the new balance: a stamp that turns earned lands like the badge
+   (Pop in: 1.3 → .94 → 1 over 480 ms, the badge's `land`), and the figure and the reward row's count roll up over
+   220 ms from 100 ms after the answer. Stamps earned before the booking finished their (0 s) landing long ago and do not
+   replay. The figure is the balance block's <b> (the card's last top column). */
+.kasse :global([data-on]) { animation: land var(--pop, 0s) var(--ease-out) backwards; }
 .kasse[data-booked] { --pop: 480ms; }
-.kasse[data-booked] section > div:first-child > div:last-child b { animation: roll 480ms var(--ease-out) backwards; }
-@keyframes pop { 0% { transform: scale(.3); opacity: 0; } 55% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+.kasse[data-booked] section > div:first-child > div:last-child b, .rollIn { animation: roll var(--dur-ui) var(--ease-out) 100ms backwards; }
 @keyframes roll { from { transform: translateY(.4em); opacity: 0; } }
 /* The one green band (ENG-121) for a ready reward. The whole band is the action; it stays last in the dock, in thumb
    reach, and the earning button above it steps back. */
@@ -145,7 +155,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 @media (prefers-reduced-motion: reduce) {
   .reward, .band, .menuButton, .pill { transition: none; }
   .band:active:not(:disabled), .menuButton:active, .pill:active { transform: none; }
-  .kasse :global([data-on]), .kasse[data-booked] section > div:first-child > div:last-child b { animation: none; }
+  .kasse :global([data-on]), .kasse[data-booked] section > div:first-child > div:last-child b, .rollIn { animation: none; }
   .menu, .menu:popover-open { transform: none; }
   .panel::before, .card::before, .question, .panel > .stack, .note, .winback, .reward { animation: none; }
   /* The app-wide reduce rule gives every animation .01 ms and one turn; the spinner still waits its 300 ms, then keeps
@@ -182,7 +192,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
   text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
 }
 @starting-style { .booked { opacity: 0; } }
-.bookedIcon { position: relative; display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: var(--space-1); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
+.bookedIcon { position: relative; display: grid; place-items: center; width: 104px; height: 104px; margin-bottom: var(--space-1); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
 .booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
 .booked h2 { margin: 0; font: var(--weight-heavy) var(--display-tile)/1.1 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }

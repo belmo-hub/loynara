@@ -1,0 +1,22 @@
+/* The Kasse as a sheet (the founder's yes, 17 Nov). From the owner's „Kasse“ link the navigation carries the
+   transition type kasse-sheet: the app stays in view as the old snapshot and dims to .6 while the Kasse slides up over
+   it from the bottom edge in 260 ms on the drawer curve. The owner screen's own fade, its hidden old root and its bars
+   (owner.css) are switched off for that type, so the whole old page dims as one picture. Loaded with the Kasse's
+   layout, which the navigation waits for before it commits. */
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(root),
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
+:root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs) { display: block; animation: kasse-dim 260ms var(--ease-out) both; }
+:root:active-view-transition-type(kasse-sheet)::view-transition-new(root) { animation: none; opacity: 0; }
+:root:active-view-transition-type(kasse-sheet)::view-transition-group(.kasse-sheet) { z-index: var(--z-sheet); }
+:root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-up 260ms var(--ease-drawer) both; }
+@keyframes kasse-dim { to { filter: brightness(.6); } }
+@keyframes kasse-up { from { transform: translateY(100%); } }
+@keyframes kasse-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(root),
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-topbar),
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-subnav),
+  :root:active-view-transition-type(kasse-sheet)::view-transition-old(ow-tabs) { animation: none; }
+  :root:active-view-transition-type(kasse-sheet)::view-transition-new(.kasse-sheet) { animation: kasse-fade 160ms linear both; }
+}

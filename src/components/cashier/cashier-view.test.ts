@@ -128,6 +128,13 @@ describe("the mix Kasse (ENG-256)", () => {
   const stamps: CashierCard = { ...card, programType: "stamps", balance: 5, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: false }] };
   const render = (props: Record<string, unknown>) => renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, ...props }));
 
+  it("a card opened by its typed number says so in the card's foot, in place of the state, before the rewards", () => {
+    const out = render({ card: { ...stamps, matchedBy: "locator" } });
+    expect(out).toMatch(/Andere Karte<\/button><p class="cashier-locator-note[^"]*" role="note">Ohne Scan geöffnet: Prämie nur für die eigene Karte\.<\/p>/);
+    expect(out).not.toContain("Karte offen");
+    expect(out.indexOf("Ohne Scan geöffnet")).toBeLessThan(out.indexOf("<b>Gratiskaffee</b>"));
+  });
+
   it("an open card: the card number, the state in its foot, the reward row and the new balance before the tap", () => {
     const out = render({ card: stamps, role: "cashier" });
     expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
@@ -140,14 +147,15 @@ describe("the mix Kasse (ENG-256)", () => {
   it("after a booking „Gebucht“ holds the dock and the closed card shows the new balance, with nothing to book or redeem", () => {
     const out = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: { ...stamps, balance: 6 } } });
     expect(out).toMatch(/data-dock="true"><section class="cashier-booked/);
-    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*>K-7QX2MA<\/p>/);
+    // The card's terms in one line; the live sentence and the number stay for screen readers and the specs.
+    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*>K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
     expect(out).toContain("<b>6<small> von 8</small></b>");
-    expect(out).toContain("<small>Noch 2 Stempel</small>");
+    expect(out).toMatch(/<small class="[^"]*">Noch 2 Stempel<\/small>/);
     expect(out).not.toContain("reward-action-list");
     expect(out).not.toContain("cashier-award-now");
-    expect(out).not.toContain("Karte offen");
+    expect(out).toMatch(/data-state="open"><i aria-hidden="true"><\/i>Karte offen/);
   });
 });
 

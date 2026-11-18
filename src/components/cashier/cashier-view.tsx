@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { MixCard } from "@/components/customer/mix-card";
+import { useKasseLocation } from "./kasse-sheet";
 import { flushSync } from "react-dom";
 import { quantityPickerMax, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, PointsError, purchasePoints } from "@/lib/points";
@@ -249,20 +250,29 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The card counts to the cheapest reward. Points programmes, and a card without any reward, keep today's card until
   // Design draws them on the mix card (Design, 17 Nov).
   const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.reduce((low, reward) => reward.cost < low.cost ? reward : low) : null;
+  const bookedGoal = Boolean(booked?.card && goal);
   const ofGoal = (n: number) => goal && shown?.programType !== "points" ? `${number.format(n)} von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
   const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={24} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={24} /> : <Clock size={24} />}</span>
+    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
     <h2>{booked.title}</h2>
     {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
     {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
-    <p className={styles.bookedDetail}>{booked.detail}</p>
-    {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
+    {/* With a goal the moment reads in the card's terms, one line („6 von 8 · K-…“); the live sentence and the card
+        number stay for screen readers and the specs. Without a goal the live lines show. */}
+    {bookedGoal ? <>
+      <p className={styles.srOnly}>{booked.detail}</p>{booked.meta && <p className={styles.srOnly}>{booked.meta}</p>}
+      <p className={styles.bookedDetail} aria-hidden="true">{ofGoal(booked.card!.balance)}{booked.meta && ` · ${booked.meta}`}</p>
+    </> : <>
+      <p className={styles.bookedDetail}>{booked.detail}</p>
+      {booked.meta && <p className={styles.bookedMeta}>{booked.meta}</p>}
+    </>}
     {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
     {booked.error && <p className={styles.bookedError} role="alert">{booked.error}</p>}
-    {booked.undo === "staff-only" && <p className={styles.bookedMeta}>{t.undoStaff}</p>}
+    {/* The open dock already showed who corrects a mistake; here it stays for screen readers only. */}
+    {booked.undo === "staff-only" && <p className={styles.srOnly}>{t.undoStaff}</p>}
     {(booked.undo === "available" && onUndo || !camera && !booked.card) && <div className={styles.bookedActions}>
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
@@ -280,7 +290,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
           <Button variant="secondary" size="lg" className={styles.step} aria-label={t.increase} onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity || busy}><Plus size={24} aria-hidden="true" /></Button>
         </div>
         <p className={styles.newBalance}><span>{t.newBalance}</span><b><NumberRoll value={after}>{ofGoal(after)}</NumberRoll></b></p>
-        <Button {...earnLook} block className={cx("cashier-award-now", !rewardFirst && styles.book)} icon={rewardFirst ? undefined : <Check size={22} />} onClick={() => awardQuantity(card)} loading={awarding} disabled={busy && !awarding}>{awardLabel}</Button>
+        <Button {...earnLook} block className={cx("cashier-award-now", !rewardFirst && styles.book)} icon={rewardFirst ? undefined : <Check size={22} />} onClick={() => awardQuantity(card)} loading={awarding} disabled={busy && !awarding}>{!extras.length && awardLabel.startsWith(`${awardCount} `) ? <><NumberRoll value={awardCount}>{awardCount}</NumberRoll>{awardLabel.slice(String(awardCount).length)}</> : awardLabel}</Button>
       </>}
     {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeeming ? undefined : redeemReady} disabled={busy && !redeeming} aria-busy={redeeming || undefined} aria-disabled={redeeming || undefined}>
       <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
@@ -313,7 +323,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         reward={{ id: goal.id, title: goal.name, cost: goal.cost }} rewards={shown.rewards.map(reward => ({ id: reward.id, title: reward.name, cost: reward.cost }))}
         title={shown.cardLocator} sub={t.verified} label={t.balance} locale={locale}
         foot={<>{card || !camera ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
-          {card && <span className={styles.state} data-state={shellState}><i aria-hidden="true" />{stateLabel}</span>}</>} />
+          {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
+          {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
+          {shown.matchedBy === "locator" ? <p className={cx("cashier-locator-note", styles.footNote)} role="note">{t.locatorNote}</p>
+            : <span className={styles.state} data-state={card ? shellState : "open"}><i aria-hidden="true" />{card ? stateLabel : t.cardOpen}</span>}</>} />
     </div>}
     {shown && !goal && <section className={styles.card} aria-labelledby="cashier-card-title">
       <div className={cx("card-result-head", styles.cardHead)}>
@@ -327,6 +340,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       </div>
       {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />}
     </section>}
+    {/* Today's card (points, no reward) keeps the note right under it. */}
+    {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note)} role="note">{t.locatorNote}</p>}
     {/* On the mix card the figure is drawn clamped to the goal (its label is the card's); the balance in words stays for screen readers and the specs. */}
     {card && goal && <div className={cx("balance-display", styles.srOnly)}>
       <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
@@ -338,7 +353,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
           const body = <>
             <span className={mixStyles.tile} data-tone={ready ? "coral" : "mute"}><Gift size={20} aria-hidden="true" /></span>
             <span className={mixStyles.body}>
-              <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : `${t.left} ${number.format(left)} ${unitWord(left, shown.programType, locale)}`}</small></span>
+              <span className={mixStyles.text}><b>{reward.name}</b><small className={card ? undefined : styles.rollIn}>{ready ? withUnit(reward.cost, shown.programType, locale) : `${t.left} ${number.format(left)} ${unitWord(left, shown.programType, locale)}`}</small></span>
               <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>
             </span>
           </>;
@@ -347,7 +362,6 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         })}
       </div> : card && <p className={styles.help}>{t.noRewards}</p>}
     </section>}
-    {card && card.matchedBy === "locator" && <p className={styles.note} role="note">{t.locatorNote}</p>}
     {card && winback + birthday > 0 && <p className={styles.winback} role="note">
       {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${withUnit(winback, card.programType, locale)} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
       {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${withUnit(birthday, card.programType, locale)} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
@@ -414,7 +428,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
  */
 export function CashierAccessState({ state, message, logoutControl }: { state: "loading" | "blocked"; message: string; logoutControl?: ReactNode }) {
   const loading = state === "loading";
-  return <CashierShell lang="de" live={false} location={<span className="cashier-location">Kasse</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
+  // Opened from the owner's „Kasse“ link the frame already names the location, so the sliding sheet's head does not change.
+  const location = useKasseLocation("Kasse");
+  return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
     <section className={cx("app-state-card", styles.access)}>
       <h1>{loading ? "Kassenzugang wird geprüft" : "Zugang gesperrt oder nicht eingerichtet"}</h1>
       <p>{loading ? "Dein Standort und deine Berechtigung werden geladen." : message}</p>

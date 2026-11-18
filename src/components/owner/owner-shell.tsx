@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
+import { rememberKasseLocation } from "@/components/cashier/kasse-sheet";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
@@ -225,7 +226,9 @@ export function OwnerShell({ children }: { children: ReactNode }) {
   const hidden = me?.hiddenSurfaces ?? owner.hiddenSurfaces;
   const group = activeGroup(pathname, role, hidden);
   const subItems = group ? visibleItems(group, role, hidden) : [];
-  const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => router.push("/cashier")); } };
+  // The Kasse slides up over the app as a sheet (ENG-256): the navigation carries its transition type, and the Kasse's
+  // loading frame shows this location from the first frame.
+  const openCashier = (event: React.MouseEvent) => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); owner.guard(() => { rememberKasseLocation(me?.locationName); router.push("/cashier", { transitionTypes: ["kasse-sheet"] }); }); } };
 
   return (
     <div className="ow-shell">
@@ -267,7 +270,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
         <main id="ow-main" className="ow-content" tabIndex={-1} aria-busy={owner.switching || !me}>
           {owner.switching || !me
             ? <div className="ow-page" aria-label="Standort wird gewechselt"><Skeleton height={32} width={240} /><Skeleton height={120} /><Skeleton height={220} /></div>
-            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{/* One element that stays for the whole screen: a page that swaps its own root (loading frame, then form) would end the transition early. */}<ViewTransition key={pathname} enter="ow-screen" exit="ow-screen" default="none"><div className="ow-screen">{children}</div></ViewTransition></div>}
+            : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{/* One element that stays for the whole screen: a page that swaps its own root (loading frame, then form) would end the transition early. */}<ViewTransition key={pathname} enter="ow-screen" exit={{ "kasse-sheet": "none", default: "ow-screen" }} default="none"><div className="ow-screen">{children}</div></ViewTransition></div>}
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
