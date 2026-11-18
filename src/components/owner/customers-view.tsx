@@ -97,6 +97,16 @@ export function groupTiles(s: RetentionSummary, unit: string): Tile[] {
   }));
 }
 
+/**
+ * The number beside a group's title: the read's total of what the list shows, whatever page the list has loaded
+ * (Design, 18 Nov, #283). The read counts no closed cards, so „Alle“ and „Geschlossen“ show no number.
+ */
+export function groupCount(s: RetentionSummary, filters: Pick<Filters, "activity" | "status" | "minAgeDays">) {
+  if (filters.activity === "all" && filters.status !== "active") return undefined;
+  if (filters.minAgeDays === 7) return nf.format(s.neverAfterWeek);
+  return nf.format(GROUPS.find(group => group.activity === filters.activity)!.count(s));
+}
+
 /** Where Back lands after a card: the list it was opened from and that list's scroll offset when the row was tapped. */
 let listY: { list: string; y: number } | null = null;
 
@@ -158,9 +168,7 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   const short = q.trim().length > 0 && q.trim().length < 3 && parseCardLocator(q) === null;
   const tiles = summary.state === "ok" ? groupTiles(summary.data, unit) : [];
   const current = searched ? undefined : tiles.find(tile => tile.key === filters.activity);
-  // The group's count, where the read counts what the list shows; otherwise the list counts what it loaded.
-  const count = !current || summary.state !== "ok" || (filters.activity === "all" && filters.status !== "active") ? undefined
-    : filters.minAgeDays === 7 ? nf.format(summary.data.neverAfterWeek) : current.value;
+  const count = searched || summary.state !== "ok" ? undefined : groupCount(summary.data, filters);
   const lead = searched ? "" : activityRule(filters.activity, filters.days, unit) + (filters.minAgeDays === 7 ? " Angezeigt werden nur Karten, die vor über sieben Tagen angelegt wurden." : "");
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -204,7 +212,7 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
             <select value={current?.key} onChange={event => router.push(tiles.find(tile => tile.key === event.target.value)!.href!)}>
               {tiles.map(tile => <option key={tile.key} value={tile.key}>{tile.label} {tile.value}</option>)}
             </select>
-            <b aria-hidden="true">{current?.label}</b><span aria-hidden="true">{count}</span>
+            <b aria-hidden="true">{current?.label}</b>{count && <span aria-hidden="true">{count}</span>}
             <ChevronDown size={20} aria-hidden="true" />
           </label>}
           {/* No card yet: the way to the first one is the invite (beside or under this). */}
@@ -286,7 +294,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
   const loaded = first.state === "ok" ? `${n}${next ? "+" : ""}` : undefined;
   return (
     <section className={cx("ow-prog", styles.cards)} aria-labelledby="cu-h" aria-busy={first.state === "loading"}>
-      {title ? <div className={styles.named}><h2 id="cu-h">{title}</h2><span>{count ?? loaded}</span></div>
+      {title ? <div className={styles.named}><h2 id="cu-h">{title}</h2>{count && <span>{count}</span>}</div>
         : <h2 id="cu-h">{first.state === "ok" ? `${loaded} ${n === 1 && !next ? "Karte" : "Karten"}` : "Wird geladen …"}</h2>}
       {lead && <p className="ow-prog-note">{lead}</p>}
       {controls}

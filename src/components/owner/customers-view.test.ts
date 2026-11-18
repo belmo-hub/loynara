@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 import { progressLine } from "@/components/customer/mix-card";
-import { cardLead, groupTiles, searchHref } from "./customers-view";
+import { cardLead, groupCount, groupTiles, searchHref } from "./customers-view";
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
   nearReward: 3, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 3, nearRewardId: null, programCount: 1, rules: RETENTION_RULES, ...patch });
@@ -62,5 +62,16 @@ describe("Kunden rows in the mix (ENG-257)", () => {
     expect(render(cardLead({ programType: "stamp", balance: 5 }, coffee))).toContain('role="img"');
     expect(render(cardLead({ programType: "stamp", balance: 5 }))).toContain('aria-hidden="true"'); // the shop's colour, no dots
     expect(cardLead({ programType: "points", balance: 186 }, coffee)).toBeNull();
+  });
+});
+
+describe("the number beside a group's title (Design, #283)", () => {
+  it("is the read's total, not the 25 rows a list with a next page has loaded; with closed cards in the list there is none", () => {
+    const big = summary({ openCards: 60, recent: 40, never: 30, neverAfterWeek: 12 }); // every group longer than one page of 25
+    expect(groupCount(big, { activity: "all", status: "active", minAgeDays: 0 })).toBe("60");
+    expect(groupCount(big, { activity: "recent", status: "all", minAgeDays: 0 })).toBe("40");
+    expect(groupCount(big, { activity: "never", status: "all", minAgeDays: 7 })).toBe("12");
+    expect(groupCount(big, { activity: "all", status: "all", minAgeDays: 0 })).toBeUndefined();
+    expect(groupCount(big, { activity: "all", status: "closed", minAgeDays: 0 })).toBeUndefined();
   });
 });
