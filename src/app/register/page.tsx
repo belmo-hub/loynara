@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { AuthShell } from "@/components/ui/auth-shell";
@@ -10,11 +10,14 @@ import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
+import { inviteReturnPath, withInviteReturn } from "@/lib/invite-return";
 import styles from "@/components/auth/auth.module.css";
 import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
 
 export default function RegisterPage() {
   const router = useRouter();
+  // A staff member coming from an invitation goes back to it, not into the owner's shop setup.
+  const next = inviteReturnPath(useSearchParams().get("next"));
   // Until the page is interactive, a tap would submit the bare form natively and reload it, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const [mismatch, setMismatch] = useState(false);
@@ -37,7 +40,7 @@ export default function RegisterPage() {
       try { result = await authClient.signUp.email({ name, email, password }); }
       catch { setError(CONNECTION_LOST); return; }
       if (result.error) { setError(signUpMessage(result.error, "register")); return; }
-      router.push("/merchant/program");
+      router.push(next ?? "/merchant/program");
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -56,7 +59,7 @@ export default function RegisterPage() {
           <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
           <p className={styles.note}>Es wird keine Zahlung ausgelöst. Die öffentliche Registrierung bleibt bis zur Freigabe durch Loynara gesperrt.</p>
         </form>
-        <p className={styles.note}>Du hast schon ein Konto? <Link className={styles.link} href="/login">Anmelden</Link></p>
+        <p className={styles.note}>Du hast schon ein Konto? <Link className={styles.link} href={withInviteReturn("/login", next)}>Anmelden</Link></p>
       </div>
     </div>
   </AuthShell>;

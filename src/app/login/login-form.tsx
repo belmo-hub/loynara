@@ -11,12 +11,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
+import { withInviteReturn } from "@/lib/invite-return";
 import styles from "@/components/auth/auth.module.css";
 
 // Owners have no self-service reset yet: the link opens a prepared mail to support, nothing is sent from the page.
 const RESET_MAIL = "mailto:support@getloynara.com?subject=" + encodeURIComponent("Passwort für Loynara zurücksetzen");
 
-export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
+export function LoginForm({ registrationOpen, next = null }: { registrationOpen: boolean; next?: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +56,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
         setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
         return;
       }
-      router.push("/merchant");
+      router.push(next ?? "/merchant");
       router.refresh();
     } catch {
       setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
@@ -76,7 +77,7 @@ export function LoginForm({ registrationOpen }: { registrationOpen: boolean }) {
           <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
         </form>
         <p className={styles.note}>{registrationOpen
-          ? <>Noch kein Konto? <Link className={styles.link} href="/register">Konto erstellen</Link></>
+          ? <>Noch kein Konto? <Link className={styles.link} href={withInviteReturn("/register", next)}>Konto erstellen</Link></>
           : <>Noch keinen Zugang? Loynara richtet ihn gemeinsam mit dir ein.</>}</p>
       </div>
       <LegalLinks />
