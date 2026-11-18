@@ -169,6 +169,8 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
   const tiles = summary.state === "ok" ? groupTiles(summary.data, unit) : [];
   const current = searched ? undefined : tiles.find(tile => tile.key === filters.activity);
   const count = searched || summary.state !== "ok" ? undefined : groupCount(summary.data, filters);
+  // The read counts open cards only: with closed cards in the list the groups show no counts either (Design, #283).
+  const counted = !(filters.activity === "all" && filters.status !== "active");
   const lead = searched ? "" : activityRule(filters.activity, filters.days, unit) + (filters.minAgeDays === 7 ? " Angezeigt werden nur Karten, die vor über sieben Tagen angelegt wurden." : "");
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -189,28 +191,22 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
       {/* Demo environment (pilot-surfaces „revenue“ is withheld only there): the groups below include the sample visits. */}
       {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
       <div className={styles.split}>
-        <div className={styles.side}>
-          <section className={cx("ow-prog", styles.groups)} aria-labelledby="cu-groups">
-            <h2 id="cu-groups">Gruppen</h2>
-            {summary.state === "error" ? <ErrorNotice message={summary.message} onRetry={reload} />
-              : summary.state !== "ok" ? <LoadingBlock rows={3} height={64} />
-              : <ul>{tiles.map(tile => <li key={tile.key}><Link className="ow-prog-row" href={tile.href!} aria-current={tile === current || undefined}>
-                <span className="ow-prog-icon"><tile.icon size={20} aria-hidden="true" /></span>
-                <span className="ow-prog-main"><span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span><span className="ow-prog-value">{tile.value}</span></span>
-                <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
-                <LinkPending />
-              </Link></li>)}</ul>}
-          </section>
-          <div className={cx("ow-prog", styles.invite)}>
-            <InviteRows me={me} />
-            <p className="ow-prog-note">Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara nicht.</p>
-          </div>
-        </div>
+        <section className={cx("ow-prog", styles.groups)} aria-labelledby="cu-groups">
+          <h2 id="cu-groups">Gruppen</h2>
+          {summary.state === "error" ? <ErrorNotice message={summary.message} onRetry={reload} />
+            : summary.state !== "ok" ? <LoadingBlock rows={3} height={64} />
+            : <ul>{tiles.map(tile => <li key={tile.key}><Link className="ow-prog-row" href={tile.href!} aria-current={tile === current || undefined}>
+              <span className="ow-prog-icon"><tile.icon size={20} aria-hidden="true" /></span>
+              <span className="ow-prog-main"><span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span>{counted && <span className="ow-prog-value">{tile.value}</span>}</span>
+              <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
+              <LinkPending />
+            </Link></li>)}</ul>}
+        </section>
         <div className={styles.main}>
           {!searched && tiles.length > 0 && <label className={styles.picker}>
             <span className="ow-sr">Gruppe</span>
             <select value={current?.key} onChange={event => router.push(tiles.find(tile => tile.key === event.target.value)!.href!)}>
-              {tiles.map(tile => <option key={tile.key} value={tile.key}>{tile.label} {tile.value}</option>)}
+              {tiles.map(tile => <option key={tile.key} value={tile.key}>{counted ? `${tile.label} ${tile.value}` : tile.label}</option>)}
             </select>
             <b aria-hidden="true">{current?.label}</b>{count && <span aria-hidden="true">{count}</span>}
             <ChevronDown size={20} aria-hidden="true" />
@@ -229,9 +225,13 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
               {DAYS.map(days => <button key={days} type="button" aria-pressed={filters.days === days} onClick={() => replaceParams(params, { days: String(days) })}>{days} Tage</button>)}
             </div>}
             {!searched && filters.activity === "all" && <div className="ow-seg" role="group" aria-label="Kartenstatus">
-              {STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => replaceParams(params, { activity: "all", status: value === "all" ? null : value })}>{label}</button>)}
+              {STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => replaceParams(params, { activity: "all", status: value === "all" ? null : value })}><span data-label={label}>{label}</span></button>)}
             </div>}
           </>} />}
+        </div>
+        <div className={cx("ow-prog", styles.invite)}>
+          <InviteRows me={me} />
+          <p className="ow-prog-note">Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. Namen und Kontaktdaten zeigt Loynara nicht.</p>
         </div>
       </div>
     </div>
@@ -321,7 +321,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
                 : ours && member.balance >= cheapest && <MixChip warm><Gift size={16} aria-hidden="true" />Prämie verdient</MixChip>}</strong>
                 <small>{member.lastQualifyingAt ? `Letzte Buchung ${germanDate(member.lastQualifyingAt, "feed")}` : "Noch nie an der Kasse"}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
               {member.programType === "points" ? <span className="ow-prog-value" data-pair="">{member.balance}<small> {unitWord(member.balance, "points")}</small></span>
-                : <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>}
+                : member.qualifyingCheckouts > 0 && <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>}
             </span>
             <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
             <LinkPending />

@@ -16,9 +16,9 @@
 .search :global(.ow-input) { padding-left: 52px; background: var(--color-surface); }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-.side, .main { display: contents; }
+.main { display: contents; }
 .groups { display: none; }
-.invite { order: 1; margin-top: var(--space-4); } /* a titled section: 32 under the cards panel */
+.invite { margin-top: var(--space-4); } /* a titled section: 32 under the cards panel */
 .cards > :is(:global(.ow-seg), :global(.ow-band)) { margin-top: var(--space-3); }
 
 /* Section titles and panels. */
@@ -49,7 +49,7 @@
 @media (min-width: 600px) { .bookings { display: block; } }
 /* A card with no target here (closed, or another location's): the thumbnail's colour without dots. */
 .blank { flex: none; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
-.more { width: 100%; min-height: var(--mix-row-2); border: 0; background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-action); cursor: pointer; }
+.more { width: 100%; border-radius: 0 0 var(--radius-lg) var(--radius-lg); min-height: var(--mix-row-2); border: 0; background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-action); cursor: pointer; }
 .more:disabled { cursor: progress; }
 
 /* The group picker (phone and 880): a field showing the group and its count over a native select. */
@@ -70,9 +70,11 @@
   .title { display: contents; }
   .title > .link { grid-column: 3; grid-row: 1; min-width: 100px; justify-content: flex-end; }
   .search { grid-column: 2; grid-row: 1; }
-  .split { grid-template-columns: 400px minmax(0, 1fr); column-gap: var(--space-10); align-items: start; }
-  .side, .main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-content: start; min-width: 0; }
-  .groups { display: block; }
+  /* A's two panes; the DOM keeps the phone's order (cards before the invite), the grid puts the invite under the groups. */
+  .split { grid-template-columns: 400px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: var(--space-10); align-items: start; }
+  .groups { display: block; grid-column: 1; grid-row: 1; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-content: start; min-width: 0; grid-column: 2; grid-row: 1 / span 2; }
+  .invite { grid-column: 1; grid-row: 2; }
   .picker { display: none; }
 }
 
@@ -85,3 +87,9 @@
 /* The segment stays a 44 px target: its hit area reaches the track's edge. */
 .cards > :global(.ow-seg) button::after { content: ""; position: absolute; inset: calc(var(--space-1) * -1) 0; }
 @media (min-width: 600px) { .cards > :global(.ow-seg) { display: inline-grid; width: auto; grid-auto-columns: 1fr; } }
+
+/* The bold label's width is kept in every segment, so picking „Geschlossen“ moves nothing (Design, #283). */
+.cards > :global(.ow-seg) button > span { display: inline-flex; flex-direction: column; align-items: center; }
+.cards > :global(.ow-seg) button > span::after { content: attr(data-label); height: 0; overflow: hidden; visibility: hidden; font-weight: var(--weight-strong); }
+/* The closing row's ring sits inside the clipping panel, like the rows' (Design, #283). */
+.page .cards .more:focus-visible { outline-offset: -2px; }

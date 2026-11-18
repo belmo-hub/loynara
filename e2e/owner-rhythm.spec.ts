@@ -82,8 +82,8 @@ test("/merchant/customers keeps the mix rhythm", async () => {
   // Polled: the picker comes with the groups' read, which can land after the cards.
   await expect.poll(() => page.evaluate(() => {
     const box = (q: string) => document.querySelector(`#ow-main ${q}`)?.getBoundingClientRect(), gap = (a: string, b: string) => { const [x, y] = [box(a), box(b)]; return x && y ? Math.round(y.top - x.bottom) : null; };
-    return { search: gap("h1", "form[role=search]"), picker: gap("form[role=search]", "label:has(> select)"), invite: gap('section[aria-labelledby="cu-h"] ul', ".ow-prog:has(> div > h2) h2"),
-      panel: gap(".ow-prog:has(> div > h2) h2", ".ow-prog:has(> div > h2) ul"), note: gap(".ow-prog:has(> div > h2) ul", ".ow-prog:has(> div > h2) > .ow-prog-note") };
+    return { search: gap("h1", "form[role=search]"), picker: gap("form[role=search]", "label:has(> select)"), invite: gap('section[aria-labelledby="cu-h"] ul', "[class*=invite] h2"),
+      panel: gap("[class*=invite] h2", "[class*=invite] ul"), note: gap("[class*=invite] ul", "[class*=invite] > .ow-prog-note") };
   })).toEqual({ search: 24, picker: 16, invite: 32, panel: 12, note: 12 });
 });
 
