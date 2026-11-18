@@ -90,6 +90,9 @@ export type AwardBonuses = { welcomeBonus?: number; happyHourBonus?: number; win
 // first, since it doubles the purchase itself (Marketing, 30 Oct).
 const BONUS_NAMES: Record<keyof AwardBonuses, string> = { happyHourBonus: "Happy Hour", welcomeBonus: "Startbonus", winbackBonus: "Willkommen-zurück-Bonus", birthdayBonus: "Geburtstags-Bonus", challengeBonus: "Challenge-Bonus", referralBonus: "Empfehlungsbonus" };
 /** Only the bonus fields of a server result, so other numbers on it are never summed. */
+/** The typed path's booked dock with the field, measured at 390: the 1 px edge, 16 above the badge, the 275 px stack,
+ * 24 under the field. The open dock on that path is never shorter, so the booking holds its top (Design, 18 Nov). */
+const TYPED_STACK = 316;
 export const bonusesOf = (r: AwardBonuses): AwardBonuses => ({ welcomeBonus: r.welcomeBonus, happyHourBonus: r.happyHourBonus, winbackBonus: r.winbackBonus, birthdayBonus: r.birthdayBonus, challengeBonus: r.challengeBonus, referralBonus: r.referralBonus });
 export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bonuses)).reduce((sum: number, n) => sum + (n ?? 0), 0);
 
@@ -272,10 +275,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  // Scan path with a hint: the 104 badge and the scan metrics while the held dock leaves at least 16 above them
-  // (centred stack: 264 px, 328 with „Rückgängig“; 24 under it and the 1 px edge); otherwise the compact 64.
+  // Scan path with a hint: the 104 badge and the scan metrics while it sits at least 16 under the dock's outer edge
+  // (the 1 px edge, then the stack, measured at 264 px or 328 with „Rückgängig“, centred above the 24 px foot);
+  // otherwise the compact 64.
   const scanStack = booked?.undo === "available" ? 328 : 264;
-  const compact = Boolean(booked && (typedNext || (booked.hint && !(dockHold && (dockHold - 25 - scanStack) / 2 >= 16))));
+  const compact = Boolean(booked && (typedNext || (booked.hint && !(dockHold && 1 + (dockHold - 25 - scanStack) / 2 >= 16))));
   const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, compact && styles.bookedCompact, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
     {/* The live region holds only what is announced; the typed path's code field stands beside it, not in it. */}
     <div className={styles.live} role="status" aria-live="polite">
@@ -293,7 +297,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       <p className={styles.bookedDetail}>{booked.detail}</p>
       {booked.meta && <p className={styles.bookedMeta} aria-hidden="true">{booked.meta}</p>}
     </>}
-    {booked.hint && <p className={styles.bookedHint}>{booked.hint}</p>}
+    {/* A one-line status shows without its full stop; the live region keeps the sentence. */}
+    {booked.hint && <p className={styles.bookedHint}><span aria-hidden="true">{booked.hint.replace(/\.$/, "")}</span><span className={styles.srOnly}>{booked.hint}</span></p>}
     {booked.error && <p className={styles.bookedError} role="alert">{booked.error}</p>}
     {/* The open dock already showed who corrects a mistake; here it stays for screen readers only. */}
     {booked.undo === "staff-only" && <p className={styles.srOnly} aria-hidden="true">{t.undoStaff}</p>}
@@ -307,7 +312,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     </div>
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
-      <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+      {/* Beside „Rückgängig“ the full words do not fit: the placeholder says „Kartennummer“, the name keeps them all. */}
+      <input id="cashier-code" aria-label={t.manual} placeholder={booked.undo === "available" && onUndo && locale === "de" ? "Kartennummer" : t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
       {/* On the typed path „Rückgängig“ stands beside the field, so the stack keeps the open dock's height. */}
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="sm" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
     </form>}
@@ -338,7 +344,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. With a
   // card on the counter the state sits in the card's foot; after a booking the result carries its own title.
   return <CashierShell lang={locale} live={false} brandColor={brandColor} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : undefined}>
+    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : card && focusCodeInput ? TYPED_STACK : undefined}>
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card || booked?.card ? t.found : t.scanTitle}</h1>
     {nfcPanel}

@@ -48,6 +48,8 @@
   .shell[data-has-dock] > .bar + .main, .shell[data-has-dock] > .status { margin-top: auto; }
   .shell[data-has-dock] > .status + .main { margin-top: 0; }
   .shell[data-has-dock] .dock { flex: none; margin-bottom: auto; }
+  /* Less than 24 px under it is a sliver, not a panel: the dock then reaches the bottom edge and the spare goes above. */
+  .shell[data-has-dock] .dock:not([data-floating]) { margin-bottom: 0; }
 }
 .dock {
   position: sticky; bottom: 0; z-index: var(--z-sticky); flex: 1; display: flex; flex-direction: column; justify-content: flex-end; width: 100%;
@@ -61,8 +63,10 @@
   width: calc(var(--k-col) - 2 * var(--gutter)); margin-inline: auto; padding-inline: calc(var(--space-5) - 1px);
   border: 1px solid var(--color-line); border-radius: var(--radius-lg);
 }
-/* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock. */
-.dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
+/* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock's 1 px top edge
+   (the padding box starts under the border). A floating panel has nothing scrolling under it and no fade. */
+.dock[data-floating]::before { content: none; }
+.dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: calc(100% + 1px); height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
 /* Kasse states: the strip fades in when it returns after a booking; the dock rises with the opened card. Both are
    tappable from their first frame. */
 .status { animation: appear var(--dur-ui) var(--ease-out) backwards; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { cx } from "./cx";
 import { merchantPalette } from "./merchant-color";
@@ -38,21 +38,23 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
 
 /**
  * The booking dock. Where it runs off the screen's bottom edge (a phone, a group too tall to centre) its lower edge is
- * flat, as drawn; where it stops short of the edge (a centred counter tablet) it is a panel and every corner takes its
- * top radius (Design, 18 Nov). Which one it is depends on the rendered position, so it is measured, not guessed.
+ * flat, as drawn; where the centred group leaves at least 24 px under it (a counter tablet) it is a panel and every
+ * corner takes its top radius (Design, 18 Nov). It is decided from the group's spare height (the auto margins above the
+ * content and under the dock), which is the same whichever the dock is, so the choice cannot feed back into itself.
  */
 function Dock({ label, minHeight, children }: { label?: string; minHeight?: number; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [floating, setFloating] = useState(false);
-  useEffect(() => {
-    const dock = ref.current;
-    if (!dock) return;
-    const check = () => setFloating(dock.getBoundingClientRect().bottom < window.innerHeight - 1);
+  // Before paint, and again whenever the content, the shell or the window changes (an open card arrives after mount).
+  useLayoutEffect(() => {
+    const dock = ref.current, main = dock?.previousElementSibling, shell = dock?.parentElement;
+    if (!dock || !main || !shell) return;
+    const check = () => setFloating(parseFloat(getComputedStyle(main).marginTop) + parseFloat(getComputedStyle(dock).marginBottom) >= 48);
     const observer = new ResizeObserver(check);
-    observer.observe(dock); observer.observe(document.documentElement);
-    window.addEventListener("resize", check); window.addEventListener("scroll", check, { passive: true });
+    observer.observe(dock); observer.observe(main); observer.observe(shell); observer.observe(document.documentElement);
+    window.addEventListener("resize", check);
     check();
-    return () => { observer.disconnect(); window.removeEventListener("resize", check); window.removeEventListener("scroll", check); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", check); };
   }, []);
   return <div ref={ref} className={styles.dock} data-dock="true" data-floating={floating || undefined} role={label ? "region" : undefined} aria-label={label} style={minHeight ? { minHeight } : undefined}>{children}</div>;
 }

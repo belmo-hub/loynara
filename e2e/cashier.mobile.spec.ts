@@ -33,6 +33,42 @@ async function audit(page: Page) {
   return { ...measured, smallControls: await smallTargets(page) };
 }
 
+/** Down the middle of the dock's 1 px top edge: the screen pixel 4 CSS px above it, the edge's brightest pixel, and the
+ * pixel 5 CSS px under it (the edge is snapped to device pixels, so it is found, not computed). */
+async function topEdge(page: Page) {
+  const { x, y } = await page.evaluate(() => { const r = document.querySelector("[data-dock]")!.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.floor(r.top) }; });
+  const png = await page.screenshot({ clip: { x, y: y - 4, width: 1, height: 10 }, animations: "disabled" });
+  return page.evaluate(async b64 => {
+    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
+    const canvas = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height }), g = canvas.getContext("2d")!;
+    g.drawImage(img, 0, 0);
+    const rows = [...Array(img.height).keys()].map(row => [...g.getImageData(0, row, 1, 1).data.slice(0, 3)]);
+    const line = rows.reduce((best, px) => px[0] + px[1] + px[2] > best[0] + best[1] + best[2] ? px : best);
+    return [rows[0], line, rows[rows.length - 1]];
+  }, png.toString("base64"));
+}
+const apart = (a: number[], b: number[]) => a.reduce((sum, n, i) => sum + Math.abs(n - b[i]), 0);
+
+/** A shop of its own, signed in as its owner (a reward added to the demo programme could not be taken back at once). */
+async function ownShop(page: Page, goals: number[]) {
+  const origin = new URL(test.info().project.use.baseURL!).origin;
+  const api = page.request;
+  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic shop", email: `shop-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+  const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Laden", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: goals[0] } });
+  expect(onboard.status()).toBe(201);
+  const { programSlug } = await onboard.json() as { programSlug: string };
+  for (const cost of goals.slice(1)) expect((await api.post("/api/merchant/program/rewards", { data: { action: "create", programSlug, title: "Kleiner Kaffee", cost, termsText: "Ein kleiner Kaffee." }, headers: { Origin: origin } })).status()).toBe(201);
+  return async (balance: number) => {
+    const guest = await (await import("@playwright/test")).request.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
+    const { cardToken } = await (await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true } })).json() as { cardToken: string };
+    const found = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string; cardLocator: string };
+    await guest.dispose();
+    const { membershipId } = await (await api.get(`/api/cashier/lookup?code=${encodeURIComponent(found.scanCode)}`)).json() as { membershipId: string };
+    if (balance) expect((await api.post("/api/cashier/award", { data: { membershipId, quantity: balance, idempotencyKey: crypto.randomUUID(), requestId: crypto.randomUUID() }, headers: { Origin: origin } })).ok()).toBe(true);
+    return found;
+  };
+}
+
 test.describe("cashier on phones", () => {
   test.use({ colorScheme: "light" });
 
@@ -287,6 +323,36 @@ test.describe("cashier on phones", () => {
     for (const gap of clear) expect(gap).toBeGreaterThanOrEqual(0);
   });
 
+  test("typed, two rewards and none ready: the open dock already holds the booked stack, so 2 → 3 keeps one top and the owner's row stays inside (390 × 844)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const card = await (await ownShop(page, [8, 3]))(2);
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(card.cardLocator);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const dock = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().toJSON() as DOMRect);
+    const open = await dock();
+    expect(await page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top))).toBeGreaterThanOrEqual(24);
+    // A one-row goal (3) keeps its own height: the typed note stays in view above the dock.
+    expect(await page.evaluate(() => document.querySelector(".cashier-locator-note")!.getBoundingClientRect().bottom)).toBeLessThanOrEqual(open.top);
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    expect(Math.abs((await dock()).top - open.top)).toBeLessThanOrEqual(4); // 2.625 DPR rounding
+    // The owner's „Rückgängig“ stands beside the field, both inside the dock's 16 px side inset; the field's placeholder
+    // shortens beside it and its name keeps the full words.
+    const field = page.locator(".cashier-booked #cashier-code");
+    await expect(field).toHaveAttribute("placeholder", "Kartennummer");
+    await expect(field).toHaveAccessibleName("Kartennummer oder Kartencode");
+    const inside = await page.evaluate(() => {
+      const d = document.querySelector("[data-dock]")!.getBoundingClientRect(), form = document.querySelector(".cashier-booked form")!.getBoundingClientRect(), undo = document.querySelector(".cashier-booked form button")!.getBoundingClientRect();
+      return { left: Math.round(form.left - d.left), right: Math.round(d.right - form.right), undo: Math.round(d.right - undo.right) };
+    });
+    expect(inside.left).toBeGreaterThanOrEqual(16);
+    expect(inside.right).toBeGreaterThanOrEqual(16);
+    expect(inside.undo).toBeGreaterThanOrEqual(16);
+  });
+
   test("a 12-stamp goal keeps the card at two rows: the typed note above the dock and the dock's edge kept, ready or not (390 × 844)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const origin = new URL(test.info().project.use.baseURL!).origin;
@@ -365,6 +431,40 @@ test.describe("cashier on phones", () => {
     await page.locator(".cashier-award-now").click();
     await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
     expect(Math.abs((await layout()).dockTop - open.dockTop)).toBeLessThanOrEqual(4); // up to 3.5 px of rounding at 2.625 (0 at a ratio of 2)
+  });
+
+  test("the dock's 1 px top edge is drawn, under the fade on a phone and on the floating panel (390 × 844, 820 × 1180)", async ({ page }) => {
+    await signIn(page);
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const { cardToken } = await (await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } })).json() as { cardToken: string };
+    const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    for (const size of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
+      await page.setViewportSize(size);
+      await expect.poll(() => page.evaluate(() => document.querySelector("[data-dock]")!.hasAttribute("data-floating"))).toBe(size.width > 600);
+      const [above, line, under] = await topEdge(page);
+      expect(apart(line, above), `${size.width}: ${JSON.stringify({ above, line, under })}`).toBeGreaterThan(12);
+      expect(apart(line, under), `${size.width}: ${JSON.stringify({ above, line, under })}`).toBeGreaterThan(12);
+    }
+  });
+
+  test("with reduced motion the counter tablet's dock still floats as a panel: four 20 px corners (820 × 1180)", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 820, height: 1180 });
+    const card = await (await ownShop(page, [8]))(3);
+    const corners = () => page.evaluate(() => { const s = getComputedStyle(document.querySelector("[data-dock]")!); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius]; });
+    for (const [field, open] of [[card.scanCode, false], [card.cardLocator, true]] as const) {
+      await page.goto("/cashier");
+      await page.getByLabel("Kartennummer oder Kartencode").fill(field);
+      await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+      if (open) await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+      await expect(page.locator(".cashier-award-now")).toBeVisible();
+      await expect.poll(corners, { message: field }).toEqual(["20px", "20px", "20px", "20px"]);
+    }
   });
 
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
