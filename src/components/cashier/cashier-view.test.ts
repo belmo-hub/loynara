@@ -143,7 +143,7 @@ describe("the mix Kasse (ENG-256)", () => {
     expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*>K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
-    expect(out).toContain("<b>6<small>von 8</small></b>");
+    expect(out).toContain("<b>6<small> von 8</small></b>");
     expect(out).toContain("<small>Noch 2 Stempel</small>");
     expect(out).not.toContain("reward-action-list");
     expect(out).not.toContain("cashier-award-now");
