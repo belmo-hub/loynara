@@ -102,29 +102,40 @@ test("booking a purchase amount sends one award with the amount and the rule ver
   } finally { await counter.close(); await f.close(); }
 });
 
-test("a mistyped amount („150“ for „1,50“) books nothing until the confirmation, and then exactly once (ENG-271)", async ({ browser, baseURL }) => {
+test("a mistyped amount („1570“ for „15,70“) books nothing until the confirmation, and then exactly once (ENG-271)", async ({ browser, baseURL }) => {
   const f = await shop(baseURL!, { programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3, rewardCost: 30 });
   const counter = await openCard(browser, baseURL!, f.cashier, f.scanCode);
   try {
-    const dialog = counter.page.getByRole("dialog", { name: "Vergabe bestätigen?" });
-    await counter.page.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
-    await counter.page.getByLabel("Kaufbetrag (EUR)").fill("150");
-    await counter.page.getByRole("button", { name: "Buchen", exact: true }).click();
-    await expect(dialog).toContainText(`450 Punkte für einen Kauf über 150 EUR für Karte ${f.lookup.cardLocator}.`);
-    await counter.page.waitForTimeout(1_000);
+    const { page } = counter;
+    const dialog = page.getByRole("dialog", { name: "Vergabe bestätigen?" });
+    const field = page.getByLabel("Kaufbetrag (EUR)");
+    const selected = () => field.evaluate((input: HTMLInputElement) => [document.activeElement === input, input.selectionStart, input.selectionEnd, input.value.length]);
+    await page.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
+    await field.fill("1570");
+    // A double tap on „Buchen“: the second tap lands on the dialog's backdrop and must not throw the confirmation away.
+    await page.getByRole("button", { name: "Buchen", exact: true }).dblclick();
+    await expect(dialog).toContainText(`4.710 Punkte für einen Kauf über 1.570,00 EUR für Karte ${f.lookup.cardLocator}.`);
+    await page.waitForTimeout(1_000);
+    await expect(dialog).toBeVisible();
     expect(counter.writes).toHaveLength(0);
-    // „Abbrechen“ books nothing; the amount stays in the sheet to be corrected.
+    // „Abbrechen“ books nothing and goes back to the amount, selected, so the right one is typed over it.
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await counter.page.waitForTimeout(1_000);
+    await expect(field).toHaveValue("1570");
+    await expect.poll(selected).toEqual([true, 0, 4, 4]);
+    await page.keyboard.type("15,70");
+    await page.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toContainText(`47 Punkte für einen Kauf über 15,70 EUR für Karte ${f.lookup.cardLocator}.`);
+    // Esc does the same as „Abbrechen“.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(selected).toEqual([true, 0, 5, 5]);
     expect(counter.writes).toHaveLength(0);
     expect(await f.balance()).toBe(0);
-    await counter.page.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
-    await expect(counter.page.getByLabel("Kaufbetrag (EUR)")).toHaveValue("150");
-    await counter.page.getByRole("button", { name: "Buchen", exact: true }).click();
+    await page.getByRole("button", { name: "Buchen", exact: true }).click();
     await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
-    await expect(counter.page.locator(".cashier-booked")).toContainText("Neuer Stand: 450 Punkte");
-    expect(await onlyWrite(counter.page, counter.writes, "/api/cashier/award")).toMatchObject({ purchaseAmountMinor: 15_000 });
-    expect(await f.balance()).toBe(450);
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand: 47 Punkte");
+    expect(await onlyWrite(page, counter.writes, "/api/cashier/award")).toMatchObject({ purchaseAmountMinor: 1_570 });
+    expect(await f.balance()).toBe(47);
   } finally { await counter.close(); await f.close(); }
 });
