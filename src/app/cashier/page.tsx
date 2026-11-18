@@ -62,6 +62,8 @@ const UNDO_REASON = "Direkt nach der Buchung an der Kasse rückgängig gemacht";
 export default function CashierPage() {
   const router = useRouter();
   const [locationName, setLocationName] = useState("");
+  // The card's mark and colour on the counter (the colour reaches owners only; others get the house palette).
+  const [shop, setShop] = useState<{ name: string; color?: string }>({ name: "" });
   const [locale, setLocale] = useState<UiLocale>("de");
   const [showOverview, setShowOverview] = useState(true);
   const [role, setRole] = useState<StaffRole | undefined>(undefined);
@@ -160,7 +162,7 @@ export default function CashierPage() {
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
       if (!me.tenantId || !me.locationId || !me.role) { setAccessState("blocked"); setAccessMessage("Dieses Konto hat keinen aktiven Standortzugang. Eine Inhaberin oder ein Inhaber kann den Teamzugang prüfen."); return; }
-      setLocationName(me.locationName); setLocationId(me.locationId); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
+      setLocationName(me.locationName); setShop({ name: me.businessName, color: me.brandColor }); setLocationId(me.locationId); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
       try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
       catch (error) { setOfflineStorageProblem(true); setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
       try { if (localStorage.getItem(CAMERA_PREFERENCE_KEY) === "on") { cameraAutoStarted.current = true; lastCameraActivity.current = Date.now(); setCamera("on"); } } catch { /* no preference: the cashier opens the camera */ }
@@ -430,7 +432,7 @@ export default function CashierPage() {
       unresolvedRef.current.delete(last.card.id);
       const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(last.card, result.balance, fr)}`;
       const detail = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
-      setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator });
+      setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator, card: { ...last.card, balance: result.balance } });
       setStatus("success"); setMessage(detail);
       resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
     } catch (cause) {
@@ -457,7 +459,7 @@ export default function CashierPage() {
       : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} rejectedTitle={message === NO_CARD.malformed || message === NO_CARD.elsewhere ? NO_CARD.title : undefined} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} currency={card?.currency ?? offlineCurrency} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
+  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} businessName={shop.name} brandColor={shop.color} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} rejectedTitle={message === NO_CARD.malformed || message === NO_CARD.elsewhere ? NO_CARD.title : undefined} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} currency={card?.currency ?? offlineCurrency} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {
@@ -486,5 +488,5 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
   const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
   const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   // The screen shows the headline large; a duplicate keeps its sentence, since nothing new was booked.
-  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint }, statusMessage: `${detail} ${newBalance}` };
+  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint, card: { ...card, balance: result.balance } }, statusMessage: `${detail} ${newBalance}` };
 }

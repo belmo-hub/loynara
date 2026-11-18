@@ -112,7 +112,7 @@ test.describe("cashier on phones", () => {
     });
     expect(gap).toBeGreaterThanOrEqual(0);
     await redeem.click();
-    await expect(page.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText("Kaffee");
+    await expect(page.getByRole("dialog", { name: "Einlösung bestätigen?" })).toContainText(/kaffee/i);
   });
 
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {

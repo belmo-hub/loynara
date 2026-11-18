@@ -1,0 +1,10 @@
+/* Painted in tree order: the fixed ground first, the sheet over it. The Kasse arrives as a sheet (the founder's yes, 17 Nov): it slides up from the bottom in 260 ms while the app ground
+   behind it dims. The layout stays mounted from the loading frame to the counter, so this plays once per visit to
+   /cashier (a link, a reload, an NFC or QR entry), never between customers. Reduced motion: a short crossfade. */
+.dim { position: fixed; inset: 0; background: var(--color-bg); pointer-events: none; animation: dim 260ms var(--ease-out) forwards; }
+.sheet { position: relative; display: flex; flex-direction: column; min-height: 100dvh; animation: sheet-up 260ms var(--ease-drawer) backwards; }
+/* The light app ground fades out to the dark page canvas under the sheet (globals.css). */
+@keyframes dim { to { opacity: 0; } }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dim { display: none; } .sheet { animation: fade 160ms linear backwards; } }

@@ -37,10 +37,11 @@ describe("counts on the cashier screen (ENG-108)", () => {
   });
   it("reward prices, with a reward that costs exactly 1", () => {
     expect(view("de")).toContain("<small>1 Punkt</small>");
-    expect(view("de")).toContain("<small>2 Punkte</small>");
+    expect(view("de")).toContain("<small>Noch 1 Punkt</small>");
+    expect(view("de")).toMatch(/>2 Punkte<\/span>/);
     expect(view("fr")).toContain("<small>1 point</small>");
     expect(view("fr", { programType: "stamps" })).toContain("<small>1 tampon</small>");
-    expect(view("fr", { programType: "stamps" })).toContain("<small>2 tampons</small>");
+    expect(view("fr", { programType: "stamps" })).toMatch(/>2 tampons<\/span>/);
   });
 });
 
@@ -120,5 +121,43 @@ describe("a typed card number that opens no card (ENG-203)", () => {
     expect(html).toContain("<strong>Nicht möglich</strong>");
     expect(field(html)).toContain('aria-describedby="cashier-code-hint"');
     expect(field(html)).not.toContain("aria-invalid");
+  });
+});
+
+describe("the mix Kasse (ENG-256)", () => {
+  const stamps: CashierCard = { ...card, programType: "stamps", balance: 5, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: false }] };
+  const render = (props: Record<string, unknown>) => renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, ...props }));
+
+  it("an open card: the card number, the state in its foot, the reward row and the new balance before the tap", () => {
+    const out = render({ card: stamps, role: "cashier" });
+    expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
+    expect(out).toMatch(/Andere Karte<\/button><span[^>]*data-state="open"><i aria-hidden="true"><\/i>Karte offen<\/span>/);
+    expect(out).toContain("<b>Gratiskaffee</b><small>Noch 3 Stempel</small>");
+    expect(out).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>6 von 8<\/span><\/b>/);
+    expect(out).toContain("Falsch? Die Leitung kann es korrigieren.");
+  });
+
+  it("after a booking „Gebucht“ holds the dock and the closed card shows the new balance, with nothing to book or redeem", () => {
+    const out = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: { ...stamps, balance: 6 } } });
+    expect(out).toMatch(/data-dock="true"><section class="cashier-booked/);
+    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*>K-7QX2MA<\/p>/);
+    expect(out).toContain("Bereit für die nächste Karte");
+    expect(out).toContain("data-booked=\"\"");
+    expect(out).toContain("<b>6<small>von 8</small></b>");
+    expect(out).toContain("<small>Noch 2 Stempel</small>");
+    expect(out).not.toContain("reward-action-list");
+    expect(out).not.toContain("cashier-award-now");
+    expect(out).not.toContain("Karte offen");
+  });
+});
+
+describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
+  it("a points card is not drawn on the mix card: the number, its unit and the ladder in today's panel", () => {
+    const out = view("de", { balance: 1 });
+    expect(out).not.toContain("<span>Geprüfte Karte</span>");
+    expect(out).not.toContain("Aktueller Kontostand</span></div>");
+    expect(out).toMatch(/<h2 id="cashier-card-title"[^>]*>K-7QX2MA<\/h2>/);
+    expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span> <em>Punkt<\/em>/);
+    expect(out).toContain("aria-label=\"1 von 2 Punkten\"");
   });
 });
