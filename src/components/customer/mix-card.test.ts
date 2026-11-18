@@ -72,11 +72,22 @@ describe("the mix card (ENG-253)", () => {
 
   it("draws every dot of a 13 to 30 stamp thumbnail inside 64 x 44", () => {
     for (let n = 1; n <= 30; n++) {
-      const cols = thumbColumns(n), rows = Math.ceil(n / cols), [dot, gap] = cols === 6 ? [6, 3] : [8, 4];
+      const cols = thumbColumns(n), rows = Math.ceil(n / cols), [dot, gap] = cols === 6 ? [6, 2] : [8, 4];
       expect(rows * dot + (rows - 1) * gap, `${n} stamps`).toBeLessThanOrEqual(44);
       expect(cols * dot + (cols - 1) * (cols === 4 ? 6 : gap), `${n} stamps`).toBeLessThanOrEqual(64);
     }
     expect([8, 10, 12, 16, 20, 30].map(thumbColumns)).toEqual([4, 5, 4, 4, 5, 6]);
+    // 21 to 30: six columns, at most five rows, the block centred on whole pixels both ways (Design, 18 Nov).
+    for (let n = 21; n <= 30; n++) {
+      const rows = Math.ceil(n / 6);
+      expect(thumbColumns(n)).toBe(6);
+      expect(rows).toBeLessThanOrEqual(5);
+      expect((64 - (6 * 6 + 5 * 2)) % 2).toBe(0);
+      expect((44 - (rows * 6 + (rows - 1) * 2)) % 2).toBe(0);
+    }
+    expect(readFileSync(join(__dirname, "mix-card.module.css"), "utf8")).toContain(".thumb[data-dense] { grid-template-columns: repeat(var(--cols), 6px); gap: 2px; }");
+    expect(card({ size: "thumb", balance: 5, reward: { ...coffee, cost: 25 } })).toContain('aria-label="5 von 25 Stempeln"');
+    expect(dots(card({ size: "thumb", balance: 5, reward: { ...coffee, cost: 21 } }))).toEqual([5, 21]);
     expect(dots(card({ size: "thumb", balance: 7, reward: { ...coffee, cost: 30 } }))).toEqual([7, 30]);
     expect(card({ size: "thumb", reward: { ...coffee, cost: 30 } })).toContain('data-dense="true"');
   });
