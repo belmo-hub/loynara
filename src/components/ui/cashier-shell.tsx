@@ -8,10 +8,10 @@ import styles from "./cashier-shell.module.css";
 export type CashierState = "ready" | "open" | "busy" | "done" | "error";
 type Props = { location: ReactNode; state: CashierState; stateLabel: ReactNode; stateDetail?: ReactNode; actions?: ReactNode; dock?: ReactNode; brandColor?: string | null; lang?: string;
   /** False when the page announces its own outcomes; the strip then only mirrors the state visually. */
-  live?: boolean; /** Keeps the dock at least this tall (the Kasse holds the open dock's height through „Gebucht“). */ dockMinHeight?: number; /** The strip as a still placeholder while the counter waits (the Kasse's own shape, no words yet); "empty" keeps only its slot. */ placeholder?: boolean | "empty"; children?: ReactNode };
+  live?: boolean; /** Keeps the dock at least this tall (the Kasse holds the open dock's height through „Gebucht“). */ dockMinHeight?: number; /** Names the dock as a region, so landmark navigation reaches the primary action. */ dockLabel?: string; /** The strip as a still placeholder while the counter waits (the Kasse's own shape, no words yet); "empty" keeps only its slot. */ placeholder?: boolean | "empty"; children?: ReactNode };
 
 /** Dark, camera-first counter frame: location bar, one visible state, content, and the booking dock in thumb reach. */
-export function CashierShell({ location, state, stateLabel, stateDetail, actions, dock, brandColor, lang, live = true, placeholder, dockMinHeight, children }: Props) {
+export function CashierShell({ location, state, stateLabel, stateDetail, actions, dock, brandColor, lang, live = true, placeholder, dockMinHeight, dockLabel, children }: Props) {
   const palette = merchantPalette(brandColor ?? "", "dark");
   return <div className={cx("ly-theme-dark", styles.shell)} style={palette.cssVars as CSSProperties} data-has-dock={dock ? true : undefined} lang={lang}>
     <ToastProvider>
@@ -29,7 +29,7 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
         </span>
       </div>}
       <main id="inhalt" className={styles.main}>{children}</main>
-      {dock ? <div className={styles.dock} data-dock="true" style={dockMinHeight ? { minHeight: dockMinHeight } : undefined}>{dock}</div> : null}
+      {dock ? <div className={styles.dock} data-dock="true" role={dockLabel ? "region" : undefined} aria-label={dockLabel} style={dockMinHeight ? { minHeight: dockMinHeight } : undefined}>{dock}</div> : null}
     </ToastProvider>
   </div>;
 }

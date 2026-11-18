@@ -121,3 +121,19 @@ describe("the mix card (ENG-253)", () => {
     expect(css).toContain("width: round(var(--st), 1px);");
   });
 });
+
+describe("the Kasse card's grid (Design, 18 Nov)", () => {
+  it("keeps two rows: above 8 stamps ceil(goal / 2) columns, at the Kasse size only", () => {
+    expect(card({ size: "kasse", reward: { ...coffee, cost: 12 } })).toContain("--cols:6");
+    expect(card({ size: "kasse", reward: { ...coffee, cost: 10 } })).toContain("--cols:5");
+    expect(card({ size: "kasse" })).toContain("--cols:4");
+    expect(card({ reward: { ...coffee, cost: 12 } })).toContain("--cols:4"); // the guest card keeps the mock's grid
+  });
+  it("draws earned stamps as plain discs from 9 columns", () => {
+    const twenty = card({ size: "kasse", balance: 5, reward: { ...coffee, cost: 20 } });
+    expect(twenty).toContain("--cols:10");
+    expect(earned(twenty)).toBe(5);
+    expect(twenty).not.toContain("lucide-check");
+    expect(card({ size: "kasse", balance: 5, reward: { ...coffee, cost: 12 } })).toContain("lucide-check");
+  });
+});

@@ -52,7 +52,10 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   // Above the goal the card never clamps its count (Design, 18 Nov: one screen, one number): the grid shows all stamps
   // earned and the figure and its label give the true count with the unit.
   const over = !points && balance > goal;
-  const aria = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
+  // The Kasse card keeps the 8-stamp card's height (Design, 18 Nov): above 8 the stamps go in two rows of ceil(goal / 2),
+  // and from 9 columns an earned stamp is a plain coral disc. The guest card and the Kartenseite keep the mock's grid.
+  const kasseCols = size === "kasse" && goal > 8 ? Math.ceil(goal / 2) : mixColumns(goal), plain = size === "kasse" && kasseCols >= 9;
+  const aria = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), cols = { "--cols": kasseCols } as CSSProperties;
   const tc = thumbColumns(goal);
   if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={(goal <= 12 && tc === 5) || undefined} data-dense={goal > 12 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
     {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
@@ -72,7 +75,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
     {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
       : !stamps ? <StampGrid earned={have} total={goal} locale={locale} />
       : <div className={styles.stamps} style={cols} role="img" aria-label={aria}>
-        {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
+        {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have && !plain ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
       </div>}
     {body ? <div className={styles.foot}>{body}</div> : null}
   </section>;

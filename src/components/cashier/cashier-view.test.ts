@@ -155,7 +155,7 @@ describe("the mix Kasse (ENG-256)", () => {
 
   it("after a booking „Gebucht“ holds the dock and the closed card shows the new balance, with nothing to book or redeem", () => {
     const out = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: { ...stamps, balance: 6 } } });
-    expect(out).toMatch(/data-dock="true"><section class="cashier-booked/);
+    expect(out).toMatch(/data-dock="true" role="region" aria-label="Buchen"><section class="cashier-booked/);
     // The card's terms in one line; the live sentence and the number stay for screen readers and the specs.
     expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");

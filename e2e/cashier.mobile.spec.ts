@@ -287,6 +287,39 @@ test.describe("cashier on phones", () => {
     for (const gap of clear) expect(gap).toBeGreaterThanOrEqual(0);
   });
 
+  test("a 12-stamp goal keeps the card at two rows: the typed note above the dock and the dock's edge kept, ready or not (390 × 844)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const api = page.request;
+    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic twelve", email: `twelve-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+    const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Zwölf", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: 12 } });
+    expect(onboard.status()).toBe(201);
+    const { programSlug } = await onboard.json() as { programSlug: string };
+    const guest = await (await import("@playwright/test")).request.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
+    for (const balance of [5, 12]) {
+      const { cardToken } = await (await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true } })).json() as { cardToken: string };
+      const { scanCode, cardLocator } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string; cardLocator: string };
+      const { membershipId } = await (await api.get(`/api/cashier/lookup?code=${encodeURIComponent(scanCode)}`)).json() as { membershipId: string };
+      expect((await api.post("/api/cashier/award", { data: { membershipId, quantity: balance, idempotencyKey: crypto.randomUUID(), requestId: crypto.randomUUID() }, headers: { Origin: origin } })).ok()).toBe(true);
+      await page.goto("/cashier");
+      await page.getByLabel("Kartennummer oder Kartencode").fill(cardLocator);
+      await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+      await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+      await expect(page.locator(".cashier-award-now")).toBeVisible();
+      const at = () => page.evaluate(() => ({
+        dock: document.querySelector("[data-dock]")!.getBoundingClientRect().top,
+        note: document.querySelector(".cashier-locator-note")?.getBoundingClientRect().bottom ?? 0,
+      }));
+      const open = await at();
+      expect(open.note, `balance ${balance}`).toBeGreaterThan(0);
+      expect(open.note, `balance ${balance}`).toBeLessThanOrEqual(open.dock);
+      await page.locator(".cashier-award-now").click();
+      await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+      expect(Math.abs((await at()).dock - open.dock), `balance ${balance}`).toBeLessThanOrEqual(4); // 2.625 DPR rounding
+    }
+    await guest.dispose();
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);

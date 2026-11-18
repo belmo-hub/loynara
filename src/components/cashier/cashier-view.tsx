@@ -157,10 +157,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The booking on its way: its own button shows that it is working (and keeps its colour) while the others step back.
   const [working, setWorking] = useState<"award" | "redeem" | null>(null);
   const awarding = busy && working === "award", redeeming = busy && working === "redeem";
-  // A card that opened with the redeem band keeps the open dock's height through „Gebucht“ (Design, 18 Nov): measured in
-  // the booking tap, so the dock's edge stays and nothing slides under it.
+  // The booked dock keeps the open dock's height through „Gebucht“, in every case (Design, 18 Nov): measured in the
+  // booking tap, so the dock's edge stays and nothing slides under it.
   const [dockHold, setDockHold] = useState<number>();
-  const holdDock = () => { const dock = document.querySelector<HTMLElement>("[data-dock]"); if (dock && document.querySelector(".cashier-redeem-now")) setDockHold(dock.getBoundingClientRect().height); };
+  const holdDock = () => { const dock = document.querySelector<HTMLElement>("[data-dock]"); if (dock) setDockHold(dock.getBoundingClientRect().height); };
   const award = (selected: CashierCard, what: CashierAward) => { holdDock(); setWorking("award"); return onAward(selected, what); };
   // Each card (and each booking) starts from a clean form. Reset during render instead of remounting the view, which
   // would also restart the counter camera.
@@ -272,10 +272,14 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, (typedNext || booked.hint) && styles.bookedCompact, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
+  // Scan path with a hint: the 104 badge and the scan metrics while the held dock leaves at least 16 above them
+  // (centred stack: 264 px, 328 with „Rückgängig“; 24 under it and the 1 px edge); otherwise the compact 64.
+  const scanStack = booked?.undo === "available" ? 328 : 264;
+  const compact = Boolean(booked && (typedNext || (booked.hint && !(dockHold && (dockHold - 25 - scanStack) / 2 >= 16))));
+  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, compact && styles.bookedCompact, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
     {/* The live region holds only what is announced; the typed path's code field stands beside it, not in it. */}
     <div className={styles.live} role="status" aria-live="polite">
-    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={typedNext || booked.hint ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={typedNext || booked.hint ? 32 : 48} /> : <Clock size={typedNext || booked.hint ? 32 : 48} />}</span>
+    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={compact ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={compact ? 32 : 48} /> : <Clock size={compact ? 32 : 48} />}</span>
     <h2>{booked.title}</h2>
     {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
     {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
@@ -293,8 +297,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {booked.error && <p className={styles.bookedError} role="alert">{booked.error}</p>}
     {/* The open dock already showed who corrects a mistake; here it stays for screen readers only. */}
     {booked.undo === "staff-only" && <p className={styles.srOnly} aria-hidden="true">{t.undoStaff}</p>}
-    {(booked.undo === "available" && onUndo || !camera && !booked.card) && <div className={styles.bookedActions}>
-      {booked.undo === "available" && onUndo && <Button variant="quiet" size={typedNext || booked.hint ? "sm" : "lg"} icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
+    {(booked.undo === "available" && onUndo && !typedNext || !camera && !booked.card) && <div className={styles.bookedActions}>
+      {booked.undo === "available" && onUndo && !typedNext && <Button variant="quiet" size={compact ? "sm" : "lg"} icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
     {/* On the typed path a hint (a reward now ready) takes this line's place: the focused field already says the counter
@@ -304,6 +308,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
       <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+      {/* On the typed path „Rückgängig“ stands beside the field, so the stack keeps the open dock's height. */}
+      {booked.undo === "available" && onUndo && <Button variant="quiet" size="sm" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
     </form>}
   </section> : card ? <>
     {purchaseMode
@@ -332,9 +338,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. With a
   // card on the counter the state sits in the card's foot; after a booking the result carries its own title.
   return <CashierShell lang={locale} live={false} brandColor={brandColor} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockMinHeight={booked ? dockHold : undefined}>
+    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : undefined}>
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
-    <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card ? t.found : t.scanTitle}</h1>
+    <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card || booked?.card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
       {/* While a booking is on its way the card's foot and the button already say so: the panel stays the same live region but takes no room, so the open card does not move. A refusal or an unclear result shows it again. */}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, awarding || redeeming ? styles.srOnly : styles.outcome)} data-tone={status} role="status" aria-live="polite">
@@ -369,8 +375,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     </section>}
     {/* Today's card (points, no reward) keeps the note right under it. */}
     {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.pretty)} role="note">{t.locatorNote}</p>}
-    {/* On the mix card the figure is drawn clamped to the goal (its label is the card's); the balance in words stays for screen readers and the specs. */}
-    {card && goal && <div className={cx("balance-display", styles.srOnly)}>
+    {/* The balance in words for the specs; the card's figure already says it, so screen readers skip this copy. */}
+    {card && goal && <div className={cx("balance-display", styles.srOnly)} aria-hidden="true">
       <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
     </div>}
     {/* One reward and it is ready: the dock's band names and redeems it, so the row is left out and nothing sits under the

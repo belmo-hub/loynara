@@ -36,6 +36,9 @@
 /* The dock is a panel that runs off the bottom edge, edge to edge, and takes the height the page leaves; its content
    keeps the column's edges. */
 .shell[data-has-dock] .main { flex: none; }
+/* Tall screens (an iPad in portrait, a tall phone): the dock takes its content's height and the spare goes to the
+   column above it, so the keys keep the open inset instead of floating far under the dock's edge (Design, 18 Nov). */
+@media (min-height: 901px) { .shell[data-has-dock] .main { flex: 1 0 auto; } .shell[data-has-dock] .dock { flex: none; } }
 .dock {
   position: sticky; bottom: 0; z-index: var(--z-sticky); flex: 1; display: flex; flex-direction: column; justify-content: flex-end; width: 100%;
   padding: var(--space-6) max(var(--gutter), calc(50% - var(--k-col) / 2 + var(--gutter))) calc(var(--space-6) + env(safe-area-inset-bottom));
@@ -57,3 +60,5 @@
 .status:not([data-placeholder]) .stateText { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 /* Forced colours drop fills: the status strip keeps an edge and its dot. */
 @media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }
+/* Forced colours redraw a hidden placeholder's edge: the strip stays unseen until its words are in, and they come in at once. */
+@media (forced-colors: active) { .status[data-placeholder] { visibility: hidden; } .status .stateText { animation: none; } }

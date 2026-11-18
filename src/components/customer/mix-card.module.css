@@ -34,7 +34,10 @@
 
 /* The Kasse: the card number is the card's name, the balance the house figure, the stamps larger (56 in 358). */
 .kasse { padding-bottom: var(--space-5); }
-.kasse .stamps { row-gap: var(--space-3); }
+/* The Kasse card always has the 8-stamp card's height: the stamp area holds two rows of the 8-stamp card's stamps
+   (76 % of a quarter of the width, on whole pixels), so a longer goal's smaller stamps sit centred in it. */
+.kasse { container-type: inline-size; }
+.kasse .stamps { row-gap: var(--space-3); align-content: center; min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
 .kasse .stamp { --st: 76%; }
 .kasse .id b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
 .kasse .n b { font-size: var(--display-tile); line-height: 44px; }
