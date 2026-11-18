@@ -15,7 +15,7 @@
 .num[data-none] { color: var(--color-ink-muted); }
 [data-fact] .num { order: 1; }
 /* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it. */
-.facts.facts small > a { display: inline; min-height: 0; padding: 0; }
+.facts.facts small > a { display: inline-flex; align-items: center; min-height: var(--target); margin-block: calc(-1 * var(--space-3)); padding: 0; } /* a 44 target that keeps the 20 line */
 .facts [data-fact] svg { order: 2; }
 .kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
