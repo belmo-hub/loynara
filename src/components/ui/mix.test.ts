@@ -28,6 +28,12 @@ describe("mix tokens and patterns (ENG-254)", () => {
     expect(css).toContain('.row[data-lead="card"] > .body { min-height: var(--mix-row-card); }');
   });
 
+  it("draws a hairline only between two rows, never a transparent one that forced colours would show on the first row", () => {
+    expect(css).not.toMatch(/border(-top)?: 1px solid transparent/);
+    expect(css).toMatch(/\.body \{[^}]*padding: var\(--space-2\) calc\(var\(--space-5\) - 1px\) var\(--space-2\) 0; \}/);
+    expect(css).toContain(".row + .row > .body { padding-top: 7px; border-top: 1px solid var(--color-line); }");
+  });
+
   it("links a row with its chevron, and shows a plain value muted", () => {
     const linked = html(h(MixRow, { title: "Programmregeln", href: "/x" }));
     expect(linked).toMatch(/^<a [^>]*href="\/x"/);
