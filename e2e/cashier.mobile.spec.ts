@@ -320,6 +320,34 @@ test.describe("cashier on phones", () => {
     await guest.dispose();
   });
 
+  test("on a counter tablet (820 × 1180) the card and the dock are one group centred under the head, and booking keeps the dock", async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await signIn(page);
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const { cardToken } = await (await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } })).json() as { cardToken: string };
+    const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const layout = () => page.evaluate(() => {
+      const head = document.querySelector("header")!.getBoundingClientRect(), main = document.querySelector("main")!.getBoundingClientRect();
+      const dock = document.querySelector("[data-dock]")!.getBoundingClientRect(), keys = document.querySelector(".quantity-row button")?.getBoundingClientRect();
+      return { above: main.top - head.bottom, below: innerHeight - dock.bottom, follows: dock.top - main.bottom, inset: keys ? keys.top - dock.top : 0, dockTop: dock.top };
+    });
+    const open = await layout();
+    expect(Math.abs(open.above - open.below), JSON.stringify(open)).toBeLessThanOrEqual(8);
+    expect(open.above).toBeGreaterThan(0);
+    // The dock comes right after the content (its 16 px bottom padding); up to 4 px from rounding at this profile's
+    // 2.625 device-pixel ratio (at a ratio of 2 it is 0).
+    expect(open.follows).toBeGreaterThanOrEqual(0);
+    expect(open.follows).toBeLessThanOrEqual(4);
+    expect(open.inset).toBeGreaterThanOrEqual(34); // the open inset, 38 from 800 px wide
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    expect(Math.abs((await layout()).dockTop - open.dockTop)).toBeLessThanOrEqual(4); // up to 3.5 px of rounding at 2.625 (0 at a ratio of 2)
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);
