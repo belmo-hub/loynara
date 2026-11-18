@@ -26,7 +26,7 @@ export default function MixPage() {
     <Spec name="Programm example"><MixCard {...shop} size="example" /></Spec>
     <Spec name="thumb 0 … 8"><div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{Array.from({ length: 9 }, (_, n) => <MixCard key={n} {...shop} balance={n} size="thumb" />)}</div></Spec>
     <Spec name="10 and 12 stamps"><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} />
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" />{[16, 20].map(n => <MixCard key={n} {...shop} balance={7} reward={{ ...shop.reward, cost: n }} size="thumb" />)}{[21, 25, 30].map(n => <MixCard key={n} {...shop} balance={5} reward={{ ...shop.reward, cost: n }} size="thumb" />)}</div></Spec>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" />{[13, 16, 20, 21, 25, 30].map(n => <MixCard key={n} {...shop} balance={5} reward={{ ...shop.reward, cost: n }} size="thumb" />)}</div></Spec>
     <Spec name="points (house ladder)"><MixCard {...shop} programType="points" balance={186} reward={breakfast} rewards={[{ id: "a", title: "Kaffee", cost: 60 }, breakfast]} /></Spec>
     <MixStack className="patterns">
       <MixSection title="Deine Karte"><MixPanel>{["Programmregeln", "So findest du deine Karte wieder", "Meine Kartendaten exportieren"].map(t => <MixRow key={t} title={t} href="#" />)}</MixPanel></MixSection>
