@@ -52,9 +52,8 @@
 @media (prefers-reduced-motion: reduce) { .status, .status .stateText { transition: none; animation: none; } .dock { animation: none; } }
 /* While the counter waits the strip is a still block in its own place; its words fade in when they come (DESIGN › Waiting). */
 .status[data-placeholder] { background: var(--color-raised); }
-.status[data-placeholder="empty"] { background: transparent; }
+.status[data-placeholder="empty"] { visibility: hidden; } /* keeps its slot; forced colours would redraw a border */
 .status[data-placeholder] > * { visibility: hidden; }
 .status:not([data-placeholder]) .stateText { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 /* Forced colours drop fills: the status strip keeps an edge and its dot. */
 @media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }
-@media (forced-colors: active) { .status[data-placeholder="empty"] { border-color: transparent; } }

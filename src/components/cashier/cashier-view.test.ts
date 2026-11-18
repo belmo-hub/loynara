@@ -236,3 +236,13 @@ describe("the reward the Kasse's card counts to (Design, 18 Nov)", () => {
     expect(out).toContain("<b>Kleiner Kaffee</b>");
   });
 });
+
+describe("a points card's booked line (Design, 18 Nov)", () => {
+  it("reads „121 Punkte · K-…“ without a stop; the sentence and the number stay for screen readers", () => {
+    const points: CashierCard = { ...card, balance: 121, rewards: [{ id: "r1", name: "Frühstück", cost: 250, eligible: false }] };
+    const out = renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {},
+      booked: { tone: "success", title: "Gebucht", headline: "+16 Punkte", detail: "Neuer Stand: 121 Punkte.", meta: "K-HFC35B", card: points } }));
+    expect(out).toMatch(/aria-hidden="true">121 Punkte · K-HFC35B<\/p>/);
+    expect(out).toMatch(/class="[^"]*srOnly[^"]*">Neuer Stand: 121 Punkte\.<\/p>/);
+  });
+});

@@ -157,7 +157,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The booking on its way: its own button shows that it is working (and keeps its colour) while the others step back.
   const [working, setWorking] = useState<"award" | "redeem" | null>(null);
   const awarding = busy && working === "award", redeeming = busy && working === "redeem";
-  const award = (selected: CashierCard, what: CashierAward) => { setWorking("award"); return onAward(selected, what); };
+  // A card that opened with the redeem band keeps the open dock's height through „Gebucht“ (Design, 18 Nov): measured in
+  // the booking tap, so the dock's edge stays and nothing slides under it.
+  const [dockHold, setDockHold] = useState<number>();
+  const holdDock = () => { const dock = document.querySelector<HTMLElement>("[data-dock]"); if (dock && document.querySelector(".cashier-redeem-now")) setDockHold(dock.getBoundingClientRect().height); };
+  const award = (selected: CashierCard, what: CashierAward) => { holdDock(); setWorking("award"); return onAward(selected, what); };
   // Each card (and each booking) starts from a clean form. Reset during render instead of remounting the view, which
   // would also restart the counter camera.
   const formKey = `${card?.id ?? (preview ? "preview" : "empty")}:${resetToken}`;
@@ -170,7 +174,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const [goalId, setGoalId] = useState(() => card ? kasseGoal(card)?.id : undefined);
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
-    if (card) { setRowGivesWay(singleReady(card)); setGoalId(kasseGoal(card)?.id); }
+    if (card) { setRowGivesWay(singleReady(card)); setGoalId(kasseGoal(card)?.id); setDockHold(undefined); }
     setQuantity(1); setPurchaseAmount(""); setConfirm(null); setAmountOpen(false); setWorking(null);
     if (card || preview) setCode("");
   }
@@ -219,7 +223,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   function bookPurchase(offline: boolean) {
     if (!card || !purchaseAward) return;
     setAmountOpen(false);
-    if (offline) onQueueOffline?.(card, purchaseAward); else award(card, purchaseAward);
+    if (offline) { holdDock(); onQueueOffline?.(card, purchaseAward); } else award(card, purchaseAward);
   }
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
@@ -231,7 +235,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
     first?.scrollIntoView({ block: "center" }); first?.focus();
   }
-  function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") award(card, confirm.award); else { setWorking("redeem"); onRedeem(card, confirm.reward); } setConfirm(null); }
+  function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") award(card, confirm.award); else { holdDock(); setWorking("redeem"); onRedeem(card, confirm.reward); } setConfirm(null); }
 
   const shellState: CashierState = booked ? booked.tone === "pending" ? "busy" : "done"
     : status === "rejected" || status === "offline" ? "error"
@@ -259,7 +263,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The card counts to the cheapest reward. Points programmes, and a card without any reward, keep today's card until
   // Design draws them on the mix card (Design, 17 Nov).
   const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.find(reward => reward.id === goalId) ?? kasseGoal(shown) ?? null : null;
-  const bookedGoal = Boolean(booked?.card && goal);
+  // The booked line reads in the card's terms whenever the closed card is shown: „6 von 8 · K-…“, „121 Punkte · K-…“.
+  const bookedGoal = Boolean(booked?.card);
   // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
   const typedNext = Boolean(booked?.card && focusCodeInput);
   // The card's terms: „6 von 8“ up to the goal, the true count with its unit above it („10 Stempel“), as the card itself.
@@ -267,10 +272,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
+  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, (typedNext || booked.hint) && styles.bookedCompact, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
     {/* The live region holds only what is announced; the typed path's code field stands beside it, not in it. */}
     <div className={styles.live} role="status" aria-live="polite">
-    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={typedNext ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={typedNext ? 32 : 48} /> : <Clock size={typedNext ? 32 : 48} />}</span>
+    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={typedNext || booked.hint ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={typedNext || booked.hint ? 32 : 48} /> : <Clock size={typedNext || booked.hint ? 32 : 48} />}</span>
     <h2>{booked.title}</h2>
     {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
     {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
@@ -289,12 +294,12 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {/* The open dock already showed who corrects a mistake; here it stays for screen readers only. */}
     {booked.undo === "staff-only" && <p className={styles.srOnly} aria-hidden="true">{t.undoStaff}</p>}
     {(booked.undo === "available" && onUndo || !camera && !booked.card) && <div className={styles.bookedActions}>
-      {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
+      {booked.undo === "available" && onUndo && <Button variant="quiet" size={typedNext || booked.hint ? "sm" : "lg"} icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
     {/* On the typed path a hint (a reward now ready) takes this line's place: the focused field already says the counter
         is ready, and the dock keeps the open dock's height. */}
-    {booked.tone !== "pending" && !(typedNext && booked.hint) && <p className={styles.bookedReady} aria-hidden="true">{t.ready}</p>}
+    {booked.tone !== "pending" && !booked.hint && <p className={styles.bookedReady} aria-hidden="true">{t.ready}</p>}
     </div>
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
@@ -327,7 +332,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. With a
   // card on the counter the state sits in the card's foot; after a booking the result carries its own title.
   return <CashierShell lang={locale} live={false} brandColor={brandColor} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock}>
+    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockMinHeight={booked ? dockHold : undefined}>
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
@@ -439,7 +444,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       description={confirm.kind === "award" ? `${"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor} ${card.cardLocator}.`}
       actions={<>
         <Button variant="secondary" onClick={() => setConfirm(null)}>{t.cancel}</Button>
-        {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
+        {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { holdDock(); onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
         <Button variant="primary" onClick={submitConfirmed} disabled={busy}>{confirm.kind === "award" ? t.yesAward : t.yesRedeem}</Button>
       </>}>
       {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <p className={styles.note} role="note">{locale === "fr" ? "Connexion perturbée. « Oui, ajouter » essaie en ligne ; en attente ne compte qu’après la synchronisation." : "Verbindung gestört. „Ja, vergeben“ versucht es online; vorgemerkt zählt erst nach dem Abgleich."}</p>}

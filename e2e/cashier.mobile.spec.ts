@@ -111,8 +111,9 @@ test.describe("cashier on phones", () => {
       return { gap: Math.round(dock.top - last.bottom), keysInset: Math.round(keys.top - dock.top), scroll: document.documentElement.scrollHeight - innerHeight };
     });
     expect(atRest.gap).toBeGreaterThanOrEqual(0);
-    // The sticky dock lands up to 2 px lower from sub-pixel rounding at the 2.625 device-pixel ratio; nothing is under it.
-    expect(atRest.scroll, JSON.stringify(atRest)).toBeLessThanOrEqual(2);
+    // The sticky dock lands up to 4 px lower from sub-pixel rounding at the 2.625 device-pixel ratio (the band's taller
+    // step area included); nothing is under it.
+    expect(atRest.scroll, JSON.stringify(atRest)).toBeLessThanOrEqual(4);
     expect(atRest.keysInset).toBeGreaterThanOrEqual(24);
     const [redeemBox, earnBox, viewport] = [await redeem.boundingBox(), await page.locator(".cashier-award-now").boundingBox(), page.viewportSize()!];
     // Primary at the bottom, 64 px; earning steps back above it at 56 px.
@@ -265,8 +266,25 @@ test.describe("cashier on phones", () => {
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(page.locator(".cashier-redeem-now")).toBeVisible();
     await expect(page.locator(".reward-action-list button")).toHaveCount(2);
-    const inset = await page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
-    expect(inset).toBeGreaterThanOrEqual(24);
+    const inset = () => page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
+    // The open dock's inset: 26–28 on a phone, 38 on the counter tablet (from 800 px wide).
+    await page.setViewportSize({ width: 880, height: 900 });
+    expect(await inset()).toBeGreaterThanOrEqual(34);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await inset()).toBeGreaterThanOrEqual(24);
+    // Book at 4: the booked dock keeps the open dock's height, its edge stays, and the list still scrolls clear of it.
+    const before = await dockTop();
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(4);
+    await page.evaluate(() => new Promise(done => { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }); requestAnimationFrame(() => requestAnimationFrame(done)); }));
+    const clear = await page.evaluate(() => {
+      const dock = document.querySelector("[data-dock]")!.getBoundingClientRect().top;
+      return [...document.querySelectorAll("main [data-lead='tile']")].map(row => Math.round(dock - row.getBoundingClientRect().bottom));
+    });
+    expect(clear.length).toBe(2);
+    for (const gap of clear) expect(gap).toBeGreaterThanOrEqual(0);
   });
 
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {

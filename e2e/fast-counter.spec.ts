@@ -175,3 +175,34 @@ test("the camera stays on between customers and one tap books a stamp", async ({
     await expect(camera).toHaveCount(0);
   } finally { await counter.close(); await shop.owner.dispose(); }
 });
+
+test("scan path: the booking that reaches the goal keeps the dock's edge and the badge 16 px under it (390 × 844)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const shop = await merchant(url, "Synthetic Ziel Pizzeria");
+  const card = await guestCard(url, shop.programSlug);
+  const counter = await browser.newContext({ baseURL: url, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 } });
+  await fakeCamera(counter);
+  try {
+    // Nine of ten: the next stamp reaches the reward, and the booked stack carries its hint.
+    const { membershipId } = await (await shop.owner.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+    expect((await shop.owner.post("/api/cashier/award", { data: { membershipId, quantity: 9, idempotencyKey: randomUUID(), requestId: randomUUID() } })).ok()).toBe(true);
+    const page = await counter.newPage();
+    await page.goto("/cashier");
+    await page.getByRole("button", { name: "Kamera öffnen" }).click();
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
+    await show(page, card.scanCode);
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
+    const before = await dockTop();
+    await show(page, null);
+    await page.locator(".cashier-award-now").click();
+    const booked = page.locator(".cashier-booked");
+    await expect(booked).toContainText("Prämie bereit");
+    // No code field on the scan path; the hint takes the ready line's place.
+    await expect(booked.locator("#cashier-code")).toHaveCount(0);
+    await expect(booked).not.toContainText("Bereit für die nächste Karte");
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(1);
+    const badge = await page.evaluate(() => Math.round(document.querySelector(".cashier-booked [aria-hidden='true'] svg")!.closest("span")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    expect(badge).toBeGreaterThanOrEqual(16);
+  } finally { await counter.close(); await shop.owner.dispose(); }
+});
