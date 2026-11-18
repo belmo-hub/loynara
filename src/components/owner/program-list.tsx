@@ -174,16 +174,25 @@ export function ProgramList({ me }: { me: MeResponse }) {
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
         // One click handler for every row: the list comes back to the row it was left from.
         <div ref={list} className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
-          <div className={styles.col}>
-            {reward && program.state === "ok" && <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>}
+          {reward && program.state === "ok" ? <>
+            <div className={styles.col}>
+              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>
+              {section("So sammeln Kunden")}
+              {section("Infos auf der Karte")}
+            </div>
+            <div className={styles.col}>
+              {section("Prämien")}
+              {section("Extras")}
+              {section("Für die Ergebnisse")}
+            </div>
+          </> : <>
+            {/* No reward yet: flat, „Prämie hinzufügen“ first, then the card group (Design, 18 Nov). */}
+            {section("Prämien")}
             {section("So sammeln Kunden")}
             {section("Infos auf der Karte")}
-          </div>
-          <div className={styles.col}>
-            {section("Prämien")}
             {section("Extras")}
             {section("Für die Ergebnisse")}
-          </div>
+          </>}
         </div>
       )}
       <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -8,6 +9,7 @@ const loaded = vi.hoisted(() => ({ program: null as unknown }));
 vi.mock("./use-load", () => ({ useLoad: (url: string) => [url.startsWith("/api/program/") ? { state: "ok", data: loaded.program, at: 0 } : { state: "error", message: "" }, () => {}] }));
 vi.mock("./owner-context", () => ({ useOwner: () => ({ hiddenSurfaces: [] }) }));
 import { ProgramExample, ProgramList, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+import styles from "./program-list.module.css";
 import { ruleChips } from "./program-rule-changes";
 
 const me = { role: "owner", programSlug: "cafe", programType: "stamp", welcomeBonus: 0, cardNews: "", reviewUrl: null, challengeVisits: null, levelsEnabled: false, averageVisitSpendMinor: null } as unknown as MeResponse;
@@ -180,18 +182,32 @@ describe("the example card under „Aussehen“ (mix A)", () => {
   });
 });
 
-describe("a shop without a reward (Design, 18 Nov)", () => {
+describe("Programm's order and layout (Design, 18 Nov)", () => {
   const page = (rewards: PublicProgram["rewards"]) => { loaded.program = { ...program, rewards }; return renderToStaticMarkup(createElement(ProgramList, { me: { ...me, businessName: "Demo Kaffeebar Kassel", locationName: "Kassel Mitte" } })); };
-  it("has no example card and one full-width column, „Prämie hinzufügen“ in it", () => {
+  const titles = (html: string) => [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map(match => match[1]);
+  it("reads the card group first, then the rewards and the rest, in DOM order", () => {
+    const html = page(program.rewards);
+    expect(titles(html)).toEqual(["Aussehen", "So sammeln Kunden", "Infos auf der Karte", "Prämien", "Extras", "Für die Ergebnisse"]);
+    expect(html).not.toContain("data-bare");
+  });
+  it("without a reward: no example card, flat, „Prämien“ first", () => {
     const html = page([]);
+    expect(titles(html)).toEqual(["Prämien", "So sammeln Kunden", "Infos auf der Karte", "Extras", "Für die Ergebnisse"]);
     expect(html).toContain("data-bare");
-    expect(html).not.toContain("Aussehen");
-    expect(html).toContain("Prämie hinzufügen");
+    expect(html).not.toContain(`class="${styles.col}"`);
+    expect(html.indexOf("Prämie hinzufügen")).toBeLessThan(html.indexOf("Regel auf der Karte"));
     expect(html).toContain("Kundenkarte"); // still in „Infos auf der Karte“
   });
-  it("keeps the example card and the split while a reward exists", () => {
-    const html = page(program.rewards);
-    expect(html).not.toContain("data-bare");
-    expect(html).toContain("Aussehen");
+  it("puts the whole rule in the clamp wrapper", () => {
+    expect(page(program.rewards)).toContain(`<span class="${styles.clamp}">„Ein Stempel pro Heißgetränk. Zehn Stempel ergeben einen Gratiskaffee.“</span>`);
+  });
+  it("clamps after two lines and keeps the no-reward page in one column", () => {
+    const css = readFileSync(new URL("./program-list.module.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(css).toMatch(/\.clamp \{[^}]*-webkit-line-clamp: 2;/);
+    // Every rule that makes columns leaves the no-reward page out; its base track is one column.
+    const columns = [...css.matchAll(/([^{}]+)\{[^{}]*grid-template-columns: (?!minmax\(0, 1fr\);)[^{}]*\}/g)].map(match => match[1].trim());
+    expect(columns.length).toBeGreaterThan(0);
+    for (const selector of columns) expect(selector).toMatch(/:not\(\[data-bare\]\)/);
+    expect(css).toMatch(/\.split \{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
   });
 });
