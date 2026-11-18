@@ -160,7 +160,7 @@ export function CustomerCard(props: CustomerCardProps) {
         {programType === "points"
           // Points stay on the house card with its ladder until Design draws a points mix card (Design, 18 Nov).
           ? <><div className={styles.pointsGoal}><Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} /></div><div className={styles.object}><CardFace progress={false} businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} tag={level?.name ?? undefined} grow={arriving && !moment} /></div></>
-          : <GuestMixCard className={`customer-card ${styles.object}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
+          : <GuestMixCard className={`customer-card ${styles.object} ${styles.mix}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
             foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />}
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
         {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
@@ -193,14 +193,15 @@ export function CustomerCard(props: CustomerCardProps) {
 
       {/* „Deine Prämien“ only where there is a choice (ENG-255): with one reward the card's foot already names it. */}
       {rewards.length > 1 ? <Section name="rewards" title={t.chooseReward}>
-        <div role="group" aria-labelledby="customer-rewards-title" className={mix.panel}>
+        <div role="group" aria-labelledby="customer-rewards-title" className={mix.panel} data-points={programType === "points" || undefined}>
           {rewards.map((reward) => {
             // Like the goal line, the row speaks of the real balance during a booking moment, so it keeps its height at the step.
             const ready = told >= reward.cost;
             return <button key={reward.id} type="button" aria-pressed={selected?.id === reward.id} className={`${mix.row} ${styles.rowButton}`} data-lead="tile" onClick={() => setSelectedId(reward.id)}>
               <MixTile tone={ready ? "coral" : undefined}><Gift size={20} /></MixTile>
               <span className={mix.body}><span className={mix.text}><b>{reward.title}</b><small>{number.format(reward.cost)} {t.unit(reward.cost, programType)}</small></span>
-                {ready ? <span className={`${mix.chip} ${mix.warm}`}>{t.redeemable}</span> : <span className={mix.val}>{t.short(number.format(reward.cost - told))}</span>}</span>
+                {ready ? <span className={`${mix.chip} ${mix.warm}`}>{t.redeemable}</span> : <span className={mix.val}>{t.short(number.format(reward.cost - told))}</span>}
+                {programType === "points" && selected?.id === reward.id ? <Check className={styles.picked} size={20} aria-hidden="true" /> : null}</span>
             </button>;
           })}
         </div>
@@ -224,7 +225,8 @@ export function CustomerCard(props: CustomerCardProps) {
           {props.email ? <Signpost title={props.email.title} sub={props.email.sub} onOpen={() => setSheet("email")} /> : null}
           {hasRules ? <Signpost title={t.rules} onOpen={() => setSheet("rules")} /> : null}
           <Signpost title={t.save} onOpen={() => setSheet("return")} />
-          {exportUrl ? <div className={`${mix.row} ${styles.export}`}><span className={mix.body}><CustomerExportLink url={exportUrl} locale={locale}>{t.export}</CustomerExportLink><ChevronRight className={mix.chev} size={20} aria-hidden="true" /></span></div> : null}
+          {/* The link is the row itself; the export's error line stands under it. */}
+          {exportUrl ? <div className={styles.export}><CustomerExportLink url={exportUrl} locale={locale} linkClassName={`${mix.row} ${styles.rowButton}`}>{busy => <span className={mix.body}><span className={mix.text}><b>{busy ?? t.export}</b></span><ChevronRight className={mix.chev} size={20} aria-hidden="true" /></span>}</CustomerExportLink></div> : null}
         </div>
       </Section>
       {hasRules ? <Sheet open={sheet === "rules"} onClose={closeSheet} title={t.rules}>

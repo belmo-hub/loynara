@@ -153,6 +153,18 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     expect(out).toMatch(/data-start="true"[^>]*><span[^>]*><\/span><small[^>]*>20<\/small><small[^>]*>Ein sehr langer Prämienname/);
     expect(out).toMatch(/data-end="true"[^>]*><span[^>]*><\/span><small[^>]*>250<\/small>/);
   });
+  it("makes the export link the „Deine Karte“ row itself, chevron inside, and paints each card's own ground on arrival (Design re-check, 18 Nov)", async () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, exportUrl: "/api/card/x/export" }));
+    expect(out).toMatch(/<a class="terms-link [^"]*row[^"]*" href="\/api\/card\/x\/export"[^>]*><span[^>]*><span[^>]*><b>Meine Kartendaten exportieren<\/b><\/span><svg/);
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain("background: var(--card-ground, linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%));");
+    expect(css).toContain('.mix [role="img"] > span[data-new]');
+  });
+  it("marks the picked points reward by weight and a check, without the ring (Design, 18 Nov)", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards: [{ id: "r1", title: "Kaffee", cost: 5 }, { id: "r2", title: "Kuchen", cost: 9 }] }));
+    expect(out).toContain('data-points="true"');
+    expect(out.split('aria-pressed="true"').length - 1).toBe(1);
+  });
   it("keeps a points programme on the house card with its ladder, never the mix card (Design, 18 Nov)", () => {
     const points = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 40, rewards: [{ id: "a", title: "Kaffee", cost: 50 }, { id: "b", title: "Kuchen", cost: 100 }] }));
     expect(points).toContain('class="customer-card ');
@@ -338,7 +350,7 @@ describe("the Wallet sheet's badges (ENG-132)", () => {
   });
   it("shows the official badge on its own, not inside a black bar (Design, 18 Nov)", async () => {
     const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
-    expect(css).toContain(".walletButton[data-badge] { justify-self: center; width: fit-content; min-height: 0; padding: 0; border-radius: 0; background: transparent; }");
+    expect(css).toContain(".walletButton[data-badge] { justify-self: center; width: fit-content; min-height: 0; padding: 0; border-radius: var(--radius-sm); background: transparent; }");
     expect(css).toContain(".walletButton img { display: block; height: 48px; width: auto; }");
   });
 });

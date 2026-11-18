@@ -20,8 +20,8 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     expect(qrBox).not.toBeNull();
     expect(merchantBox).not.toBeNull();
     expect(balanceBox).not.toBeNull();
-    expect(qrBox!.width).toBeGreaterThanOrEqual(140);
-    expect(qrBox!.height).toBeGreaterThanOrEqual(140);
+    expect(qrBox!.width).toBeGreaterThanOrEqual(120);
+    expect(qrBox!.height).toBeGreaterThanOrEqual(120);
     expect(qrBox!.y).toBeGreaterThan(0);
     expect(qrBox!.y + qrBox!.height).toBeLessThanOrEqual(viewport.height);
     expect(merchantBox!.y + merchantBox!.height).toBeLessThanOrEqual(viewport.height);

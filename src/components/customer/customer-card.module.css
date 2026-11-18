@@ -21,13 +21,16 @@
 
 .cardGroup { display: grid; grid-template-columns: minmax(0, 1fr); }
 .object { position: relative; min-width: 0; }
+/* Arrive and press repaint the card's own ground: the house card (points) keeps its --card-ground, the mix card has
+   none and takes its gradient. The mix card's Pop in is its own (.mix). */
+.mix { display: grid; }
 /* A very long shop or location name wraps inside the card (the mix card does not break words yet). */
 .object section > div:first-child b, .object section > div:first-child span { overflow-wrap: anywhere; }
 
 /* The ticket: the code left, the number right, in a mix panel, white in both themes so scanners read dark on light.
-   140 keeps a module about 4.4 px for the counter camera; 128 below 360 (Design, 31 Oct). */
+   120 keeps the ticket's line to two lines beside it (Design, 18 Nov); 128 below 360, where it stands alone. */
 section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-5); background: #FFFFFF; color: #17291F; }
-.qr { width: 140px; aspect-ratio: 1; }
+.qr { width: 120px; aspect-ratio: 1; }
 .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .missingQr { margin: 0; font-size: var(--text-14); }
 .locator { display: grid; gap: 2px; min-width: 0; margin: 0; container-type: inline-size; }
@@ -45,7 +48,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .walletButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .walletButton:disabled { cursor: progress; opacity: .7; }
 /* Apple's guidelines: a badge is never shown dimmed; the quiet line under it says it is busy. */
-.walletButton[data-badge] { justify-self: center; width: fit-content; min-height: 0; padding: 0; border-radius: 0; background: transparent; }
+.walletButton[data-badge] { justify-self: center; width: fit-content; min-height: 0; padding: 0; border-radius: var(--radius-sm); background: transparent; } /* the ring follows the artwork's corners */
 .walletButton[data-badge]:disabled { opacity: 1; }
 .walletButton img { display: block; height: 48px; width: auto; }
 .walletBusy { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-align: center; }
@@ -76,6 +79,10 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .rowButton[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--color-line-strong); }
 .rowButton[aria-pressed]:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .rowButton[aria-pressed]:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+/* Points (not drawn yet): the picked reward is marked by its weight and the check only, no ring (Design, 18 Nov). */
+[data-points] > .rowButton[aria-pressed="true"] { box-shadow: none; }
+[data-points] > .rowButton[aria-pressed="true"] b { font-weight: var(--weight-heavy); }
+.picked { flex: none; color: var(--color-ink); }
 /* „Gut zu wissen“: lines of text beside the tile; a dated change is the warning tint. */
 .list [data-tone="warn"] { background: color-mix(in oklab, var(--color-warning), transparent 88%); color: var(--color-warning); }
 .noteText { overflow-wrap: anywhere; }
@@ -108,10 +115,11 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .steps { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); list-style: decimal; line-height: 1.5; }
 .steps li::marker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 .steps strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* The export as a „Deine Karte“ row: the link fills the row; its own error line keeps its behaviour. */
-.export :global(.customer-export) { display: grid; flex: 1; min-width: 0; }
-.export :global(.terms-link) { display: flex; align-items: center; min-height: var(--target); color: var(--color-ink); font-weight: var(--weight-strong); text-decoration: none; cursor: pointer; }
-.export :global(.auth-error) { margin: 0; font-size: var(--text-14); color: var(--color-danger); }
+/* The export is a „Deine Karte“ row like its neighbours: the link is the row (its hairline too, since a wrapper
+   stands between it and the row above); its own error line stands under it at the row's inset. */
+.export :global(.customer-export) { display: grid; }
+.export a > span { border-top-color: var(--color-line); }
+.export :global(.auth-error) { margin: 0; padding: 0 calc(var(--space-5) - 1px) var(--space-3); font-size: var(--text-14); color: var(--color-danger); }
 
 /* „Karte schließen“: a panel one row high; the binding step stays behind it. */
 .close { display: grid; justify-items: stretch; gap: var(--space-3); }
@@ -121,7 +129,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* It ends a destructive flow: 48 high. The small type stays, so the label fits one line at 390 px. */
 .closeConfirm button { min-height: 48px; }
 .closeConfirm p { margin: 0; }
-.footer { display: grid; justify-items: center; gap: var(--space-1); }
+.footer { display: grid; justify-items: center; gap: var(--space-1); margin-top: calc(-1 * var(--space-2)); } /* 24 under „Karte schließen“, as in the picture */
 .footer p { margin: 0; }
 
 /* An ending programme opens the card (ENG-075): the date, then what still works until then. */
@@ -202,11 +210,11 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .object > section { position: relative; }
 @media (prefers-reduced-motion: no-preference) {
   .lead:is([data-arriving], [data-card-press]) .object > section { isolation: isolate; background: none; box-shadow: none; }
-  .lead:is([data-arriving], [data-card-press]) .object > section::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); box-shadow: var(--shadow-object); }
+  .lead:is([data-arriving], [data-card-press]) .object > section::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--card-ground, linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%)); box-shadow: var(--shadow-object); }
   .lead[data-arriving] .object > section::before { animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
   /* Pop in (ENG-008): a stamp the booking just reached lands once, 90 ms apart (GuestMixCard marks it). */
-  .object [role="img"] > span[data-new] { animation: land var(--dur-reward) var(--ease-out) var(--land-stagger, 0ms) both; }
+  .mix [role="img"] > span[data-new] { animation: land var(--dur-reward) var(--ease-out) var(--land-stagger, 0ms) both; }
 }
 @keyframes land { 0% { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: scale(1); } }
 /* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no
