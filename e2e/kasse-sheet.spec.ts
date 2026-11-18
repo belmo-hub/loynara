@@ -30,8 +30,9 @@ const rootName = (page: Page) => page.evaluate(() => document.documentElement.st
 test("with the Kasse's payload 2 s late, a cold start opens it without the sheet and leaves the root name alone", async ({ page }) => {
   await recordTransitions(page);
   await signIn(page);
-  await page.goto("/merchant");
+  // Every /cashier payload, the idle prefetch included, is 2 s late: the open comes before any prefetch has answered.
   await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); await route.continue(); });
+  await page.goto("/merchant");
   await kasseLink(page).click();
   await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
   await expect(page.locator(".cashier-placeholder, main h1").first()).toBeVisible();
@@ -39,23 +40,40 @@ test("with the Kasse's payload 2 s late, a cold start opens it without the sheet
   expect(await rootName(page)).toBe("");
 });
 
-test("once the Kasse is loaded, the sheet runs on a 2 s late payload and gives the root name back when it ends", async ({ page }) => {
+// Polled from the test, not the page: a page on a fake clock does not run its own polling.
+const prefetched = (page: Page) => expect.poll(() => page.evaluate(() => performance.getEntriesByType("resource").some(entry => { const url = new URL(entry.name, location.href); return url.pathname === "/cashier" && url.searchParams.has("_rsc") && (entry as PerformanceResourceTiming).responseEnd > 0; })), { timeout: 15_000 }).toBe(true);
+
+test("in a fresh tab the first open slides once the idle prefetch has answered, even with the payload 2 s late", async ({ page }) => {
   await recordTransitions(page);
   await signIn(page);
-  // Warm: the Kasse has been open once in this tab, so its route and stylesheet are in the page.
   await page.goto("/merchant");
-  await kasseLink(page).click();
-  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
-  await page.goBack();
-  await expect(kasseLink(page)).toBeVisible();
-  await page.evaluate(() => new Promise(done => setTimeout(done, 1_500))); // the shell's idle prefetch
+  await prefetched(page);
   await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); await route.continue(); });
   await kasseLink(page).click();
   await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
-  // A second visit starts its own wait: the scan form's placeholders, never the long-wait panel at once.
   await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(1);
   // The name is released when the transition's animations end, well before the 10 s safety timeout.
   await expect.poll(() => rootName(page), { timeout: 3_000 }).toBe("");
-  expect(await kasseTypes(page)).toBe(1);
+});
+
+test("after the router cache's window has passed, the open fades instead of holding the owner screen", async ({ page }) => {
+  await recordTransitions(page);
+  await signIn(page);
+  await page.goto("/merchant");
+  await prefetched(page);
+  // Six minutes idle: the page's clocks (the router's Date.now, the gate's performance.now) move past the 5 minute
+  // static stale time, while the prefetch's own timing entry stays where it was, as in a long-idle tab.
+  await page.evaluate(() => {
+    const skip = 6 * 60_000, now = Date.now.bind(Date), high = performance.now.bind(performance);
+    Date.now = () => now() + skip;
+    performance.now = () => high() + skip;
+  });
+  await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => { await new Promise(done => setTimeout(done, 2_000)); await route.continue(); });
+  await kasseLink(page).click();
+  await expect(page).toHaveURL(/\/cashier$/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(0);
+  expect(await rootName(page)).toBe("");
 });

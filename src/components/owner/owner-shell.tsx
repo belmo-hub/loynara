@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, useTransition, ViewTransition, type ReactNode } from "react";
 import { holdRootForKasseSheet, kasseSheetReady, rememberKasseLocation } from "@/components/cashier/kasse-sheet";
+// The sheet's transition rules travel with the owner app; every rule is scoped to the kasse-sheet transition type.
+import "@/app/cashier/kasse-sheet.css";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { LogoutButton } from "@/components/logout-button";
 import { activeGroup, groupHref, MORE_HREF, visibleGroups, visibleItems } from "./nav";
@@ -47,8 +49,15 @@ export function freshFade() { document.documentElement.toggleAttribute("data-ow-
 export function OwnerShell({ children }: { children: ReactNode }) {
   const owner = useOwner();
   const router = useRouter();
-  // The sheet needs the Kasse prefetched (kasseSheetReady); warm it once the owner screen is idle.
-  useEffect(() => { const id = window.setTimeout(() => router.prefetch("/cashier"), 1_000); return () => window.clearTimeout(id); }, [router]);
+  // The sheet needs the Kasse prefetched and fresh (kasseSheetReady): warm it once the owner screen is idle, then keep it
+  // warm (a no-op while the router still holds it; a new fetch once it went stale, and when the tab comes back).
+  useEffect(() => {
+    const warm = () => router.prefetch("/cashier");
+    const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 60_000);
+    const visible = () => { if (document.visibilityState === "visible") warm(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.clearTimeout(first); window.clearInterval(again); document.removeEventListener("visibilitychange", visible); };
+  }, [router]);
   const pathname = usePathname();
   const subnav = useRef<HTMLDivElement>(null);
   const locationId = owner.me?.locationId;

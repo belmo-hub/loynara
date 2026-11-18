@@ -11,18 +11,19 @@ export function rememberKasseLocation(name: string | undefined) {
 }
 
 /**
- * Whether the Kasse can arrive as a sheet right now: its route was prefetched (a finished RSC response for /cashier) and
- * its transition stylesheet is already in the page. On a cold start neither holds, and a sheet would freeze the owner
- * screen while the Kasse loads, so the navigation goes without the type and the Kasse fades in as on any entry.
+ * Whether the Kasse can arrive as a sheet right now: its route was prefetched and that prefetch is still inside the
+ * router cache's window (router.prefetch keeps it for the static stale time, 5 minutes; 4.5 counts here). A cold start,
+ * an offline tab or a stale prefetch go without the type and the Kasse fades in as on any entry, so the owner screen is
+ * never held while the payload is still on its way. The transition stylesheet loads with the owner app.
  */
+const FRESH_PREFETCH_MS = 270_000;
 export function kasseSheetReady() {
   try {
-    const prefetched = performance.getEntriesByType("resource").some(entry => {
+    const finished = performance.getEntriesByType("resource").filter(entry => {
       const url = new URL(entry.name, location.href);
       return url.pathname === "/cashier" && url.searchParams.has("_rsc") && (entry as PerformanceResourceTiming).responseEnd > 0;
-    });
-    const styled = [...document.styleSheets].some(sheet => { try { return [...sheet.cssRules].some(rule => rule.cssText.includes("kasse-sheet")); } catch { return false; } });
-    return prefetched && styled;
+    }).map(entry => (entry as PerformanceResourceTiming).responseEnd);
+    return finished.length > 0 && performance.now() - Math.max(...finished) < FRESH_PREFETCH_MS;
   } catch { return false; }
 }
 
