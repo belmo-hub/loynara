@@ -416,6 +416,14 @@ describe("wieder da oder neu auf Empfehlung (ENG-095)", () => {
     expect(band.match(/Willkommen-zurück-Bonus einschalten/g)).toHaveLength(1);
     expect(band).not.toContain('<section class="ow-brought"');
     const either = (html: string) => html.includes("ow-brought") || html.includes("Vorschlag");
+    // „Als Nächstes“ already offers the bonus (cards away, bonus off): „Vorschlag“ is left out, the offer stands once.
+    state.loads["/api/merchant/retention"] = ok({ ...retention, drifting: 2 });
+    state.loads["/api/merchant/analytics/location"] = ok(analytics({ winback: { enabled: false, inWindow: 0 }, winbackSetting: { enabled: false, days: 30 } }));
+    const once = showing([row("loc-1", null)]);
+    expect(once.match(/Willkommen-zurück-Bonus einschalten/g)).toHaveLength(1);
+    expect(once).toMatch(/data-ow="next"[^]*>Willkommen-zurück-Bonus einschalten<svg/);
+    expect(once).not.toContain("Vorschlag");
+    state.loads["/api/merchant/retention"] = ok(retention);
     state.loads["/api/merchant/analytics/location"] = ok(analytics());
     expect(either(showing([row("loc-1", null)]))).toBe(false);
     off();
@@ -458,9 +466,10 @@ describe("the four tiles (spec §1.3, copy T1–T5)", () => {
     expect(firstWeeks({ programStartedOn: "2026-10-21", today: "2026-11-04" })).toBeUndefined();
     state.loads["/api/merchant/analytics/location"] = ok(analytics({ programStartedOn: "2026-10-22", previous: null }));
     const html = render();
-    expect(html).toContain(">Letzte 30 Tage an diesem Standort</h2>");
-    expect(html).toMatch(/<p class="[^"]*">zweite Woche<\/p><\/div><(a|div) class="[^"]*"[^>]*data-fact/); // heads the figure rows
-    expect(html.match(/zweite Woche/g)).toHaveLength(1);
+    // Over the figure rows below 1024, in the title from 1024 (Design, 18 Nov): one of the two is shown at each width.
+    expect(html).toMatch(/>Letzte 30 Tage an diesem Standort<span class="_titleNote_[^"]*"> · zweite Woche<\/span><\/h2>/);
+    expect(html).toMatch(/<div class="[^"]*_factsNote_[^"]*"><p class="[^"]*">zweite Woche<\/p><\/div><(a|div) class="[^"]*"[^>]*data-fact/);
+    expect(html.match(/zweite Woche/g)).toHaveLength(2);
     expect(notes({})).toEqual(["vorher 10", "vorher 0", "vorher 1", "vorher 1"]);
     expect(notes({ previous: null })).toEqual(["an der Kasse bestätigt", "erstmals angemeldet", "mit Willkommen-zurück-Bonus", "an der Kasse"]);
   });

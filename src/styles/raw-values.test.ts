@@ -33,7 +33,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
   { file: "src/components/customer/mix-card.module.css", kind: "radius", selectors: [".mark"], value: "10px", reason: "the mix card's shop mark is drawn from the founder's picture (mix NOTES, Deviations); not a house radius" },
   { file: "src/components/owner/overview.module.css", kind: "radius", selectors: [".legend i", ".bar", ".bar[data-zero]"], reason: "the Übersicht's week chart is drawn from C's chart in the approved mix (4 px bar tops, 2 px key, 1 px stub); not house radii" },
-  { file: "src/components/owner/overview.module.css", kind: "spacing", selectors: [".next > [data-hang] > :last-child", ".help"], reason: "mix rows measure from the panel's outer edge, so the 1 px border comes off the scale (as ui/mix.module.css); the „?“ keeps its 44 target inside the 26 title line" },
+  { file: "src/components/owner/overview.module.css", kind: "spacing", selectors: [".help"], reason: "the „?“ keeps its 44 target inside the 26 title line (8 + 1 off the scale on each side)" },
   { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },

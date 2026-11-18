@@ -212,12 +212,13 @@ export function BonusOffBand({ href }: { href: string }) {
 
 /**
  * C's figure rows for the 30 days (ENG-260): label and note left, the figure on the inset; a linked row is the link.
- * `note` („erste Woche“) heads the rows: in the section title it came with the reads and pushed the board down.
+ * `note` („erste Woche“) heads the rows below 1024: in the section title it came with the reads and wrapped the title on
+ * a phone, pushing the board down. From 1024 the title has room and holds it again (Design, 18 Nov).
  */
 export function Facts({ tiles, note }: { tiles: Tile[]; note?: string }) {
   return (
     <div className={cx(mix.panel, s.facts)}>
-      {note && <div className={mix.ph}><p className={s.kicker}>{note}</p></div>}
+      {note && <div className={cx(mix.ph, s.factsNote)}><p className={s.kicker}>{note}</p></div>}
       {tiles.map(tile => {
         // The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the inset.
         const body = <div className={mix.body}>

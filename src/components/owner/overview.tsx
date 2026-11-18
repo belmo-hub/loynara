@@ -144,7 +144,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
   const brought = !owned || !here || !a ? null
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
-      : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
+      // The suggestion stands once (Design): when „Als Nächstes“ already offers the bonus, „Vorschlag“ is left out.
+      : a.winbackSetting?.enabled === false && !offersBonus(next?.action) ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
   const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
   // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
@@ -168,7 +169,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
         <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed}>
-          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
+          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
             : <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} aria-busy={!board}>
               {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
@@ -206,6 +207,9 @@ export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: Re
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };
 }
+
+/** Whether a next step's action is the win-back bonus switch, so the page offers it once. */
+const offersBonus = (action: NextAction | undefined) => !!action && "href" in action && action.href === WINBACK_HREF;
 
 const shiftDay = (date: string, by: number) => new Date(new Date(`${date}T12:00:00Z`).getTime() + by * 86_400_000).toISOString().slice(0, 10);
 
