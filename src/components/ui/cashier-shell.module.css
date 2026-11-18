@@ -57,3 +57,4 @@
 .status:not([data-placeholder]) .stateText { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 /* Forced colours drop fills: the status strip keeps an edge and its dot. */
 @media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }
+@media (forced-colors: active) { .status[data-placeholder="empty"] { border-color: transparent; } }

@@ -47,7 +47,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
     {programType === "stamps" && selected
       ? <StampGrid earned={balance} total={selected.cost} landed={landed} landedCount={landedCount} locale={locale} reward={<Gift size={22} />} className={styles.stamps} grow={grow} />
       : <PointsLadder balance={balance} rewards={rewards} landedFrom={landed === undefined ? undefined : landed - (landedCount ?? 1)} locale={locale} titles className={styles.ladder} grow={grow} />}
-    {programType === "stamps" && selected ? <p className={`customer-balance-line ${styles.balanceLine}`}><span><Gift size={20} aria-hidden="true" />{selected.title}</span><strong>{t.of(number.format(Math.min(balance, selected.cost)), number.format(selected.cost))}</strong></p> : null}
+    {programType === "stamps" && selected ? <p className={`customer-balance-line ${styles.balanceLine}`}><span><Gift size={20} aria-hidden="true" />{selected.title}</span><strong>{/* Never clamped (Design, 18 Nov): above the goal the true count with its unit, as the Kasse shows it. */}{balance > selected.cost ? `${number.format(balance)} ${t.unit(balance, "stamps")}` : t.of(number.format(balance), number.format(selected.cost))}</strong></p> : null}
     {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? t.rewardReady : t.remaining(number.format(remaining), t.unit(remaining, programType), selected.title)}</p> : null}
     {children}
   </section>;

@@ -162,8 +162,13 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // would also restart the counter camera.
   const formKey = `${card?.id ?? (preview ? "preview" : "empty")}:${resetToken}`;
   const [seenFormKey, setSeenFormKey] = useState(formKey);
+  // One reward and it ready when the card opens: the row gives way to the dock's band. Decided at the open and kept
+  // through „Gebucht“, so the booking that reaches the goal moves nothing; the next card decides afresh (Design, 18 Nov).
+  const singleReady = (opened: CashierCard) => opened.rewards.length === 1 && opened.rewards[0].eligible;
+  const [rowGivesWay, setRowGivesWay] = useState(() => Boolean(card && singleReady(card)));
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
+    if (card) setRowGivesWay(singleReady(card));
     setQuantity(1); setPurchaseAmount(""); setConfirm(null); setAmountOpen(false); setWorking(null);
     if (card || preview) setCode("");
   }
@@ -260,7 +265,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, typedNext && styles.bookedTyped)} data-tone={booked.tone} role="status" aria-live="polite">
+  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, typedNext && styles.bookedTyped)} data-tone={booked.tone}>
+    {/* The live region holds only what is announced; the typed path's code field stands beside it, not in it. */}
+    <div className={styles.live} role="status" aria-live="polite">
     <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={typedNext ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={typedNext ? 32 : 48} /> : <Clock size={typedNext ? 32 : 48} />}</span>
     <h2>{booked.title}</h2>
     {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
@@ -283,7 +290,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {booked.undo === "available" && onUndo && <Button variant="quiet" size="lg" icon={<Undo2 size={20} />} onClick={onUndo} disabled={busy}>{t.undo}</Button>}
       {!camera && !booked.card && <Button variant="secondary" size="lg" onClick={onClear}>{t.other}</Button>}
     </div>}
-    {booked.tone !== "pending" && <p className={styles.bookedReady} aria-hidden="true">{t.ready}</p>}
+    {/* On the typed path a hint (a reward now ready) takes this line's place: the focused field already says the counter
+        is ready, and the dock keeps the open dock's height. */}
+    {booked.tone !== "pending" && !(typedNext && booked.hint) && <p className={styles.bookedReady} aria-hidden="true">{t.ready}</p>}
+    </div>
     {/* Typed path: the next card's number goes in right here, and the field keeps the focus a handheld scanner types into. */}
     {typedNext && <form className={cx(styles.dockCode, codeRejected && styles.rejected)} onSubmit={lookup} noValidate>
       <input id="cashier-code" aria-label={t.manual} placeholder={t.manual} autoFocus value={code} onChange={event => { setCode(event.target.value); if (codeRejected) onCodeEdit?.(); }} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
@@ -351,14 +361,14 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />}
     </section>}
     {/* Today's card (points, no reward) keeps the note right under it. */}
-    {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.balanced)} role="note">{t.locatorNote}</p>}
+    {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.pretty)} role="note">{t.locatorNote}</p>}
     {/* On the mix card the figure is drawn clamped to the goal (its label is the card's); the balance in words stays for screen readers and the specs. */}
     {card && goal && <div className={cx("balance-display", styles.srOnly)}>
       <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
     </div>}
     {/* One reward and it is ready: the dock's band names and redeems it, so the row is left out and nothing sits under the
         dock (Design, 18 Nov). With several the list stays and scrolls clear of the dock. */}
-    {shown && !(shown.rewards.length === 1 && (card ? card.rewards[0].eligible : shown.balance >= shown.rewards[0].cost)) && <section className={styles.rewards} aria-label={t.rewards}>
+    {shown && !(rowGivesWay && shown.rewards.length === 1) && <section className={styles.rewards} aria-label={t.rewards}>
       {shown.rewards.length ? <div className={cx(card && "reward-action-list", mixStyles.panel)}>
         {shown.rewards.map(reward => {
           const left = reward.cost - shown.balance, ready = card ? reward.eligible : left <= 0;
@@ -366,7 +376,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
             <span className={mixStyles.tile} data-tone={ready ? "coral" : "mute"}><Gift size={20} aria-hidden="true" /></span>
             <span className={mixStyles.body}>
               <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : <>{t.left} <span className={card ? undefined : styles.rollDigit}>{number.format(left)}</span> {unitWord(left, shown.programType, locale)}</>}</small></span>
-              <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>
+              {/* A ready row on the closed card already names its price in the line; it has no „Einlösen“ there. */}
+              {!(ready && !card) && <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>}
             </span>
           </>;
           return card ? <button type="button" key={reward.id} className={cx(mixStyles.row, styles.reward)} data-lead="tile" disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>{body}</button>
@@ -449,8 +460,8 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   if (loading) return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" actions={<span className={styles.phKey} aria-hidden="true" />}
     stateLabel="Einen Moment …" placeholder={wait === "quiet" ? true : wait === "long" ? "empty" : false}>
     <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft" data-since={since === undefined ? undefined : Math.round(since)}>
-      <h1 className={styles.title} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
-      <div className={styles.ready} aria-hidden="true">
+      <h1 className={cx(styles.title, wait === "long" && styles.covered)} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
+      <div className={cx(styles.ready, wait === "long" && styles.covered)} aria-hidden="true">
         <span className={styles.phButton} />
         <div className={styles.phField}><span className={styles.phLabel} /><span className={styles.phInput} /><span className={styles.phHint} /></div>
         <span className={cx(styles.phButton, styles.phQuiet)} />

@@ -191,12 +191,24 @@ describe("the Kasse's waits (Design, 18 Nov)", () => {
     expect(out).not.toContain("app-state-card");
   });
 
+  it("the booking that reaches the goal keeps the one reward's row through „Gebucht“; a card opened ready leaves it out", () => {
+    const one: CashierCard = { ...card, programType: "stamps", balance: 7, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: false }] };
+    const booked = { tone: "success" as const, title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 8 Stempel.", meta: "K-7QX2MA", card: { ...one, balance: 8 } };
+    const base = { locationName: "Kassel Mitte", locale: "de" as const, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} };
+    // Server render has no earlier open, so this pins the opened card's side: 7 of 8 shows the row, 8 of 8 opened leaves it out.
+    expect(renderToStaticMarkup(h(CashierView, { ...base, card: one }))).toContain("<b>Gratiskaffee</b>");
+    expect(renderToStaticMarkup(h(CashierView, { ...base, card: { ...one, balance: 8, rewards: [{ ...one.rewards[0], eligible: true }] } }))).not.toContain("<b>Gratiskaffee</b>");
+    // A booked state whose card was not opened ready keeps the row.
+    expect(renderToStaticMarkup(h(CashierView, { ...base, booked }))).toContain("<b>Gratiskaffee</b>");
+  });
+
   it("after a typed booking the code field stands in the Gebucht dock, and the scan path keeps the form out of sight", () => {
     const stamps: CashierCard = { ...card, programType: "stamps", balance: 6, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: false }] };
     const booked = { tone: "success" as const, title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: stamps };
     const base = { locationName: "Kassel Mitte", locale: "de" as const, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, booked };
     const typed = renderToStaticMarkup(h(CashierView, { ...base, focusCodeInput: true }));
-    expect(typed).toMatch(/Bereit für die nächste Karte<\/p><form[^>]*><input id="cashier-code" aria-label="Kartennummer oder Kartencode" placeholder="Kartennummer oder Kartencode"/);
+    // Beside the live region, not in it: the region ends with the ready line, the form follows.
+    expect(typed).toMatch(/Bereit für die nächste Karte<\/p><\/div><form[^>]*><input id="cashier-code" aria-label="Kartennummer oder Kartencode" placeholder="Kartennummer oder Kartencode"/);
     expect(typed.match(/id="cashier-code"/g)).toHaveLength(1);
     const scanned = renderToStaticMarkup(h(CashierView, base));
     expect(scanned).not.toMatch(/<form[^>]*><input id="cashier-code" aria-label/);

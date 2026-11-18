@@ -94,6 +94,8 @@
    „Neuer Stand“ and the button stay one group at the foot instead of the amount floating in an empty panel. */
 .stepper { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
 .stepper output { min-width: 72px; font-size: 96px; line-height: 96px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
+/* With the redeem band in the dock the keys keep the open dock's top inset (28): the step area grows to hold them. */
+.stepper:has(~ .band) { min-height: 128px; }
 .stepper .step { width: 72px; height: 72px; min-height: 72px; padding: 0; border: 1px solid var(--color-line-strong); border-radius: 50%; background: transparent; }
 .newBalance { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 56px; margin: 0 0 var(--space-4); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-raised); }
 .newBalance > span { font-weight: var(--weight-label); color: var(--color-ink-muted); }
@@ -124,10 +126,9 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
    replay. The figure carries MixCard's data-figure hook. */
 .kasse :global([data-on]) { animation: land var(--pop, 0s) var(--ease-out) backwards; }
 .kasse[data-booked] { --pop: 480ms; }
-/* The figure (MixCard's NumberRoll) and the reward row's count roll on the digit only, 220 ms from 100 ms after the answer;
-   while they wait they hold the roll's first frame, never blank (opacity .35, as NumberRoll). „von 8“ stands still. */
-.kasse[data-booked] :global([data-figure]) > span { animation-delay: 100ms; animation-fill-mode: backwards; }
-.rollDigit { display: inline-block; animation: roll var(--dur-ui) var(--ease-out) 100ms backwards; }
+/* The figure (MixCard's NumberRoll) and the reward row's count roll on the digit only, 220 ms from the answer, never blank
+   (from opacity .35, as NumberRoll). „von 8“ stands still. */
+.rollDigit { display: inline-block; animation: roll var(--dur-ui) var(--ease-out); }
 @keyframes roll { from { transform: translateY(.4em); opacity: .35; } }
 /* The one green band (ENG-121) for a ready reward. The whole band is the action; it stays last in the dock, in thumb
    reach, and the earning button above it steps back. */
@@ -202,16 +203,16 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 /* Longer titles („Vorgemerkt, noch nicht gebucht“, „Rückgängig gemacht“) step down so they keep two lines at most. */
 .booked:not([data-tone="success"]) h2 { font-size: var(--text-28); letter-spacing: -.015em; }
 .booked p { margin: 0; max-width: 32ch; }
-.bookedHeadline {
+.booked .bookedHeadline {
   display: inline-flex; align-items: center; min-height: 36px; margin-top: calc(var(--space-3) - var(--space-2)); padding: 0 var(--space-3); border-radius: var(--radius-sm);
   background: var(--color-success); color: var(--color-bg); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.2; font-variant-numeric: tabular-nums; text-wrap: balance;
 }
 .bookedDetail { font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.35; font-variant-numeric: tabular-nums; }
 /* „Bereit für die nächste Karte“ steps back under the chip (Design, 18 Nov). */
 .bookedReady { color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); }
-.bookedHint { text-wrap: balance; }
 .bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
-.bookedHint { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
+/* Inside the booked dock the hint is a line of the stack, not a box (Design, 18 Nov). */
+.booked .bookedHint { max-width: none; margin: 0; padding: 0; background: none; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); text-wrap: balance; }
 .bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
 .bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
@@ -248,7 +249,6 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .phMain { display: grid; gap: var(--space-4); }
 /* The head keeps the round menu key's place (a still outline) so it does not change when the form lands. */
 .phKey { display: block; width: 56px; height: 56px; border: 1px solid var(--color-line-strong); border-radius: 50%; }
-.balanced { text-wrap: balance; }
 .phLine { color: transparent; background: var(--color-raised); border-radius: var(--radius-sm); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .phButton, .phLabel, .phInput, .phHint, .phHelp { display: block; background: var(--color-raised); }
 .phButton { height: var(--target-cashier); border-radius: var(--radius-pill); }
@@ -263,9 +263,19 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 /* Typed path after a booking: the code field in the „Gebucht“ dock, 44 high with the house focus ring (Design, 18 Nov). */
 /* The typed path's Gebucht (Design, 18 Nov): badge 64, 16 under the dock's top edge, the stack from the top, the field at
    the foot with 24 under it and its ring (2 + 2) inside the dock's 16 px side inset. */
-.bookedTyped { align-content: start; grid-template-rows: repeat(5, auto) 1fr; margin-top: calc(var(--space-4) - var(--space-6)); }
+.bookedTyped { align-content: start; grid-template-rows: repeat(5, auto) 1fr; gap: 6px; margin-top: calc(var(--space-4) - var(--space-6)); }
 .bookedTyped .bookedIcon { width: 64px; height: 64px; }
-.dockCode { align-self: end; box-sizing: border-box; width: 100%; max-width: 440px; margin-top: var(--space-2); padding: 0 var(--space-1); }
+/* With the field below, the typed stack fits the open dock: 12 above the chip (6 + 6), the chip at 32, and 12 clear
+   between the line above and the field's focus ring (6 + 10 − the ring's 4). */
+.bookedTyped .bookedHeadline { min-height: 32px; margin-top: 6px; }
+.bookedTyped .bookedDetail, .bookedTyped .bookedHint { line-height: 20px; }
+.dockCode { align-self: end; box-sizing: border-box; width: 100%; max-width: 440px; margin-top: 10px; padding: 0 var(--space-1); }
 .dockCode.dockCode.dockCode input { box-sizing: border-box; width: 100%; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
 .dockCode input::placeholder { color: var(--color-ink-muted); }
 .dockCode input:focus-visible, .dockCode input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* The booked dock's live region takes no box of its own: its lines stay the stack's rows. */
+.live { display: contents; }
+/* The long wait's panel covers these placeholders: they keep their place, unseen. */
+.covered { visibility: hidden; }
+.pretty { text-wrap: pretty; }

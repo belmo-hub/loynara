@@ -6,7 +6,7 @@ import { pool } from "../src/db";
 
 // The counter on phones: dark whatever the system setting, nothing sideways, text at least 14 px, every control at
 // least 44 px, the booking button 64 px in the dock, and "Gebucht" fading in over 160 ms without movement.
-const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cashierEmail: string; cashierPassword: string; programSlug: string };
+const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cashierEmail: string; cashierPassword: string; ownerEmail: string; ownerPassword: string; programSlug: string };
 test.afterAll(async () => { await pool.end(); });
 
 async function scanCode() {
@@ -46,8 +46,12 @@ test.describe("cashier on phones", () => {
 
   test("an open card keeps the booking controls in the dock and books with one tap", async ({ page }) => {
     await signIn(page);
+    // A card of its own at 0, so no earlier run leaves a reward ready on it.
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const { cardToken } = await (await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } })).json() as { cardToken: string };
+    const { scanCode: fresh } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
     await page.goto("/cashier");
-    await page.getByLabel("Kartennummer oder Kartencode").fill(await scanCode());
+    await page.getByLabel("Kartennummer oder Kartencode").fill(fresh);
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     const book = page.locator(".cashier-award-now");
     await expect(book).toBeVisible();
@@ -201,12 +205,68 @@ test.describe("cashier on phones", () => {
     await page.getByLabel("Kartennummer oder Kartencode").fill(`K-${rows[0].card_locator}`);
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const dockBefore = await page.evaluate(() => Math.round(document.querySelector("[data-dock]")!.getBoundingClientRect().top));
     await page.locator(".cashier-award-now").click();
     const field = page.locator(".cashier-booked #cashier-code");
     await expect(field).toBeFocused();
     await expect(field).toBeInViewport({ ratio: 1 });
     await expect(field).toHaveAttribute("placeholder", "Kartennummer oder Kartencode");
     expect(Math.round((await field.boundingBox())!.height)).toBe(44);
+    // The dock's edge does not move on the typed path either.
+    // Up to 2 px from rounding at the profile's 2.625 device-pixel ratio.
+    expect(Math.abs(await page.evaluate(() => Math.round(document.querySelector("[data-dock]")!.getBoundingClientRect().top)) - dockBefore)).toBeLessThanOrEqual(2);
+  });
+
+  test("the booking that reaches the goal moves nothing: one reward, 7 + 1, the dock's top stays", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signIn(page);
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const joined = await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } });
+    const { cardToken } = await joined.json() as { cardToken: string };
+    const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    const { membershipId, rewards } = await (await page.request.get(`/api/cashier/lookup?code=${encodeURIComponent(code)}`)).json() as { membershipId: string; rewards: Array<{ cost: number }> };
+    expect(rewards).toHaveLength(1);
+    expect((await page.request.post("/api/cashier/award", { data: { membershipId, quantity: rewards[0].cost - 1, idempotencyKey: crypto.randomUUID(), requestId: crypto.randomUUID() }, headers: { Origin: origin } })).ok()).toBe(true);
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    const dockTop = () => page.evaluate(() => Math.round(document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const before = await dockTop();
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toBeVisible();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    // On this emulated profile (device-pixel ratio 2.625) the open dock sits up to 3.5 px below the content's end while
+    // the booked one sits on it; at a ratio of 2 both are at 525. What this pins is the 82 px jump of a row dropped
+    // mid-booking.
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(4);
+  });
+
+  test("with two rewards and one ready the keys keep the dock's top inset (390 × 844)", async ({ page }) => {
+    // A shop of its own: a reward added to the demo programme could not be taken back at once (dated changes).
+    await page.setViewportSize({ width: 390, height: 844 });
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const api = page.request;
+    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic two rewards", email: `two-rewards-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+    const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Zwei Prämien", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: 8 } });
+    expect(onboard.status()).toBe(201);
+    const { programSlug } = await onboard.json() as { programSlug: string };
+    expect((await api.post("/api/merchant/program/rewards", { data: { action: "create", programSlug, title: "Kleiner Kaffee", cost: 3, termsText: "Ein kleiner Kaffee." }, headers: { Origin: origin } })).status()).toBe(201);
+    const guest = await (await import("@playwright/test")).request.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
+    const { cardToken } = await (await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } })).json() as { cardToken: string };
+    const { scanCode: code } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    await guest.dispose();
+    const { membershipId, rewards } = await (await api.get(`/api/cashier/lookup?code=${encodeURIComponent(code)}`)).json() as { membershipId: string; rewards: Array<{ cost: number }> };
+    expect(rewards).toHaveLength(2);
+    expect((await api.post("/api/cashier/award", { data: { membershipId, quantity: 4, idempotencyKey: crypto.randomUUID(), requestId: crypto.randomUUID() }, headers: { Origin: origin } })).ok()).toBe(true);
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await expect(page.locator(".cashier-redeem-now")).toBeVisible();
+    await expect(page.locator(".reward-action-list button")).toHaveCount(2);
+    const inset = await page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    expect(inset).toBeGreaterThanOrEqual(24);
   });
 
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {

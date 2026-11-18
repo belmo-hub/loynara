@@ -418,3 +418,16 @@ describe("closing the card", () => {
     expect(css.match(/\.closeConfirm\s*{([^}]*)}/)?.[1]).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   });
 });
+
+describe("the balance on the guest's card never clamps (Design, 18 Nov)", () => {
+  const line = (balance: number) => renderToStaticMarkup(h(CustomerCard, { ...base, balance, rewards: [{ id: "r1", title: "Kaffee", cost: 8 }] })).match(/customer-balance-line[^>]*>.*?<strong>(.*?)<\/strong>/)?.[1].replace(/<[^>]+>/g, "");
+  it("reads „N von G“ up to the goal and the true count with its unit above it, as the Kasse", () => {
+    expect(line(5)).toBe("5 von 8");
+    expect(line(8)).toBe("8 von 8");
+    expect(line(9)).toBe("9 Stempel");
+  });
+  it("earns every stamp above the goal", () => {
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, balance: 9, rewards: [{ id: "r1", title: "Kaffee", cost: 8 }] }));
+    expect((out.match(/data-earned="true"/g) ?? []).length).toBe(8);
+  });
+});
