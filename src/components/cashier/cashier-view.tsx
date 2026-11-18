@@ -166,9 +166,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // through „Gebucht“, so the booking that reaches the goal moves nothing; the next card decides afresh (Design, 18 Nov).
   const singleReady = (opened: CashierCard) => opened.rewards.length === 1 && opened.rewards[0].eligible;
   const [rowGivesWay, setRowGivesWay] = useState(() => Boolean(card && singleReady(card)));
+  // The reward the card draws, chosen at the open and held through „Gebucht“ like the row, so the card keeps its size.
+  const [goalId, setGoalId] = useState(() => card ? kasseGoal(card)?.id : undefined);
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
-    if (card) setRowGivesWay(singleReady(card));
+    if (card) { setRowGivesWay(singleReady(card)); setGoalId(kasseGoal(card)?.id); }
     setQuantity(1); setPurchaseAmount(""); setConfirm(null); setAmountOpen(false); setWorking(null);
     if (card || preview) setCode("");
   }
@@ -256,7 +258,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const shown = card ?? booked?.card ?? null;
   // The card counts to the cheapest reward. Points programmes, and a card without any reward, keep today's card until
   // Design draws them on the mix card (Design, 17 Nov).
-  const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.reduce((low, reward) => reward.cost < low.cost ? reward : low) : null;
+  const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.find(reward => reward.id === goalId) ?? kasseGoal(shown) ?? null : null;
   const bookedGoal = Boolean(booked?.card && goal);
   // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
   const typedNext = Boolean(booked?.card && focusCodeInput);
@@ -509,4 +511,15 @@ function useWaitStage(waiting: boolean) {
     return () => { clearTimeout(arm); clearTimeout(late); clearTimeout(long); };
   }, [waiting]);
   return { stage, since };
+}
+
+/**
+ * The reward the Kasse's card counts to (Design, 18 Nov): the cheapest one the balance has not reached yet; once every
+ * reward is reached, the largest (the card then reads the true count, „9 Stempel“). A ready reward below it is redeemed
+ * from the band and the list. One reward: that reward.
+ */
+export function kasseGoal(card: Pick<CashierCard, "balance" | "rewards">) {
+  if (!card.rewards.length) return undefined;
+  const byCost = [...card.rewards].sort((a, b) => a.cost - b.cost);
+  return byCost.find(reward => reward.cost > card.balance) ?? byCost[byCost.length - 1];
 }

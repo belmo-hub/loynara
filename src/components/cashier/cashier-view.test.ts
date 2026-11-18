@@ -1,7 +1,7 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { awardDelta, awardParts, bookedAward, CashierAccessState, cashierCard, CashierView, purchasePreviewOf, type CashierCard, type CashierLookup } from "./cashier-view";
+import { awardDelta, awardParts, bookedAward, CashierAccessState, cashierCard, CashierView, kasseGoal, purchasePreviewOf, type CashierCard, type CashierLookup } from "./cashier-view";
 
 const card: CashierCard = {
   id: "m1", code: "sc_synthetic", cardLocator: "K-7QX2MA", balance: 1, programType: "points", earningMode: "manual", pointsPerCurrencyUnit: 1, currency: "EUR", ruleVersionId: "rv1",
@@ -212,5 +212,27 @@ describe("the Kasse's waits (Design, 18 Nov)", () => {
     expect(typed.match(/id="cashier-code"/g)).toHaveLength(1);
     const scanned = renderToStaticMarkup(h(CashierView, base));
     expect(scanned).not.toMatch(/<form[^>]*><input id="cashier-code" aria-label/);
+  });
+});
+
+describe("the reward the Kasse's card counts to (Design, 18 Nov)", () => {
+  const two = (balance: number): CashierCard => ({ ...card, programType: "stamps", balance, rewards: [{ id: "big", name: "Gratiskaffee", cost: 8, eligible: balance >= 8 }, { id: "small", name: "Kleiner Kaffee", cost: 3, eligible: balance >= 3 }] });
+  const figure = (balance: number) => renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", card: two(balance), onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }))
+    .match(/<b data-figure="">(.*?)<\/b>/)?.[1].replace(/<[^>]+>/g, "");
+  it("is the cheapest reward not reached yet, or the largest once all are reached", () => {
+    expect(kasseGoal(two(2))?.cost).toBe(3);
+    expect(kasseGoal(two(4))?.cost).toBe(8);
+    expect(kasseGoal(two(9))?.cost).toBe(8);
+    expect(kasseGoal({ balance: 9, rewards: [{ id: "one", name: "Kaffee", cost: 8, eligible: true }] })?.cost).toBe(8);
+  });
+  it("reads „2 von 3“, „4 von 8“ and „9 Stempel“ with rewards at 3 and 8", () => {
+    expect(figure(2)).toBe("2 von 3");
+    expect(figure(4)).toBe("4 von 8");
+    expect(figure(9)).toBe("9 Stempel");
+    // At 4 the card draws 8 dots, 4 earned; the ready 3-stamp reward stays in the list and the band.
+    const out = renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", card: two(4), onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }));
+    expect(out).toContain('aria-label="4 von 8 Stempeln"');
+    expect(out).toContain("cashier-redeem-now");
+    expect(out).toContain("<b>Kleiner Kaffee</b>");
   });
 });
