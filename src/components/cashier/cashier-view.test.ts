@@ -171,12 +171,14 @@ describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
 });
 
 describe("the Kasse's waits (Design, 18 Nov)", () => {
-  it("while the access check runs, the sheet shows the Kasse's own still placeholders and no words", () => {
+  it("while the access check runs, the sheet shows the scan form's still shape: the strip as a block, no words panel", () => {
     const out = renderToStaticMarkup(h(CashierAccessState, { state: "loading", message: "" }));
     expect(out).toContain("cashier-placeholder");
     expect(out).toContain('aria-busy="true"');
+    // The strip holds its place as a hidden block until its words are due.
+    expect(out).toMatch(/data-state="busy" data-placeholder="true" aria-hidden="true"/);
     expect(out).not.toContain("<h1>Kassenzugang wird geprüft</h1>");
-    expect(out).not.toContain("Einen Moment");
+    expect(out).not.toContain("app-state-card");
   });
 
   it("after a typed booking the code field stands in the Gebucht dock, and the scan path keeps the form out of sight", () => {

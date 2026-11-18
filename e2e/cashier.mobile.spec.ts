@@ -131,14 +131,20 @@ test.describe("cashier on phones", () => {
     expect(noteBox!.y + noteBox!.height).toBeLessThanOrEqual(dockBox!.y);
   });
 
-  test("while a slow access check runs the Kasse shows its own placeholders, and words only once it is late", async ({ page }) => {
+  test("a slow access check keeps one layout: the scan form's placeholders, then „Einen Moment …“ above them, then the form in place", async ({ page }) => {
     await signIn(page);
     await page.route("**/api/me", async route => { await new Promise(done => setTimeout(done, 1_500)); await route.continue(); });
     await page.goto("/cashier");
-    await expect(page.locator(".cashier-placeholder")).toBeVisible();
+    const placeholder = page.locator(".cashier-placeholder");
+    await expect(placeholder).toBeVisible();
+    await expect(page.locator("[data-state][data-placeholder]")).toHaveCount(1);
+    const strip = page.locator("[data-state]:not([data-placeholder])");
+    await expect(strip).toContainText("Einen Moment …");
+    await expect(placeholder).toBeVisible();
     await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Kassenzugang wird geprüft" })).toBeVisible();
+    const stripTop = (await strip.boundingBox())!.y;
     await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
+    expect(Math.round((await page.locator("[data-state]").boundingBox())!.y)).toBe(Math.round(stripTop));
   });
 
   test("after a booking on the typed path the code field is in view in the Gebucht dock and keeps the focus (390 × 844)", async ({ page }) => {

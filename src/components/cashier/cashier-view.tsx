@@ -257,8 +257,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
-  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked)} data-tone={booked.tone} role="status" aria-live="polite">
-    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{booked.tone === "success" ? <Check size={48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={48} /> : <Clock size={48} />}</span>
+  const dock = booked ? <section key={resetToken} className={cx(`cashier-booked cashier-booked--${booked.tone}`, styles.booked, typedNext && styles.bookedTyped)} data-tone={booked.tone} role="status" aria-live="polite">
+    <span key={booked.tone} className={styles.bookedIcon} aria-hidden="true">{/* A drawn mark, not an icon: 48 in the 104 badge, 32 in the typed path's 64 one (Design, 18 Nov). */}{booked.tone === "success" ? <Check size={typedNext ? 32 : 48} strokeWidth={3} /> : booked.tone === "undone" ? <Undo2 size={typedNext ? 32 : 48} /> : <Clock size={typedNext ? 32 : 48} />}</span>
     <h2>{booked.title}</h2>
     {booked.headline && <p className={styles.bookedHeadline}>{booked.headline}</p>}
     {booked.parts && <p className={styles.bookedMeta}>{booked.parts}</p>}
@@ -436,12 +436,21 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   const loading = state === "loading";
   // Opened from the owner's „Kasse“ link the frame already names the location, so the sliding sheet's head does not change.
   const location = useKasseLocation("Kasse");
-  const late = useLateWait(loading);
-  // While the access check runs, the sheet arrives looking like the Kasse: its own still placeholders (DESIGN › Waiting).
-  // Only a check still running 300 ms after the slide says so in words.
-  if (loading && !late) return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy" stateLabel={null}
-    dock={<div className={styles.phDock} aria-hidden="true"><span className={styles.phStep}><i /><i /></span><span className={styles.phNew} /><span className={styles.phBook} /></div>}>
-    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft"><span className={styles.phCard} /><span className={styles.phRow} /></section>
+  const wait = useWaitStage(loading);
+  // One layout from the slide to the form (Design, 18 Nov): the sheet lands on the scan form's own still shape; 300 ms
+  // after the slide the live strip says „Einen Moment …“ above the same shape; the form then replaces it in place. Only a
+  // long wait shows the words panel below.
+  if (loading && wait !== "long") return <CashierShell lang="de" live={false} location={<span className="cashier-location">{location}</span>} state="busy"
+    stateLabel="Einen Moment …" placeholder={wait === "quiet"}>
+    <section className={cx("cashier-placeholder", styles.phMain)} aria-busy="true" aria-label="Kassenzugang wird geprüft">
+      <h1 className={styles.title} aria-hidden="true"><span className={styles.phLine}>Karte scannen. Dann entscheiden.</span></h1>
+      <div className={styles.ready} aria-hidden="true">
+        <span className={styles.phButton} />
+        <div className={styles.phField}><span className={styles.phLabel} /><span className={styles.phInput} /><span className={styles.phHint} /></div>
+        <span className={cx(styles.phButton, styles.phQuiet)} />
+        <span className={styles.phHelp} />
+      </div>
+    </section>
   </CashierShell>;
   return <CashierShell lang="de" live={false} location={<span className="cashier-location">{loading ? location : "Kasse"}</span>} state={loading ? "busy" : "error"} stateLabel={loading ? "Einen Moment …" : "Kein Zugang"}>
     <section className={cx("app-state-card", styles.access)}>
@@ -455,17 +464,24 @@ export function CashierAccessState({ state, message, logoutControl }: { state: "
   </CashierShell>;
 }
 
-/** The slide (260 ms) plus 300 ms, counted from the first waiting frame (the route's loading frame or the page's). */
+/**
+ * Waiting stages of the access check, counted from the first waiting frame (the route's loading frame or the page's):
+ * quiet until the slide (260 ms) plus 300 ms, then the strip's words; past LONG_MS the words panel.
+ * shortcut: LONG_MS is this ticket's pick for „the live threshold“ Design named; Design to confirm the number.
+ */
 const LATE_MS = 560;
+const LONG_MS = 3_000;
 let waitingSince = 0;
-function useLateWait(waiting: boolean) {
-  const [late, setLate] = useState(false);
+function useWaitStage(waiting: boolean) {
+  const [stage, setStage] = useState<"quiet" | "late" | "long">("quiet");
   useEffect(() => {
     if (!waiting) { waitingSince = 0; return; }
     const now = performance.now();
     if (!waitingSince || now - waitingSince > 10_000) waitingSince = now;
-    const timer = setTimeout(() => setLate(true), Math.max(0, LATE_MS - (now - waitingSince)));
-    return () => clearTimeout(timer);
+    const passed = now - waitingSince;
+    const late = setTimeout(() => setStage(current => current === "quiet" ? "late" : current), Math.max(0, LATE_MS - passed));
+    const long = setTimeout(() => setStage("long"), Math.max(0, LONG_MS - passed));
+    return () => { clearTimeout(late); clearTimeout(long); };
   }, [waiting]);
-  return late;
+  return stage;
 }

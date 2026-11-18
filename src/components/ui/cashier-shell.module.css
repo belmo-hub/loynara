@@ -6,7 +6,7 @@
 @media (min-width: 800px) { .shell { --k-col: calc(456px + 2 * var(--gutter)); } }
 .bar, .status, .main { width: 100%; max-width: var(--k-col); margin-inline: auto; }
 /* Head: the 40 px mark, the location at 22/28, the round menu key; 16 above and under it. */
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 56px; padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--gutter) 0; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: calc(56px + var(--space-4) + env(safe-area-inset-top)); padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--gutter) 0; }
 /* The brand mark (a drawn mark, not an icon) at 40. */
 .bar > :first-child > :first-child { width: 40px; height: 40px; }
 .location { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; flex: 1 1 8rem; min-width: 0; font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); overflow-wrap: anywhere; }
@@ -49,6 +49,10 @@
 .dock { animation: dock-in var(--dur-ui) var(--ease-out) backwards; }
 @keyframes appear { from { opacity: 0; } }
 @keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
-@media (prefers-reduced-motion: reduce) { .status { transition: none; animation: none; } .dock { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .status, .status .stateText { transition: none; animation: none; } .dock { animation: none; } }
+/* While the counter waits the strip is a still block in its own place; its words fade in when they come (DESIGN › Waiting). */
+.status[data-placeholder] { background: var(--color-raised); }
+.status[data-placeholder] > * { visibility: hidden; }
+.status:not([data-placeholder]) .stateText { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 /* Forced colours drop fills: the status strip keeps an edge and its dot. */
 @media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }
