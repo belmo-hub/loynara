@@ -151,7 +151,7 @@ export function EarningQuestion({ me, program, nfc }: { me: MeResponse; program:
   return (
     <QuestionForm title="Wie entstehen Punkte?" busy={false} failed="" action="Weiter" onSubmit={() => { if (!changed) q.leave(); else if (q.check()) open(toManual ? "rule" : "review"); }}>
       <Choices name="earning-mode" label="So entstehen Punkte" value={draft.mode} saved={saved.mode} onChange={mode => setDraft({ ...draft, mode: mode as EarningMode })} options={[
-        { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, das System rechnet und rundet ab.", icon: ReceiptText },
+        { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, Loynara rechnet und rundet ab.", icon: ReceiptText },
         { value: "manual", label: "Manuell", sub: "Das Team gibt die Punktmenge direkt ein.", icon: Users },
       ]} />
       {purchase && <>

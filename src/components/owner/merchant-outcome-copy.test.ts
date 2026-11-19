@@ -33,6 +33,14 @@ describe("merchant outcome descriptions", () => {
     expect(step("points", 2, 3)).toContain("Loynara bucht <strong>-2 Punkte</strong>");
   });
 
+  it("shows the change itself, and a correction below zero as not possible before the tap (ENG-280)", () => {
+    expect(step("stamp", 1, 3)).toContain("<dt>Korrektur</dt><dd>-1 Stempel</dd>");
+    const html = step("stamp", 1, 0);
+    expect(html).toContain("<dt>Nach der Korrektur</dt><dd>Nicht möglich</dd>");
+    expect(html).toContain("unter null bringen");
+    expect(html).toMatch(/disabled="">Korrektur buchen<\/button>/);
+  });
+
   it("is a screen with the live words: the button waits for ten characters of reason", () => {
     const html = step("stamp", 2, 7);
     expect(html).toMatch(/<h1 tabindex="-1">Vorgang korrigieren<\/h1>/);
