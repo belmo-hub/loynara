@@ -74,7 +74,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
 
   const target = !member.closedAt && member.locationId === me.locationId && program.state === "ok" ? nearestReward(program.data.rewards, member.balance) : undefined;
   // The mix card counts to the next reward not reached yet, as the guest's card and the Kasse do (Design, #285 b).
-  const mixTarget = mixCardReward(kind, target && cardGoal(program.state === "ok" ? program.data.rewards : [], member.balance));
+  const rewards = program.state === "ok" ? program.data.rewards : [], mixTarget = target && cardGoal(rewards, member.balance);
   async function loadOlder() {
     if (!nextCursor || olderBusy) return;
     setOlderBusy(true); setOlderError("");
@@ -106,10 +106,10 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
       <div className={s.layout}>
         {mixTarget && program.state === "ok"
           ? <div className={s.card} style={merchantPalette(program.data.brandColor ?? "", "light").cssVars as CSSProperties}>
-            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType="stamps"
-              balance={member.balance} reward={mixTarget} lineReward={target} voice="owner" />
+            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType={kind === "points" ? "points" : "stamps"}
+              balance={member.balance} reward={mixTarget} rewards={rewards} lineReward={target} voice="owner" />
           </div>
-          // Points (not drawn in the mix yet) and cards without a target keep the house balance block.
+          // A card without a target (no reward set up, closed, another location) keeps the house balance block.
           : <section className={cx("ow-board ow-stand", s.card)} aria-labelledby="cu-stand">
             <p className="ow-board-kicker" id="cu-stand">Aktueller Stand</p>
             <p className="ow-board-big"><NumberRoll value={member.balance}>{nf.format(member.balance)}</NumberRoll>{NBSP}<small>{unitWord(member.balance, kind)}</small></p>
@@ -166,9 +166,6 @@ function CardLoading() {
     </section>
   </div>;
 }
-
-/** The reward the mix card counts to, or none: points programmes stay off the mix card until Design draws one (18 Nov). */
-export const mixCardReward = <T,>(kind: MerchantMember["programType"], target: T | undefined) => kind === "stamp" ? target : undefined;
 
 /** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
 function Fact({ value, label }: { value: string; label: string }) {
