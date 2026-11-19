@@ -15,6 +15,9 @@ export function unitWord(n: number, kind: UnitKind, locale: "de" | "fr" = "de", 
   return RULES[locale].select(n) === "one" ? one : grammaticalCase === "dat" ? dative : other;
 }
 
+/** Keeps every figure on one line with the word after it (the Kasse, Design 18 Nov): „6\u00a0von 8\u00a0Stempeln“. */
+export const keepUnits = (text: string) => text.replace(/(\d) /g, "$1\u00a0");
+
 /** The count and its word: „1 Punkt“, „10 Stempeln“, « 1 tampon ». */
 export const withUnit = (n: number, kind: UnitKind, locale: "de" | "fr" = "de", grammaticalCase: "nom" | "dat" = "nom") =>
   `${n} ${unitWord(n, kind, locale, grammaticalCase)}`;

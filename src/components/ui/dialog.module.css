@@ -13,7 +13,7 @@
 .dialog[data-guard] .body { pointer-events: none; }
 .body { display: grid; gap: var(--space-3); padding: var(--space-5); }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
-.description { margin: 0; color: var(--color-ink-muted); }
+.description { margin: 0; color: var(--color-ink-muted); text-wrap: pretty; }
 .actions { display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); } /* 24 from the last text, on the 12 gap */
 @media (max-width: 479px) { .actions > * { flex: 1 1 100%; } }
 .actions:has(> :nth-child(3)) > * { flex: 1 1 100%; }

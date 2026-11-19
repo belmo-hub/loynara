@@ -10,13 +10,13 @@
   background: var(--color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23CFD8D2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
 }
 .locale:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.menuButton { display: grid; place-items: center; width: var(--target); height: var(--target); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
+.menuButton { display: grid; place-items: center; width: 56px; height: 56px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); cursor: pointer; transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out); }
 .menuButton:active { transform: scale(.97); }
 @media (hover: hover) and (pointer: fine) { .menuButton:hover { border-color: var(--color-ink); } }
 .menuButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-/* Opens under the header, at the right edge of the 560 px counter column. */
+/* Opens under the header, at the right edge of the counter column. */
 .menu {
-  position: fixed; inset: calc(env(safe-area-inset-top) + 60px) max(var(--gutter), calc((100vw - 560px) / 2 + var(--gutter))) auto auto; margin: 0;
+  position: fixed; inset: calc(env(safe-area-inset-top) + 80px) max(var(--gutter), calc((100vw - var(--k-col)) / 2)) auto auto; margin: 0;
   min-width: 220px; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
   /* Menu: fades and scales out of the button's corner, and leaves faster than it came. */
   opacity: 0; transform: scale(.96); transform-origin: top right;
@@ -30,6 +30,7 @@
 /* Browsers without the popover attribute show the three controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; opacity: 1; transform: none; } }
 
+.contents { display: contents; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* The scan state's question; on every other state the heading stays for screen readers only. */
 .title { margin: var(--space-1) 2px 0; font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
@@ -42,12 +43,15 @@
 .meta { margin: 0; font-weight: var(--weight-label); }
 .help { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 
-/* Open card: the one panel. The balance, its unit and the level on one line, the stamps under it, then the rewards. */
+/* Points programmes and cards without a reward keep today's card until Design draws them on the mix card: the one
+   panel with the balance, its unit and the level on one line, the ladder under it. */
 .card { position: relative; display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-xl); }
+.cardHead > :global(button) { margin-right: calc(-1 * var(--space-2)); }
+.level { margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
 /* Card arrive: the surface is its own layer, so it can settle (.98 to 1, fading in) while the card number and the
    balance on it stand still from the first frame. */
 .panel::before, .card::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--color-surface); animation: surface var(--dur-ui) var(--ease-out) backwards; }
-.panel > *, .card > :not(dialog) { position: relative; }
+.panel > *, .card > * { position: relative; }
 @keyframes surface { from { opacity: 0; transform: scale(.98); } }
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
@@ -55,39 +59,26 @@
 /* What is not a fact arrives in reading order: the preview's actions, notes, reward rows. The stamps are the balance,
    so they stand still like the number; so does the scan form, which comes back after every booking. The question
    arrives with the counter's first paint only (the heading stays mounted, so it never plays again). */
-.question, .panel > .stack, .card > .note, .card > .winback { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+.question, .panel > .stack, .note, .winback { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
 .reward:nth-child(2) { animation-delay: 30ms; }
 .reward:nth-child(3) { animation-delay: 60ms; }
 .reward:nth-child(n + 4) { animation-delay: 90ms; }
 .cardHead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 .cardHead > div { display: grid; gap: var(--space-1); }
-.cardHead > :global(button) { margin-right: calc(-1 * var(--space-2)); }
 .note { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font-size: var(--text-14); line-height: var(--leading-body); }
 .balance { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
 .balance strong { font-size: var(--display-num); font-weight: var(--weight-heavy); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
 .balance em { font-size: var(--text-22); font-style: normal; font-weight: var(--weight-strong); letter-spacing: 0; }
-.level { margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-14); font-weight: var(--weight-label); }
-/* The stamps span the panel on a phone and stop growing on a wide counter. */
-.stamps { max-width: 22rem; }
-.rewards { display: grid; gap: var(--space-2); }
-.rewards h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
-.rewardList { display: grid; gap: var(--space-2); }
-/* Rows: the reward and its price, what a tap does at the right edge. */
-.reward {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--target-cashier); padding: var(--space-2) var(--space-4);
-  border: 0; border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
-  animation: row-in var(--dur-ui) var(--ease-out) backwards;
-}
-.reward > span:first-child { display: grid; gap: 2px; min-width: 0; }
-.reward strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
-.reward small { color: var(--color-ink-muted); font-size: var(--text-14); }
-.rewardAction { flex: none; color: var(--color-action); font-weight: var(--weight-strong); }
-.reward:active:not(:disabled) { transform: scale(.97); }
-.reward:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.reward:disabled { background: transparent; box-shadow: inset 0 0 0 1px var(--color-line); color: var(--color-ink-muted); cursor: not-allowed; }
-.reward:disabled .rewardAction { color: var(--color-ink-muted); }
+/* The rewards: the mix panel with one row each (tile, name, what is left or its price, the price or „Einlösen“). A ready
+   reward is a button; one out of reach is a disabled row; after a booking the rows are plain text. */
+.reward { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; animation: row-in var(--dur-ui) var(--ease-out) backwards; transition: background-color var(--dur-press) var(--ease-out); }
+/* A reward out of reach is not a target: no hover fill from the mix row (0,3,0 beats its button.row:hover). */
+.reward.reward:disabled { cursor: default; background: none; }
+.reward.reward:disabled:active { transform: none; }
+.reward:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.reward:active:not(:disabled) { background: var(--color-action-soft); }
 @media (hover: hover) and (pointer: fine) { .reward:hover:not(:disabled) { background: var(--color-action-soft); } }
+.go { color: var(--color-action); }
 
 /* Amount sheet: the preview of what „Buchen“ books, large enough to check before the tap. */
 .preview { display: grid; gap: var(--space-1); min-height: 4.5rem; align-content: center; }
@@ -96,14 +87,62 @@
 .preview .previewParts { font-size: var(--text-16); font-weight: var(--weight-label); }
 .preview .previewProblem { color: var(--color-danger); font-size: var(--text-16); }
 
-/* Dock: stepper over the booking button. The value changes at once; only the press scales. */
-.stepper { display: flex; align-items: center; justify-content: center; gap: var(--space-6); }
-.stepper output { min-width: 2ch; font: var(--weight-heavy) var(--display-tile)/1 var(--font-display); text-align: center; font-variant-numeric: tabular-nums; }
-.step { width: var(--target-cashier); padding: 0; }
+/* Dock (D, mix-kasse-390): the amount at 96 between two 72 px keys, standing in the height that is left (never under
+   24 above and below), „Neuer Stand“ on a raised row, the 64 px booking button, the note. The value rolls; only the
+   press scales. */
+/* The keys take the height the page leaves, between 96 and 200, so on a short card (points, no reward) the amount,
+   „Neuer Stand“ and the button stay one group at the foot instead of the amount floating in an empty panel. */
+.stepper { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
+.stepper output { min-width: 72px; font-size: 96px; line-height: 96px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
+/* With the redeem band in the dock the keys keep the open dock's top inset (28): the step area grows to hold them. */
+.stepper:has(~ .band) { min-height: 128px; }
+@media (min-width: 800px) { .stepper:has(~ .band) { min-height: 146px; } } /* the counter tablet's open inset, 38 */
+/* Where the dock no longer fills the height (tall phones; from 600 px wide), the step area takes the open inset's
+   height itself: 28 above the keys, 38 from 800 px wide. */
+@media (max-width: 599px) and (min-height: 901px) { .stepper { flex: none; height: 128px; min-height: 0; } }
+@media (min-width: 600px) { .stepper { flex: none; height: 128px; min-height: 0; } }
+@media (min-width: 800px) { .stepper { height: 146px; } } /* inset 38 and the 339 px dock of the 880 picture (no 2 px page overflow) */
+.stepper .step { width: 72px; height: 72px; min-height: 72px; padding: 0; border: 1px solid var(--color-line-strong); border-radius: 50%; background: transparent; }
+.newBalance { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 56px; margin: 0 0 var(--space-4); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-raised); }
+.newBalance > span { font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.newBalance b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); white-space: nowrap; font-variant-numeric: tabular-nums; }
+button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill); font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-strong); }
+.hint { margin: var(--space-3) 0 0; text-align: center; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+
+/* The card on the dark counter (MixCard size kasse): its 1 px light ring, the foot's pill and state. */
+.kasse > section { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-ink) 6%, transparent), var(--shadow-object); }
+.pill { display: inline-flex; align-items: center; gap: var(--space-2); height: 56px; padding: 0 calc(var(--space-5) - 1px) 0 calc(var(--space-4) - 1px); border: 1px solid transparent; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); color: var(--merchant-ink); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--dur-press) var(--ease-out); } /* the edge is always there, so forced colours only colour it (Design, 18 Nov) */
+.pill:active { transform: scale(.97); }
+.pill:focus-visible { outline: 2px solid var(--merchant-ink); outline-offset: 2px; }
+.pillSpace { height: 56px; }
+.footNote { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); text-align: right; text-wrap: balance; }
+.state { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); }
+.state i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); }
+.state[data-state="busy"] i { background: var(--color-warning); }
+.state[data-state="error"] i { background: var(--color-danger); }
+@media (forced-colors: active) {
+  /* The numeral keeps its colour instead of a backplate, which Chrome draws over the font's whole content area, across the dock's edge. */
+  .stepper output { forced-color-adjust: none; color: CanvasText; }
+  .band.band { border: 1px solid ButtonText; } /* doubled: the base .band { border: 0 } comes later */
+  .state i { forced-color-adjust: none; background: CanvasText; }
+  .pill { border-color: ButtonText; }
+  .bookedIcon { border: 2px solid CanvasText; }
+  .bookedHeadline { border: 1px solid CanvasText; }
+}
+/* After a booking the same card stays mounted with the new balance: a stamp that turns earned lands like the badge
+   (Pop in: 1.3 → .94 → 1 over 480 ms, the badge's `land`), and the figure and the reward row's count roll up over
+   220 ms from 100 ms after the answer. Stamps earned before the booking finished their (0 s) landing long ago and do not
+   replay. The figure carries MixCard's data-figure hook. */
+.kasse :global([data-on]) { animation: land var(--pop, 0s) var(--ease-out) backwards; }
+.kasse[data-booked] { --pop: 480ms; }
+/* The figure (MixCard's NumberRoll) and the reward row's count roll on the digit only, 220 ms from the answer, never blank
+   (from opacity .35, as NumberRoll). „von 8“ stands still. */
+.rollDigit { display: inline-block; animation: roll var(--dur-ui) var(--ease-out); }
+@keyframes roll { from { transform: translateY(.4em); opacity: .35; } }
 /* The one green band (ENG-121) for a ready reward. The whole band is the action; it stays last in the dock, in thumb
    reach, and the earning button above it steps back. */
 .band {
-  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg);
+  margin-top: var(--space-2); display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 76px; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-lg);
   background: var(--color-action); color: var(--color-on-action); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
 }
@@ -127,10 +166,11 @@
 @media (max-width: 359px) { .bandIcon { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .reward, .band, .menuButton { transition: none; }
-  .reward:active:not(:disabled), .band:active:not(:disabled), .menuButton:active { transform: none; }
+  .reward, .band, .menuButton, .pill { transition: none; }
+  .band:active:not(:disabled), .menuButton:active, .pill:active { transform: none; }
+  .kasse :global([data-on]), .rollDigit { animation: none; }
   .menu, .menu:popover-open { transform: none; }
-  .panel::before, .card::before, .question, .panel > .stack, .card > .note, .card > .winback, .reward { animation: none; }
+  .panel::before, .card::before, .question, .panel > .stack, .note, .winback, .reward { animation: none; }
   /* The app-wide reduce rule gives every animation .01 ms and one turn; the spinner still waits its 300 ms, then keeps
      turning, slowly. */
   .bandWait { animation-duration: 2s, .01ms !important; animation-iteration-count: infinite, 1 !important; }
@@ -155,42 +195,43 @@
 .outcome[data-tone="rejected"] .outcomeIcon { background: var(--color-danger); color: var(--color-on-danger); }
 .outcome[data-tone="pending"] .outcomeIcon, .outcome[data-tone="offline"] .outcomeIcon { background: var(--color-warning); color: var(--color-bg); }
 
-/* „Gebucht“ owns the top of the screen after a booking: the badge, the title, what was booked as a chip, the new
+/* „Gebucht“ takes the dock after a booking (the founder's yes, 17 Nov), under the card that keeps the new balance: the badge, the title, what was booked as a chip, the new
    balance, the card number. The camera keeps running under it for the next card. It is the counter's reward moment,
-   all inside --dur-reward: the panel fades in over 160 ms and never moves itself (e2e/cashier.mobile.spec.ts pins
-   that); on it the badge lands like a pressed stamp (Stamp pop) with one ring and the tick draws. Every word on it
+   all inside --dur-reward: the panel is there at once and never moves itself (e2e/cashier.mobile.spec.ts pins that);
+   on it the badge pops in with its tick like a pressed stamp (1.3 → .94 → 1) with one ring (Design, 18 Nov). Every word on it
    („Gebucht“, the amount, the new balance, the card number) stands still, and nothing here holds up the next scan. */
 .booked {
-  display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-4) var(--space-2);
-  text-align: center; overflow-wrap: anywhere; transition: opacity 160ms var(--ease-out);
+  flex: 1; display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: 0; margin-top: calc(-1 * var(--space-6));
+  text-align: center; overflow-wrap: anywhere; transition: none; /* no 0.01 ms reduced-motion frame of the old state */
 }
-@starting-style { .booked { opacity: 0; } }
-.bookedIcon { position: relative; display: grid; place-items: center; width: 112px; height: 112px; margin-bottom: var(--space-2); border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
+.bookedIcon { position: relative; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: color-mix(in oklab, var(--color-success), transparent 82%); color: var(--color-success); }
 .booked[data-tone="pending"] .bookedIcon { background: color-mix(in oklab, var(--color-warning), transparent 82%); color: var(--color-warning); }
 .booked[data-tone="undone"] .bookedIcon { background: var(--color-surface); color: var(--color-ink); }
-.booked h2 { margin: 0; font: var(--weight-heavy) var(--display-num)/1.05 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
+.booked h2 { margin: 0; font: var(--weight-heavy) var(--display-tile)/1 var(--font-display); letter-spacing: -.03em; text-wrap: balance; }
 /* Longer titles („Vorgemerkt, noch nicht gebucht“, „Rückgängig gemacht“) step down so they keep two lines at most. */
 .booked:not([data-tone="success"]) h2 { font-size: var(--text-28); letter-spacing: -.015em; }
 .booked p { margin: 0; max-width: 32ch; }
-.bookedHeadline {
-  display: inline-flex; align-items: center; min-height: 40px; margin-top: var(--space-1); padding: var(--space-1) var(--space-4); border-radius: var(--radius-sm);
+.booked .bookedHeadline {
+  display: inline-flex; align-items: center; min-height: 36px; margin-top: calc(var(--space-3) - var(--space-2)); padding: 0 var(--space-3); border-radius: var(--radius-sm);
   background: var(--color-success); color: var(--color-bg); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.2; font-variant-numeric: tabular-nums; text-wrap: balance;
 }
 .bookedDetail { font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.35; font-variant-numeric: tabular-nums; }
+/* „Bereit für die nächste Karte“ steps back under the chip (Design, 18 Nov). */
+.bookedReady { color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); }
 .bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
-.bookedHint { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
+/* Inside the booked dock the hint is a line of the stack, not a box (Design, 18 Nov). */
+.booked .bookedHint { max-width: none; margin: 0; padding: 0; background: none; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); text-wrap: balance; }
 .bookedError { color: var(--color-danger); font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); }
 .bookedActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .footnote { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: var(--leading-body); }
 .bookedIcon { animation: land var(--dur-reward) var(--ease-out) backwards; }
 .booked[data-tone="success"] .bookedIcon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: ring var(--dur-reward) var(--ease-out); }
-.booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick var(--dur-ui) var(--ease-out) 140ms backwards; }
+.outcome[data-tone="success"] .outcomeIcon path { stroke-dasharray: 24; animation: tick var(--dur-ui) var(--ease-out) 140ms backwards; }
 @keyframes land { 0% { opacity: 0; transform: scale(1.3); } 60% { opacity: 1; transform: scale(.94); } }
 @keyframes ring { from { opacity: .7; transform: scale(.9); } to { opacity: 0; transform: scale(1.3); } }
 @keyframes tick { from { stroke-dashoffset: 24; } }
 @media (prefers-reduced-motion: reduce) {
-  .booked { transition: none; }
-  .outcome, .rejected input, .bookedIcon, .booked[data-tone="success"] .bookedIcon::after, .booked[data-tone="success"] .bookedIcon path, .outcome[data-tone="success"] .outcomeIcon path { animation: none; }
+  .outcome, .rejected input, .bookedIcon, .booked[data-tone="success"] .bookedIcon::after, .outcome[data-tone="success"] .outcomeIcon path { animation: none; }
 }
 
 /* Loading and blocked access */
@@ -199,9 +240,63 @@
 .access p { margin: 0; color: var(--color-ink-muted); font-size: var(--text-16); line-height: var(--leading-body); }
 .access > div { display: grid; align-items: stretch; gap: var(--space-2); margin: var(--space-2) 0 0; }
 .access > div a { color: var(--color-on-action); font-size: var(--text-18); }
+/* A check still running after LONG_MS: the words panel fades in over --dur-ui (DESIGN › Waiting). */
+.accessLate { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+/* Over the waiting frame's shape, not in place of it: no empty frame in between. */
+.phMain { position: relative; }
+.accessOver { position: absolute; inset: 0 0 auto; }
+@media (prefers-reduced-motion: reduce) { .accessLate { animation: none; } }
 /* Win-back bonus (ENG-044): coral because it is a stamp moment; the amount is also in words, never colour alone. */
 .winback { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-stamp); color: var(--color-on-stamp); line-height: var(--leading-body); }
 .winback small { font-size: var(--text-14); }
+
+/* The access check's wait, drawn as the scan form the sheet lands on (Design, 18 Nov): the question as two line bars
+   (the real heading's own lines, text hidden), the camera button, the field with its label and hint, „Prüfen“, the help
+   line, each at the live element's size and place. Still, no shimmer. */
+.phMain { display: grid; gap: var(--space-4); }
+/* The head keeps the round menu key's place (a still outline) so it does not change when the form lands. */
+.phKey { display: block; width: 56px; height: 56px; border: 1px solid var(--color-line-strong); border-radius: 50%; }
+.phLine { color: transparent; background: var(--color-raised); border-radius: var(--radius-sm); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.phButton, .phLabel, .phInput, .phHint, .phHelp { display: block; background: var(--color-raised); }
+.phButton { height: var(--target-cashier); border-radius: var(--radius-pill); }
+.phQuiet { background: transparent; border: 1px solid var(--color-line-strong); }
+.phField { display: grid; gap: var(--space-2); }
+.phLabel { width: 60%; height: 21px; border-radius: var(--radius-sm); }
+.phInput { height: var(--target-cashier); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
+.phHint { width: 45%; height: 20px; border-radius: var(--radius-sm); }
+.phHelp { width: 70%; height: 21px; border-radius: var(--radius-sm); }
+@media (forced-colors: active) { .phLine, .phButton, .phInput { border: 1px solid CanvasText; } }
+
+/* Typed path after a booking: the code field in the „Gebucht“ dock, 44 high with the house focus ring (Design, 18 Nov). */
+/* The typed path's Gebucht (Design, 18 Nov): badge 64, 16 under the dock's top edge, the stack from the top, the field at
+   the foot with 24 under it and its ring (2 + 2) inside the dock's 16 px side inset. */
+/* Compact metrics: the typed path, and any booked stack with a hint (a reward now ready), so the stack fits the open
+   dock with the badge at least 16 under its edge (Design, 18 Nov). */
+.bookedCompact { gap: 6px; } /* not the 4 px grid: 8 would outgrow the held dock on the typed path, a 16 px badge inset and the 24 under the field are the ruled distances */
+.bookedCompact .bookedActions { margin-top: 0; }
+.bookedCompact .bookedIcon { width: 64px; height: 64px; }
+.bookedTyped { grid-template-columns: minmax(0, 1fr); align-content: start; grid-template-rows: repeat(5, auto) 1fr; margin-top: calc(var(--space-4) - var(--space-6) - 1px); } /* the badge 16 under the outer edge, so the booked dock is 315 */
+/* With the field below, the typed stack fits the open dock: 12 above the chip (6 + 6), the chip at 32, and 12 clear
+   between the line above and the field's focus ring (6 + 10 − the ring's 4). */
+.bookedCompact .bookedHeadline { min-height: 32px; margin-top: 6px; }
+.bookedCompact .bookedDetail, .bookedCompact .bookedHint { line-height: 20px; }
+/* margin-top 10: with the line above's 6 gap, 12 clear to the field's focus ring (10 + 6 − the ring's 4). */
+.dockCode { align-self: end; display: flex; align-items: center; gap: var(--space-2); box-sizing: border-box; width: 100%; max-width: 440px; margin-top: 10px; padding: 0 var(--space-1); }
+.dockCode.dockCode.dockCode input { box-sizing: border-box; flex: 1; width: 0; min-width: 0; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
+/* In a floating panel held at the open dock's height (a counter tablet) the typed stack keeps the phone's rhythm, the
+   hint 24 above the field, and the spare height goes under the field (Design, 19 Nov). */
+:global([data-floating]) .bookedTyped { grid-template-rows: repeat(6, auto); }
+:global([data-floating]) .bookedTyped .dockCode { align-self: start; margin-top: 18px; } /* 6 gap + 18 = 24 */
+.dockCode input::placeholder { color: var(--color-ink-muted); }
+.dockCode input:focus-visible, .dockCode input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* The booked dock's live region takes no box of its own: its lines stay the stack's rows. */
+.live { display: contents; }
+/* The long wait's panel covers these placeholders: they keep their place, unseen. */
+.covered { visibility: hidden; }
+.pretty { text-wrap: pretty; }
+/* The booking roll's incoming digit rises inside the figure's own box, not over the label under it (Kasse card only). */
+.kasse :global([data-figure]) { overflow: clip; }
 /* The confirmation's figures the cashier checks money against (ENG-271), and a card number that never breaks. */
 .figure { color: var(--color-ink); }
 .nowrap { white-space: nowrap; }

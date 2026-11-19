@@ -78,12 +78,12 @@ describe("a one-point bonus in the singular (ENG-104)", () => {
     expect(almostText("stamp", 1, "Pizza gratis")).toBe("Nur noch 1 Stempel bis zu deiner Prämie: Pizza gratis.");
   });
   it("the lines the cashier sees", () => {
-    expect(winbackCashierLine("points", 1)).toBe("Willkommen zurück: +1 Punkt extra");
-    expect(winbackCashierLine("points", 2)).toBe("Willkommen zurück: +2 Punkte extra");
-    expect(winbackCashierLine("stamp", 1)).toBe("Willkommen zurück: +1 Stempel extra");
-    expect(birthdayCashierLine("points", 1)).toBe("Geburtstag: +1 Punkt extra");
-    expect(birthdayCashierLine("points", 2)).toBe("Geburtstag: +2 Punkte extra");
-    expect(birthdayCashierLine("stamp", 1)).toBe("Geburtstag: +1 Stempel extra");
+    expect(winbackCashierLine("points", 1)).toBe("Willkommen zurück: +1\u00a0Punkt extra");
+    expect(winbackCashierLine("points", 2)).toBe("Willkommen zurück: +2\u00a0Punkte extra");
+    expect(winbackCashierLine("stamp", 1)).toBe("Willkommen zurück: +1\u00a0Stempel extra");
+    expect(birthdayCashierLine("points", 1)).toBe("Geburtstag: +1\u00a0Punkt extra");
+    expect(birthdayCashierLine("points", 2)).toBe("Geburtstag: +2\u00a0Punkte extra");
+    expect(birthdayCashierLine("stamp", 1)).toBe("Geburtstag: +1\u00a0Stempel extra");
   });
 });
 
