@@ -1,0 +1,34 @@
+/* Programm A (founder's mix, 17 Nov; mock mix/programm-a.html). The phone keeps A's order; 600 to 1199 puts the card
+   beside its rule and the infos, the rest full width; from 1200 a 400 column (what is on the card) beside the main one. */
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8) var(--space-6); }
+.col { display: contents; }
+.split > *, .col > * { min-width: 0; }
+
+/* The DOM reads Aussehen, So sammeln Kunden, Infos auf der Karte, Prämien, Extras, Für die Ergebnisse (Design, 18 Nov);
+   the phone stacks it as it is, the columns below read in the same order. */
+@media (min-width: 600px) and (max-width: 1199px) {
+  .split:not([data-bare]) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "look rule" "look info" "rew rew" "ext ext" "res res"; }
+  .split:not([data-bare]) .look { grid-area: look; } .split:not([data-bare]) .rule { grid-area: rule; } .split:not([data-bare]) .info { grid-area: info; }
+  .split:not([data-bare]) .rew { grid-area: rew; } .split:not([data-bare]) .ext { grid-area: ext; } .split:not([data-bare]) .res { grid-area: res; }
+  .look, .rule, .info { align-self: start; }
+}
+@media (min-width: 1200px) {
+  .split:not([data-bare]) { grid-template-columns: 400px minmax(0, 1fr); column-gap: var(--space-10); align-items: start; }
+  .split:not([data-bare]) > .col { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-8); }
+  /* No reward, so no card: one column, as wide as the other single-column owner pages. */
+  .split[data-bare] { max-width: 720px; }
+}
+
+/* The house example card (points) fills its column like the mix card. */
+.look :global(.ow-cardprev) { max-width: none; }
+
+/* A value that is set reads in ink; „Aus“, „Keine“ stay muted (the pattern's plain value). */
+.on { color: var(--color-ink); }
+
+/* The row the owner came back from keeps an outline; a tapped row holds the selected fill until its screen shows. */
+.split a { scroll-margin-block: 72px calc(var(--ow-tabbar) + var(--space-4)); }
+.split a[data-saved] { box-shadow: inset 0 0 0 2.5px var(--color-ink); }
+.split a:has([data-pending]) { background-image: linear-gradient(var(--color-fill), var(--color-fill)); }
+
+/* The rule as the customer reads it, whole, clamped only after two lines (Design, 18 Nov). */
+.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }

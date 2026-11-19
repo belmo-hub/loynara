@@ -2,9 +2,13 @@
 
 import { weekLine } from "./week-line";
 import Link from "next/link";
-import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
+import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
+import { MixCard } from "@/components/customer/mix-card";
+import { cx } from "@/components/ui/cx";
+import { MixChip, mixButton, mixStyles as mix, MixTile } from "@/components/ui/mix";
+import { merchantPalette } from "@/components/ui/merchant-color";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { boardCacheKey, readBoardCache, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
@@ -15,16 +19,17 @@ import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, NextBandPlaceholder, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, BoardPlaceholder, BonusOffBand, BookPlaceholder, FactsPlaceholder, Brought, CardStock, DemoDataChip, Diary, EmptyStrip, Facts, FactsHelp, NextBandPlaceholder, NextPanel, Strip, type NextAction, type Tile } from "./overview-board";
+import s from "./overview.module.css";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 /*
- * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct) laid out as Wegweiser
- * start screen A (ENG-121): the greeting, the next step as the green band, the overview card, four rows for the last 30 days
- * at the active location, the diary. Everything is about the active location.
+ * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct), drawn in the founder's
+ * mix (ENG-260, approved 17 Nov): the greeting, F's „Als Nächstes“ with the next step and the milestone, then C's page: the
+ * board with the week chart, the figure rows for the last 30 days, „Vorschlag“, the diary. Everything is about the active location.
  */
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
@@ -139,49 +144,56 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
   const brought = !owned || !here || !a ? null
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
-      : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
+      // The suggestion stands once (Design): when „Als Nächstes“ already offers the bonus, „Vorschlag“ is left out.
+      : a.winbackSetting?.enabled === false && !offersBonus(next?.action) ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
-  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
+  const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
+  // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
+  const panel = (next !== null || milestone !== null) && (answered || failed) && !(failed && !board);
+  // A ready reward leads with the card's thumbnail, full, in the shop's colour. Points stay off the mix card until Design draws one (18 Nov).
+  const thumb = next?.kind === "reward-ready" && me.programType === "stamp"
+    ? <span className={s.thumb} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}><MixCard size="thumb" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={me.rewardCost} reward={{ id: "", title: me.rewardTitle, cost: me.rewardCost }} /></span> : undefined;
+  // The board leads with bookings when the shop has no till amounts: then the Buchungen row would repeat its figure.
+  const bookingsBoard = !!board?.spend && !boardEuros(board.spend.figures);
+  // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
+  const tiles = a ? tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought) : [];
 
   return (
-    <div className="ow-page ow-dash">
-      <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
+    <div className={cx("ow-page", s.page)}>
+      <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} /></div>
       {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
       {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
-      {firstName === null ? <div className="ow-hello" aria-hidden="true">{NBSP}</div> : <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>}
-      {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
-      {next ? <NextBand {...next}>{signFailed}</NextBand> : <>
-        {slot && <NextBandPlaceholder closing={slotCloses} />}
+      {firstName === null ? <div className={cx("ow-hello", s.hello)} aria-hidden="true">{NBSP}</div> : <h1 className={cx("ow-hello", s.hello)}><span className="ow-sr">Übersicht: </span>{hello}</h1>}
+      <div className={mix.stack}>
+        {panel ? <NextPanel next={next} lead={thumb ? { kind: "card", node: thumb } : next ? { kind: "tile", node: <MixTile tone="mute">{stepIcon(next.kind)}</MixTile> } : undefined} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
+        {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
-      </>}
-      <div className="ow-dash-lead ow-stack">
-        {failed && !board ? <ErrorCard reload={reload} />
-          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
-            {!board ? <BoardPlaceholder /> : <>
-              {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
-                <p className="ow-board-big"><NumberRoll value={board.stock.recent}>{nf.format(board.stock.recent)}</NumberRoll>{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
-                <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
-                <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+        <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={board && !brought ? "" : undefined}>
+          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
+          {failed && !board ? <ErrorCard reload={reload} />
+            : <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} aria-busy={!board}>
+              {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
+              {board && bookingsBoard && <h3 className={s.kicker}><ChartColumn size={16} aria-hidden="true" focusable="false" />Buchungen</h3>}
+              {!board ? <BookPlaceholder caption={STRIP_CAPTION} /> : <>
+                <div>{board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
+                  <p className="ow-board-big"><NumberRoll value={board.stock.recent}>{nf.format(board.stock.recent)}</NumberRoll>{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+                  <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
+                  <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+                </>}</div>
+                {/* ENG-210: the week in words, as the chart's heading (Design, 10 Nov). The chart marks the same days. */}
+                {!failed && a?.week && <p className="ow-week-line">{weekLine(a.week)}</p>}
+                <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} week={!failed && a?.week ? { from: a.week.from, line: weekLine(a.week) } : undefined} />
+                {news && <p className={s.foot}>{news}</p>}
+                {failed && cached && <p className={s.offline} role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
               </>}
-              {/* ENG-210: the week in words, as the strip's heading (Design, 10 Nov). Facts: no motion of their own. The strip
-                  marks the same days (Monday to today), so the sentence and the bars say one thing. */}
-              {!failed && a?.week && <p className="ow-week-line">{weekLine(a.week)}</p>}
-              <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} week={!failed && a?.week ? { from: a.week.from, line: weekLine(a.week) } : undefined} />
-              {news && <p className="ow-board-news">{news}</p>}
-              {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
-            </>}
-          </Board>}
-        {brought}
+            </section>}
+          {failed ? <p className={cx(s.offline, s.off)}>{OFFLINE_LINE}</p> : !a ? <FactsPlaceholder /> : <Facts note={firstWeeks(a)} tiles={tiles.filter(tile => tile.key !== "bookings" || !bookingsBoard)} />}
+          {brought}
+          {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
+          {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
+          {!failed && a && (a.diary.length > 0 || gap) && <Diary diary={a.diary} today={a.today} unit={unitOf(me)} gap={gap} />}
+        </section>
       </div>
-      <div className="ow-dash-side">
-        {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles title="Letzte 30 Tage an diesem Standort" note={firstWeeks(a)} tiles={tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
-      </div>
-      {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
-      {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
-      {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
-      {!failed && a && (a.diary.length > 0 || gap) && <Diary diary={a.diary} today={a.today} unit={unitOf(me)} gap={gap} />}
     </div>
   );
 }
@@ -195,6 +207,13 @@ export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: Re
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };
 }
+
+/** The muted tile's icon for a next step, so every „Als Nächstes“ row has a lead (Design, 18 Nov): cards away and other
+ * observations the users, a quiet week the calendar, an open set-up step the list. */
+const stepIcon = (kind: string) => kind === "quiet" ? <CalendarDays size={20} aria-hidden="true" /> : kind.startsWith("setup:") ? <ListChecks size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />;
+
+/** Whether a next step's action is the win-back bonus switch, so the page offers it once. */
+const offersBonus = (action: NextAction | undefined) => !!action && "href" in action && action.href === WINBACK_HREF;
 
 const shiftDay = (date: string, by: number) => new Date(new Date(`${date}T12:00:00Z`).getTime() + by * 86_400_000).toISOString().slice(0, 10);
 
@@ -220,8 +239,9 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     </>;
   }
   return <>
-    <p className="ow-board-big"><NumberRoll value={bookings}>{nf.format(bookings)}</NumberRoll>{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
-    <p className="ow-board-sub">letzte 30 Tage, Korrekturen abgezogen</p>
+    {/* The kicker „Buchungen“ names the figure (C). */}
+    <p className={s.fig}><NumberRoll value={bookings}>{nf.format(bookings)}</NumberRoll></p>
+    <p className={mix.sub}>letzte 30 Tage, Korrekturen abgezogen</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
       <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
@@ -282,7 +302,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
   const young = firstWeeks(a) !== undefined;
   const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) => !young && a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
-  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
+  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}><span>Willkommen-zurück-Bonus ist aus</span></Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
@@ -322,10 +342,9 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
 
 function ErrorCard({ reload }: { reload: () => void }) {
   return (
-    <section className="ow-card ow-stack ow-dash-error" role="alert">
-      <h2>Die Zahlen sind gerade nicht da.</h2>
-      <p>Die Verbindung zu Loynara hat nicht geklappt.</p>
-      <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reload}>Erneut laden</button></div>
+    <section className={cx(mix.panel, mix.pad)} role="alert">
+      <div><h3 className={mix.h}>Die Zahlen sind gerade nicht da.</h3><p className={mix.sub}>Die Verbindung zu Loynara hat nicht geklappt.</p></div>
+      <div><button type="button" className={cx(mixButton({ variant: "quiet" }), s.sm)} onClick={reload}>Erneut laden</button></div>
     </section>
   );
 }
@@ -351,34 +370,41 @@ function EmptyShop({ me }: { me: MeResponse }) {
       : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: { label: "Kasse öffnen", href: "/cashier" } }
         : { title: current.evidence, action: current.action ? { label: current.action.label, href: current.action.href } : undefined };
   return (
-    <div className="ow-page ow-dash ow-dash--single">
+    <div className={cx("ow-page", s.page)}>
       <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
-      <h1 className="ow-hello"><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
-      {lead && <NextBand {...lead} />}
-      <Board label="Startklar" busy={readiness.state !== "ok" && readiness.state !== "error"}>
-        {readiness.state === "ok" && <>
-          <p className="ow-board-big">{nf.format(readiness.data.requiredDone)}{NBSP}<small>von {nf.format(readiness.data.requiredTotal)}</small></p>
-          <p className="ow-board-sub">Pflichtschritte erledigt</p>
-        </>}
-        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
-          : readiness.state !== "ok" && <BoardPlaceholder />}
-        <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
-      </Board>
-      <section className="ow-diary" aria-labelledby="ow-steps-title">
-        <h2 id="ow-steps-title">Deine ersten Schritte</h2>
-        {steps.map(step => {
-          const copy = FIRST_STEPS[step.id](me);
-          return (
-            <div className="ow-day" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
-              <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3} />}</i><span /></div>
-              <div>
-                <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip">Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
-                <p className="ow-day-sum">{step.status === "done" || !copy.text ? step.evidence : copy.text}</p>
-              </div>
-            </div>
-          );
-        })}
-      </section>
+      <h1 className={cx("ow-hello", s.hello)}><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
+      <div className={mix.stack}>
+        {lead && <NextPanel next={lead} lead={current?.id === "enrolment" ? { kind: "tile", node: <MixTile tone="mute"><UserPlus size={20} aria-hidden="true" focusable="false" /></MixTile> } : undefined} milestone={null} onSign={() => {}} />}
+        <div className={cx(mix.stack, s.sec)}>
+          <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label="Startklar" aria-busy={readiness.state !== "ok" && readiness.state !== "error"}>
+            <h3 className={s.kicker}><ChartColumn size={16} aria-hidden="true" focusable="false" />Startklar</h3>
+            {readiness.state === "ok" && <div>
+              <p className={s.fig}>{nf.format(readiness.data.requiredDone)}<small>von {nf.format(readiness.data.requiredTotal)}</small></p>
+              <p className={mix.sub}>Pflichtschritte erledigt</p>
+            </div>}
+            {readiness.state === "error" ? <div><p>Die Zahlen sind gerade nicht da.</p><button type="button" className={cx(mixButton({ variant: "quiet" }), s.sm)} onClick={reloadReadiness}>Erneut laden</button></div>
+              : readiness.state !== "ok" && <BoardPlaceholder />}
+            <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
+          </section>
+          <section className={cx(mix.panel, s.steps)} data-ow="diary" aria-labelledby="ow-steps-title">
+            <div className={mix.ph}><h2 id="ow-steps-title" className={mix.h}>Deine ersten Schritte</h2></div>
+            {steps.map(step => {
+              const copy = FIRST_STEPS[step.id](me);
+              return (
+                <div className={mix.row} data-lead="tile" data-day="" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
+                  {/* Done: the green check; open: an empty ring, never a grey fill, which reads as loading (Design). */}
+                  {step.status === "done" ? <MixTile><Check size={20} /></MixTile> : <span className={s.ring} aria-hidden="true" />}
+                  <div className={mix.body}><span className={mix.text}>
+                    <b>{copy.title}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></b>
+                    {step.required && step.status !== "done" && <MixChip>Pflicht</MixChip>}
+                    <small>{step.status === "done" || !copy.text ? step.evidence : copy.text}</small>
+                  </span></div>
+                </div>
+              );
+            })}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Archive, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { MixCard } from "@/components/customer/mix-card";
+import { cx } from "@/components/ui/cx";
+import { merchantPalette } from "@/components/ui/merchant-color";
+import { MixChip, MixPanel, MixRow, MixSection, mixStyles } from "@/components/ui/mix";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, LinkPending, LoadingBlock, nf, PageHead } from "./owner-ui";
@@ -11,6 +14,8 @@ import { cardDay } from "@/lib/change-lines";
 import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
+import styles from "./program-list.module.css";
+import { BrowserCardPreview } from "./card-preview";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -49,7 +54,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
   const rules = program.ownerRulesText ?? program.rulesText, extras = ruleKind(type, program.earningMode) === "purchase";
   // ENG-100: rows keep the value in force; a change waiting for its date shows as a chip (Design gaps §1).
   const chips = ruleChips(program), expiry = program.pendingExpiry ? program.pendingExpiry.before : me.pointsExpiryMonths;
-  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
+  // The whole rule, as the customer reads it; the row clamps it after two lines (Design, 18 Nov).
+  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules, Infinity) } : off("Keine")) } : { sub: quoteStart(rules, Infinity) }) };
   const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, pending: chips.earning, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
@@ -80,8 +86,9 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(program.earningMode !== "purchase" ? { sub: "Nur bei Punkten nach Einkaufswert", ...off("Aus") } : me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
     ] },
     // The card studio holds the names (W38); where the logo upload is withheld (pilot surfaces) it offers the colour, no logo.
-    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" }] },
+    // Mix A: its row leads the infos; „Aussehen“ is the card example above them.
     { title: "Infos auf der Karte", rows: [
+      { href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" },
       { ...ask("news"), icon: Megaphone, ...(me.cardNews ? { sub: quoteStart(me.cardNews) } : off("Keine")) },
       { ...ask("review-link"), icon: Star, ...(me.reviewUrl ? { sub: host(me.reviewUrl) } : off("Kein Link")) },
     ] },
@@ -97,6 +104,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
 // and the toast's words when a save did more than save („Neuigkeit entfernt“).
 type Return = { row: string; y?: number; saved?: boolean; toast?: string };
 const RETURN = "owner-programm-return";
+/** Where each section stands in the mix layout (program-list.module.css). */
+const AREA: Record<string, "rule" | "rew" | "ext" | "info" | "res"> = { "So sammeln Kunden": "rule", "Prämien": "rew", "Extras": "ext", "Infos auf der Karte": "info", "Für die Ergebnisse": "res" };
 /** `list` names another list's return (Geschäft's sender rows, ENG-164); Programm's by default. */
 export function readReturn(list = RETURN): Return | null {
   try { const value = JSON.parse(sessionStorage.getItem(list) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
@@ -106,6 +115,18 @@ export function writeReturn(value: Return | null, list = RETURN) {
 }
 /** A row's page saved: the list outlines `row` and says `toast`, scrolled as when the owner tapped `from`. */
 export function markSaved(row: string, from = row, toast = "Gespeichert", list = RETURN) { const last = readReturn(list); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }, list); }
+
+/**
+ * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. Points stay on the
+ * house example (the ladder) until Design draws a points mix card (Design, 18 Nov).
+ */
+export function ProgramExample({ me, type, reward }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number } }) {
+  const balance = Math.floor(reward.cost * 5 / 8);
+  if (type === "points") return <BrowserCardPreview businessName={me.businessName} locationName={me.locationName} brandColor={me.brandColor ?? ""} programType="points" rewardTitle={reward.title} rewardCost={reward.cost} balance={balance} showCode={false} />;
+  return <div style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={balance} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} />
+  </div>;
+}
 
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {
@@ -126,6 +147,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
     if (typeof back.y === "number") window.scrollTo({ top: back.y, behavior: "instant" });
     const row = Array.from(list.current?.querySelectorAll("a") ?? []).find(link => link.getAttribute("href") === back.row);
     row?.scrollIntoView({ block: "nearest", behavior: "instant" });
+    if (back.saved) row?.setAttribute("data-saved", "");
     row?.focus({ preventScroll: true });
   }, [ready, back]);
   useEffect(() => {
@@ -138,27 +160,39 @@ export function ProgramList({ me }: { me: MeResponse }) {
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"), messages: !owner.hiddenSurfaces.includes("walletMessages"),
     referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
+  const section = (title: string) => {
+    const found = sections?.find(item => item.title === title);
+    return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel>{found.rows.map(({ icon: Icon, ...row }) =>
+      <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub && row.href === "/merchant/program/rule" ? <span className={styles.clamp}>{row.sub}</span> : row.sub}
+        title={<>{row.title}{row.pending && <span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span>}<LinkPending /></>}
+        end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} />)}</MixPanel></MixSection></div>;
+  };
+  const reward = program.state === "ok" ? program.data.rewards[0] : undefined;
   return (
     <div className="ow-page">
       <PageHead title="Programm" />
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
-        <div ref={list} className="ow-prog">
-          {sections.map(section => <div key={section.title}>
-            <h2>{section.title}</h2>
-            <ul>{section.rows.map(({ icon: Icon, ...row }) => <li key={row.href}>
-              <Link href={row.href} className="ow-prog-row" data-saved={(back?.saved && back.row === row.href) || undefined} onClick={() => writeReturn({ row: row.href, y: window.scrollY })}>
-                <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
-                <span className="ow-prog-main">
-                  <span className="ow-prog-text"><strong>{row.title}</strong>{row.sub && <small>{row.sub}</small>}</span>
-                  {row.value && <span className="ow-prog-value" data-big={row.big || undefined} data-pair={row.pair || undefined} data-off={row.off || undefined}>{row.value}</span>}
-                  {row.pending && <span className="ow-prog-pend"><span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span></span>}
-                </span>
-                <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
-                <LinkPending />
-              </Link>
-            </li>)}</ul>
-            {section.note && <p className="ow-prog-note">{section.note}</p>}
-          </div>)}
+        // One click handler for every row: the list comes back to the row it was left from.
+        <div ref={list} className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
+          {reward && program.state === "ok" ? <>
+            <div className={styles.col}>
+              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>
+              {section("So sammeln Kunden")}
+              {section("Infos auf der Karte")}
+            </div>
+            <div className={styles.col}>
+              {section("Prämien")}
+              {section("Extras")}
+              {section("Für die Ergebnisse")}
+            </div>
+          </> : <>
+            {/* No reward yet: flat, „Prämie hinzufügen“ first, then the card group (Design, 18 Nov). */}
+            {section("Prämien")}
+            {section("So sammeln Kunden")}
+            {section("Infos auf der Karte")}
+            {section("Extras")}
+            {section("Für die Ergebnisse")}
+          </>}
         </div>
       )}
       <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>

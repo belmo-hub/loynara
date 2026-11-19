@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { ArrowRight, CirclePlus, Gift, Link2, Megaphone, Palette, Printer } from "lucide-react";
+import { ArrowRight, CirclePlus, Flag, Gift, Link2, Megaphone, Palette, Printer } from "lucide-react";
 import { MixCard } from "@/components/customer/mix-card";
 import { MixChip, MixPanel, MixRow, MixSection, MixStack, mixButton, mixStyles } from "@/components/ui/mix";
 
@@ -31,6 +31,7 @@ export default function MixPage() {
     <Spec name="points (house ladder)"><MixCard {...shop} programType="points" balance={186} reward={breakfast} rewards={[{ id: "a", title: "Kaffee", cost: 60 }, breakfast]} /></Spec>
     <MixStack className="patterns">
       <MixSection title="Deine Karte"><MixPanel>{["Programmregeln", "So findest du deine Karte wieder", "Meine Kartendaten exportieren"].map(t => <MixRow key={t} title={t} href="#" />)}</MixPanel></MixSection>
+      <MixSection title={<><Flag size={20} aria-hidden="true" />Als Nächstes</>}><MixPanel><MixRow title="Deine 100. Karte" href="#" /></MixPanel></MixSection>
       <MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>} note="Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.">
         <MixPanel><MixRow icon={<Palette size={20} />} title="Kundenkarte" sub="Namen, Logo und Farbe" href="#" /></MixPanel></MixSection>
       <MixPanel>
