@@ -202,7 +202,7 @@ export default function CashierPage() {
         if (recent && Date.now() - recent.at < RECENT_BOOKING_MS) {
           const seconds = Math.max(1, Math.round((Date.now() - recent.at) / 1000));
           setStatus("pending");
-          setMessage(locale === "fr" ? `Attention : cette carte a déjà été créditée il y a ${seconds} s (${recent.detail}). N’ajoutez à nouveau que pour un nouvel achat.` : `Achtung: Auf dieser Karte wurde vor ${seconds} s gebucht (${recent.detail}). Nur erneut vergeben, wenn es ein neuer Kauf ist.`);
+          setMessage(locale === "fr" ? `Attention : cette carte a déjà été créditée il y a ${seconds}\u00a0s (${recent.detail}). N’ajoutez à nouveau que pour un nouvel achat.` : `Achtung: Auf dieser Karte wurde vor ${seconds}\u00a0s gebucht (${recent.detail}). Nur erneut vergeben, wenn es ein neuer Kauf ist.`);
         }
       }
       // The offline lease is only a fallback; the card is usable at once, without waiting for it.
@@ -307,7 +307,7 @@ export default function CashierPage() {
       setOfflineCurrency(selectedCard.currency);
       setOfflineError("");
       const fr = locale === "fr";
-      const what = "quantity" in award ? `${award.quantity} ${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : `Kauf über ${formatMinor(award.purchaseAmountMinor, selectedCard.currency)}`;
+      const what = "quantity" in award ? `${award.quantity}\u00a0${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)}\u00a0${selectedCard.currency}` : `Kauf über ${formatMinor(award.purchaseAmountMinor, selectedCard.currency)}`;
       const detail = fr ? `${what} pour ${selectedCard.cardLocator} mis en attente hors ligne. Rien n’est encore enregistré ; le solde ne change qu’après la synchronisation.` : `${what} für ${selectedCard.cardLocator} offline vorgemerkt. Noch nichts gebucht; der Kontostand ändert sich erst nach der Synchronisierung.`;
       rememberBooking(selectedCard.id, fr ? `${what}, hors ligne` : `${what}, offline vorgemerkt`);
       finishBooking({ tone: "pending", title: fr ? "En attente, pas encore enregistré" : "Vorgemerkt, noch nicht gebucht", detail }, "pending", detail);
@@ -375,7 +375,7 @@ export default function CashierPage() {
     try { pending = operationFor(signature); }
     catch (cause) { setStatus("rejected"); setMessage(cause instanceof Error ? cause.message : "Buchung nicht möglich."); return; }
     const fr = locale === "fr";
-    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity} ${unitLabel(selectedCard, operation.award.quantity, fr)}` : fr ? `${(operation.award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : formatMinor(operation.award.purchaseAmountMinor, selectedCard.currency);
+    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity}\u00a0${unitLabel(selectedCard, operation.award.quantity, fr)}` : fr ? `${(operation.award.purchaseAmountMinor / 100).toFixed(2)}\u00a0${selectedCard.currency}` : formatMinor(operation.award.purchaseAmountMinor, selectedCard.currency);
     const settle = (unclear: boolean) => {
       if (unclear) unresolvedRef.current.set(selectedCard.id, { pending, label, at: Date.now() });
       else if (unresolvedRef.current.get(selectedCard.id)?.pending.signature === signature) unresolvedRef.current.delete(selectedCard.id);
@@ -430,7 +430,7 @@ export default function CashierPage() {
       lastBooking.current = null;
       recentBookings.current.delete(last.card.id);
       unresolvedRef.current.delete(last.card.id);
-      const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(last.card, result.balance, fr)}`;
+      const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)}\u00a0${unitLabel(last.card, result.balance, fr)}`;
       const detail = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
       setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator, card: { ...last.card, balance: result.balance } });
       setStatus("success"); setMessage(detail);
@@ -468,7 +468,7 @@ function unitLabel(card: CashierCard, amount: number, fr: boolean) {
 
 /** What the cashier sees after a confirmed booking: what was booked, the new balance, the card number (never the scan code). */
 function bookingSummary(card: CashierCard, operation: { kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward }, result: TransactionResult, fr: boolean): { booked: Booked; statusMessage: string } {
-  const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(card, result.balance, fr)}`;
+  const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)}\u00a0${unitLabel(card, result.balance, fr)}`;
   const newBalance = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
   let detail: string, headline: string | undefined, parts: string | undefined;
   if (result.duplicate) detail = fr ? `Cette opération pour ${card.cardLocator} était déjà enregistrée.` : `Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`;
@@ -478,14 +478,14 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
   } else {
     const credited = result.creditedQuantity ?? ("quantity" in operation.award ? operation.award.quantity : undefined);
     const bonus = bonusTotal(result);
-    const extra = bonus ? fr ? ` Dont ${bonus} ${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus} ${unitLabel(card, bonus, fr)} extra.` : "";
-    detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
+    const extra = bonus ? fr ? ` Dont ${bonus}\u00a0${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus}\u00a0${unitLabel(card, bonus, fr)} extra.` : "";
+    detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited}\u00a0${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited}\u00a0${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
     // The chip shows the real balance change; the line under it names what it is made of (ENG-133).
     if (credited !== undefined) ({ headline, parts } = bookedAward(card, credited, result, fr ? "fr" : "de"));
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
   const ready = rewardReady ? fr ? "Récompense prête : rescannez pour l’utiliser." : "Prämie bereit: zum Einlösen neu scannen." : "";
-  const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
+  const challenge = result.challengeBonus ? `+${result.challengeBonus}\u00a0${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
   const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   // The screen shows the headline large; a duplicate keeps its sentence, since nothing new was booked.
   return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint, card: { ...card, balance: result.balance } }, statusMessage: `${detail} ${newBalance}` };

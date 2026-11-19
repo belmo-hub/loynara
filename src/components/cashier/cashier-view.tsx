@@ -19,7 +19,9 @@ import { mixStyles } from "@/components/ui/mix";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
-import { unitWord, withUnit } from "@/lib/units";
+import { unitWord, withUnit as plainWithUnit } from "@/lib/units";
+// Every figure in the Kasse keeps its unit on its line: a no-break space between them (Design, 18 Nov).
+const withUnit = (...args: Parameters<typeof plainWithUnit>) => plainWithUnit(...args).replace(" ", "\u00a0");
 import { birthdayCashierLine, WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
@@ -106,9 +108,9 @@ export const bonusTotal = (bonuses: AwardBonuses) => Object.values(bonusesOf(bon
  */
 export function awardParts(quantity: number, kind: ProgramType, bonuses: AwardBonuses, locale: UiLocale) {
   const n = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format;
-  const base = `${n(quantity)} ${unitWord(quantity, kind, locale)}`;
+  const base = `${n(quantity)}\u00a0${unitWord(quantity, kind, locale)}`;
   const parts = locale === "fr" ? [base, ...(bonusTotal(bonuses) ? [`${n(bonusTotal(bonuses))} en plus`] : [])]
-    : [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)} ${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)];
+    : [base, ...(Object.keys(BONUS_NAMES) as Array<keyof AwardBonuses>).filter(key => (bonuses[key] ?? 0) > 0).map(key => `${n(bonuses[key]!)}\u00a0${unitWord(bonuses[key]!, kind, locale)} ${BONUS_NAMES[key]}`)];
   return parts.map(part => part.replace(/ /g, "\u00a0")).join(" + ");
 }
 
@@ -128,7 +130,7 @@ export function awardDelta(balanceBefore: number, result: AwardBonuses & { balan
 export function bookedAward(card: Pick<CashierCard, "balance" | "programType">, credited: number, result: AwardBonuses & { balance: number; balanceBefore?: number }, locale: UiLocale) {
   // The server's balance under the booking's lock; the lookup's balance only if an older server leaves it out.
   const { delta, matches } = awardDelta(result.balanceBefore ?? card.balance, { ...result, creditedQuantity: credited });
-  const headline = `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(delta)} ${unitWord(delta, card.programType, locale)}`;
+  const headline = `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(delta)}\u00a0${unitWord(delta, card.programType, locale)}`;
   return { headline, parts: bonusTotal(result) || !matches ? awardParts(credited, card.programType, bonusesOf(result), locale) : undefined };
 }
 
@@ -136,7 +138,7 @@ export function bookedAward(card: Pick<CashierCard, "balance" | "programType">, 
 export function purchasePreviewOf(card: Pick<CashierCard, "balance" | "happyHour" | "welcomeBonus" | "winbackBonus" | "birthdayBonus">, points: number, locale: UiLocale) {
   const bonuses: AwardBonuses = { happyHourBonus: card.happyHour ? points : 0, welcomeBonus: card.welcomeBonus, winbackBonus: card.winbackBonus, birthdayBonus: card.birthdayBonus };
   const total = points + bonusTotal(bonuses);
-  return { total: `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(total)} ${unitWord(total, "points", locale)}`, parts: bonusTotal(bonuses) ? awardParts(points, "points", bonuses, locale) : undefined, balanceAfter: card.balance + total };
+  return { total: `+${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE").format(total)}\u00a0${unitWord(total, "points", locale)}`, parts: bonusTotal(bonuses) ? awardParts(points, "points", bonuses, locale) : undefined, balanceAfter: card.balance + total };
 }
 
 /** The lookup's open card as the counter holds it (ENG-133: the bonuses the next award books come along). */
@@ -226,10 +228,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const extras = locale === "fr" ? welcome + winback + birthday ? [`${welcome + winback + birthday} en plus`] : []
     : [welcome ? `${welcome} Startbonus` : "", winback + birthday ? `${winback + birthday} extra` : ""].filter(Boolean);
   const awardLabel = extras.length
-    ? [awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`, ...extras].join(" + ")
+    ? [awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`, ...extras].join(" + ")
     : awardCount === 1 && !offlineChoice
       ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
-      : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`}` : `${awardCount === 1 ? `1 ${singleUnit}` : `${awardCount} ${unit}`} prüfen`;
+      : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`}` : `${awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`} prüfen`;
   function awardQuantity(selected: CashierCard) {
     if (awardCount === 1 && !offlineChoice) award(selected, { quantity: awardCount });
     else setConfirm({ kind: "award", award: { quantity: awardCount } });
@@ -404,7 +406,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       </div>
       <div className={cx(card && "balance-display", styles.balance)}>
         <span className={styles.srOnly}>{t.balance}</span>
-        <strong><NumberRoll value={shown.balance}>{number.format(shown.balance)}</NumberRoll> <em>{unitWord(shown.balance, shown.programType, locale)}</em></strong>
+        <strong><NumberRoll value={shown.balance}>{number.format(shown.balance)}</NumberRoll>{"\u00a0"}<em>{unitWord(shown.balance, shown.programType, locale)}</em></strong>
         {card?.level && <span className={styles.level}>{card.level.name}</span>}
       </div>
       {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />}
@@ -413,7 +415,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.pretty)} role="note">{t.locatorNote}</p>}
     {/* The balance in words for the specs; the card's figure already says it, so screen readers skip this copy. */}
     {card && goal && <div className={cx("balance-display", styles.srOnly)} aria-hidden="true">
-      <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll> <em>{unitWord(card.balance, card.programType, locale)}</em></strong>
+      <strong><NumberRoll value={card.balance}>{number.format(card.balance)}</NumberRoll>{"\u00a0"}<em>{unitWord(card.balance, card.programType, locale)}</em></strong>
     </div>}
     {/* One reward and it is ready: the dock's band names and redeems it, so the row is left out and nothing sits under the
         dock (Design, 18 Nov). With several the list stays and scrolls clear of the dock. */}
@@ -424,7 +426,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
           const body = <>
             <span className={mixStyles.tile} data-tone={ready ? "coral" : "mute"}><Gift size={20} aria-hidden="true" /></span>
             <span className={mixStyles.body}>
-              <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : <>{t.left} <span className={card ? undefined : styles.rollDigit}>{number.format(left)}</span> {unitWord(left, shown.programType, locale)}</>}</small></span>
+              <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : <>{t.left} <span className={card ? undefined : styles.rollDigit}>{number.format(left)}</span>{"\u00a0"}{unitWord(left, shown.programType, locale)}</>}</small></span>
               {/* A ready row on the closed card already names its price in the line; it has no „Einlösen“ there. */}
               {!(ready && !card) && <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>}
             </span>
@@ -473,15 +475,15 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
             ? <>
               <strong>{purchaseOutcome?.total}</strong>
               {purchaseOutcome?.parts && <span className={styles.previewParts}>{purchaseOutcome.parts}</span>}
-              <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)} {unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
+              <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)}{"\u00a0"}{unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
             </>
-            : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
+            : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit}\u00a0point(s) par 1\u00a0${card.currency}` : `${card.pointsPerCurrencyUnit}\u00a0${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1\u00a0${card.currency}`)}</span>}</div>
         </div>
       </Sheet>}
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
     {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
-      description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} {unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{money.format(confirm.award.purchaseAmountMinor / 100)} {card.currency}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
+      description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))}{"\u00a0"}{unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{money.format(confirm.award.purchaseAmountMinor / 100)}{"\u00a0"}{card.currency}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
       actions={<>
         <Button variant="secondary" onClick={cancelConfirm}>{t.cancel}</Button>
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { holdDock(); onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}

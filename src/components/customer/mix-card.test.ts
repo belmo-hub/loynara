@@ -32,7 +32,7 @@ describe("the mix card (ENG-253)", () => {
       expect(html).toContain('aria-label="9 Stempel"');
       expect(earned(html)).toBe(8);
     }
-    expect(kasse).toMatch(/<b data-figure="">.*9.*<small> Stempel<\/small><\/b>/);
+    expect(kasse).toMatch(/<b data-figure="">.*9.*<small>\u00a0Stempel<\/small><\/b>/);
     expect(text(kasse)).not.toContain("von 8");
     expect(guest).toContain("Deine Prämie ist bereit:");
     expect(owner).toContain("Stand reicht für „Gratiskaffee“.");
@@ -85,7 +85,7 @@ describe("the mix card (ENG-253)", () => {
   it("at the Kasse: the card number, its note, the labelled balance and the page's own foot", () => {
     const kasse = card({ size: "kasse", title: "K-C7YPM6", sub: "Geprüfte Karte", label: "Aktueller Kontostand", foot: h("a", null, "Andere Karte") });
     expect(text(kasse)).toMatch(/^D K-C7YPM6 Geprüfte Karte 5 von 8 Aktueller Kontostand .*Andere Karte$/);
-    expect(kasse).toMatch(/>5<\/span><small> von 8<\/small>/); // a reader hears „5 von 8“, not „5von 8“
+    expect(kasse).toMatch(/>5<\/span><small>\u00a0von 8<\/small>/); // a reader hears „5\u00a0von 8“, not „5von 8“
     expect(text(card({ size: "kasse" }))).not.toContain("Prämie");
   });
 

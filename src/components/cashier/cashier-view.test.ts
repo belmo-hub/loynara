@@ -15,23 +15,23 @@ const view = (locale: "de" | "fr", change: Partial<CashierCard> = {}) => renderT
 
 describe("counts on the cashier screen (ENG-108)", () => {
   it("win-back and birthday lines in French: one point or stamp in the singular", () => {
-    expect(view("fr", { winbackBonus: 1, birthdayBonus: 1 })).toContain("Bon retour : +1 point en plus");
-    expect(view("fr", { winbackBonus: 1, birthdayBonus: 1 })).toContain("Anniversaire : +1 point en plus");
-    expect(view("fr", { winbackBonus: 2, birthdayBonus: 2 })).toContain("Bon retour : +2 points en plus");
-    expect(view("fr", { winbackBonus: 2, birthdayBonus: 2 })).toContain("Anniversaire : +2 points en plus");
-    expect(view("fr", { programType: "stamps", winbackBonus: 1 })).toContain("Bon retour : +1 tampon en plus");
-    expect(view("de", { winbackBonus: 1 })).toContain("Willkommen zurück: +1 Punkt extra");
+    expect(view("fr", { winbackBonus: 1, birthdayBonus: 1 })).toContain("Bon retour : +1\u00a0point en plus");
+    expect(view("fr", { winbackBonus: 1, birthdayBonus: 1 })).toContain("Anniversaire : +1\u00a0point en plus");
+    expect(view("fr", { winbackBonus: 2, birthdayBonus: 2 })).toContain("Bon retour : +2\u00a0points en plus");
+    expect(view("fr", { winbackBonus: 2, birthdayBonus: 2 })).toContain("Anniversaire : +2\u00a0points en plus");
+    expect(view("fr", { programType: "stamps", winbackBonus: 1 })).toContain("Bon retour : +1\u00a0tampon en plus");
+    expect(view("de", { winbackBonus: 1 })).toContain("Willkommen zurück: +1\u00a0Punkt extra");
   });
   it("above the goal the stamp grid tells a screen reader the true count, not the goal (ENG-273)", () => {
     expect(view("de", { programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Kaffee", cost: 8, eligible: true }] })).toContain('aria-label="9 Stempel"');
   });
   it("balance, with French zero in the singular", () => {
-    expect(view("de")).toMatch(/>1<\/span> <em>Punkt<\/em>/);
-    expect(view("de", { balance: 2 })).toMatch(/>2<\/span> <em>Punkte<\/em>/);
-    expect(view("fr")).toMatch(/>1<\/span> <em>point<\/em>/);
-    expect(view("fr", { balance: 0 })).toMatch(/>0<\/span> <em>point<\/em>/);
-    expect(view("fr", { balance: 2 })).toMatch(/>2<\/span> <em>points<\/em>/);
-    expect(view("fr", { programType: "stamps", balance: 1 })).toMatch(/>1<\/span> <em>tampon<\/em>/);
+    expect(view("de")).toMatch(/>1<\/span>\u00a0<em>Punkt<\/em>/);
+    expect(view("de", { balance: 2 })).toMatch(/>2<\/span>\u00a0<em>Punkte<\/em>/);
+    expect(view("fr")).toMatch(/>1<\/span>\u00a0<em>point<\/em>/);
+    expect(view("fr", { balance: 0 })).toMatch(/>0<\/span>\u00a0<em>point<\/em>/);
+    expect(view("fr", { balance: 2 })).toMatch(/>2<\/span>\u00a0<em>points<\/em>/);
+    expect(view("fr", { programType: "stamps", balance: 1 })).toMatch(/>1<\/span>\u00a0<em>tampon<\/em>/);
   });
   it("the reward band names the one ready reward, in German only, and none when several are ready (ENG-122g)", () => {
     expect(view("de")).toContain("<b>Prämie einlösen</b><small>Kaffee · Stand reicht</small>");
@@ -39,20 +39,20 @@ describe("counts on the cashier screen (ENG-108)", () => {
     expect(view("de", { balance: 2, rewards: card.rewards.map(reward => ({ ...reward, eligible: true })) })).toContain("<b>Prämie einlösen</b></span>");
   });
   it("reward prices, with a reward that costs exactly 1", () => {
-    expect(view("de")).toContain("<small>1 Punkt</small>");
-    expect(view("de")).toMatch(/<small>Noch <span[^>]*>1<\/span> Punkt<\/small>/);
-    expect(view("de")).toMatch(/>2 Punkte<\/span>/);
-    expect(view("fr")).toContain("<small>1 point</small>");
-    expect(view("fr", { programType: "stamps" })).toContain("<small>1 tampon</small>");
-    expect(view("fr", { programType: "stamps" })).toMatch(/>2 tampons<\/span>/);
+    expect(view("de")).toContain("<small>1\u00a0Punkt</small>");
+    expect(view("de")).toMatch(/<small>Noch <span[^>]*>1<\/span>\u00a0Punkt<\/small>/);
+    expect(view("de")).toMatch(/>2\u00a0Punkte<\/span>/);
+    expect(view("fr")).toContain("<small>1\u00a0point</small>");
+    expect(view("fr", { programType: "stamps" })).toContain("<small>1\u00a0tampon</small>");
+    expect(view("fr", { programType: "stamps" })).toMatch(/>2\u00a0tampons<\/span>/);
   });
 });
 
 describe("bonuses at the counter add up (ENG-133)", () => {
   it("names the Startbonus on the award button before the tap", () => {
-    expect(view("de", { balance: 0, welcomeBonus: 5 })).toContain("1 Punkt + 5 Startbonus");
-    expect(view("de", { balance: 0, programType: "stamps", welcomeBonus: 1, winbackBonus: 2 })).toContain("1 Stempel + 1 Startbonus + 2 extra");
-    expect(view("fr", { balance: 0, welcomeBonus: 5 })).toContain("1 point + 5 en plus");
+    expect(view("de", { balance: 0, welcomeBonus: 5 })).toContain("1\u00a0Punkt + 5 Startbonus");
+    expect(view("de", { balance: 0, programType: "stamps", welcomeBonus: 1, winbackBonus: 2 })).toContain("1\u00a0Stempel + 1 Startbonus + 2 extra");
+    expect(view("fr", { balance: 0, welcomeBonus: 5 })).toContain("1\u00a0point + 5 en plus");
   });
 
   it("names each bonus after the tap", () => {
@@ -78,8 +78,8 @@ describe("bonuses at the counter add up (ENG-133)", () => {
 
 describe("the booked screen, the purchase preview and the lookup keep every bonus (ENG-133 review)", () => {
   it("a first award with a Startbonus shows the balance change and names the parts", () => {
-    expect(bookedAward({ balance: 0, programType: "points" }, 1, { balance: 6, balanceBefore: 0, welcomeBonus: 5, winbackBonus: 0 }, "de")).toEqual({ headline: "+6 Punkte", parts: nb("1 Punkt + 5 Punkte Startbonus") });
-    expect(bookedAward({ balance: 0, programType: "stamps" }, 1, { balance: 2, balanceBefore: 0, welcomeBonus: 1 }, "de")).toEqual({ headline: "+2 Stempel", parts: nb("1 Stempel + 1 Stempel Startbonus") });
+    expect(bookedAward({ balance: 0, programType: "points" }, 1, { balance: 6, balanceBefore: 0, welcomeBonus: 5, winbackBonus: 0 }, "de")).toEqual({ headline: "+6\u00a0Punkte", parts: nb("1 Punkt + 5 Punkte Startbonus") });
+    expect(bookedAward({ balance: 0, programType: "stamps" }, 1, { balance: 2, balanceBefore: 0, welcomeBonus: 1 }, "de")).toEqual({ headline: "+2\u00a0Stempel", parts: nb("1 Stempel + 1 Stempel Startbonus") });
   });
 
   it("keeps each part together with no-break spaces, so the line only breaks at a „+“", () => {
@@ -87,24 +87,24 @@ describe("the booked screen, the purchase preview and the lookup keep every bonu
   });
 
   it("a plain award shows only its quantity, with no line", () => {
-    expect(bookedAward({ balance: 3, programType: "points" }, 1, { balance: 4, balanceBefore: 3, welcomeBonus: 0, happyHourBonus: 0 }, "de")).toEqual({ headline: "+1 Punkt", parts: undefined });
+    expect(bookedAward({ balance: 3, programType: "points" }, 1, { balance: 4, balanceBefore: 3, welcomeBonus: 0, happyHourBonus: 0 }, "de")).toEqual({ headline: "+1\u00a0Punkt", parts: undefined });
   });
 
   it("counts from the server's balance before the booking, not a stale lookup", () => {
     // Another till booked 2 between lookup (balance 3) and this award.
-    expect(bookedAward({ balance: 3, programType: "points" }, 1, { balance: 6, balanceBefore: 5 }, "de")).toEqual({ headline: "+1 Punkt", parts: undefined });
+    expect(bookedAward({ balance: 3, programType: "points" }, 1, { balance: 6, balanceBefore: 5 }, "de")).toEqual({ headline: "+1\u00a0Punkt", parts: undefined });
   });
 
   it("previews happy hour and the Startbonus in the purchase line and in the new balance", () => {
-    expect(purchasePreviewOf({ balance: 10, happyHour: true, welcomeBonus: 5 }, 12, "de")).toEqual({ total: "+29 Punkte", parts: nb("12 Punkte + 12 Punkte Happy Hour + 5 Punkte Startbonus"), balanceAfter: 39 });
-    expect(purchasePreviewOf({ balance: 10, happyHour: false, welcomeBonus: 0 }, 12, "de")).toEqual({ total: "+12 Punkte", parts: undefined, balanceAfter: 22 });
+    expect(purchasePreviewOf({ balance: 10, happyHour: true, welcomeBonus: 5 }, 12, "de")).toEqual({ total: "+29\u00a0Punkte", parts: nb("12 Punkte + 12 Punkte Happy Hour + 5 Punkte Startbonus"), balanceAfter: 39 });
+    expect(purchasePreviewOf({ balance: 10, happyHour: false, welcomeBonus: 0 }, 12, "de")).toEqual({ total: "+12\u00a0Punkte", parts: undefined, balanceAfter: 22 });
   });
 
   it("the open card keeps the lookup's Startbonus and happy hour, so the button names them", () => {
     const lookup: CashierLookup = { membershipId: "m1", cardLocator: "K-NUG2FS", matchedBy: "code", balance: 0, programType: "points", earningMode: "manual", pointsPerCurrencyUnit: 1, currency: "EUR", ruleVersionId: "rv1", rewards: [], welcomeBonus: 5, happyHour: true };
     const opened = cashierCard(lookup, "sc_synthetic");
     expect(opened).toMatchObject({ welcomeBonus: 5, happyHour: true, programType: "points" });
-    expect(renderToStaticMarkup(h(CashierView, { locationName: "Kassel", card: opened, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }))).toContain("1 Punkt + 5 Startbonus");
+    expect(renderToStaticMarkup(h(CashierView, { locationName: "Kassel", card: opened, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }))).toContain("1\u00a0Punkt + 5 Startbonus");
   });
 });
 
@@ -142,7 +142,7 @@ describe("the mix Kasse (ENG-256)", () => {
     const out = render({ card: stamps, role: "cashier" });
     expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
     expect(out).toMatch(/Andere Karte<\/button><span[^>]*data-state="open"><i aria-hidden="true"><\/i>Karte offen<\/span>/);
-    expect(out).toMatch(/<b>Gratiskaffee<\/b><small>Noch <span[^>]*>3<\/span> Stempel<\/small>/);
+    expect(out).toMatch(/<b>Gratiskaffee<\/b><small>Noch <span[^>]*>3<\/span>\u00a0Stempel<\/small>/);
     expect(out).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>6 von 8<\/span><\/b>/);
     expect(out).toContain("Falsch? Die Leitung kann es korrigieren.");
   });
@@ -150,9 +150,9 @@ describe("the mix Kasse (ENG-256)", () => {
   it("above the goal the new balance and the booked line read the true count with its unit, as the card", () => {
     const over: CashierCard = { ...card, programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Gratiskaffee", cost: 8, eligible: true }] };
     const open = render({ card: over });
-    expect(open).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>10 Stempel<\/span><\/b>/);
+    expect(open).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>10\u00a0Stempel<\/span><\/b>/);
     const booked = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 10 Stempel.", meta: "K-7QX2MA", card: { ...over, balance: 10 } } });
-    expect(booked).toContain(">10 Stempel · K-7QX2MA<");
+    expect(booked).toContain(">10\u00a0Stempel · K-7QX2MA<");
     expect(booked).not.toContain("von 8 ·");
   });
 
@@ -163,9 +163,9 @@ describe("the mix Kasse (ENG-256)", () => {
     expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
-    expect(out).toMatch(/<b data-figure="">.*>6<\/span><small> von 8<\/small><\/b>/);
+    expect(out).toMatch(/<b data-figure="">.*>6<\/span><small>\u00a0von 8<\/small><\/b>/);
     // Only the digit rolls in: „Noch“ and the unit stand still.
-    expect(out).toMatch(/<small>Noch <span class="[^"]*">2<\/span> Stempel<\/small>/);
+    expect(out).toMatch(/<small>Noch <span class="[^"]*">2<\/span>\u00a0Stempel<\/small>/);
     expect(out).not.toContain("reward-action-list");
     expect(out).not.toContain("cashier-award-now");
     expect(out).toMatch(/data-state="open"><i aria-hidden="true"><\/i>Karte offen/);
@@ -178,7 +178,7 @@ describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
     expect(out).not.toContain("<span>Geprüfte Karte</span>");
     expect(out).not.toContain("Aktueller Kontostand</span></div>");
     expect(out).toMatch(/<h2 id="cashier-card-title"[^>]*>K-7QX2MA<\/h2>/);
-    expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span> <em>Punkt<\/em>/);
+    expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span>\u00a0<em>Punkt<\/em>/);
     expect(out).toContain("aria-label=\"1 von 2 Punkten\"");
   });
 });
@@ -229,9 +229,9 @@ describe("the reward the Kasse's card counts to (Design, 18 Nov)", () => {
     expect(kasseGoal({ balance: 9, rewards: [{ id: "one", name: "Kaffee", cost: 8, eligible: true }] })?.cost).toBe(8);
   });
   it("reads „2 von 3“, „4 von 8“ and „9 Stempel“ with rewards at 3 and 8", () => {
-    expect(figure(2)).toBe("2 von 3");
-    expect(figure(4)).toBe("4 von 8");
-    expect(figure(9)).toBe("9 Stempel");
+    expect(figure(2)).toBe("2\u00a0von 3");
+    expect(figure(4)).toBe("4\u00a0von 8");
+    expect(figure(9)).toBe("9\u00a0Stempel");
     // At 4 the card draws 8 dots, 4 earned; the ready 3-stamp reward stays in the list and the band.
     const out = renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", card: two(4), onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }));
     expect(out).toContain('aria-label="4 von 8 Stempeln"');
@@ -245,7 +245,7 @@ describe("a points card's booked line (Design, 18 Nov)", () => {
     const points: CashierCard = { ...card, balance: 121, rewards: [{ id: "r1", name: "Frühstück", cost: 250, eligible: false }] };
     const out = renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {},
       booked: { tone: "success", title: "Gebucht", headline: "+16 Punkte", detail: "Neuer Stand: 121 Punkte.", meta: "K-HFC35B", card: points } }));
-    expect(out).toMatch(/aria-hidden="true">121 Punkte · K-HFC35B<\/p>/);
+    expect(out).toMatch(/aria-hidden="true">121\u00a0Punkte · K-HFC35B<\/p>/);
     expect(out).toMatch(/class="[^"]*srOnly[^"]*">Neuer Stand: 121 Punkte\.<\/p>/);
   });
 });
