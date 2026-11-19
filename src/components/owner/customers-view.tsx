@@ -222,7 +222,7 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
               <LinkPending />
             </Link>}
             {(filters.activity === "recent" || filters.activity === "drifting") && <div className="ow-seg" role="group" aria-label="Zeitraum">
-              {DAYS.map(days => <button key={days} type="button" aria-pressed={filters.days === days} onClick={() => replaceParams(params, { days: String(days) })}>{days} Tage</button>)}
+              {DAYS.map(days => <button key={days} type="button" aria-pressed={filters.days === days} onClick={() => replaceParams(params, { days: String(days) })}><span data-label={`${days} Tage`}>{days} Tage</span></button>)}
             </div>}
             {!searched && filters.activity === "all" && <div className="ow-seg" role="group" aria-label="Kartenstatus">
               {STATUS.map(([value, label]) => <button key={value} type="button" aria-pressed={filters.status === value} onClick={() => replaceParams(params, { activity: "all", status: value === "all" ? null : value })}><span data-label={label}>{label}</span></button>)}
