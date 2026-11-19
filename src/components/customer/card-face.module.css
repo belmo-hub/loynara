@@ -1,0 +1,27 @@
+/* The house card face (tap page, owner previews, a points programme's guest card until Design draws a points mix card).
+   Moved unchanged out of customer-card.module.css when the guest card took the mix card (ENG-255). */
+.object { position: relative; display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); --card-ground: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%) var(--merchant); background: var(--card-ground); box-shadow: var(--shadow-object); }
+.objectTop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.business { display: grid; margin: 0; min-width: 0; }
+.business strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; overflow-wrap: anywhere; }
+.business span { font-size: var(--text-14); overflow-wrap: anywhere; }
+/* The reward moment is the stamp coral (design bar); --stamp-fill/--stamp-ink keep it readable on every shop colour. */
+.readyTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--stamp-fill); color: var(--stamp-ink); font-size: var(--text-14); font-weight: var(--weight-heavy); animation: press var(--dur-reward) var(--ease-out); }
+/* „Prämie bereit“ lands like a stamp: a little large and tilted, then pressed flat. Once, on arrival. */
+@keyframes press { from { transform: scale(1.35) rotate(-8deg); opacity: 0; } 60% { transform: scale(.96) rotate(1deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .readyTag { animation: none; } }
+.stamps { margin: 0; }
+.stamps li { max-width: 56px; justify-self: center; width: 100%; }
+.ladder { margin-block: var(--space-1) 0; }
+/* Stamps: the reward and „7 von 10“ under the grid (mock 23). */
+.balanceLine { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; font-weight: var(--weight-strong); }
+.balanceLine span { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow-wrap: anywhere; }
+.balanceLine svg { flex: none; }
+.balanceLine strong { font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Points: the balance leads the card (mock 24). */
+.pointsLead { margin: 0; line-height: 1; }
+.pointsLead strong { font-family: var(--font-display); font-size: var(--display-num); font-weight: var(--weight-heavy); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pointsLead em { margin-left: var(--space-1); font-style: normal; font-family: var(--font-sans); font-size: var(--text-18); font-weight: var(--weight-strong); letter-spacing: 0; }
+.levelTag { flex: none; display: inline-flex; align-items: center; min-height: 28px; margin-left: auto; padding: 0 var(--space-3); border-radius: var(--radius-sm); background: none; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--merchant-ink), transparent 50%); font-size: var(--text-14); font-weight: var(--weight-heavy); }
+.remaining { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.4; text-wrap: pretty; }
+@media (forced-colors: active) { .object { border: 1px solid CanvasText; } .levelTag { border: 1px solid CanvasText; padding-inline: calc(var(--space-3) - 1px); } } /* forced colours drop the tag's box-shadow outline */

@@ -37,7 +37,9 @@ for (const [name, path, want] of [
   });
 }
 
-test("the customer's card: 16 inside every card, 20 above a section label and 8 below it", async ({ page }) => {
+// The mix (ENG-255): a section title 32 under the block before it (20 under the refresh target, which carries 12 of
+// air under its words), 12 above its panel; panels are 20 inside (19 within the 1 px line) or carry rows.
+test("the customer's card: mix sections 32 apart, 12 from title to panel, panels 20 inside", async ({ page }) => {
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
   await expect(page.locator(".customer-qr img")).toBeVisible();
   await expect.poll(() => page.evaluate(() => {
@@ -46,9 +48,9 @@ test("the customer's card: 16 inside every card, 20 above a section label and 8 
     const prev = (el: Element) => { let p = el.previousElementSibling; while (p && box(p).height === 0) p = p.previousElementSibling; return p; };
     return {
       sections: sections.length > 0,
-      above: sections.flatMap(el => { const p = prev(el); return p ? [px(box(el).top - box(p).bottom)] : []; }).filter(gap => gap !== 20),
-      below: sections.map(el => { const label = el.querySelector("h2")!; return px(box(label.nextElementSibling!).top - box(label).bottom); }).filter(gap => gap !== 8),
-      padding: [...new Set(sections.map(el => getComputedStyle(el.querySelector("h2")!.nextElementSibling!).padding).filter(value => value !== "0px" && value !== "16px"))],
+      above: sections.flatMap(el => { const p = prev(el); return p ? [px(box(el).top - box(p).bottom)] : []; }).filter(gap => gap !== 32 && gap !== 20),
+      below: sections.map(el => { const label = el.querySelector("h2")!; return px(box(label.nextElementSibling!).top - box(label).bottom); }).filter(gap => gap !== 12),
+      padding: [...new Set(sections.map(el => getComputedStyle(el.querySelector("h2")!.nextElementSibling!).padding).filter(value => value !== "0px" && value !== "19px"))],
     };
   })).toEqual({ sections: true, above: [], below: [], padding: [] });
 });

@@ -28,7 +28,7 @@ for (const width of [375, 1280]) {
           else await route.continue();
         });
         const refresh = page.getByRole("button", { name: "Karte aktualisieren" });
-        const feedback = page.locator(".customer-balance-panel").getByRole("alert");
+        const feedback = page.locator("main").getByRole("alert").filter({ hasText: "aktualisiert" });
         // The visible card re-reads itself after about 5 s; a failed automatic read stays silent and keeps the card.
         await expect.poll(() => reads, { timeout: 10_000 }).toBeGreaterThan(0);
         await expect(feedback).toHaveCount(0);

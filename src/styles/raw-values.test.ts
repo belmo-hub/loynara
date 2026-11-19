@@ -29,7 +29,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
   { file: "src/app/global-error.tsx", kind: "weight", reason: "global-error renders without the app's CSS, so it writes its weights as numbers (set D2 moves them to the tokens' values)" },
-  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small"], reason: QR_TICKET },
+  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: ["section.ticket", ".locator span", ".locator small"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
   { file: "src/components/owner/customers-view.module.css", kind: "radius", selectors: [".cards > :global(.ow-seg) button"], value: "10px", reason: "Kunden's switch segment sits 4 inside its radius-14 track (Design, 18 Nov, #283); not a house radius" },
   { file: "src/components/customer/mix-card.module.css", kind: "radius", selectors: [".mark"], value: "10px", reason: "the mix card's shop mark is drawn from the founder's picture (mix NOTES, Deviations); not a house radius" },

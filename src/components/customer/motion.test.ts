@@ -22,8 +22,10 @@ describe("guest page motion", () => {
   const rewards = [{ id: "a", title: "Cappuccino", cost: 80 }, { id: "b", title: "Frühstück", cost: 150 }];
   const card = { businessName: "Café", locationName: "Kassel", programType: "points" as const, balance: 120, rewards };
   it("grows the ladder fill only on the card page's first paint, and not against a booking moment", () => {
-    expect(renderToStaticMarkup(h(CustomerCard, card))).toContain('data-grow="true"');
-    expect(renderToStaticMarkup(h(CustomerCard, { ...card, moment: { credited: 20, balance: 120 } }))).not.toContain("data-grow");
+    // The guest card marks the mix card's ladder before paint (GuestMixCard), so the server markup has no mark.
+    const source = readFileSync(join(__dirname, "customer-card.tsx"), "utf8");
+    expect(source).toContain("grow={arriving && !moment}");
+    expect(source).toContain('track.toggleAttribute("data-grow", Boolean(grow));');
     expect(renderToStaticMarkup(h(CardFace, card))).not.toContain("data-grow");
     expect(renderToStaticMarkup(h(PointsLadder, { balance: 120, rewards }))).not.toContain("data-grow");
     expect(renderToStaticMarkup(h(StampGrid, { earned: 12, total: 40 }))).not.toContain("data-grow");
