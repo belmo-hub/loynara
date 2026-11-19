@@ -258,6 +258,7 @@ const NO_REWARD: Reward = { id: "", title: "", cost: 0 };
  */
 function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: ComponentProps<typeof MixCard> & { landed?: number; landedCount?: number; grow?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const goalId = card.reward.id;
   const reached = useRef<boolean[] | null>(null);
   useLayoutEffect(() => {
     const track = ref.current?.querySelector<HTMLElement>('[role="img"]');
@@ -276,6 +277,38 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
       order += 1;
     });
   }, [landed, landedCount, grow, card.balance]);
+  // A new goal (the hold released after a booking moment) is a crossfade, not a cut (Design, #300): the card as it was
+  // fades out over the new one over --dur-ui, linear, while the card's height eases to the new one as the ready band's
+  // slot does, so what is below slides. Reduced motion keeps the cut.
+  const shown = useRef<{ id: string; html: string; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const box = ref.current, card = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
+    if (!box || !card || !before || before.id === goalId) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof box.animate !== "function") return;
+    const root = getComputedStyle(document.documentElement);
+    const ui = root.getPropertyValue("--dur-ui").trim(); // the minifier writes .22s, so the unit is read too
+    const duration = parseFloat(ui) * (ui.endsWith("ms") ? 1 : 1000) || 220;
+    const old = document.createElement("div");
+    old.innerHTML = before.html;
+    // The copy is the card at rest: no ids twice on the page, and no landing stamp or rolling figure playing again.
+    for (const node of old.querySelectorAll<HTMLElement>("*")) { node.removeAttribute("id"); node.removeAttribute("data-new"); node.style.animation = "none"; }
+    old.setAttribute("aria-hidden", "true");
+    old.inert = true;
+    Object.assign(old.style, { position: "absolute", inset: "0 0 auto", pointerEvents: "none" });
+    box.append(old);
+    const radius = getComputedStyle(card).borderBottomLeftRadius;
+    const clip = `inset(-48px 0 0 round 0 0 ${radius} ${radius})`; // the growing edge keeps the card's lower corners
+    const grow = box.animate([{ height: `${before.height}px`, clipPath: clip }, { height: `${card.offsetHeight}px`, clipPath: clip }], { duration, easing: root.getPropertyValue("--ease-out").trim() || "ease-out" });
+    old.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: "linear", fill: "forwards" });
+    const done = () => old.remove();
+    grow.finished.then(done, done);
+    return () => { grow.cancel(); done(); };
+  }, [goalId]);
+  // What the card looked like after this render: the next goal change fades it out.
+  useLayoutEffect(() => {
+    const card = ref.current?.firstElementChild as HTMLElement | null | undefined;
+    if (card) shown.current = { id: goalId, html: card.outerHTML, height: card.offsetHeight };
+  });
   return <div ref={ref} className={className}><MixCard {...card} /></div>;
 }
 

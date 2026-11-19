@@ -58,11 +58,22 @@ describe("tap page for a points programme", () => {
 
 describe("several rewards on the tap page (Design, #300)", () => {
   const two = { ...card, rewards: [{ id: "big", title: "Gratiskaffee", cost: 8 }, { id: "small", title: "Kleiner Kaffee", cost: 3 }] };
-  const face = (balance: number, moment: boolean) => renderToStaticMarkup(createElement(TapCardFace, { card: two, balance, moment }));
-  it("draws the next reward not reached, and holds the goal before the landing stamp while it plays", () => {
-    expect(face(4, false)).toContain("4 von 8");
-    expect(face(3, false)).toContain("3 von 8");
-    expect(face(3, true)).toContain("3 von 3"); // 2 → 3: the 3-slot card the stamp lands on
-    expect(face(4, false)).toContain("Prämie verfügbar."); // the line names the ready reward first, not „Noch 4 …“
+  const face = (balance: number, moment: boolean, credited?: number) => renderToStaticMarkup(createElement(TapCardFace, { card: two, balance, moment, credited }));
+  it("counts to the next reward not reached before the tap, and the ready line names the ready reward", () => {
+    expect(face(4, true)).toContain("4 von 8");
+    expect(face(4, false)).toContain("Deine Prämie ist bereit: Kleiner Kaffee");
+    expect(face(4, false)).not.toContain("Prämie verfügbar.");
+    expect(face(2, false)).toContain("2 von 3");
+  });
+  it("keeps the card a tap completed for the page's whole life („3 von 3“ after 2 → 3, ruling)", () => {
+    expect(face(3, true)).toContain("3 von 3");
+    expect(face(3, false)).toContain("3 von 3");
+  });
+  it("holds by what the tap credited, not one stamp", () => {
+    expect(face(5, false, 3)).toContain("5 Stempel"); // 2 → 5 completed the 3-stamp reward
+    expect(face(5, false, 1)).toContain("5 von 8"); // 4 → 5 counts to 8
+  });
+  it("leaves a single reward's ready line as it was", () => {
+    expect(renderToStaticMarkup(createElement(TapCardFace, { card, balance: 8, moment: false }))).toContain("Prämie verfügbar.");
   });
 });
