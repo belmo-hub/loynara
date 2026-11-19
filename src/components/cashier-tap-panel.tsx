@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { awardLimitText, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
@@ -55,7 +56,7 @@ const STRINGS: Record<TapPanelLocale, {
   expired: string; cooldown: string; forbidden: string; notFound: string; rateLimited: string; network: string; failed: string;
   introPoints: string; amount: (currency: string) => string; points: string; rate: (rate: number, currency: string) => string; book: string;
   preview: (points: number, balance?: number) => string;
-  confirmedPoints: (cardLocator: string, balance: string) => string; cooldownPoints: string; limit: string; staleRule: string; otherEntry: string;
+  confirmedPoints: (cardLocator: string, balance: string) => string; cooldownPoints: string; staleRule: string; otherEntry: string;
 }> = {
   de: {
     title: "NFC-Anfragen",
@@ -90,7 +91,6 @@ const STRINGS: Record<TapPanelLocale, {
     preview: (points, balance) => `+${points} ${points === 1 ? "Punkt" : "Punkte"}${balance === undefined ? "" : ` · Neuer Stand: ${balance}`}`,
     confirmedPoints: (cardLocator, balance) => `Punkte für ${cardLocator} gebucht. Neuer Stand: ${balance}.`,
     cooldownPoints: "Auf dieser Karte wurden gerade erst Punkte gebucht. Bitte noch nicht bestätigen.",
-    limit: "Kaufbetrag oder Punkte überschreiten das Limit dieser Rolle. Bitte die Inhaberin oder den Inhaber zur Prüfung hinzuziehen.",
     staleRule: "Die Punkteregel hat sich geändert. Bitte den Betrag erneut prüfen.",
     otherEntry: "Schon mit einer anderen Eingabe bestätigt. Es wurde nichts doppelt gebucht.",
   },
@@ -127,7 +127,6 @@ const STRINGS: Record<TapPanelLocale, {
     preview: (points, balance) => `+${points} point(s)${balance === undefined ? "" : ` · Nouveau solde : ${balance}`}`,
     confirmedPoints: (cardLocator, balance) => `Points enregistrés pour ${cardLocator}. Nouveau solde : ${balance}.`,
     cooldownPoints: "Cette carte vient de recevoir des points. Ne confirmez pas encore.",
-    limit: "Le montant ou les points dépassent la limite de ce rôle. Demandez à la personne propriétaire de vérifier cet achat.",
     staleRule: "La règle de points a changé. Vérifiez le montant à nouveau.",
     otherEntry: "Déjà confirmé avec une autre saisie. Rien n’a été enregistré en double.",
   },
@@ -164,12 +163,12 @@ export function hasNewRequest(previousIds: ReadonlySet<string>, nextIds: readonl
   return nextIds.some(id => !previousIds.has(id));
 }
 
-export function tapErrorText(error: unknown, locale: TapPanelLocale = "de", points = false): string {
+export function tapErrorText(error: unknown, locale: TapPanelLocale = "de", points = false, item?: PendingTapRequest, role?: StaffRole): string {
   const t = STRINGS[locale];
   if (error instanceof ClientApiError) {
     if (error.code === "TAP_EXPIRED") return t.expired;
     if (error.code === "TAP_COOLDOWN") return points ? t.cooldownPoints : t.cooldown;
-    if (error.code === "LIMIT_EXCEEDED") return t.limit;
+    if (error.code === "LIMIT_EXCEEDED") return awardLimitText(role, item?.earningMode === "purchase", points ? "points" : "stamp", item?.currency ?? "EUR", locale);
     if (error.code === "STALE_RULE" || error.code === "INVALID_EARNING_MODE") return t.staleRule;
     if (error.code === "KEY_REUSED") return t.otherEntry;
     if (error.code === "TAP_ALREADY_CONFIRMED") return t.alreadyProcessed;
@@ -215,7 +214,7 @@ type WakeLockSentinelLike = { readonly released?: boolean; release(): Promise<vo
 type WakeLockLike = { request(type: "screen"): Promise<WakeLockSentinelLike> };
 
 /** Open NFC requests for this location. New taps appear on their own; the server decides every outcome. */
-export function CashierTapPanel({ locale = "de", onPendingCountChange }: { locale?: TapPanelLocale; onPendingCountChange?: (count: number) => void }) {
+export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: { locale?: TapPanelLocale; role?: StaffRole; onPendingCountChange?: (count: number) => void }) {
   const t = STRINGS[locale];
   const [items, setItems] = useState<PendingTapRequest[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -363,13 +362,13 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       else setOutcome({ tone: "neutral", text: t.alreadyProcessed });
     } catch (error) {
       const alreadyDone = error instanceof ClientApiError && (error.code === "TAP_ALREADY_CONFIRMED" || error.code === "KEY_REUSED");
-      setOutcome({ tone: alreadyDone ? "neutral" : "error", text: tapErrorText(error, locale, points) });
+      setOutcome({ tone: alreadyDone ? "neutral" : "error", text: tapErrorText(error, locale, points, item, role) });
     } finally {
       inFlightRef.current.delete(item.id);
       setBusyIds(current => { const next = new Set(current); next.delete(item.id); return next; });
       await refresh();
     }
-  }, [locale, refresh, t]);
+  }, [locale, refresh, role, t]);
 
   const open = items.filter(item => isOpenRequest(item, now));
   const openCount = open.length;

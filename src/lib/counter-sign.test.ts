@@ -29,6 +29,14 @@ describe("printable merchant sign", () => {
     expect(counterSignHtml(sign)).toContain('<p class="reward">8 Stempel → Kaffee &lt;gratis&gt;</p>');
   });
 
+  it("embeds Manrope only from a woff2 data URL and falls back to Arial (ENG-280)", () => {
+    const font = "data:font/woff2;base64,d09GMgABAAA=";
+    expect(counterSignHtml({ ...sign, fontDataUrl: font })).toContain(`@font-face{font-family:Manrope;src:url(${font}) format("woff2");font-weight:200 800;font-display:block}`);
+    expect(counterSignHtml({ ...sign, fontDataUrl: "data:font/woff2;base64,x);}</style><script>" })).not.toContain("@font-face");
+    expect(counterSignHtml(sign)).not.toContain("@font-face");
+    expect(counterSignHtml(sign)).toContain("font-family:Manrope,Arial,Helvetica,sans-serif");
+  });
+
   it("rejects a non-HTTPS external join link", () => {
     expect(() => counterSignHtml({ ...sign, joinUrl: "http://example.test/join/synthetic-cafe" })).toThrow("Anmeldelink ist nicht gültig");
   });

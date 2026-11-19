@@ -68,6 +68,11 @@ describe("NumberStepper", () => {
     expect(out).toContain('aria-label="10 Punkte weniger"');
     expect(out).toContain('aria-label="10 Punkte mehr"');
   });
+  it("shows a dative after „Einlösbar ab“ but names the step in the nominative (ENG-280)", () => {
+    const out = stepper("150", { min: 1, max: 100000, unit: { one: "Punkt", many: "Punkten", step: "Punkte" }, stepSize: 10 });
+    expect(out).toContain(">Punkten</span>");
+    expect(out).toContain('aria-label="10 Punkte weniger"');
+  });
   it("shows „Aus“ without a unit and „+2“ with one", () => {
     expect(stepper("0", { min: 0, max: 5, unit: POINT, bonus: true, offAtZero: true })).toMatch(/value="Aus"[^>]*\/><\/span>/);
     expect(stepper("2", { min: 0, max: 5, unit: POINT, bonus: true })).toMatch(/value="\+2"[^>]*\/><span aria-hidden="true">Punkte<\/span>/);
