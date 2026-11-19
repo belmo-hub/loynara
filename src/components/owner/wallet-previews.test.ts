@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { BrowserCardPreview } from "./card-preview";
 import { SurfacePreview, type PreviewData } from "./wallet-previews";
 
 const data: PreviewData = { businessName: "Synthetic Café", locationName: "Kassel", brandColor: "#1F4A3A", programType: "points", rewardTitle: "Kaffee", rewardCost: 10, balance: 9, programName: "Treuekarte", logoData: null };
@@ -56,5 +57,13 @@ describe("Wallet previews in the card studio say what the pass says (ENG-108)", 
       expect(rule(selector), selector).not.toMatch(/cover|50%/);
     }
     for (const selector of [".ow-pass-logo", ".ow-logo-thumb", ".ow-pass-wide"]) expect(rule(selector), selector).toMatch(/object-fit: contain/);
+  });
+});
+
+describe("the owner's card preview names its region as the example (Design, #282)", () => {
+  it("is „Karte“, not the guest's „Deine Treuekarte“", () => {
+    const html = renderToStaticMarkup(h(BrowserCardPreview, { businessName: "Café", locationName: "Mitte", brandColor: "", programType: "points", rewardTitle: "Kaffee", rewardCost: 100, balance: 62 }));
+    expect(html).toContain('aria-label="Karte"');
+    expect(html).not.toContain("Deine Treuekarte");
   });
 });
