@@ -5,8 +5,9 @@ import QRCode from "qrcode";
 // From 600 px wide the Kasse's layout is decided when the card opens and kept until it leaves (Design, 19 Nov): a group
 // that still fits with the booked stack is centred with a floating panel that grows downward; any other takes the
 // phone's layout, a sticky flat dock never shorter than the booked stack. Either way, from the tap to the end of the
-// „Gebucht“ hold the card's top, the dock's top, its left edge, width and corners are the same in every frame, and the
-// typed path's code field is fully in view.
+// „Gebucht“ hold the card's top and the dock's left edge, width and corners are the same in every frame, and the typed
+// path's code field is fully in view. Centred, the dock's top stays and it grows downward; in the wide phone layout its
+// bottom stays and its top rises once into ground reserved above it, never over content.
 
 type Shop = { owner: Awaited<ReturnType<typeof apiRequest.newContext>>; programSlug: string };
 
@@ -49,7 +50,7 @@ async function fakeCamera(context: BrowserContext) {
   });
 }
 
-type Frame = { card: number; dock: number; bottom: number; left: number; width: number; radius: string; field: number | null };
+type Frame = { card: number; dock: number; bottom: number; left: number; width: number; radius: string; field: number | null; content: number };
 /** Every frame's card top, the dock's box and corner, and the code field's bottom while the card is on screen. */
 const record = (page: Page) => page.evaluate(() => {
   const frames: Frame[] = [];
@@ -58,7 +59,8 @@ const record = (page: Page) => page.evaluate(() => {
     const card = document.querySelector(".card-result-head"), dock = document.querySelector("[data-dock]"), field = document.querySelector(".cashier-booked #cashier-code");
     if (card && dock) {
       const box = dock.getBoundingClientRect();
-      frames.push({ card: card.getBoundingClientRect().top, dock: box.top, bottom: box.bottom, left: box.left, width: box.width, radius: getComputedStyle(dock).borderBottomLeftRadius, field: field ? field.getBoundingClientRect().bottom : null });
+      const content = Math.max(...[...document.querySelectorAll("main *")].filter(el => !el.closest("dialog")).map(el => el.getBoundingClientRect()).filter(r => r.height > 0).map(r => r.bottom));
+      frames.push({ card: card.getBoundingClientRect().top, dock: box.top, bottom: box.bottom, left: box.left, width: box.width, radius: getComputedStyle(dock).borderBottomLeftRadius, field: field ? field.getBoundingClientRect().bottom : null, content });
     }
     requestAnimationFrame(tick);
   };
@@ -67,15 +69,22 @@ const record = (page: Page) => page.evaluate(() => {
 const frames = (page: Page) => page.evaluate(() => (window as unknown as { holdFrames: Frame[] }).holdFrames);
 const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
 
-/** The trace from the open layout through the tap to the end of the hold: nothing but the dock's bottom moves. */
-async function held(page: Page, book: () => Promise<void>, typed: boolean) {
+/** The trace from the open layout through the tap to the end of the hold. Centred ("held"): nothing but the dock's bottom
+ * moves. The wide phone layout ("rises"): the bottom and the content stay, the top rises once, and nothing is under it. */
+async function held(page: Page, book: () => Promise<void>, typed: boolean, mode: "held" | "rises" = "held") {
   await record(page);
   await book();
   await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
   await expect(page.locator(".cashier-booked")).toHaveCount(0, { timeout: 8_000 });
   const seen = await frames(page), at = JSON.stringify([seen[0], seen.at(-1)]);
   expect(seen.length).toBeGreaterThan(30);
-  for (const key of ["card", "dock", "left", "width"] as const) expect(spread(seen.map(f => f[key])), `${key} ${at}`).toBeLessThanOrEqual(1);
+  for (const key of ["card", "left", "width", ...(mode === "held" ? ["dock"] as const : ["bottom"] as const)] as const) expect(spread(seen.map(f => f[key])), `${key} ${at}`).toBeLessThanOrEqual(1);
+  if (mode === "rises") {
+    const tops = seen.map(f => Math.round(f.dock));
+    expect(tops.filter((top, i) => i && top !== tops[i - 1]), `one rise ${at}`).toHaveLength(1);
+    expect(tops.at(-1)!, at).toBeLessThan(tops[0]);
+    for (const f of seen) expect(f.content, `nothing under the dock ${at}`).toBeLessThanOrEqual(f.dock + 1);
+  }
   expect(new Set(seen.map(f => f.radius)).size, at).toBe(1);
   if (!typed) return;
   // The typed path's focused field and its 4 px ring are in view in every frame of „Gebucht“.
@@ -98,20 +107,44 @@ async function openTyped(page: Page, code: string) {
   await page.waitForTimeout(400); // the dock's entrance and the centring settle
 }
 
-for (const size of [{ width: 1280, height: 900 }, { width: 880, height: 900 }, { width: 820, height: 1180 }]) {
-  test(`a points card booking 12,50 keeps the card and the dock in every frame, the field in view (${size.width} × ${size.height})`, async ({ baseURL, browser }) => {
-    const url = baseURL ?? "http://localhost:3000", s = await shop(url, "points");
-    const { context, page } = await counter(browser, url, s, size);
-    await openTyped(page, await guestCard(url, s));
-    await page.getByRole("button", { name: "Kaufbetrag eingeben" }).first().click();
-    await page.getByLabel("Kaufbetrag (EUR)").fill("12,50");
-    await page.getByRole("button", { name: "Buchen", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("12 Punkte für einen Kauf über 12,50 € für Karte");
-    // From the open layout behind the dialog, through the tap and „Gebucht“, to the end of the hold.
-    await held(page, () => page.getByRole("button", { name: "Ja, vergeben", exact: true }).click(), true);
-    await context.close(); await s.owner.dispose();
-  });
+/** Opens the card by its typed code or through the camera, books 12,50 and traces it from behind the confirmation. */
+async function pointsBooking(browser: Browser, url: string, size: { width: number; height: number }, path: "typed" | "scan", mode: "held" | "rises") {
+  const s = await shop(url, "points"), code = await guestCard(url, s);
+  const { context, page } = await counter(browser, url, s, size, path === "scan");
+  if (path === "typed") await openTyped(page, code);
+  else {
+    await page.goto("/cashier");
+    await page.getByRole("button", { name: "Kamera öffnen" }).click();
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
+    const qr = await QRCode.toDataURL(code, { margin: 2, width: 300 });
+    await page.evaluate(next => (window as unknown as { __showQr: (url: string) => Promise<void> }).__showQr(next), qr);
+    await expect(page.getByRole("button", { name: "Kaufbetrag eingeben" }).first()).toBeVisible();
+    await page.waitForTimeout(400);
+  }
+  if (mode === "rises") {
+    // The open dock has its natural height (one button), not the booked stack's.
+    expect(await page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().height)).toBeLessThan(160);
+  }
+  await page.getByRole("button", { name: "Kaufbetrag eingeben" }).first().click();
+  await page.getByLabel("Kaufbetrag (EUR)").fill("12,50");
+  await page.getByRole("button", { name: "Buchen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("12 Punkte für einen Kauf über 12,50 € für Karte");
+  // From the open layout behind the dialog, through the tap and „Gebucht“, to the end of the hold.
+  await held(page, () => page.getByRole("button", { name: "Ja, vergeben", exact: true }).click(), path === "typed", mode);
+  await context.close(); await s.owner.dispose();
 }
+
+for (const size of [{ width: 1280, height: 900 }, { width: 880, height: 900 }]) {
+  for (const path of ["typed", "scan"] as const) {
+    test(`the wide phone layout: a points card booking 12,50 on the ${path} path rises once from its natural height, bottom and content fixed (${size.width} × ${size.height})`, async ({ baseURL, browser }) => {
+      await pointsBooking(browser, baseURL ?? "http://localhost:3000", size, path, "rises");
+    });
+  }
+}
+
+test("centred: a points card booking 12,50 keeps the card and the dock's top in every frame, the field in view (820 × 1180)", async ({ baseURL, browser }) => {
+  await pointsBooking(browser, baseURL ?? "http://localhost:3000", { width: 820, height: 1180 }, "typed", "held");
+});
 
 test("a stamp card's one-tap booking keeps the card and the dock in every frame (1280 × 900)", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000", s = await shop(url, "stamp");

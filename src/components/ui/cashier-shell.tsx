@@ -69,15 +69,17 @@ function Dock({ label, minHeight, floor, held, children }: { label?: string; min
     // are looked through.
     const boxes = (el: Element): HTMLElement[] => [...el.children].flatMap(child => getComputedStyle(child).display === "contents" ? boxes(child) : child instanceof HTMLElement && child.offsetHeight > 0 ? [child] : []);
     const extent = (el: HTMLElement, origin: number) => { const kids = boxes(el); return kids.length ? Math.max(...kids.map(kid => kid.offsetTop + kid.offsetHeight)) - origin : 0; };
-    const fits = () => {
-      if (!matchMedia("(min-width: 600px)").matches) return false;
+    // The layout and, for the wide phone layout, the ground the booked stack will take above the open dock.
+    const measure = () => {
+      if (!matchMedia("(min-width: 600px)").matches) return { fit: false, reserve: 0 };
       const head = shell.querySelector<HTMLElement>(":scope > header"), status = shell.querySelector<HTMLElement>(`:scope > .${styles.status}`);
-      const content = (status ? status.offsetHeight + 12 : 0) + extent(main, main.offsetTop) + px(main, "padding-bottom");
+      const content = (status ? status.offsetHeight + 12 : 0) + extent(main, main.offsetTop) + px(main, "padding-top"); /* the base inset, not the reserve below */
       const kids = boxes(dock), first = kids.length ? Math.min(...kids.map(kid => kid.offsetTop)) : 0;
       const open = (kids.length ? extent(dock, first) : 0) + px(dock, "padding-top", "padding-bottom", "border-top-width", "border-bottom-width");
       const booked = Math.max(open, parseFloat(dock.style.getPropertyValue("--dock-floor")) || 0);
       const spare = innerHeight - (head ? head.offsetTop + head.offsetHeight : 0) - content - open;
-      return spare / 2 - (booked - open) >= 24;
+      const fit = spare / 2 - (booked - open) >= 24;
+      return { fit, reserve: fit ? 0 : Math.max(0, Math.ceil(booked - open)) };
     };
     // A flip that would only undo the last one, with the window and the content unchanged, is the panel's own size
     // feeding back (a wrapped line inside the narrower panel): the dock keeps the state it has. New dock content (a
@@ -85,7 +87,8 @@ function Dock({ label, minHeight, floor, held, children }: { label?: string; min
     let last: { back: boolean; key: string } | undefined;
     const check = () => {
       if (holding.current) return;
-      const want = fits(), now = dock.hasAttribute("data-floating");
+      const { fit: want, reserve } = measure(), now = dock.hasAttribute("data-floating");
+      shell.style.setProperty("--dock-reserve", `${reserve}px`);
       const key = `${innerWidth}x${innerHeight}:${main.getBoundingClientRect().height}:${dock.textContent}`;
       if (want === now || (last && last.back === want && last.key === key)) return;
       last = { back: now, key };
@@ -96,8 +99,23 @@ function Dock({ label, minHeight, floor, held, children }: { label?: string; min
     observer.observe(dock); observer.observe(main); observer.observe(shell); observer.observe(document.documentElement);
     window.addEventListener("resize", check);
     check();
-    return () => { observer.disconnect(); window.removeEventListener("resize", check); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", check); shell.style.removeProperty("--dock-reserve"); };
   }, []);
+  // The wide phone layout's booking (Design, 19 Nov): the open dock has its natural height, and on the booking its top
+  // edge rises into the ground reserved above it while its bottom and the content stay put. The layout jumps at once
+  // (the held height takes effect with „Gebucht“); a clip from the old top lets the edge rise over --dur-ui.
+  useLayoutEffect(() => {
+    const dock = ref.current;
+    // The grown dock now stands on the reserved ground, so the content no longer keeps it.
+    if (minHeight) dock?.parentElement?.style.setProperty("--dock-reserve", "0px");
+    if (!dock || !minHeight || dock.hasAttribute("data-floating") || !matchMedia("(min-width: 600px)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rise = dock.offsetHeight - minHeight;
+    if (rise <= 0) return;
+    const look = getComputedStyle(dock), round = `round ${look.borderTopLeftRadius} ${look.borderTopRightRadius} 0 0`;
+    const animation = dock.animate([{ clipPath: `inset(${rise}px 0 0 0 ${round})` }, { clipPath: `inset(0 0 0 0 ${round})` }],
+      { duration: parseFloat(look.getPropertyValue("--dur-ui")) || 200, easing: look.getPropertyValue("--ease-out").trim() || "ease-out" });
+    return () => animation.cancel();
+  }, [minHeight]);
   const style = { ...(minHeight ? { minHeight } : {}), ...(floor ? { "--dock-floor": `${floor}px` } : {}) } as CSSProperties;
   return <div ref={ref} className={styles.dock} data-dock="true" role={label ? "region" : undefined} aria-label={label} style={style}>{children}</div>;
 }
