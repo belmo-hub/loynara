@@ -32,7 +32,8 @@ export function stampColumns(total: number) {
  */
 export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, grow = false }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
-  const label = stampsLabel(filled, total, locale);
+  // Above the goal a reader hears the true count, as the card shows it (Design, 18 Nov: never clamp).
+  const label = earned > total ? withUnit(earned, "stamps", locale) : stampsLabel(filled, total, locale);
   if (total > STAMP_GRID_MAX) {
     return <div className={cx(styles.track, className)} role="img" aria-label={label} data-grow={grow || undefined}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />

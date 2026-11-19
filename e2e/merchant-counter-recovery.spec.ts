@@ -182,7 +182,7 @@ test("correction and reissue dialogs fit short screens and keep their actions re
     })).toBe(true);
     await page.goto("/merchant/customers?activity=all");
     await page.getByRole("link", { name: new RegExp(card.cardLocator) }).click();
-    await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
     for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 800], [1440, 900]]) {
       await page.setViewportSize({ width, height });
       // Since ENG-122a both are screens in the card's own history: heading on top, no sideways scroll, Back to the card.
@@ -192,7 +192,7 @@ test("correction and reissue dialogs fit short screens and keep their actions re
         await page.screenshot({ path: testInfo.outputPath(`step-${width}-${action === "Korrigieren" ? "correction" : "reissue"}.png`) });
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
         await page.goBack();
-        await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
       }
     }
   } finally { await context.close(); await guest.dispose(); await owner.context.dispose(); }

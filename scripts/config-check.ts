@@ -58,16 +58,17 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 || env.BETTER_AUTH_SECRET.startsWith("replace-")) {
     issues.push("Production auth secret is missing, short, or a placeholder");
   }
-  if (env.PUBLIC_REGISTRATION_ENABLED === "true") issues.push("Public registration is not approved for production");
+  // Open sign-up is allowed in production (founder decision, 18 Nov 2026); the value must be unambiguous. Absent means off.
+  const registration = env.PUBLIC_REGISTRATION_ENABLED;
+  if (registration !== undefined && registration !== "true" && registration !== "false") issues.push("PUBLIC_REGISTRATION_ENABLED must be exactly true or false when set");
   // Invite-gated staff sign-up (approved for the pilot) is a narrow exception, not a form of registration: an account may be
   // created only for the exact invited address with the invitation's secret token while it is pending, unexpired, unrevoked
-  // and unused (src/lib/auth.ts + invite-signup.ts; no other setting can relax that). It therefore requires public
-  // registration to be explicitly off, and the flag itself must be unambiguous. Absent or "false" keeps it off.
+  // and unused (src/lib/auth.ts + invite-signup.ts; no other setting can relax that). It is meant only for closed
+  // registration, so it requires public registration to be explicitly off, and the flag itself must be unambiguous.
   const invite = env.STAFF_INVITE_SIGNUP_ENABLED;
   if (invite !== undefined && invite !== "true" && invite !== "false") {
     issues.push("STAFF_INVITE_SIGNUP_ENABLED must be exactly true or false when set");
-  } else if (invite === "true" && env.PUBLIC_REGISTRATION_ENABLED !== undefined && env.PUBLIC_REGISTRATION_ENABLED !== "false" && env.PUBLIC_REGISTRATION_ENABLED !== "true") {
-    // "true" is already refused above; this catches ambiguous values that the application would treat as closed.
+  } else if (invite === "true" && registration !== undefined && registration !== "false") {
     issues.push("Invite-gated staff sign-up requires PUBLIC_REGISTRATION_ENABLED to be exactly false (or unset)");
   }
   const poolMax = Number(env.PG_POOL_MAX);
