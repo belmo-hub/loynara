@@ -9,6 +9,8 @@
 @media (forced-colors: active) {
   .ladder .track { border: 1px solid CanvasText; background: Canvas; }
   .ladder .fill { forced-color-adjust: none; background: CanvasText; }
+  /* A reached marker stays a disc on the fill, its check in Canvas, instead of a hole in the bar. */
+  .ladder .mark[data-reached] .dot { forced-color-adjust: none; background: CanvasText; color: Canvas; }
 }
 .mark { position: absolute; top: 0; left: calc(var(--at) * 100%); display: grid; justify-items: center; gap: 6px; transform: translateX(-50%); }
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
