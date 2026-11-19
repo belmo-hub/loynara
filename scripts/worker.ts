@@ -13,6 +13,7 @@ import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 import { boundedWorkerDatabase } from "./worker-database";
 import { startWorkerMonitor } from "./worker-monitor";
 import { superviseWalletJob, walletJobLifetimeMs, walletTimingLine } from "./worker-supervisor";
+import { RATE_LIMIT_PRUNE_INTERVAL_MS } from "../src/lib/rate-limit";
 
 type Job = OutboxJob;
 
@@ -400,7 +401,7 @@ async function main() {
           throw error;
         }
       }
-      if (Date.now() - rateLimitsPrunedAt >= 24 * 60 * 60_000) {
+      if (Date.now() - rateLimitsPrunedAt >= RATE_LIMIT_PRUNE_INTERVAL_MS) {
         try {
           // Daily and idempotent (ENG-281): the owner privacy page promises counters go within 48 hours of their window.
           const { pruneExpiredRateLimits } = await import("../src/lib/rate-limit");

@@ -88,7 +88,7 @@ describe("owner privacy notice", () => {
   it("promises the 48-hour counter deletion only because the worker runs the prune daily (ENG-281)", () => {
     expect(html).toContain("Die Zähler für Anmeldeversuche löschen wir spätestens 48 Stunden nach Ablauf ihres Zeitfensters.");
     const worker = readFileSync("scripts/worker.ts", "utf8");
-    expect(worker).toMatch(/rateLimitsPrunedAt >= 24 \* 60 \* 60_000[\s\S]{0,400}pruneExpiredRateLimits\(housekeepingDatabase\)/);
+    expect(worker).toMatch(/rateLimitsPrunedAt >= RATE_LIMIT_PRUNE_INTERVAL_MS[\s\S]{0,400}pruneExpiredRateLimits\(housekeepingDatabase\)/);
   });
 
   const invite = (role: "owner" | "manager" | "cashier") => renderToStaticMarkup(createElement(InviteClient, { token: "t", registrationOpen: false, invite: { email: "a@example.test", role, businessName: "Café Test", locationName: "Mitte" } })).replaceAll("<!-- -->", "").replace(/ class="[^"]*"/g, "");
