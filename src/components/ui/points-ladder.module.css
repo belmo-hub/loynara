@@ -4,6 +4,12 @@
 /* The track runs from the start to the last marker's centre, with no overhang (G-04). */
 .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
 .fill { position: absolute; inset: 0; transform-origin: left; background: var(--merchant-ink, var(--color-ink)); transition: transform var(--dur-reward) var(--ease-in-out); }
+/* Forced colours drop both backgrounds: the track keeps an edge and the fill stays CanvasText (Design, #282). Scoped
+   under .ladder so the colour rules above stay the only ones merchant-color.test.ts reads for the card's contrast. */
+@media (forced-colors: active) {
+  .ladder .track { border: 1px solid CanvasText; background: Canvas; }
+  .ladder .fill { forced-color-adjust: none; background: CanvasText; }
+}
 .mark { position: absolute; top: 0; left: calc(var(--at) * 100%); display: grid; justify-items: center; gap: 6px; transform: translateX(-50%); }
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
