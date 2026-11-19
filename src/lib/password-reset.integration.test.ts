@@ -4,9 +4,15 @@ import { pool } from "@/db";
 import type { TransactionalMessage } from "./transactional-email";
 
 const sent = vi.hoisted(() => [] as TransactionalMessage[]);
+// How long the fake provider takes to accept a mail.
+const provider = vi.hoisted(() => ({ delayMs: 0 }));
 vi.mock("./transactional-email", async importOriginal => ({
   ...await importOriginal<typeof import("./transactional-email")>(),
-  transactionalProvider: () => ({ name: "mailpit", async send(message: TransactionalMessage) { sent.push(message); return { state: "accepted", messageId: `local:${message.jobId}` }; } }),
+  transactionalProvider: () => ({ name: "mailpit", async send(message: TransactionalMessage) {
+    await new Promise(resolve => setTimeout(resolve, provider.delayMs));
+    sent.push(message);
+    return { state: "accepted", messageId: `local:${message.jobId}` };
+  } }),
 }));
 const { POST } = await import("@/app/api/auth/[...all]/route");
 
@@ -37,6 +43,7 @@ async function account(confirmed: boolean) {
   await post("/sign-up/email", { name: "Synthetic owner", email, password });
   await pool.query('UPDATE "user" SET "emailVerified" = $2 WHERE email = $1', [email, confirmed]);
   sent.length = 0;
+  provider.delayMs = 0;
   return email;
 }
 const settled = () => new Promise(resolve => setTimeout(resolve, 300));
@@ -94,4 +101,16 @@ it("sends at most three links an hour to one address, and limits requests per pe
   const statuses = [];
   for (let i = 0; i < 6; i += 1) statuses.push((await post("/request-password-reset", { email: `${randomUUID()}@example.test` }, "203.0.113.9")).status);
   expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+});
+
+it("answers a confirmed address within the floor even when the provider is slow: the mail goes out after the answer", async () => {
+  const email = await account(true);
+  provider.delayMs = 600;
+  const started = performance.now();
+  expect((await post("/request-password-reset", { email })).status).toBe(200);
+  const time = performance.now() - started;
+  expect(time).toBeGreaterThanOrEqual(395);
+  expect(time).toBeLessThan(550);
+  expect(resetMails()).toHaveLength(0);
+  await vi.waitFor(() => expect(resetMails()).toHaveLength(1), { timeout: 2000 });
 });
