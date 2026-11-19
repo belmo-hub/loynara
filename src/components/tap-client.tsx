@@ -78,7 +78,7 @@ export function TapCardFace({ card, balance, moment, credited }: { card: CardRes
   return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)}
     // The grid counts to the next reward not reached before this tap: the tap page is a one-shot result, so a tap that
     // completes a reward keeps showing the card it completed („3 von 3“, Design #300 ruling).
-    goal={cardGoal(rewards, balance - (credited ?? 1))} landed={moment ? balance : undefined} />;
+    goal={cardGoal(rewards, balance - (credited ?? 1))} landed={moment ? balance : undefined} landedCount={credited} />;
 }
 
 export function TapClient({ refId }: { refId: string }) {

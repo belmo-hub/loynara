@@ -62,7 +62,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
       ? <StampGrid earned={balance} total={goal.cost} landed={landed} landedCount={landedCount} locale={locale} reward={<Gift size={22} />} className={styles.stamps} grow={grow} />
       : <PointsLadder balance={balance} rewards={rewards} landedFrom={landed === undefined ? undefined : landed - (landedCount ?? 1)} locale={locale} titles className={styles.ladder} grow={grow} />}
     {programType === "stamps" && goal ? <p className={`customer-balance-line ${styles.balanceLine}`}><span><Gift size={20} aria-hidden="true" />{goal.title}</span><strong>{/* Never clamped (Design, 18 Nov): above the goal the true count with its unit. */}{balance > goal.cost ? `${number.format(balance)} ${t.unit(balance, "stamps")}` : t.of(number.format(balance), number.format(goal.cost))}</strong></p> : null}
-    {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? (goal && goal.id !== selected.id ? `${t.readyFor} ${selected.title}` : t.rewardReady) : t.remaining(number.format(remaining), t.unit(remaining, programType), selected.title)}</p> : null}
+    {progress && selected ? <p className={`reward-remaining ${styles.remaining}`}>{remaining === 0 ? (goal && goal.id !== selected.id ? `${t.readyFor} ${selected.title}.` : t.rewardReady) : t.remaining(number.format(remaining), t.unit(remaining, programType), selected.title)}</p> : null}
     {children}
   </section>;
 }

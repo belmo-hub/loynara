@@ -278,9 +278,10 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     });
   }, [landed, landedCount, grow, card.balance]);
   // A new goal (the hold released after a booking moment, or the guest picking another reward) is a crossfade, not a cut
-  // (Design, #300). Only what changes is drawn twice: the old stamp grid and count fade out over --dur-ui, linear, as the
-  // new ones fade in. The card's height eases to the new one as the ready band's slot does, and the foot slides down with
-  // its edge, so no word stands in two places and what is below slides. Reduced motion keeps the cut.
+  // (Design, #300). Only what changes is copied: the old stamp grid and count, with no ground, fade out over --dur-ui,
+  // linear, over the new card at full opacity, so a stamp that stays earned keeps its pixels. The card's height eases to
+  // the new one as the ready band's slot does, its shadow on the growing edge, and the foot slides down with that edge,
+  // so no word stands in two places and what is below slides. Reduced motion keeps the cut.
   const shown = useRef<{ id: string; html: string; height: number; stampsEnd: number; footTop: number } | null>(null);
   const parts = (card: HTMLElement) => {
     const stamps = card.querySelector<HTMLElement>('[role="img"]');
@@ -307,13 +308,14 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     old.inert = true;
     Object.assign(old.style, { position: "absolute", inset: "0 0 auto", height: `${before.stampsEnd}px`, overflow: "hidden", pointerEvents: "none" });
     box.append(old);
-    const radius = getComputedStyle(card).borderBottomLeftRadius;
-    const clip = `inset(-48px 0 0 round 0 0 ${radius} ${radius})`; // the growing edge keeps the card's lower corners
-    const grow = box.animate([{ height: `${before.height}px`, clipPath: clip }, { height: `${card.offsetHeight}px`, clipPath: clip }], { duration, easing: ease });
+    // While it grows the box clips the card to its rounded shape and wears the card's shadow, so the shadow follows the edge.
+    const look = getComputedStyle(card);
+    Object.assign(box.style, { overflow: "hidden", borderRadius: look.borderRadius, boxShadow: look.boxShadow });
+    card.style.boxShadow = "none";
+    const grow = box.animate([{ height: `${before.height}px` }, { height: `${card.offsetHeight}px` }], { duration, easing: ease });
     old.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: "linear", fill: "forwards" });
-    for (const node of [now.stamps, now.count]) node.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing: "linear" });
     const slide = now.foot?.animate([{ transform: `translateY(${before.footTop - now.foot.offsetTop}px)` }, { transform: "none" }], { duration, easing: ease });
-    const done = () => old.remove();
+    const done = () => { old.remove(); Object.assign(box.style, { overflow: "", borderRadius: "", boxShadow: "" }); card.style.boxShadow = ""; };
     grow.finished.then(done, done);
     return () => { grow.cancel(); slide?.cancel(); done(); };
   }, [goalId]);

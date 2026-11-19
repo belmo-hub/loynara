@@ -36,12 +36,19 @@ async function card() {
 /** Every frame from now: the ticket's top, and how many foot lines the faded copy shows (it must show none). */
 const trace = (page: Page) => page.evaluate(() => {
   const ticket = document.querySelector(".customer-qr-panel")!;
-  const seen = { tops: [] as number[], copies: 0, footInCopy: 0 };
+  const seen = { tops: [] as number[], copies: 0, footInCopy: 0, dimmed: 0, shadowless: 0 };
   (window as unknown as { seen: typeof seen }).seen = seen;
   const look = () => {
     seen.tops.push(ticket.getBoundingClientRect().top + window.scrollY);
     const copy = document.querySelector("[aria-hidden=true][inert]");
-    if (copy) { seen.copies += 1; seen.footInCopy += [...copy.querySelectorAll("p")].filter(p => getComputedStyle(p).visibility === "visible").length; }
+    if (copy) {
+      seen.copies += 1;
+      seen.footInCopy += [...copy.querySelectorAll("p")].filter(p => getComputedStyle(p).visibility === "visible").length;
+      // The live card stays at full opacity under the copy, and its shadow (on the card or, while growing, its box) stays.
+      const box = copy.parentElement!, live = box.firstElementChild!;
+      if ([live, live.querySelector('[role="img"]')!].some(node => Number(getComputedStyle(node).opacity) < 1)) seen.dimmed += 1;
+      if (getComputedStyle(box).boxShadow === "none" && getComputedStyle(live).boxShadow === "none") seen.shadowless += 1;
+    }
     requestAnimationFrame(look);
   };
   look();
@@ -49,7 +56,7 @@ const trace = (page: Page) => page.evaluate(() => {
 
 async function slid(page: Page) {
   await page.waitForTimeout(600);
-  const seen = await page.evaluate(() => (window as unknown as { seen: { tops: number[]; copies: number; footInCopy: number } }).seen);
+  const seen = await page.evaluate(() => (window as unknown as { seen: { tops: number[]; copies: number; footInCopy: number; dimmed: number; shadowless: number } }).seen);
   const steps = seen.tops.slice(1).map((top, i) => Math.abs(top - seen.tops[i]));
   const move = seen.tops.at(-1)! - seen.tops[0];
   expect(move, "the taller card moved the ticket down").toBeGreaterThan(40);
@@ -58,6 +65,8 @@ async function slid(page: Page) {
   expect(steps.filter(step => step > 0.5).length, "frames the ticket moved in").toBeGreaterThanOrEqual(5);
   expect(seen.copies, "the old stamps and count faded out").toBeGreaterThan(0);
   expect(seen.footInCopy, "no foot line in the faded copy: the foot is drawn once").toBe(0);
+  expect(seen.dimmed, "frames in which the live card or its stamps were dimmed").toBe(0);
+  expect(seen.shadowless, "frames in which the card had no shadow").toBe(0);
   expect(await page.locator("[aria-hidden=true][inert]").count(), "the faded copy is removed").toBe(0);
 }
 
@@ -72,6 +81,33 @@ test("picking the larger reward crossfades the stamps and slides the ticket", as
   await page.getByRole("button", { name: /^Gratiskaffee/ }).click();
   await expect(page.getByRole("img", { name: "2 von 8 Stempeln", exact: true })).toBeVisible();
   await slid(page);
+});
+
+test("an earned stamp keeps its pixels through the crossfade", async ({ browser, baseURL, browserName }) => {
+  test.skip(browserName !== "chromium", "slowing the animations needs the Chrome DevTools protocol");
+  const { cardToken, award } = await card();
+  await award(2);
+  const page = await (await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } })).newPage();
+  await page.goto(`/card/${cardToken}`);
+  const grid = page.getByRole("img", { name: "2 von 3 Stempeln", exact: true });
+  await expect(grid).toBeVisible();
+  await page.waitForTimeout(800);
+  const stamp = (await grid.locator(":scope > span").first().boundingBox())!;
+  const centre = { x: Math.round(stamp.x + stamp.width / 2) - 2, y: Math.round(stamp.y + stamp.height / 4) - 2, width: 4, height: 4 };
+  const at = () => page.screenshot({ clip: centre, animations: "allow" });
+  const rest = await at();
+  // 25 times slower, so the 220 ms crossfade is caught in several shots.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Animation.enable");
+  await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.04 });
+  await page.getByRole("button", { name: /^Gratiskaffee/ }).click();
+  let shots = 0;
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(700);
+    if (await page.locator("[aria-hidden=true][inert]").count()) shots += 1;
+    expect((await at()).equals(rest), `the earned stamp's pixels in shot ${i}`).toBe(true);
+  }
+  expect(shots, "shots taken during the crossfade").toBeGreaterThan(2);
 });
 
 test("the goal released after a booking moment slides the ticket instead of jumping it", async ({ browser, baseURL }) => {

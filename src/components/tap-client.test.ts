@@ -61,7 +61,7 @@ describe("several rewards on the tap page (Design, #300)", () => {
   const face = (balance: number, moment: boolean, credited?: number) => renderToStaticMarkup(createElement(TapCardFace, { card: two, balance, moment, credited }));
   it("counts to the next reward not reached before the tap, and the ready line names the ready reward", () => {
     expect(face(4, true)).toContain("4 von 8");
-    expect(face(4, false)).toContain("Deine Prämie ist bereit: Kleiner Kaffee");
+    expect(face(4, false)).toContain("Deine Prämie ist bereit: Kleiner Kaffee.");
     expect(face(4, false)).not.toContain("Prämie verfügbar.");
     expect(face(2, false)).toContain("2 von 3");
   });
