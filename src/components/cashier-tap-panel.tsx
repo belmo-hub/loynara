@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
+import { formatMinor } from "@/lib/spend-copy";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
 import { buttonClassName } from "./ui/button";
@@ -449,7 +450,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
       {confirming && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
         description={<><strong className={styles.figure}>{number.format(confirming.points)} {t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
-          && <> {t.forPurchase} <strong className={styles.figure}>{money.format(confirming.award.purchaseAmountMinor / 100)} {confirming.item.currency ?? "EUR"}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
+          && <> {t.forPurchase} <strong className={styles.figure}>{locale === "fr" ? `${money.format(confirming.award.purchaseAmountMinor / 100)} ${confirming.item.currency ?? "EUR"}` : formatMinor(confirming.award.purchaseAmountMinor, confirming.item.currency ?? "EUR")}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
         actions={<>
           <button type="button" className={buttonClassName({ variant: "secondary" })} onClick={cancelConfirm}>{t.cancel}</button>
           <button type="button" className={buttonClassName({ variant: "primary" })} disabled={busyIds.has(confirming.item.id)}

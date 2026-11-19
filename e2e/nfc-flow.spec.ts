@@ -115,7 +115,7 @@ test("points programme: the tap waits for the team, the cashier enters and revie
     // A typed amount waits for the confirmation (ENG-274): „Abbrechen“ books nothing and leaves the amount selected.
     const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
     await counter.getByRole("button", { name: "Buchen", exact: true }).click();
-    await expect(dialog).toContainText(`16 Punkte für einen Kauf über 16,70 EUR für Karte ${guest.cardLocator}.`);
+    await expect(dialog).toContainText(`16 Punkte für einen Kauf über 16,70\u00a0€ für Karte ${guest.cardLocator}.`);
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => amount.evaluate((input: HTMLInputElement) => [document.activeElement === input, input.selectionStart, input.selectionEnd])).toEqual([true, 0, 5]);
