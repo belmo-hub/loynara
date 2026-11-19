@@ -44,6 +44,7 @@ const location = (name: string) => ({ name, city: "Kassel", country: "DE" as con
 async function shop({ second = true } = {}) {
   const owner = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [owner, "Synthetic owner", `${owner}@example.test`]);
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [owner]);
   const created = await createMerchant({ userId: owner, businessName: "Synthetic Monats-Café", locationName: "Am Markt", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5 });
   if (second) await createAdditionalLocation(owner, location("Bahnhof"));
   await db.update(billingLocationPlans).set({ createdAt: new Date("2026-11-01T09:00:00Z") }).where(eq(billingLocationPlans.tenantId, created.tenantId));
@@ -133,6 +134,16 @@ describe("free-month reminder (ENG-123)", () => {
     const { sent, provider } = fakeProvider();
     await deliverFreeMonthReminder(job, provider);
     expect(plain(sent[0].body)).toContain("Ab dem 10. Dezember kostet Loynara 49 € zzgl. USt im Monat für Am Markt.");
+  });
+
+  it("holds the reminder for the operator while the owner's address is not confirmed (ENG-278)", async () => {
+    const s = await shop();
+    await pool.query('UPDATE "user" SET "emailVerified" = false WHERE id = $1', [s.owner]);
+    await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY));
+    const [job] = await jobs(s.tenantId);
+    const { sent, provider } = fakeProvider();
+    expect(await deliverFreeMonthReminder(job, provider)).toEqual({ status: "blocked", reason: "Owner email not confirmed" });
+    expect(sent).toHaveLength(0);
   });
 
   it("sends nothing without a VAT mode, without the operator's settings, or after the shop cancelled", async () => {

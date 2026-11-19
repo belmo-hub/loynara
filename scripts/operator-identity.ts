@@ -99,7 +99,7 @@ export const emailFingerprint = (email: string) => createHash("sha256").update(e
 /** The slice of Better Auth's context this tool uses; injected so tests can supply the real one against a test database. */
 export type AuthContextLike = {
   password: { hash(password: string): Promise<string>; verify(input: { hash: string; password: string }): Promise<boolean> };
-  options: { databaseHooks?: unknown; emailVerification?: { sendVerificationEmail?: unknown } };
+  options: { databaseHooks?: unknown };
   internalAdapter: {
     findUserByEmail(email: string, options?: { includeAccounts?: boolean }): Promise<{ user: { id: string }; accounts: Array<{ providerId: string }> } | null>;
     createUser(user: { email: string; name: string; emailVerified: boolean }, context?: unknown): Promise<{ id: string; email: string } | null>;
@@ -120,8 +120,9 @@ export async function provisionIdentity(input: {
 }): Promise<OperatorResult> {
   const { ctx, identity } = input;
   const now = input.now ?? (() => new Date());
-  // No hook may be able to send e-mail or create side effects as part of user creation.
-  if (ctx.options.databaseHooks || ctx.options.emailVerification?.sendVerificationEmail) refuse("UNEXPECTED_AUTH_HOOK");
+  // No hook may be able to send e-mail or create side effects as part of user creation. The confirmation mail (ENG-278) is
+  // sent by the sign-up and resend endpoints only, never by the adapter calls this tool makes.
+  if (ctx.options.databaseHooks) refuse("UNEXPECTED_AUTH_HOOK");
   const audit = (status: "created" | "existing", userId: string): AuditRecord => ({ at: now().toISOString(), status, userId, emailSha256Prefix: emailFingerprint(identity.email), emailDomain: identity.email.split("@")[1], credentialAccounts: 1, merchantStateCreated: false, sessionsCreated: 0, emailsSent: 0, passwordChanged: false });
   return input.inTransaction(async () => {
     const found = await ctx.internalAdapter.findUserByEmail(identity.email, { includeAccounts: true });
@@ -133,7 +134,8 @@ export async function provisionIdentity(input: {
     const password = generateTemporaryPassword();
     const hash = await ctx.password.hash(password);
     if (!(await ctx.password.verify({ hash, password }))) refuse("HASH_VERIFY_FAILED");
-    const user = await ctx.internalAdapter.createUser({ email: identity.email, name: identity.name, emailVerified: false }, { method: "email-password" });
+    // ENG-278: the operator vouches for the address, as for every account made before confirmation existed.
+    const user = await ctx.internalAdapter.createUser({ email: identity.email, name: identity.name, emailVerified: true }, { method: "email-password" });
     if (!user) return refuse("CREATE_FAILED");
     if (!(await ctx.internalAdapter.linkAccount({ userId: user.id, providerId: "credential", accountId: user.id, password: hash }))) refuse("LINK_FAILED");
     // Sealed before commit: if sealing fails, the transaction rolls back and no unreachable account remains.
@@ -174,7 +176,7 @@ export async function resetCredential(input: {
   const { ctx } = input;
   const email = normalizeIdentity({ email: input.email, name: "-" }).email;
   const now = input.now ?? (() => new Date());
-  if (ctx.options.databaseHooks || ctx.options.emailVerification?.sendVerificationEmail) refuse("UNEXPECTED_AUTH_HOOK");
+  if (ctx.options.databaseHooks) refuse("UNEXPECTED_AUTH_HOOK");
   return input.inTransaction(async () => {
     const found = await ctx.internalAdapter.findUserByEmail(email, { includeAccounts: true });
     if (!found) return refuse("USER_NOT_FOUND");
