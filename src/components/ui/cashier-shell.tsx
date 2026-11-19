@@ -37,38 +37,55 @@ export function CashierShell({ location, state, stateLabel, stateDetail, actions
 }
 
 /**
- * The booking dock. Where it runs off the screen's bottom edge (a phone, a group too tall to centre) its lower edge is
- * flat, as drawn; where the centred group leaves at least 24 px under it (a counter tablet) it is a panel and every
- * corner takes its top radius (Design, 18 Nov). It is decided from the group's spare height (the auto margins above the
- * content and under the dock), which is the same whichever the dock is, so the choice cannot feed back into itself.
+ * The booking dock. From 600 px wide the Kasse is a centred group with a floating panel only if it still fits when the
+ * dock holds its booked stack (the larger of the open dock and the floor), with at least 24 px under it; otherwise, and
+ * on a phone, it is the phone's layout: content from the top, the dock sticky and flat at the bottom, never shorter than
+ * the floor (Design, 19 Nov). Decided when the card opens and kept through a booking, so the tap never changes the
+ * layout. It is measured from the content's and the dock's own heights, which are the same in either layout, so the
+ * choice cannot feed back into itself.
  */
 function Dock({ label, minHeight, floor, held, children }: { label?: string; minHeight?: number; floor?: number; held?: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const holding = useRef(false), recheck = useRef<() => void>(undefined);
-  // From 600 px a booking keeps the centred group where it stands until the card leaves (Design, 19 Nov): the auto top
-  // margin becomes its measured value, the dock is no longer sticky and grows downward, and it keeps the floating state
-  // the open card gave it (a panel stays a panel, past the bottom edge the page scrolls); the next card decides afresh.
+  // A booking keeps the layout the open card was given until the card leaves (Design, 19 Nov). A centred group's auto
+  // top margin becomes its measured value and the panel, no longer sticky, grows downward (past the bottom edge the
+  // page scrolls); the phone's layout keeps its sticky dock and the held height. The next card decides afresh.
   useLayoutEffect(() => {
     const dock = ref.current, main = dock?.previousElementSibling as HTMLElement | null, shell = dock?.parentElement;
-    if (!held || !dock || !main || !shell || !matchMedia("(min-width: 600px)").matches) return;
-    const pinned = [shell.querySelector<HTMLElement>(`:scope > .${styles.status}`), main].filter(el => el !== null);
-    for (const el of pinned) el.style.marginTop = getComputedStyle(el).marginTop;
-    shell.setAttribute("data-held", "");
+    if (!held || !dock || !main || !shell) return;
     holding.current = true;
+    const pinned = dock.hasAttribute("data-floating") ? [shell.querySelector<HTMLElement>(`:scope > .${styles.status}`), main].filter(el => el !== null) : [];
+    for (const el of pinned) el.style.marginTop = getComputedStyle(el).marginTop;
+    if (pinned.length) shell.setAttribute("data-held", "");
     return () => { for (const el of pinned) el.style.marginTop = ""; shell.removeAttribute("data-held"); holding.current = false; recheck.current?.(); };
   }, [held]);
   // Set on the node itself, not through state: the layout effect and the observer run before paint, so the first painted
   // frame of an open card already has the dock it keeps (Design, 18 Nov: reduced motion showed the phone layout first).
   useLayoutEffect(() => {
-    const dock = ref.current, main = dock?.previousElementSibling, shell = dock?.parentElement;
+    const dock = ref.current, main = dock?.previousElementSibling as HTMLElement | null | undefined, shell = dock?.parentElement;
     if (!dock || !main || !shell) return;
+    const px = (el: Element, ...props: string[]) => props.reduce((sum, prop) => sum + parseFloat(getComputedStyle(el).getPropertyValue(prop)), 0);
+    // Layout boxes (offsets, not transformed rects, so an entrance animation does not count); display: contents wrappers
+    // are looked through.
+    const boxes = (el: Element): HTMLElement[] => [...el.children].flatMap(child => getComputedStyle(child).display === "contents" ? boxes(child) : child instanceof HTMLElement && child.offsetHeight > 0 ? [child] : []);
+    const extent = (el: HTMLElement, origin: number) => { const kids = boxes(el); return kids.length ? Math.max(...kids.map(kid => kid.offsetTop + kid.offsetHeight)) - origin : 0; };
+    const fits = () => {
+      if (!matchMedia("(min-width: 600px)").matches) return false;
+      const head = shell.querySelector<HTMLElement>(":scope > header"), status = shell.querySelector<HTMLElement>(`:scope > .${styles.status}`);
+      const content = (status ? status.offsetHeight + 12 : 0) + extent(main, main.offsetTop) + px(main, "padding-bottom");
+      const kids = boxes(dock), first = kids.length ? Math.min(...kids.map(kid => kid.offsetTop)) : 0;
+      const open = (kids.length ? extent(dock, first) : 0) + px(dock, "padding-top", "padding-bottom", "border-top-width", "border-bottom-width");
+      const booked = Math.max(open, parseFloat(dock.style.getPropertyValue("--dock-floor")) || 0);
+      const spare = innerHeight - (head ? head.offsetTop + head.offsetHeight : 0) - content - open;
+      return spare / 2 - (booked - open) >= 24;
+    };
     // A flip that would only undo the last one, with the window and the content unchanged, is the panel's own size
     // feeding back (a wrapped line inside the narrower panel): the dock keeps the state it has. New dock content (a
     // booking) or another window or column size decides afresh.
     let last: { back: boolean; key: string } | undefined;
     const check = () => {
       if (holding.current) return;
-      const want = parseFloat(getComputedStyle(main).marginTop) + parseFloat(getComputedStyle(dock).marginBottom) >= 48, now = dock.hasAttribute("data-floating");
+      const want = fits(), now = dock.hasAttribute("data-floating");
       const key = `${innerWidth}x${innerHeight}:${main.getBoundingClientRect().height}:${dock.textContent}`;
       if (want === now || (last && last.back === want && last.key === key)) return;
       last = { back: now, key };
