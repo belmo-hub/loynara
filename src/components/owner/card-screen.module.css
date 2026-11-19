@@ -8,16 +8,9 @@
 .details { grid-area: details; }
 .action { grid-area: action; }
 
-/* The three figures: a figure over its label, spread from inset to inset. */
+/* From 1200, in the rail: the three figures, a figure over its label, spread from inset to inset. */
 .facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
 .facts > div { display: grid; gap: var(--space-1); }
-/* Under 600 a long date („15. Nov. 2026“) gets the rest of the line and wraps there instead of running out. */
-@media (max-width: 599px) {
-  .facts.facts { grid-template-columns: auto auto minmax(0, 1fr); }
-  .facts > div { align-self: end; } /* a wrapped date: the labels keep one line, the figures stand on one base */
-  .facts > div:last-child { justify-self: end; text-align: end; }
-  .facts > div:last-child .figure { white-space: normal; }
-}
 .figure { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
 .label { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
 
@@ -84,14 +77,21 @@
   .stmt[data-hang] .end { align-content: start; }
   .correct { justify-self: end; }
 }
-@media (min-width: 600px) and (max-width: 1199px) {
-  .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
-  /* Beside the card the figures are rows as tall as the card, label left, figure right at 28/32 (Head of Design). */
-  .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; gap: 0; }
-  .facts > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
+/* Up to 1199 the figures are rows, label left, figure right at 28/32, hairlines between, at least a row's 52 (Head of
+   Design; under 600 since 19 Nov, ENG-290: real dates do not fit three figure columns in a phone, and never break). */
+@media (max-width: 1199px) {
+  .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .facts > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
   .facts > div:first-child { border-top-color: transparent; }
   .facts .label { order: -1; font-weight: var(--weight-strong); }
   .facts .figure { font-size: var(--text-28); line-height: 32px; letter-spacing: -.015em; }
+}
+/* Under 360 the longest date („27. Sept. 2026“) at 28 does not fit beside its label: the figures step down to 22/28. */
+@media (max-width: 359px) { .facts .figure.figure { font-size: var(--text-22); line-height: 28px; letter-spacing: normal; } }
+@media (min-width: 600px) and (max-width: 1199px) {
+  .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
+  /* Beside the card the figures' rows share the card's height. */
+  .facts.facts { grid-auto-rows: 1fr; }
   /* „Details“ in two columns, read across; the two first rows have no line over them. */
   .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .details > :first-child { grid-column: 1 / -1; }

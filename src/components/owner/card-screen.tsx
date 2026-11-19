@@ -170,7 +170,7 @@ function CardLoading() {
 /** The reward the mix card counts to, or none: points programmes stay off the mix card until Design draws one (18 Nov). */
 export const mixCardReward = <T,>(kind: MerchantMember["programType"], target: T | undefined) => kind === "stamp" ? target : undefined;
 
-/** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
+/** A figure over its label in the wide rail, a row with the label first up to 1199 (the phone since ENG-290). */
 function Fact({ value, label }: { value: string; label: string }) {
   return <div><b className={s.figure}>{value}</b><span className={s.label}>{label}</span></div>;
 }
