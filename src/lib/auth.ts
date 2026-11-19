@@ -12,7 +12,21 @@ export const auth = betterAuth({
   // Avoid Better Auth's default X-Forwarded-For trust. Its existing rate/session
   // controls use the same deployment-approved source as our outer peer limits.
   advanced: { ipAddress: { ipAddressHeaders: process.env.TRUSTED_INGRESS === "cloudflare_tunnel" ? ["cf-connecting-ip"] : [] } },
-  emailAndPassword: { enabled: true, minPasswordLength: 12 },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 12,
+    // ENG-279: self-service reset. Every address gets the same answer; only a confirmed one gets a mail. The link lasts an
+    // hour, works once, and the reset signs every device out.
+    resetPasswordTokenExpiresIn: 60 * 60,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, token }) => {
+      if (!user.emailVerified) return;
+      const { sendPasswordReset } = await import("./account-verification");
+      // Not awaited: the answer must not take longer for an address that gets a mail than for one that does not.
+      void sendPasswordReset(user.email, token)
+        .catch(error => console.error(`Password reset email not sent (${error instanceof Error ? error.name : "error"})`));
+    },
+  },
   // ENG-278: every new account gets a link to confirm its address; owner mail goes only to confirmed addresses. Signing in
   // does not wait for it: an unconfirmed owner sees a notice with a resend button (merchant layout).
   emailVerification: {
