@@ -404,10 +404,19 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
 
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
 
+  // A request that left the list (expired, or confirmed at another till) takes its confirmation with it, unbooked.
+  const confirmingGone = Boolean(confirming) && !open.some(item => item.id === confirming?.item.id);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!confirmingGone) return;
+    const timer = window.setTimeout(() => { setConfirming(null); headingRef.current?.focus(); });
+    return () => window.clearTimeout(timer);
+  }, [confirmingGone]);
+
   return (
     <section className={styles.panel} aria-label={t.title}>
       <div className={styles.header}>
-        <h2 className={styles.title}>{t.title}</h2>
+        <h2 ref={headingRef} tabIndex={-1} className={styles.title}>{t.title}</h2>
         {openCount > 0 && <span className={styles.count}><NumberRoll value={openCount} /></span>}
         {loaded && openCount === 0 && <p className={styles.emptyInline}>{t.empty}</p>}
       </div>
@@ -448,7 +457,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       </>}
       {outcome && <p role="status" className={`${styles.outcome} ${outcome.tone === "success" ? styles.outcomeSuccess : outcome.tone === "error" ? styles.outcomeError : styles.outcomeNeutral}`}>{outcome.text}</p>}
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
-      {confirming && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
+      {confirming && !confirmingGone && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
         description={<><strong className={styles.figure}>{number.format(confirming.points)} {t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
           && <> {t.forPurchase} <strong className={styles.figure}>{locale === "fr" ? `${money.format(confirming.award.purchaseAmountMinor / 100)} ${confirming.item.currency ?? "EUR"}` : formatMinor(confirming.award.purchaseAmountMinor, confirming.item.currency ?? "EUR")}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
         actions={<>

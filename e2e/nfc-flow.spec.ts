@@ -1,5 +1,5 @@
 import { expect, request as apiRequest, test, type Browser, type BrowserContext } from "@playwright/test";
-import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, resetPeerLimits, staffContext } from "./nfc-support";
+import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, resetPeerLimits, sql, staffContext } from "./nfc-support";
 
 // Customer taps the counter tag -> pending request -> cashier confirms -> exactly one stamp -> customer, cashier and owner agree.
 // Runs against a server started with NFC_KEY_PROVIDER=derived_v1 and NFC_VERIFY_MASTER_KEY=$E2E_NFC_VERIFY_MASTER (synthetic).
@@ -156,4 +156,67 @@ test("manual points: more than one point waits for the confirmation, then books 
     expect(await balanceOf(url, guest.cardToken)).toBe(5);
     await Promise.all([guest.context.close(), cashierCtx.close()]);
   } finally { await m.close(); }
+});
+
+/** A points request waiting at a 390 px counter, with its amount typed; the page records every confirm POST. */
+async function typedRequest(browser: Browser, url: string) {
+  const m = await merchantWithTag(url, "NFC Pizzeria 390", { programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je Euro Einkaufswert.", rewardCost: 100 });
+  const guest = await customerWithCard(browser, url, m.me.programSlug);
+  const page = await guest.context.newPage();
+  await page.goto(pathOf(m.nextUrl()));
+  await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+  const cashierCtx = await staffContext(browser, url, m.cashier);
+  const counter = await cashierCtx.newPage();
+  await counter.setViewportSize({ width: 390, height: 844 });
+  const confirms: string[] = [];
+  counter.on("request", request => { if (request.method() === "POST" && /\/api\/cashier\/tap\/[^/]+\/confirm$/.test(new URL(request.url()).pathname)) confirms.push(request.url()); });
+  await counter.goto("/cashier");
+  const amount = counter.getByLabel("Kaufbetrag (EUR)");
+  await expect(amount).toBeVisible({ timeout: 15_000 });
+  await amount.fill("150");  // under the cashier's 500,00 € limit, so „Ja, vergeben“ can book
+  const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
+  return { m, guest, counter, confirms, dialog, close: async () => { await Promise.all([guest.context.close(), cashierCtx.close()]); await m.close(); } };
+}
+
+test("at 390 a double tap on „Buchen“ that lands on „Ja, vergeben“ books nothing (ENG-274)", async ({ baseURL, browser }) => {
+  const f = await typedRequest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    const { counter, dialog } = f;
+    const buchen = counter.getByRole("button", { name: "Buchen", exact: true });
+    // Measure where „Ja, vergeben“ appears, then scroll the page so „Buchen“ sits right under it.
+    await buchen.click();
+    const ja = (await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).boundingBox())!;
+    await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const before = (await buchen.boundingBox())!;
+    await counter.evaluate(dy => window.scrollBy(0, dy), before.y + before.height / 2 - (ja.y + ja.height / 2));
+    const under = (await buchen.boundingBox())!;
+    const x = ja.x + ja.width / 2, y = ja.y + ja.height / 2;
+    expect(y).toBeGreaterThan(under.y); expect(y).toBeLessThan(under.y + under.height);
+    await counter.mouse.dblclick(x, y);
+    await counter.waitForTimeout(1_000);
+    await expect(dialog).toBeVisible();
+    expect(f.confirms).toHaveLength(0);
+    expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
+    expect(await counter.evaluate(() => document.activeElement?.textContent)).toBe("Abbrechen");
+    // After the guard time „Ja, vergeben“ books, once.
+    await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
+    await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${f.guest.cardLocator} gebucht.` })).toBeVisible();
+    expect(f.confirms).toHaveLength(1);
+  } finally { await f.close(); }
+});
+
+test("a request that expires while its confirmation is open closes the dialog without booking (ENG-274)", async ({ baseURL, browser }) => {
+  const f = await typedRequest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    const { counter, dialog } = f;
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await sql("update tap_requests set expires_at = now() - interval '1 minute' where program_id = $1", [f.m.me.programId]);
+    await expect(dialog).toHaveCount(0, { timeout: 10_000 });
+    await expect(counter.getByRole("heading", { name: "NFC-Anfragen" })).toBeFocused();
+    await counter.waitForTimeout(1_000);
+    expect(f.confirms).toHaveLength(0);
+    expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
+  } finally { await f.close(); }
 });

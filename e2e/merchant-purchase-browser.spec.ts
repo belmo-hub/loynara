@@ -37,7 +37,7 @@ test("cashier browser confirms purchase points and selected reward before card r
       await expect(cashier.locator("#purchase-preview")).toContainText("+14 Punkte");
       await expect(cashier.locator("#purchase-preview")).toContainText("Neuer Stand: 14 Punkte");
       await cashier.getByRole("button", { name: "Buchen", exact: true }).click();
-      await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("14 Punkte für einen Kauf über 4,99 EUR für Karte");
+      await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("14 Punkte für einen Kauf über 4,99 € für Karte");
       await cashier.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
       await expect(cashier.getByRole("dialog")).toHaveCount(0);
       await expect(cashier.locator(".cashier-booked")).toContainText("+14 Punkte");
