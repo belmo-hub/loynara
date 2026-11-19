@@ -46,7 +46,7 @@ describe("progress (Impeccable K1, K3)", () => {
     const out = renderToStaticMarkup(h(CustomerCard, base));
     expect(out).not.toContain("Buchungen müssen an der Kasse bestätigt werden");
     expect(out).not.toContain("Kontostand");
-    expect(out).toContain("<b>1</b><span>von 5</span>");
+    expect(out).toMatch(/<b data-figure=""><span[^>]*>1<\/span><\/b><span>von 5<\/span>/);
   });
 });
 
@@ -58,7 +58,7 @@ describe("one point in the singular on the card (ENG-104)", () => {
     expect(card("de", 2, 1)).toMatch(/>2<\/span> <em>Punkte<\/em>/);
     expect(card("fr", 1, 1)).toMatch(/>1<\/span> <em>point<\/em>/);
     expect(card("fr", 2, 1)).toMatch(/>2<\/span> <em>points<\/em>/);
-    expect(card("de", 1, 1, "stamps")).toContain("<b>1</b><span>von 5</span>");
+    expect(card("de", 1, 1, "stamps")).toMatch(/<b data-figure=""><span[^>]*>1<\/span><\/b><span>von 5<\/span>/);
   });
   it("activity line, for a booking and a redemption, in German and French", () => {
     expect(card("de", 5, 1)).toContain('<b>+1</b> <small>Punkt</small>');
@@ -479,8 +479,8 @@ describe("closing the card", () => {
 
 describe("the balance on the guest's card never clamps (ENG-273, Design 18 Nov)", () => {
   const html = (balance: number) => renderToStaticMarkup(h(CustomerCard, { ...base, balance, rewards: [{ id: "r1", title: "Kaffee", cost: 8 }] }));
-  // The mix card's count block: <b>N</b><span>von G | Stempel</span>.
-  const line = (balance: number) => { const m = html(balance).match(/class="_n_[^"]*"><b>(\d+)<\/b><span>(.*?)<\/span>/); return m && `${m[1]} ${m[2]}`; };
+  // The mix card's count block: <b><span>N</span></b><span>von G | Stempel</span> (the figure rolls in its own span).
+  const line = (balance: number) => { const m = html(balance).match(/class="_n_[^"]*"><b data-figure=""><span[^>]*>(\d+)<\/span><\/b><span>(.*?)<\/span>/); return m && `${m[1]} ${m[2]}`; };
   it("reads „N von G“ up to the goal and the true count with its unit above it", () => {
     expect(line(5)).toBe("5 von 8");
     expect(line(8)).toBe("8 von 8");
