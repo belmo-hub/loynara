@@ -405,13 +405,15 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
 
   // A request that left the list (expired, or confirmed at another till) takes its confirmation with it, unbooked.
+  // The live region says why: expired, or (still within its time) taken at another till.
   const confirmingGone = Boolean(confirming) && !open.some(item => item.id === confirming?.item.id);
+  const goneReason = confirming && confirmingGone ? isOpenRequest(confirming.item, now) ? t.alreadyProcessed : t.expired : null;
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (!confirmingGone) return;
-    const timer = window.setTimeout(() => { setConfirming(null); headingRef.current?.focus(); });
+    if (!goneReason) return;
+    const timer = window.setTimeout(() => { setConfirming(null); setOutcome({ tone: "neutral", text: goneReason }); headingRef.current?.focus(); });
     return () => window.clearTimeout(timer);
-  }, [confirmingGone]);
+  }, [goneReason]);
 
   return (
     <section className={styles.panel} aria-label={t.title}>
@@ -458,7 +460,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       {outcome && <p role="status" className={`${styles.outcome} ${outcome.tone === "success" ? styles.outcomeSuccess : outcome.tone === "error" ? styles.outcomeError : styles.outcomeNeutral}`}>{outcome.text}</p>}
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
       {confirming && !confirmingGone && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
-        description={<><strong className={styles.figure}>{number.format(confirming.points)} {t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
+        description={<><strong className={styles.figure}>{number.format(confirming.points)}{"\u00a0"}{t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
           && <> {t.forPurchase} <strong className={styles.figure}>{locale === "fr" ? `${money.format(confirming.award.purchaseAmountMinor / 100)} ${confirming.item.currency ?? "EUR"}` : formatMinor(confirming.award.purchaseAmountMinor, confirming.item.currency ?? "EUR")}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
         actions={<>
           <button type="button" className={buttonClassName({ variant: "secondary" })} onClick={cancelConfirm}>{t.cancel}</button>

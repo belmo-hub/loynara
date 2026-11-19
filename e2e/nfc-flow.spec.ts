@@ -1,4 +1,4 @@
-import { expect, request as apiRequest, test, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, request as apiRequest, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, resetPeerLimits, sql, staffContext } from "./nfc-support";
 
 // Customer taps the counter tag -> pending request -> cashier confirms -> exactly one stamp -> customer, cashier and owner agree.
@@ -159,15 +159,14 @@ test("manual points: more than one point waits for the confirmation, then books 
 });
 
 /** A points request waiting at a 390 px counter, with its amount typed; the page records every confirm POST. */
-async function typedRequest(browser: Browser, url: string) {
+async function typedRequest(browser: Browser, url: string, touch = false) {
   const m = await merchantWithTag(url, "NFC Pizzeria 390", { programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je Euro Einkaufswert.", rewardCost: 100 });
   const guest = await customerWithCard(browser, url, m.me.programSlug);
   const page = await guest.context.newPage();
   await page.goto(pathOf(m.nextUrl()));
   await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
-  const cashierCtx = await staffContext(browser, url, m.cashier);
+  const cashierCtx = await browser.newContext({ baseURL: url, storageState: await m.cashier.storageState(), viewport: { width: 390, height: 844 }, hasTouch: touch });
   const counter = await cashierCtx.newPage();
-  await counter.setViewportSize({ width: 390, height: 844 });
   const confirms: string[] = [];
   counter.on("request", request => { if (request.method() === "POST" && /\/api\/cashier\/tap\/[^/]+\/confirm$/.test(new URL(request.url()).pathname)) confirms.push(request.url()); });
   await counter.goto("/cashier");
@@ -225,11 +224,14 @@ test("a request that expires while its confirmation is open closes the dialog wi
   const f = await typedRequest(browser, baseURL ?? "http://localhost:3000");
   try {
     const { counter, dialog } = f;
+    // The request now runs out in a few seconds; once the panel shows that, open its confirmation and let it expire.
+    await sql("update tap_requests set expires_at = now() + interval '8 seconds' where program_id = $1", [f.m.me.programId]);
+    await expect(counter.getByText(/läuft ab in 0:0\d/)).toBeVisible({ timeout: 10_000 });
     await counter.getByRole("button", { name: "Buchen", exact: true }).click();
     await expect(dialog).toBeVisible();
-    await sql("update tap_requests set expires_at = now() - interval '1 minute' where program_id = $1", [f.m.me.programId]);
-    await expect(dialog).toHaveCount(0, { timeout: 10_000 });
+    await expect(dialog).toHaveCount(0, { timeout: 15_000 });
     await expect(counter.getByRole("heading", { name: "NFC-Anfragen" })).toBeFocused();
+    await expect(counter.getByRole("status").filter({ hasText: "Diese Anfrage ist abgelaufen." })).toBeVisible();
     await counter.waitForTimeout(1_000);
     expect(f.confirms).toHaveLength(0);
     expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
@@ -252,4 +254,55 @@ test("the QR counter's confirmation names the amount in euros, like the NFC one 
     await expect(counter.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText(`12 Punkte für einen Kauf über 12,50 € für Karte ${guest.cardLocator}.`);
     await Promise.all([guest.context.close(), cashierCtx.close()]);
   } finally { await m.close(); }
+});
+
+/**
+ * A finger that lands on „Ja, vergeben“ 300 ms after „Buchen“ opened the dialog and lifts at 450 ms: real touch input
+ * (CDP), so Chrome hit-tests the release and would fire its click on „Ja“. Then a fresh tap on „Ja“ books.
+ */
+async function straddlingTouch(page: Page, open: () => Promise<void>, dialog: Locator) {
+  const cdp = await page.context().newCDPSession(page);
+  await open();
+  const opened = Date.now();
+  const ja = (await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).boundingBox())!;
+  const point = { x: ja.x + ja.width / 2, y: ja.y + ja.height / 2 };
+  await page.waitForTimeout(Math.max(0, 300 - (Date.now() - opened)));
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  await page.waitForTimeout(150);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await page.waitForTimeout(1_000);
+  await expect(dialog).toBeVisible();
+  return async () => { await page.touchscreen.tap(point.x, point.y); };
+}
+
+test("a touch that lands inside the guard and lifts after it books nothing, on the NFC and the QR dialog (ENG-274)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const f = await typedRequest(browser, url, true);
+  try {
+    const { counter, dialog, confirms } = f;
+    const buchen = counter.getByRole("button", { name: "Buchen", exact: true });
+    const tapJa = await straddlingTouch(counter, async () => { await buchen.tap(); await expect(dialog).toBeVisible(); }, dialog);
+    expect(confirms).toHaveLength(0);
+    expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
+    await tapJa();
+    await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${f.guest.cardLocator} gebucht.` })).toBeVisible();
+    expect(confirms).toHaveLength(1);
+
+    // The QR counter's dialog, at the same counter, for a second card.
+    const second = await customerWithCard(browser, url, f.m.me.programSlug);
+    const awards: string[] = [];
+    counter.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/cashier/award") awards.push(request.url()); });
+    await counter.getByLabel("Kartennummer oder Kartencode").fill(second.scanCode);
+    await counter.getByRole("button", { name: "Prüfen", exact: true }).tap();
+    await counter.getByRole("button", { name: "Kaufbetrag eingeben" }).tap();
+    await counter.locator("#purchase-amount").fill("12,50");  // the QR sheet's field, not a finished NFC row's
+    const qr = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
+    const tapQrJa = await straddlingTouch(counter, async () => { await counter.locator(".cashier-book").tap(); await expect(qr).toBeVisible(); }, qr);
+    expect(awards).toHaveLength(0);
+    expect(await ledgerRowsFor(second.cardToken)).toBe(0);
+    await tapQrJa();
+    await expect(counter.locator(".cashier-booked")).toContainText("Neuer Stand: 12 Punkte");
+    expect(awards).toHaveLength(1);
+    await second.context.close();
+  } finally { await f.close(); }
 });
