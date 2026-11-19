@@ -72,12 +72,12 @@ export function CorrectionStep({ entry, kind, locationId, balance, back, onDone 
         <p className="ow-cardline-label">Rechnerische Auswirkung dieses Vorgangs</p>
         <dl>
           <div><dt>Stand jetzt</dt><dd>{balance} {unitWord(balance, kind)}</dd></div>
-          <div><dt>Korrektur</dt><dd>{effect > 0 ? "+" : ""}{effect} {unitWord(effect, kind)}</dd></div>
+          <div><dt>Korrektur</dt><dd>{effect > 0 ? "+" : "−"}{Math.abs(effect)} {unitWord(effect, kind)}</dd></div>
           <div data-new=""><dt>Nach der Korrektur</dt><dd>{blocked ? "Nicht möglich" : `${after} ${unitWord(after, kind)}`}</dd></div>
         </dl>
         {blocked && <Notice tone="danger">{CORRECTION_ERRORS.INSUFFICIENT_BALANCE}</Notice>}
         {/* R6 names the balance after; this live sentence keeps it from reading as a promise (bonuses may go too). */}
-        <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>
+        {!blocked && <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>}
       </div>
       <div className="ow-field ow-qpanel"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" rows={3} readOnly={state === "saving" || state === "uncertain"} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" aria-describedby="corr-reason-n" /><ReasonHint id="corr-reason-n" length={reason.trim().length} /></div>
       {state === "uncertain" && <p className="ow-hint">Für die Wiederholung bleibt der ursprünglich gesendete Grund unverändert.</p>}

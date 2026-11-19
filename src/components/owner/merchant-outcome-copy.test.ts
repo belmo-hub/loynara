@@ -34,10 +34,11 @@ describe("merchant outcome descriptions", () => {
   });
 
   it("shows the change itself, and a correction below zero as not possible before the tap (ENG-280)", () => {
-    expect(step("stamp", 1, 3)).toContain("<dt>Korrektur</dt><dd>-1 Stempel</dd>");
+    expect(step("stamp", 1, 3)).toContain("<dt>Korrektur</dt><dd>−1 Stempel</dd>");
     const html = step("stamp", 1, 0);
     expect(html).toContain("<dt>Nach der Korrektur</dt><dd>Nicht möglich</dd>");
     expect(html).toContain("unter null bringen");
+    expect(html).not.toContain("endgültigen Stand");
     expect(html).toMatch(/disabled="">Korrektur buchen<\/button>/);
   });
 
