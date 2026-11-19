@@ -4,9 +4,11 @@ import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { awardLimitText, type StaffRole } from "@/lib/award-limits";
 import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
+import { formatMinor } from "@/lib/spend-copy";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
 import { buttonClassName } from "./ui/button";
+import { Dialog } from "./ui/dialog";
 import { NumberRoll } from "./ui/number-roll";
 import { TextField } from "./ui/field";
 
@@ -49,6 +51,7 @@ export const TAP_REFRESH_EVENT = "loynara:tap-refresh";
 
 const STRINGS: Record<TapPanelLocale, {
   title: string; empty: string; intro: string; offline: string; loadError: string;
+  confirmTitle: string; pointsWord: (points: number) => string; forPurchase: string; forCard: string; cancel: string; yes: string;
   cardLabel: string; balanceLabel: string; ago: (seconds: number) => string; expires: (countdown: string) => string;
   confirm: string; done: string; reject: string; newRequest: string; signedOut: string;
   confirmed: (cardLocator: string, balance: string) => string;
@@ -93,6 +96,12 @@ const STRINGS: Record<TapPanelLocale, {
     cooldownPoints: "Auf dieser Karte wurden gerade erst Punkte gebucht. Bitte noch nicht bestätigen.",
     staleRule: "Die Punkteregel hat sich geändert. Bitte den Betrag erneut prüfen.",
     otherEntry: "Schon mit einer anderen Eingabe bestätigt. Es wurde nichts doppelt gebucht.",
+    confirmTitle: "Vergabe bestätigen?",
+    pointsWord: points => points === 1 ? "Punkt" : "Punkte",
+    forPurchase: "für einen Kauf über",
+    forCard: "für Karte",
+    cancel: "Abbrechen",
+    yes: "Ja, vergeben",
   },
   fr: {
     title: "Demandes NFC",
@@ -129,6 +138,12 @@ const STRINGS: Record<TapPanelLocale, {
     cooldownPoints: "Cette carte vient de recevoir des points. Ne confirmez pas encore.",
     staleRule: "La règle de points a changé. Vérifiez le montant à nouveau.",
     otherEntry: "Déjà confirmé avec une autre saisie. Rien n’a été enregistré en double.",
+    confirmTitle: "Confirmer l’ajout ?",
+    pointsWord: points => points === 1 ? "point" : "points",
+    forPurchase: "pour un achat de",
+    forCard: "à ajouter à la carte",
+    cancel: "Annuler",
+    yes: "Oui, ajouter",
   },
 };
 
@@ -229,6 +244,9 @@ export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: {
   const [entries, setEntries] = useState<Record<string, string>>({});
   // Requests the server just confirmed: the row stays for DONE_MS with its button swapped to a tick, then leaves.
   const [done, setDone] = useState<PendingTapRequest[]>([]);
+  // A typed amount, or more than one point, waits for „Ja, vergeben“ (ENG-274): „1500“ for „15,00“ would otherwise book
+  // a hundred times the purchase with one tap. The same rule as the QR counter (ENG-271).
+  const [confirming, setConfirming] = useState<{ item: PendingTapRequest; award: TapAward; points: number } | null>(null);
 
   // Only the newest refresh may update the list, so a slow poll cannot bring back a request that was just confirmed.
   const refreshSeq = useRef(0);
@@ -370,16 +388,36 @@ export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: {
     }
   }, [locale, refresh, role, t]);
 
+  // Cancelling goes back to the entry, selected, so the right value is typed over it.
+  function cancelConfirm() {
+    const id = confirming?.item.id;
+    setConfirming(null);
+    window.setTimeout(() => { const field = document.getElementById(`tap-entry-${id}`) as HTMLInputElement | null; field?.focus(); field?.select(); });
+  }
+  const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
+  const money = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const open = items.filter(item => isOpenRequest(item, now));
   const openCount = open.length;
   const shown = [...open, ...done.filter(item => !open.some(other => other.id === item.id))];
 
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
 
+  // A request that left the list (expired, or confirmed at another till) takes its confirmation with it, unbooked.
+  // The live region says why: expired, or (still within its time) no longer open, whoever closed it.
+  const confirmingGone = Boolean(confirming) && !open.some(item => item.id === confirming?.item.id);
+  const goneReason = confirming && confirmingGone ? isOpenRequest(confirming.item, now) ? t.notFound : t.expired : null;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!goneReason) return;
+    const timer = window.setTimeout(() => { setConfirming(null); setOutcome({ tone: "neutral", text: goneReason }); headingRef.current?.focus(); });
+    return () => window.clearTimeout(timer);
+  }, [goneReason]);
+
   return (
     <section className={styles.panel} aria-label={t.title}>
       <div className={styles.header}>
-        <h2 className={styles.title}>{t.title}</h2>
+        <h2 ref={headingRef} tabIndex={-1} className={styles.title}>{t.title}</h2>
         {openCount > 0 && <span className={styles.count}><NumberRoll value={openCount} /></span>}
         {loaded && openCount === 0 && <p className={styles.emptyInline}>{t.empty}</p>}
       </div>
@@ -410,7 +448,7 @@ export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: {
               {entry && !confirmed && <p className={styles.preview} aria-live="polite">{t.preview(entry.points, typeof item.balance === "number" ? item.balance + entry.points : undefined)}</p>}
               <div className={styles.actions}>
                 {item.programType === "points"
-                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (entry) void act(item, "confirm", entry.award); }}>{confirmed ? <Done label={t.done} /> : t.book}</button>
+                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (!entry) return; if ("quantity" in entry.award && entry.award.quantity === 1) void act(item, "confirm", entry.award); else setConfirming({ item, ...entry }); }}>{confirmed ? <Done label={t.done} /> : t.book}</button>
                   : <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy} onClick={() => void act(item, "confirm")}>{confirmed ? <Done label={t.done} /> : t.confirm}</button>}
                 {!confirmed && <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>}
               </div>
@@ -420,6 +458,14 @@ export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: {
       </>}
       {outcome && <p role="status" className={`${styles.outcome} ${outcome.tone === "success" ? styles.outcomeSuccess : outcome.tone === "error" ? styles.outcomeError : styles.outcomeNeutral}`}>{outcome.text}</p>}
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
+      {confirming && !confirmingGone && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
+        description={<><strong className={styles.figure}>{number.format(confirming.points)}{"\u00a0"}{t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
+          && <> {t.forPurchase} <strong className={styles.figure}>{locale === "fr" ? `${money.format(confirming.award.purchaseAmountMinor / 100)} ${confirming.item.currency ?? "EUR"}` : formatMinor(confirming.award.purchaseAmountMinor, confirming.item.currency ?? "EUR")}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
+        actions={<>
+          <button type="button" className={buttonClassName({ variant: "secondary" })} onClick={cancelConfirm}>{t.cancel}</button>
+          <button type="button" className={buttonClassName({ variant: "primary" })} disabled={busyIds.has(confirming.item.id)}
+            onClick={() => { const { item, award } = confirming; setConfirming(null); void act(item, "confirm", award); }}>{t.yes}</button>
+        </>} />}
     </section>
   );
 }
