@@ -130,7 +130,7 @@ describe("points entry on an NFC request", () => {
 describe("tapErrorText for points", () => {
   it("explains limits, a changed rule and a second, different entry in German", () => {
     const request = { earningMode: "purchase", currency: "EUR" } as PendingTapRequest;
-    expect(tapErrorText(new ClientApiError(422, "x", "LIMIT_EXCEEDED"), "de", true, request, "cashier")).toBe("Höchstens 500,00 EUR oder 500 Punkte pro Buchung. Bitte den Betrag prüfen. Stimmt alles, bucht die Inhaberin oder der Inhaber.");
+    expect(tapErrorText(new ClientApiError(422, "x", "LIMIT_EXCEEDED"), "de", true, request, "cashier")).toBe("Höchstens 500,00\u00a0€ oder 500 Punkte pro Buchung. Bitte den Betrag prüfen. Stimmt alles, bucht die Inhaberin oder der Inhaber.");
     expect(tapErrorText(new ClientApiError(409, "x", "STALE_RULE"))).toBe("Die Punkteregel hat sich geändert. Bitte den Betrag erneut prüfen.");
     expect(tapErrorText(new ClientApiError(409, "x", "KEY_REUSED"))).toBe("Schon mit einer anderen Eingabe bestätigt. Es wurde nichts doppelt gebucht.");
     expect(tapErrorText(new ClientApiError(409, "x", "TAP_COOLDOWN"), "de", true)).toBe("Auf dieser Karte wurden gerade erst Punkte gebucht. Bitte noch nicht bestätigen.");

@@ -16,8 +16,9 @@ describe("manual award limits", () => {
 describe("the counter's limit message (ENG-280)", () => {
   it("names the role's limit and the next step", () => {
     expect(purchaseAwardLimits("manager")).toEqual({ amountMinor: 200_000, points: 2_000 });
-    expect(awardLimitText("cashier", true, "points", "EUR")).toBe("Höchstens 500,00 EUR oder 500 Punkte pro Buchung. Bitte den Betrag prüfen. Stimmt alles, bucht die Inhaberin oder der Inhaber.");
-    expect(awardLimitText("owner", true, "points", "EUR")).toBe("Höchstens 10.000,00 EUR oder 10.000 Punkte pro Buchung. Bitte den Betrag prüfen.");
+    expect(awardLimitText("cashier", true, "points", "EUR")).toBe("Höchstens 500,00\u00a0€ oder 500 Punkte pro Buchung. Bitte den Betrag prüfen. Stimmt alles, bucht die Inhaberin oder der Inhaber.");
+    expect(awardLimitText("owner", true, "points", "EUR")).toBe("Höchstens 10.000,00\u00a0€ oder 10.000 Punkte pro Buchung. Bitte den Betrag prüfen.");
+    expect(awardLimitText("cashier", true, "points", "EUR", "fr")).toBe("Le montant ou les points dépassent la limite de ce rôle. Demandez à la personne propriétaire de vérifier cet achat.");
     expect(awardLimitText("cashier", false, "stamp", "EUR")).toBe("Höchstens 10 Stempel pro Buchung. Bitte die Menge prüfen. Stimmt alles, bucht die Inhaberin oder der Inhaber.");
   });
 });

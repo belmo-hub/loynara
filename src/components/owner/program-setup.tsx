@@ -207,9 +207,9 @@ export function ProgramSetup() {
             <input id="su-rewardName" className="ow-input" value={f.rewardName} maxLength={180} onChange={event => set({ rewardName: event.target.value, preset: PRESETS.find(preset => preset.reward && preset.reward === event.target.value.trim())?.id ?? "other" })} {...invalid("rewardName")} placeholder="z. B. Kaffee aufs Haus" />
           </Field>
           <div className="ow-qpanel ow-qcontrol">
-            {/* Stamps step by one, so „10 Stempeln“ follows „Einlösbar ab“; points step by ten, whose label needs „10 Punkte“. */}
+            {/* „Einlösbar ab“ takes the dative („8 Stempeln“, „150 Punkten“); the buttons say „10 Punkte weniger“. */}
             <div><label htmlFor="su-cost">Einlösbar ab</label><NumberStepper id="su-cost" value={f.cost} onChange={value => set({ cost: value && String(Math.min(Number(value), COST_MAX)) })} min={1} max={COST_MAX} stepSize={points ? 10 : 1}
-              unit={{ one: unitName(f.type, 1), many: points ? unitName(f.type) : unitDative(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
+              unit={{ one: unitName(f.type, 1), many: unitDative(f.type), step: unitName(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
             {err("cost") ? <FieldError id="su-cost-error">{err("cost")}</FieldError> : sample && <p id="su-cost-hint" className="ow-hint">Beispielwert aus der Branchenauswahl. Bitte prüfe ihn für dein Geschäft.</p>}
             {(minSpend !== null || noMinSpendNote(f.type)) && <p className="ow-hint" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${noMinSpendNote(f.type)}.`}</p>}
           </div>

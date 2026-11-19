@@ -16,7 +16,11 @@ export async function downloadCounterSign(me: MeResponse) {
   if (!joinUrl) throw new Error("Die öffentliche Adresse ist noch nicht konfiguriert.");
   const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
   if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
-  const html = counterSignHtml({ businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
+  // The sign prints in Manrope when the font loads; without it, in Arial.
+  const fontDataUrl = await fetch("/fonts/manrope-latin.woff2").then(r => r.ok ? r.blob() : null).then(blob => blob && new Promise<string>((resolve, reject) => {
+    const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]*;/, "data:font/woff2;")); reader.onerror = reject; reader.readAsDataURL(blob);
+  })).catch(() => undefined) ?? undefined;
+  const html = counterSignHtml({ fontDataUrl, businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
   const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url; link.download = "anmeldeschild.html"; link.click();
