@@ -49,6 +49,7 @@ export const TAP_REFRESH_EVENT = "loynara:tap-refresh";
 
 const STRINGS: Record<TapPanelLocale, {
   title: string; empty: string; intro: string; offline: string; loadError: string;
+  confirmTitle: string; pointsWord: (points: number) => string; forPurchase: string; forCard: string; cancel: string; yes: string;
   cardLabel: string; balanceLabel: string; ago: (seconds: number) => string; expires: (countdown: string) => string;
   confirm: string; done: string; reject: string; newRequest: string; signedOut: string;
   confirmed: (cardLocator: string, balance: string) => string;
@@ -57,7 +58,6 @@ const STRINGS: Record<TapPanelLocale, {
   introPoints: string; amount: (currency: string) => string; points: string; rate: (rate: number, currency: string) => string; book: string;
   preview: (points: number, balance?: number) => string;
   confirmedPoints: (cardLocator: string, balance: string) => string; cooldownPoints: string; limit: string; staleRule: string; otherEntry: string;
-  confirmTitle: string; pointsWord: (points: number) => string; forPurchase: string; forCard: string; cancel: string; yes: string;
 }> = {
   de: {
     title: "NFC-Anfragen",
