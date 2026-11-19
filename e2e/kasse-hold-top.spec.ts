@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type Page } from "@playwright/test";
 
 // From 600 px wide a booking holds the centred group where it stands (Design, 19 Nov): from the tap to the end of the
-// „Gebucht“ hold the card's top and the dock's top are the same in every frame; only the dock's bottom edge moves.
+// „Gebucht“ hold the card's top and the dock's top are the same in every frame; only the dock's bottom edge moves. The
+// dock keeps the shape the open card gave it (Design, 19 Nov): a floating panel keeps its width, left edge and corners.
 
 async function shop(url: string, programType: "points" | "stamp") {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
@@ -26,18 +27,19 @@ async function scanCode(url: string, programSlug: string) {
   return scanCode;
 }
 
-/** Every frame's card top, dock top and dock bottom while the card is on screen. */
+type Frame = { card: number; dock: number; bottom: number; left: number; width: number; radius: string };
+/** Every frame's card top and the dock's box and corner while the card is on screen. */
 const record = (page: Page) => page.evaluate(() => {
-  const frames: Array<{ card: number; dock: number; bottom: number }> = [];
+  const frames: Array<Frame> = [];
   (window as unknown as { holdFrames: typeof frames }).holdFrames = frames;
   const tick = () => {
     const card = document.querySelector(".card-result-head"), dock = document.querySelector("[data-dock]");
-    if (card && dock) frames.push({ card: card.getBoundingClientRect().top, dock: dock.getBoundingClientRect().top, bottom: dock.getBoundingClientRect().bottom });
+    if (card && dock) { const box = dock.getBoundingClientRect(); frames.push({ card: card.getBoundingClientRect().top, dock: box.top, bottom: box.bottom, left: box.left, width: box.width, radius: getComputedStyle(dock).borderBottomLeftRadius }); }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 });
-const frames = (page: Page) => page.evaluate(() => (window as unknown as { holdFrames: Array<{ card: number; dock: number; bottom: number }> }).holdFrames);
+const frames = (page: Page) => page.evaluate(() => (window as unknown as { holdFrames: Array<Frame> }).holdFrames);
 const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
 
 async function open(page: Page, code: string) {
@@ -69,6 +71,12 @@ for (const size of [{ width: 1280, height: 900 }, { width: 820, height: 1180 }])
     expect(seen.length).toBeGreaterThan(30);
     expect(spread(seen.map(f => f.card)), JSON.stringify(seen.slice(0, 3))).toBeLessThanOrEqual(1);
     expect(spread(seen.map(f => f.dock)), JSON.stringify(seen.slice(0, 3))).toBeLessThanOrEqual(1);
+    // The open card's floating panel stays the panel: its width, left edge and 20 px corners, while only its bottom grows.
+    expect(seen[0].radius).toBe("20px");
+    expect(new Set(seen.map(f => f.radius)), JSON.stringify(seen.at(-1))).toEqual(new Set(["20px"]));
+    expect(spread(seen.map(f => f.width))).toBeLessThanOrEqual(1);
+    expect(spread(seen.map(f => f.left))).toBeLessThanOrEqual(1);
+    expect(spread(seen.map(f => f.bottom))).toBeGreaterThan(100);
     await context.close(); await owner.dispose();
   });
 }
