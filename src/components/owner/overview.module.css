@@ -20,7 +20,7 @@
 .facts.facts small > a:focus-visible { outline: none; }
 /* The ring sits 2 px inside the content area, so the descenders above keep 2 px of air (measured at 320 and 1440); 4 px of
    inline padding, taken back by the margin, keeps the glyphs clear of its sides on every line. */
-.facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; border-radius: var(--radius-sm); }
 .facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 /* „Tresenschild laden“ (one line): its ring around the text, the 44 box kept. */
 .line.line > button[data-link]:focus-visible { outline: none; }
@@ -65,6 +65,9 @@
   .line > span { flex: 1 1 14rem; }
   .line > :is(a, button) { flex: none; }
   .line > :not(:first-child, [data-link]) { margin-top: 0; }
+  /* The tile hangs 12 from the row's top: centred on a one-line row, and from the first line when the button drops under
+     its text (Design, #286 SHIP follow-up 2). */
+  .next > [data-hang][data-lead="tile"] > :first-child { align-self: flex-start; margin-top: var(--space-3); }
 }
 
 /* The bookings panel and C's week chart: faint lines at half and full height, thin opaque bars, yesterday in ink,
@@ -103,6 +106,9 @@
   .bar[data-lit], .legend i[data-lit] { background: CanvasText; }
   .bar[data-zero] { border: 0; background: CanvasText; }
   .bar[data-today]:not([data-zero]) { border: 2px solid CanvasText; border-bottom: 0; }
+  /* The guide lines are backgrounds, which forced colours drop: drawn as GrayText borders at full and half height. */
+  .chart:not([data-empty]) { position: relative; }
+  .chart:not([data-empty])::before { content: ""; position: absolute; inset: var(--space-6) 0 auto; height: calc(50% - 11px); border-block: 1px solid GrayText; }
 }
 .foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
 .book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 44px; }

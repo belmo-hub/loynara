@@ -555,3 +555,16 @@ describe("empty shop (spec §2.4, copy E1–E8)", () => {
     expect(html).not.toContain("Tresenschild laden"); // the Leitung finds it under Kunden (ENG-122a), which it can open
   });
 });
+
+describe("the one-row tile layout from 1024 (Design, #286 SHIP follow-up 1)", () => {
+  const section = (html: string) => html.match(/<section[^>]*aria-labelledby="ow-days-title"[^>]*>/)![0];
+  it("keeps the placeholder's compact rows while the reads load and switches on once the loaded board hides „Vorschlag“", () => {
+    const loaded = state.loads;
+    state.loads = {};
+    expect(section(render())).toContain('aria-busy="true"');
+    expect(section(render())).not.toContain("data-single");
+    state.loads = loaded;
+    expect(render()).not.toContain("Vorschlag");
+    expect(section(render())).toContain('data-single=""');
+  });
+});
