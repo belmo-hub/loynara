@@ -108,7 +108,9 @@
   .bar[data-today]:not([data-zero]) { border: 2px solid CanvasText; border-bottom: 0; }
   /* The guide lines are backgrounds, which forced colours drop: drawn as GrayText borders at full and half height. */
   .chart:not([data-empty]) { position: relative; }
-  .chart:not([data-empty])::before { content: ""; position: absolute; inset: var(--space-6) 0 auto; height: calc(50% - 11px); border-block: 1px solid GrayText; }
+  .chart:not([data-empty])::before { content: ""; position: absolute; inset: calc(var(--space-6) - 1px) 0 auto; height: calc(50% - 11px); border-block: 1px solid GrayText; }
+  /* A bar's value stands clear of the guide line running through it. */
+  .day > b { position: relative; padding-inline: 2px; background: Canvas; }
 }
 .foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
 .book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 44px; }
@@ -154,6 +156,7 @@
   .book > .week:last-child { grid-row: span 2; } /* no „Gestern …“ line: the days end on the bottom inset */
   .book > .week > :last-child { display: flex; flex: 1; flex-direction: column; }
   /* The lines at full (24 from the top) and half plot height ((H - 1) / 2 + 12.5 from the top = H / 2 + 12). */
+  @media (forced-colors: active) { .chart:not([data-empty])::before { inset: var(--space-6) 0 auto; } }
   .book .chart:not([data-empty]) { flex: 1; min-height: 168px; background: linear-gradient(var(--color-line), var(--color-line)) 0 var(--space-6) / 100% 1px no-repeat, linear-gradient(var(--color-line), var(--color-line)) 0 calc(50% + 12.5px) / 100% 1px no-repeat; }
   .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
   .diary > [data-day] > :last-child { min-height: var(--mix-row); }
