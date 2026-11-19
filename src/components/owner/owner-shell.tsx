@@ -46,7 +46,8 @@ export { GuardedLink };
  *  a tap read them. */
 export function freshFade() { document.documentElement.toggleAttribute("data-ow-fade"); }
 
-export function OwnerShell({ children }: { children: ReactNode }) {
+/** `notice`: one line of state above every screen (ENG-278), outside the screen change so it never ghosts. */
+export function OwnerShell({ children, notice }: { children: ReactNode; notice?: ReactNode }) {
   const owner = useOwner();
   const router = useRouter();
   // The sheet needs the Kasse prefetched and fresh (kasseSheetReady): warm it once the owner screen is idle, then keep it
@@ -222,7 +223,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
 
   if (owner.status === "unprovisioned") {
     // Before a programme exists (setup, ENG-122f): the logo alone, no shop name, no Kasse and no tab bar; signing out stays.
-    return <div className="ow-bare ow-bare--setup"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)" }}><BrandMark word={false} label="Loynara" /><LogoutButton className="ow-btn ow-btn--ghost ow-btn--sm" onSignedOut={owner.resetAfterSignOut} /></div><main id="ow-main">{children}</main></div>;
+    return <div className="ow-bare ow-bare--setup"><div className="ow-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)" }}><BrandMark word={false} label="Loynara" /><LogoutButton className="ow-btn ow-btn--ghost ow-btn--sm" onSignedOut={owner.resetAfterSignOut} /></div>{notice}<main id="ow-main">{children}</main></div>;
   }
   if (owner.status === "ended" && owner.ended) {
     // Nothing else is offered: no navigation and no settings that could change the programme.
@@ -268,6 +269,7 @@ export function OwnerShell({ children }: { children: ReactNode }) {
           <div className="ow-topbar-loc">{me ? <><strong>{me.businessName}</strong><span>{me.locationName}</span></> : <Skeleton height={14} width={140} />}</div>
           <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} />Kasse</Link>
         </div>
+        {notice}
         {subItems.length > 1 && (
           <nav className="ow-subnav" aria-label={`${group?.label ?? "Bereich"} – Unterseiten`}>
             <div ref={subnav} className="ow-subnav-inner">

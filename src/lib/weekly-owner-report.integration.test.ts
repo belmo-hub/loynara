@@ -30,7 +30,7 @@ const day = 86_400_000;
 
 async function user(role = "owner") {
   const id = randomUUID();
-  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [id, `Synthetic ${role}`, `${id}@example.test`]);
+  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, true)', [id, `Synthetic ${role}`, `${id}@example.test`]);
   return id;
 }
 async function shop() {
@@ -57,6 +57,16 @@ const jobs = () => db.select().from(outboxJobs).where(eq(outboxJobs.kind, WEEKLY
 const figure = (body: string, label: string) => Number(new RegExp(`^${label}: (\\d+)$`, "m").exec(body)?.[1]);
 
 describe("weekly owner report", () => {
+  it("mails no owner whose address is not confirmed, even with the report on (ENG-278)", async () => {
+    const s = await shop();
+    await pool.query('UPDATE "user" SET "emailVerified" = false WHERE id = $1', [s.owner]);
+    expect(await queueWeeklyOwnerReports(pool, week.due)).toBe(1);
+    const [job] = await jobs();
+    const { sent, provider } = fakeProvider();
+    expect(await deliverWeeklyOwnerReport(job, provider)).toEqual({ status: "suppressed", reason: "Owner email not confirmed" });
+    expect(sent).toHaveLength(0);
+  });
+
   it("sends the dashboard's figures for the Berlin week, with won-back cards", async () => {
     const s = await shop();
     const regular = await s.card(new Date(week.start.getTime() - 60 * day));
