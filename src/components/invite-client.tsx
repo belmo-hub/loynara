@@ -80,7 +80,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
 
   const roleLabel = invite?.role === "owner" ? "Inhaber:in" : invite?.role === "manager" ? "Leitung" : "Kasse";
   // ENG-277, Legal's sentences: no acceptance, only where the owner privacy notice is. Leitung and Kasse are processed for the shop.
-  const privacy = invite && <p className={styles.note}>Wie Loynara deine Daten {invite.role === "owner" ? "" : `im Auftrag von ${invite.businessName} `}verarbeitet, steht in den <Link className={styles.link} href={OWNER_PRIVACY_NOTICE.href}>Datenschutzhinweisen für Geschäfte</Link>.</p>;
+  const privacy = invite && <p className={styles.note}>Wie Loynara deine Daten {invite.role === "owner" ? "" : `im Auftrag von ${invite.businessName} `}verarbeitet, steht in den <Link className={styles.link} href={OWNER_PRIVACY_NOTICE.href} target="_blank" rel="noopener">Datenschutzhinweisen für Geschäfte</Link>.</p>;
   return <AuthShell>
     <div className={`invite-card ${styles.page}`}>
       {invite ? <>

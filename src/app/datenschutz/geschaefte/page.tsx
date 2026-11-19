@@ -2,6 +2,8 @@ import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
 import { OWNER_PRIVACY_NOTICE } from "@/lib/owner-privacy";
 
+export const metadata = { title: "Datenschutzhinweise für Geschäfte – Loynara" };
+
 // Legal's text, verbatim (legal-ops/2026-11-19-eng-277-owner-consent.md).
 export default function GeschaefteDatenschutzPage() {
   return <AuthShell width="reading">

@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import DatenschutzPage from "./datenschutz/page";
 import TeilnahmebedingungenPage from "./teilnahmebedingungen/page";
-import GeschaefteDatenschutzPage from "./datenschutz/geschaefte/page";
+import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./datenschutz/geschaefte/page";
 import { InviteClient } from "@/components/invite-client";
 
 // Customers tick a checkbox linking to these pages when they create a card.
@@ -75,6 +75,7 @@ describe("owner privacy notice", () => {
 
   it("is Legal's text with its Stand, the customer page and the Impressum linked", () => {
     expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
+    expect(GeschaefteMetadata.title).toBe("Datenschutzhinweise für Geschäfte – Loynara");
     expect(html).toContain("Stand: 19. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
@@ -91,7 +92,8 @@ describe("owner privacy notice", () => {
   });
 
   const invite = (role: "owner" | "manager" | "cashier") => renderToStaticMarkup(createElement(InviteClient, { token: "t", registrationOpen: false, invite: { email: "a@example.test", role, businessName: "Café Test", locationName: "Mitte" } })).replaceAll("<!-- -->", "").replace(/ class="[^"]*"/g, "");
-  const link = '<a href="/datenschutz/geschaefte">Datenschutzhinweisen für Geschäfte</a>';
+  // A new tab, as on the join page, so a name typed into the form survives reading the notice (Design, #295).
+  const link = '<a target="_blank" rel="noopener" href="/datenschutz/geschaefte">Datenschutzhinweisen für Geschäfte</a>';
 
   it("the owner invite names the notice under both buttons, without a checkbox", () => {
     const page = invite("owner");
