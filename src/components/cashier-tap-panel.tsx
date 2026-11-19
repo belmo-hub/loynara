@@ -405,9 +405,9 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   useEffect(() => { onCountRef.current?.(openCount); }, [openCount]);
 
   // A request that left the list (expired, or confirmed at another till) takes its confirmation with it, unbooked.
-  // The live region says why: expired, or (still within its time) taken at another till.
+  // The live region says why: expired, or (still within its time) no longer open, whoever closed it.
   const confirmingGone = Boolean(confirming) && !open.some(item => item.id === confirming?.item.id);
-  const goneReason = confirming && confirmingGone ? isOpenRequest(confirming.item, now) ? t.alreadyProcessed : t.expired : null;
+  const goneReason = confirming && confirmingGone ? isOpenRequest(confirming.item, now) ? t.notFound : t.expired : null;
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (!goneReason) return;

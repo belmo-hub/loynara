@@ -1,5 +1,5 @@
 import { expect, request as apiRequest, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, resetPeerLimits, sql, staffContext } from "./nfc-support";
+import { balanceOf, customerWithCard, ledgerRowsFor, MASTER, merchantWithTag, pathOf, pendingOf, resetPeerLimits, sql, staffContext } from "./nfc-support";
 
 // Customer taps the counter tag -> pending request -> cashier confirms -> exactly one stamp -> customer, cashier and owner agree.
 // Runs against a server started with NFC_KEY_PROVIDER=derived_v1 and NFC_VERIFY_MASTER_KEY=$E2E_NFC_VERIFY_MASTER (synthetic).
@@ -304,5 +304,23 @@ test("a touch that lands inside the guard and lifts after it books nothing, on t
     await expect(counter.locator(".cashier-booked")).toContainText("Neuer Stand: 12 Punkte");
     expect(awards).toHaveLength(1);
     await second.context.close();
+  } finally { await f.close(); }
+});
+
+test("a request closed at another till while its confirmation is open closes the dialog without booking (ENG-274)", async ({ baseURL, browser }) => {
+  const f = await typedRequest(browser, baseURL ?? "http://localhost:3000");
+  try {
+    const { counter, dialog } = f;
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    // A second staff session (the cashier's API context, apart from this browser) rejects the request in its time.
+    const [open] = await pendingOf(f.m.cashier);
+    expect((await f.m.cashier.post(`/api/cashier/tap/${open.id}/cancel`)).status()).toBe(200);
+    await expect(dialog).toHaveCount(0, { timeout: 10_000 });
+    await expect(counter.getByRole("heading", { name: "NFC-Anfragen" })).toBeFocused();
+    await expect(counter.getByRole("status").filter({ hasText: "Diese Anfrage ist nicht mehr offen." })).toBeVisible();
+    await counter.waitForTimeout(1_000);
+    expect(f.confirms).toHaveLength(0);
+    expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
   } finally { await f.close(); }
 });
