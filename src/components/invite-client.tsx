@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { withInviteReturn } from "@/lib/invite-return";
 import { postJson } from "./client-api";
 import { AuthShell } from "./ui/auth-shell";
 import { Button, buttonClassName } from "./ui/button";
@@ -29,6 +30,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
   // Set once the account exists, so a retry after a failed acceptance does not try to create it again.
   const accountCreated = useRef(false);
+  const here = `/invite/${encodeURIComponent(token)}`;
 
   async function accept() {
     if (busy) return;
@@ -100,7 +102,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
         <div className={styles.alternative}>
           <p className={styles.note}>Schon ein Konto mit dieser Adresse? Melde dich an, öffne diesen Link danach noch einmal und nimm die Einladung hier an.</p>
           <div className={styles.actions}>
-            <Link className={styles.link} href="/login">Zur Anmeldung</Link>
+            <Link className={styles.link} href={withInviteReturn("/login", here)}>Zur Anmeldung</Link>
             <Button variant="quiet" size="sm" onClick={accept} loading={busy}>Angemeldet: Einladung annehmen</Button>
           </div>
         </div>
@@ -109,7 +111,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
         <div className={styles.sheet}>
           {error ? <Alert>{error}</Alert> : null}
           <Button block onClick={accept} loading={busy}>{busy ? "Einladung wird geprüft …" : "Einladung annehmen"}</Button>
-          <p className={styles.note}>Noch nicht angemeldet? <Link className={styles.link} href="/login">Zur Anmeldung</Link>{registrationOpen ? <> oder <Link className={styles.link} href="/register">Konto erstellen</Link></> : null}</p>
+          <p className={styles.note}>Noch nicht angemeldet? <Link className={styles.link} href={withInviteReturn("/login", here)}>Zur Anmeldung</Link>{registrationOpen ? <> oder <Link className={styles.link} href={withInviteReturn("/register", here)}>Konto erstellen</Link></> : null}</p>
         </div>
       </>}
     </div>

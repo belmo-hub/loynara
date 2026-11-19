@@ -85,7 +85,7 @@ describe("demo environment (design v3)", () => {
     ["NFC key settings with NFC off", { NFC_VERIFY_MASTER_KEY: "a".repeat(64) }, /NFC key settings/],
     ["the NFC admin master key", { NFC_ADMIN_MASTER_KEY: "a".repeat(64) }, /administrative master key/],
     ["synthetic NFC keys", { TAP_SYNTHETIC_KEY_FILE: "/tmp/keys.json" }, /Synthetic NFC/],
-    ["public registration", { PUBLIC_REGISTRATION_ENABLED: "true" }, /Public registration/],
+    ["public registration", { PUBLIC_REGISTRATION_ENABLED: "true" }, /PUBLIC_REGISTRATION_ENABLED must be unset or false in the demo/],
     ["an ambiguous invite flag", { STAFF_INVITE_SIGNUP_ENABLED: "maybe" }, /STAFF_INVITE_SIGNUP_ENABLED/],
     ["a placeholder login secret", { BETTER_AUTH_SECRET: "replace-me" }, /auth secret/],
     ["plain HTTP", { PUBLIC_BASE_URL: "http://demo.getloynara.com", BETTER_AUTH_URL: "http://demo.getloynara.com" }, /HTTPS/],
