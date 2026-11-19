@@ -10,7 +10,7 @@ import { CustomerShell } from "@/components/ui/customer-shell";
 import { Sheet } from "@/components/ui/sheet";
 import { LegalLinks } from "@/components/ui/legal-links";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
-import { CardFace, nearestReward, type CardReward } from "./card-face";
+import { CardFace, cardGoal, nearestReward, type CardReward } from "./card-face";
 import { MixCard } from "./mix-card";
 import { MixTile, mixStyles as mix } from "@/components/ui/mix";
 import type { ChangeLine } from "@/lib/change-lines";
@@ -122,9 +122,9 @@ export function CustomerCard(props: CustomerCardProps) {
   useEffect(() => { if (!quiet) return; const heading = document.querySelector<HTMLElement>("main h1"); if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); } }, [quiet]);
   // The icon answers each press with one turn, whatever the read takes.
   const [turn, setTurn] = useState(0);
-  // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
-  const nearest = nearestReward(rewards, balance);
-  const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
+  // The reward the card draws: the next one not reached yet (cardGoal), unless the guest picked another one. The goal
+  // line below still names the reward closest to redeemable, so a ready reward is said first.
+  const selected = rewards.find((reward) => reward.id === selectedId) ?? cardGoal(rewards, balance);
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   // During a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak of
   // the real balance from the start: a line count that changed at the step would move the card as the stamp lands.

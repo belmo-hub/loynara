@@ -15,6 +15,16 @@ export function nearestReward<T extends CardReward>(rewards: T[], balance: numbe
 }
 
 /**
+ * The reward the card's grid counts to (Design, 18 Nov, #285 ruling b): the cheapest one the balance has not reached
+ * yet; once every reward is reached, the largest (the card then reads the true count). A ready reward below it is
+ * redeemed from the band and the list. The Kasse counts the same way.
+ */
+export function cardGoal<T extends CardReward>(rewards: T[], balance: number): T | undefined {
+  const byCost = [...rewards].sort((a, b) => a.cost - b.cost);
+  return byCost.find(reward => reward.cost > balance) ?? byCost.at(-1);
+}
+
+/**
  * The card object itself, in the shop's colours: business, progress (stamps or points), balance and the line to the
  * next reward, with the code ticket passed in as children. The guest's card page and the owner's previews both use
  * it, so the owner sees exactly what guests see. Colours come from the merchant palette variables on an ancestor.

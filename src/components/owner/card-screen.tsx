@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Gift, Hourglass, Link2, Undo2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
-import { nearestReward } from "@/components/customer/card-face";
+import { cardGoal, nearestReward } from "@/components/customer/card-face";
 import { MixCard, progressLine } from "@/components/customer/mix-card";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -73,7 +73,8 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     onDone={() => { done("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); stepBack(); }} /></div>;
 
   const target = !member.closedAt && member.locationId === me.locationId && program.state === "ok" ? nearestReward(program.data.rewards, member.balance) : undefined;
-  const mixTarget = mixCardReward(kind, target);
+  // The mix card counts to the next reward not reached yet, as the guest's card and the Kasse do (Design, #285 b).
+  const mixTarget = mixCardReward(kind, target && cardGoal(program.state === "ok" ? program.data.rewards : [], member.balance));
   async function loadOlder() {
     if (!nextCursor || olderBusy) return;
     setOlderBusy(true); setOlderError("");
