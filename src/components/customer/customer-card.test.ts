@@ -512,3 +512,11 @@ describe("several rewards: the card draws the next one not reached (Design, #285
     expect(at(9)).toContain('aria-label="9 Stempel"');
   });
 });
+
+describe("the guest card's goal during a booking moment (Design, #300)", () => {
+  const rewards = [{ id: "big", title: "Gratiskaffee", cost: 8 }, { id: "small", title: "Kleiner Kaffee", cost: 3 }];
+  it("keeps the goal from before the moment, so the grid does not change under the landing stamp", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, rewards, balance: 3, moment: { credited: 1, balance: 3 } }))).toContain('aria-label="3 von 3 Stempeln"');
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, rewards, balance: 3 }))).toContain('aria-label="3 von 8 Stempeln"');
+  });
+});

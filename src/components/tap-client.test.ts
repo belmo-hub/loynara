@@ -55,3 +55,14 @@ describe("tap page for a points programme", () => {
     expect(currentBalance(1, false)).toBe("Aktueller Stand: 1 Stempel");
   });
 });
+
+describe("several rewards on the tap page (Design, #300)", () => {
+  const two = { ...card, rewards: [{ id: "big", title: "Gratiskaffee", cost: 8 }, { id: "small", title: "Kleiner Kaffee", cost: 3 }] };
+  const face = (balance: number, moment: boolean) => renderToStaticMarkup(createElement(TapCardFace, { card: two, balance, moment }));
+  it("draws the next reward not reached, and holds the goal before the landing stamp while it plays", () => {
+    expect(face(4, false)).toContain("4 von 8");
+    expect(face(3, false)).toContain("3 von 8");
+    expect(face(3, true)).toContain("3 von 3"); // 2 → 3: the 3-slot card the stamp lands on
+    expect(face(4, false)).toContain("Prämie verfügbar."); // the line names the ready reward first, not „Noch 4 …“
+  });
+});

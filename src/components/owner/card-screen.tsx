@@ -107,7 +107,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
         {mixTarget && program.state === "ok"
           ? <div className={s.card} style={merchantPalette(program.data.brandColor ?? "", "light").cssVars as CSSProperties}>
             <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType="stamps"
-              balance={member.balance} reward={mixTarget} voice="owner" />
+              balance={member.balance} reward={mixTarget} lineReward={target} voice="owner" />
           </div>
           // Points (not drawn in the mix yet) and cards without a target keep the house balance block.
           : <section className={cx("ow-board ow-stand", s.card)} aria-labelledby="cu-stand">

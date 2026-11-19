@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
-import { CardFace, nearestReward } from "./customer/card-face";
+import { CardFace, cardGoal, nearestReward } from "./customer/card-face";
 import { markSeen, TAP_MARK_SLACK_MS } from "./customer/booking-moment";
 import { CustomerState, StateLink } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
@@ -75,7 +75,9 @@ const scrollToTop = () => window.scrollTo({ top: 0, behavior: window.matchMedia(
 /** The guest's card with the booked balance; during the stamp moment its new stamp lands. */
 export function TapCardFace({ card, balance, moment }: { card: CardResponse; balance: number; moment: boolean }) {
   const rewards = card.rewards.map(({ id, title, cost }) => ({ id, title, cost }));
-  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)} landed={moment ? balance : undefined} />;
+  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)}
+    // The grid counts to the next reward not reached, held at the one before the landing stamp while it plays (Design, #300).
+    goal={cardGoal(rewards, moment ? balance - 1 : balance)} landed={moment ? balance : undefined} />;
 }
 
 export function TapClient({ refId }: { refId: string }) {
