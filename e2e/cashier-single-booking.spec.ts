@@ -23,7 +23,7 @@ async function shop(baseURL: string, program: Record<string, unknown>) {
   expect(joined.status()).toBe(201);
   const { cardToken } = await joined.json() as { cardToken: string };
   const { scanCode } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
-  const lookup = await (await cashier.get(`/api/cashier/lookup?code=${encodeURIComponent(scanCode)}`)).json() as { membershipId: string; ruleVersionId: string; rewards: Array<{ id: string; cost: number }> };
+  const lookup = await (await cashier.get(`/api/cashier/lookup?code=${encodeURIComponent(scanCode)}`)).json() as { membershipId: string; cardLocator: string; ruleVersionId: string; rewards: Array<{ id: string; cost: number }> };
   const balance = async () => (await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { balance: number }).balance;
   return { cashier, scanCode, lookup, balance, close: async () => { await owner.dispose(); await cashier.dispose(); await guest.dispose(); } };
 }
@@ -93,10 +93,49 @@ test("booking a purchase amount sends one award with the amount and the rule ver
     await counter.page.getByLabel("Kaufbetrag (EUR)").fill("4,99");
     await expect(counter.page.locator("#purchase-preview")).toContainText("+14 Punkte");
     await counter.page.getByRole("button", { name: "Buchen", exact: true }).click();
+    await counter.page.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
     await expect(counter.page.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
     const body = await onlyWrite(counter.page, counter.writes, "/api/cashier/award");
     expect(Object.keys(body).sort()).toEqual(["deviceAt", "idempotencyKey", "membershipId", "purchaseAmountMinor", "requestId", "ruleVersionId"]);
     expect(body).toMatchObject({ membershipId: f.lookup.membershipId, purchaseAmountMinor: 499, ruleVersionId: f.lookup.ruleVersionId });
     expect(await f.balance()).toBe(14);
+  } finally { await counter.close(); await f.close(); }
+});
+
+test("a mistyped amount („1570“ for „15,70“) books nothing until the confirmation, and then exactly once (ENG-271)", async ({ browser, baseURL }) => {
+  const f = await shop(baseURL!, { programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3, rewardCost: 30 });
+  const counter = await openCard(browser, baseURL!, f.cashier, f.scanCode);
+  try {
+    const { page } = counter;
+    const dialog = page.getByRole("dialog", { name: "Vergabe bestätigen?" });
+    const field = page.getByLabel("Kaufbetrag (EUR)");
+    const selected = () => field.evaluate((input: HTMLInputElement) => [document.activeElement === input, input.selectionStart, input.selectionEnd, input.value.length]);
+    await page.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
+    await field.fill("1570");
+    // A double tap on „Buchen“: the second tap lands on the dialog's backdrop and must not throw the confirmation away.
+    await page.getByRole("button", { name: "Buchen", exact: true }).dblclick();
+    await expect(dialog).toContainText(`4.710 Punkte für einen Kauf über 1.570,00 EUR für Karte ${f.lookup.cardLocator}.`);
+    await page.waitForTimeout(1_000);
+    await expect(dialog).toBeVisible();
+    expect(counter.writes).toHaveLength(0);
+    // „Abbrechen“ books nothing and goes back to the amount, selected, so the right one is typed over it.
+    await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(field).toHaveValue("1570");
+    await expect.poll(selected).toEqual([true, 0, 4, 4]);
+    await page.keyboard.type("15,70");
+    await page.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toContainText(`47 Punkte für einen Kauf über 15,70 EUR für Karte ${f.lookup.cardLocator}.`);
+    // Esc does the same as „Abbrechen“.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(selected).toEqual([true, 0, 5, 5]);
+    expect(counter.writes).toHaveLength(0);
+    expect(await f.balance()).toBe(0);
+    await page.getByRole("button", { name: "Buchen", exact: true }).click();
+    await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand: 47 Punkte");
+    expect(await onlyWrite(page, counter.writes, "/api/cashier/award")).toMatchObject({ purchaseAmountMinor: 1_570 });
+    expect(await f.balance()).toBe(47);
   } finally { await counter.close(); await f.close(); }
 });

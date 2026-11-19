@@ -24,7 +24,7 @@ export function visitSources(env: Env = process.env): string {
 /** A demo lasts this long; the worker voids its passes then, and erases it an hour later. */
 export const DEMO_HOURS = 24;
 
-const offOrUnset = ["EXTERNAL_EMAIL_ENABLED", "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "WALLET_MESSAGES_ENABLED", "LIVE_BILLING_ENABLED", "GOOGLE_WALLET_ENABLED"];
+const offOrUnset = ["EXTERNAL_EMAIL_ENABLED", "TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED", "PROMOTIONAL_EXTERNAL_EMAIL_ENABLED", "WALLET_MESSAGES_ENABLED", "LIVE_BILLING_ENABLED", "GOOGLE_WALLET_ENABLED", "PUBLIC_REGISTRATION_ENABLED"];
 
 /**
  * Why a demo environment must not start: email, Stripe and Google keys are not allowed to exist there, and billing runs
