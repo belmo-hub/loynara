@@ -60,8 +60,8 @@ const only = (values: Array<number | string>, ...allowed: Array<number | string>
 
 // Screens whose content has no section label of the kinds above; the rest must show at least one before they pass.
 const NO_LABELS = ["/merchant/adviser", "/merchant/staff/invite", "/merchant/customers/import"];
-// Programm has the mix rhythm (ENG-259), measured in its own test below.
-for (const path of ["/merchant", "/merchant/analytics", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
+// Programm (ENG-259) and Kunden (ENG-257) have the mix rhythm, measured in their own tests below.
+for (const path of ["/merchant", "/merchant/analytics", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
   test(`${path} keeps the owner rhythm`, async () => {
     await page.goto(path);
     await expect(page.locator("#ow-main h1")).toBeVisible();
@@ -75,6 +75,19 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program/card"
     expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });
 }
+
+// Kunden is drawn in the founder's mix (ENG-257, mock mix/kunden.html), not the house rhythm above: 24 from the title to
+// the search, 16 between blocks, 32 above a section title, 12 from a title to its panel and from a panel to its note.
+test("/merchant/customers keeps the mix rhythm", async () => {
+  await page.goto("/merchant/customers");
+  await expect(page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first()).toBeVisible();
+  // Polled: the picker comes with the groups' read, which can land after the cards.
+  await expect.poll(() => page.evaluate(() => {
+    const box = (q: string) => document.querySelector(`#ow-main ${q}`)?.getBoundingClientRect(), gap = (a: string, b: string) => { const [x, y] = [box(a), box(b)]; return x && y ? Math.round(y.top - x.bottom) : null; };
+    return { search: gap("h1", "form[role=search]"), picker: gap("form[role=search]", "label:has(> select)"), invite: gap('section[aria-labelledby="cu-h"] ul', "[class*=invite] h2"),
+      panel: gap("[class*=invite] h2", "[class*=invite] ul"), note: gap("[class*=invite] ul", "[class*=invite] > .ow-prog-note") };
+  })).toEqual({ search: 24, picker: 16, invite: 32, panel: 12, note: 12 });
+});
 
 // Programm in the mix (ENG-259): every section title 12 above its panel, sections 32 apart in each column.
 test("/merchant/program keeps the mix rhythm", async () => {

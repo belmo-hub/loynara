@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Link2, Printer } from "lucide-react";
+import { ChevronRight, Link2, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
@@ -28,18 +28,18 @@ export function InviteRows({ me }: { me: MeResponse }) {
   const { copied, copy } = useCopy();
   const [error, setError] = useState("");
   const joinUrl = joinUrlOf(me);
-  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
+  const row = (icon: ReactNode, title: string, sub: string | undefined, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
     <span className="ow-prog-icon">{icon}</span>
-    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong><small>{sub}</small></span></span>
-    <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
+    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}</span></span>
+    <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
   </button></li>;
   return (
     <div>
       <h2>Kunden einladen</h2>
       {!joinUrl ? <p className="ow-prog-note">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p> : <ul>
-        {row(<Link2 size={22} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", joinUrl.replace(/^https?:\/\//, ""),
+        {row(<Link2 size={20} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", undefined,
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
-        {row(<Printer size={22} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
+        {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
           () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>

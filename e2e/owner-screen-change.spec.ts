@@ -76,7 +76,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   expect(third, "the third change takes the first pair again").toBe(first);
   // A customer card opens and closes on the same path: those are changes of their own too.
   await page.goto("/merchant/customers?activity=all");
-  const row = page.locator(".ow-content ul a.ow-prog-row").first();
+  const row = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(row).toBeVisible();
   await settled();
   const before = await page.evaluate(() => document.documentElement.hasAttribute("data-ow-fade"));
@@ -234,7 +234,7 @@ test("two quick taps on a slow connection: only the tab tapped last looks pendin
 
 test("opening a customer card and going back are screen changes; a filter is not", async () => {
   await page.goto("/merchant/customers?activity=all");
-  const first = page.locator(".ow-content ul a.ow-prog-row").first();
+  const first = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(first).toBeVisible();
   await settled();
   // Any layer of a change in the half second around the filter pick.
