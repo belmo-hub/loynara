@@ -56,6 +56,7 @@ export function ResetForm({ token }: { token: string }) {
     <div key="expired" ref={page} className={styles.page}>
       <PageHeader title="Dieser Link gilt nicht mehr." description="Er läuft nach einer Stunde ab und funktioniert nur einmal." />
       <Link href="/forgot-password" className={buttonClassName({ block: true })}>Neuen Link anfordern</Link>
+      <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href="/login">Zurück zur Anmeldung</Link></p>
     </div>
   </AuthShell>;
 
