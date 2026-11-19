@@ -540,6 +540,42 @@ test.describe("cashier on phones", () => {
     }
   });
 
+  test("the phone's rebook state reserves the dock: the notice and the figure in the first screen, the foot scrolls clear of the dock (390 × 844)", async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const { cardToken } = await (await page.request.post("/api/enroll", { data: { slug: demo.programSlug, acceptedTerms: true, marketingOptIn: false, additionalCard: true }, headers: { Origin: origin } })).json() as { cardToken: string };
+    const { scanCode: code } = await (await page.request.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+    await page.goto("/cashier");
+    await page.getByLabel("Kartennummer oder Kartencode").fill(code);
+    await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    await page.locator(".cashier-booked #cashier-code").fill(code);
+    await page.locator(".cashier-booked #cashier-code").press("Enter");
+    await expect(page.locator(".cashier-status--pending")).toContainText("Auf dieser Karte wurde vor");
+    const measure = () => page.evaluate(() => {
+      const box = (el: Element | null | undefined) => el!.getBoundingClientRect();
+      const foot = document.querySelector(".card-result-head button")!.parentElement;
+      return { dock: box(document.querySelector("[data-dock]")).top, notice: box(document.querySelector(".cashier-notice-kept, .cashier-status--pending")).bottom,
+        figure: box(document.querySelector(".card-result-head [data-figure]")).bottom, foot: box(foot).bottom, last: Math.max(...[...document.querySelector("main")!.children].map(child => child.getBoundingClientRect().bottom)), height: innerHeight };
+    });
+    const atEnd = async () => { await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" })); return measure(); };
+    const first = await measure();
+    expect(first.notice, JSON.stringify(first)).toBeLessThanOrEqual(first.dock);
+    expect(first.figure, JSON.stringify(first)).toBeLessThanOrEqual(first.dock);
+    const open = await atEnd();
+    expect(open.foot, JSON.stringify(open)).toBeLessThanOrEqual(open.dock);
+    expect(open.last, JSON.stringify(open)).toBeLessThanOrEqual(open.dock);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.locator(".cashier-award-now").dispatchEvent("click");
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    await expect(page.locator(".cashier-notice-kept")).toContainText("Auf dieser Karte wurde vor");
+    const booked = await atEnd();
+    expect(booked.foot, JSON.stringify(booked)).toBeLessThanOrEqual(booked.dock);
+    expect(booked.last, JSON.stringify(booked)).toBeLessThanOrEqual(booked.dock);
+  });
+
   test("with reduced motion the booking confirmation does not animate", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signIn(page);
