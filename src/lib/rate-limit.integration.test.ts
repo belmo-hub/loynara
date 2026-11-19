@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { pool } from "@/db";
-import { enforceRateLimit, peerIdentity, RateLimitError } from "./rate-limit";
+import { enforceRateLimit, peerIdentity, pruneExpiredRateLimits, RateLimitError } from "./rate-limit";
+import { boundedWorkerDatabase } from "../../scripts/worker-database";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Rate limit tests require looplocal_test");
 
@@ -34,5 +35,15 @@ describe("shared PostgreSQL rate limits", () => {
     } finally {
       if (previous === undefined) delete process.env.TRUST_PROXY_CLIENT_IP; else process.env.TRUST_PROXY_CLIENT_IP = previous;
     }
+  });
+
+  it("prunes counters 48 hours after their window ends, not before, through the worker's database path (ENG-281)", async () => {
+    const [kept, gone, live] = [randomUUID(), randomUUID(), randomUUID()].map(id => id.replace(/-/g, "").padEnd(64, "0"));
+    await pool.query(`INSERT INTO rate_limits (key_hash, hits, reset_at) VALUES
+      ($1, 1, now() - interval '47 hours'), ($2, 1, now() - interval '49 hours'), ($3, 1, now() + interval '1 hour')`, [kept, gone, live]);
+    expect(await pruneExpiredRateLimits(boundedWorkerDatabase(pool))).toBeGreaterThanOrEqual(1);
+    const left = await pool.query<{ key_hash: string }>("select key_hash from rate_limits where key_hash = any($1)", [[kept, gone, live]]);
+    expect(left.rows.map(row => row.key_hash).sort()).toEqual([kept, live].sort());
+    await pool.query("delete from rate_limits where key_hash = any($1)", [[kept, live]]);
   });
 });

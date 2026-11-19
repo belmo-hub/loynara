@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import DatenschutzPage from "./datenschutz/page";
 import TeilnahmebedingungenPage from "./teilnahmebedingungen/page";
+import GeschaefteDatenschutzPage from "./datenschutz/geschaefte/page";
+import { InviteClient } from "@/components/invite-client";
 
 // Customers tick a checkbox linking to these pages when they create a card.
 describe("customer legal pages", () => {
@@ -65,3 +68,39 @@ describe("customer legal pages", () => {
     expect(html).not.toContain("die bei der Anmeldung für das gewählte Programm angezeigt werden");
   });
 });
+
+// ENG-277: Legal's owner privacy notice (legal-ops/2026-11-19-eng-277-owner-consent.md), and the invite sentence linking to it.
+describe("owner privacy notice", () => {
+  const html = renderToStaticMarkup(createElement(GeschaefteDatenschutzPage)).replaceAll("<!-- -->", "");
+
+  it("is Legal's text with its Stand, the customer page and the Impressum linked", () => {
+    expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
+    expect(html).toContain("Stand: 19. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
+    expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
+    expect(html).toContain('href="https://getloynara.com/impressum/"');
+    expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");
+    expect(html).toContain("die Bestätigung deiner E-Mail-Adresse, das Zurücksetzen deines Passworts, Einladungen, Erinnerungen und Berichte zu deinem Programm.");
+    expect(html).toContain("Für Loynara ist der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Wilhelmstraße 7, 65185 Wiesbaden, zuständig.");
+    expect(html).not.toMatch(/\{Datum\}|Entwurf/);
+  });
+
+  it("promises the 48-hour counter deletion only because the worker runs the prune daily (ENG-281)", () => {
+    expect(html).toContain("Die Zähler für Anmeldeversuche löschen wir spätestens 48 Stunden nach Ablauf ihres Zeitfensters.");
+    const worker = readFileSync("scripts/worker.ts", "utf8");
+    expect(worker).toMatch(/rateLimitsPrunedAt >= 24 \* 60 \* 60_000[\s\S]{0,400}pruneExpiredRateLimits\(housekeepingDatabase\)/);
+  });
+
+  const invite = (role: "owner" | "manager" | "cashier") => renderToStaticMarkup(createElement(InviteClient, { token: "t", registrationOpen: false, invite: { email: "a@example.test", role, businessName: "Café Test", locationName: "Mitte" } })).replaceAll("<!-- -->", "").replace(/ class="[^"]*"/g, "");
+  const link = '<a href="/datenschutz/geschaefte">Datenschutzhinweisen für Geschäfte</a>';
+
+  it("the owner invite names the notice under both buttons, without a checkbox", () => {
+    const page = invite("owner");
+    expect(page.split(`Wie Loynara deine Daten verarbeitet, steht in den ${link}.`)).toHaveLength(3);
+    expect(page).not.toContain('type="checkbox"');
+  });
+
+  it.each(["manager", "cashier"] as const)("a %s invite says the data is processed for the shop", (role) => {
+    expect(invite(role).split(`Wie Loynara deine Daten im Auftrag von Café Test verarbeitet, steht in den ${link}.`)).toHaveLength(3);
+  });
+});
+

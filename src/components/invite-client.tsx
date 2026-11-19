@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { OWNER_PRIVACY_NOTICE } from "@/lib/owner-privacy";
 import { withInviteReturn } from "@/lib/invite-return";
 import { postJson } from "./client-api";
 import { AuthShell } from "./ui/auth-shell";
@@ -78,6 +79,8 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
   </AuthShell>;
 
   const roleLabel = invite?.role === "owner" ? "Inhaber:in" : invite?.role === "manager" ? "Leitung" : "Kasse";
+  // ENG-277, Legal's sentences: no acceptance, only where the owner privacy notice is. Leitung and Kasse are processed for the shop.
+  const privacy = invite && <p className={styles.note}>Wie Loynara deine Daten {invite.role === "owner" ? "" : `im Auftrag von ${invite.businessName} `}verarbeitet, steht in den <Link className={styles.link} href={OWNER_PRIVACY_NOTICE.href}>Datenschutzhinweisen für Geschäfte</Link>.</p>;
   return <AuthShell>
     <div className={`invite-card ${styles.page}`}>
       {invite ? <>
@@ -97,6 +100,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
               error={fields.error("iv-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
             {error ? <Alert>{error}</Alert> : null}
             <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Zugang wird eingerichtet …" : "Zugang einrichten"}</Button>
+            {privacy}
           </form>
         </div>
         <div className={styles.alternative}>
@@ -105,6 +109,7 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
             <Link className={styles.link} href={withInviteReturn("/login", here)}>Zur Anmeldung</Link>
             <Button variant="quiet" size="sm" onClick={accept} loading={busy}>Angemeldet: Einladung annehmen</Button>
           </div>
+          {privacy}
         </div>
       </> : <>
         <PageHeader title="Deine Teameinladung" description="Melde dich mit der E-Mail-Adresse an, an die diese Einladung ging. Danach nimmst du sie hier an." />

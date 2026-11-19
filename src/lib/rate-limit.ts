@@ -105,3 +105,24 @@ export async function refundRateLimit({ scope, identity }: Pick<Limit, "scope" |
 export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number, queries: Pick<Pool, "query"> = pool) {
   return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds }, queries);
 }
+
+/** Daily in the worker (ENG-281): counters go at most 48 hours after their window ends, as the owner privacy page says. */
+export async function pruneExpiredRateLimits(queries: Pick<Pool, "query"> = pool): Promise<number> {
+  // At most 10,000 rows per call, in batches of 500; a larger backlog goes on the next day's run.
+  let removed = 0;
+  for (let batch = 0; batch < 20; batch += 1) {
+    const result = await queries.query(`
+      WITH expired AS (
+        SELECT key_hash FROM rate_limits
+        WHERE reset_at < now() - interval '48 hours'
+        ORDER BY reset_at
+        LIMIT 500
+      )
+      DELETE FROM rate_limits AS r USING expired
+      WHERE r.key_hash = expired.key_hash
+    `);
+    removed += result.rowCount ?? 0;
+    if ((result.rowCount ?? 0) < 500) break;
+  }
+  return removed;
+}
