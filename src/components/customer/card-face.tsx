@@ -19,7 +19,7 @@ export function nearestReward<T extends CardReward>(rewards: T[], balance: numbe
  * next reward, with the code ticket passed in as children. The guest's card page and the owner's previews both use
  * it, so the owner sees exactly what guests see. Colours come from the merchant palette variables on an ancestor.
  */
-export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, landedCount, locale = "de", progress = true, business = true, tag, grow, className, children }: {
+export function CardFace({ businessName, locationName, programType, balance, rewards, selected, landed, landedCount, locale = "de", progress = true, business = true, tag, grow, label, className, children }: {
   businessName: string; locationName: string; programType: "stamps" | "points"; balance: number; rewards: CardReward[];
   /** The reward the progress line refers to. */
   selected?: CardReward;
@@ -31,6 +31,8 @@ export function CardFace({ businessName, locationName, programType, balance, rew
   business?: boolean;
   /** The card's level (Bronze, Silber, Gold) in the top corner; the guest's page shows its ready band instead of the ready tag. */
   tag?: string; className?: string; children?: ReactNode;
+  /** The region's name; the guest's voice unless an owner preview names it as the example („Karte“). */
+  label?: string;
   /** The ladder fill (or a long programme's track) grows from the start: the guest card page's first paint, and nowhere else. */
   grow?: boolean;
 }) {
@@ -38,7 +40,7 @@ export function CardFace({ businessName, locationName, programType, balance, rew
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   const remaining = selected ? Math.max(0, selected.cost - balance) : 0;
-  return <section className={cx("customer-card", styles.object, className)} aria-label={t.cardLabel} data-ready={readyCount > 0 || undefined}>
+  return <section className={cx("customer-card", styles.object, className)} aria-label={label ?? t.cardLabel} data-ready={readyCount > 0 || undefined}>
     <div className={styles.objectTop}>
       <p className={`customer-card-business ${styles.business}`}>{business ? <strong>{businessName}</strong> : null}{business || locationName !== businessName ? <span>{locationName}</span> : null}</p>
       {tag ? <span className={styles.levelTag}>{tag}</span> : readyCount > 0 && progress ? <span className={styles.readyTag}>{t.readyTag}</span> : null}

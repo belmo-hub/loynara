@@ -30,7 +30,7 @@ export function BrowserCardPreview({ businessName, locationName, brandColor, pro
   const palette = merchantPalette(brandColor, "light");
   const reward = { id: "preview", title: rewardTitle || "Deine Prämie", cost: Math.max(1, rewardCost) };
   return <div className="ow-cardprev" style={palette.cssVars as CSSProperties}>
-    <CardFace className="ow-cardprev-face" businessName={businessName || "Dein Geschäft"} locationName={locationName} programType={programType === "points" ? "points" : "stamps"} balance={balance} rewards={[reward]} selected={reward}>
+    <CardFace className="ow-cardprev-face" businessName={businessName || "Dein Geschäft"} locationName={locationName} label="Karte" programType={programType === "points" ? "points" : "stamps"} balance={balance} rewards={[reward]} selected={reward}>
       {showCode ? <div className="ow-cardprev-ticket"><CodeMock /><p className="ow-cardprev-number"><span>Kartennummer</span><strong>{SAMPLE_LOCATOR}</strong></p></div> : null}
     </CardFace>
   </div>;
