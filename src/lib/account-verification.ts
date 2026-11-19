@@ -10,16 +10,17 @@ import { recipientHashes, transactionalProvider } from "./transactional-email";
  * into it, and each link is built here from the token, so no request can choose where it leads. Per address and kind,
  * whoever asks, at most three mails an hour and five a day.
  */
-async function sendAccountMail(scope: string, email: string, subject: string, body: string) {
+async function sendAccountMail(scope: string, email: string, subject: string, body: string): Promise<"sent" | "limited" | "unavailable"> {
   const limits = [{ scope, max: 3, windowSeconds: 60 * 60 }, { scope: `${scope}_day`, max: 5, windowSeconds: 24 * 60 * 60 }];
   try { for (const limit of limits) await enforceRateLimit({ ...limit, identity: email.toLowerCase() }); }
-  catch (error) { if (error instanceof RateLimitError) return; throw error; }
+  catch (error) { if (error instanceof RateLimitError) return "limited"; throw error; }
   const provider = transactionalProvider();
-  if (!provider) return;
+  if (!provider) return "unavailable";
   // Not reserved in email_deliveries, which keys on a shop's outbox job: an account has no shop yet. Suppressions hold.
   const [suppressed] = await db.select().from(emailSuppressions).where(inArray(emailSuppressions.recipientHash, recipientHashes(email)));
-  if (suppressed && suppressed.reason !== "unsubscribed") return;
-  await provider.send({ to: email, jobId: randomUUID(), subject, body });
+  if (suppressed && suppressed.reason !== "unsubscribed") return "unavailable";
+  const result = await provider.send({ to: email, jobId: randomUUID(), subject, body });
+  return result.state === "accepted" || result.state === "delivered" ? "sent" : "unavailable";
 }
 
 const appLink = (path: string, query: Record<string, string>) => {

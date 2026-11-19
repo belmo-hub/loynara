@@ -76,7 +76,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   expect(third, "the third change takes the first pair again").toBe(first);
   // A customer card opens and closes on the same path: those are changes of their own too.
   await page.goto("/merchant/customers?activity=all");
-  const row = page.locator(".ow-content ul a.ow-prog-row").first();
+  const row = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(row).toBeVisible();
   await settled();
   const before = await page.evaluate(() => document.documentElement.hasAttribute("data-ow-fade"));
@@ -99,7 +99,7 @@ test("a tab opens its screen at the top, also after a little scrolling; going ba
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   await padding.evaluate(node => (node as Element).remove());
 
-  const row = page.locator(".ow-prog-row").last();
+  const row = page.locator('.ow-content a[href^="/merchant/program/"]').last();
   await row.scrollIntoViewIfNeeded();
   const left = await page.evaluate(() => Math.round(window.scrollY));
   expect(left).toBeGreaterThan(100);
@@ -131,8 +131,8 @@ test("„‹ Programm“ returns to the row it was left from", async () => {
   await tab("Programm").click();
   await settled();
   // The whole list is there once its side reads are in (the reminder row needs them); then its last row is furthest down.
-  await expect(page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Erinnerung vor der Prämie" })).toBeAttached();
-  const last = page.locator(".ow-content a.ow-prog-row").last();
+  await expect(page.locator('.ow-content a[href^="/merchant/program/"]').filter({ hasText: "Erinnerung vor der Prämie" })).toBeAttached();
+  const last = page.locator('.ow-content a[href^="/merchant/program/"]').last();
   // The list swaps its first rows once the side reads are in; scrolling waits until the row stays put.
   await expect(async () => { await last.scrollIntoViewIfNeeded({ timeout: 500 }); }).toPass();
   expect(await y()).toBeGreaterThan(100);
@@ -143,7 +143,7 @@ test("„‹ Programm“ returns to the row it was left from", async () => {
   await page.locator(".ow-content a.ow-back:visible").click();
   await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
   // Programm puts the row back in view by itself, clear of the bars, and gives it the focus.
-  const row = page.locator(`.ow-content a.ow-prog-row[href="${href}"]`);
+  const row = page.locator(`.ow-content a[href="${href}"]`);
   await expect(row).toBeFocused();
   await expect(row).toBeInViewport({ ratio: 1 });
   expect(await y(), "not the page's top").toBeGreaterThan(100);
@@ -209,8 +209,8 @@ test("on a slow connection a tapped row holds the selected look until its screen
   const held = new Promise<void>(done => { release = done; });
   await page.route(/\/merchant\/program\/rule(\?|$)/, async route => { await held; await route.continue(); });
   await page.getByRole("link", { name: /Regel auf der Karte/ }).click();
-  await expect(page.locator(".ow-prog-row:has([data-pending])")).toHaveCount(1);
-  await expect(page.locator(".ow-prog-row:has([data-pending])"), "the fill is visible, not only the mark").toHaveCSS("background-image", /gradient/);
+  await expect(page.locator('.ow-content a[href^="/merchant/program/"]:has([data-pending])')).toHaveCount(1);
+  await expect(page.locator('.ow-content a[href^="/merchant/program/"]:has([data-pending])'), "the fill is visible, not only the mark").toHaveCSS("background-image", /gradient/);
   await expect(page).toHaveURL(/\/merchant\/program$/);
   release();
   await expect(page).toHaveURL(/\/merchant\/program\/rule$/);
@@ -234,7 +234,7 @@ test("two quick taps on a slow connection: only the tab tapped last looks pendin
 
 test("opening a customer card and going back are screen changes; a filter is not", async () => {
   await page.goto("/merchant/customers?activity=all");
-  const first = page.locator(".ow-content ul a.ow-prog-row").first();
+  const first = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(first).toBeVisible();
   await settled();
   // Any layer of a change in the half second around the filter pick.

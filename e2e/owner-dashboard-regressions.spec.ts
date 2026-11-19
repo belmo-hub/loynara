@@ -77,8 +77,8 @@ test("customer search stays applied when switching between location and tenant s
     const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
     try {
       const page = await context.newPage();
-      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards under the field.
-      const rows = page.locator("section.ow-prog a.ow-prog-row");
+      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards (the groups beside them are rows too).
+      const rows = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row');
       await page.goto("/merchant/customers?activity=all");
       await expect(rows).toHaveCount(2);
       await page.goto("/merchant/customers");

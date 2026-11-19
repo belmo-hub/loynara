@@ -106,6 +106,20 @@ describe("loyalty ledger", () => {
     expect(await db.select().from(purchaseAwards)).toHaveLength(1);
   });
 
+  it("books a cashier purchase exactly at the amount and points limits and refuses one more (ENG-280)", async () => {
+    const f = await fixture("cashier");
+    await db.update(programs).set({ type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).where(eq(programs.id, f.program.id));
+    const [rule] = await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 2, name: f.program.name, type: "points", rulesText: "Drei Punkte pro Euro Kaufbetrag.", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).returning();
+    const book = (purchaseAmountMinor: number) => award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, ruleVersionId: rule.id, purchaseAmountMinor, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    await expect(book(16_667)).resolves.toMatchObject({ creditedQuantity: 500 });                       // exactly 500 points
+    await expect(book(16_700)).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });                      // 501 points
+    await db.update(programs).set({ pointsPerCurrencyUnit: 1 }).where(eq(programs.id, f.program.id));
+    const [one] = await db.insert(programRuleVersions).values({ tenantId: f.tenant.id, programId: f.program.id, version: 3, name: f.program.name, type: "points", rulesText: "Ein Punkt pro Euro Kaufbetrag.", earningMode: "purchase", pointsPerCurrencyUnit: 1 }).returning();
+    const bookOne = (purchaseAmountMinor: number) => award({ userId: f.userId, locationId: f.location.id, membershipId: f.member.id, ruleVersionId: one.id, purchaseAmountMinor, idempotencyKey: randomUUID(), requestId: randomUUID() });
+    await expect(bookOne(50_000)).resolves.toMatchObject({ creditedQuantity: 500 });                  // exactly 500,00 €
+    await expect(bookOne(50_001)).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });
+  });
+
   it("rejects stale purchase rules, zero-point purchases, and cashier cap overflow", async () => {
     const f = await fixture("cashier");
     await db.update(programs).set({ type: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3 }).where(eq(programs.id, f.program.id));

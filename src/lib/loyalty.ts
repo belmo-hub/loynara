@@ -1,4 +1,4 @@
-import { manualAwardLimit, type StaffRole } from "./award-limits";
+import { manualAwardLimit, purchaseAwardLimits, type StaffRole } from "./award-limits";
 import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
@@ -160,8 +160,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
       quantity = input.quantity;
     }
     const manualLimit = trustedTap ? 1 : manualAwardLimit(staff?.role as StaffRole | undefined);
-    const purchaseAmountLimit = staff?.role === "cashier" ? 50_000 : staff?.role === "manager" ? 200_000 : 1_000_000;
-    const purchasePointsLimit = staff?.role === "cashier" ? 500 : staff?.role === "manager" ? 2_000 : 10_000;
+    const { amountMinor: purchaseAmountLimit, points: purchasePointsLimit } = purchaseAwardLimits(staff?.role as StaffRole | undefined);
     if (purchaseMode && (input.purchaseAmountMinor! > purchaseAmountLimit || quantity > purchasePointsLimit)) throw new DomainError("LIMIT_EXCEEDED", "Purchase exceeds this staff role's amount or points limit; ask an owner to review");
     if ((!purchaseMode && quantity > manualLimit) || member.balance + quantity * (program.happyHourEnabled ? 2 : 1) + program.welcomeBonus + (program.winbackEnabled ? program.winbackBonus : 0) + (program.birthdayEnabled ? program.birthdayBonus : 0) + Math.max(program.challengeVisits ? program.challengeBonus : 0, program.challengeNextBonus ?? 0) > 2_147_483_647) throw new DomainError("LIMIT_EXCEEDED", "Award exceeds role or balance limit");
 

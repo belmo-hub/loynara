@@ -19,12 +19,12 @@ test("insight links keep their goal and filter on client-side navigation", async
       const push = (path: string) => page.evaluate(target => (window as unknown as { next: { router: { push(path: string): void } } }).next.router.push(target), path);
 
       await push("/merchant/customers?activity=drifting&days=60");
-      // Since ENG-122a a link opens the group's own screen: its name, its rule, its days picked.
-      await expect(page.getByRole("heading", { level: 1, name: "Länger nicht da" })).toBeVisible();
+      // A link opens its group (ENG-122a; the mix, ENG-257: the group's name heads its cards): its rule, its days picked.
+      await expect(page.getByRole("heading", { level: 2, name: "Länger nicht da" })).toBeVisible();
       await expect(page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "60 Tage" })).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByText("aber keine in den letzten 60 Tagen")).toBeVisible();
       await push("/merchant/customers?activity=recent&days=14&scope=all");
-      await expect(page.getByRole("heading", { level: 1, name: "Kürzlich aktiv" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Kürzlich aktiv" })).toBeVisible();
       await expect(page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "14 Tage" })).toHaveAttribute("aria-pressed", "true");
 
       await push("/merchant/campaigns?goal=winback&days=60");

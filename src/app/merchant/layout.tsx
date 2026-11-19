@@ -25,5 +25,5 @@ async function viewer(): Promise<{ role?: OwnerRole; unconfirmed?: string }> {
 
 export default async function MerchantLayout({ children }: { children: ReactNode }) {
   const { role, unconfirmed } = await viewer().catch(() => ({ role: undefined, unconfirmed: undefined }));
-  return <div className="owner-app ly-theme-auto"><OwnerProvider hiddenSurfaces={hiddenSurfaces()} role={role}><OwnerShell>{unconfirmed && <VerifyEmailNotice email={unconfirmed} />}{children}</OwnerShell></OwnerProvider></div>;
+  return <div className="owner-app ly-theme-auto"><OwnerProvider hiddenSurfaces={hiddenSurfaces()} role={role}><OwnerShell notice={unconfirmed && <VerifyEmailNotice email={unconfirmed} />}>{children}</OwnerShell></OwnerProvider></div>;
 }

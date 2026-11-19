@@ -124,7 +124,8 @@ export function LoadingBlock({ rows = 2, height = 96, wide = false }: { rows?: n
   return <div className={wide ? "ow-stack ow-loading ow-loading--wide" : "ow-stack ow-loading"} role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
 }
 
-export type NumberUnit = { one: string; many: string };
+/** step: the word in the buttons' „10 Punkte weniger“ where many is a dative („ab 150 Punkten“). */
+export type NumberUnit = { one: string; many: string; step?: string };
 type NumberShape = { min: number; max: number; unit: NumberUnit; bonus?: boolean; offAtZero?: boolean };
 
 /** What the stepper shows for a typed draft: „30 Tage“, „+1 Stempel“, „Aus“. Null while the draft is not a whole number. */
@@ -146,7 +147,7 @@ export function NumberStepper({ id, value, onChange, describedBy, invalid = fals
   const shown = numberText(value, shape);
   const n = shown ? Number(value) : null;
   const step = (direction: 1 | -1) => onChange(stepValue(value, direction * stepSize, shape));
-  const by = `${stepSize} ${stepSize === 1 ? unit.one : unit.many}`; // „1 Tag“, „10 Punkte“
+  const by = `${stepSize} ${stepSize === 1 ? unit.one : unit.step ?? unit.many}`; // „1 Tag“, „10 Punkte“
   // The field keeps showing „+2“ or „Aus“ while it is typed in; only its digits count, so typing over either works.
   const display = shown ? shown.value : value, unitShown = shown ? shown.unit : unit.many;
   return (

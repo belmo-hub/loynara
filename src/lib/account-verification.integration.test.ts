@@ -80,3 +80,18 @@ it("sends no link to an address that bounced or complained", async () => {
   expect((await post("/send-verification-email", { email })).status).toBe(200);
   expect(sent).toHaveLength(0);
 });
+
+it("tells a signed-in owner when a resend was not sent, and tells an anonymous caller nothing", async () => {
+  const email = `${randomUUID()}@example.test`;
+  const signUp = await post("/sign-up/email", { name: "Synthetic owner", email, password: "synthetic-verify-password" });
+  const cookie = signUp.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
+  const own = (from: string) => POST(new Request(`${origin}/api/auth/send-verification-email`, { method: "POST", headers: { origin, cookie, "content-type": "application/json", "cf-connecting-ip": from }, body: JSON.stringify({ email }) }));
+  // Sign-up used one of the hour's three links: two more go out, the third press is refused instead of claiming a mail.
+  expect([(await own("198.51.100.201")).status, (await own("198.51.100.202")).status, (await own("198.51.100.203")).status]).toEqual([200, 200, 429]);
+  expect(sent).toHaveLength(3);
+  expect((await post("/send-verification-email", { email })).status).toBe(200);
+  await pool.query("INSERT INTO email_suppressions (recipient_hash, reason) VALUES ($1, 'bounced')", [recipientHash(email)]);
+  await pool.query("TRUNCATE rate_limits");
+  expect((await own("198.51.100.204")).status).toBe(503);
+  expect(sent).toHaveLength(3);
+});

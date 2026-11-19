@@ -11,7 +11,8 @@ const messages: Record<CustomerExportFailure, { de: string; fr: string }> = {
   "incomplete": { de: "Der Export konnte nicht vollständig empfangen werden. Es wurde keine Exportdatei vorbereitet. Prüfe deine Verbindung und versuche es erneut.", fr: "L’export n’a pas pu être reçu entièrement. Aucun fichier d’export n’a été préparé. Vérifiez votre connexion et réessayez." },
 };
 
-export function CustomerExportLink({ url, locale, children }: { url: string; locale: "de" | "fr"; children: ReactNode }) {
+/** `children` may take the busy line (null when idle), so a row can keep its shape while the export is prepared; `linkClassName` styles the link itself. */
+export function CustomerExportLink({ url, locale, children, linkClassName }: { url: string; locale: "de" | "fr"; children: ReactNode | ((busyLabel: string | null) => ReactNode); linkClassName?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const operation = useRef<AbortController | null>(null);
@@ -44,5 +45,6 @@ export function CustomerExportLink({ url, locale, children }: { url: string; loc
       if (operation.current === controller) { operation.current = null; setBusy(false); }
     }
   }
-  return <div className="customer-export"><a className="terms-link" href={url} download aria-disabled={busy || undefined} aria-busy={busy} onClick={event => { event.preventDefault(); void download(); }}>{busy ? locale === "fr" ? "Préparation de l’export …" : "Export wird vorbereitet …" : children}</a>{error && <p className={`auth-error ${motion.message}`} role="alert">{error}</p>}</div>;
+  const busyLabel = busy ? locale === "fr" ? "Préparation de l’export …" : "Export wird vorbereitet …" : null;
+  return <div className="customer-export"><a className={linkClassName ? `terms-link ${linkClassName}` : "terms-link"} href={url} download aria-disabled={busy || undefined} aria-busy={busy} onClick={event => { event.preventDefault(); void download(); }}>{typeof children === "function" ? children(busyLabel) : busyLabel ?? children}</a>{error && <p className={`auth-error ${motion.message}`} role="alert">{error}</p>}</div>;
 }
