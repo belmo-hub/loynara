@@ -5,15 +5,15 @@ import { emailSuppressions } from "@/db/schema";
 import { enforceRateLimit, RateLimitError } from "./rate-limit";
 import { recipientHashes, transactionalProvider } from "./transactional-email";
 
-// Per address, whoever asks: sign-up and the resend button together send at most three links an hour.
-const perAddress = { scope: "auth_verify_email", max: 3, windowSeconds: 60 * 60 };
+// Per address, whoever asks: sign-up and the resend button together send at most three links an hour and five a day.
+const perAddress = [{ scope: "auth_verify_email", max: 3, windowSeconds: 60 * 60 }, { scope: "auth_verify_email_day", max: 5, windowSeconds: 24 * 60 * 60 }];
 
 /**
  * ENG-278: the link that confirms an account's address, in fixed words. Nothing the person typed (their name, a shop
  * name) goes into the mail, and the link itself is built here from the token, so no request can choose where it leads.
  */
 export async function sendAccountVerification(email: string, token: string) {
-  try { await enforceRateLimit({ ...perAddress, identity: email.toLowerCase() }); }
+  try { for (const limit of perAddress) await enforceRateLimit({ ...limit, identity: email.toLowerCase() }); }
   catch (error) { if (error instanceof RateLimitError) return; throw error; }
   const provider = transactionalProvider();
   if (!provider) return;

@@ -238,6 +238,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-notice--danger > span:first-child, .ow-notice--danger strong { color: var(--color-danger); }
 .ow-notice--danger strong { display: block; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.ow-verify { padding-bottom: var(--space-4); } /* ENG-278: the address notice above a screen keeps the page gap below it */
 .ow-muted { color: var(--color-ink-muted); }
 /* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
 .ow-num, .ow-metric-value, .ow-table td, .ow-qcount > span:last-child, .ow-strip-n { font-variant-numeric: tabular-nums; }
