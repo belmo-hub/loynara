@@ -2,14 +2,14 @@
 
 import { Check } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { unitWord } from "@/lib/units";
+import { keepUnits, unitWord } from "@/lib/units";
 import { cx } from "./cx";
 import styles from "./points-ladder.module.css";
 
 type Reward = { title: string; cost: number };
 /** `titles`: each marker names its reward under the cost (the guest's card and the join preview, G-04). */
 /** `landedFrom`: the balance before a booking just shown; every mark the booking crossed presses once, like a stamp. */
-type Props = { balance: number; rewards: Reward[]; landedFrom?: number; locale?: "de" | "fr"; titles?: boolean; className?: string;
+type Props = { balance: number; rewards: Reward[]; landedFrom?: number; locale?: "de" | "fr"; titles?: boolean; className?: string; /** No break between a figure and its word in the label (the Kasse). */ keepUnits?: boolean;
   /** The fill grows from the start, once (the guest card page's first paint); everywhere else it shows its value at once. */
   grow?: boolean };
 
@@ -109,7 +109,7 @@ export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, tr
 }
 
 /** One track to the most expensive reward; a marker per reward becomes a pressed mark once affordable. */
-export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titles = false, className, grow = false }: Props) {
+export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titles = false, className, grow = false, keepUnits: keep = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<{ track: number; needs: number[]; prices: number[] } | null>(null);
   const sorted = [...rewards].sort((a, b) => a.cost - b.cost);
@@ -151,7 +151,7 @@ export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titl
   const marks = hideTouchingPrices(ladderMarks(sorted, max, balance), track, prices);
   const layout = titles ? titleLayout(marks, track, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title)), prices) : null;
   const label = locale === "fr" ? `${number(balance)} ${unitWord(balance, "points", "fr")} sur ${number(max)}` : `${number(balance)} von ${number(max)} ${unitWord(max, "points", "de", "dat")}`;
-  return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={label} data-titles={titles || undefined} data-grow={grow || undefined}>
+  return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={keep ? keepUnits(label) : label} data-titles={titles || undefined} data-grow={grow || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
     {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-new={(m.reached && landedFrom !== undefined && m.cost > landedFrom) || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={16} strokeWidth={3} /> : null}</span>

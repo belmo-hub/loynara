@@ -23,7 +23,7 @@ describe("counts on the cashier screen (ENG-108)", () => {
     expect(view("de", { winbackBonus: 1 })).toContain("Willkommen zurück: +1\u00a0Punkt extra");
   });
   it("above the goal the stamp grid tells a screen reader the true count, not the goal (ENG-273)", () => {
-    expect(view("de", { programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Kaffee", cost: 8, eligible: true }] })).toContain('aria-label="9 Stempel"');
+    expect(view("de", { programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Kaffee", cost: 8, eligible: true }] })).toContain('aria-label="9\u00a0Stempel"');
   });
   it("balance, with French zero in the singular", () => {
     expect(view("de")).toMatch(/>1<\/span>\u00a0<em>Punkt<\/em>/);
@@ -143,7 +143,7 @@ describe("the mix Kasse (ENG-256)", () => {
     expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
     expect(out).toMatch(/Andere Karte<\/button><span[^>]*data-state="open"><i aria-hidden="true"><\/i>Karte offen<\/span>/);
     expect(out).toMatch(/<b>Gratiskaffee<\/b><small>Noch <span[^>]*>3<\/span>\u00a0Stempel<\/small>/);
-    expect(out).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>6 von 8<\/span><\/b>/);
+    expect(out).toMatch(/<span>Neuer Stand<\/span><b><span[^>]*>6\u00a0von 8<\/span><\/b>/);
     expect(out).toContain("Falsch? Die Leitung kann es korrigieren.");
   });
 
@@ -160,7 +160,7 @@ describe("the mix Kasse (ENG-256)", () => {
     const out = render({ booked: { tone: "success", title: "Gebucht", headline: "+1 Stempel", detail: "Neuer Stand: 6 Stempel.", meta: "K-7QX2MA", card: { ...stamps, balance: 6 } } });
     expect(out).toMatch(/data-dock="true" role="region" aria-label="Buchen"><section class="cashier-booked/);
     // The card's terms in one line; the live sentence and the number stay for screen readers and the specs.
-    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6 von 8 · K-7QX2MA<\/p>/);
+    expect(out).toMatch(/>Neuer Stand: 6 Stempel\.<\/p><p[^>]*aria-hidden="true">K-7QX2MA<\/p><p[^>]*aria-hidden="true">6\u00a0von 8 · K-7QX2MA<\/p>/);
     expect(out).toContain("Bereit für die nächste Karte");
     expect(out).toContain("data-booked=\"\"");
     expect(out).toMatch(/<b data-figure="">.*>6<\/span><small>\u00a0von 8<\/small><\/b>/);
@@ -179,7 +179,7 @@ describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
     expect(out).not.toContain("Aktueller Kontostand</span></div>");
     expect(out).toMatch(/<h2 id="cashier-card-title"[^>]*>K-7QX2MA<\/h2>/);
     expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span>\u00a0<em>Punkt<\/em>/);
-    expect(out).toContain("aria-label=\"1 von 2 Punkten\"");
+    expect(out).toContain("aria-label=\"1\u00a0von 2\u00a0Punkten\"");
   });
 });
 
@@ -234,7 +234,7 @@ describe("the reward the Kasse's card counts to (Design, 18 Nov)", () => {
     expect(figure(9)).toBe("9\u00a0Stempel");
     // At 4 the card draws 8 dots, 4 earned; the ready 3-stamp reward stays in the list and the band.
     const out = renderToStaticMarkup(h(CashierView, { locationName: "Kassel Mitte", locale: "de", card: two(4), onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {} }));
-    expect(out).toContain('aria-label="4 von 8 Stempeln"');
+    expect(out).toContain('aria-label="4\u00a0von 8\u00a0Stempeln"');
     expect(out).toContain("cashier-redeem-now");
     expect(out).toContain("<b>Kleiner Kaffee</b>");
   });
@@ -247,5 +247,25 @@ describe("a points card's booked line (Design, 18 Nov)", () => {
       booked: { tone: "success", title: "Gebucht", headline: "+16 Punkte", detail: "Neuer Stand: 121 Punkte.", meta: "K-HFC35B", card: points } }));
     expect(out).toMatch(/aria-hidden="true">121\u00a0Punkte · K-HFC35B<\/p>/);
     expect(out).toMatch(/class="[^"]*srOnly[^"]*">Neuer Stand: 121 Punkte\.<\/p>/);
+  });
+});
+
+describe("the Kasse's last rulings (Design, 19 Nov)", () => {
+  const stamps = { programType: "stamps" as const, balance: 4, rewards: [{ id: "r3", name: "Espresso", cost: 3, eligible: true }, { id: "r8", name: "Kaffee", cost: 8, eligible: false }] };
+  const open = (props: Record<string, unknown> = {}) => renderToStaticMarkup(h(CashierView, { locationName: "Kassel", locale: "de", card: { ...card, ...stamps }, onLookup: () => {}, onAward: () => {}, onRedeem: () => {}, onClear: () => {}, ...props }));
+  const button = (html: string) => html.match(/<button[^>]*cashier-award-now[^>]*>(.*?)<\/button>/)?.[1] ?? "";
+  it("the award button's count is its own rolling figure, „1 Stempel vergeben“ and „1 Stempel prüfen“, with no-break spaces", () => {
+    expect(button(open())).toMatch(/<span class="[^"]*">1<\/span> Stempel vergeben/);
+    const offline = open({ onQueueOffline: () => {}, offlineLeaseExpiresAt: new Date(Date.now() + 60_000).toISOString() });
+    expect(button(offline)).toMatch(/<span class="[^"]*">1<\/span> Stempel prüfen/);
+    expect(button(open({ locale: "fr" }))).toContain("Ajouter 1 tampon");
+  });
+  it("the one ready reward the band names shows its price only in the list; the others keep their row", () => {
+    const html = open();
+    expect(html).toContain("Espresso · Stand reicht");
+    const row = (name: string) => html.match(new RegExp(`<(button|div)[^>]*data-lead="tile"[^>]*>(?:(?!</(?:button|div)>).)*<b>${name}</b>`))?.[1];
+    expect(row("Espresso")).toBe("div");
+    expect(row("Kaffee")).toBe("button");
+    expect(html).not.toMatch(/Espresso<\/b><small>[^<]*<\/small><\/span><span[^>]*>Einlösen/);
   });
 });

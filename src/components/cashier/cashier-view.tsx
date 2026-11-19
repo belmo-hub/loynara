@@ -227,11 +227,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The Startbonus by name; win-back and birthday as „extra“, since the note above the balance names them.
   const extras = locale === "fr" ? welcome + winback + birthday ? [`${welcome + winback + birthday} en plus`] : []
     : [welcome ? `${welcome} Startbonus` : "", winback + birthday ? `${winback + birthday} extra` : ""].filter(Boolean);
-  const awardLabel = extras.length
-    ? [awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`, ...extras].join(" + ")
-    : awardCount === 1 && !offlineChoice
-      ? locale === "fr" ? `Ajouter 1 ${singleUnit}` : `1 ${singleUnit} vergeben`
-      : locale === "fr" ? `Vérifier ${awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`}` : `${awardCount === 1 ? `1\u00a0${singleUnit}` : `${awardCount}\u00a0${unit}`} prüfen`;
+  const counted = `${awardCount}\u00a0${awardCount === 1 ? singleUnit : unit}`, direct = awardCount === 1 && !offlineChoice;
+  // German without extras leads with the count, which rolls on + and −: the label is the count and what follows it.
+  const awardTail = !extras.length && locale !== "fr" ? `${counted.slice(String(awardCount).length)} ${direct ? "vergeben" : "prüfen"}` : undefined;
+  const awardLabel = extras.length ? [counted, ...extras].join(" + ")
+    : awardTail ? `${awardCount}${awardTail}` : `${direct ? "Ajouter" : "Vérifier"} ${counted}`;
   function awardQuantity(selected: CashierCard) {
     if (awardCount === 1 && !offlineChoice) award(selected, { quantity: awardCount });
     else setConfirm({ kind: "award", award: { quantity: awardCount } });
@@ -297,7 +297,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
   const typedNext = Boolean(booked?.card && focusCodeInput);
   // The card's terms: „6 von 8“ up to the goal, the true count with its unit above it („10 Stempel“), as the card itself.
-  const ofGoal = (n: number) => goal && shown?.programType !== "points" && n <= goal.cost ? `${number.format(n)} von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
+  const ofGoal = (n: number) => goal && shown?.programType !== "points" && n <= goal.cost ? `${number.format(n)}\u00a0von ${number.format(goal.cost)}` : withUnit(n, shown?.programType ?? "stamps", locale);
   const after = (card?.balance ?? 0) + awardCount + welcome + winback + birthday;
   // Bottom of the dock = the one primary action in thumb reach: redeeming when a reward is ready, otherwise earning.
   const earnLook = rewardFirst ? { variant: "secondary" as const, size: "lg" as const } : { variant: "primary" as const, size: "xl" as const };
@@ -356,7 +356,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
           <Button variant="secondary" size="lg" className={styles.step} aria-label={t.increase} onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity || busy}><Plus size={24} aria-hidden="true" /></Button>
         </div>
         <p className={styles.newBalance}><span>{t.newBalance}</span><b><NumberRoll value={after}>{ofGoal(after)}</NumberRoll></b></p>
-        <Button {...earnLook} block className={cx("cashier-award-now", !rewardFirst && styles.book)} icon={rewardFirst ? undefined : <Check size={22} />} onClick={() => awardQuantity(card)} loading={awarding} disabled={busy && !awarding}>{!extras.length && awardLabel.startsWith(`${awardCount} `) ? <><NumberRoll value={awardCount}>{awardCount}</NumberRoll>{awardLabel.slice(String(awardCount).length)}</> : awardLabel}</Button>
+        <Button {...earnLook} block className={cx("cashier-award-now", !rewardFirst && styles.book)} icon={rewardFirst ? undefined : <Check size={22} />} onClick={() => awardQuantity(card)} loading={awarding} disabled={busy && !awarding}>{awardTail ? <><NumberRoll value={awardCount}>{awardCount}</NumberRoll>{awardTail}</> : awardLabel}</Button>
       </>}
     {rewardFirst && <button type="button" className={cx("cashier-redeem-now", styles.band)} onClick={redeeming ? undefined : redeemReady} disabled={busy && !redeeming} aria-busy={redeeming || undefined} aria-disabled={redeeming || undefined}>
       <span className={styles.bandIcon} aria-hidden="true"><Gift size={22} /></span>
@@ -409,7 +409,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <strong><NumberRoll value={shown.balance}>{number.format(shown.balance)}</NumberRoll>{"\u00a0"}<em>{unitWord(shown.balance, shown.programType, locale)}</em></strong>
         {card?.level && <span className={styles.level}>{card.level.name}</span>}
       </div>
-      {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />}
+      {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} keepUnits />}
     </section>}
     {/* Today's card (points, no reward) keeps the note right under it. */}
     {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.pretty)} role="note">{t.locatorNote}</p>}
@@ -423,15 +423,17 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {shown.rewards.length ? <div className={cx(card && "reward-action-list", mixStyles.panel)}>
         {shown.rewards.map(reward => {
           const left = reward.cost - shown.balance, ready = card ? reward.eligible : left <= 0;
+          // The one ready reward the band names and redeems: its row shows the price only, as on the closed card (Design, 19 Nov).
+          const priced = ready && (!card || (rewardFirst && readyRewards.length === 1 && readyRewards[0].id === reward.id));
           const body = <>
             <span className={mixStyles.tile} data-tone={ready ? "coral" : "mute"}><Gift size={20} aria-hidden="true" /></span>
             <span className={mixStyles.body}>
               <span className={mixStyles.text}><b>{reward.name}</b><small>{ready ? withUnit(reward.cost, shown.programType, locale) : <>{t.left} <span className={card ? undefined : styles.rollDigit}>{number.format(left)}</span>{"\u00a0"}{unitWord(left, shown.programType, locale)}</>}</small></span>
               {/* A ready row on the closed card already names its price in the line; it has no „Einlösen“ there. */}
-              {!(ready && !card) && <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>}
+              {!priced && <span className={cx(mixStyles.val, ready && card && styles.go)}>{ready && card ? t.redeemShort : withUnit(reward.cost, shown.programType, locale)}</span>}
             </span>
           </>;
-          return card ? <button type="button" key={reward.id} className={cx(mixStyles.row, styles.reward)} data-lead="tile" disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>{body}</button>
+          return card && !priced ? <button type="button" key={reward.id} className={cx(mixStyles.row, styles.reward)} data-lead="tile" disabled={!reward.eligible || busy} onClick={() => setConfirm({ kind: "redeem", reward })}>{body}</button>
             : <div key={reward.id} className={mixStyles.row} data-lead="tile">{body}</div>;
         })}
       </div> : card && <p className={styles.help}>{t.noRewards}</p>}

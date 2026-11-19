@@ -283,6 +283,10 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 /* margin-top 10: with the line above's 6 gap, 12 clear to the field's focus ring (10 + 6 − the ring's 4). */
 .dockCode { align-self: end; display: flex; align-items: center; gap: var(--space-2); box-sizing: border-box; width: 100%; max-width: 440px; margin-top: 10px; padding: 0 var(--space-1); }
 .dockCode.dockCode.dockCode input { box-sizing: border-box; flex: 1; width: 0; min-width: 0; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
+/* In a floating panel held at the open dock's height (a counter tablet) the typed stack keeps the phone's rhythm, the
+   hint 24 above the field, and the spare height goes under the field (Design, 19 Nov). */
+:global([data-floating]) .bookedTyped { grid-template-rows: repeat(6, auto); }
+:global([data-floating]) .bookedTyped .dockCode { align-self: start; margin-top: 18px; } /* 6 gap + 18 = 24 */
 .dockCode input::placeholder { color: var(--color-ink-muted); }
 .dockCode input:focus-visible, .dockCode input:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 

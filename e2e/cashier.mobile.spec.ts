@@ -304,7 +304,9 @@ test.describe("cashier on phones", () => {
     await page.getByLabel("Kartennummer oder Kartencode").fill(code);
     await page.getByRole("button", { name: "Prüfen", exact: true }).click();
     await expect(page.locator(".cashier-redeem-now")).toBeVisible();
-    await expect(page.locator(".reward-action-list button")).toHaveCount(2);
+    // Both rows show; the ready one the band names and redeems shows its price only, not a second „Einlösen“ (Design, 19 Nov).
+    await expect(page.locator(".reward-action-list [data-lead='tile']")).toHaveCount(2);
+    await expect(page.locator(".reward-action-list button")).toHaveCount(1);
     const inset = () => page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
     const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
     // The open dock's inset: 26–28 on a phone, 38 on the counter tablet (from 800 px wide).

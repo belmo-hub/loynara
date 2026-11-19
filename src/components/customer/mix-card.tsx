@@ -4,7 +4,7 @@ import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { STAMP_GRID_MAX, StampGrid, stampsLabel } from "@/components/ui/stamp-grid";
 import { cx } from "@/components/ui/cx";
-import { unitWord, withUnit, type UnitKind } from "@/lib/units";
+import { keepUnits, unitWord, withUnit, type UnitKind } from "@/lib/units";
 import type { CardReward } from "./card-face";
 import { copyFor } from "./customer-card-copy";
 import styles from "./mix-card.module.css";
@@ -55,7 +55,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   // The Kasse card keeps the 8-stamp card's height (Design, 18 Nov): above 8 the stamps go in two rows of ceil(goal / 2),
   // and from 9 columns an earned stamp is a plain coral disc. The guest card and the Kartenseite keep the mock's grid.
   const kasseCols = size === "kasse" && goal > 8 ? Math.ceil(goal / 2) : mixColumns(goal), plain = size === "kasse" && kasseCols >= 9;
-  const aria = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), cols = { "--cols": kasseCols } as CSSProperties;
+  const said = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), aria = size === "kasse" ? keepUnits(said) : said, cols = { "--cols": kasseCols } as CSSProperties;
   const tc = thumbColumns(goal);
   if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={(goal <= 12 && tc === 5) || undefined} data-dense={goal > 12 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
     {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
@@ -72,8 +72,8 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
       <div className={styles.n}>{label ? <><b data-figure="">{figure}<small>{"\u00a0"}{of}</small></b><span>{label}</span></> : <><b data-figure="">{figure}</b><span>{of}</span></>}</div>
     </div>
-    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
-      : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} />
+    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles keepUnits={size === "kasse"} />
+      : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} keepUnits={size === "kasse"} />
       : <div className={styles.stamps} style={cols} data-rows={Math.ceil(goal / kasseCols)} role="img" aria-label={aria}>
         {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have && !plain ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
       </div>}
