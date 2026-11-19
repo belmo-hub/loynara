@@ -671,12 +671,12 @@ describe("0050 confirmed existing accounts", () => {
     const target = await scratchDatabase("confirmed50");
     try {
       await run(target, folderThrough(49));
-      await target.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('operator-made', 'Synthetic', 'op@example.test', false), ('invited', 'Synthetic', 'inv@example.test', false), ('already', 'Synthetic', 'ok@example.test', true)`);
+      await target.query(`INSERT INTO "user" (id, name, email, "emailVerified", "createdAt") VALUES ('operator-made', 'Synthetic', 'op@example.test', false, '2026-10-01'),
+        ('invited', 'Synthetic', 'inv@example.test', false, '2026-11-19T09:59:59Z'), ('already', 'Synthetic', 'ok@example.test', true, '2026-10-01'),
+        ('after-cutoff', 'Synthetic', 'late@example.test', false, '2026-11-19T10:00:00Z')`);
       await run(target, migrationsDir);
-      expect((await target.query(`SELECT id FROM "user" WHERE NOT "emailVerified"`)).rows).toEqual([]);
-      await target.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('later', 'Synthetic', 'later@example.test', false)`);
-      await run(target, migrationsDir);
-      expect((await target.query(`SELECT id FROM "user" WHERE NOT "emailVerified"`)).rows).toEqual([{ id: "later" }]);
+      // Only accounts from before the cut-off: a run in another environment never confirms a later sign-up.
+      expect((await target.query(`SELECT id FROM "user" WHERE NOT "emailVerified"`)).rows).toEqual([{ id: "after-cutoff" }]);
     } finally { await target.end(); }
   }, 180_000);
 });
