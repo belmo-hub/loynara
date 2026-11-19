@@ -8,10 +8,11 @@ import { recipientHashes, transactionalProvider } from "./transactional-email";
 /**
  * ENG-278/ENG-279: mail about the account itself, in fixed words. Nothing the person typed (their name, a shop name) goes
  * into it, and each link is built here from the token, so no request can choose where it leads. Per address and kind,
- * whoever asks, at most three mails an hour.
+ * whoever asks, at most three mails an hour and five a day.
  */
 async function sendAccountMail(scope: string, email: string, subject: string, body: string) {
-  try { await enforceRateLimit({ scope, identity: email.toLowerCase(), max: 3, windowSeconds: 60 * 60 }); }
+  const limits = [{ scope, max: 3, windowSeconds: 60 * 60 }, { scope: `${scope}_day`, max: 5, windowSeconds: 24 * 60 * 60 }];
+  try { for (const limit of limits) await enforceRateLimit({ ...limit, identity: email.toLowerCase() }); }
   catch (error) { if (error instanceof RateLimitError) return; throw error; }
   const provider = transactionalProvider();
   if (!provider) return;

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { pool } from "@/db";
-import type { TransactionalMessage } from "./transactional-email";
+import { recipientHash, type TransactionalMessage } from "./transactional-email";
 
 const sent = vi.hoisted(() => [] as TransactionalMessage[]);
 vi.mock("./transactional-email", async importOriginal => ({
@@ -18,7 +18,7 @@ const origin = "http://localhost:3000";
 const previous = { ingress: process.env.TRUSTED_INGRESS, registration: process.env.PUBLIC_REGISTRATION_ENABLED };
 let peer = 0;
 beforeEach(async () => {
-  await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE');
+  await pool.query('TRUNCATE tenants, "user", rate_limits, email_suppressions CASCADE');
   sent.length = 0;
   process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
   process.env.PUBLIC_REGISTRATION_ENABLED = "true";
@@ -60,4 +60,23 @@ it("sends at most three links an hour to one address, and limits the resend butt
   const statuses = [];
   for (let i = 0; i < 6; i += 1) statuses.push((await post("/send-verification-email", { email: `${randomUUID()}@example.test` }, "203.0.113.9")).status);
   expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+});
+
+it("sends at most five links a day to one address, however the hours are spread", async () => {
+  const email = `${randomUUID()}@example.test`;
+  await post("/sign-up/email", { name: "Synthetic owner", email, password: "synthetic-verify-password" });
+  for (let hour = 0; hour < 4; hour += 1) {
+    // An hour passes: every window shorter than a day ends.
+    await pool.query("UPDATE rate_limits SET reset_at = now() - interval '1 second' WHERE reset_at < now() + interval '2 hours'");
+    for (let i = 0; i < 3; i += 1) expect((await post("/send-verification-email", { email })).status).toBe(200);
+  }
+  expect(sent).toHaveLength(5);
+});
+
+it("sends no link to an address that bounced or complained", async () => {
+  const email = `${randomUUID()}@example.test`;
+  await pool.query("INSERT INTO email_suppressions (recipient_hash, reason) VALUES ($1, 'complained')", [recipientHash(email)]);
+  expect((await post("/sign-up/email", { name: "Synthetic owner", email, password: "synthetic-verify-password" })).status).toBe(200);
+  expect((await post("/send-verification-email", { email })).status).toBe(200);
+  expect(sent).toHaveLength(0);
 });
