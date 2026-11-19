@@ -144,7 +144,9 @@ export default function CashierPage() {
     setStatus(statusTone); setMessage(statusMessage);
     setBooked(summary);
     setCompletedTransaction(value => value + 1);
-    resetTimer.current = setTimeout(() => { resetTimer.current = null; lastBooking.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
+    // A hold that runs out leaves no second „Gebucht“ receipt on the scan form: the dock said it (ENG-266). A pending
+    // result keeps its note, since it still waits.
+    resetTimer.current = setTimeout(() => { resetTimer.current = null; lastBooking.current = null; setBooked(null); if (statusTone === "success") { setStatus("idle"); setMessage(""); } }, NEXT_CUSTOMER_DELAY_MS);
   }, [cancelReset, forgetOpenCode]);
 
   const clearCounter = useCallback(() => {

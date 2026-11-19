@@ -191,10 +191,10 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(page.getByRole("button", { name: "Menge erhöhen" })).toHaveCount(0);
     await expect(page.locator(".balance-display")).toHaveCount(0);
     await expect(booked).not.toContainText("sc_");
-    // The next card can be scanned at once; the confirmation hides on its own, keeping the last booking as a note.
+    // The next card can be scanned at once; the confirmation hides on its own and leaves no second receipt (ENG-266).
     await expect(page.getByRole("region", { name: "Bereit für die nächste Karte" })).toBeVisible();
     await expect(booked).toHaveCount(0, { timeout: 8_000 });
-    await expect(page.locator(".cashier-status")).toContainText(`für ${card.cardLocator} vergeben`);
+    await expect(page.locator(".cashier-status")).toHaveCount(0);
     expect(await balanceOf(url, card.cardToken)).toBe(1);
 
     // "Andere Karte" moves on immediately, without waiting.
