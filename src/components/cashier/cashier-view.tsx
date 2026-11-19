@@ -160,12 +160,13 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     if (card || preview) setCode("");
   }
   const t = locale === "fr" ? {
-    overview: "Vue d’ensemble", menu: "Menu : langue et déconnexion", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", codeHint: "Sous le QR code de la carte.", check: "Vérifier", cameraFallback: "Sans caméra : saisissez le numéro.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", enterAmount: "Saisir le montant", book: "Enregistrer", newBalance: "Nouveau solde", amountInvalid: "Vérifiez le montant, p. ex. 16,70.", noPoints: "Trop faible pour un point.", redeem: "Utiliser une récompense", rewards: "Récompenses", redeemShort: "Utiliser", still: "encore", noRewards: "Aucune récompense pour cette carte.", undo: "Annuler l’opération", undoStaff: "Erreur ? La direction peut corriger.", locatorNote: "Ouverte sans scan : récompense seulement pour sa propre carte.", offlineNote: "Pas de connexion. En attente ne compte qu’après la synchronisation.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
+    overview: "Vue d’ensemble", menu: "Menu : langue et déconnexion", found: "Carte trouvée.", scanTitle: "Scanner la carte. Puis décider.", success: "Enregistré", pending: "En attente", offline: "Hors connexion", rejected: "Impossible", ready: "Prêt pour la prochaine carte", scanHelp: "Présentez le QR code à la caméra.", camera: "Ouvrir la caméra", manual: "Numéro ou code de la carte", codeHint: "Sous le QR code de la carte.", check: "Vérifier", cameraFallback: "Sans caméra : saisissez le numéro.", verified: "Carte vérifiée", other: "Autre carte", balance: "Solde actuel", stamps: "tampons", points: "points", decrease: "Diminuer la quantité", increase: "Augmenter la quantité", enterAmount: "Saisir le montant", book: "Enregistrer", newBalance: "Nouveau solde", amountInvalid: "Vérifiez le montant, p. ex. 16,70.", noPoints: "Trop faible pour un point.", redeem: "Utiliser une récompense", rewards: "Récompenses", redeemShort: "Utiliser", still: "encore", noRewards: "Aucune récompense pour cette carte.", undo: "Annuler l’opération", undoStaff: "Erreur ? La direction peut corriger.", locatorNote: "Ouverte sans scan : récompense seulement pour sa propre carte.", confirmAward: "Confirmer l’ajout ?", confirmRedeem: "Confirmer la récompense ?", bookFor: "à ajouter à la carte", redeemFor: "à utiliser sur la carte", cancel: "Annuler", yesAward: "Oui, ajouter", yesRedeem: "Oui, utiliser", working: "Un instant …", cardOpen: "Carte ouverte", cardCheck: "Vérifier la carte", cardFound: "Carte trouvée",
   } : {
-    overview: "Zur Übersicht", menu: "Menü: Sprache und Abmelden", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "QR-Code in die Kamera halten.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", codeHint: "Steht unter dem QR-Code.", check: "Prüfen", cameraFallback: "Ohne Kamera: Kartennummer eingeben.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", decrease: "Menge verringern", increase: "Menge erhöhen", enterAmount: "Kaufbetrag eingeben", book: "Buchen", newBalance: "Neuer Stand", amountInvalid: "Betrag prüfen, z. B. 16,70.", noPoints: "Zu klein für einen Punkt.", redeem: "Prämie einlösen", rewards: "Prämien", redeemShort: "Einlösen", still: "noch", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", undo: "Rückgängig", undoStaff: "Falsch? Die Leitung kann es korrigieren.", locatorNote: "Ohne Scan geöffnet: Prämie nur für die eigene Karte.", offlineNote: "Keine Verbindung. Vorgemerkt zählt erst nach dem Abgleich.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
+    overview: "Zur Übersicht", menu: "Menü: Sprache und Abmelden", found: "Karte gefunden.", scanTitle: "Karte scannen. Dann entscheiden.", success: "Gebucht", pending: "Ausstehend", offline: "Keine Verbindung", rejected: "Nicht möglich", ready: "Bereit für die nächste Karte", scanHelp: "QR-Code in die Kamera halten.", camera: "Kamera öffnen", manual: "Kartennummer oder Kartencode", codeHint: "Steht unter dem QR-Code.", check: "Prüfen", cameraFallback: "Ohne Kamera: Kartennummer eingeben.", verified: "Geprüfte Karte", other: "Andere Karte", balance: "Aktueller Kontostand", stamps: "Stempel", points: "Punkte", decrease: "Menge verringern", increase: "Menge erhöhen", enterAmount: "Kaufbetrag eingeben", book: "Buchen", newBalance: "Neuer Stand", amountInvalid: "Betrag prüfen, z. B. 16,70.", noPoints: "Zu klein für einen Punkt.", redeem: "Prämie einlösen", rewards: "Prämien", redeemShort: "Einlösen", still: "noch", noRewards: "Für diese Karte ist keine Prämie eingerichtet.", undo: "Rückgängig", undoStaff: "Falsch? Die Leitung kann es korrigieren.", locatorNote: "Ohne Scan geöffnet: Prämie nur für die eigene Karte.", confirmAward: "Vergabe bestätigen?", confirmRedeem: "Einlösung bestätigen?", bookFor: "für Karte", redeemFor: "auf Karte", cancel: "Abbrechen", yesAward: "Ja, vergeben", yesRedeem: "Ja, einlösen", working: "Einen Moment …", cardOpen: "Karte offen", cardCheck: "Karte prüfen", cardFound: "Karte gefunden",
   };
   const unit = card?.programType === "points" ? t.points : t.stamps;
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
+  const money = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const purchaseMode = card?.programType === "points" && card.earningMode === "purchase";
   // What „Buchen“ will book, shown before the tap: the points, any bonus booked with them, and the new balance.
   let purchasePreview: { amountMinor: number; points: number } | null = null;
@@ -180,8 +181,8 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   // A handheld scanner types the QR content into the field; do not leave that code on screen after submitting it.
   function lookup(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!fields.check(event.currentTarget)) return; const value = code.trim(); if (!value) return; if (value.startsWith("sc_")) setCode(""); onLookup(value); }
   // One stamp is booked with one tap: the scan identified the card and this button is the deliberate decision. More
-  // than one, or a choice between online and offline booking, still goes through the confirmation dialog. Points are
-  // booked from the amount sheet, whose „Buchen“ is that decision, after the preview of points and new balance.
+  // than one, or a choice between online and offline booking, still goes through the confirmation dialog. A typed amount
+  // always does (ENG-271): „1500“ instead of „15,00“ would otherwise book a hundred times the purchase with one tap.
   const offlineChoice = Boolean(onQueueOffline && offlineLeaseExpiresAt);
   const awardCount = Math.min(quantity, maxQuantity);
   const singleUnit = card?.programType === "points" ? locale === "fr" ? "point" : "Punkt" : locale === "fr" ? "tampon" : "Stempel";
@@ -200,11 +201,11 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     else setConfirm({ kind: "award", award: { quantity: awardCount } });
   }
   const purchaseAward = purchaseMode && purchasePreview ? { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } : null;
-  // The sheet closes on the tap, so the outcome (or an error) shows on the counter; the amount stays for a retry.
-  function bookPurchase(offline: boolean) {
+  // The sheet closes on the tap and the confirmation (with the offline choice, if any) takes over; the amount stays for a retry.
+  function bookPurchase() {
     if (!card || !purchaseAward) return;
     setAmountOpen(false);
-    if (offline) onQueueOffline?.(card, purchaseAward); else award(card, purchaseAward);
+    setConfirm({ kind: "award", award: purchaseAward });
   }
   // A card with a reward ready leads with redeeming; with several ready, the choice is the reward list on the card.
   const readyRewards = card?.rewards.filter(reward => reward.eligible) ?? [];
@@ -215,6 +216,17 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     if (readyRewards.length === 1) { setConfirm({ kind: "redeem", reward: readyRewards[0] }); return; }
     const first = document.querySelector<HTMLButtonElement>(".reward-action-list button:not(:disabled)");
     first?.scrollIntoView({ block: "center" }); first?.focus();
+  }
+  // Cancelling a typed amount goes back to the amount, selected, so the right one is typed over it. A task later, so the
+  // Esc that closed the confirmation does not also close the sheet.
+  function cancelConfirm() {
+    const typed = confirm?.kind === "award" && "purchaseAmountMinor" in confirm.award;
+    setConfirm(null);
+    if (typed) window.setTimeout(() => {
+      flushSync(() => setAmountOpen(true));
+      const field = document.getElementById("purchase-amount") as HTMLInputElement | null;
+      field?.focus(); field?.select();
+    });
   }
   function submitConfirmed() { if (!card || !confirm) return; if (confirm.kind === "award") award(card, confirm.award); else { setWorking("redeem"); onRedeem(card, confirm.reward); } setConfirm(null); }
 
@@ -332,12 +344,11 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       </div>
       {card.programType === "points"
         ? card.rewards.length > 0 && <PointsLadder balance={card.balance} rewards={card.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} />
-        : stampGoal > 0 && <StampGrid earned={Math.min(card.balance, stampGoal)} total={stampGoal} locale={locale} className={styles.stamps} />}
+        : stampGoal > 0 && <StampGrid earned={card.balance} total={stampGoal} locale={locale} className={styles.stamps} />}
       {card.level?.perk && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
       {purchaseMode && <Sheet open={amountOpen} onClose={() => setAmountOpen(false)} side="bottom" title={t.enterAmount} closeLabel={locale === "fr" ? "Fermer" : "Schließen"}
         footer={<div className={styles.stack}>
-          {offlineChoice && <Button variant="secondary" size="lg" block disabled={busy || !purchaseAward} onClick={() => bookPurchase(true)}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
-          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={() => bookPurchase(false)}>{t.book}</Button>
+          <Button variant="primary" size="xl" block className="cashier-book" disabled={busy || !purchaseAward} onClick={bookPurchase}>{t.book}</Button>
         </div>}>
         <div className={styles.stack}>
           <TextField id="purchase-amount" label={amountLabel} type="text" inputMode="decimal" autoComplete="off" placeholder="16,70" value={purchaseAmount}
@@ -349,7 +360,6 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
               <span>{t.newBalance}: {number.format(purchaseOutcome?.balanceAfter ?? 0)} {unitWord(purchaseOutcome?.balanceAfter ?? 0, "points", locale)}</span>
             </>
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit} point(s) par 1 ${card.currency}` : `${card.pointsPerCurrencyUnit} ${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1 ${card.currency}`)}</span>}</div>
-          {offlineChoice && <p className={styles.note} role="note">{t.offlineNote}</p>}
         </div>
       </Sheet>}
       <div className={styles.rewards}>
@@ -364,10 +374,10 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
     </section>}
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
-    {confirm && card && <Dialog open onClose={() => setConfirm(null)} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
-      description={confirm.kind === "award" ? `${"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : `${number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} ${unit} ${locale === "fr" ? "pour un achat de" : "für einen Kauf über"} ${number.format(confirm.award.purchaseAmountMinor / 100)} ${card.currency}`} ${t.bookFor} ${card.cardLocator}.` : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor} ${card.cardLocator}.`}
+    {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
+      description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} {unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{money.format(confirm.award.purchaseAmountMinor / 100)} {card.currency}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
       actions={<>
-        <Button variant="secondary" onClick={() => setConfirm(null)}>{t.cancel}</Button>
+        <Button variant="secondary" onClick={cancelConfirm}>{t.cancel}</Button>
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
         <Button variant="primary" onClick={submitConfirmed} disabled={busy}>{confirm.kind === "award" ? t.yesAward : t.yesRedeem}</Button>
       </>}>

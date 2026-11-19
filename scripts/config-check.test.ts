@@ -55,8 +55,13 @@ describe("production configuration gate", () => {
       expect(invitation("true", undefined)).toEqual([]);
     });
 
-    it("C: public registration on always fails, with or without invite sign-up", () => {
-      for (const flag of [undefined, "false", "true"]) expect(invitation(flag, "true"), String(flag)).toEqual(expect.arrayContaining([expect.stringMatching(/Public registration is not approved/)]));
+    it("C: public registration on passes without invite sign-up, and fails with it", () => {
+      for (const flag of [undefined, "false"]) expect(invitation(flag, "true"), String(flag)).toEqual([]);
+      expect(invitation("true", "true")).toEqual([expect.stringMatching(/Invite-gated staff sign-up requires PUBLIC_REGISTRATION_ENABLED to be exactly false/)]);
+    });
+
+    it("C2: public registration must be exactly true or false", () => {
+      for (const registration of ["TRUE", "1", "yes", "", " true", "on"]) expect(invitation(undefined, registration), registration).toEqual([expect.stringMatching(/PUBLIC_REGISTRATION_ENABLED must be exactly true or false/)]);
     });
 
     it("D: ambiguous registration or flag values fail instead of being guessed", () => {
@@ -128,7 +133,7 @@ describe("production configuration gate", () => {
       BETTER_AUTH_URL: "http://localhost:3000",
       PUBLIC_BASE_URL: "http://localhost:3000",
       BETTER_AUTH_SECRET: "replace-with-at-least-32-random-characters",
-      PUBLIC_REGISTRATION_ENABLED: "true",
+      PUBLIC_REGISTRATION_ENABLED: "yes",
       EXTERNAL_EMAIL_ENABLED: "true",
       SMTP_HOST: "localhost",
       LIVE_BILLING_ENABLED: "true",
@@ -484,8 +489,16 @@ describe("production startup gate as a process", () => {
     } finally { rmSync(custody, { recursive: true, force: true }); }
   }, 180_000);
 
-  it("refuses to start with public registration on, even alongside invite sign-up", async () => {
-    for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" }, { STAFF_INVITE_SIGNUP_ENABLED: "TRUE" }]) {
+  it("starts with public registration on while invite sign-up is off or unset", async () => {
+    for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "false" }]) {
+      const result = await guard(extra);
+      expect(result.output, JSON.stringify(extra)).toContain("Production configuration gate passed.");
+      expect(result.code).toBe(0);
+    }
+  }, 120_000);
+
+  it("refuses to start with public registration alongside invite sign-up, or with an ambiguous value", async () => {
+    for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "TRUE" }, { PUBLIC_REGISTRATION_ENABLED: "1" }, { STAFF_INVITE_SIGNUP_ENABLED: "TRUE" }]) {
       const result = await guard(extra);
       expect(result.code, JSON.stringify(extra)).toBe(1);
       expect(result.output).toContain("Production startup rejected:");
