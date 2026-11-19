@@ -1,3 +1,4 @@
-.notice { display: grid; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-14); line-height: 1.45; }
+/* The mix panel: inset 20 (19 inside the line), the row type 16/24 (ENG-255). */
+.notice { display: grid; gap: var(--space-3); margin: 0; padding: calc(var(--space-5) - 1px); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-ink); font-size: var(--text-16); line-height: 24px; }
 .notice p { margin: 0; }
 .notice > :global(button) { justify-self: start; max-width: 100%; white-space: normal; text-align: left; line-height: 1.3; padding-block: var(--space-2); }

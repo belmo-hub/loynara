@@ -1,0 +1,190 @@
+/* The Übersicht in the founder's mix (ENG-260; mock mix/uebersicht.html): F's „Als Nächstes“ with two rows, then C's
+   page in C's order. Panels, rows and type come from ui/mix.module.css; this file holds the page's own parts. */
+
+/* Page rhythm: shell to greeting 32, greeting to the first block 24; gutters 16, 24 from 600, 40 from 1024. */
+:global(.ow-page).page { display: block; max-width: 1180px; margin-inline: auto; padding: var(--space-8) var(--space-4) 0; }
+:global(.ow-page).page > :global(.ow-dash-notice):not(:empty) { margin-bottom: var(--space-6); }
+.page > .hello.hello { margin: 0 0 var(--space-6); font-size: var(--text-28); line-height: 34px; }
+@media (min-width: 600px) { :global(.ow-page).page { padding: var(--space-10) var(--space-6) 0; } }
+@media (min-width: 1024px) { :global(.ow-page).page { padding-inline: var(--space-10); } .page > .hello.hello { font-size: var(--display-36); line-height: 40px; } }
+
+/* Type the mix system leaves to the page: the figure 40/44 and a figure in a row 22/28. */
+.fig { font-size: var(--display-tile); line-height: 44px; font-weight: var(--weight-heavy); letter-spacing: -.025em; }
+.fig.fig + * { margin-top: var(--space-1); } /* beats `.owner-app p { margin: 0 }` */
+.num { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
+.num[data-none] { color: var(--color-ink-muted); }
+[data-fact] .num { order: 1; }
+/* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it: a 44 target that
+   keeps the 20 line. Its ring is drawn on the text's own line boxes, so a wrapped link is ringed line by line. */
+.facts.facts small > a { position: relative; display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
+.facts.facts small > a:focus-visible { outline: none; }
+/* The ring sits 2 px inside the content area, so the descenders above keep 2 px of air (measured at 320 and 1440); 4 px of
+   inline padding, taken back by the margin, keeps the glyphs clear of its sides on every line. */
+.facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+/* „Tresenschild laden“ (one line): its ring around the text, the 44 box kept. */
+.line.line > button[data-link]:focus-visible { outline: none; }
+.line.line > button[data-link]:focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
+.facts [data-fact] svg { order: 2; }
+.kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+
+/* „Als Nächstes“: a row hangs from its first line, its action under the sentence; the milestone's tile stands in the
+   middle of the thumbnail's column. From 600 each row is one line with its action at the end (F at 880 and 1440). */
+.next > [data-hang] { align-items: flex-start; }
+.next > [data-hang][data-lead] > :first-child { margin-top: var(--space-3); }
+.next > [data-hang] > :last-child { align-items: flex-start; padding-block: var(--space-3); /* the first row has no separator line since ENG-254's forced-colours fix */ }
+.next[data-thumbs] [data-lead="tile"] > :first-child { margin-inline: var(--space-3); }
+.line { display: grid; justify-items: start; flex: 1; min-width: 0; }
+.line > span { display: grid; }
+.line b { font-weight: var(--weight-strong); text-wrap: pretty; }
+.line small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.line > :not(:first-child, [data-link]) { margin-top: var(--space-3); }
+/* Below 600 the step's button stands under its text and may take two lines, never wider than the panel. */
+@media (max-width: 599px) {
+  .line.line > [data-go] { max-width: 100%; height: auto; min-height: var(--target); padding-block: 10px; white-space: normal; text-wrap: balance; text-align: center; }
+  .line.line > [data-go] > svg { flex: none; }
+}
+/* Below 360 the button spans the row under the lead tile, so it keeps two lines. */
+@media (max-width: 359px) { .next > [data-lead="tile"] .line.line > [data-go] { max-width: none; width: calc(100% + var(--mix-tile) + var(--space-3)); margin-left: calc(-1 * (var(--mix-tile) + var(--space-3))); } }
+/* Forced colours drop the muted tiles' fill: a transparent edge (size unchanged) shows as CanvasText there. */
+.next [data-lead="tile"] > :first-child { border: 1px solid transparent; }
+/* „Tresenschild laden“: the mix link (44 tall, the 20 line kept by its margins), its ring around the text (above). */
+.line.line > button[data-link] { position: relative; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+.line.line > button[data-link]:active, .help:active { transform: scale(.97); }
+.thumb { display: flex; flex: none; }
+.signError { margin: 0; }
+/* The panel's slot while its reads load: a flat block of the panel with both rows (the loaded picture's size). */
+.nextPh { display: block; height: 255px; border-radius: var(--radius-lg); }
+@media (min-width: 600px) { .nextPh { height: 199px; } }
+@media (min-width: 600px) {
+  .next > [data-hang] { align-items: center; }
+  .next > [data-hang][data-lead] > :first-child { margin-top: 0; }
+  .next > [data-hang] > :last-child { align-items: center; padding-block: var(--space-2); }
+  /* The button stays beside its text while the text keeps 14rem; with less room it drops under (Design, 18 Nov). */
+  .line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4); }
+  .line > span { flex: 1 1 14rem; }
+  .line > :is(a, button) { flex: none; }
+  .line > :not(:first-child, [data-link]) { margin-top: 0; }
+}
+
+/* The bookings panel and C's week chart: faint lines at half and full height, thin opaque bars, yesterday in ink,
+   a 2 px stub for a day without bookings, the best day reaching the top line with its value over it. */
+.week { display: grid; gap: var(--space-3); margin-top: var(--space-1); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.legend > span { display: flex; align-items: center; gap: var(--space-2); }
+.legend i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 2px; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
+.legend i[data-lit] { background: var(--color-ink); }
+/* A size container, so a bar is its share (--v) of the plot: the chart less the 24 over the best bar for its value. */
+.chart { container-type: size; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; height: 168px; border-bottom: 1px solid var(--color-line-strong); background: repeating-linear-gradient(to top, transparent 0 71px, var(--color-line) 71px 72px); }
+/* The empty shop's days to come: no scale, the bar and the 40 over it (live EmptyStrip). */
+.chart[data-empty] { height: 76px; background: none; }
+.day { position: relative; display: grid; justify-items: center; align-content: end; gap: var(--space-1); height: 100%; min-width: 0; }
+.day > b { font-size: var(--text-14); line-height: 16px; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.bar { --h: calc(var(--v, 0) * (100cqh + 1px - var(--space-6))); /* cqh is inside the 1 px baseline */ height: var(--h); height: round(var(--h), 1px); width: 20px; border-radius: var(--space-1) var(--space-1) 0 0; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
+.bar[data-lit] { background: var(--color-ink); }
+.bar[data-zero] { height: 2px; border-radius: 1px; background: color-mix(in oklab, var(--color-ink) 50%, var(--color-surface)); }
+/* Today with bookings: an outline, its count is not final. The empty shop's days to come: dashed. */
+.bar[data-today]:not([data-zero]) { background: none; border: 2px solid var(--color-action); border-bottom: 0; }
+.bar[data-empty] { height: 36px; background: none; border: 1px dashed var(--color-line-strong); border-bottom: 0; }
+/* ENG-210, with the weekly line: this week's other days muted, a hairline before Monday. */
+.chart[data-week] .bar:not([data-lit], [data-today], [data-zero]) { background: var(--color-line-strong); }
+.day[data-week-start]::before { content: ""; position: absolute; inset-block: 0; left: 0; width: 1px; background: var(--color-line-strong); }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: var(--space-2); text-align: center; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); white-space: nowrap; }
+.days > [data-yesterday] { color: var(--color-ink); font-weight: var(--weight-strong); }
+/* Phone columns are about 45 px: the empty week's bold „gestern“ is 53 at 14 and fits at 12; the line stays 20. */
+@media (max-width: 599px) { .chart[data-empty] + .days { font-size: var(--text-12); } }
+/* Under 360 the columns are about 30 px and „heute“ at 14 is wider than its column (live owner.css:768). */
+@media (max-width: 359px) { .days { font-size: var(--text-12); } }
+@media (min-width: 600px) { .bar { width: var(--space-6); } }
+/* Forced colours paint every bar CanvasText: yesterday stays solid, the other days become outlines, so the dark bar
+   keeps a second cue besides its colour. */
+@media (forced-colors: active) {
+  .bar, .legend i { forced-color-adjust: none; background: Canvas; border: 1px solid CanvasText; }
+  .bar[data-lit], .legend i[data-lit] { background: CanvasText; }
+  .bar[data-zero] { border: 0; background: CanvasText; }
+  .bar[data-today]:not([data-zero]) { border: 2px solid CanvasText; border-bottom: 0; }
+}
+.foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
+.book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 44px; }
+.book :global(.ow-week-line) { color: var(--color-ink); }
+
+/* „Vorschlag“: the whole panel is the link; the kicker in green with its small arrow on the inset. */
+.sug { color: inherit; text-decoration: none; align-content: start; }
+.sug .kicker { color: var(--color-action); }
+.sug .kicker > svg:last-child { margin-left: auto; }
+.sug b { display: block; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
+.sug b + small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.sug:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The whole panel is the link: it presses like a row and underlines its title under a fine pointer. */
+.sug { transition: transform var(--dur-press) var(--ease-out); }
+.sug:active { transform: scale(.985); }
+@media (hover: hover) { .sug:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* The section head's „?“: a 44 target that does not make the head taller. */
+.help { display: grid; place-items: center; width: var(--target); height: var(--target); margin: calc(-1 * var(--space-2) - 1px) calc(-1 * var(--space-3)) calc(-1 * var(--space-2) - 1px) 0; padding: 0; border: 0; background: none; color: var(--color-ink-muted); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
+.help.help.help:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-pill); }
+.helpText h3 { margin: 0; font-size: var(--text-16); }
+.helpText p { margin: 0 0 var(--space-4); }
+.offline { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.chip { margin-left: var(--space-2); }
+
+/* From 1024, C's tile grid: the bookings over two of three columns and two rows, the figures and „Vorschlag“ beside
+   them, the diary across with the day's sum beside the day. The figure rows are 80 (C's taller desktop rows). */
+@media (min-width: 1024px) {
+  .sec { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
+  .sec > .head, .diary { grid-column: 1 / -1; }
+  .book { grid-row: span 2; grid-template-rows: auto auto 1fr auto; }
+  /* Without „Vorschlag“ (the suggestion stands in „Als Nächstes“, or nothing to suggest) the tile spans one row and its
+     plot fills it, so the tile and the figure rows end together. */
+  .sec[data-single] { grid-template-rows: auto auto auto; }
+  .sec[data-single] > .book { grid-row: auto; }
+  /* The figure rows share the row's height, so the two tiles end together with no empty foot in either. */
+  .sec[data-single] > .facts { display: grid; grid-auto-rows: 1fr; }
+  .sec[data-single] > .facts > [data-fact] { align-items: stretch; }
+  .sec[data-single] > .facts > [data-fact]:last-child { margin-bottom: 0; }
+  /* The chart takes the tile's spare height: the plot grows, bars scale with it, the guide lines stay at half and full
+     height, and the baseline and days end on the tile's bottom inset (Design, 18 Nov). Under 1024 nothing changes. */
+  .book > .week { display: flex; flex-direction: column; }
+  .book > .week:last-child { grid-row: span 2; } /* no „Gestern …“ line: the days end on the bottom inset */
+  .book > .week > :last-child { display: flex; flex: 1; flex-direction: column; }
+  /* The lines at full (24 from the top) and half plot height ((H - 1) / 2 + 12.5 from the top = H / 2 + 12). */
+  .book .chart:not([data-empty]) { flex: 1; min-height: 168px; background: linear-gradient(var(--color-line), var(--color-line)) 0 var(--space-6) / 100% 1px no-repeat, linear-gradient(var(--color-line), var(--color-line)) 0 calc(50% + 12.5px) / 100% 1px no-repeat; }
+  .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
+  .diary > [data-day] > :last-child { min-height: var(--mix-row); }
+  .diary [data-day] > :last-child > :first-child { grid-template-columns: 200px minmax(0, 1fr); column-gap: var(--space-4); align-items: baseline; }
+  .diary [data-day] > :last-child > :first-child > small { font-size: var(--text-16); line-height: 24px; }
+}
+/* In dark full ink would be the brightest block on the screen (Design, 30 Oct; as the live strip). */
+:global(.ly-theme-dark) .bar[data-lit], :global(.ly-theme-dark) .legend i[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
+@media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .bar[data-lit], :global(.ly-theme-auto) .legend i[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); } }
+
+/* The states (MIX.md › States, STATES-SPEC.md). Loading: still, flat placeholders in the loaded shapes. */
+.sk { display: block; flex: none; max-width: 100%; border-radius: var(--radius-sm); background: var(--color-fill); }
+.sk[data-line] { height: var(--space-4); margin-block: var(--space-1); }
+.sk[data-small] { height: var(--space-3); margin-block: var(--space-1); }
+.sk[data-fig] { width: 96px; height: 36px; margin-block: var(--space-1); }
+.sk[data-num] { width: var(--space-8); height: var(--space-5); margin-block: var(--space-1); }
+.facts > :is([data-fact], [data-sk]) > :last-child { min-height: var(--mix-row-2); } /* a placeholder row is as tall as the two-line row it stands for */
+.skFig { display: grid; gap: var(--space-1); justify-items: start; }
+.ghost { border-radius: var(--radius-sm); background: var(--color-fill); }
+.ghost > * { visibility: hidden; }
+.foot.foot[data-sk] { border-top-color: transparent; }
+/* Empty: „1 von 3“ as the board's count; open steps an empty ring; „Pflicht“ on its own line under the title. */
+.fig > small { margin-left: var(--space-2); font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--color-ink-muted); }
+.ring { flex: none; width: var(--mix-tile); height: var(--mix-tile); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); }
+.steps [data-day] > :last-child > :first-child > span:not(:first-child) { margin-block: calc(var(--space-1) / 2) var(--space-1); }
+/* Error: the retry is the small quiet button. */
+.sm.sm { padding-inline: var(--space-4); font-size: var(--text-14); line-height: 20px; }
+@media (min-width: 1024px) {
+  .steps { align-self: start; } /* beside the board, as the figure rows stand; it ends at its last step */
+  .off { padding-top: var(--space-5); }
+}
+
+/* The first-weeks note: over the figure rows below 1024, in the section title from 1024 (Design, 18 Nov). */
+.titleNote { display: none; }
+/* In the flex title a space would collapse: the gap less 4 stands for it. */
+@media (min-width: 1024px) { .titleNote { display: inline; margin-left: calc(var(--space-1) - var(--space-2)); } .factsNote { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .sug, .help, .line.line > button[data-link] { transition: none; }
+  .sug:active, .help:active, .line.line > button[data-link]:active { transform: none; }
+}

@@ -67,7 +67,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const pending = await pendingOf(a.cashier);
     expect(pending).toHaveLength(1);
     expect((await a.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^1 von \d+ Stempeln$/);
     const before = await (await customer.request.get(`/api/card/${original.card_token}`)).json();
     const passId = randomUUID(), passObject = `passfast:synthetic_recovery_${passId}`;
     await sql("INSERT INTO wallet_passes (id,tenant_id,membership_id,provider,provider_object_id,status,credential_hash) VALUES ($1,$2,$3,'apple',$4,'active',$5)", [passId,a.me.tenantId,original.id,passObject,createHash("sha256").update(original.scan_code).digest("hex")]);
@@ -139,7 +139,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const returning=await pendingOf(a.cashier);
     const approvals=await Promise.all([a.cashier.post(`/api/cashier/tap/${returning[0].id}/confirm`),a.owner.post(`/api/cashier/tap/${returning[0].id}/confirm`)]);
     expect(approvals.every(r=>r.status()===200)).toBe(true);
-    await expect(fresh.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
+    await expect(fresh.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^2 von \d+ Stempeln$/);
     expect(await sql("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award' ORDER BY created_at",[original.id])).toEqual([{delta:1},{delta:1}]);
     // The second recovery leaves the withdrawn pass as it is: still one row, still revoked.
     expect(await sql("SELECT id,provider_object_id,revoked_at IS NOT NULL AS revoked FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked:true}]);

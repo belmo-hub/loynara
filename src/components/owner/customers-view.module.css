@@ -1,0 +1,95 @@
+/* Kunden in the founder's mix (A · Pass, MIX.md; mock src/mix/kunden.html): panels with a 1 px line and radius 20, rows
+   inset 20 with the hairline from the text column, section titles 18/26 12 over their panel. The rows stay the house
+   .ow-prog rows (not MixRow): a card row records the list's scroll for Back, keeps its pending fill and the rows' entrance. Phone and 880: the cards,
+   then the invite; from 1200 A's two panes. Line heights (24, 26, 20) are the mock's. */
+/* The mix's page (common.css .page): 32 over the title and 16 at the sides on a phone, 40 and 24 from 600, 40 from 1024. */
+:global(.ow-page).page { max-width: 1180px; padding: var(--space-8) var(--space-4) 0; }
+@media (min-width: 600px) { :global(.ow-page).page { padding: var(--space-10) var(--space-6) 0; } }
+@media (min-width: 1024px) { :global(.ow-page).page { padding-inline: var(--space-10); } }
+
+.head { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-6); }
+.title { align-items: center; flex-wrap: nowrap; }
+.title h1 { line-height: 34px; }
+@media (min-width: 1024px) { .title h1 { line-height: 40px; } }
+.search { max-width: none; }
+.search > svg { left: var(--space-5); }
+.search :global(.ow-input) { padding-left: 52px; background: var(--color-surface); }
+
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.main { display: contents; }
+.groups { display: none; }
+.invite { margin-top: var(--space-4); } /* a titled section: 32 under the cards panel */
+.cards > :is(:global(.ow-seg), :global(.ow-band)) { margin-top: var(--space-3); }
+
+/* Section titles and panels. */
+.page :global(.ow-prog) { max-width: none; }
+.page :global(.ow-prog) h2 { margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); color: var(--color-ink); } /* mixStyles.h, over the house label rule */
+.named { display: flex; align-items: baseline; gap: var(--space-2); }
+.named > span { font-size: var(--text-16); line-height: 24px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.page :global(.ow-prog) ul { margin-top: var(--space-3); border-radius: var(--radius-lg); outline: 1px solid var(--color-line); outline-offset: -1px; }
+.page :global(.ow-prog) :global(.ow-prog-note) { margin-top: var(--space-3); line-height: 20px; }
+@media (min-width: 600px) { .page :global(.ow-prog) :global(.ow-prog-note) { max-width: 640px; } }
+.page :global(.ow-prog) ul > li + li { position: relative; border-top: 0; }
+.page :global(.ow-prog) ul > li + li::before { content: ""; position: absolute; inset: 0 0 auto 72px; border-top: 1px solid var(--color-line); }
+.page .cards ul > li + li::before { left: 96px; }
+.page .cards ul[data-points] > li + li::before { left: var(--space-5); } /* points rows have no lead (Design, 18 Nov) */
+.page .cards ul > li:has(> .more) { margin-top: var(--space-2); }
+.page .cards ul > li:has(> .more)::before { left: 0; }
+
+/* Rows: inset 20, 12 between lead and text, 64 high with a tile, 72 with the card thumbnail. */
+.page :global(.ow-prog) ul :global(.ow-prog-row) { min-height: var(--mix-row-2); padding: var(--space-2) var(--space-5); gap: var(--space-3); }
+.page .cards ul :global(.ow-prog-row) { min-height: var(--mix-row-card); }
+.page :global(.ow-prog-text) strong { line-height: 24px; }
+.page :global(.ow-prog-text) small { margin-top: 0; line-height: 20px; }
+.page :global(.ow-prog-arrow) { margin: 0 -6px; color: var(--color-ink-faint); }
+.groups :global(.ow-prog-value) { font-size: var(--text-16); color: var(--color-ink); }
+.groups ul a[aria-current] { background-color: var(--color-fill); }
+.cards :global(.ow-prog-text) strong { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
+.bookings { display: none; font-size: var(--text-16); font-weight: var(--weight-label); }
+@media (min-width: 600px) { .bookings { display: block; } }
+/* A card with no target here (closed, or another location's): the thumbnail's colour without dots. */
+.blank { flex: none; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
+.more { width: 100%; border-radius: 0 0 var(--radius-lg) var(--radius-lg); min-height: var(--mix-row-2); border: 0; background: transparent; font: inherit; font-weight: var(--weight-strong); color: var(--color-action); cursor: pointer; }
+.more:disabled { cursor: progress; }
+
+/* The group picker (phone and 880): a field showing the group and its count over a native select. */
+.picker { position: relative; display: flex; align-items: center; gap: var(--space-3); height: 52px; padding: 0 var(--space-5); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink-muted); font-weight: var(--weight-label); }
+.picker b { color: var(--color-ink); font-weight: var(--weight-strong); }
+.picker b + span { margin-left: calc(var(--space-1) * -1); }
+.picker > svg { margin: 0 calc(var(--space-1) * -1) 0 auto; flex: none; }
+.picker select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; font: inherit; }
+.picker:has(select:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* Under 1200 the picker names the group, so its title over the cards is for screen readers only. */
+@media (max-width: 1199px) {
+  .named { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .page .cards .named + * { margin-top: 0; } /* the block's own 16 under the picker */
+}
+@media (min-width: 1200px) {
+  .head { grid-template-columns: minmax(0, 1fr) 420px auto; align-items: center; column-gap: var(--space-4); margin-bottom: var(--space-2); }
+  .title { display: contents; }
+  .title > .link { grid-column: 3; grid-row: 1; min-width: 100px; justify-content: flex-end; }
+  .search { grid-column: 2; grid-row: 1; }
+  /* A's two panes; the DOM keeps the phone's order (cards before the invite), the grid puts the invite under the groups. */
+  .split { grid-template-columns: 400px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: var(--space-10); align-items: start; }
+  .groups { display: block; grid-column: 1; grid-row: 1; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-content: start; min-width: 0; grid-column: 2; grid-row: 1 / span 2; }
+  .invite { grid-column: 1; grid-row: 2; }
+  .picker { display: none; }
+}
+
+/* The list's switches (Design, 18 Nov, #283): a --fill track 44 high with a 4 inset and radius 14, equal segments; the
+   picked one white with a 1 px line and radius 10, ink 720, the others muted 650. The house pill still slides (::before). */
+.cards > :global(.ow-seg) { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; padding: var(--space-1); gap: var(--space-1); border-radius: var(--radius-md); background: var(--color-fill); }
+.cards > :global(.ow-seg) button { min-height: 36px; padding: 0 var(--space-3); border-radius: 10px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.cards > :global(.ow-seg) button[aria-pressed="true"] { font-weight: var(--weight-strong); color: var(--color-ink); }
+.cards > :global(.ow-seg) button[aria-pressed="true"]::before { background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); }
+/* The segment stays a 44 px target: its hit area reaches the track's edge. */
+.cards > :global(.ow-seg) button::after { content: ""; position: absolute; inset: calc(var(--space-1) * -1) 0; }
+@media (min-width: 600px) { .cards > :global(.ow-seg) { display: inline-grid; width: auto; grid-auto-columns: 1fr; } }
+
+/* The bold label's width is kept in every segment, so picking „Geschlossen“ moves nothing (Design, #283). */
+.cards > :global(.ow-seg) button > span { display: inline-flex; flex-direction: column; align-items: center; }
+.cards > :global(.ow-seg) button > span::after { content: attr(data-label); height: 0; overflow: hidden; visibility: hidden; font-weight: var(--weight-strong); }
+/* The closing row's ring sits inside the clipping panel, like the rows' (Design, #283). */
+.page .cards .more:focus-visible { outline-offset: -2px; }

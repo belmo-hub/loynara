@@ -45,7 +45,8 @@ const changeStarted = () => page.waitForFunction(() => document.getAnimations().
 
 test("the milestone card stays once it is shown", async () => {
   // Right after sign-in: this browser has not shown the shop's milestone yet.
-  const card = page.getByRole("region", { name: "Meilenstein" });
+  // Since ENG-260 the milestone is a row of „Als Nächstes“.
+  const card = page.getByRole("region", { name: "Als Nächstes" }).getByText(/^Deine \d+\. Karte$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   test.skip(!(await card.isVisible().catch(() => false)), "this shop has no milestone to show");
   await page.waitForTimeout(1500); // the reads have answered and the page has drawn again
@@ -66,12 +67,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) test(`a cold l
     const frames: Frame[] = [];
     const end = performance.now() + 2500;
     const look = () => {
-      const board = document.querySelector(".ow-content .ow-board");
-      const slot = document.querySelector(".ow-content .ow-next-ph"), band = document.querySelector(".ow-content .ow-next:not(.ow-next-ph)");
+      const board = document.querySelector('.ow-content [data-ow="board"]');
+      const slot = document.querySelector(".ow-content .ow-next-ph"), band = document.querySelector('.ow-content [data-ow="next"]');
       frames.push({
         hello: document.querySelector<HTMLElement>(".ow-content h1")?.innerText ?? null, top: board?.getBoundingClientRect().top ?? null,
         slot: slot !== null, band: band !== null, slotHeight: slot?.getBoundingClientRect().height ?? 0, bandHeight: band?.getBoundingClientRect().height ?? 0,
-        diary: document.querySelector(".ow-content .ow-diary") !== null, rows: document.querySelector(".ow-content .ow-diary li") !== null,
+        diary: document.querySelector('.ow-content [data-ow="diary"]') !== null, rows: document.querySelector('.ow-content [data-ow="diary"] [data-day]') !== null,
       });
       if (performance.now() < end) requestAnimationFrame(look); else done(frames);
     };
@@ -209,10 +210,9 @@ test("data that takes a placeholder's place stands there at once, and a new peri
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {
-  await page.goto("/merchant/customers");
-  await page.locator(".ow-content a.ow-prog-row").filter({ hasText: "Alle Karten" }).click();
+  await page.goto("/merchant/customers"); // opens on „Alle Karten“ since the mix (ENG-257)
   await expect(page.getByRole("heading", { name: "Alle Karten" })).toBeVisible();
-  const first = page.locator(".ow-content ul a.ow-prog-row").first();
+  const first = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
   await expect(first).toBeVisible();
   await page.getByRole("group", { name: "Kartenstatus" }).getByRole("button", { name: "Aktiv" }).click();
   expect(await entrances(), "the filtered list does not arrive").toBe(0);
@@ -228,7 +228,7 @@ test("Back from a card and a filter chip are returns: nothing arrives again", as
 
 test("forced colours: the checkbox is the native control again", async () => {
   // Goes on from the list the test before ends on: the list's reads are rate-limited, so it is not loaded a second time.
-  await page.locator(".ow-content ul a.ow-prog-row").first().click();
+  await page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first().click();
   await page.getByRole("button", { name: /Karte neu ausstellen/ }).click();
   const box = page.getByRole("checkbox", { name: "Berechtigung geprüft" });
   await expect(box).toBeVisible();

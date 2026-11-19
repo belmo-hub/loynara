@@ -976,6 +976,8 @@ div.ow-prog-row:active { transform: none; }
 .ow-qsum dt { min-width: 0; color: var(--color-ink-muted); overflow-wrap: anywhere; }
 .ow-qsum dd { flex: none; margin: 0; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .ow-qsum .ow-hint { padding-top: var(--space-2); }
+.ow-qsum .ow-notice { margin-top: var(--space-3); }
+.ow-qsum .ow-notice--danger { outline: 1px solid transparent; outline-offset: -1px; } /* an edge in forced colours */
 /* Nachricht (ENG-122d, screens 10 and 11): the lock screen on the board's dark green in both themes, the send warning, and
    the step's buttons in the page's flow (the cards below the question have their own save bar, so nothing pins here). */
 .ow-lock { display: grid; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-board); color: var(--color-on-board); }
@@ -1282,6 +1284,8 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 :is(.ow-check, .ow-radio-card) input:disabled { border-color: var(--color-line-strong); cursor: not-allowed; }
 /* Forced colours paint backgrounds as the canvas, so a drawn check or dot would vanish: the native controls come back. */
 @media (forced-colors: active) {
+  /* The picked logo keeps its brand-colour plate, or a white logo disappears. */
+  .ow-logo-thumb { forced-color-adjust: none; }
   /* Filled buttons and the one green band stay filled; a disabled one is an outline in GrayText. */
   .ow-btn--primary, .ow-btn--danger, .ow-qsave .ow-btn--danger:not(:disabled), .ow-band { forced-color-adjust: none; background: ButtonText; color: ButtonFace; border-color: ButtonText; }
   /* The hover fills would come back over the system colours. */

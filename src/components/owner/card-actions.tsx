@@ -45,9 +45,12 @@ export function CorrectionStep({ entry, kind, locationId, balance, back, onDone 
   const key = useRef(newRequestId());
   const effect = -entry.delta;
   const valid = reason.trim().length >= 10;
+  const after = balance + effect;
+  // Below zero the server refuses it (bonuses reversed with it only lower the balance further): say so before the tap.
+  const blocked = after < 0;
 
   async function submit() {
-    if (!valid || state === "saving") return;
+    if (!valid || blocked || state === "saving") return;
     setState("saving"); setError("");
     try {
       await postJson("/api/transactions/reverse", { locationId, entryId: entry.id, reason: reason.trim(), idempotencyKey: key.current });
@@ -61,7 +64,7 @@ export function CorrectionStep({ entry, kind, locationId, balance, back, onDone 
   }
 
   return (
-    <QuestionForm title="Vorgang korrigieren" back={back} busy={state === "saving"} busyLabel="Wird gebucht …" disabled={!valid} failed=""
+    <QuestionForm title="Vorgang korrigieren" back={back} busy={state === "saving"} busyLabel="Wird gebucht …" disabled={!valid || blocked} failed=""
       action={state === "uncertain" ? "Erneut senden" : "Korrektur buchen"} onSubmit={() => void submit()}>
       <div className="ow-qpanel ow-qcmp"><p>Vorgang</p><p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitWord(entry.delta, kind)}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p></div>
       <p className="ow-qpanel">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unitWord(effect, kind)}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Buchung für Empfehlungen" : ""}.</p>
@@ -69,10 +72,12 @@ export function CorrectionStep({ entry, kind, locationId, balance, back, onDone 
         <p className="ow-cardline-label">Rechnerische Auswirkung dieses Vorgangs</p>
         <dl>
           <div><dt>Stand jetzt</dt><dd>{balance} {unitWord(balance, kind)}</dd></div>
-          <div data-new=""><dt>Nach der Korrektur</dt><dd>{balance + effect} {unitWord(balance + effect, kind)}</dd></div>
+          <div><dt>Korrektur</dt><dd>{effect > 0 ? "+" : "−"}{Math.abs(effect)} {unitWord(effect, kind)}</dd></div>
+          <div data-new=""><dt>Nach der Korrektur</dt><dd>{blocked ? "Nicht möglich" : `${after} ${unitWord(after, kind)}`}</dd></div>
         </dl>
+        {blocked && <Notice tone="danger">{CORRECTION_ERRORS.INSUFFICIENT_BALANCE}</Notice>}
         {/* R6 names the balance after; this live sentence keeps it from reading as a promise (bonuses may go too). */}
-        <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>
+        {!blocked && <p className="ow-hint">Das ist die rechnerische Auswirkung dieses Vorgangs. Bei einer ersten Buchung können zusätzlich Empfehlungsboni zurückgenommen werden. Den endgültigen Stand bestätigt der Server nach der Buchung.</p>}
       </div>
       <div className="ow-field ow-qpanel"><label htmlFor="corr-reason">Grund (Pflicht, mindestens 10 Zeichen)</label><textarea id="corr-reason" className="ow-textarea" rows={3} readOnly={state === "saving" || state === "uncertain"} maxLength={240} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Versehentlich zwei Stempel statt einem vergeben" aria-describedby="corr-reason-n" /><ReasonHint id="corr-reason-n" length={reason.trim().length} /></div>
       {state === "uncertain" && <p className="ow-hint">Für die Wiederholung bleibt der ursprünglich gesendete Grund unverändert.</p>}

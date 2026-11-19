@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users } from "lucide-react";
@@ -178,7 +179,7 @@ export function ProgramSetup() {
           {points && <>
             <h2 className="ow-qsub">So entstehen Punkte</h2>
             <Choices name="su-mode" label="So entstehen Punkte" value={f.mode} saved="" onChange={mode => earn("points", mode as EarningMode)} options={[
-              { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, das System rechnet und rundet ab.", icon: ReceiptText },
+              { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, Loynara rechnet und rundet ab.", icon: ReceiptText },
               { value: "manual", label: "Manuell", sub: "Das Team gibt die Punktmenge direkt ein.", icon: Users },
             ]} />
           </>}
@@ -189,7 +190,7 @@ export function ProgramSetup() {
           {example && <>
             <h2 className="ow-qsub">Beispiel durchspielen</h2>
             <Field panel id="su-amount" label={`Einkaufswert in ${currency === "EUR" ? "€" : currency}`}><input id="su-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} />
-              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{withUnit(example.points, "points")}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-hint">Rechnet mit der Formel des Servers.</p>}</div>
+              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{withUnit(example.points, "points")}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-hint">Rechnet genau wie später die Kasse.</p>}</div>
             </Field>
           </>}
           <Field panel id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? SETUP_EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
@@ -206,9 +207,9 @@ export function ProgramSetup() {
             <input id="su-rewardName" className="ow-input" value={f.rewardName} maxLength={180} onChange={event => set({ rewardName: event.target.value, preset: PRESETS.find(preset => preset.reward && preset.reward === event.target.value.trim())?.id ?? "other" })} {...invalid("rewardName")} placeholder="z. B. Kaffee aufs Haus" />
           </Field>
           <div className="ow-qpanel ow-qcontrol">
-            {/* Stamps step by one, so „10 Stempeln“ follows „Einlösbar ab“; points step by ten, whose label needs „10 Punkte“. */}
+            {/* „Einlösbar ab“ takes the dative („8 Stempeln“, „150 Punkten“); the buttons say „10 Punkte weniger“. */}
             <div><label htmlFor="su-cost">Einlösbar ab</label><NumberStepper id="su-cost" value={f.cost} onChange={value => set({ cost: value && String(Math.min(Number(value), COST_MAX)) })} min={1} max={COST_MAX} stepSize={points ? 10 : 1}
-              unit={{ one: unitName(f.type, 1), many: points ? unitName(f.type) : unitDative(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
+              unit={{ one: unitName(f.type, 1), many: unitDative(f.type), step: unitName(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
             {err("cost") ? <FieldError id="su-cost-error">{err("cost")}</FieldError> : sample && <p id="su-cost-hint" className="ow-hint">Beispielwert aus der Branchenauswahl. Bitte prüfe ihn für dein Geschäft.</p>}
             {(minSpend !== null || noMinSpendNote(f.type)) && <p className="ow-hint" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${noMinSpendNote(f.type)}.`}</p>}
           </div>
@@ -230,7 +231,11 @@ export function ProgramSetup() {
                 <input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" />
                 <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
               </div>
-              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><input id="su-logo" className="ow-input" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></Field>}
+              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><div className="ow-logo-row">
+                {/* The picked logo itself, as in the card studio, and a German button instead of the browser's own file control. */}
+                {f.logoData && <Image unoptimized className="ow-logo-thumb" src={f.logoData} width={112} height={35} alt="Ausgewähltes Logo" style={{ backgroundColor: HEX.test(f.brandColor) ? f.brandColor : undefined }} />}
+                <label htmlFor="su-logo" className="ow-btn ow-btn--secondary ow-filebtn">{f.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="su-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></label>
+              </div></Field>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input ow-field--narrow" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} /></Field>
               {!walletsHidden && <>

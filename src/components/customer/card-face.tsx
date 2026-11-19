@@ -5,7 +5,7 @@ import { StampGrid } from "@/components/ui/stamp-grid";
 import { cx } from "@/components/ui/cx";
 import { NumberRoll } from "@/components/ui/number-roll";
 import { copyFor } from "./customer-card-copy";
-import styles from "./customer-card.module.css";
+import styles from "./card-face.module.css";
 
 export type CardReward = { id: string; title: string; cost: number };
 
