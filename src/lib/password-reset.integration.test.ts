@@ -63,12 +63,16 @@ it("mails a confirmed owner a one-hour link in fixed words; the link sets the pa
 
 it("answers an unknown and an unconfirmed address exactly like a confirmed one, and mails neither", async () => {
   const confirmed = await account(true), unconfirmed = await account(false);
-  const answers = [];
+  const answers = [], times = [];
   for (const email of [confirmed, unconfirmed, `${randomUUID()}@example.test`]) {
+    const started = performance.now();
     const response = await post("/request-password-reset", { email });
+    times.push(performance.now() - started);
     answers.push([response.status, await response.text()]);
   }
   expect(new Set(answers.map(answer => JSON.stringify(answer))).size).toBe(1);
+  // Only an existing account gets a token row written: every answer waits out the same floor, so its time tells nothing.
+  for (const time of times) expect(time).toBeGreaterThanOrEqual(395);
   await settled();
   expect(resetMails().map(mail => mail.to)).toEqual([confirmed]);
 });
