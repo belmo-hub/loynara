@@ -288,10 +288,10 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     return { stamps, count: card.querySelector<HTMLElement>("[data-figure]")?.closest<HTMLElement>("div") ?? null, foot: stamps?.nextElementSibling as HTMLElement | null | undefined };
   };
   useLayoutEffect(() => {
-    const box = ref.current, card = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
-    if (!box || !card || !before || before.id === goalId) return;
+    const box = ref.current, face = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
+    if (!box || !face || !before || before.id === goalId) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof box.animate !== "function") return;
-    const now = parts(card);
+    const now = parts(face);
     if (!now.stamps || !now.count) return;
     const root = getComputedStyle(document.documentElement);
     const ui = root.getPropertyValue("--dur-ui").trim(); // the minifier writes .22s, so the unit is read too
@@ -309,22 +309,22 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     Object.assign(old.style, { position: "absolute", inset: "0 0 auto", height: `${before.stampsEnd}px`, overflow: "hidden", pointerEvents: "none" });
     box.append(old);
     // While it grows the box clips the card to its rounded shape and wears the card's shadow, so the shadow follows the edge.
-    const look = getComputedStyle(card);
+    const look = getComputedStyle(face);
     Object.assign(box.style, { overflow: "hidden", borderRadius: look.borderRadius, boxShadow: look.boxShadow });
-    card.style.boxShadow = "none";
-    const grow = box.animate([{ height: `${before.height}px` }, { height: `${card.offsetHeight}px` }], { duration, easing: ease });
+    Object.assign(face.style, { boxShadow: "none" });
+    const grow = box.animate([{ height: `${before.height}px` }, { height: `${face.offsetHeight}px` }], { duration, easing: ease });
     old.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: "linear", fill: "forwards" });
     const slide = now.foot?.animate([{ transform: `translateY(${before.footTop - now.foot.offsetTop}px)` }, { transform: "none" }], { duration, easing: ease });
-    const done = () => { old.remove(); Object.assign(box.style, { overflow: "", borderRadius: "", boxShadow: "" }); card.style.boxShadow = ""; };
+    const done = () => { old.remove(); Object.assign(box.style, { overflow: "", borderRadius: "", boxShadow: "" }); Object.assign(face.style, { boxShadow: "" }); };
     grow.finished.then(done, done);
     return () => { grow.cancel(); slide?.cancel(); done(); };
   }, [goalId]);
   // What the card looked like after this render: the next goal change fades its stamps and count out.
   useLayoutEffect(() => {
-    const card = ref.current?.firstElementChild as HTMLElement | null | undefined;
-    if (!card) return;
-    const { stamps, foot } = parts(card);
-    shown.current = { id: goalId, html: card.outerHTML, height: card.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
+    const face = ref.current?.firstElementChild as HTMLElement | null | undefined;
+    if (!face) return;
+    const { stamps, foot } = parts(face);
+    shown.current = { id: goalId, html: face.outerHTML, height: face.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
   });
   return <div ref={ref} className={className}><MixCard {...card} /></div>;
 }
