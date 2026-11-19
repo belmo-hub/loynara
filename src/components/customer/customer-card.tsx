@@ -277,37 +277,52 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
       order += 1;
     });
   }, [landed, landedCount, grow, card.balance]);
-  // A new goal (the hold released after a booking moment) is a crossfade, not a cut (Design, #300): the card as it was
-  // fades out over the new one over --dur-ui, linear, while the card's height eases to the new one as the ready band's
-  // slot does, so what is below slides. Reduced motion keeps the cut.
-  const shown = useRef<{ id: string; html: string; height: number } | null>(null);
+  // A new goal (the hold released after a booking moment, or the guest picking another reward) is a crossfade, not a cut
+  // (Design, #300). Only what changes is drawn twice: the old stamp grid and count fade out over --dur-ui, linear, as the
+  // new ones fade in. The card's height eases to the new one as the ready band's slot does, and the foot slides down with
+  // its edge, so no word stands in two places and what is below slides. Reduced motion keeps the cut.
+  const shown = useRef<{ id: string; html: string; height: number; stampsEnd: number; footTop: number } | null>(null);
+  const parts = (card: HTMLElement) => {
+    const stamps = card.querySelector<HTMLElement>('[role="img"]');
+    return { stamps, count: card.querySelector<HTMLElement>("[data-figure]")?.closest<HTMLElement>("div") ?? null, foot: stamps?.nextElementSibling as HTMLElement | null | undefined };
+  };
   useLayoutEffect(() => {
     const box = ref.current, card = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
     if (!box || !card || !before || before.id === goalId) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof box.animate !== "function") return;
+    const now = parts(card);
+    if (!now.stamps || !now.count) return;
     const root = getComputedStyle(document.documentElement);
     const ui = root.getPropertyValue("--dur-ui").trim(); // the minifier writes .22s, so the unit is read too
     const duration = parseFloat(ui) * (ui.endsWith("ms") ? 1 : 1000) || 220;
+    const ease = root.getPropertyValue("--ease-out").trim() || "ease-out";
+    // The old card as a hidden frame that shows only its stamps and count, clipped to the stamp area.
     const old = document.createElement("div");
     old.innerHTML = before.html;
-    // The copy is the card at rest: no ids twice on the page, and no landing stamp or rolling figure playing again.
     for (const node of old.querySelectorAll<HTMLElement>("*")) { node.removeAttribute("id"); node.removeAttribute("data-new"); node.style.animation = "none"; }
+    const frame = old.firstElementChild as HTMLElement, then = parts(frame);
+    Object.assign(frame.style, { visibility: "hidden", background: "none", boxShadow: "none" });
+    for (const node of [then.stamps, then.count]) if (node) node.style.visibility = "visible";
     old.setAttribute("aria-hidden", "true");
     old.inert = true;
-    Object.assign(old.style, { position: "absolute", inset: "0 0 auto", pointerEvents: "none" });
+    Object.assign(old.style, { position: "absolute", inset: "0 0 auto", height: `${before.stampsEnd}px`, overflow: "hidden", pointerEvents: "none" });
     box.append(old);
     const radius = getComputedStyle(card).borderBottomLeftRadius;
     const clip = `inset(-48px 0 0 round 0 0 ${radius} ${radius})`; // the growing edge keeps the card's lower corners
-    const grow = box.animate([{ height: `${before.height}px`, clipPath: clip }, { height: `${card.offsetHeight}px`, clipPath: clip }], { duration, easing: root.getPropertyValue("--ease-out").trim() || "ease-out" });
+    const grow = box.animate([{ height: `${before.height}px`, clipPath: clip }, { height: `${card.offsetHeight}px`, clipPath: clip }], { duration, easing: ease });
     old.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: "linear", fill: "forwards" });
+    for (const node of [now.stamps, now.count]) node.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing: "linear" });
+    const slide = now.foot?.animate([{ transform: `translateY(${before.footTop - now.foot.offsetTop}px)` }, { transform: "none" }], { duration, easing: ease });
     const done = () => old.remove();
     grow.finished.then(done, done);
-    return () => { grow.cancel(); done(); };
+    return () => { grow.cancel(); slide?.cancel(); done(); };
   }, [goalId]);
-  // What the card looked like after this render: the next goal change fades it out.
+  // What the card looked like after this render: the next goal change fades its stamps and count out.
   useLayoutEffect(() => {
     const card = ref.current?.firstElementChild as HTMLElement | null | undefined;
-    if (card) shown.current = { id: goalId, html: card.outerHTML, height: card.offsetHeight };
+    if (!card) return;
+    const { stamps, foot } = parts(card);
+    shown.current = { id: goalId, html: card.outerHTML, height: card.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
   });
   return <div ref={ref} className={className}><MixCard {...card} /></div>;
 }
