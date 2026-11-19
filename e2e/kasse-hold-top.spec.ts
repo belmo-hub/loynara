@@ -129,8 +129,12 @@ async function pointsBooking(browser: Browser, url: string, size: { width: numbe
   await page.getByLabel("Kaufbetrag (EUR)").fill("12,50");
   await page.getByRole("button", { name: "Buchen", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("12 Punkte für einen Kauf über 12,50 € für Karte");
-  // From the open layout behind the dialog, through the tap and „Gebucht“, to the end of the hold.
-  await held(page, () => page.getByRole("button", { name: "Ja, vergeben", exact: true }).click(), path === "typed", mode);
+  // From the open layout behind the dialog, through the tap and „Gebucht“, to the end of the hold. The rising dock's
+  // clip runs over --dur-ui (220 ms), whatever unit the built CSS writes it in.
+  await held(page, async () => {
+    await page.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
+    if (mode === "rises") await expect.poll(() => page.evaluate(() => Number(document.querySelector("[data-dock]")!.getAnimations()[0]?.effect?.getTiming().duration ?? 0)), { timeout: 2_000, intervals: [10] }).toBeGreaterThanOrEqual(200);
+  }, path === "typed", mode);
   await context.close(); await s.owner.dispose();
 }
 

@@ -112,8 +112,9 @@ function Dock({ label, minHeight, floor, held, children }: { label?: string; min
     const rise = dock.offsetHeight - minHeight;
     if (rise <= 0) return;
     const look = getComputedStyle(dock), round = `round ${look.borderTopLeftRadius} ${look.borderTopRightRadius} 0 0`;
+    const v = look.getPropertyValue("--dur-ui").trim(); // the minifier writes .22s, the source 220ms
     const animation = dock.animate([{ clipPath: `inset(${rise}px 0 0 0 ${round})` }, { clipPath: `inset(0 0 0 0 ${round})` }],
-      { duration: parseFloat(look.getPropertyValue("--dur-ui")) || 200, easing: look.getPropertyValue("--ease-out").trim() || "ease-out" });
+      { duration: parseFloat(v) * (v.endsWith("ms") ? 1 : 1000) || 220, easing: look.getPropertyValue("--ease-out").trim() || "ease-out" });
     return () => animation.cancel();
   }, [minHeight]);
   const style = { ...(minHeight ? { minHeight } : {}), ...(floor ? { "--dock-floor": `${floor}px` } : {}) } as CSSProperties;
