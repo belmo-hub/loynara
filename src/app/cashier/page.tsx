@@ -436,7 +436,8 @@ export default function CashierPage() {
       const detail = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
       setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator, card: { ...last.card, balance: result.balance } });
       setStatus("success"); setMessage(detail);
-      resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
+      // As after „Gebucht“: the hold said it, so the scan form after it starts clean (Design, 19 Nov).
+      resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); setStatus("idle"); setMessage(""); }, NEXT_CUSTOMER_DELAY_MS);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 401) { setAccessState("blocked"); setAccessMessage("Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
