@@ -131,3 +131,29 @@ test("points programme: the tap waits for the team, the cashier enters and revie
     await Promise.all([guest.context.close(), cashierCtx.close()]);
   } finally { await m.close(); }
 });
+
+test("manual points: more than one point waits for the confirmation, then books once (ENG-274)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const m = await merchantWithTag(url, "NFC Pizzeria manuell", { programType: "points", earningMode: "manual", rulesText: "Das Team vergibt Punkte an der Kasse.", rewardCost: 100 });
+  try {
+    const guest = await customerWithCard(browser, url, m.me.programSlug);
+    const page = await guest.context.newPage();
+    await page.goto(pathOf(m.nextUrl()));
+    await expect(page.getByRole("heading", { name: "Warte auf das Team" })).toBeVisible();
+    const cashierCtx = await staffContext(browser, url, m.cashier);
+    const counter = await cashierCtx.newPage();
+    await counter.goto("/cashier");
+    const points = counter.getByLabel("Punkte", { exact: true });
+    await expect(points).toBeVisible({ timeout: 15_000 });
+    await points.fill("5");
+    const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toContainText(`5 Punkte für Karte ${guest.cardLocator}.`);
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(0);
+    await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
+    await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${guest.cardLocator} gebucht. Neuer Stand: 5.` })).toBeVisible();
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(1);
+    expect(await balanceOf(url, guest.cardToken)).toBe(5);
+    await Promise.all([guest.context.close(), cashierCtx.close()]);
+  } finally { await m.close(); }
+});
