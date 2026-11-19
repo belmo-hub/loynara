@@ -52,7 +52,7 @@ const rhythm = () => page.evaluate(() => {
     chips: [...main.querySelectorAll(".ow-prog-text .ow-chip")].flatMap(el => el.previousElementSibling ? [px(box(el).top - box(el.previousElementSibling).bottom)] : []),
     // The „?“ beside a label is a 44 px target that stops where the first row's target begins.
     helpIntoRow: [...main.querySelectorAll(".ow-rows-head > button")].flatMap(el => { const row = el.parentElement!.nextElementSibling; return row ? [px(Math.max(0, box(el).bottom - box(row).top))] : []; }),
-    diaries: main.querySelectorAll(".ow-diary > h2").length,
+    diaries: main.querySelectorAll('.ow-diary > h2, [data-ow="diary"] :is(h2, h3)').length,
     hints: [...main.querySelectorAll(".ow-page > .ow-hint, .ow-q > .ow-hint, .ow-group > .ow-hint")].flatMap(el => { const prev = before(el); return prev ? [px(box(el).top - box(prev).bottom)] : []; }),
   };
 });
@@ -60,15 +60,17 @@ const only = (values: Array<number | string>, ...allowed: Array<number | string>
 
 // Screens whose content has no section label of the kinds above; the rest must show at least one before they pass.
 const NO_LABELS = ["/merchant/adviser", "/merchant/staff/invite", "/merchant/customers/import"];
-for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
+// Programm (ENG-259) and Kunden (ENG-257) have the mix rhythm, measured in their own tests below.
+for (const path of ["/merchant", "/merchant/analytics", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
   test(`${path} keeps the owner rhythm`, async () => {
     await page.goto(path);
     await expect(page.locator("#ow-main h1")).toBeVisible();
     await expect.poll(async () => {
       const m = await rhythm();
       // `loaded`: the page's own content is there (labels, or the adviser's panels), so an empty list is not a pass.
-      // Übersicht must show a diary label (the last days, or the first steps), so its 8 is really measured.
-      return { loaded: (m.below.length > 0 || NO_LABELS.includes(path)) && (path !== "/merchant" || m.diaries > 0), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
+      // Übersicht must show its diary (the last days, or the first steps). Since ENG-260 it is drawn in the mix, whose
+      // rhythm (32 above a section, 12 to its panel) is measured against the approved pictures, not these house labels.
+      return { loaded: (m.below.length > 0 || NO_LABELS.includes(path) || path === "/merchant") && (path !== "/merchant" || m.diaries > 0), head: m.head, above: only(m.above, 20, 24), below: only(m.below, 8), helpGrowsRow: only(m.helpGrowsRow, 0), helpIntoRow: only(m.helpIntoRow, 0), padding: only(m.padding, "16px"), chips: only(m.chips, 4), hints: only(m.hints, 8) };
     }).toEqual({ loaded: true, head: path === "/merchant" ? null : 24, above: [], below: [], helpGrowsRow: [], helpIntoRow: [], padding: [], chips: [], hints: [] }); // Übersicht greets instead of a page head
     expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });
@@ -85,6 +87,20 @@ test("/merchant/customers keeps the mix rhythm", async () => {
     return { search: gap("h1", "form[role=search]"), picker: gap("form[role=search]", "label:has(> select)"), invite: gap('section[aria-labelledby="cu-h"] ul', "[class*=invite] h2"),
       panel: gap("[class*=invite] h2", "[class*=invite] ul"), note: gap("[class*=invite] ul", "[class*=invite] > .ow-prog-note") };
   })).toEqual({ search: 24, picker: 16, invite: 32, panel: 12, note: 12 });
+});
+
+// Programm in the mix (ENG-259): every section title 12 above its panel, sections 32 apart in each column.
+test("/merchant/program keeps the mix rhythm", async () => {
+  await page.goto("/merchant/program");
+  await expect(page.getByRole("heading", { level: 2, name: "Für die Ergebnisse" })).toBeVisible();
+  expect(await page.evaluate(() => {
+    const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2;
+    const titles = [...document.querySelectorAll("#ow-main section > h2, #ow-main section > div > h2")];
+    const below = titles.map(h => { const head = h.parentElement!.matches("section") ? h : h.parentElement!; return px(box(head.nextElementSibling!).top - box(head).bottom); });
+    const sections = [...document.querySelectorAll("#ow-main section:has(> h2, > div > h2)")];
+    const above = sections.flatMap(sec => { const prev = sections.filter(o => o !== sec && Math.abs(box(o).left - box(sec).left) < 1 && box(o).bottom <= box(sec).top).sort((a, b) => box(a).bottom - box(b).bottom).at(-1); return prev ? [px(box(sec).top - box(prev).bottom)] : []; });
+    return { titles: titles.length, below: [...new Set(below)], above: [...new Set(above)] };
+  })).toEqual({ titles: 6, below: [12], above: [32] });
 });
 
 // The card screen in the mix (ENG-258): the card 16 above „Verlauf“ on the phone column, every statement line at least

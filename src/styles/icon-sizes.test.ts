@@ -21,8 +21,7 @@ describe("icon sizes", () => {
   it("are 16, 20, 22 or 24 where a component passes one", () => {
     const odd = sources.flatMap(path => [...readFileSync(path, "utf8").matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g)].map(match => ({ path, value: Number(match[1]) })))
       .filter(({ value }) => !SIZES.includes(value) && value < 48).map(({ path, value }) => `${path}: ${value}`);
-    // Drawn: the setup steps' tick sits inside its own 16 px dot.
-    expect(odd).toEqual(["src/components/owner/overview.tsx: 11"]);
+    expect(odd).toEqual([]);
   });
 
   it("are 16, 20, 22 or 24 where a stylesheet sizes them", () => {
