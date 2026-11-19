@@ -13,7 +13,7 @@
 .forgot:focus-visible, .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 /* Form-level problem: ink text on a faint danger wash, so it reads in both themes and never only by colour. */
-.alert { display: flex; gap: var(--space-3); align-items: flex-start; margin: 0; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-danger); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-danger) 7%, var(--color-raised)); color: var(--color-ink); font-size: var(--text-14); line-height: 1.45; }
+.alert { display: flex; gap: var(--space-3); align-items: flex-start; margin: 0; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-danger); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-danger) 7%, var(--color-raised)); color: var(--color-ink); font-size: var(--text-14); line-height: 1.45; text-wrap: pretty; }
 /* The 20 px icon sits on the first line's centre, whatever the line's height. */
 .alert svg { flex: none; margin-top: 0; margin-top: calc((1lh - 20px) / 2); color: var(--color-danger); }
 
@@ -22,6 +22,8 @@
 
 .note { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.5; text-wrap: pretty; }
 .link { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius-sm); }
+.page h1[tabindex="-1"]:focus { outline: none; } /* a title focused to announce a new state is not a control */
+.lone { display: inline-flex; align-items: center; min-height: var(--target); } /* a link alone on its line gets the house target, as .forgot */
 
 /* Invitation: who invites you, before anything is asked of you. */
 .summary { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface); }
