@@ -35,6 +35,7 @@ const location = (name: string) => ({ name, city: "Kassel", country: "DE" as con
 async function shop(goLive: string, freeUntil: string, { name = "Café Lindenblatt", second = false, type = "stamp" as "stamp" | "points" } = {}) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetische Inhaberin", `${ownerId}@example.test`]);
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [ownerId]);
   const created = await createMerchant({ userId: ownerId, businessName: name, locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: type, rulesText: "Ein Stempel pro bestätigtem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5 });
   if (second) await createAdditionalLocation(ownerId, location("Kassel Nord"));
   await db.update(subscriptions).set({ status: "active", provider: "stripe", providerSubscriptionId: `sub_test${randomUUID().slice(0, 8)}`, planCode: "list", priceMinor: 4900, activeLocationCount: second ? 2 : 1,
@@ -152,5 +153,17 @@ describe("the owner's emails (M1–M3, Marketing FINAL with Legal's conditions)"
     expect(sent[0]).toMatchObject({ to: expect.stringMatching(/@example\.test$/), subject: "Café Lindenblatt: Dein Programm endet am 27.11.2026" });
     expect(sent[0].body).toContain("am 01.11.2026 um 10:15 Uhr erhalten");
     expect(sent[0].body.endsWith("Synthetische Betreiberin · Musterstraße 1, 12345 Musterstadt")).toBe(true);
+  });
+
+  it("waits, never drops, while the owner's address is not confirmed (ENG-278)", async () => {
+    const s = await shop("2026-08-28", "2026-09-28");
+    await pool.query('UPDATE "user" SET "emailVerified" = false WHERE id = $1', [s.ownerId]);
+    const [{ slug }] = (await pool.query("SELECT slug FROM programs WHERE tenant_id = $1", [s.tenantId])).rows;
+    await requestCancellation({ actorUserId: s.ownerId, programSlug: slug, now: at("2026-11-01T09:15:00Z") });
+    const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.contract_end"));
+    const sent: TransactionalMessage[] = [];
+    const provider: TransactionalEmailProvider = { name: "mailpit", async send(message) { sent.push(message); return { state: "accepted", messageId: `local:${message.jobId}` }; } };
+    expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toEqual({ status: "deferred", reason: "Owner email not confirmed", until: at("2026-11-01T10:16:00Z") });
+    expect(sent).toHaveLength(0);
   });
 });

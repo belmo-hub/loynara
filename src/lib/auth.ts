@@ -13,6 +13,17 @@ export const auth = betterAuth({
   // controls use the same deployment-approved source as our outer peer limits.
   advanced: { ipAddress: { ipAddressHeaders: process.env.TRUSTED_INGRESS === "cloudflare_tunnel" ? ["cf-connecting-ip"] : [] } },
   emailAndPassword: { enabled: true, minPasswordLength: 12 },
+  // ENG-278: every new account gets a link to confirm its address; owner mail goes only to confirmed addresses. Signing in
+  // does not wait for it: an unconfirmed owner sees a notice with a resend button (merchant layout).
+  emailVerification: {
+    sendOnSignUp: true,
+    sendVerificationEmail: async ({ user, token }) => {
+      // Loaded lazily, like the sign-up hook below. A failed send never fails the sign-up: the owner can resend.
+      const { sendAccountVerification } = await import("./account-verification");
+      await sendAccountVerification(user.email, token)
+        .catch(error => console.error(`Verification email not sent (${error instanceof Error ? error.name : "error"})`));
+    },
+  },
   session: { expiresIn: 60 * 60 * 24 * 7 },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {
