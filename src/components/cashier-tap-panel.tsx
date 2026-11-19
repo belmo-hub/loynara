@@ -6,6 +6,7 @@ import { parsePurchaseAmountMinor, purchasePoints } from "@/lib/points";
 import { apiJson, ClientApiError } from "./client-api";
 import styles from "./cashier-tap-panel.module.css";
 import { buttonClassName } from "./ui/button";
+import { Dialog } from "./ui/dialog";
 import { NumberRoll } from "./ui/number-roll";
 import { TextField } from "./ui/field";
 
@@ -56,6 +57,7 @@ const STRINGS: Record<TapPanelLocale, {
   introPoints: string; amount: (currency: string) => string; points: string; rate: (rate: number, currency: string) => string; book: string;
   preview: (points: number, balance?: number) => string;
   confirmedPoints: (cardLocator: string, balance: string) => string; cooldownPoints: string; limit: string; staleRule: string; otherEntry: string;
+  confirmTitle: string; pointsWord: (points: number) => string; forPurchase: string; forCard: string; cancel: string; yes: string;
 }> = {
   de: {
     title: "NFC-Anfragen",
@@ -93,6 +95,12 @@ const STRINGS: Record<TapPanelLocale, {
     limit: "Kaufbetrag oder Punkte überschreiten das Limit dieser Rolle. Bitte die Inhaberin oder den Inhaber zur Prüfung hinzuziehen.",
     staleRule: "Die Punkteregel hat sich geändert. Bitte den Betrag erneut prüfen.",
     otherEntry: "Schon mit einer anderen Eingabe bestätigt. Es wurde nichts doppelt gebucht.",
+    confirmTitle: "Vergabe bestätigen?",
+    pointsWord: points => points === 1 ? "Punkt" : "Punkte",
+    forPurchase: "für einen Kauf über",
+    forCard: "für Karte",
+    cancel: "Abbrechen",
+    yes: "Ja, vergeben",
   },
   fr: {
     title: "Demandes NFC",
@@ -130,6 +138,12 @@ const STRINGS: Record<TapPanelLocale, {
     limit: "Le montant ou les points dépassent la limite de ce rôle. Demandez à la personne propriétaire de vérifier cet achat.",
     staleRule: "La règle de points a changé. Vérifiez le montant à nouveau.",
     otherEntry: "Déjà confirmé avec une autre saisie. Rien n’a été enregistré en double.",
+    confirmTitle: "Confirmer l’ajout ?",
+    pointsWord: points => points === 1 ? "point" : "points",
+    forPurchase: "pour un achat de",
+    forCard: "à ajouter à la carte",
+    cancel: "Annuler",
+    yes: "Oui, ajouter",
   },
 };
 
@@ -230,6 +244,9 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
   const [entries, setEntries] = useState<Record<string, string>>({});
   // Requests the server just confirmed: the row stays for DONE_MS with its button swapped to a tick, then leaves.
   const [done, setDone] = useState<PendingTapRequest[]>([]);
+  // A typed amount, or more than one point, waits for „Ja, vergeben“ (ENG-274): „1500“ for „15,00“ would otherwise book
+  // a hundred times the purchase with one tap. The same rule as the QR counter (ENG-271).
+  const [confirming, setConfirming] = useState<{ item: PendingTapRequest; award: TapAward; points: number } | null>(null);
 
   // Only the newest refresh may update the list, so a slow poll cannot bring back a request that was just confirmed.
   const refreshSeq = useRef(0);
@@ -371,6 +388,15 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
     }
   }, [locale, refresh, t]);
 
+  // Cancelling goes back to the entry, selected, so the right value is typed over it.
+  function cancelConfirm() {
+    const id = confirming?.item.id;
+    setConfirming(null);
+    window.setTimeout(() => { const field = document.getElementById(`tap-entry-${id}`) as HTMLInputElement | null; field?.focus(); field?.select(); });
+  }
+  const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
+  const money = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const open = items.filter(item => isOpenRequest(item, now));
   const openCount = open.length;
   const shown = [...open, ...done.filter(item => !open.some(other => other.id === item.id))];
@@ -411,7 +437,7 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
               {entry && !confirmed && <p className={styles.preview} aria-live="polite">{t.preview(entry.points, typeof item.balance === "number" ? item.balance + entry.points : undefined)}</p>}
               <div className={styles.actions}>
                 {item.programType === "points"
-                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (entry) void act(item, "confirm", entry.award); }}>{confirmed ? <Done label={t.done} /> : t.book}</button>
+                  ? <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy || !entry} onClick={() => { if (!entry) return; if ("quantity" in entry.award && entry.award.quantity === 1) void act(item, "confirm", entry.award); else setConfirming({ item, ...entry }); }}>{confirmed ? <Done label={t.done} /> : t.book}</button>
                   : <button type="button" className={`${buttonClassName({ variant: "primary" })} ${styles.primary}`} data-done={confirmed || undefined} disabled={busy} onClick={() => void act(item, "confirm")}>{confirmed ? <Done label={t.done} /> : t.confirm}</button>}
                 {!confirmed && <button type="button" className={`${buttonClassName({ variant: "secondary" })} ${styles.secondary}`} disabled={busy} onClick={() => void act(item, "cancel")}>{t.reject}</button>}
               </div>
@@ -421,6 +447,14 @@ export function CashierTapPanel({ locale = "de", onPendingCountChange }: { local
       </>}
       {outcome && <p role="status" className={`${styles.outcome} ${outcome.tone === "success" ? styles.outcomeSuccess : outcome.tone === "error" ? styles.outcomeError : styles.outcomeNeutral}`}>{outcome.text}</p>}
       <p className={styles.srOnly} aria-live="polite">{announcement}</p>
+      {confirming && <Dialog open onClose={cancelConfirm} title={t.confirmTitle}
+        description={<><strong className={styles.figure}>{number.format(confirming.points)} {t.pointsWord(confirming.points)}</strong>{"purchaseAmountMinor" in confirming.award
+          && <> {t.forPurchase} <strong className={styles.figure}>{money.format(confirming.award.purchaseAmountMinor / 100)} {confirming.item.currency ?? "EUR"}</strong></>} {t.forCard} <span className={styles.nowrap} translate="no">{confirming.item.cardLocator}</span>.</>}
+        actions={<>
+          <button type="button" className={buttonClassName({ variant: "secondary" })} onClick={cancelConfirm}>{t.cancel}</button>
+          <button type="button" className={buttonClassName({ variant: "primary" })} disabled={busyIds.has(confirming.item.id)}
+            onClick={() => { const { item, award } = confirming; setConfirming(null); void act(item, "confirm", award); }}>{t.yes}</button>
+        </>} />}
     </section>
   );
 }

@@ -112,7 +112,16 @@ test("points programme: the tap waits for the team, the cashier enters and revie
     await expect(counter.getByText("+16 Punkte · Neuer Stand: 16")).toBeVisible();
     expect(await ledgerRowsFor(guest.cardToken)).toBe(0);
     await expect(counter.getByRole("dialog")).toHaveCount(0);
+    // A typed amount waits for the confirmation (ENG-274): „Abbrechen“ books nothing and leaves the amount selected.
+    const dialog = counter.getByRole("dialog", { name: "Vergabe bestätigen?" });
     await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(dialog).toContainText(`16 Punkte für einen Kauf über 16,70 EUR für Karte ${guest.cardLocator}.`);
+    await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => amount.evaluate((input: HTMLInputElement) => [document.activeElement === input, input.selectionStart, input.selectionEnd])).toEqual([true, 0, 5]);
+    expect(await ledgerRowsFor(guest.cardToken)).toBe(0);
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
     await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${guest.cardLocator} gebucht. Neuer Stand: 16.` })).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "Punkte erhalten" })).toBeVisible({ timeout: 15_000 });
