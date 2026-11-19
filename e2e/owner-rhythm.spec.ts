@@ -249,3 +249,49 @@ test("on desktop no Tab stop lands under the sticky save bar, one row or wrapped
     await page.setViewportSize({ width: 390, height: 844 });
   }
 });
+
+// ENG-278 (Design, 19 Nov): on a new owner's setup screen the address notice keeps its button in one place from idle
+// through busy to every outcome, and its title on its icon. The resend answers are stubbed: no mail is involved.
+test("the address notice's button stays put through busy, sent, limited and failed", async ({ browser }) => {
+  const owner = await browser.newPage();
+  try {
+    const email = `notice-${randomUUID()}@example.test`;
+    expect((await owner.request.post("/api/auth/sign-up/email", { data: { name: "Synthetic notice owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    for (const width of [880, 1440]) {
+      await owner.setViewportSize({ width, height: 900 });
+      for (const [outcome, status] of [["sent", 200], ["limited", 429], ["failed", 503]] as const) {
+        let release = () => {};
+        const answered = new Promise<void>(resolve => { release = resolve; });
+        await owner.unroute("**/api/auth/send-verification-email");
+        await owner.route("**/api/auth/send-verification-email", async route => {
+          await answered;
+          await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(status === 200 ? { status: true } : { message: "stubbed" }) });
+        });
+        await owner.goto("/merchant/program");
+        // The shell settles on the setup frame first; the notice is mounted there for good.
+        const button = owner.locator(".ow-bare--setup .ow-verify button");
+        await expect(button).toHaveText("E-Mail erneut senden");
+        // Layout boxes, not painted ones: the house press feedback scales the pill for a moment.
+        const place = () => owner.evaluate(() => {
+          const at = (selector: string) => {
+            let node = document.querySelector<HTMLElement>(selector), left = 0, top = 0;
+            const width = node!.offsetWidth;
+            for (; node; node = node.offsetParent as HTMLElement | null) { left += node.offsetLeft; top += node.offsetTop; }
+            return { left, top, width };
+          };
+          const b = at(".ow-verify button"), title = at(".ow-verify strong"), icon = at(".ow-verify .ow-notice > span");
+          return { left: b.left, top: b.top, width: b.width, title: title.top - icon.top };
+        });
+        const idle = await place();
+        await button.click();
+        await expect(button).toHaveText("Wird gesendet …");
+        expect(await place(), `${width}: busy`).toEqual(idle);
+        release();
+        await expect(owner.locator(".ow-verify-status")).not.toBeEmpty();
+        expect(await place(), `${width}: ${outcome}`).toEqual(idle);
+        if (outcome === "sent") await expect(button).toHaveAttribute("aria-disabled", "true");
+        if (outcome === "sent") await expect(button).toBeFocused();
+      }
+    }
+  } finally { await owner.close(); }
+});

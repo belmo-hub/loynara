@@ -1,9 +1,10 @@
 import { Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { NumberRoll } from "@/components/ui/number-roll";
 import { PointsLadder } from "@/components/ui/points-ladder";
 import { STAMP_GRID_MAX, StampGrid, stampsLabel } from "@/components/ui/stamp-grid";
 import { cx } from "@/components/ui/cx";
-import { unitWord, withUnit, type UnitKind } from "@/lib/units";
+import { keepUnits, unitWord, withUnit, type UnitKind } from "@/lib/units";
 import type { CardReward } from "./card-face";
 import { copyFor } from "./customer-card-copy";
 import styles from "./mix-card.module.css";
@@ -51,13 +52,17 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
   // Above the goal the card never clamps its count (Design, 18 Nov: one screen, one number): the grid shows all stamps
   // earned and the figure and its label give the true count with the unit.
   const over = !points && balance > goal;
-  const aria = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), cols = { "--cols": mixColumns(goal) } as CSSProperties;
+  // The Kasse card keeps the 8-stamp card's height (Design, 18 Nov): above 8 the stamps go in two rows of ceil(goal / 2),
+  // and from 9 columns an earned stamp is a plain coral disc. The guest card and the Kartenseite keep the mock's grid.
+  const kasseCols = size === "kasse" && goal > 8 ? Math.ceil(goal / 2) : mixColumns(goal), plain = size === "kasse" && kasseCols >= 9;
+  const said = over ? withUnit(balance, programType, locale) : stampsLabel(have, goal, locale), aria = size === "kasse" ? keepUnits(said) : said, cols = { "--cols": kasseCols } as CSSProperties;
   const tc = thumbColumns(goal);
   if (size === "thumb") return <span className={cx(styles.thumb, className)} style={{ "--cols": tc } as CSSProperties} data-five={(goal <= 12 && tc === 5) || undefined} data-dense={goal > 12 || undefined} role="img" aria-label={points ? withUnit(balance, "points", locale) : aria}>
     {stamps ? Array.from({ length: goal }, (_, i) => <i key={i} data-on={i < have || undefined} />) : null}
   </span>;
   const t = copyFor(locale), number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
-  const figure = number.format(points || over ? balance : have), of = points || over ? t.unit(balance, programType) : `von ${goal}`;
+  const shown = points || over ? balance : have;
+  const figure = <NumberRoll value={shown}>{number.format(shown)}</NumberRoll>, of = points || over ? t.unit(balance, programType) : `von ${goal}`;
   const body = foot ?? (size === "kasse" ? null : voice === "owner" ? <p className={styles.line}>{progressLine(balance, reward, programType)}</p>
     : size === "example" ? <div className={styles.fields}><span><small>Prämie</small><strong>{reward.title}</strong></span><span><small>Einlösbar ab</small><strong>{withUnit(goal, programType, "de", "dat")}</strong></span></div>
     : <><p className={styles.line}>{left ? `${t.still} ${number.format(left)} ${t.toReward(t.unit(left, programType))}` : t.readyFor}</p><p className={styles.reward}>{reward.title}</p></>);
@@ -65,12 +70,12 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
     <div className={styles.top}>
       <span className={styles.mark} aria-hidden="true">{[...businessName][0]}</span>
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
-      <div className={styles.n}>{label ? <><b>{figure}<small> {of}</small></b><span>{label}</span></> : <><b>{figure}</b><span>{of}</span></>}</div>
+      <div className={styles.n}>{label ? <><b data-figure="">{figure}<small>{"\u00a0"}{of}</small></b><span>{label}</span></> : <><b data-figure="">{figure}</b><span>{of}</span></>}</div>
     </div>
-    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles />
-      : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} />
-      : <div className={styles.stamps} style={cols} role="img" aria-label={aria}>
-        {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
+    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles keepUnits={size === "kasse"} />
+      : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} keepUnits={size === "kasse"} />
+      : <div className={styles.stamps} style={cols} data-rows={Math.ceil(goal / kasseCols)} role="img" aria-label={aria}>
+        {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have && !plain ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}
       </div>}
     {body ? <div className={styles.foot}>{body}</div> : null}
   </section>;

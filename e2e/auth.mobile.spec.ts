@@ -36,10 +36,14 @@ test.describe("sign-in on phones", () => {
     expect(await sideways(page)).toBe(0);
   });
 
-  test("the forgotten-password link opens a prepared mail and sends nothing from the page", async ({ page }) => {
+  test("the forgotten-password link leads to a reset form that answers every address alike", async ({ page }) => {
     await page.goto("/login");
-    const link = page.getByRole("link", { name: "Passwort vergessen?" });
-    await expect(link).toHaveAttribute("href", /^mailto:support@getloynara\.com\?subject=/);
+    await page.getByRole("link", { name: "Passwort vergessen?" }).click();
+    await expect(page).toHaveURL(/\/forgot-password$/);
+    await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(`nobody-${Date.now()}@example.test`);
+    await page.getByRole("button", { name: "Link schicken", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Schau in dein Postfach.");
+    expect(await sideways(page)).toBe(0);
   });
 
   test("an invitation link without a preview still fits and offers one clear step", async ({ page }) => {

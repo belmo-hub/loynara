@@ -108,7 +108,7 @@ export function winbackRule(type: "stamp" | "points", days: number, bonus: numbe
   return `Willkommen-zurück-Bonus: Warst du ${days} Tage nicht da, gibt es bei deinem nächsten bestätigten Besuch in den 14 Tagen danach einmal ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${reminders ? " Mit Nachrichten auf deiner Wallet-Karte erinnern wir dich daran." : ""}${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
 }
 
-export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
+export const winbackCashierLine = (type: "stamp" | "points", bonus: number) => `Willkommen zurück: +${type === "stamp" ? `${bonus}\u00a0Stempel` : points(bonus).replace(" ", "\u00a0")} extra`;
 export const WINBACK_EXCLUSIONS = "Nicht auf Tabak, Presse, Bücher, Lotto, Handyguthaben.";
 
 /** Points bonus: 1 up to a quarter of the cheapest reward (Product); stamps: none or 1. */
@@ -131,7 +131,7 @@ export function birthdayText(type: "stamp" | "points", bonus: number, day: strin
 /** `exclusions: false` as for winbackRule. */
 export const birthdayRule = (type: "stamp" | "points", bonus: number, exclusions = true) =>
   `Geburtstags-Prämie: Hast du auf deiner Karte Tag und Monat deines Geburtstags hinterlegt, bekommst du in deiner Geburtstagswoche bei einem bestätigten Besuch ${type === "stamp" ? "1 Stempel" : points(bonus)} extra.${exclusions ? ` ${EXCLUDED_GOODS}` : ""}`;
-export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${type === "stamp" ? `${bonus} Stempel` : points(bonus)} extra`;
+export const birthdayCashierLine = (type: "stamp" | "points", bonus: number) => `Geburtstag: +${type === "stamp" ? `${bonus}\u00a0Stempel` : points(bonus).replace(" ", "\u00a0")} extra`;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /**

@@ -114,7 +114,7 @@ test("a mistyped amount („1570“ for „15,70“) books nothing until the con
     await field.fill("1570");
     // A double tap on „Buchen“: the second tap lands on the dialog's backdrop and must not throw the confirmation away.
     await page.getByRole("button", { name: "Buchen", exact: true }).dblclick();
-    await expect(dialog).toContainText(`4.710 Punkte für einen Kauf über 1.570,00 EUR für Karte ${f.lookup.cardLocator}.`);
+    await expect(dialog).toContainText(`4.710 Punkte für einen Kauf über 1.570,00 € für Karte ${f.lookup.cardLocator}.`);
     await page.waitForTimeout(1_000);
     await expect(dialog).toBeVisible();
     expect(counter.writes).toHaveLength(0);
@@ -125,7 +125,7 @@ test("a mistyped amount („1570“ for „15,70“) books nothing until the con
     await expect.poll(selected).toEqual([true, 0, 4, 4]);
     await page.keyboard.type("15,70");
     await page.getByRole("button", { name: "Buchen", exact: true }).click();
-    await expect(dialog).toContainText(`47 Punkte für einen Kauf über 15,70 EUR für Karte ${f.lookup.cardLocator}.`);
+    await expect(dialog).toContainText(`47 Punkte für einen Kauf über 15,70 € für Karte ${f.lookup.cardLocator}.`);
     // Esc does the same as „Abbrechen“.
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);

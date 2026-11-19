@@ -1,0 +1,7 @@
+/* The Kasse's frame. Opened from the owner's „Kasse“ link it slides up as a sheet (kasse-sheet.css); every other entry
+   (a reload, an NFC or QR link, a typed address, a link without the type) fades in over 160 ms, as before. Inside the
+   sheet the fade is off, so it does not play twice. */
+.sheet { display: flex; flex-direction: column; min-height: 100dvh; transition: opacity 160ms linear; }
+@starting-style { :global(:root:not(:active-view-transition-type(kasse-sheet))) .sheet { opacity: 0; } }
+/* Browsers without transition types cannot read the selector above; they get the plain fade. */
+@supports not selector(:active-view-transition-type(kasse-sheet)) { @starting-style { .sheet { opacity: 0; } } }

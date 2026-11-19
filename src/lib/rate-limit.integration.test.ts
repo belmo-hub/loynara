@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { pool } from "@/db";
-import { enforceRateLimit, peerIdentity, RateLimitError } from "./rate-limit";
+import { enforceRateLimit, peerIdentity, pruneExpiredRateLimits, RATE_LIMIT_PRUNE_AFTER_HOURS, RATE_LIMIT_PRUNE_INTERVAL_MS, RateLimitError } from "./rate-limit";
+import { boundedWorkerDatabase } from "../../scripts/worker-database";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Rate limit tests require looplocal_test");
 
@@ -34,5 +35,20 @@ describe("shared PostgreSQL rate limits", () => {
     } finally {
       if (previous === undefined) delete process.env.TRUST_PROXY_CLIENT_IP; else process.env.TRUST_PROXY_CLIENT_IP = previous;
     }
+  });
+
+  it("keeps the privacy page's 48 hours: threshold plus the worker's interval never exceeds them (ENG-281)", () => {
+    expect(RATE_LIMIT_PRUNE_AFTER_HOURS * 3_600_000 + RATE_LIMIT_PRUNE_INTERVAL_MS).toBeLessThanOrEqual(48 * 3_600_000);
+  });
+
+  it("prunes a counter a minute past the threshold, keeps one a minute short of it and live ones, through the worker's database path", async () => {
+    const [kept, gone, live] = [randomUUID(), randomUUID(), randomUUID()].map(id => id.replace(/-/g, "").padEnd(64, "0"));
+    const minutes = RATE_LIMIT_PRUNE_AFTER_HOURS * 60;
+    await pool.query(`INSERT INTO rate_limits (key_hash, hits, reset_at) VALUES
+      ($1, 1, now() - $4::integer * interval '1 minute'), ($2, 1, now() - $5::integer * interval '1 minute'), ($3, 1, now() + interval '1 hour')`, [kept, gone, live, minutes - 1, minutes + 1]);
+    expect(await pruneExpiredRateLimits(boundedWorkerDatabase(pool))).toBeGreaterThanOrEqual(1);
+    const left = await pool.query<{ key_hash: string }>("select key_hash from rate_limits where key_hash = any($1)", [[kept, gone, live]]);
+    expect(left.rows.map(row => row.key_hash).sort()).toEqual([kept, live].sort());
+    await pool.query("delete from rate_limits where key_hash = any($1)", [[kept, live]]);
   });
 });
