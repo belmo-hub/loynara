@@ -221,7 +221,7 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-chip--info { background: var(--color-fill); color: var(--color-ink); }
 .ow-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 /* A notice is a white panel with a muted icon (inside a card, a ruled row); only real success, warnings and errors carry a status colour. */
-.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); }
+.ow-notice { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-14); background: var(--color-surface); color: var(--color-ink); outline: 1px solid transparent; outline-offset: -1px; } /* forced colours draw the frame the inset shadow loses */
 .ow-notice > span:first-child { display: flex; align-items: center; height: 1lh; color: var(--color-ink-muted); } /* the icon on the first line's centre */
 .ow-notice > div { min-width: 0; }
 /* Until the desktop grid (SF-1), a notice on the page is as wide as its text, not half empty (Design FIX 8). */
@@ -238,7 +238,23 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-notice--danger > span:first-child, .ow-notice--danger strong { color: var(--color-danger); }
 .ow-notice--danger strong { display: block; }
 .ow-notice-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
-.ow-verify { padding-bottom: var(--space-4); } /* ENG-278: the address notice above a screen keeps the page gap below it */
+/* ENG-278: the address notice, mounted once by the shell under the top bar, at the page column's inset (Design, 19 Nov). */
+/* The founder's mix column (Übersicht, Kunden): 1180 wide, gutters 16, 24 from 600, 40 from 1024. */
+.ow-verify { width: 100%; max-width: 1180px; margin-inline: auto; padding: var(--space-4) var(--space-4) 0; }
+@media (min-width: 600px) { .ow-verify { padding-inline: var(--space-6); } }
+@media (min-width: 1024px) { .ow-verify { padding-inline: var(--space-10); } }
+.ow-verify .ow-notice-actions { align-items: center; }
+/* The page gap below it (16), whatever the screen's own top padding; a sub-tab row keeps its own rhythm under it. */
+.ow-verify + #ow-main .ow-screen > .ow-page:first-child, .ow-verify + #ow-main > .ow-page:first-child { padding-top: var(--space-4); }
+.ow-verify + .ow-subnav { margin-top: var(--space-4); }
+.ow-verify-status { flex-basis: 100%; }
+.ow-verify-status:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; } /* the live region waits, taking no room */
+.ow-verify-status[data-tone="danger"] { color: var(--color-danger); }
+@media (min-width: 600px) {
+  .ow-verify .ow-notice > div { display: flex; align-items: center; gap: var(--space-4); }
+  .ow-verify-text { flex: 1; min-width: 0; }
+  .ow-verify .ow-notice-actions { flex: none; max-width: 16rem; margin-top: 0; }
+}
 .ow-muted { color: var(--color-ink-muted); }
 /* Tabular figures on number roles only, so prose („17 Uhr“, „+1 Buchung“) keeps its spacing (Design FIX 3). */
 .ow-num, .ow-metric-value, .ow-table td, .ow-qcount > span:last-child, .ow-strip-n { font-variant-numeric: tabular-nums; }
