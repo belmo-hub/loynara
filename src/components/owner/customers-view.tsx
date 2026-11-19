@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLayoutEffect, useRef, useState, ViewTransition, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Activity as ActivityIcon, ArrowRight, ChevronDown, ChevronRight, Clock, Gift, RefreshCw, ScanLine, Search, Target, Users, type LucideIcon } from "lucide-react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
-import { nearestReward, type CardReward } from "@/components/customer/card-face";
+import { cardGoal, type CardReward } from "@/components/customer/card-face";
 import { MixCard } from "@/components/customer/mix-card";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -313,7 +313,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
           href.set("card", member.id);
           // As on the card's page: the target is the active location's programme, so only its own open cards have one.
           const ours = !member.closedAt && member.locationId === me.locationId;
-          const target = ours ? nearestReward(rewards, member.balance) : undefined;
+          const target = ours ? cardGoal(rewards, member.balance) : undefined;
           return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={() => { listY = { list: list.toString(), y: window.scrollY }; }}>
             {cardLead(member, target)}
             <span className="ow-prog-main">

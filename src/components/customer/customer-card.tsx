@@ -10,7 +10,7 @@ import { CustomerShell } from "@/components/ui/customer-shell";
 import { Sheet } from "@/components/ui/sheet";
 import { LegalLinks } from "@/components/ui/legal-links";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
-import { CardFace, nearestReward, type CardReward } from "./card-face";
+import { CardFace, cardGoal, nearestReward, type CardReward } from "./card-face";
 import { MixCard } from "./mix-card";
 import { MixTile, mixStyles as mix } from "@/components/ui/mix";
 import type { ChangeLine } from "@/lib/change-lines";
@@ -122,9 +122,10 @@ export function CustomerCard(props: CustomerCardProps) {
   useEffect(() => { if (!quiet) return; const heading = document.querySelector<HTMLElement>("main h1"); if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); } }, [quiet]);
   // The icon answers each press with one turn, whatever the read takes.
   const [turn, setTurn] = useState(0);
-  // The reward the progress text refers to: the one closest to redeemable, unless the guest picked another one.
-  const nearest = nearestReward(rewards, balance);
-  const selected = rewards.find((reward) => reward.id === selectedId) ?? nearest;
+  // The reward the card draws: the next one not reached yet (cardGoal), unless the guest picked another one. The goal
+  // line below still names the reward closest to redeemable, so a ready reward is said first. While a booking moment
+  // plays the goal is the one before it, so the grid does not change under the landing stamp (as the Kasse holds it).
+  const selected = rewards.find((reward) => reward.id === selectedId) ?? cardGoal(rewards, moment ? moment.balance - moment.credited : balance);
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
   // During a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak of
   // the real balance from the start: a line count that changed at the step would move the card as the stamp lands.
@@ -257,6 +258,7 @@ const NO_REWARD: Reward = { id: "", title: "", cost: 0 };
  */
 function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: ComponentProps<typeof MixCard> & { landed?: number; landedCount?: number; grow?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const goalId = card.reward.id;
   const reached = useRef<boolean[] | null>(null);
   useLayoutEffect(() => {
     const track = ref.current?.querySelector<HTMLElement>('[role="img"]');
@@ -275,6 +277,55 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
       order += 1;
     });
   }, [landed, landedCount, grow, card.balance]);
+  // A new goal (the hold released after a booking moment, or the guest picking another reward) is a crossfade, not a cut
+  // (Design, #300). Only what changes is copied: the old stamp grid and count, with no ground, fade out over --dur-ui,
+  // linear, over the new card at full opacity, so a stamp that stays earned keeps its pixels. The card's height eases to
+  // the new one as the ready band's slot does, its shadow on the growing edge, and the foot slides down with that edge,
+  // so no word stands in two places and what is below slides. Reduced motion keeps the cut.
+  const shown = useRef<{ id: string; html: string; height: number; stampsEnd: number; footTop: number } | null>(null);
+  const parts = (card: HTMLElement) => {
+    const stamps = card.querySelector<HTMLElement>('[role="img"]');
+    return { stamps, count: card.querySelector<HTMLElement>("[data-figure]")?.closest<HTMLElement>("div") ?? null, foot: stamps?.nextElementSibling as HTMLElement | null | undefined };
+  };
+  useLayoutEffect(() => {
+    const box = ref.current, face = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
+    if (!box || !face || !before || before.id === goalId) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof box.animate !== "function") return;
+    const now = parts(face);
+    if (!now.stamps || !now.count) return;
+    const root = getComputedStyle(document.documentElement);
+    const ui = root.getPropertyValue("--dur-ui").trim(); // the minifier writes .22s, so the unit is read too
+    const duration = parseFloat(ui) * (ui.endsWith("ms") ? 1 : 1000) || 220;
+    const ease = root.getPropertyValue("--ease-out").trim() || "ease-out";
+    // The old card as a hidden frame that shows only its stamps and count, clipped to the stamp area.
+    const old = document.createElement("div");
+    old.innerHTML = before.html;
+    for (const node of old.querySelectorAll<HTMLElement>("*")) { node.removeAttribute("id"); node.removeAttribute("data-new"); node.style.animation = "none"; }
+    const frame = old.firstElementChild as HTMLElement, then = parts(frame);
+    Object.assign(frame.style, { visibility: "hidden", background: "none", boxShadow: "none" });
+    for (const node of [then.stamps, then.count]) if (node) node.style.visibility = "visible";
+    old.setAttribute("aria-hidden", "true");
+    old.inert = true;
+    Object.assign(old.style, { position: "absolute", inset: "0 0 auto", height: `${before.stampsEnd}px`, overflow: "hidden", pointerEvents: "none" });
+    box.append(old);
+    // While it grows the box clips the card to its rounded shape and wears the card's shadow, so the shadow follows the edge.
+    const look = getComputedStyle(face);
+    Object.assign(box.style, { overflow: "hidden", borderRadius: look.borderRadius, boxShadow: look.boxShadow });
+    Object.assign(face.style, { boxShadow: "none" });
+    const grow = box.animate([{ height: `${before.height}px` }, { height: `${face.offsetHeight}px` }], { duration, easing: ease });
+    old.animate([{ opacity: 1 }, { opacity: 0 }], { duration, easing: "linear", fill: "forwards" });
+    const slide = now.foot?.animate([{ transform: `translateY(${before.footTop - now.foot.offsetTop}px)` }, { transform: "none" }], { duration, easing: ease });
+    const done = () => { old.remove(); Object.assign(box.style, { overflow: "", borderRadius: "", boxShadow: "" }); Object.assign(face.style, { boxShadow: "" }); };
+    grow.finished.then(done, done);
+    return () => { grow.cancel(); slide?.cancel(); done(); };
+  }, [goalId]);
+  // What the card looked like after this render: the next goal change fades its stamps and count out.
+  useLayoutEffect(() => {
+    const face = ref.current?.firstElementChild as HTMLElement | null | undefined;
+    if (!face) return;
+    const { stamps, foot } = parts(face);
+    shown.current = { id: goalId, html: face.outerHTML, height: face.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
+  });
   return <div ref={ref} className={className}><MixCard {...card} /></div>;
 }
 

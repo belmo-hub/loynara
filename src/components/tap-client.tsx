@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
-import { CardFace, nearestReward } from "./customer/card-face";
+import { CardFace, cardGoal, nearestReward } from "./customer/card-face";
 import { markSeen, TAP_MARK_SLACK_MS } from "./customer/booking-moment";
 import { CustomerState, StateLink } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
@@ -73,9 +73,12 @@ export const currentBalance = (balance: number, points: boolean) => `Aktueller S
 const scrollToTop = () => window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
 /** The guest's card with the booked balance; during the stamp moment its new stamp lands. */
-export function TapCardFace({ card, balance, moment }: { card: CardResponse; balance: number; moment: boolean }) {
+export function TapCardFace({ card, balance, moment, credited }: { card: CardResponse; balance: number; moment: boolean; credited?: number }) {
   const rewards = card.rewards.map(({ id, title, cost }) => ({ id, title, cost }));
-  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)} landed={moment ? balance : undefined} />;
+  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)}
+    // The grid counts to the next reward not reached before this tap: the tap page is a one-shot result, so a tap that
+    // completes a reward keeps showing the card it completed („3 von 3“, Design #300 ruling).
+    goal={cardGoal(rewards, balance - (credited ?? 1))} landed={moment ? balance : undefined} landedCount={credited} />;
 }
 
 export function TapClient({ refId }: { refId: string }) {
@@ -200,7 +203,7 @@ export function TapClient({ refId }: { refId: string }) {
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
     {done && points && result?.credited ? <p className={styles.credited}><span>+{result.credited}</span> {result.credited === 1 ? "Punkt" : "Punkte"}</p> : null}
-    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
+    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} credited={result.credited} /></div>}
     {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
       <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>

@@ -1,6 +1,7 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { cardGoal } from "./card-face";
 import { CustomerCard, type CustomerCardProps } from "./customer-card";
 
 const base: CustomerCardProps = { businessName: "Synthetic Café", locationName: "Kassel", programType: "stamps", balance: 1, rewards: [{ id: "r1", title: "Kaffee", cost: 5 }] };
@@ -491,5 +492,31 @@ describe("the balance on the guest's card never clamps (ENG-273, Design 18 Nov)"
     expect(html(9)).toContain('aria-label="9 Stempel"');
     expect(html(9)).not.toContain("von 8 Stempeln");
     expect(html(5)).toContain('aria-label="5 von 8 Stempeln"');
+  });
+});
+
+describe("several rewards: the card draws the next one not reached (Design, #285 ruling b, ENG-270)", () => {
+  const rewards = [{ id: "big", title: "Gratiskaffee", cost: 8 }, { id: "small", title: "Kleiner Kaffee", cost: 3 }];
+  it("is the cheapest reward not reached yet, or the largest once all are reached", () => {
+    expect(cardGoal(rewards, 2)?.id).toBe("small");
+    expect(cardGoal(rewards, 3)?.id).toBe("big");
+    expect(cardGoal(rewards, 4)?.id).toBe("big");
+    expect(cardGoal(rewards, 9)?.id).toBe("big");
+    expect(cardGoal([], 4)).toBeUndefined();
+  });
+  it("draws 8 slots at 4 with the ready 3-stamp reward still named first, and the true count over every goal", () => {
+    const at = (balance: number) => renderToStaticMarkup(h(CustomerCard, { ...base, balance, rewards }));
+    expect(at(4)).toContain('aria-label="4 von 8 Stempeln"');
+    expect(at(4)).toContain("Kleiner Kaffee"); // the goal line says the ready reward
+    expect(at(2)).toContain('aria-label="2 von 3 Stempeln"');
+    expect(at(9)).toContain('aria-label="9 Stempel"');
+  });
+});
+
+describe("the guest card's goal during a booking moment (Design, #300)", () => {
+  const rewards = [{ id: "big", title: "Gratiskaffee", cost: 8 }, { id: "small", title: "Kleiner Kaffee", cost: 3 }];
+  it("keeps the goal from before the moment, so the grid does not change under the landing stamp", () => {
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, rewards, balance: 3, moment: { credited: 1, balance: 3 } }))).toContain('aria-label="3 von 3 Stempeln"');
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, rewards, balance: 3 }))).toContain('aria-label="3 von 8 Stempeln"');
   });
 });
