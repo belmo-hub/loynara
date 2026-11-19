@@ -41,8 +41,8 @@
 .page :global(.ow-prog) ul :global(.ow-prog-row) { min-height: var(--mix-row-2); padding: var(--space-2) var(--space-5); gap: var(--space-3); }
 .page .cards ul :global(.ow-prog-row) { min-height: var(--mix-row-card); }
 /* The panel's first and last rows follow its 20 px curve, so their inset ring and press fill keep the corners (Design, #283). */
-.page .cards ul > li:first-child > :global(.ow-prog-row) { border-start-start-radius: 19px; border-start-end-radius: 19px; }
-.page .cards ul > li:last-child > :global(.ow-prog-row) { border-end-start-radius: 19px; border-end-end-radius: 19px; }
+.page :global(.ow-prog) ul > li:first-child > :global(.ow-prog-row) { border-start-start-radius: 19px; border-start-end-radius: 19px; }
+.page :global(.ow-prog) ul > li:last-child > :global(.ow-prog-row) { border-end-start-radius: 19px; border-end-end-radius: 19px; }
 .page :global(.ow-prog-text) strong { line-height: 24px; }
 .page :global(.ow-prog-text) small { margin-top: 0; line-height: 20px; }
 .page :global(.ow-prog-arrow) { margin: 0 -6px; color: var(--color-ink-faint); }
