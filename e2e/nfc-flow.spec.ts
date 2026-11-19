@@ -186,6 +186,7 @@ test("at 390 a double tap on „Buchen“ that lands on „Ja, vergeben“ books
     // Measure where „Ja, vergeben“ appears, then scroll the page so „Buchen“ sits right under it.
     await buchen.click();
     const ja = (await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).boundingBox())!;
+    await counter.waitForTimeout(450);  // past the guard, so this test does not lean on the panel ignoring early clicks
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     const before = (await buchen.boundingBox())!;
@@ -199,6 +200,20 @@ test("at 390 a double tap on „Buchen“ that lands on „Ja, vergeben“ books
     expect(f.confirms).toHaveLength(0);
     expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
     expect(await counter.evaluate(() => document.activeElement?.textContent)).toBe("Abbrechen");
+    // A press that starts inside the guard and ends after it (down at about 250 ms, up 300 ms later) books nothing either.
+    await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const again = (await buchen.boundingBox())!;
+    await counter.evaluate(dy => window.scrollBy(0, dy), again.y + again.height / 2 - y);
+    await counter.mouse.click(x, y);
+    await counter.waitForTimeout(250);
+    await counter.mouse.down();
+    await counter.waitForTimeout(300);
+    await counter.mouse.up();
+    await counter.waitForTimeout(1_000);
+    await expect(dialog).toBeVisible();
+    expect(f.confirms).toHaveLength(0);
+    expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
     // After the guard time „Ja, vergeben“ books, once.
     await dialog.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
     await expect(counter.getByRole("status").filter({ hasText: `Punkte für ${f.guest.cardLocator} gebucht.` })).toBeVisible();
@@ -219,4 +234,22 @@ test("a request that expires while its confirmation is open closes the dialog wi
     expect(f.confirms).toHaveLength(0);
     expect(await ledgerRowsFor(f.guest.cardToken)).toBe(0);
   } finally { await f.close(); }
+});
+
+test("the QR counter's confirmation names the amount in euros, like the NFC one (ENG-274)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const m = await merchantWithTag(url, "QR Pizzeria", { programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je Euro Einkaufswert.", rewardCost: 100 });
+  try {
+    const guest = await customerWithCard(browser, url, m.me.programSlug);
+    const cashierCtx = await staffContext(browser, url, m.cashier);
+    const counter = await cashierCtx.newPage();
+    await counter.goto("/cashier");
+    await counter.getByLabel("Kartennummer oder Kartencode").fill(guest.scanCode);
+    await counter.getByRole("button", { name: "Prüfen", exact: true }).click();
+    await counter.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
+    await counter.getByLabel("Kaufbetrag (EUR)").fill("12,50");
+    await counter.getByRole("button", { name: "Buchen", exact: true }).click();
+    await expect(counter.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText(`12 Punkte für einen Kauf über 12,50 € für Karte ${guest.cardLocator}.`);
+    await Promise.all([guest.context.close(), cashierCtx.close()]);
+  } finally { await m.close(); }
 });

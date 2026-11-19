@@ -20,7 +20,9 @@ export function Dialog({ open, onClose, title, description, children, actions, c
   useModal(ref, open);
   const backdrop = useBackdropClose(onClose);
   const openedAt = useRef(0);
-  // data-guard also takes the panel out of hit-testing for that time, so a test robot waits for it like a person would.
+  // data-guard takes the panel out of hit-testing for that time. That is the protection for a press that starts inside
+  // the 400 ms and ends after it: the capture handlers alone swallow its pointerdown, but its click would land on the
+  // action and book. (It also makes a test robot wait like a person.)
   useEffect(() => {
     const dialog = ref.current;
     if (!open || !dialog) return;
