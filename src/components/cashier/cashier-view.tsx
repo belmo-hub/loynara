@@ -18,6 +18,7 @@ import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
 import { STAMP_GRID_MAX, StampGrid } from "@/components/ui/stamp-grid";
 import { unitWord, withUnit } from "@/lib/units";
+import { formatMinor } from "@/lib/spend-copy";
 import { birthdayCashierLine, WINBACK_EXCLUSIONS, winbackCashierLine } from "@/lib/wallet-message-rules";
 import styles from "./cashier-view.module.css";
 
@@ -166,7 +167,6 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
   };
   const unit = card?.programType === "points" ? t.points : t.stamps;
   const number = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE");
-  const money = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const purchaseMode = card?.programType === "points" && card.earningMode === "purchase";
   // What „Buchen“ will book, shown before the tap: the points, any bonus booked with them, and the new balance.
   let purchasePreview: { amountMinor: number; points: number } | null = null;
@@ -375,7 +375,7 @@ export function CashierView({ locationName, card, preview, booked, onUndo, onCon
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
     {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
-      description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))} {unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{money.format(confirm.award.purchaseAmountMinor / 100)} {card.currency}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
+      description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))}{"\u00a0"}{unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{formatMinor(confirm.award.purchaseAmountMinor, card.currency)}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
       actions={<>
         <Button variant="secondary" onClick={cancelConfirm}>{t.cancel}</Button>
         {confirm.kind === "award" && onQueueOffline && offlineLeaseExpiresAt && <Button variant="secondary" onClick={() => { onQueueOffline(card, confirm.award); setConfirm(null); }} disabled={busy}>{locale === "fr" ? "Mettre l’ajout hors ligne en attente" : "Offline-Vergabe vormerken"}</Button>}
