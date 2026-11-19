@@ -60,7 +60,8 @@ const only = (values: Array<number | string>, ...allowed: Array<number | string>
 
 // Screens whose content has no section label of the kinds above; the rest must show at least one before they pass.
 const NO_LABELS = ["/merchant/adviser", "/merchant/staff/invite", "/merchant/customers/import"];
-for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
+// Programm has the mix rhythm (ENG-259), measured in its own test below.
+for (const path of ["/merchant", "/merchant/analytics", "/merchant/program/card", "/merchant/billing", "/merchant/locations", "/merchant/customers", "/merchant/customers/import", "/merchant/settings", "/merchant/staff/invite", "/merchant/referrals", "/merchant/adviser"]) {
   test(`${path} keeps the owner rhythm`, async () => {
     await page.goto(path);
     await expect(page.locator("#ow-main h1")).toBeVisible();
@@ -73,6 +74,20 @@ for (const path of ["/merchant", "/merchant/analytics", "/merchant/program", "/m
     expect(await smallTargets(page, { scope: ".ow-rows-head" })).toEqual([]);
   });
 }
+
+// Programm in the mix (ENG-259): every section title 12 above its panel, sections 32 apart in each column.
+test("/merchant/program keeps the mix rhythm", async () => {
+  await page.goto("/merchant/program");
+  await expect(page.getByRole("heading", { level: 2, name: "Für die Ergebnisse" })).toBeVisible();
+  expect(await page.evaluate(() => {
+    const box = (el: Element) => el.getBoundingClientRect(), px = (n: number) => Math.round(n * 2) / 2;
+    const titles = [...document.querySelectorAll("#ow-main section > h2, #ow-main section > div > h2")];
+    const below = titles.map(h => { const head = h.parentElement!.matches("section") ? h : h.parentElement!; return px(box(head.nextElementSibling!).top - box(head).bottom); });
+    const sections = [...document.querySelectorAll("#ow-main section:has(> h2, > div > h2)")];
+    const above = sections.flatMap(sec => { const prev = sections.filter(o => o !== sec && Math.abs(box(o).left - box(sec).left) < 1 && box(o).bottom <= box(sec).top).sort((a, b) => box(a).bottom - box(b).bottom).at(-1); return prev ? [px(box(sec).top - box(prev).bottom)] : []; });
+    return { titles: titles.length, below: [...new Set(below)], above: [...new Set(above)] };
+  })).toEqual({ titles: 6, below: [12], above: [32] });
+});
 
 // The card screen in the mix (ENG-258): the card 16 above „Verlauf“ on the phone column, every statement line at least
 // 64 high and on the 4 px grid (the two stamps booked in the setup).
