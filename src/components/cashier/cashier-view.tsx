@@ -371,7 +371,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // The strip mirrors the state; the outcome panels below announce it, so the strip is not a second live region. With a
   // card on the counter the state sits in the card's foot; after a booking the result carries its own title.
   return <CashierShell lang={locale} live={false} brandColor={brandColor} location={<span className="cashier-location">{locationName}</span>} actions={headerActions}
-    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : undefined} dockFloor={card && !booked ? (focusCodeInput ? TYPED_FLOOR : SCAN_FLOOR) : undefined}>
+    state={shellState} stateLabel={booked || card ? null : stateLabel} stateDetail={stateDetail} dock={dock} dockLabel={t.book} dockMinHeight={booked ? dockHold : undefined} holdTop={Boolean(dockHold && (busy || booked))} dockFloor={card && !booked ? (focusCodeInput ? TYPED_FLOOR : SCAN_FLOOR) : undefined}>
     {/* The scan state asks its question; with a card or a result on screen the heading stays for screen readers only. */}
     <h1 className={cx(styles.question, card || preview || booked ? styles.srOnly : styles.title)}>{card || booked?.card ? t.found : t.scanTitle}</h1>
     {nfcPanel}
