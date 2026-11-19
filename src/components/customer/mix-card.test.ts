@@ -12,7 +12,7 @@ const earned = (html: string) => (html.match(/<span[^>]*data-on="true"/g) ?? [])
 const dots = (html: string) => [(html.match(/<i data-on="true"/g) ?? []).length, (html.match(/<i/g) ?? []).length];
 
 describe("the mix card (ENG-253)", () => {
-  it("earns as many stamps as the balance, clamped to 0 … goal, at every size", () => {
+  it("earns as many stamps as the balance, the grid clamped to 0 … goal, at every size", () => {
     for (let n = 0; n <= 8; n++) {
       expect(earned(card({ balance: n }))).toBe(n);
       expect(earned(card({ balance: n, size: "kasse" }))).toBe(n);
@@ -21,6 +21,23 @@ describe("the mix card (ENG-253)", () => {
     }
     expect(earned(card({ balance: -2 }))).toBe(0);
     expect(earned(card({ balance: 11 }))).toBe(8);
+  });
+
+  // Design, 18 Nov: above the goal the figure never clamps; the true count stands with its unit in place of „von 8“.
+  it("above the goal shows the true count with its unit, in every voice, and says it to a screen reader", () => {
+    const guest = card({ balance: 9 }), owner = card({ balance: 9, voice: "owner" }), kasse = card({ balance: 9, size: "kasse", label: "Aktueller Kontostand" });
+    for (const html of [guest, owner]) {
+      expect(text(html)).toMatch(/\b9 Stempel\b/);
+      expect(text(html)).not.toContain("von 8");
+      expect(html).toContain('aria-label="9 Stempel"');
+      expect(earned(html)).toBe(8);
+    }
+    expect(kasse).toMatch(/<b data-figure="">.*9.*<small>\u00a0Stempel<\/small><\/b>/);
+    expect(text(kasse)).not.toContain("von 8");
+    expect(guest).toContain("Deine Prämie ist bereit:");
+    expect(owner).toContain("Stand reicht für „Gratiskaffee“.");
+    // At the goal it still reads „8 von 8“.
+    expect(text(card({ balance: 8 }))).toContain("8 von 8");
   });
 
   // ENG-273, Design 18 Nov: the figure never clamps; above the goal the true count stands with its unit in place of „von 8“.
@@ -68,7 +85,7 @@ describe("the mix card (ENG-253)", () => {
   it("at the Kasse: the card number, its note, the labelled balance and the page's own foot", () => {
     const kasse = card({ size: "kasse", title: "K-C7YPM6", sub: "Geprüfte Karte", label: "Aktueller Kontostand", foot: h("a", null, "Andere Karte") });
     expect(text(kasse)).toMatch(/^D K-C7YPM6 Geprüfte Karte 5 von 8 Aktueller Kontostand .*Andere Karte$/);
-    expect(kasse).toContain("5<small> von 8</small>"); // a reader hears „5 von 8“, not „5von 8“
+    expect(kasse).toMatch(/>5<\/span><small>\u00a0von 8<\/small>/); // a reader hears „5\u00a0von 8“, not „5von 8“
     expect(text(card({ size: "kasse" }))).not.toContain("Prämie");
   });
 
@@ -119,5 +136,21 @@ describe("the mix card (ENG-253)", () => {
   it("puts every stamp on a whole pixel", () => {
     const css = readFileSync(join(__dirname, "mix-card.module.css"), "utf8");
     expect(css).toContain("width: round(var(--st), 1px);");
+  });
+});
+
+describe("the Kasse card's grid (Design, 18 Nov)", () => {
+  it("keeps two rows: above 8 stamps ceil(goal / 2) columns, at the Kasse size only", () => {
+    expect(card({ size: "kasse", reward: { ...coffee, cost: 12 } })).toContain("--cols:6");
+    expect(card({ size: "kasse", reward: { ...coffee, cost: 10 } })).toContain("--cols:5");
+    expect(card({ size: "kasse" })).toContain("--cols:4");
+    expect(card({ reward: { ...coffee, cost: 12 } })).toContain("--cols:4"); // the guest card keeps the mock's grid
+  });
+  it("draws earned stamps as plain discs from 9 columns", () => {
+    const twenty = card({ size: "kasse", balance: 5, reward: { ...coffee, cost: 20 } });
+    expect(twenty).toContain("--cols:10");
+    expect(earned(twenty)).toBe(5);
+    expect(twenty).not.toContain("lucide-check");
+    expect(card({ size: "kasse", balance: 5, reward: { ...coffee, cost: 12 } })).toContain("lucide-check");
   });
 });

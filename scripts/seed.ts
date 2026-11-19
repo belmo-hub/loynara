@@ -60,6 +60,8 @@ async function ensureUser(email: string, name: string, password: string) {
   const { auth } = await import("../src/lib/auth");
   const created = await auth.api.signUpEmail({ body: { email, name, password } });
   if (!created.user?.id) throw new Error(`Local demo account was not created for ${email}`);
+  // ENG-278: seeded accounts stand in for operator-made ones, which count as confirmed.
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [created.user.id]);
   return created.user.id;
 }
 

@@ -229,3 +229,7 @@
 .item, .notice, .outcome { animation: appear var(--dur-ui) var(--ease-out) backwards; }
 @keyframes appear { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .item, .notice, .outcome { animation: none; } }
+
+/* The confirmation's figures the cashier checks money against (ENG-274), and a card number that never breaks. */
+.figure { color: var(--color-ink); }
+.nowrap { white-space: nowrap; }
