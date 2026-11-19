@@ -22,6 +22,9 @@ describe("counts on the cashier screen (ENG-108)", () => {
     expect(view("fr", { programType: "stamps", winbackBonus: 1 })).toContain("Bon retour : +1 tampon en plus");
     expect(view("de", { winbackBonus: 1 })).toContain("Willkommen zurück: +1 Punkt extra");
   });
+  it("above the goal the stamp grid tells a screen reader the true count, not the goal (ENG-273)", () => {
+    expect(view("de", { programType: "stamps", balance: 9, rewards: [{ id: "r1", name: "Kaffee", cost: 8, eligible: true }] })).toContain('aria-label="9 Stempel"');
+  });
   it("balance, with French zero in the singular", () => {
     expect(view("de")).toMatch(/>1<\/span> <em>Punkt<\/em>/);
     expect(view("de", { balance: 2 })).toMatch(/>2<\/span> <em>Punkte<\/em>/);

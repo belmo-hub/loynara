@@ -293,3 +293,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .pretty { text-wrap: pretty; }
 /* The booking roll's incoming digit rises inside the figure's own box, not over the label under it (Kasse card only). */
 .kasse :global([data-figure]) { overflow: clip; }
+/* The confirmation's figures the cashier checks money against (ENG-271), and a card number that never breaks. */
+.figure { color: var(--color-ink); }
+.nowrap { white-space: nowrap; }
+dialog .note { padding: 0; background: none; }

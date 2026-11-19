@@ -18,7 +18,7 @@ const instant = z.string().datetime({ offset: true });
 const generation = z.union([sha, z.string().regex(/^sha256:[0-9a-f]{64}$/)]);
 const flags = z.object({ NFC_ENABLED: z.literal(false), APPLE_WALLET_ENABLED: z.literal(false), GOOGLE_WALLET_ENABLED: z.literal(false), PASSFAST_ENABLED: z.literal(false),
   EXTERNAL_EMAIL_ENABLED: z.literal(false), PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false), TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: z.literal(false),
-  LIVE_BILLING_ENABLED: z.literal(false), WALLET_PRODUCTION_APPROVED: z.literal(false), PUBLIC_REGISTRATION_ENABLED: z.literal(false) }).strict();
+  LIVE_BILLING_ENABLED: z.literal(false), WALLET_PRODUCTION_APPROVED: z.literal(false), PUBLIC_REGISTRATION_ENABLED: z.boolean() }).strict();
 // Configured branch and deployed build provenance are separate facts. These
 // utility snapshots were independently observed via Railway read-only metadata.
 // They are current-baseline identities, not permission to deploy another source.

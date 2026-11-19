@@ -40,6 +40,23 @@ describe("the mix card (ENG-253)", () => {
     expect(text(card({ balance: 8 }))).toContain("8 von 8");
   });
 
+  // ENG-273, Design 18 Nov: the figure never clamps; above the goal the true count stands with its unit in place of „von 8“.
+  it("reads „N von G“ up to the goal and the true count above it, in guest and owner voice and to a screen reader", () => {
+    for (const voice of ["guest", "owner"] as const) {
+      expect(text(card({ balance: 5, voice }))).toMatch(/\b5 von 8\b/);
+      expect(text(card({ balance: 8, voice }))).toMatch(/\b8 von 8\b/);
+      const over = card({ balance: 9, voice });
+      expect(text(over)).toMatch(/\b9 Stempel\b/);
+      expect(text(over)).not.toContain("von 8");
+      expect(over).toContain('aria-label="9 Stempel"');
+      expect(earned(over)).toBe(8);
+    }
+    expect(card({ balance: 9, size: "thumb" })).toContain('aria-label="9 Stempel"');
+    expect(text(card({ balance: 9, size: "kasse", label: "Aktueller Kontostand" }))).toContain("9 Stempel Aktueller Kontostand");
+    expect(card({ balance: 35, reward: { ...coffee, cost: 31 } })).toContain('aria-label="35 Stempel"'); // the track above 30
+    expect(text(card({ programType: "points", balance: 186, reward: { ...coffee, cost: 120 } }))).toContain("186 Punkte");
+  });
+
   it("lays 8 and 12 stamps in fours and 10 in fives", () => {
     expect([8, 10, 12].map(mixColumns)).toEqual([4, 5, 4]);
     expect(card({ reward: { ...coffee, cost: 10 } })).toContain("--cols:5");
