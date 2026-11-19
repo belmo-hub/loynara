@@ -105,3 +105,30 @@ export async function refundRateLimit({ scope, identity }: Pick<Limit, "scope" |
 export function enforcePeerLimit(request: Request, scope: string, max: number, windowSeconds: number, queries: Pick<Pool, "query"> = pool) {
   return enforceRateLimit({ scope, identity: peerIdentity(request), max, windowSeconds }, queries);
 }
+
+// ENG-281: the owner privacy page promises counters go at most 48 hours after their window ends. A counter can sit just
+// under the threshold at one run and wait a whole interval for the next, so threshold + interval must stay within 48 h.
+export const RATE_LIMIT_PRUNE_AFTER_HOURS = 24;
+export const RATE_LIMIT_PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+
+/** Run by the worker every RATE_LIMIT_PRUNE_INTERVAL_MS; also by scripts/prune-rate-limits.ts by hand. */
+export async function pruneExpiredRateLimits(queries: Pick<Pool, "query"> = pool): Promise<number> {
+  // shortcut: at most 10,000 rows per call, in batches of 500; a larger backlog waits for the next run and can outlast
+  // the 48 hours. Run it more often if a day ever ends with the cap hit (the script says "rerun").
+  let removed = 0;
+  for (let batch = 0; batch < 20; batch += 1) {
+    const result = await queries.query(`
+      WITH expired AS (
+        SELECT key_hash FROM rate_limits
+        WHERE reset_at < now() - $1::integer * interval '1 hour'
+        ORDER BY reset_at
+        LIMIT 500
+      )
+      DELETE FROM rate_limits AS r USING expired
+      WHERE r.key_hash = expired.key_hash
+    `, [RATE_LIMIT_PRUNE_AFTER_HOURS]);
+    removed += result.rowCount ?? 0;
+    if ((result.rowCount ?? 0) < 500) break;
+  }
+  return removed;
+}

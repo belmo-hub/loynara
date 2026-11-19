@@ -1,11 +1,11 @@
 import { Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { withUnit } from "@/lib/units";
+import { keepUnits, withUnit } from "@/lib/units";
 import { cx } from "./cx";
 import styles from "./stamp-grid.module.css";
 
 /** `reward`: the icon the last slot shows in an ink ring until it is earned (the owner's card view, ENG-122a). */
-type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string;
+type Props = { earned: number; total: number; landed?: number; landedCount?: number; locale?: "de" | "fr"; mark?: ReactNode; reward?: ReactNode; size?: "md" | "sm"; className?: string; /** No break between a figure and its word in the label (the Kasse). */ keepUnits?: boolean;
   /** A long programme's track grows from the start, once (the guest card page's first paint). */
   grow?: boolean };
 
@@ -30,10 +30,10 @@ export function stampColumns(total: number) {
  * `landed` play the landing motion once, 90 ms apart (DESIGN.md, "Pop in"). Programmes longer than STAMP_GRID_MAX stamps get one progress
  * track instead, so the card keeps its height whatever the merchant sets.
  */
-export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, grow = false }: Props) {
+export function StampGrid({ earned, total, landed, landedCount = 1, locale = "de", mark, reward, size = "md", className, grow = false, keepUnits: keep = false }: Props) {
   const filled = Math.max(0, Math.min(earned, total));
   // Above the goal a reader hears the true count, as the card shows it (Design, 18 Nov: never clamp).
-  const label = earned > total ? withUnit(earned, "stamps", locale) : stampsLabel(filled, total, locale);
+  const plain = earned > total ? withUnit(earned, "stamps", locale) : stampsLabel(filled, total, locale), label = keep ? keepUnits(plain) : plain;
   if (total > STAMP_GRID_MAX) {
     return <div className={cx(styles.track, className)} role="img" aria-label={label} data-grow={grow || undefined}>
       <span className={styles.trackFill} style={{ "--progress": total > 0 ? filled / total : 0 } as CSSProperties} />

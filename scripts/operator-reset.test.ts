@@ -150,7 +150,7 @@ describe("operator credential reset (existing owner or staff identity)", () => {
   it("refuses when an auth hook could send mail or cause side effects", async () => {
     await provision();
     const ctx = await context();
-    const hooked = { ...ctx, internalAdapter: ctx.internalAdapter, password: ctx.password, options: { ...ctx.options, emailVerification: { sendVerificationEmail: () => undefined } } } as unknown as ResetContextLike;
+    const hooked = { ...ctx, internalAdapter: ctx.internalAdapter, password: ctx.password, options: { ...ctx.options, databaseHooks: { user: { create: { before: () => undefined } } } } } as unknown as ResetContextLike;
     await expect(reset({ ctx: hooked })).rejects.toMatchObject({ code: "UNEXPECTED_AUTH_HOOK" });
   });
 

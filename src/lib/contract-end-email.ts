@@ -45,11 +45,13 @@ export async function deliverContractEndEmail(job: { id: string; tenantId: strin
   // The footer names the operator (Legal, Q-93), from the operator's own settings, so it never waits on live billing (CTO).
   const operator = operatorIdentity();
   if (!operator) return { status: "deferred" as const, reason: "Operator name or address unavailable (OPERATOR_NAME, OPERATOR_ADDRESS)", until: later };
-  const { rows } = await db.execute(sql`SELECT u.email, t.name AS shop, (SELECT p.type FROM programs p WHERE p.tenant_id = t.id ORDER BY p.created_at LIMIT 1) AS type
+  const { rows } = await db.execute(sql`SELECT u.email, u."emailVerified" AS confirmed, t.name AS shop, (SELECT p.type FROM programs p WHERE p.tenant_id = t.id ORDER BY p.created_at LIMIT 1) AS type
     FROM staff_roles o JOIN "user" u ON u.id = o.user_id JOIN tenants t ON t.id = o.tenant_id
     WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active ORDER BY o.created_at LIMIT 1`);
-  const owner = rows[0] as { email: string; shop: string; type: string } | undefined;
+  const owner = rows[0] as { email: string; confirmed: boolean; shop: string; type: string } | undefined;
   if (!owner) return { status: "suppressed" as const, reason: "No owner to write to" };
+  // ENG-278: never to an unconfirmed address; like the other missing preconditions, M1 waits for it rather than dropping.
+  if (!owner.confirmed) return { status: "deferred" as const, reason: "Owner email not confirmed", until: later };
   const text = await contractEndEmailText({ tenantId: job.tenantId, shop: owner.shop, unit: owner.type === "stamp" ? "Stempel" : "Punkte", event: parsed.data, operator, now });
   if (!text) return { status: "suppressed" as const, reason: "Shop not found" };
   // Reserved by job id before the provider is called: a retried or replayed job never sends a second mail.

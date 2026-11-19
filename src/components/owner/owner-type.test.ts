@@ -38,7 +38,7 @@ describe("owner heading weight", () => {
   // document in src/lib/counter-sign.ts. Print kit v2 redraws it in Manrope (set D6).
   it("tightens tracking only on display sizes, in owner.css or any stylesheet", () => {
     const DISPLAY = /var\(--(?:text-(?:22|28)|display-[\w-]+)\)/;
-    const OWN_SHAPE = /^\.ow-pass|^\.word$/; // Apple's and Google's passes, the brand word mark
+    const OWN_SHAPE = /^\.ow-pass|^\.word$|^\.stepper output$/; // Apple's and Google's passes, the brand word mark, the Kasse's 96 px amount
     const sheets = files("src").filter(path => path.endsWith(".css"));
     const tight = sheets.flatMap(path => {
       const all = cssDeclarations(readFileSync(path, "utf8"));

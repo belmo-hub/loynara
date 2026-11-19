@@ -124,7 +124,7 @@ describe("operator identity: provisioning (real Better Auth against the disposab
     expect(account.providerId).toBe("credential");
     expect(account.userId).toBe(result.userId);
     expect(account.password).not.toMatch(/Pl!/);
-    expect((await pool.query('select "emailVerified" from "user"')).rows[0].emailVerified).toBe(false);
+    expect((await pool.query('select "emailVerified" from "user"')).rows[0].emailVerified).toBe(true);
     expect(log).not.toHaveBeenCalled();
     expect(err).not.toHaveBeenCalled();
     log.mockRestore(); err.mockRestore();
@@ -180,7 +180,7 @@ describe("operator identity: provisioning (real Better Auth against the disposab
 
   it("refuses when an auth hook could send mail or cause side effects", async () => {
     const ctx = (await auth.$context) as unknown as AuthContextLike & { adapter: Parameters<typeof runWithTransaction>[0] };
-    const hooked = { ...ctx, internalAdapter: ctx.internalAdapter, password: ctx.password, options: { ...ctx.options, emailVerification: { sendVerificationEmail: () => undefined } } } as AuthContextLike;
+    const hooked = { ...ctx, internalAdapter: ctx.internalAdapter, password: ctx.password, options: { ...ctx.options, databaseHooks: { user: { create: { before: () => undefined } } } } } as AuthContextLike;
     const before = await counts();
     await expect(provision({ ctx: hooked })).rejects.toMatchObject({ code: "UNEXPECTED_AUTH_HOOK" });
     expect(await counts()).toEqual(before);

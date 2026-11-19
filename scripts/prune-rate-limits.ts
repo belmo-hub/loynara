@@ -1,24 +1,10 @@
 import "dotenv/config";
 import { pool } from "../src/db";
+import { pruneExpiredRateLimits } from "../src/lib/rate-limit";
 
-// Daily operator task. This is technical counter housekeeping, not a legal
-// retention policy. Each invocation removes at most 10,000 expired records.
+// The worker runs this daily (ENG-281); this script is for a manual run.
 async function main() {
-  let removed = 0;
-  for (let batch = 0; batch < 20; batch += 1) {
-    const result = await pool.query(`
-      WITH expired AS (
-        SELECT key_hash FROM rate_limits
-        WHERE reset_at < now() - interval '48 hours'
-        ORDER BY reset_at
-        LIMIT 500
-      )
-      DELETE FROM rate_limits AS r USING expired
-      WHERE r.key_hash = expired.key_hash
-    `);
-    removed += result.rowCount ?? 0;
-    if ((result.rowCount ?? 0) < 500) break;
-  }
+  const removed = await pruneExpiredRateLimits();
   console.log(`Pruned ${removed} expired rate-limit records${removed === 10_000 ? "; rerun if backlog remains" : ""}.`);
 }
 
