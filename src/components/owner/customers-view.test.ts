@@ -1,12 +1,20 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Gift } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 import { progressLine } from "@/components/customer/mix-card";
 import { dayLabel, mixCardReward } from "./card-screen";
-import { cardLead, groupCount, groupTiles, searchHref } from "./customers-view";
+import { cardLead, CustomersView, groupCount, groupTiles, searchHref } from "./customers-view";
+
+let address = new URLSearchParams();
+vi.mock("next/navigation", () => ({ useSearchParams: () => address, useRouter: () => ({ push: () => {}, replace: () => {} }) }));
+vi.mock("./owner-context", () => ({ useOwner: () => ({ me: { role: "owner", programType: "stamp", programSlug: "cafe", locationId: "loc-1", locationName: "Laden", publicBaseUrl: "https://example.test" }, locations: [] }) }));
+vi.mock("./use-load", () => ({ useLoad: (url: string | null) => [
+  !url ? { state: "idle" } : url.startsWith("/api/merchant/retention") ? { state: "ok", data: summary(), at: 0 }
+    : url.startsWith("/api/merchant/customers") ? { state: "ok", data: { members: [], nextCursor: null }, at: 0 } : { state: "ok", data: { rewards: [] }, at: 0 },
+  () => {}] }));
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
   nearReward: 3, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 3, nearRewardId: null, programCount: 1, rules: RETENTION_RULES, ...patch });
@@ -92,5 +100,24 @@ describe("Kunden 03: the mix card only for stamps (ENG-258, Design 18 Nov)", () 
     expect(mixCardReward("stamp", reward)).toBe(reward);
     expect(mixCardReward("points", reward)).toBeUndefined();
     expect(mixCardReward("stamp", undefined)).toBeUndefined();
+  });
+});
+
+describe("Kunden's group counts and order (Design, #283 SHIP follow-up 4)", () => {
+  const page = (query: string) => { address = new URLSearchParams(query); return renderToStaticMarkup(createElement(CustomersView)); };
+  const groups = (html: string) => html.slice(html.indexOf('aria-labelledby="cu-groups"'), html.indexOf('aria-labelledby="cu-h"'));
+  it("shows no counts in the group rows or the picker with „Alle“ or „Geschlossen“, and the read's counts with „Aktiv“", () => {
+    for (const query of ["activity=all", "activity=all&status=closed"]) {
+      expect(groups(page(query))).not.toContain("ow-prog-value");
+      expect(groups(page(query))).toContain("<option value=\"recent\">Kürzlich aktiv</option>");
+    }
+    const active = groups(page("activity=all&status=active"));
+    expect(active.match(/class="ow-prog-value"/g)).toHaveLength(6);
+    expect(active).toContain("<option value=\"recent\">Kürzlich aktiv 12</option>");
+  });
+  it("puts the invite after the cards in the DOM (the grid places it under the groups from 1200)", () => {
+    const html = page("activity=all&status=active");
+    expect(html.indexOf("Kunden einladen")).toBeGreaterThan(html.indexOf('aria-labelledby="cu-h"'));
+    expect(html.indexOf('aria-labelledby="cu-h"')).toBeGreaterThan(html.indexOf('aria-labelledby="cu-groups"'));
   });
 });
