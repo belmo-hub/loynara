@@ -87,7 +87,7 @@ describe("local contact ownership and separate marketing preference", () => {
     expect(await requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
     expect(await contactStatus(member.cardToken)).toMatchObject({ emailVerified: true, marketingEmail: false, pending: "marketing" });
     const later = await mail(member.id);
-    expect(later.message.subject).toBe("Bitte bestätige: E-Mails von Synthetic Contact Café");
+    expect(later.message.subject).toBe("Bitte bestätige: E-Mails von „Synthetic Contact Café“");
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await consumeContactVerification(later.token)).toMatchObject({ verified: true, marketing: true });
     expect(await requestContactVerification(member.cardToken, undefined, true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "verified" });
@@ -179,12 +179,12 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     expect(await requestContactVerification(member.cardToken, "guest@example.test", true, EMAIL_CONSENT_TEXT_VERSION)).toEqual({ status: "queued" });
     expect(await contactStatus(member.cardToken)).toMatchObject({ contactPresent: true, emailVerified: false, marketingEmail: false, pending: "marketing" });
     const { message, token } = await mail(member.id);
-    expect(message).toMatchObject({ to: "guest@example.test", fromName: "Synthetic Contact Café via Loynara", subject: "Bitte bestätige: E-Mails von Synthetic Contact Café" });
-    expect(message.body).toContain("damit Synthetic Contact Café dir Angebote, Neuigkeiten und Erinnerungen schicken darf");
-    expect(message.body).toContain(`Ja, ich möchte E-Mails von Synthetic Contact Café\nhttp://localhost:3000/verify-email#token=${token}\n\nDer Link gilt 30 Minuten.`);
+    expect(message).toMatchObject({ to: "guest@example.test", fromName: "Loynara", subject: "Bitte bestätige: E-Mails von „Synthetic Contact Café“" });
+    expect(message.body).toContain("damit „Synthetic Contact Café“ dir Angebote, Neuigkeiten und Erinnerungen schicken darf");
+    expect(message.body).toContain(`Ja, ich möchte E-Mails von „Synthetic Contact Café“\nhttp://localhost:3000/verify-email#token=${token}\n\nDer Link gilt 30 Minuten.`);
     expect(message.body).not.toContain(member.cardToken);
     expect(message.body).not.toContain("/card/");
-    expect(message.body).toContain("\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von Synthetic Contact Café.\nDatenschutzhinweise: http://localhost:3000/datenschutz");
+    expect(message.body).toContain("\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von „Synthetic Contact Café“.\nDatenschutzhinweise: http://localhost:3000/datenschutz");
     // Delivered, not clicked: nothing recorded, nothing marketing goes out.
     expect(await db.select().from(consentEvents)).toHaveLength(0);
     expect(await consumeContactVerification(token)).toEqual({ verified: true, marketing: true, shopName: "Synthetic Contact Café", brandColor: "#264C45" });
@@ -337,7 +337,7 @@ describe("ENG-007: e-mail offer on the card with double opt-in", () => {
     await a.stamp(); await b.stamp();
     await requestContactVerification(a.member.cardToken, "same@example.test", true, EMAIL_CONSENT_TEXT_VERSION);
     const { message, token } = await mail(a.member.id);
-    expect(message.subject).toBe("Bitte bestätige: E-Mails von Synthetic Shop A");
+    expect(message.subject).toBe("Bitte bestätige: E-Mails von „Synthetic Shop A“");
     expect(message.body).not.toContain("Synthetic Shop B");
     expect(await consumeContactVerification(token)).toMatchObject({ shopName: "Synthetic Shop A" });
     expect(await marketingEvents()).toEqual([{ granted: true, source: "double_opt_in", tenantId: a.merchant.tenantId }]);

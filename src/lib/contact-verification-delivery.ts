@@ -5,8 +5,12 @@ import { contactVerificationChallenges, membershipContacts, memberships, outboxJ
 import { verificationTokenForChallenge, verificationTokenHash } from "./contact-token";
 import { syntheticAddress, type LocalSender } from "./email";
 import { operatorIdentity } from "./operator-identity";
-import { senderName } from "./sender-details";
+import { RateLimitError, enforceRateLimit } from "./rate-limit";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
+
+// ENG-285: anyone can register a shop, name it anything and ask for these mails to any address, so each shop sends at most
+// this many a day (the route keeps the per-address caps). A pizzeria enrolling a busy day of guests stays well under it.
+export const SHOP_CONTACT_MAIL_DAY_LIMIT = { scope: "contact_mail_shop_day", max: 50, windowSeconds: 24 * 60 * 60 };
 
 const payloadSchema = z.object({ membershipId: z.uuid(), challengeId: z.uuid() }).strict();
 
@@ -48,20 +52,25 @@ export async function deliverVerificationEmail(
     // The shop is the controller; the operator sends on its behalf (Legal, 1 Nov), in both variants.
     const shop = (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name;
     if (!shop) return finish("suppressed", "Shop unavailable");
-    const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${shop}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
+    // The shop's own text, so only ever a quoted name in the body: the sender is always Loynara (ENG-285).
+    const name = `„${shop}“`;
+    const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${name}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
     const message = challenge.marketing ? {
       to: challenge.email,
-      fromName: senderName(shop),
-      subject: `Bitte bestätige: E-Mails von ${shop}`,
-      body: `Hallo,\n\nschön, dass du die Karte von ${shop} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${shop} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${shop}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
+      fromName: "Loynara",
+      subject: `Bitte bestätige: E-Mails von ${name}`,
+      body: `Hallo,\n\nschön, dass du die Karte von ${name} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${name} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${name}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
       jobId: job.id,
     } : {
       to: challenge.email,
-      fromName: senderName(shop),
+      fromName: "Loynara",
       subject: "E-Mail-Adresse für Loynara bestätigen",
       body: `Öffne diesen Link, um deine E-Mail-Adresse als Wiederherstellungsmethode für deine Loynara-Karte zu bestätigen:\n${link.toString()}\n\nDer Link ist einmalig und läuft nach 30 Minuten ab. Falls du das nicht angefordert hast, ignoriere diese Nachricht. Mit der Bestätigung abonnierst du keine Werbung.${footer}`,
       jobId: job.id,
     };
+    // Over the cap the guest already had the usual answer; the job ends quietly and nothing is sent.
+    try { await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, identity: job.tenantId }); }
+    catch (error) { if (error instanceof RateLimitError) return finish("suppressed", "Shop's daily contact mail cap reached"); throw error; }
     if (send) await send(message);
     else {
       const delivered = await sendTransactional(message);

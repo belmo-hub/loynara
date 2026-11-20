@@ -8,7 +8,8 @@ import { contactVerificationChallenges, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
 import { contactStatus, requestContactVerification } from "./contact-verification";
 import { verificationTokenHash } from "./contact-token";
-import { deliverVerificationEmail } from "./contact-verification-delivery";
+import { SHOP_CONTACT_MAIL_DAY_LIMIT, deliverVerificationEmail } from "./contact-verification-delivery";
+import { enforceRateLimit } from "./rate-limit";
 import { type LocalMessage } from "./email";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Verification delivery tests require looplocal_test");
@@ -50,18 +51,37 @@ describe("local verification delivery", () => {
     expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
     const message = send.mock.calls[0][0];
     expect(message.to).toBe("cardholder@example.test");
-    // The shop is the sender, also of the recovery-only mail (#212 follow-up, N-7).
-    expect(message.fromName).toBe("Synthetic Café via Loynara");
+    // ENG-285: a self-registered shop names itself anything, so Loynara is the sender; the shop appears only in the body.
+    expect(message.fromName).toBe("Loynara");
+    expect(message).not.toHaveProperty("replyTo");
+    expect(JSON.stringify({ ...message, body: "" })).not.toContain("Synthetic Café");
     const link = message.body.match(/http:\/\/localhost:3000\/verify-email#token=(v_[A-Za-z0-9_-]{43})/);
     expect(link).not.toBeNull();
     // Legal (1 Nov): the sender and the Datenschutz link under every confirmation mail, the name from configuration.
-    expect(message.body.endsWith("\n\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von Synthetic Café.\nDatenschutzhinweise: http://localhost:3000/datenschutz")).toBe(true);
+    expect(message.body.endsWith("\n\n--\nDiese E-Mail verschickt Synthetic Betreiber im Auftrag von „Synthetic Café“.\nDatenschutzhinweise: http://localhost:3000/datenschutz")).toBe(true);
     const [challenge] = await db.select().from(contactVerificationChallenges);
     expect(challenge.tokenHash).toBe(verificationTokenHash(link![1]));
     const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, f.job.id));
     expect(stored.payload).toEqual({ membershipId: f.card.id });
     expect(JSON.stringify(stored)).not.toContain(link![1]);
     expect(JSON.stringify(stored)).not.toContain("cardholder@example.test");
+  });
+
+  it("sends nothing once the shop reached its daily cap, and marks the job suppressed", async () => {
+    const f = await fixture();
+    for (let hit = 0; hit < SHOP_CONTACT_MAIL_DAY_LIMIT.max; hit += 1) await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, identity: f.job.tenantId });
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toEqual({ status: "suppressed", reason: "Shop's daily contact mail cap reached" });
+    expect(send).not.toHaveBeenCalled();
+    const [stored] = await db.select().from(outboxJobs).where(eq(outboxJobs.id, f.job.id));
+    expect(stored.payload).toEqual({ membershipId: f.card.id });
+  });
+  it("counts each shop's mails apart", async () => {
+    const f = await fixture();
+    for (let hit = 0; hit < SHOP_CONTACT_MAIL_DAY_LIMIT.max; hit += 1) await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, identity: randomUUID() });
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it("suppresses expired challenges before contacting Mailpit", async () => {

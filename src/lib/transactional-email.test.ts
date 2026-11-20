@@ -111,13 +111,16 @@ describe("disabled by default Mailgun EU transactional adapter", () => {
 
   it("sends from the configured address, with the shop's display name only when one is given and never a second header line", async () => {
     const froms: unknown[] = [];
-    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => { froms.push((options?.body as FormData).get("from")); return Response.json({ id: "<from@example.test>" }); });
+    const fields: string[] = [];
+    const request = vi.fn(async (_url: string | URL | Request, options?: RequestInit) => { froms.push((options?.body as FormData).get("from")); fields.push(...(options?.body as FormData).keys()); return Response.json({ id: "<from@example.test>" }); });
     const provider = mailgunEuProvider(config, request as typeof fetch)!;
     const message = { to: "holder@example.test", subject: "Offer", body: "Synthetic message", jobId: randomUUID() };
     await provider.send(message);
     await provider.send({ ...message, fromName: "Café Müller via Loynara" });
     await provider.send({ ...message, fromName: 'Bad "Shop"\\\r\nBcc: x@example.test via Loynara' });
     expect(froms).toEqual(["service@mail.example.test", '"Café Müller via Loynara" <service@mail.example.test>', '"Bad \\"Shop\\"\\\\  Bcc: x@example.test via Loynara" <service@mail.example.test>']);
+    // ENG-285: replies go to the sender address; no Reply-To a shop's text could reach.
+    expect(fields.filter(field => /reply-to/i.test(field))).toEqual([]);
   });
 
   it("records accepted sends once and idempotent signed delivery/complaint events, then suppresses future sends", async () => {
