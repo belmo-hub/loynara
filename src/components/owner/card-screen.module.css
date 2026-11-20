@@ -96,7 +96,7 @@
   /* „Details“ in two columns, read across; the two first rows have no line over them. */
   .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .details > :first-child { grid-column: 1 / -1; }
-  .details.details > :nth-child(3) > :first-child { border-top: 0; }
+  .details.details > :nth-child(3) > :first-child { border-top: 0; padding-top: var(--space-2); }
   .details > :nth-last-child(2) { margin-bottom: var(--space-2); } /* the last two rows share one grid line: both end 8 above the edge */
 }
 @media (min-width: 1200px) {
