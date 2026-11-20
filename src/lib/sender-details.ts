@@ -129,6 +129,15 @@ export function registerProblems(draft: RegisterDraft) {
 
 export const firstProblem = (problems: Record<string, string>) => Object.values(problems).find(Boolean) ?? "";
 
+// ---- The shop's name in mail (ENG-285) ----
+
+// Anyone can register a shop and its name reaches strangers' inboxes, so it may carry no link (`://`, `www.`, a dotted
+// domain like x.de) and no phone number (six or more digits, spaces, slashes or dashes between them).
+const NAME_LINK = /:\/\/|www\.|[\p{L}\d-]\.\p{L}{2,}(?![\p{L}\d])/iu;
+const NAME_PHONE = /\d(?:[\s/-]*\d){5}/u;
+export const unsafeShopName = (name: string) => NAME_LINK.test(name) || NAME_PHONE.test(name);
+export const SHOP_NAME_REFUSAL = "Der Name deines Geschäfts darf keine Links und keine Telefonnummern enthalten.";
+
 // ---- Legal's footer ----
 
 /** The display name in front of Loynara's sender address: the shop, as every mail to its customers shows it. */

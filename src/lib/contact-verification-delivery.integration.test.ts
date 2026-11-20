@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { contactVerificationChallenges, outboxJobs } from "@/db/schema";
 import { createMerchant, enroll } from "./product";
+import { updateMerchantBrand } from "./merchant-brand";
+import { SHOP_NAME_REFUSAL } from "./sender-details";
 import { contactStatus, requestContactVerification } from "./contact-verification";
 import { verificationTokenHash } from "./contact-token";
 import { SHOP_CONTACT_MAIL_DAY_LIMIT, deliverVerificationEmail } from "./contact-verification-delivery";
@@ -25,14 +27,14 @@ beforeEach(async () => {
 });
 afterAll(async () => { await pool.end(); });
 
-async function fixture() {
+async function fixture({ confirmed = true, businessName = "Synthetic Café" } = {}) {
   const ownerId = randomUUID();
-  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
-  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, $4)', [ownerId, "Synthetic owner", `${ownerId}@example.test`, confirmed]);
+  const merchant = await createMerchant({ userId: ownerId, businessName, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   await requestContactVerification(card.cardToken, "cardholder@example.test");
   const [job] = await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.verify"));
-  return { card, merchant, job };
+  return { card, merchant, job, ownerId };
 }
 
 describe("local verification delivery", () => {
@@ -85,6 +87,30 @@ describe("local verification delivery", () => {
     const send = vi.fn(async (message: LocalMessage) => { void message; });
     expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends nothing for a shop whose owner has not confirmed an address, and leaves its cap untouched", async () => {
+    const f = await fixture({ confirmed: false });
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toEqual({ status: "suppressed", reason: "Owner email not confirmed" });
+    expect(send).not.toHaveBeenCalled();
+    await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, max: 1, identity: f.job.tenantId });
+  });
+  it("refuses a link or phone number in a shop name at setup and rename", async () => {
+    await expect(fixture({ businessName: "Bitte hier einloggen: https://evil.example/login" })).rejects.toMatchObject({ code: "INVALID_SHOP_NAME", message: SHOP_NAME_REFUSAL });
+    const f = await fixture();
+    await expect(updateMerchantBrand({ actorUserId: f.ownerId, programSlug: f.merchant.programSlug, businessName: "Ruf an 0900 123456", locationName: "Kassel", brandColor: "#264C45" }))
+      .rejects.toMatchObject({ code: "INVALID_SHOP_NAME" });
+    expect((await pool.query("SELECT name FROM tenants WHERE id = $1", [f.merchant.tenantId])).rows[0].name).toBe("Synthetic Café");
+  });
+  it("names a stored shop name with a link or number only as „dein Geschäft“", async () => {
+    const f = await fixture({ businessName: "Mario" });
+    await pool.query("UPDATE tenants SET name = $2 WHERE id = $1", [f.merchant.tenantId, "Mario www.evil.example 0900 123456"]);
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
+    const message = send.mock.calls[0][0];
+    expect(JSON.stringify(message)).not.toMatch(/evil|0900/);
+    expect(message.body).toContain("im Auftrag von deinem Geschäft.");
   });
 
   it("suppresses expired challenges before contacting Mailpit", async () => {

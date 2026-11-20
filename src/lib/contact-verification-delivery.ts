@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { contactVerificationChallenges, membershipContacts, memberships, outboxJobs, tenants } from "@/db/schema";
@@ -6,6 +6,7 @@ import { verificationTokenForChallenge, verificationTokenHash } from "./contact-
 import { syntheticAddress, type LocalSender } from "./email";
 import { operatorIdentity } from "./operator-identity";
 import { RateLimitError, enforceRateLimit } from "./rate-limit";
+import { unsafeShopName } from "./sender-details";
 import { emailTransportMode, sendTransactional } from "./transactional-email";
 
 // ENG-285: anyone can register a shop, name it anything and ask for these mails to any address, so each shop sends at most
@@ -52,14 +53,20 @@ export async function deliverVerificationEmail(
     // The shop is the controller; the operator sends on its behalf (Legal, 1 Nov), in both variants.
     const shop = (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name;
     if (!shop) return finish("suppressed", "Shop unavailable");
-    // The shop's own text, so only ever a quoted name in the body: the sender is always Loynara (ENG-285).
-    const name = `„${shop}“`;
-    const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${name}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
+    // ENG-285: only a shop whose owner confirmed an address mails strangers. Operator-made shops have confirmed owners.
+    const confirmed = await tx.execute(sql`SELECT 1 FROM staff_roles o JOIN "user" u ON u.id = o.user_id
+      WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active AND u."emailVerified" LIMIT 1`);
+    if (!confirmed.rows.length) return finish("suppressed", "Owner email not confirmed");
+    // The shop's own text, so only ever a quoted name in the body: the sender is always Loynara. A name from before the
+    // rule that carries a link or number reads as „dein Geschäft“ instead (named: nominative, of: dative).
+    const quoted = unsafeShopName(shop) ? null : `„${shop}“`;
+    const named = quoted ?? "dein Geschäft", of = quoted ?? "deinem Geschäft";
+    const footer = `\n\n--\nDiese E-Mail verschickt ${operator} im Auftrag von ${of}.\nDatenschutzhinweise: ${new URL("/datenschutz", origin).toString()}`;
     const message = challenge.marketing ? {
       to: challenge.email,
       fromName: "Loynara",
       subject: "Bitte bestätige: E-Mails zu deiner Karte",
-      body: `Hallo,\n\nschön, dass du die Karte von ${name} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${name} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${name}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
+      body: `Hallo,\n\nschön, dass du die Karte von ${of} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${named} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${of}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
       jobId: job.id,
     } : {
       to: challenge.email,

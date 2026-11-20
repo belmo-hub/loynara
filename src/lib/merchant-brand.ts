@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { locations, programs, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { SHOP_NAME_REFUSAL, unsafeShopName } from "./sender-details";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 import { walletLogoView } from "./wallet/logo";
 import { checkedLogoUpload } from "./wallet/logo-process";
@@ -39,6 +40,7 @@ export async function getMerchantBrand(raw: { actorUserId: string; programSlug: 
 
 export async function updateMerchantBrand(raw: z.input<typeof inputSchema>) {
   const input = inputSchema.parse(raw);
+  if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
   // Owners only reach the image decoder; the transaction checks again under the row lock.
   if (input.logoData != null) await ownerProgramme(db, input.actorUserId, input.programSlug);
   const logoData = input.logoData == null ? input.logoData : await checkedLogoUpload(input.logoData);

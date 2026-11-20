@@ -41,7 +41,8 @@ afterAll(async () => {
 
 async function card(businessName = "Synthetic Contact Café") {
   const ownerId = randomUUID();
-  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
+  // ENG-285: guest contact mail goes out only for a shop whose owner confirmed an address.
+  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, true)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
   const merchant = await createMerchant({ userId: ownerId, businessName, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 });
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   const stamp = () => award({ userId: ownerId, locationId: merchant.locationId, membershipId: member.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() });
