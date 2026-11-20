@@ -57,6 +57,10 @@ export function InviteClient({ token, registrationOpen = true, invite }: { token
         try { result = await authClient.signUp.email({ name, email: invite.email, password, fetchOptions: { headers: { "x-loynara-invite": token } } }); }
         catch { setError(CONNECTION_LOST); return; }
         if (result.error) { setError(signUpMessage(result.error, "invite")); return; }
+        // Sign-up never signs in (ENG-283). A wrong password here means the address already had an account.
+        const signedIn = await authClient.signIn.email({ email: invite.email, password }).catch(() => null);
+        if (!signedIn) { setError(CONNECTION_LOST); return; }
+        if (signedIn.error) { setError(signUpMessage(signedIn.error.status === 401 ? { code: "USER_ALREADY_EXISTS" } : signedIn.error, "invite")); return; }
         accountCreated.current = true;
       }
       try { await postJson("/api/staff/accept", { token }); setDone(true); }

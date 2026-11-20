@@ -44,10 +44,10 @@ let browser;
 let merchant;
 try {
   assert.equal((await owner.get("/api/health")).status(), 200);
-  const signup = await owner.post("/api/auth/sign-up/email", { data: {
-    name: "Synthetic integrated-demo owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
-  } });
-  assert.equal(signup.status(), 200);
+  const account = { email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` };
+  assert.equal((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic integrated-demo owner", ...account } })).status(), 200);
+  // Sign-up never signs in (ENG-283).
+  assert.equal((await owner.post("/api/auth/sign-in/email", { data: account })).status(), 200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: "Abendrot Café (synthetisch)", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Abendrot Stempel", programType: "stamp", rulesText: "Ein Stempel je bestätigtem Kassenbesuch.", rewardTitle: "Kaffee", rewardCost: 5,

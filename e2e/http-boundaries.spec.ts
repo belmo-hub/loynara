@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 type Merchant = { tenantId: string; locationId: string; programSlug: string };
 type Card = { cardToken: string; scanCode: string; membershipId: string; rewardVersionId: string };
@@ -9,7 +10,7 @@ async function syntheticAccount(baseURL: string) {
   const origin = new URL(baseURL).origin;
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const email = `http-${randomUUID()}@example.test`;
-  const response = await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic HTTP tester", email, password: `Local!${randomUUID()}Aa` } });
+  const response = await signUp(context, { data: { name: "Synthetic HTTP tester", email, password: `Local!${randomUUID()}Aa` } });
   expect(response.status()).toBe(200);
   return { context, email };
 }

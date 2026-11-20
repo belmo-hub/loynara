@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function owner(baseURL: string) {
   const api = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic review owner", email: `review-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(api, { data: { name: "Synthetic review owner", email: `review-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = { businessName: "Synthetic Review Café", locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Ein Stempel je bestätigtem synthetischem Besuch.", rewardTitle: "Kaffee", rewardCost: 8 };
   const response = await api.post("/api/merchant/onboard", { data: setup });
   expect(response.status()).toBe(201);

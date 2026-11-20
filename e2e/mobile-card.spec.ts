@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { cardToken: string; ownerEmail: string; ownerPassword: string };
 
@@ -104,7 +105,7 @@ test("invite-only signup stays inside narrow viewports and enters the invited ca
     const invited = await api.post("/api/staff/invite", { data: { email, locationId: owner.locationId, role: "cashier" } });
     expect(invited.status()).toBe(201);
     const { token } = await invited.json() as { token: string };
-    expect((await guest.post("/api/auth/sign-up/email", { data: { name: "Synthetic public probe", email: `closed-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(403);
+    expect((await signUp(guest, { data: { name: "Synthetic public probe", email: `closed-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(403);
     for (const [width, height] of [[1440, 900], [1280, 800], [768, 1024], [390, 844], [320, 568]]) {
       const context = await browser.newContext({ baseURL: url, viewport: { width, height } });
       try {

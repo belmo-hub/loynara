@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type BrowserContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // ENG-099 N-3: each Programm question posts only its own fields, so saving one setting never resends, and so re-checks,
 // another. PAYLOADS is that contract per screen: a field added to a question's body fails the question's test here.
@@ -50,7 +51,7 @@ test.beforeAll(async ({ baseURL }) => {
   const make = async (shop: Shop, programme: Record<string, unknown>, extras?: Record<string, unknown>) => {
     const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic payload owner", email: `payloads-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+      expect((await signUp(api, { data: { name: "Synthetic payload owner", email: `payloads-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
       expect((await api.post("/api/merchant/onboard", { data: { businessName: `Synthetic ${shop}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", rewardTitle: "Kaffee", rewardCost: 100, ...programme } })).status()).toBe(201);
       if (extras) expect((await api.post(EXTRAS, { data: { programId: (await (await api.get("/api/me")).json() as { programId: string }).programId, ...extras } })).status()).toBe(200);
       shops[shop] = await api.storageState();

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type BrowserContext, type Page } from "@playwright/test";
 import QRCode from "qrcode";
+import { signUp } from "./support/sign-up";
 
 /**
  * The fast counter: the camera stays on between customers and one tap books a stamp. The camera is a synthetic canvas
@@ -9,7 +10,7 @@ import QRCode from "qrcode";
 
 async function merchant(url: string, name: string) {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic counter owner", email: `counter-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic counter owner", email: `counter-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: `${name} Karte`, programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Pizza gratis", rewardCost: 10,
