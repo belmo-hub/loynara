@@ -7,6 +7,7 @@ import { Activity as ActivityIcon, ArrowRight, ChevronDown, ChevronRight, Clock,
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { cardGoal, type CardReward } from "@/components/customer/card-face";
 import { MixCard } from "@/components/customer/mix-card";
+import { PointsThumb } from "@/components/customer/points-thumb";
 import { cx } from "@/components/ui/cx";
 import { EmptyState } from "@/components/ui/empty-state";
 import { merchantPalette } from "@/components/ui/merchant-color";
@@ -239,13 +240,13 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
 }
 
 /**
- * A card row's lead: the mix thumbnail counting to `target`, or the shop's colour alone where the card has no target here.
- * Points programmes keep today's row with no lead until Design draws a points card (Design, 18 Nov).
+ * A card row's lead: the mix thumbnail counting to `target` (a points card to the `dearest` reward), or the shop's colour
+ * alone where the card has no target here.
  */
-export function cardLead(member: Pick<MerchantMember, "programType" | "balance">, target?: CardReward) {
-  if (member.programType === "points") return null;
-  return target ? <MixCard size="thumb" businessName="" locationName="" programType="stamps" balance={member.balance} reward={target} />
-    : <span className={styles.blank} aria-hidden="true" />;
+export function cardLead(member: Pick<MerchantMember, "programType" | "balance">, target?: CardReward, dearest = target?.cost ?? 0) {
+  if (!target) return <span className={styles.blank} aria-hidden="true" />;
+  return member.programType === "points" ? <PointsThumb balance={member.balance} cost={dearest} />
+    : <MixCard size="thumb" businessName="" locationName="" programType="stamps" balance={member.balance} reward={target} />;
 }
 
 /** The cards of a group or a search, 25 at a time. A row opens its card over the list; `fresh` holds what a card screen read since. */
@@ -271,6 +272,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
   const [program] = useLoad<PublicProgram>(`/api/program/${encodeURIComponent(me.programSlug)}`);
   const rewards = program.state === "ok" ? program.data.rewards : [];
   const cheapest = rewards.length ? Math.min(...rewards.map(reward => reward.cost)) : Infinity;
+  const dearest = Math.max(0, ...rewards.map(reward => reward.cost));
   const palette = merchantPalette(program.state === "ok" ? program.data.brandColor ?? "" : "", "light").cssVars as CSSProperties;
   const [more, setMore] = useState<MerchantMemberList | null>(null);
   const [moreBusy, setMoreBusy] = useState(false);
@@ -307,7 +309,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
         : n === 0 ? <EmptyState level={3} title={filters.activity === "drifting" ? "Keine länger zurückliegende Kassenaktivität." : filters.activity === "reward_ready" ? "Keine offene Prämie." : "Keine Karten gefunden."}>
           {filters.activity === "drifting" ? `Für diese Auswahl gibt es keine Karte mit früheren bestätigten Buchungen und keiner in den letzten ${filters.days} Tagen.` : "Ändere oben die Auswahl, um weitere Karten zu sehen."}
         </EmptyState>
-        : <ul style={palette} data-points={me.programType === "points" || undefined}>{members.map(listed => {
+        : <ul style={palette}>{members.map(listed => {
           const member = fresh[listed.id] ?? listed;
           const href = new URLSearchParams(list);
           href.set("card", member.id);
@@ -315,7 +317,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
           const ours = !member.closedAt && member.locationId === me.locationId;
           const target = ours ? cardGoal(rewards, member.balance) : undefined;
           return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={() => { listY = { list: list.toString(), y: window.scrollY }; }}>
-            {cardLead(member, target)}
+            {cardLead(member, target, dearest)}
             <span className="ow-prog-main">
               <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <MixChip>Geschlossen</MixChip>
                 : ours && member.balance >= cheapest && <MixChip warm><Gift size={16} aria-hidden="true" />Prämie verdient</MixChip>}</strong>
