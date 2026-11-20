@@ -18,6 +18,9 @@ test.beforeAll(async ({ browser }) => {
     const started: string[] = [];
     (window as unknown as { started: string[] }).started = started;
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
+    // Swaps that fade in on something inside a screen (a list, a split), not the screen itself.
+    (window as unknown as { innerSwaps: number }).innerSwaps = 0;
+    document.addEventListener("animationstart", event => { if (event.animationName === "ow-swap" && !(event.target as Element).matches(".ow-screen")) (window as unknown as { innerSwaps: number }).innerSwaps++; }, true);
     // In every frame: how many swaps fade in inside another swap that is fading in too (their opacities would multiply).
     const w = window as unknown as { nestedSwaps: number };
     w.nestedSwaps = 0;
@@ -115,7 +118,7 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   // What replaces the shell's placeholder fades in (Skeleton to content); nothing rises or staggers.
   expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing rises or staggers on a cold load").toBe(0);
   expect(await started("ow-swap"), "what replaces the placeholders fades in").toBeGreaterThan(0);
-  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "only the outermost swap fades").toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
@@ -322,4 +325,16 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   await page.waitForTimeout(600);
   for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer", "ow-pulse"]) expect(await started(name), name).toBe(0);
+});
+
+// Design, #314 re-check: on a cold load the screen fades in from its loading frame and the list or split inside it
+// follows from its own placeholder about 130 ms later. The screen's fade then ends (nearly at full) and the inner one
+// fades: one at a time, and the inner content never cuts in.
+for (const url of ["/merchant/customers", "/merchant/program"]) test(`a cold load of ${url}: what replaces the inner placeholder fades in too`, async () => {
+  await page.goto(url);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.locator(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)")).toHaveCount(0);
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => (window as unknown as { innerSwaps: number }).innerSwaps), "an ow-swap started on the list or split").toBeGreaterThan(0);
+  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
 });

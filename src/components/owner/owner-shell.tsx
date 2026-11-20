@@ -192,9 +192,12 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
           if (emptied.has(record.target)) {
             const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
-            // Inside a swap still fading in (a cold load's screen and its list) only the outer one fades: two would multiply.
-            const outer = swap?.parentElement?.closest("[data-swap]");
-            if (swap && !outer?.getAnimations().some(animation => animation.playState !== "finished")) swap.setAttribute("data-swap", "");
+            // Inside a swap still fading in (a cold load's screen, then its list) the outer one ends at once, almost at full
+            // by then, and the inner one fades: one fade at a time, never two multiplied.
+            if (swap) {
+              for (const animation of swap.parentElement?.closest("[data-swap]")?.getAnimations() ?? []) animation.finish();
+              swap.setAttribute("data-swap", "");
+            }
           }
           else if (holds(node, ".ow-screen")) {
             if (returning) (node.matches(".ow-screen") ? node : node.querySelector(".ow-screen"))?.setAttribute("data-return", "");
