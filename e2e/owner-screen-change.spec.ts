@@ -201,6 +201,30 @@ test("on a slow connection the tapped tab looks current at once and the screen i
   await page.unroute(/\/merchant\/more(\?|$)/);
 });
 
+// ENG-294: by the page's own clock, from the finger down to the frame in which the tapped tab is drawn current.
+test("a tapped tab looks current within 100 ms, before its screen has arrived", async () => {
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  await page.route(/\/merchant\/customers(\?|$)/, async route => { await held; await route.continue(); });
+  await page.evaluate(() => {
+    const link = document.querySelector<HTMLElement>('.ow-tabs a[href="/merchant/customers"]')!;
+    const timing = { down: 0, current: 0 };
+    (window as unknown as { tabTiming: typeof timing }).tabTiming = timing;
+    document.addEventListener("pointerdown", () => {
+      timing.down = performance.now();
+      const frame = () => { if (getComputedStyle(link).fontWeight === "800") timing.current = performance.now(); else requestAnimationFrame(frame); };
+      requestAnimationFrame(frame);
+    }, { capture: true, once: true });
+  });
+  await tab("Kunden").click();
+  await page.waitForFunction(() => (window as unknown as { tabTiming: { current: number } }).tabTiming.current > 0);
+  const { down, current } = await page.evaluate(() => (window as unknown as { tabTiming: { down: number; current: number } }).tabTiming);
+  expect(current - down, "ms from the tap to the tab drawn current").toBeLessThan(100);
+  release();
+  await expect(page).toHaveURL(/\/merchant\/customers$/);
+  await page.unroute(/\/merchant\/customers(\?|$)/);
+});
+
 test("on a slow connection a tapped row holds the selected look until its screen shows", async () => {
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
