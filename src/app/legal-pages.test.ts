@@ -76,11 +76,12 @@ describe("owner privacy notice", () => {
   it("is Legal's text with its Stand, the customer page and the Impressum linked", () => {
     expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
     expect(GeschaefteMetadata.title).toBe("Datenschutzhinweise für Geschäfte – Loynara");
-    expect(html).toContain("Stand: 19. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
+    expect(html).toContain("Stand: 20. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
     expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");
-    expect(html).toContain("die Bestätigung deiner E-Mail-Adresse, das Zurücksetzen deines Passworts, Einladungen, Erinnerungen und Berichte zu deinem Programm.");
+    expect(html).toContain("die Bestätigung deiner E-Mail-Adresse, das Zurücksetzen deines Passworts, Erinnerungen und Berichte zu deinem Programm. Werbung schicken wir dir nur mit deiner Einwilligung.");
+    expect(html).not.toContain("Einladungen");
     expect(html).toContain("Für Loynara ist der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Wilhelmstraße 7, 65185 Wiesbaden, zuständig.");
     expect(html).not.toMatch(/\{Datum\}|Entwurf/);
   });
