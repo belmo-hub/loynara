@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
-import { hideTouchingPrices, PointsLadder } from "./points-ladder";
+import { hideTouchingPrices, PointsLadder, titleLayout } from "./points-ladder";
 import { ProgressRing } from "./progress-ring";
 import { Skeleton } from "./skeleton";
 import { StampGrid } from "./stamp-grid";
@@ -71,6 +71,23 @@ describe("PointsLadder", () => {
   it("hides labels of markers that would collide", () => {
     const out = html(h(PointsLadder, { balance: 0, rewards: [{ title: "A", cost: 10 }, { title: "B", cost: 11 }, { title: "C", cost: 100 }] }));
     expect(out.match(/data-label-hidden="true"/g)).toHaveLength(1);
+  });
+  // ENG-292 (Design, 20 Nov): the mix card's crossed marks press 90 ms apart, in order, at the Kasse as on the guest card.
+  it("staggers the marks a booking crossed 90 ms apart", () => {
+    const out = html(h(PointsLadder, { balance: 162, landedFrom: 42, tone: "mix", rewards: [{ title: "Espresso", cost: 50 }, { title: "Pizza", cost: 150 }, { title: "Menü", cost: 300 }] }));
+    const marks = [...out.matchAll(/<span class="[^"]*mark[^"]*" style="([^"]*)"[^>]*data-new="true"/g)].map((m) => m[1]);
+    expect(marks).toHaveLength(2);
+    expect(marks[0]).not.toContain("--land-stagger");
+    expect(marks[1]).toContain("--land-stagger:90ms");
+  });
+  // ENG-292 (Design, 20 Nov): in the mix tone a name is never cut with an ellipsis; without its room it hides, cost and dot stay.
+  it("hides a name in the mix tone instead of cutting it", () => {
+    const marks = [{ at: 0.2, hideLabel: false }, { at: 0.5, hideLabel: false }, { at: 1, hideLabel: false }];
+    const needs = [60, 150, 60];
+    const house = titleLayout(marks, 300, needs);
+    expect(house.titles[1]?.width).toBeLessThan(150); // the house ladder cuts it
+    expect(titleLayout(marks, 300, needs, undefined, true).titles[1]).toBeNull();
+    expect(titleLayout(marks, 300, needs, undefined, true).titles[0]?.width).toBe(60);
   });
 });
 

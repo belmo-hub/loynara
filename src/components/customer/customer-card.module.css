@@ -12,10 +12,6 @@
 .goalNum { font-variant-numeric: tabular-nums; }
 .rewardName { display: block; color: var(--merchant-ink); font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; hyphens: manual; overflow-wrap: anywhere; }
 .goalSub { margin: var(--space-1) 0 0; font-size: var(--text-14); line-height: 20px; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); text-wrap: pretty; }
-/* Points (house card): the same goal above the card, on the page's ground. */
-.pointsGoal { display: grid; margin-bottom: var(--space-4); }
-.pointsGoal :is(.goalLine, .goalSub) { color: var(--color-ink-muted); }
-.pointsGoal .rewardName { color: var(--color-ink); }
 /* A programme without a reward: no foot, no hairline. */
 .object section > div:last-child:empty { display: none; }
 
@@ -179,9 +175,13 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .bandSlot { display: grid; grid-template-rows: 1fr; }
 .bandSlot > div { min-height: 0; overflow: hidden; }
 .bandSlot .band { margin-top: var(--space-4); }
-.bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
-.bandSlot[data-arrive] .band { animation: band-in var(--dur-ui) var(--ease-out) var(--dur-reward) backwards; }
+/* Points: --band-delay waits for the last crossed marker's press (customer-card.tsx); stamps keep --dur-reward. */
+.bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--band-delay, var(--dur-reward)) backwards; }
+.bandSlot[data-arrive] .band { animation: band-in var(--dur-ui) var(--ease-out) var(--band-delay, var(--dur-reward)) backwards; }
 @keyframes slot-open { from { grid-template-rows: 0fr; } }
+/* Points: a sub-line the booking's words add opens with the band, in its own slot (Design, 20 Nov). */
+.subSlot { display: grid; grid-template-rows: 1fr; animation: slot-open var(--dur-ui) var(--ease-out) backwards; }
+.subSlot > .goalSub { min-height: 0; overflow: hidden; margin: 0; padding-top: var(--space-1); }
 @keyframes band-in { from { opacity: 0; } }
 @keyframes pill-in { from { opacity: 0; transform: translateY(var(--pill-shift)); } }
 @keyframes pill-out { to { opacity: 0; transform: translateY(var(--pill-shift)); } }
@@ -190,7 +190,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 @keyframes pill-rise { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) {
   .pill { --pill-shift: 0px; }
-  .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band { animation: none; }
+  .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band, .subSlot { animation: none; }
 }
 
 /* The placeholder's groups are the page's own (.lead, .rest), so its wrapper takes no box. Its blocks fade in, so
@@ -219,7 +219,8 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
   .lead[data-arriving] .object > section::before { animation: card-arrive var(--dur-ui) var(--ease-out) backwards; }
   .activityRows > li[data-arrives] { animation: list-arrive var(--dur-ui) var(--ease-out) min(calc(var(--row, 0) * 30ms), 200ms) backwards; }
   /* Pop in (ENG-008): a stamp the booking just reached lands once, 90 ms apart (GuestMixCard marks it). */
-  .mix [role="img"] > span[data-new] { animation: land var(--dur-reward) var(--ease-out) var(--land-stagger, 0ms) both; }
+  /* A ladder marker (data-reached) presses its disc in the ladder's own rule: its transform places it on the track. */
+  .mix [role="img"] > span[data-new]:not([data-reached]) { animation: land var(--dur-reward) var(--ease-out) var(--land-stagger, 0ms) both; }
 }
 @keyframes land { 0% { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: scale(1); } }
 /* A return from the join page (ENG-205): the card was just seen there, so it does not arrive again and no

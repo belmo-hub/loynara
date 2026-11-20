@@ -98,6 +98,35 @@ describe("the mix card (ENG-253)", () => {
     expect(dots(card({ programType: "points", size: "thumb", reward: { id: "p", title: "Frühstück", cost: 250 } }))).toEqual([0, 0]);
   });
 
+  // ENG-292 (Design, 19 Nov §0.1, §1.2): the ladder in the mix tone, with the booking's landing and first-paint growth passed through.
+  it("draws a points programme's ladder in the mix tone, landing the crossed markers and growing only when asked", () => {
+    const rewards = [{ id: "a", title: "Espresso", cost: 60 }, { id: "b", title: "Pizza", cost: 150 }, { id: "c", title: "Menü", cost: 300 }];
+    const points = (props = {}) => card({ programType: "points", balance: 186, reward: rewards[2], rewards, ...props });
+    expect(points()).toMatch(/role="img"[^>]*data-tone="mix"/);
+    expect(points()).not.toContain("data-new");
+    expect(points()).not.toContain("data-grow");
+    const landed = points({ landedFrom: 21 });
+    expect(landed.match(/data-new="true"/g)).toHaveLength(2);
+    expect(landed).toMatch(/data-reached="true" data-new="true"[^>]*><span[^>]*><svg.*?<\/svg><\/span><small[^>]*>60</);
+    expect(points({ grow: true })).toContain('data-grow="true"');
+    // The figure is the true balance with „Punkte“ under it, never „von N“.
+    expect(points()).toMatch(/<b data-figure=""><span[^>]*>186<\/span><\/b><span>Punkte<\/span>/);
+    // A stamp card takes neither: its markup is the one it had.
+    expect(card({ landedFrom: 2, grow: true })).toBe(card());
+  });
+
+  it("dims the open marker as the open stamp, titles at the card's 78 %, and rings it in forced colours", () => {
+    const css = readFileSync(join(__dirname, "../ui/points-ladder.module.css"), "utf8");
+    // Opaque at the tone 14 % ink gives over the card, so the track never shows through (Design, 20 Nov).
+    expect(css).toContain('.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 14%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }');
+    expect(css).toContain('.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }');
+    expect(css).toContain('.ladder[data-tone="mix"] .title { color: var(--on-card); }');
+    expect(css).toMatch(/@media \(forced-colors: active\) \{\s*\.ladder\[data-tone="mix"\] \{ --open-disc: Canvas; --open-ring: 1px solid CanvasText; \}\s*\.ladder\[data-tone="mix"\] \.mark:not\(\[data-reached\]\) \.dot \{ forced-color-adjust: none; \}/);
+    // A crossed marker stays that open disc until its own press, then pops into coral: never opacity 0.
+    expect(css).toContain('.ladder[data-tone="mix"] .mark[data-new] .dot { animation: open-until var(--press-at) linear, pop var(--dur-reward) var(--ease-out) var(--press-at); --press-at: calc(var(--dur-ui) + var(--land-stagger, 0ms)); }');
+    expect(css).toContain("@keyframes pop { from { transform: scale(1.3); } 60% { transform: scale(.94); } }");
+  });
+
   it("names the region „Karte“ everywhere but on the guest's own full card", () => {
     expect(card()).toContain('aria-label="Deine Treuekarte"');
     for (const props of [{ voice: "owner" as const }, { size: "example" as const }, { size: "kasse" as const }]) expect(card(props)).toMatch(/^<section[^>]*aria-label="Karte"/);

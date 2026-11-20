@@ -30,7 +30,8 @@ const median = (pixels: number[][]) => [0, 1, 2].map(c => pixels.map(px => px[c]
 /** Lowest contrast between 8-px windows of the filled and of the empty part of the track row, markers left out. */
 async function ladderOnScreen(page: Page) {
   const ladder = page.locator('[role="img"][aria-label$="Punkten"]').locator("visible=true").first();
-  await expect(ladder).toHaveAttribute("aria-label", "9 von 20 Punkten");
+  // The Kasse's mix card joins the figures to their words with no-break spaces (ENG-292).
+  await expect(ladder).toHaveAttribute("aria-label", /^9\svon 20\sPunkten$/);
   await ladder.scrollIntoViewIfNeeded();
   const box = await ladder.evaluate(el => {
     const outer = el.getBoundingClientRect(), track = el.firstElementChild!.getBoundingClientRect();

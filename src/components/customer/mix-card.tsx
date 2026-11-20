@@ -40,6 +40,8 @@ type Props = {
   foot?: ReactNode;
   /** The owner's line names this reward when it is not the grid's (a ready reward below the goal, Design #300). */
   lineReward?: CardReward;
+  /** Points only, forwarded to the ladder: the balance before a booking just shown (crossed markers press), and the fill growing on the first paint. */
+  landedFrom?: number; grow?: boolean;
   locale?: "de" | "fr"; className?: string;
 };
 
@@ -48,7 +50,7 @@ type Props = {
  * balance right, the stamps in rows (earned coral with a check, open a dim disc), a hairline, then the foot. Colours come
  * from the merchant palette on an ancestor. Stamps are a share of their slot rounded to a whole pixel.
  */
-export function MixCard({ businessName, locationName, programType, balance, reward, rewards, size = "full", voice = "guest", title, sub, label, foot, lineReward, locale = "de", className }: Props) {
+export function MixCard({ businessName, locationName, programType, balance, reward, rewards, size = "full", voice = "guest", title, sub, label, foot, lineReward, landedFrom, grow, locale = "de", className }: Props) {
   const goal = reward.cost, have = Math.max(0, Math.min(balance, goal)), left = goal - have;
   const points = programType === "points", stamps = !points && goal <= STAMP_GRID_MAX;
   // Above the goal the card never clamps its count (Design, 18 Nov: one screen, one number): the grid shows all stamps
@@ -74,7 +76,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
       <div className={styles.n}>{label ? <><b data-figure="">{figure}<small>{"\u00a0"}{of}</small></b><span>{label}</span></> : <><b data-figure="">{figure}</b><span>{of}</span></>}</div>
     </div>
-    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} locale={locale} titles keepUnits={size === "kasse"} />
+    {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} landedFrom={landedFrom} grow={grow} tone="mix" locale={locale} titles keepUnits={size === "kasse"} />
       : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} keepUnits={size === "kasse"} />
       : <div className={styles.stamps} style={cols} data-rows={Math.ceil(goal / kasseCols)} role="img" aria-label={aria}>
         {Array.from({ length: goal }, (_, i) => <span key={i} className={styles.stamp} data-on={i < have || undefined}>{i < have && !plain ? <Check size={size === "kasse" ? 26 : 22} aria-hidden="true" /> : null}</span>)}

@@ -17,7 +17,6 @@ import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { mixStyles } from "@/components/ui/mix";
 import { NumberRoll } from "@/components/ui/number-roll";
-import { PointsLadder } from "@/components/ui/points-ladder";
 import { Sheet } from "@/components/ui/sheet";
 import { unitWord, withUnit as plainWithUnit } from "@/lib/units";
 // Every figure in the Kasse keeps its unit on its line: a no-break space between them (Design, 18 Nov).
@@ -189,6 +188,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const liveNotice = card && !booked && !busy && status === "pending" && message ? { id: card.id, status, message } : undefined;
   const noticeCard = (card ?? booked?.card)?.id;
   if (liveNotice ? liveNotice.id !== heldNotice?.id || liveNotice.message !== heldNotice?.message : heldNotice && (noticeCard !== heldNotice.id || !(busy || booked))) setHeldNotice(liveNotice);
+  // The open card's balance, so the closed card after its booking presses the ladder markers it crossed (points).
+  const [opened, setOpened] = useState<{ id: string; balance: number }>();
+  if (card && (card.id !== opened?.id || card.balance !== opened.balance)) setOpened({ id: card.id, balance: card.balance });
   const keptNotice = heldNotice && (busy || booked) && noticeCard === heldNotice.id ? heldNotice : undefined;
   if (seenFormKey !== formKey) {
     setSeenFormKey(formKey);
@@ -289,9 +291,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
 
   // The card on the counter: the open card, or after a booking the closed card with its new balance (display only).
   const shown = card ?? booked?.card ?? null;
-  // The card counts to the cheapest reward. Points programmes, and a card without any reward, keep today's card until
-  // Design draws them on the mix card (Design, 17 Nov).
-  const goal = shown?.programType !== "points" && shown?.rewards.length ? shown.rewards.find(reward => reward.id === goalId) ?? kasseGoal(shown) ?? null : null;
+  // The card counts to the cheapest reward not reached, stamps and points alike (Design, 19 Nov). A card without any
+  // reward keeps today's card.
+  const goal = shown?.rewards.length ? shown.rewards.find(reward => reward.id === goalId) ?? kasseGoal(shown) ?? null : null;
   // The booked line reads in the card's terms whenever the closed card is shown: „6 von 8 · K-…“, „121 Punkte · K-…“.
   const bookedGoal = Boolean(booked?.card);
   // After a booking on the typed-number path the code field stands in the „Gebucht“ dock instead of under it.
@@ -392,7 +394,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {card && <h2 className={styles.srOnly}>{card.cardLocator}</h2>}
       <MixCard size="kasse" businessName={businessName || locationName} locationName={locationName} programType={shown.programType} balance={shown.balance}
         reward={{ id: goal.id, title: goal.name, cost: goal.cost }} rewards={shown.rewards.map(reward => ({ id: reward.id, title: reward.name, cost: reward.cost }))}
-        title={shown.cardLocator} sub={t.verified} label={t.balance} locale={locale}
+        title={shown.cardLocator} sub={t.verified} label={t.balance} locale={locale} landedFrom={booked?.card && booked.card.id === opened?.id ? opened.balance : undefined}
         foot={<>{shown ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
           {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
           {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
@@ -409,7 +411,6 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <strong><NumberRoll value={shown.balance}>{number.format(shown.balance)}</NumberRoll>{"\u00a0"}<em>{unitWord(shown.balance, shown.programType, locale)}</em></strong>
         {card?.level && <span className={styles.level}>{card.level.name}</span>}
       </div>
-      {shown.programType === "points" && shown.rewards.length > 0 && <PointsLadder balance={shown.balance} rewards={shown.rewards.map(reward => ({ title: reward.name, cost: reward.cost }))} locale={locale} keepUnits />}
     </section>}
     {/* Today's card (points, no reward) keeps the note right under it. */}
     {shown?.matchedBy === "locator" && !goal && <p className={cx("cashier-locator-note", styles.note, styles.pretty)} role="note">{t.locatorNote}</p>}
