@@ -25,3 +25,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;--> statement-breakpoint
 CREATE TRIGGER owner_acceptances_append_only BEFORE UPDATE OR DELETE ON "owner_acceptances" FOR EACH ROW EXECUTE FUNCTION reject_owner_acceptance_mutation();
+--> statement-breakpoint
+-- The acceptance time is the server's, whatever a caller sends (Reviewer N-2).
+CREATE FUNCTION set_owner_acceptance_time() RETURNS trigger AS $$
+BEGIN
+  NEW.accepted_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;--> statement-breakpoint
+CREATE TRIGGER owner_acceptances_server_time BEFORE INSERT ON "owner_acceptances" FOR EACH ROW EXECUTE FUNCTION set_owner_acceptance_time();

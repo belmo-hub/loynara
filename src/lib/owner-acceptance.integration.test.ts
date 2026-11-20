@@ -66,11 +66,14 @@ it("refuses a sign-up from a page with an older sentence, so no row names a text
 });
 
 it("gets the business once the owner's shop exists, and is append-only after that", async () => {
-  const email = `${randomUUID()}@example.test`;
+  const email = `${randomUUID()}@example.test`, other = `${randomUUID()}@example.test`;
   await signUp(email, SIGNUP_ACCEPTANCE_TEXT_VERSION);
+  await signUp(other, SIGNUP_ACCEPTANCE_TEXT_VERSION);
   const merchant = await createMerchant({ userId: await userId(email), businessName: "Synthetic Acceptance Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 });
-  expect((await rows()).map(row => row.tenant_id)).toEqual([merchant.tenantId]);
-  await expect(pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid()")).rejects.toThrow(/append-only/);
+  // Reviewer N-1: only the owner's own row gets the business; another owner's pending row stays without one.
+  const byUser = Object.fromEntries((await rows()).map(row => [row.user_id, row.tenant_id]));
+  expect(byUser).toEqual({ [await userId(email)]: merchant.tenantId, [await userId(other)]: null });
+  await expect(pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid() WHERE tenant_id IS NOT NULL")).rejects.toThrow(/append-only/);
   await expect(pool.query("UPDATE owner_acceptances SET terms_version = 'x'")).rejects.toThrow(/append-only/);
   await expect(pool.query("DELETE FROM owner_acceptances")).rejects.toThrow(/append-only/);
 });
@@ -110,4 +113,10 @@ it("gives a staff-invite account without an acceptance no shop of its own (CTO, 
     await expect(createMerchant(setup, { requireAcceptance: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
   }
   expect((await pool.query("SELECT count(*)::int AS n FROM tenants")).rows[0].n).toBe(1);
+});
+
+// Reviewer N-2 (D3): the acceptance time is the database's, whatever an insert sends.
+it("stamps accepted_at with the server's time on insert, ignoring a time the caller sends", async () => {
+  const { rows: [row] } = await pool.query("INSERT INTO owner_acceptances (user_id, terms_version, avv_version, privacy_version, text_version, accepted_at) VALUES ('synthetic', 'v', 'v', 'v', 'v', '2000-01-01T00:00:00Z') RETURNING accepted_at, now() AS server");
+  expect(row.accepted_at).toEqual(row.server);
 });

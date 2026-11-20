@@ -8,6 +8,7 @@ import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./dat
 import { InviteClient } from "@/components/invite-client";
 import VertragsbedingungenPage, { metadata as TermsMetadata } from "./vertragsbedingungen/page";
 import AvvPage, { metadata as AvvMetadata } from "./avv/page";
+import { AVV_FILL_INS, hasOpenMarks } from "@/lib/owner-contract";
 
 const search = vi.hoisted(() => ({ value: "" }));
 vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({}), useSearchParams: () => new URLSearchParams(search.value) }));
@@ -169,5 +170,8 @@ describe("owner sign-up acceptance", () => {
     expect(html).toContain(">Anlage 3 · Unterauftragsverarbeiter</h2>");
     expect(html).toContain("Leistung: Versand von E-Mails an die Kundschaft (Bestätigung und Wiederherstellung; E-Mail-Angebote nur wenn freigeschaltet) und an das Team (Bestätigung der E-Mail-Adresse, Zurücksetzen des Passworts).");
     expect(html).not.toMatch(/⚖|Pilotvereinbarung|Unterschrift|\{\{/);
+    // Reviewer F-1: the page's open fill-ins are exactly the ones the configuration gate reads.
+    expect(html.includes("[[")).toBe(hasOpenMarks());
+    for (const mark of Object.values(AVV_FILL_INS)) expect(html).toContain(mark);
   });
 });
