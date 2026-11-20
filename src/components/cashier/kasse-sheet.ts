@@ -17,14 +17,29 @@ export function rememberKasseLocation(name: string | undefined) {
  * never held while the payload is still on its way. The transition stylesheet loads with the owner app.
  */
 const FRESH_PREFETCH_MS = 270_000;
+// When the last /cashier payload answered (ENG-304). The timeline's own list keeps only 250 entries and the owner app's
+// prefetches fill it within a day; a newer payload is then missing from it, so an observer notes every one as well.
+let kasseAnswered = 0;
+let observer: PerformanceObserver | null | undefined;
+const note = (entries: PerformanceEntryList) => {
+  for (const entry of entries as PerformanceResourceTiming[]) {
+    const url = new URL(entry.name, location.href);
+    // responseStart: Chrome also lists an aborted prefetch, with an end but no answer.
+    if (url.pathname === "/cashier" && url.searchParams.has("_rsc") && entry.responseStart > 0 && entry.responseEnd > 0) kasseAnswered = Math.max(kasseAnswered, entry.responseEnd);
+  }
+};
+function watchKasse() {
+  if (observer !== undefined) return;
+  try { observer = new PerformanceObserver(list => note(list.getEntries())); observer.observe({ type: "resource", buffered: true }); }
+  catch { observer = null; /* no observer: the Kasse fades in as on any entry */ }
+}
+// From the module's first load in the browser, before the owner screen's links prefetch anything.
+if (typeof window !== "undefined") watchKasse();
 export function kasseSheetReady() {
-  try {
-    const finished = performance.getEntriesByType("resource").filter(entry => {
-      const url = new URL(entry.name, location.href);
-      return url.pathname === "/cashier" && url.searchParams.has("_rsc") && (entry as PerformanceResourceTiming).responseEnd > 0;
-    }).map(entry => (entry as PerformanceResourceTiming).responseEnd);
-    return finished.length > 0 && performance.now() - Math.max(...finished) < FRESH_PREFETCH_MS;
-  } catch { return false; }
+  // The browser hands entries to an observer a while after they land (those from before it started, later still), so a
+  // tap right after the answer reads the list and the observer's queue too.
+  try { note(performance.getEntriesByType("resource")); if (observer) note(observer.takeRecords()); } catch { return false; }
+  return kasseAnswered > 0 && performance.now() - kasseAnswered < FRESH_PREFETCH_MS;
 }
 
 /** Prefetches the Kasse for the sheet, only while the tab is in view: a backgrounded tab warms it again when it returns. */
