@@ -522,8 +522,9 @@ test("a modified or middle click on a row marks nothing: the next tab change has
     await cardRow().click({ ...click, modifiers: click.modifiers ? [...click.modifiers] : undefined });
     await opened;
     expect(await page.evaluate(() => [document.documentElement.hasAttribute("data-ow-card"), document.querySelectorAll("[data-opened]").length]), `${JSON.stringify(click)}: nothing marked`).toEqual([false, 0]);
+    // Headless WebKit opens no other tab and follows the link here instead: back to the list for the next click.
+    if (page.url().includes("card=")) await toList();
   }
-  await expect(page).toHaveURL(/\/merchant\/customers\?activity=all$/);
   const frames = watchLayers();
   await tab("Programm").click();
   expect((await frames).filter(frame => frame.card), "the tab change carries no card layer").toEqual([]);
