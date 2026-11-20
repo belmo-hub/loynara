@@ -5,6 +5,7 @@ import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, ownerAcceptances, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
+import { SHOP_NAME_REFUSAL, unsafeShopName } from "./sender-details";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
@@ -65,6 +66,7 @@ export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD
  *  Only an invited owner (operator-made shop, paper contract) skips it, through the existing-owner branch; staff never get a shop. */
 export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true, requireAcceptance = false } = {}) {
   const input = merchantInput.parse(raw);
+  if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
   const earningMode = input.earningMode ?? "manual";
   if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   checkRulesText(input.programType, earningMode, input.rulesText);

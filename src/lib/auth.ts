@@ -16,12 +16,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
-    // ENG-279: self-service reset. Every address gets the same answer; only a confirmed one gets a mail. The link lasts an
-    // hour, works once, and the reset signs every device out.
+    // ENG-279: self-service reset. Every address gets the same answer. The link lasts an hour, works once, and the reset
+    // signs every device out. ENG-286: an unconfirmed account gets the mail too, so the inbox's owner can take back an
+    // address someone else registered; using the link proves the inbox, so it also confirms the address.
     resetPasswordTokenExpiresIn: 60 * 60,
     revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      // The password is already changed and every device signed out; a failure here leaves the address unconfirmed only.
+      await authPool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [user.id])
+        .catch(error => console.error(`Address not confirmed after reset (${error instanceof Error ? error.name : "error"})`));
+    },
     sendResetPassword: async ({ user, token }) => {
-      if (!user.emailVerified) return;
       const { sendPasswordReset } = await import("./account-verification");
       // Not awaited: the answer must not take longer for an address that gets a mail than for one that does not.
       void sendPasswordReset(user.email, token)

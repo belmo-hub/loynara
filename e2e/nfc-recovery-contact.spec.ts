@@ -27,6 +27,8 @@ async function deliveredLink(recipient: string, path: string) {
 test("real isolated email delivery verifies recovery contact and restores original cards on cleared and new devices", async ({ browser, baseURL }) => {
   test.setTimeout(180_000);
   const a = await merchantWithTag(baseURL!, "Recovery A"), b = await merchantWithTag(baseURL!, "Recovery B");
+  // ENG-285: guest contact mail goes out only for a shop whose owner confirmed an address.
+  await sql(`UPDATE "user" SET "emailVerified" = true WHERE id IN (SELECT user_id FROM staff_roles WHERE role = 'owner' AND tenant_id = ANY($1::uuid[]))`, [[a.me.tenantId, b.me.tenantId]]);
   const customer = await browser.newContext({ baseURL, viewport: { width: 375, height: 667 } });
   const verifier = await browser.newContext({ baseURL });
   const newDevice = await browser.newContext({ baseURL, viewport: { width: 375, height: 667 } });
