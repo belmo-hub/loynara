@@ -269,7 +269,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       <CardHeader id="op-contracts" title="Verträge" description="Jedes Geschäft, das den Vertrag online angenommen hat, für das Verzeichnis nach Art. 30 Abs. 2 DSGVO. Nur Lesen." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {contracts.map(c => <li key={c.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
-          <span><strong>{c.tenant}</strong> · <span style={{ overflowWrap: "anywhere" }}>{c.ownerEmail ?? "keine E-Mail"}</span></span>
+          <strong>{c.tenant}</strong>
+          <span className="ow-muted" style={{ overflowWrap: "anywhere" }}>{c.ownerEmail ?? "keine E-Mail"}</span>
           {c.addresses.map((a, i) => <span key={i} className="ow-muted">{a}</span>)}
           <span className="ow-muted">Vertrag seit {new Date(c.acceptedAt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" })} · {c.endDate ? `endet am ${germanDate(c.endDate)}` : "kein Vertragsende"}</span>
         </li>)}
