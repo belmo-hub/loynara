@@ -118,7 +118,7 @@ describe("the mix card (ENG-253)", () => {
   it("dims the open marker as the open stamp, titles at the card's 78 %, and rings it in forced colours", () => {
     const css = readFileSync(join(__dirname, "../ui/points-ladder.module.css"), "utf8");
     // Opaque at the tone 14 % ink gives over the card, so the track never shows through (Design, 20 Nov).
-    expect(css).toContain('.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 14%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }');
+    expect(css).toContain('.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 42%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }');
     expect(css).toContain('.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }');
     expect(css).toContain('.ladder[data-tone="mix"] .title { color: var(--on-card); }');
     expect(css).toMatch(/@media \(forced-colors: active\) \{\s*\.ladder\[data-tone="mix"\] \{ --open-disc: Canvas; --open-ring: 1px solid CanvasText; \}\s*\.ladder\[data-tone="mix"\] \.mark:not\(\[data-reached\]\) \.dot \{ forced-color-adjust: none; \}/);

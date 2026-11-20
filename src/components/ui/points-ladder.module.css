@@ -16,8 +16,8 @@
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
 /* The mix card (ENG-292): an open marker is a filled dim disc, as the card's open stamp (ruling 1: no dashed ring). It is
-   opaque at the tone 14 % ink gives over the card, so the track does not show through it (Design, 20 Nov). */
-.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 14%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }
+   opaque at the tone 42 % ink gives over the card, so the track does not show through it (Design, 20 Nov). */
+.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 42%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }
 .ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }
 /* Forced colours: the disc in Canvas over the track, with the open stamp's ring (after the rule above). */
 @media (forced-colors: active) {

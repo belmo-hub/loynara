@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Archive, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
@@ -117,12 +117,42 @@ export function markSaved(row: string, from = row, toast = "Gespeichert", list =
 
 /**
  * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. A points card
- * draws every reward on its ladder (Design, ENG-292 §5).
+ * draws every reward on its ladder (Design, ENG-292 §5); with two or more it names the second and has reached the first,
+ * so a marker is pressed and the fill runs past it (Design, 20 Nov).
+ */
+export function exampleCard(type: PublicProgram["programType"], reward: { id: string; title: string; cost: number }, rewards?: Array<{ id: string; title: string; cost: number }>) {
+  const [first, second] = [...(rewards ?? [])].sort((a, b) => a.cost - b.cost);
+  if (type !== "points" || !second) return { reward, balance: Math.floor(reward.cost * 5 / 8) };
+  return { reward: second, balance: Math.max(first.cost, Math.floor(second.cost * 5 / 8)) };
+}
+
+/**
+ * It plays once per visit, when half of it is in view (Design, 20 Nov): the card arrives from .98, a points fill grows
+ * from 0 and presses each marker it reached, earned stamps land 90 ms apart. Until then it waits unseen; reduced motion
+ * shows the end state at once. Once played it settles, so a re-read replays nothing.
  */
 export function ProgramExample({ me, type, reward, rewards }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number }; rewards?: Array<{ id: string; title: string; cost: number }> }) {
-  const balance = Math.floor(reward.cost * 5 / 8);
-  return <div style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
-    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={type === "points" ? "points" : "stamps"} balance={balance} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} rewards={rewards} />
+  const shown = exampleCard(type, reward, rewards);
+  const ref = useRef<HTMLDivElement>(null);
+  // Mounted only once the programme is read, so on the client: reduced motion starts at the end state.
+  const [phase, setPhase] = useState<"wait" | "play" | "done">(() => typeof window === "undefined" || (typeof IntersectionObserver === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) ? "wait" : "done");
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || phase === "done") return;
+    if (phase === "wait") {
+      const observer = new IntersectionObserver(([entry]) => { if (entry?.isIntersecting) { observer.disconnect(); setPhase("play"); } }, { threshold: 0.5 });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+    el.querySelectorAll<HTMLElement>('[role="img"] > span[data-on]').forEach((stamp, i) => { stamp.setAttribute("data-new", ""); stamp.style.setProperty("--land-stagger", `${i * 90}ms`); });
+    let live = true;
+    const settle = () => { if (live) setPhase("done"); };
+    void Promise.all((el.getAnimations?.({ subtree: true }) ?? []).map(animation => animation.finished)).then(settle, settle);
+    return () => { live = false; };
+  }, [phase]);
+  return <div ref={ref} className={styles.example} data-play={phase} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={type === "points" ? "points" : "stamps"} balance={shown.balance} reward={{ id: shown.reward.id, title: shown.reward.title, cost: shown.reward.cost }} rewards={rewards}
+      landedFrom={phase === "play" ? 0 : undefined} grow={phase === "play"} />
   </div>;
 }
 
