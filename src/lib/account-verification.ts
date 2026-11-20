@@ -23,9 +23,11 @@ async function sendAccountMail(scope: string, email: string, subject: string, bo
   return result.state === "accepted" || result.state === "delivered" ? "sent" : "unavailable";
 }
 
-const appLink = (path: string, query: Record<string, string>) => {
+const appLink = (path: string, query: Record<string, string>, fragment?: Record<string, string>) => {
   const link = new URL(path, process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
   for (const [key, value] of Object.entries(query)) link.searchParams.set(key, value);
+  // A fragment never reaches a server or proxy log; the page reads it in the browser.
+  if (fragment) link.hash = new URLSearchParams(fragment).toString();
   return link.toString();
 };
 
@@ -36,5 +38,5 @@ export function sendAccountVerification(email: string, token: string) {
 
 export function sendPasswordReset(email: string, token: string) {
   return sendAccountMail("auth_reset_email", email, "Neues Passwort für Loynara",
-    `Hallo,\n\nfür dein Loynara-Konto wurde ein neues Passwort angefordert. Hier legst du es fest:\n${appLink("/reset-password", { token })}\n\nDer Link gilt eine Stunde und funktioniert nur einmal. Danach bist du auf allen Geräten abgemeldet und meldest dich mit dem neuen Passwort an.\n\nHast du das nicht angefordert? Dann ignorier diese E-Mail einfach. Dein Passwort bleibt, wie es ist.\n\nBei Fragen schreib an support@getloynara.com.`);
+    `Hallo,\n\nfür dein Loynara-Konto wurde ein neues Passwort angefordert. Hier legst du es fest:\n${appLink("/reset-password", {}, { token })}\n\nDer Link gilt eine Stunde und funktioniert nur einmal. Danach bist du auf allen Geräten abgemeldet und meldest dich mit dem neuen Passwort an.\n\nHast du das nicht angefordert? Dann ignorier diese E-Mail einfach. Dein Passwort bleibt, wie es ist.\n\nBei Fragen schreib an support@getloynara.com.`);
 }
