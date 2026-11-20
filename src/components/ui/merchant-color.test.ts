@@ -101,8 +101,10 @@ describe("points ladder on the card", () => {
     const selectors = [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap(([, head]) => head.replace(/^[\s\S]*\{/, "").split(",").map((part) => part.trim()));
     expect(selectors).toEqual([".ladder", ".track", ".fill",
       // Forced colours: the track's edge and the fill in system colours (Design, #282).
-      ".ladder .track", ".ladder .fill", ".ladder .mark[data-reached] .dot", ".mark", ".dot", ".mark[data-reached] .dot", ".cost", ".mark[data-label-hidden] .cost", ".mark[data-label-hidden] .title", ".title[data-title-hidden]", ".mark[data-price-hidden] .cost",
-      ".ladder[data-titles]", ".ladder[data-titles] .mark", ".title", ".ladder[data-titles] .title", ".mark[data-end]", ".mark[data-start]",
+      ".ladder .track", ".ladder .fill", ".ladder .mark[data-reached] .dot", ".mark", ".dot", ".mark[data-reached] .dot",
+      // The mix tone (ENG-292): the open marker the open stamp's dim disc, ringed in forced colours; the names at the card's 78 %.
+      '.ladder[data-tone="mix"] .mark:not([data-reached]) .dot', '.ladder[data-tone="mix"] .mark:not([data-reached]) .dot', ".cost", ".mark[data-label-hidden] .cost", ".mark[data-label-hidden] .title", ".title[data-title-hidden]", ".mark[data-price-hidden] .cost",
+      ".ladder[data-titles]", ".ladder[data-titles] .mark", ".title", ".ladder[data-titles] .title", '.ladder[data-tone="mix"] .title', ".mark[data-end]", ".mark[data-start]",
       // The booking moment: a crossed mark presses once (transform and opacity only, no colour).
       ".mark[data-new] .dot", "from", "60%",
       // Bars grow: only where the page asks, the fill grows from the start (transform only, no colour).

@@ -10,7 +10,7 @@ import { CustomerShell } from "@/components/ui/customer-shell";
 import { Sheet } from "@/components/ui/sheet";
 import { LegalLinks } from "@/components/ui/legal-links";
 import { CardStatusLine, CardStatusProvider, useCardStatus } from "./card-status";
-import { CardFace, cardGoal, nearestReward, type CardReward } from "./card-face";
+import { cardGoal, nearestReward, type CardReward } from "./card-face";
 import { MixCard } from "./mix-card";
 import { MixTile, mixStyles as mix } from "@/components/ui/mix";
 import type { ChangeLine } from "@/lib/change-lines";
@@ -134,6 +134,9 @@ export function CustomerCard(props: CustomerCardProps) {
   const toldReady = rewards.filter((reward) => told >= reward.cost).length;
   const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
   // The reward moment (ENG-206): this booking made a reward ready. The card presses once the stamps have landed (CSS).
+  // Points: the band opens once the last marker this booking crossed has pressed, 90 ms apart after --dur-ui (Design, 19 Nov).
+  const crossed = moment ? rewards.filter((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited).length : 0;
+  const bandDelay = programType === "points" && crossed ? { "--band-delay": `calc(var(--dur-ui) + var(--dur-reward) + ${(crossed - 1) * 90}ms)` } as CSSProperties : undefined;
   const rewardMoment = Boolean(moment && rewards.some((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited));
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
   const wallets = walletButtons(props, t);
@@ -158,13 +161,10 @@ export function CustomerCard(props: CustomerCardProps) {
       {props.walletSaved ? <p className={styles.saved}><Check size={16} aria-hidden="true" />In Apple Wallet gespeichert</p> : null}
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
-        {programType === "points"
-          // Points stay on the house card with its ladder until Design draws a points mix card (Design, 18 Nov).
-          ? <><div className={styles.pointsGoal}><Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} /></div><div className={styles.object}><CardFace progress={false} businessName={businessName} locationName={locationName} programType={programType} balance={balance} rewards={rewards} selected={selected} landed={landed} landedCount={landedCount} locale={locale} tag={level?.name ?? undefined} grow={arriving && !moment} /></div></>
-          : <GuestMixCard className={`customer-card ${styles.object} ${styles.mix}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
-            foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />}
+        <GuestMixCard className={`customer-card ${styles.object} ${styles.mix}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
+          foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
-        {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
+        {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined} style={bandDelay}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
       </div>
 
       <section className={`customer-qr-panel ${mix.panel} ${mix.pad} ${styles.ticket}`} aria-label={t.codeHeading}>
@@ -254,9 +254,10 @@ const NO_REWARD: Reward = { id: "", title: "", cost: 0 };
 /**
  * The mix card with the guest page's motion (ENG-008, #238): the stamps or ladder marks a booking just reached land
  * once, 90 ms apart, and the ladder fill grows on the first paint. Marks are set on the card's own elements before paint.
- * shortcut: MixCard takes no landed/grow props yet; move this into MixCard when a second page needs the landing.
+ * A points card's ladder also gets the booking's start (landedFrom) and grow from MixCard; the 90 ms stagger is set here.
  */
-function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: ComponentProps<typeof MixCard> & { landed?: number; landedCount?: number; grow?: boolean }) {
+function GuestMixCard({ landed, landedCount = 1, className, ...card }: ComponentProps<typeof MixCard> & { landed?: number; landedCount?: number }) {
+  const grow = card.grow;
   const ref = useRef<HTMLDivElement>(null);
   const goalId = card.reward.id;
   const reached = useRef<boolean[] | null>(null);
@@ -289,7 +290,8 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
   };
   useLayoutEffect(() => {
     const box = ref.current, face = box?.firstElementChild as HTMLElement | null | undefined, before = shown.current;
-    if (!box || !face || !before || before.id === goalId) return;
+    // Points: the ladder keeps its shape when the goal moves, so only the foot's words change, in place (Design, 19 Nov).
+    if (!box || !face || !before || before.id === goalId || card.programType === "points") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof box.animate !== "function") return;
     const now = parts(face);
     if (!now.stamps || !now.count) return;
@@ -318,7 +320,7 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     const done = () => { old.remove(); Object.assign(box.style, { overflow: "", borderRadius: "", boxShadow: "" }); Object.assign(face.style, { boxShadow: "" }); };
     grow.finished.then(done, done);
     return () => { grow.cancel(); slide?.cancel(); done(); };
-  }, [goalId]);
+  }, [goalId, card.programType]);
   // What the card looked like after this render: the next goal change fades its stamps and count out.
   useLayoutEffect(() => {
     const face = ref.current?.firstElementChild as HTMLElement | null | undefined;
@@ -326,7 +328,7 @@ function GuestMixCard({ landed, landedCount = 1, grow, className, ...card }: Com
     const { stamps, foot } = parts(face);
     shown.current = { id: goalId, html: face.outerHTML, height: face.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
   });
-  return <div ref={ref} className={className}><MixCard {...card} /></div>;
+  return <div ref={ref} className={className}><MixCard {...card} landedFrom={landed === undefined ? undefined : landed - landedCount} /></div>;
 }
 
 /** Rows of activity before „Alle anzeigen“ (G-21). */

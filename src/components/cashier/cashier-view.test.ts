@@ -172,14 +172,26 @@ describe("the mix Kasse (ENG-256)", () => {
   });
 });
 
-describe("points programmes keep today's Kasse card (Design, 17 Nov)", () => {
-  it("a points card is not drawn on the mix card: the number, its unit and the ladder in today's panel", () => {
-    const out = view("de", { balance: 1 });
-    expect(out).not.toContain("<span>Geprüfte Karte</span>");
-    expect(out).not.toContain("Aktueller Kontostand</span></div>");
+// ENG-292 (Design, 19 Nov §2.1): a points card with a reward is the mix Kasse card; without one it keeps today's panel.
+describe("a points card at the Kasse", () => {
+  it("is drawn on the mix card: the card number, „Geprüfte Karte“, the figure with „Punkte“, „Aktueller Kontostand“, the ladder in the mix tone", () => {
+    const out = view("de", { balance: 1542, rewards: [{ id: "a", name: "Espresso", cost: 50, eligible: true }, { id: "b", name: "Pizza", cost: 1500, eligible: true }, { id: "c", name: "Menü", cost: 3000, eligible: false }] });
+    expect(out).toContain("<b>K-7QX2MA</b><span>Geprüfte Karte</span>");
+    expect(out).toMatch(/<b data-figure=""><span[^>]*>1\.542<\/span><small>\u00a0Punkte<\/small><\/b><span>Aktueller Kontostand<\/span>/);
+    expect(out).toMatch(/role="img" aria-label="1\.542\u00a0von 3\.000\u00a0Punkten" data-tone="mix" data-titles="true"/);
+    expect(out.match(/style="--at:/g)).toHaveLength(3);
+    expect(out).not.toContain('id="cashier-card-title"');
+    expect(out).toContain("Andere Karte");
+  });
+  it("keeps today's panel without any reward", () => {
+    const out = view("de", { balance: 1, rewards: [] });
     expect(out).toMatch(/<h2 id="cashier-card-title"[^>]*>K-7QX2MA<\/h2>/);
     expect(out).toMatch(/class="balance-display [^"]*"><span[^>]*>Aktueller Kontostand<\/span><strong><span[^>]*>1<\/span>\u00a0<em>Punkt<\/em>/);
-    expect(out).toContain("aria-label=\"1\u00a0von 2\u00a0Punkten\"");
+    expect(out).not.toContain("data-tone");
+  });
+  it("counts to the cheapest reward not reached, else the dearest", () => {
+    const rewards = [{ id: "c", name: "Menü", cost: 300, eligible: false }, { id: "a", name: "Espresso", cost: 50, eligible: false }, { id: "b", name: "Pizza", cost: 150, eligible: false }];
+    expect([0, 42, 150, 420].map(balance => kasseGoal({ balance, rewards })?.cost)).toEqual([50, 50, 300, 300]);
   });
 });
 

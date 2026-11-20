@@ -55,10 +55,10 @@ describe("one point in the singular on the card (ENG-104)", () => {
   const card = (locale: "de" | "fr", balance: number, change: number, programType: "points" | "stamps" = "points") =>
     renderToStaticMarkup(h(CustomerCard, { ...base, programType, locale, balance, activity: [{ id: "a", label: "x", date: "d", change }] }));
   it("balance line, in German and French", () => {
-    expect(card("de", 1, 1)).toMatch(/>1<\/span> <em>Punkt<\/em>/);
-    expect(card("de", 2, 1)).toMatch(/>2<\/span> <em>Punkte<\/em>/);
-    expect(card("fr", 1, 1)).toMatch(/>1<\/span> <em>point<\/em>/);
-    expect(card("fr", 2, 1)).toMatch(/>2<\/span> <em>points<\/em>/);
+    expect(card("de", 1, 1)).toMatch(/<b data-figure=""><span[^>]*>1<\/span><\/b><span>Punkt<\/span>/);
+    expect(card("de", 2, 1)).toMatch(/<b data-figure=""><span[^>]*>2<\/span><\/b><span>Punkte<\/span>/);
+    expect(card("fr", 1, 1)).toMatch(/<b data-figure=""><span[^>]*>1<\/span><\/b><span>point<\/span>/);
+    expect(card("fr", 2, 1)).toMatch(/<b data-figure=""><span[^>]*>2<\/span><\/b><span>points<\/span>/);
     expect(card("de", 1, 1, "stamps")).toMatch(/<b data-figure=""><span[^>]*>1<\/span><\/b><span>von 5<\/span>/);
   });
   it("activity line, for a booking and a redemption, in German and French", () => {
@@ -77,8 +77,8 @@ describe("counts on the card, French zero and French stamps included (ENG-108)",
   const card = (locale: "de" | "fr", programType: "points" | "stamps", balance: number, extra: Partial<CustomerCardProps> = {}) =>
     renderToStaticMarkup(h(CustomerCard, { ...base, locale, programType, balance, ...extra }));
   it("balance line: French takes the singular for 0 and 1", () => {
-    expect(card("fr", "points", 0)).toMatch(/>0<\/span> <em>point<\/em>/);
-    expect(card("de", "points", 0)).toMatch(/>0<\/span> <em>Punkte<\/em>/);
+    expect(card("fr", "points", 0)).toMatch(/<b data-figure=""><span[^>]*>0<\/span><\/b><span>point<\/span>/);
+    expect(card("de", "points", 0)).toMatch(/<b data-figure=""><span[^>]*>0<\/span><\/b><span>Punkte<\/span>/);
   });
   it("progress line with one stamp missing, in French", () => {
     expect(card("fr", "stamps", 4)).toMatch(/Encore <span[^>]*>1<\/span> tampon avant votre récompense :/);
@@ -146,7 +146,7 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
   });
   it("leads a points card with the balance and names each reward on the ladder", () => {
     const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 112, rewards: [{ id: "a", title: "Bartöl", cost: 100 }, { id: "b", title: "Haarschnitt", cost: 250 }] }));
-    expect(out).toMatch(/customer-balance-line[^"]*"><strong><span[^>]*>112<\/span> <em>Punkte<\/em><\/strong>/);
+    expect(out).toMatch(/<b data-figure=""><span[^>]*>112<\/span><\/b><span>Punkte<\/span>/);
     expect(out).toMatch(/>100<\/small><small[^>]*>Bartöl<\/small>/);
   });
   it("aligns an early reward's labels to the ladder's start and the last one's to its end (Design FIX 4)", () => {
@@ -186,16 +186,38 @@ describe("the card page's parts (mocks 23–26, ENG-148)", () => {
     expect(css).toContain(".export a > span { padding-top: 7px; border-top: 1px solid var(--color-line); }");
     expect(css).toContain("@media (forced-colors: active) { .export a { color: ButtonText; } }");
   });
-  it("keeps a points programme on the house card with its ladder, never the mix card (Design, 18 Nov)", () => {
+  // ENG-292 (Design, 19 Nov §1.1): a points programme is the same mix card as stamps, the goal in its foot.
+  it("draws a points programme on the mix card, the ladder in the mix tone and the goal in the foot, no house card", async () => {
     const points = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", balance: 40, rewards: [{ id: "a", title: "Kaffee", cost: 50 }, { id: "b", title: "Kuchen", cost: 100 }] }));
-    expect(points).toContain('class="customer-card ');
-    expect(points).toContain("customer-balance-line");
-    expect(points).toContain("customer-card-business");
-    expect(points).not.toContain("<b>Synthetic Café</b>");
-    expect(points).toMatch(/Noch <span[^>]*>10<\/span> Punkte bis zu deiner Prämie: <span class="goal-reward/);
-    const stamps = renderToStaticMarkup(h(CustomerCard, base));
-    expect(stamps).toContain("<b>Synthetic Café</b>");
-    expect(stamps).not.toContain("customer-card-business");
+    expect(points).toContain("<b>Synthetic Café</b>");
+    expect(points).not.toContain("customer-card-business");
+    expect(points).not.toContain("customer-balance-line");
+    expect(points).toMatch(/role="img"[^>]*data-tone="mix"/);
+    // The goal line follows the ladder, in the card's foot.
+    expect(points).toMatch(/data-tone="mix".*Noch <span[^>]*>10<\/span> Punkte bis zu deiner Prämie: <span class="goal-reward[^"]*">Kaffee</);
+    expect(points).toMatch(/<b data-figure=""><span[^>]*>40<\/span><\/b><span>Punkte<\/span>/);
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).not.toContain(".pointsGoal");
+  });
+  it("presses the markers a points booking crossed, and opens the band after the last press (Design, 19 Nov §1.2)", async () => {
+    const rewards = [{ id: "a", title: "Espresso", cost: 60 }, { id: "b", title: "Pizza", cost: 150 }, { id: "c", title: "Menü", cost: 300 }];
+    const out = renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards, balance: 186, landed: 186, landedCount: 165, moment: { credited: 165, balance: 186 } }));
+    expect(out.match(/data-new="true"/g)).toHaveLength(2);
+    expect(out).toMatch(/data-arrive="true" style="--band-delay:calc\(var\(--dur-ui\) \+ var\(--dur-reward\) \+ 90ms\)"/);
+    // One marker crossed: the band waits for its one press.
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, programType: "points", rewards, balance: 70, landed: 70, landedCount: 49, moment: { credited: 49, balance: 70 } }))).toContain("--band-delay:calc(var(--dur-ui) + var(--dur-reward) + 0ms)");
+    // Stamps keep the band's own delay.
+    expect(renderToStaticMarkup(h(CustomerCard, { ...base, balance: 5, landed: 5, landedCount: 1, moment: { credited: 1, balance: 5 } }))).not.toContain("--band-delay");
+    const css = (await import("node:fs")).readFileSync("src/components/customer/customer-card.module.css", "utf8");
+    expect(css).toContain(".bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--band-delay, var(--dur-reward)) backwards; }");
+    // The guest page's stamp landing leaves the ladder's markers to the ladder's own press (their transform places them).
+    expect(css).toContain('.mix [role="img"] > span[data-new]:not([data-reached])');
+    const ladder = (await import("node:fs")).readFileSync("src/components/ui/points-ladder.module.css", "utf8");
+    expect(ladder).toContain(".mark[data-new] .dot { animation: land var(--dur-reward) var(--ease-out) calc(var(--dur-ui) + var(--land-stagger, 0ms)) both; }");
+  });
+  it("skips the goal-change crossfade for points: only the foot's words change (Design, 19 Nov §1.2)", async () => {
+    const source = (await import("node:fs")).readFileSync("src/components/customer/customer-card.tsx", "utf8");
+    expect(source).toMatch(/if \(!box \|\| !face \|\| !before \|\| before\.id === goalId \|\| card\.programType === "points"\) return;/);
   });
   it("draws the stamps as the mix card: open slots are plain discs, no gift slot (mix ruling 1)", () => {
     expect(renderToStaticMarkup(h(CustomerCard, base))).not.toContain("data-reward");
