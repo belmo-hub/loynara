@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { pool } from "../src/db";
+import { signUp } from "./support/sign-up";
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_qr_092") throw new Error("Dedicated synthetic QR-failure database required");
 const origin = "http://localhost:3000";
@@ -10,7 +11,7 @@ for (const [failure, width] of [["http", 375], ["incomplete", 1280], ["reset", 3
   expect(baseURL).toBe(origin); const context = await browser.newContext({ baseURL, viewport: { width, height: 812 } });
   try {
     const id = randomUUID(), name = `Synthetic QR failure ${id}`;
-    const signup = await context.request.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20", Origin: origin }, data: { name: "Synthetic QR owner", email: `${id}@example.test`, password: "Synthetic-QR-092-Only!" } }); expect(signup.ok()).toBe(true);
+    const signup = await signUp(context.request, { headers: { Origin: origin }, data: { name: "Synthetic QR owner", email: `${id}@example.test`, password: "Synthetic-QR-092-Only!" } }); expect(signup.ok()).toBe(true);
     const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: name, locationName: "Synthetic QR counter", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One confirmed purchase", rewardTitle: "Coffee", rewardCost: 5 } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
     const page = await context.newPage(); await page.goto("/merchant"); /* the invite card sits on the Übersicht until the Kunden page takes it (ENG-122a) */ let requests = 0, downloads = 0;
     page.on("download", () => { downloads++; });

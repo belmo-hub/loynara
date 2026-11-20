@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // Overview insights link to campaign goals and customer views. A client-side navigation (what a click does) must apply the
 // link's parameters; reading window.location at first render lost them. Runs against dev or a production-like server.
@@ -9,7 +10,7 @@ test("insight links keep their goal and filter on client-side navigation", async
   const url = baseURL ?? "http://localhost:3000";
   const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...headers } });
   try {
-    expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Insight owner", email: `insight-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(api, { data: { name: "Insight owner", email: `insight-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     expect((await api.post("/api/merchant/onboard", { data: { businessName: "Insight Café", locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Insight card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 8 } })).status()).toBe(201);
     const ctx = await browser.newContext({ baseURL: url, storageState: await api.storageState(), extraHTTPHeaders: headers });
     try {

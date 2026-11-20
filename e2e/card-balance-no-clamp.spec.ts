@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // ENG-273: a card above its goal shows the true count, never the goal, on the owner's card page and the guest's card.
 let owner: APIRequestContext, guest: APIRequestContext, cardToken: string, membershipId: string;
 test.beforeAll(async ({ baseURL }) => {
   const url = baseURL ?? "http://localhost:3000", options = { baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } };
   owner = await apiRequest.newContext(options); guest = await apiRequest.newContext(options);
-  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic balance owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic balance owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Pizza card", programType: "stamp", rulesText: "One confirmed visit", rewardTitle: "Pizza", rewardCost: 8 } });
   expect(setup.status()).toBe(201);
   const { programSlug } = await setup.json() as { programSlug: string };

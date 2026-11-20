@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("owner manages the saved reward catalogue in the merchant browser", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    const signedUp = await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic reward owner", email: `catalogue-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } });
+    const signedUp = await signUp(owner, { data: { name: "Synthetic reward owner", email: `catalogue-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } });
     expect(signedUp.status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Catalogue Café", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",

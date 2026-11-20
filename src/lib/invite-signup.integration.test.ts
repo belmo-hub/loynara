@@ -122,7 +122,10 @@ describe("invitation lifecycle", () => {
     process.env.PUBLIC_REGISTRATION_ENABLED = "true";
     const account = await auth.api.signUpEmail({ body: { name: "Existing", email: "bestehend@example.test", password: "synthetic-password-long-enough" } });
     process.env.PUBLIC_REGISTRATION_ENABLED = "false";
-    await expect(signUp("bestehend@example.test", invite.token)).rejects.toThrow(/already exists|exists/i);
+    // ENG-283: a second sign-up answers like a first one, and creates or changes nothing.
+    const again = await signUp("bestehend@example.test", invite.token);
+    expect(again.user.id).not.toBe(account.user.id);
+    expect((await pool.query('SELECT count(*)::int AS n FROM "user" WHERE email = $1', ["bestehend@example.test"])).rows[0].n).toBe(1);
     // Wrong person: another account cannot use the token.
     process.env.PUBLIC_REGISTRATION_ENABLED = "true";
     const stranger = await auth.api.signUpEmail({ body: { name: "Stranger", email: "fremd@example.test", password: "synthetic-password-long-enough" } });

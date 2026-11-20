@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("synthetic merchant adviser changes after a confirmed checkout", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -8,7 +9,7 @@ test("synthetic merchant adviser changes after a confirmed checkout", async ({ b
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   try {
     const email = `adviser-${randomUUID()}@example.test`;
-    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic adviser owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(owner, { data: { name: "Synthetic adviser owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Adviser Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Synthetic stamp card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,

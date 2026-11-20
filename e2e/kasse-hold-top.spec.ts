@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import QRCode from "qrcode";
+import { signUp } from "./support/sign-up";
 
 // From 600 px wide the Kasse's layout is decided when the card opens and kept until it leaves (Design, 19 Nov): a group
 // that still fits with the booked stack is centred with a floating panel that grows downward; any other takes the
@@ -13,7 +14,7 @@ type Shop = { owner: Awaited<ReturnType<typeof apiRequest.newContext>>; programS
 
 async function shop(url: string, programType: "points" | "stamp", extraRewards: number[] = []): Promise<Shop> {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic hold owner", email: `hold-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic hold owner", email: `hold-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: "Synthetic Hold Pizzeria", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     ...(programType === "points"

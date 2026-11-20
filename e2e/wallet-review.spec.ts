@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // Synthetic browser acceptance only. Availability/issuance are stubbed; provider flags remain OFF.
 const sizes = [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 800 }];
@@ -26,7 +27,7 @@ let appOrigin: string;
 async function signup(baseURL: string, label: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `wallet-review-${label}-${randomUUID()}@example.test`;
-  const response = await context.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: `Synthetic Wallet ${label}`, email, password: `Local!${randomUUID()}Aa` } });
+  const response = await signUp(context, { data: { name: `Synthetic Wallet ${label}`, email, password: `Local!${randomUUID()}Aa` } });
   expect(response.status(), "synthetic signup must succeed").toBe(200);
   return { context, email };
 }

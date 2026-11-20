@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Browser, type Page, type Request } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // The counter's look may change; what one booking sends may not (ENG-122g). One tap or one confirmation sends exactly one
 // request, and its body has exactly the fields the counter has always sent.
@@ -10,13 +11,13 @@ async function shop(baseURL: string, program: Record<string, unknown>) {
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   const cashier = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   const guest = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
-  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic booking owner", email: `booking-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic booking owner", email: `booking-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Booking Café", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", rulesText: "Synthetic rules.", rewardTitle: "Kaffee", ...program } });
   expect(setup.status()).toBe(201);
   const { programSlug } = await setup.json() as { programSlug: string };
   const { locationId } = await (await owner.get("/api/me")).json() as { locationId: string };
   const email = `booking-cashier-${randomUUID()}@example.test`;
-  expect((await cashier.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic booking cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(cashier, { data: { name: "Synthetic booking cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const { token } = await (await owner.post("/api/staff/invite", { data: { locationId, email, role: "cashier" } })).json() as { token: string };
   expect((await cashier.post("/api/staff/accept", { data: { token } })).status()).toBe(200);
   const joined = await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } });

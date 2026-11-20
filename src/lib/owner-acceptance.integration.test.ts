@@ -51,6 +51,15 @@ it("stores one row with the account, the server's versions and server time, and 
   expect((accepted_at as Date).getTime()).toBeGreaterThanOrEqual(before - 1000);
 });
 
+it("stores nothing for a sign-up to an address already taken, whose answer carries a made-up account (ENG-283)", async () => {
+  const email = `${randomUUID()}@example.test`;
+  expect((await signUp(email)).status).toBe(200);
+  const again = await signUp(email, SIGNUP_ACCEPTANCE_TEXT_VERSION);
+  expect(again.status).toBe(200);
+  expect(await again.json()).toEqual({ status: true });
+  expect(await rows()).toHaveLength(0);
+});
+
 it("stores nothing for a sign-up that showed no sentence (staff from an invitation), or while /register is closed", async () => {
   expect((await signUp(`${randomUUID()}@example.test`)).status).toBe(200);
   process.env.PUBLIC_REGISTRATION_ENABLED = "false";
@@ -81,7 +90,11 @@ it("gets the business once the owner's shop exists, and is append-only after tha
 it("sets up a shop through the setup route only for an account that accepted at /register (CTO, 20 Nov)", async () => {
   const setup = { businessName: "Synthetic Gate Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 };
   const setUp = async (shown?: string) => {
-    const cookie = (await signUp(`${randomUUID()}@example.test`, shown)).headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+    // Sign-up signs nobody in (ENG-283); the owner then signs in.
+    const email = `${randomUUID()}@example.test`;
+    expect((await signUp(email, shown)).status).toBe(200);
+    const signIn = await POST(new Request(`${origin}/api/auth/sign-in/email`, { method: "POST", headers: { origin, "content-type": "application/json", "cf-connecting-ip": `198.51.100.${(peer += 1) % 250 + 1}` }, body: JSON.stringify({ email, password: "synthetic-accept-password" }) }));
+    const cookie = signIn.headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
     return onboard(new Request(`${origin}/api/merchant/onboard`, { method: "POST", headers: { origin, cookie, "content-type": "application/json", "cf-connecting-ip": "198.51.100.251" }, body: JSON.stringify(setup) }));
   };
   // A direct call to the sign-up API, without the sentence, makes an account but no shop.

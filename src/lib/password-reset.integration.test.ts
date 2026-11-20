@@ -66,6 +66,7 @@ it("mails a confirmed owner a one-hour link in fixed words; the link sets the pa
   expect(token).toBeDefined();
   const [row] = (await pool.query(`SELECT "expiresAt" FROM verification WHERE identifier = $1`, [`reset-password:${token}`])).rows;
   expect(row.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(3600_000);
+  expect((await post("/sign-in/email", { email, password })).status).toBe(200);
   expect((await pool.query('SELECT count(*)::int AS n FROM session s JOIN "user" u ON u.id = s."userId" WHERE u.email = $1', [email])).rows[0].n).toBe(1);
   expect((await post("/reset-password", { token, newPassword: "synthetic-reset-new-password" })).status).toBe(200);
   expect((await pool.query('SELECT count(*)::int AS n FROM session s JOIN "user" u ON u.id = s."userId" WHERE u.email = $1', [email])).rows[0].n).toBe(0);

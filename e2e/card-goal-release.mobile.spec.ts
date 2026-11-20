@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // Design #300: with rewards at 3 and 8 a card's goal can change while the page is open (the guest picks the other
 // reward, or a booking moment's hold ends). The change is a crossfade of the stamps and the count only, with the card's
@@ -10,7 +11,7 @@ test.beforeAll(async ({ baseURL }) => {
   const url = baseURL ?? "http://localhost:3000";
   options = { baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } };
   owner = await apiRequest.newContext(options);
-  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic goal owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic goal owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
 });
 test.afterAll(async () => { await owner.dispose(); for (const guest of guests) await guest.dispose(); });
 

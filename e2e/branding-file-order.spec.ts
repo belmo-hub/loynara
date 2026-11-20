@@ -3,6 +3,7 @@ import { expect, test, type BrowserContext } from "@playwright/test";
 import sharp from "sharp";
 import { pool } from "../src/db";
 import { checkedLogoUpload } from "../src/lib/wallet/logo-process";
+import { signUp } from "./support/sign-up";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_branding_088") throw new Error("Dedicated synthetic branding database required");
@@ -24,7 +25,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL });
     try {
       const id = randomUUID(), name = `Synthetic branding ${id}`, location = "Synthetic Mitte";
-      const signup = await context.request.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20", Origin: origin }, data: { name: "Synthetic brand owner", email: `${id}@example.test`, password: "Synthetic-Brand-088-Only!" } }); expect(signup.ok()).toBe(true);
+      const signup = await signUp(context.request, { headers: { Origin: origin }, data: { name: "Synthetic brand owner", email: `${id}@example.test`, password: "Synthetic-Brand-088-Only!" } }); expect(signup.ok()).toBe(true);
       const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: name, locationName: location, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic brand card", programType: "stamp", rulesText: "One synthetic visit", rewardTitle: "Coffee", rewardCost: 5, logoData: data("initial") } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
       if (own) owner = { slug: merchant.programSlug, tenant: merchant.tenantId, name, location, storage: await context.storageState() }; else foreign = { tenant: merchant.tenantId, initial: await persisted(merchant.tenantId) };
     } finally { await context.close(); }

@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("identity-only account completes the wizard and safely retries the completed onboarding", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const account = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await account.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic bridge owner", email: `bridge-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(account, { data: { name: "Synthetic bridge owner", email: `bridge-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     expect(await (await account.get("/api/me")).json()).toMatchObject({ tenantId: null });
     const context = await browser.newContext({ baseURL: url, storageState: await account.storageState() });
     try {

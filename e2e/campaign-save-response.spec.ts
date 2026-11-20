@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { pool } from "../src/db";
+import { signUp } from "./support/sign-up";
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_qr_092") throw new Error("Dedicated synthetic draft-response database required");
 const origin = "http://localhost:3000";
@@ -8,7 +9,7 @@ test.afterAll(async () => { await pool.end(); });
 for (const [malformed, width] of [["missing", 375], ["wrong-id", 1280]] as const) test(`committed draft ${malformed} acknowledgment is unconfirmed, preserving edits (${width}px)`, async ({ browser, baseURL }) => {
   expect(baseURL).toBe(origin); const context = await browser.newContext({ baseURL, viewport: { width, height: 812 }, extraHTTPHeaders: { Origin: origin } });
   try {
-    const id = randomUUID(); const signup = await context.request.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic draft owner", email: `${id}@example.test`, password: "Synthetic-Draft-092-Only!" } }); expect(signup.ok()).toBe(true);
+    const id = randomUUID(); const signup = await signUp(context.request, { data: { name: "Synthetic draft owner", email: `${id}@example.test`, password: "Synthetic-Draft-092-Only!" } }); expect(signup.ok()).toBe(true);
     const setup = await context.request.post("/api/merchant/onboard", { data: { businessName: `Synthetic draft ${id.replace(/\d/g, "")}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One confirmed purchase", rewardTitle: "Coffee", rewardCost: 5 } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
     const content = { title: "Synthetic draft", subject: "Synthetic subject", body: "Synthetic original draft", audienceDefinition: { kind: "all" } }; const created = await context.request.post("/api/merchant/campaigns", { data: { action: "create", programSlug: merchant.programSlug, ...content } }); expect(created.status()).toBe(201); const campaign = (await created.json()).campaign;
     const page = await context.newPage(); await page.goto("/merchant/campaigns"); await page.getByRole("button", { name: "Bearbeiten", exact: true }).click(); await page.getByRole("button", { name: "Zurück", exact: true }).click(); const submitted = "Synthetic committed draft requiring acknowledgment"; await page.getByLabel("Nachricht", { exact: true }).fill(submitted); await page.getByRole("button", { name: "Weiter", exact: true }).click(); let writes = 0;
