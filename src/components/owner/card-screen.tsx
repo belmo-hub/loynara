@@ -167,7 +167,7 @@ function CardLoading() {
   </div>;
 }
 
-/** A figure over its label (the phone and the side column), a row with the label first at tablet width. */
+/** A figure over its label in the wide rail, a row with the label first up to 1199 (the phone since ENG-290). */
 function Fact({ value, label }: { value: string; label: string }) {
   return <div><b className={s.figure}>{value}</b><span className={s.label}>{label}</span></div>;
 }
