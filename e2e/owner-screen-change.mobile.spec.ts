@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 
 /** The share of pixels that are dark in the frame and light on the settled screen: what a screen fading in cannot make. */
-const foreignShare = (helper: Page, frame: Buffer, settled: Buffer) => helper.evaluate(async ([first, second]) => {
+const foreignShare = (helper: Page, frame: Buffer, settled: Buffer, dark = 150) => helper.evaluate(async ([first, second, cutoff]) => {
   const pixels = async (png: string) => {
     const image = new Image();
     image.src = `data:image/png;base64,${png}`;
@@ -25,9 +25,9 @@ const foreignShare = (helper: Page, frame: Buffer, settled: Buffer) => helper.ev
     return true;
   };
   let foreign = 0;
-  for (let index = 1; index < shown.length; index += 4) if (shown[index] < 150 && lightAround(((index - 1) / 4) % width, Math.floor((index - 1) / 4 / width))) foreign++;
+  for (let index = 1; index < shown.length; index += 4) if (shown[index] < Number(cutoff) && lightAround(((index - 1) / 4) % width, Math.floor((index - 1) / 4 / width))) foreign++;
   return foreign / (shown.length / 4);
-}, [frame.toString("base64"), settled.toString("base64")]);
+}, [frame.toString("base64"), settled.toString("base64"), dark] as const);
 
 const tab = (page: Page, name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 async function openOwner(page: Page) {
@@ -89,7 +89,8 @@ test("in the second screen change the old screen fades out instead of cutting aw
   const settled = await page.screenshot();
   const helper = await browser.newPage();
   const shares = [];
-  for (const frame of frames) shares.push(await foreignShare(helper, frame, settled));
+  // The old screen leaves from 40 %, so its dark text is drawn at about 156 of 255 over the light ground: dark is < 200 here.
+  for (const frame of frames) shares.push(await foreignShare(helper, frame, settled, 200));
   await helper.close();
   // The fading Kundenkarten page leaves dark text where the settled Programm page is light; a cut leaves none.
   expect(Math.max(...shares), "the old screen is still drawn while its fade runs").toBeGreaterThan(0.005);
