@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { PLACEHOLDER } from "./support/placeholders";
 
-// The screen change in the owner area (DESIGN.md, Motion): the old screen fades out, the new one fades in, the bars stay.
+// The screen change in the owner area (DESIGN.md, Motion): the old screen fades out over --dur-press, the new one stands
+// at full from the first frame, the bars stay.
 const access = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 
 // One sign-in for the file: the login limit counts every attempt.
@@ -25,8 +27,29 @@ test.beforeEach(async () => {
 
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const inLayer = (prefix: string, running = false) => page.evaluate(([start, mustRun]) => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(start as string) && (!mustRun || animation.playState === "running")), [prefix, running] as const);
-/** Resolves in the frame in which the incoming screen's fade exists. */
-const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+/** The layers of the screens, not those of the bars or the hidden root. */
+const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/;
+/** Resolves in the frame in which the outgoing screen's fade exists. */
+const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(") && !/\((root|ow-topbar|ow-subnav|ow-tabs)\)/.test((animation.effect as KeyframeEffect).pseudoElement!)));
+/** From the next frame on, until the change ends: in every frame, the opacity of each screen layer. */
+const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[]; block: number | null }[]>(done => {
+  const screen = new RegExp(source);
+  const frames: { old: number[]; new: number[]; block: number | null }[] = [];
+  let seen = false;
+  const look = () => {
+    const old = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition-old(") && screen.test(layer));
+    const active = CSS.supports("selector(:active-view-transition)") ? document.documentElement.matches(":active-view-transition") : old.length > 0;
+    if (active) {
+      // A new screen has no animation, so its layers are found by the names its elements carry during the change.
+      const names = [...document.querySelectorAll<HTMLElement>(".ow-content, .ow-content *")].map(node => getComputedStyle(node).viewTransitionName).filter(name => name && name !== "none");
+      seen = true;
+      const block = document.querySelector(".ow-content [data-arrive]");
+      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)), block: block ? Number(getComputedStyle(block).opacity) : null });
+    } else if (seen) { done(frames); return; }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}), SCREEN.source);
 // WebKit keeps a finished layer animation after a change (#263), so only unfinished ones count.
 const settled = () => page.waitForFunction(() => !document.getAnimations().some(animation => animation.playState !== "finished" && (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
 
@@ -34,12 +57,25 @@ test("a step in fades to the end: a page that swaps its loading frame for its fo
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
   await settled();
+  // A change cut short cancels its fade; one that runs out finishes it.
+  const ran = page.evaluate(() => new Promise<boolean>(done => {
+    const look = () => {
+      const fade = document.getAnimations().find(animation => /^::view-transition-old\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? ""));
+      if (fade) fade.finished.then(() => done(true), () => done(false)); else requestAnimationFrame(look);
+    };
+    look();
+  }));
+  // Every title the document takes after the tap. The page's metadata later puts the site's title back (a known fault of
+  // its own), so the test asks whether the screen named itself, not what the title is at the end.
+  await page.evaluate(() => {
+    const titles: string[] = [];
+    (window as unknown as { titles: string[] }).titles = titles;
+    new MutationObserver(() => titles.push(document.title)).observe(document.head, { childList: true, subtree: true, characterData: true });
+  });
   await page.getByRole("link", { name: /Prämie hinzufügen/ }).click();
-  await fadeStarted();
-  await page.waitForTimeout(100);
-  expect(await inLayer("::view-transition-new(", true), "the fade is still running 100 ms after it started").toBe(true);
   await expect(page).toHaveURL(/\/merchant\/program\/rewards\/new$/);
-  await expect(page, "the new screen names itself to assistive tech").toHaveTitle(/ – Loynara$/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { titles: string[] }).titles.some(title => / – Loynara$/.test(title) && !title.startsWith("Programm"))), { message: "the new screen names itself to assistive tech" }).toBe(true);
+  expect(await ran, "the old screen's fade ran to its end").toBe(true);
 });
 
 // ENG-219: WebKit (every iPhone browser) does not always paint the old screen's fade and then draws it as styled at
@@ -62,7 +98,7 @@ test("the old screen is invisible at rest: only its running fade shows it", asyn
 test("each screen change takes the other pair of keyframes", async () => {
   const names = async () => {
     await fadeStarted();
-    const used = await page.evaluate(() => document.getAnimations().flatMap(animation => /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []));
+    const used = await page.evaluate(source => document.getAnimations().flatMap(animation => new RegExp(source).test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []), SCREEN.source);
     await settled();
     return [...new Set(used)].sort().join(" ");
   };
@@ -72,7 +108,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   const second = await names();
   await tab("Programm").click();
   const third = await names();
-  expect([first, second].sort(), "two changes in a row use both pairs").toEqual(["ow-fade ow-fade-out", "ow-fade-b ow-fade-out-b"]);
+  expect([first, second].sort(), "two changes in a row use both names").toEqual(["ow-fade-out", "ow-fade-out-b"]);
   expect(third, "the third change takes the first pair again").toBe(first);
   // A customer card opens and closes on the same path: those are changes of their own too.
   await page.goto("/merchant/customers?activity=all");
@@ -84,7 +120,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   const opened = await names();
   await page.locator(".ow-content a.ow-back:visible").click();
   const closed = await names();
-  expect(opened, "opening a card takes the pair the list did not").toBe(before ? "ow-fade ow-fade-out" : "ow-fade-b ow-fade-out-b");
+  expect(opened, "opening a card takes the pair the list did not").toBe(before ? "ow-fade-out" : "ow-fade-out-b");
   expect(closed, "closing it takes the other one").not.toBe(opened);
 });
 
@@ -285,7 +321,7 @@ test("opening a customer card and going back are screen changes; a filter is not
   page.on("request", count);
   await page.locator(".ow-content a.ow-back:visible").click();
   await fadeStarted();
-  expect(await inLayer("::view-transition-new(ow-under)"), "the list comes back as the new screen").toBe(true);
+  expect(await page.evaluate(() => { const list = document.querySelector<HTMLElement>(".ow-under")!; return !list.hidden && getComputedStyle(list).viewTransitionName === "ow-under"; }), "the list comes back as the new screen").toBe(true);
   await settled();
   await expect(first).toBeVisible();
   page.off("request", count);
@@ -296,5 +332,61 @@ test("reduced motion: the change is a cut", async () => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
-  expect(await inLayer("::view-transition-new(", true)).toBe(false);
+  expect(await inLayer("::view-transition", true)).toBe(false);
+});
+
+// ENG-298 (Design's option B): the crossfade showed both screens at half strength for about 160 ms. Now the new screen
+// stands at full from the first frame and its blocks rise in, while the old one leaves from 40 % (Design, #314: from 100 %
+// the first frame still showed both screens' texts over each other).
+test("the old screen is never above 40 % while the new one is in place; the new one is at full", async () => {
+  for (const name of ["Kunden", "Programm", "Kunden"]) {
+    const frames = watchLayers();
+    await tab(name).click();
+    const seen = await frames;
+    await settled();
+    const fading = seen.filter(frame => frame.old.length && frame.block !== null);
+    expect(fading.length, `${name}: frames with the old screen leaving over the new screen's first block`).toBeGreaterThan(0);
+    expect(fading.filter(frame => Math.max(...frame.old) > 0.4 + 1e-6), `${name}: frames with the old screen's layer above 0.40`).toEqual([]);
+    expect(seen.flatMap(frame => frame.new).every(value => value === 1), `${name}: the new screen is at full in every frame`).toBe(true);
+  }
+  // The hidden root takes no fade of its own: in WebKit it kept the change alive for 250 ms after the old screen left.
+  await tab("Mehr").click();
+  await fadeStarted();
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement, "::view-transition-old(root)").animationName)).toBe("none");
+});
+
+// Design, #314: what takes a placeholder's place fades in from a floor of 40 %, never from nothing; a frame with neither
+// placeholder nor content read as a blank screen.
+test("content that takes a placeholder's place fades in from a floor: no frame shows neither", async () => {
+  for (const [name, read] of [["Programm", /\/api\/program\//], ["Kunden", /\/api\/merchant\/customers\?/]] as const) {
+    await page.goto("/merchant");
+    await settled();
+    let release = () => {};
+    const held = new Promise<void>(done => { release = done; });
+    await page.route(read, async route => { await held; await route.continue(); });
+    await tab(name).click();
+    await expect(page.locator(".ow-content :is(.ow-loading, .ow-skel)").first()).toBeVisible();
+    await settled();
+    // Every frame until 300 ms after the placeholder has gone (a slow runner answers late): is a placeholder there, and
+    // how strong is the weakest outermost swap.
+    const frames = page.evaluate(placeholders => new Promise<{ placeholder: boolean; swap: number | null }[]>(done => {
+      const seen: { placeholder: boolean; swap: number | null }[] = [];
+      const limit = performance.now() + 3000;
+      let gone = 0;
+      const look = () => {
+        const swaps = [...document.querySelectorAll(".ow-content [data-swap]")].filter(node => !node.parentElement?.closest("[data-swap]"));
+        const placeholder = !!document.querySelector(`.ow-content :is(${placeholders})`);
+        seen.push({ placeholder, swap: swaps.length ? Math.min(...swaps.map(node => Number(getComputedStyle(node).opacity))) : null });
+        if (!placeholder && !gone) gone = performance.now();
+        if ((gone && performance.now() - gone > 300) || performance.now() > limit) done(seen); else requestAnimationFrame(look);
+      };
+      look();
+    }), PLACEHOLDER);
+    release();
+    const seen = await frames;
+    await page.unroute(read);
+    expect(seen.some(frame => frame.swap !== null), `${name}: the content is marked as taking the placeholder's place`).toBe(true);
+    // Pin 1 (Design, #314 re-check): in the frame the placeholder leaves and every one after, the content is at 40 % or more.
+    expect(seen.filter(frame => !frame.placeholder && (frame.swap === null || frame.swap < 0.4 - 1e-3)), `${name}: frames after the placeholder left with the content below 40 %`).toEqual([]);
+  }
 });

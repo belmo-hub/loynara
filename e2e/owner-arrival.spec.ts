@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { PLACEHOLDER } from "./support/placeholders";
 
 // Motion in the owner area (DESIGN.md, Motion): a screen that is navigated to arrives once; a cold load, data in a
 // placeholder's place and a return (Back, a filter, a period) do not; a tap after a screen change lands from --dur-press
@@ -18,6 +19,40 @@ test.beforeAll(async ({ browser }) => {
     const started: string[] = [];
     (window as unknown as { started: string[] }).started = started;
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
+    // Every frame: each swap's opacity as shown, its own times every one above it up to the content (a swap inside one
+    // still fading multiplies with it), from the frame it is marked in. The first 40 frames of each.
+    type Series = { ready: boolean; inner: boolean; from: number; values: number[]; times: number[]; marked: number; done?: boolean; name: string };
+    const series = new Map<Element, Series>();
+    (window as unknown as { swaps: () => Series[] }).swaps = () => [...series.values()];
+    const shownOf = (node: Element) => {
+      let shown = 1;
+      for (let up: Element | null = node; up && !up.matches(".ow-content"); up = up.parentElement) shown *= Number(getComputedStyle(up).opacity);
+      return shown;
+    };
+    // Noted when it is marked; its values are taken in the frames after, the first of them the frame it is painted in.
+    const mark = (node: Element, observed = false) => {
+      // Seen by the observer, after the shell marked it: its first value is taken in the next frame, after the shell's own
+      // callback for that frame, as it is painted.
+      if (observed && !series.has(node)) requestAnimationFrame(() => { series.get(node)!.ready = true; note(node); });
+      if (!series.has(node)) series.set(node, { ready: !observed, inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], times: [], marked: performance.now(), name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
+    };
+    const note = (node: Element) => {
+      mark(node);
+      const entry = series.get(node)!;
+      if (!entry.ready || entry.done || entry.values.length >= 40) return;
+      // Hidden (a card opened over the list while it still faded in): no longer on screen, nothing more to sample.
+      if (!node.checkVisibility()) { entry.done = true; return; }
+      entry.values.push(shownOf(node));
+      entry.times.push(performance.now());
+      // Its own fade over: what happens to it later (a swap above it) is that swap's.
+      if (entry.values.length > 1 && !node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running")) entry.done = true;
+    };
+    addEventListener("DOMContentLoaded", () => new MutationObserver(records => { for (const record of records) if (record.target instanceof Element && record.target.matches(".ow-content [data-swap]")) mark(record.target, true); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-swap"] }));
+    const look = () => {
+      for (const node of document.querySelectorAll(".ow-content [data-swap]")) note(node);
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
   });
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
@@ -28,6 +63,15 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(() => page.close());
 test.beforeEach(() => page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" }));
 
+/** Swaps that do not start at .4 as shown (0.35 to 0.45) or that step by more than 0.3 between two frames. */
+/** Swaps whose first painted frame is not at .4 as shown (0.35 to 0.45), or that step by more than 0.3 between two
+ *  frames; both bounds grow with the time a frame took past 16.7 ms, so a dropped frame on a slow runner is no fault. */
+const swapFaults = () => page.evaluate(() => (window as unknown as { swaps: () => { values: number[]; times: number[]; marked: number; name: string }[] }).swaps().filter(({ values, times, marked }) => {
+  if (!values.length) return false;
+  const late = (ms: number) => 0.3 * Math.max(0, ms - 1000 / 60) / (1000 / 60);
+  if (values[0]! < 0.35 || values[0]! > 0.45 + late(times[0]! - marked)) return true;
+  return values.some((value, i) => i > 0 && Math.abs(value - values[i - 1]!) > 0.3 + late(times[i]! - times[i - 1]!));
+}).map(({ values, name }) => `${name}: ${values.map(value => value.toFixed(2)).join(" ")}`));
 const started = (...names: string[]) => page.evaluate(wanted => (window as unknown as { started: string[] }).started.filter(item => wanted.includes(item)).length, names);
 /** The most entrances (Arrive, List arrive) seen running in any frame of the next `ms`. A finished one does not count. */
 const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done => {
@@ -41,7 +85,7 @@ const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done =
 }), ms);
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const team = () => page.locator('.ow-content a.ow-prog-row[href="/merchant/staff"]');
-const changeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+const changeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(")));
 
 test("the milestone card stays once it is shown", async () => {
   // Right after sign-in: this browser has not shown the shop's milestone yet.
@@ -103,7 +147,10 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.waitForTimeout(800);
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "nothing rises, staggers or fades in on a cold load").toBe(0);
+  // What replaces the shell's placeholder fades in (Skeleton to content); nothing rises or staggers.
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing rises or staggers on a cold load").toBe(0);
+  expect(await started("ow-swap"), "what replaces the placeholders fades in").toBeGreaterThan(0);
+  expect(await swapFaults(), "every swap shows at .4 first and climbs without a jump").toEqual([]);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
@@ -151,7 +198,7 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   });
   expect(await token(), "the drop window is --dur-press").toBe(120);
   // A runner's round trips alone take a tap about 130 ms into the change, so the window and the fade are stretched for
-  // this test: the shell reads its window from --dur-press, and the change outlasts the late tap. Same code path, same rule.
+  // this test: the shell reads its window from --dur-press. Same code path, same rule.
   const [press, ui] = [400, 1200];
   for (const [wait, lands] of [[0, false], [press + 100, true]] as const) {
     await page.goto("/merchant/program");
@@ -171,9 +218,8 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     const since = Math.round(await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince));
     if (lands) {
-      expect(since, "the late tap came after the window and while the change ran").toBeGreaterThanOrEqual(press);
-      expect(since).toBeLessThan(press / 2 + ui);
-      await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
+      // The change lasts as long as the old screen's fade, --dur-press: a tap after it is an ordinary tap on the new screen.
+      await expect(page, `a tap ${press + 100} ms after the change began lands on the row`).toHaveURL(/\/merchant\/staff$/);
     } else {
       expect(since, "the early tap came inside the window").toBeLessThan(press);
       await page.waitForTimeout(700);
@@ -183,7 +229,7 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   }
 });
 
-test("data that takes a placeholder's place stands there at once, and a new period does not arrive", async () => {
+test("data that takes a placeholder's place fades in without a rise, and a new period does not arrive", async () => {
   let release = () => {};
   const held = new Promise<void>(done => { release = done; });
   // The page's own read (the shell needs none of it), so the screen stands with its placeholders until it answers.
@@ -195,18 +241,46 @@ test("data that takes a placeholder's place stands there at once, and a new peri
   await page.waitForTimeout(600);
   expect(await started("ow-arrive", "ow-rise"), "the title arrived with the screen").toBeGreaterThan(0);
   expect(await board.evaluate(node => node.closest(".ow-page > *")?.hasAttribute("data-arrive")), "the block with the placeholder did not").toBe(false);
-  const before = await started("ow-arrive", "ow-rise", "ow-row", "ow-fade");
+  const before = await started("ow-arrive", "ow-rise", "ow-row");
+  const fadesBefore = await started("ow-swap");
   release();
   await expect(page.locator(".ow-content .ow-board-big")).toBeVisible();
   expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
   await page.waitForTimeout(400);
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "no rise, no stagger and no fade from nothing").toBe(before);
+  expect(await started("ow-swap"), "it fades in instead of cutting").toBeGreaterThan(fadesBefore);
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "no rise and no stagger").toBe(before);
   await page.unroute(/\/api\/merchant\/analytics\?/);
 
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   expect(await entrances(), "the 90 days do not arrive").toBe(0);
   await expect(page.locator(".ow-content .ow-board-sub")).toContainText("90 Tage");
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade")).toBe(before);
+  expect(await started("ow-arrive", "ow-rise", "ow-row")).toBe(before);
+});
+
+// Design, #314: the Übersicht's board and next-step frame and the card's page hold their placeholders inside blocks of
+// their own; what replaces them fades in too, and only once (the outermost swap).
+for (const [where, url, read] of [["Übersicht", "/merchant", /\/api\/merchant\/(analytics\/location|retention|readiness)/], ["Kartenseite", "", /\/api\/merchant\/customers\/[^?/]+$/]] as const) test(`the ${where} fades its content in from its placeholders`, async () => {
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  const hold = () => page.route(read, async route => { await held; await route.continue(); });
+  if (url) { await hold(); await page.goto(url); }
+  else {
+    await page.goto("/merchant/customers?activity=all");
+    const row = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
+    await expect(row).toBeVisible();
+    await hold();
+    await row.click();
+  }
+  await expect(page.locator(".ow-content .ow-ph").first()).toBeVisible();
+  await page.waitForTimeout(300);
+  const swaps = await started("ow-swap");
+  release();
+  await expect(page.locator(".ow-content .ow-ph")).toHaveCount(0);
+  await page.waitForTimeout(400);
+  expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
+  expect(await started("ow-swap"), "it fades in instead of cutting").toBeGreaterThan(swaps);
+  expect(await swapFaults(), "every swap shows at .4 first and climbs without a jump").toEqual([]);
+  await page.unroute(read);
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {
@@ -283,4 +357,36 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   await page.waitForTimeout(600);
   for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer", "ow-pulse"]) expect(await started(name), name).toBe(0);
+});
+
+// Design, #314 re-checks: on a cold load the screen fades in from its loading frame and the list, split or greeting
+// inside it follows from its own placeholder, at any point of the screen's fade. The inner fade starts where the
+// content shows at .4 in all (owner-shell's --swap-from), so neither layer snaps and nothing cuts in.
+test("a cold load: content that replaces an inner placeholder shows at .4 first, whatever the screen has reached", async () => {
+  const loads = [["/merchant/customers", /\/api\/merchant\/customers\?/], ["/merchant/program", /\/api\/program\//], ["/merchant", /\/api\/(merchant\/(analytics\/location|retention|readiness)|auth\/get-session)/]] as const;
+  let caughtEarly = false;
+  // The inner reads are answered from what a first load read, after exactly `delay`: a slow runner's server would
+  // otherwise always answer after the screen's fade is near its end, and the early case would never be tested.
+  const answers = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>();
+  for (const [url, read] of loads) for (const delay of [-1, 0, 30, 45, 120]) {
+    await page.route(read, async route => {
+      const key = route.request().url();
+      if (!answers.has(key)) { const response = await route.fetch(); answers.set(key, { status: response.status(), headers: response.headers(), body: await response.body() }); }
+      if (delay > 0) await new Promise(done => setTimeout(done, delay));
+      await route.fulfill(answers.get(key)!);
+    });
+    try {
+      await page.goto(url);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.locator(`.ow-content :is(${PLACEHOLDER})`)).toHaveCount(0);
+      await page.waitForTimeout(500);
+      if (delay < 0) continue; // the first load only fills the answers
+      const swaps = await page.evaluate(() => (window as unknown as { swaps: () => { inner: boolean; from: number }[] }).swaps());
+      expect(swaps.filter(swap => swap.inner).length, `${url} at ${delay} ms: content inside the screen took a placeholder's place`).toBeGreaterThan(0);
+      // An inner swap that starts above .444 arrived while the screen was still below 0.9.
+      caughtEarly ||= swaps.some(swap => swap.inner && swap.from > 0.4 / 0.9 + 1e-3);
+      expect(await swapFaults(), `${url} at ${delay} ms: swaps that do not show at .4 first or that jump`).toEqual([]);
+    } finally { await page.unroute(read); }
+  }
+  expect(caughtEarly, "at least one inner swap arrived while the screen's fade was below 0.9").toBe(true);
 });

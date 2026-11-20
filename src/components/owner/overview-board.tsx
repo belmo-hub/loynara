@@ -97,11 +97,11 @@ export function EmptyStrip({ today, caption }: { today: string; caption: string 
 export function BookPlaceholder({ caption }: { caption: string }) {
   const week = Array.from({ length: 7 }, (_, index) => ({ date: `2026-01-0${index + 1}`, bookings: index === 6 ? 1 : 0 }));
   return <>
-    <span className={s.sk} data-small="" style={{ width: 120 }} />
-    <div className={s.skFig}><span className={s.sk} data-fig="" /><span className={s.sk} data-small="" style={{ width: 248 }} /></div>
+    <span className={cx("ow-ph", s.sk)} data-small="" style={{ width: 120 }} />
+    <div className={s.skFig}><span className={cx("ow-ph", s.sk)} data-fig="" /><span className={cx("ow-ph", s.sk)} data-small="" style={{ width: 248 }} /></div>
     {/* The week keeps its own box (legend, chart and days, hidden), so nothing moves when the numbers come. */}
     <div className={s.ghost}><Strip days={week} caption={caption} /></div>
-    <div className={s.foot} data-sk=""><span className={s.sk} data-line="" style={{ width: 240 }} /></div>
+    <div className={s.foot} data-sk=""><span className={cx("ow-ph", s.sk)} data-line="" style={{ width: 240 }} /></div>
   </>;
 }
 
@@ -109,7 +109,7 @@ export function BookPlaceholder({ caption }: { caption: string }) {
 export function FactsPlaceholder() {
   return <div className={cx(mix.panel, s.facts)} aria-hidden="true">
     {[[96, 136], [140, 220], [140, 80]].map(([title, sub]) => <div className={mix.row} data-sk="" key={title + sub}><div className={mix.body}>
-      <span className={mix.text}><span className={s.sk} data-line="" style={{ width: title }} /><span className={s.sk} data-small="" style={{ width: sub }} /></span><span className={s.sk} data-num="" />
+      <span className={mix.text}><span className={cx("ow-ph", s.sk)} data-line="" style={{ width: title }} /><span className={cx("ow-ph", s.sk)} data-small="" style={{ width: sub }} /></span><span className={cx("ow-ph", s.sk)} data-num="" />
     </div></div>)}
   </div>;
 }

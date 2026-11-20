@@ -39,11 +39,11 @@ function GuardedLink({ href, children, ...rest }: { href: string; children: Reac
 }
 export { GuardedLink };
 
-/** ENG-221: WebKit (every iPhone browser) paints a screen change's fades only under keyframe names the last change did
- *  not use; with the same names it shows just their end states, a cut. Each change therefore takes the other of two
- *  identical keyframe pairs (owner.css, data-ow-fade). Called in the commit that makes the change, inside the browser's
- *  update step, before the change's layers exist: renaming their running animations instead crashed WebKit's page when
- *  a tap read them. */
+/** ENG-221: WebKit (every iPhone browser) paints a screen change's fade only under a keyframe name the last change did
+ *  not use; with the same name it shows just its end state, a cut. Each change therefore takes the other of two
+ *  identical keyframes for the old screen (owner.css, data-ow-fade). Called in the commit that makes the change, inside
+ *  the browser's update step, before the change's layers exist: renaming their running animations instead crashed
+ *  WebKit's page when a tap read them. */
 export function freshFade() { document.documentElement.toggleAttribute("data-ow-fade"); }
 
 /** `notice`: one line of state above every screen (ENG-278), outside the screen change so it never ghosts. */
@@ -162,14 +162,16 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   // The motion that depends on what was on screen before (DESIGN.md, Motion); owner.css draws it.
   // Arrive: the blocks a screen has when it is navigated to are marked, so only they rise in, once; a block that holds a
   // placeholder is not. Skeleton to content: what takes a placeholder's place (a cold load and a location switch too) is
-  // marked data-swap and stands there at once, with no rise and no stagger. Indicator slide: a segmented control's pill
+  // marked data-swap and fades in as one, with no rise and no stagger. Indicator slide: a segmented control's pill
   // moves over from the segment picked before, after a pointer press only. A keyboard action shows its change at once:
   // data-keys on the root is set from a key press to the next pointer press.
   useEffect(() => {
-    const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading";
+    // The Übersicht's greeting keeps its line with an empty, hidden one until the name is there.
+    const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading, .ow-hello[aria-hidden]";
     const holds = (node: Element, selector: string) => node.matches(selector) || node.querySelector(selector) !== null;
-    // A placeholder, or a whole loading page (the shell's, or a page that swaps its root when its data is there).
-    const placeholder = (node: Node) => node instanceof Element && (node.matches(PLACEHOLDER) || (node.matches(".ow-page") && node.querySelector(PLACEHOLDER) !== null));
+    // A placeholder, or anything that holds one (a loading page, a block, the Übersicht's next-step frame); a screen that
+    // leaves is no placeholder, whatever it still held.
+    const placeholder = (node: Node) => node instanceof Element && holds(node, PLACEHOLDER) && !holds(node, ".ow-screen");
     const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
     // The segment picked when the pointer went down; a key press forgets it, so only the pointer's own pick slides.
     let was: Element | null = null;
@@ -189,7 +191,23 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         for (const node of record.addedNodes) {
           if (!(node instanceof Element)) continue;
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
-          if (emptied.has(record.target)) (node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node))?.setAttribute("data-swap", "");
+          if (emptied.has(record.target)) {
+            const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
+            // Inside a swap still fading in (a cold load's screen, then its list) the inner one starts where the content
+            // shows at .4 in all, whatever the outer has reached: both then only climb, nothing snaps or cuts (owner.css).
+            // The content is painted a frame later, when the outer has climbed on: the start is set again then, from the
+            // same parents. An ancestor below .4 fades itself in and is trusted to (the start is 1 under it).
+            if (swap) {
+              const from = () => {
+                let shown = 1;
+                for (let node = swap.parentElement; node && !node.matches(".ow-content"); node = node.parentElement) shown *= Number(getComputedStyle(node).opacity);
+                (swap as HTMLElement).style.setProperty("--swap-from", String(Math.min(1, 0.4 / Math.max(shown, 0.4))));
+              };
+              from();
+              swap.setAttribute("data-swap", "");
+              requestAnimationFrame(from);
+            }
+          }
           else if (holds(node, ".ow-screen")) {
             if (returning) (node.matches(".ow-screen") ? node : node.querySelector(".ow-screen"))?.setAttribute("data-return", "");
             else for (const block of node.querySelectorAll(".ow-page > *, .ow-q > *")) if (!holds(block, PLACEHOLDER)) block.setAttribute("data-arrive", "");
