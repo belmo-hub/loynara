@@ -24,7 +24,8 @@ let observer: PerformanceObserver | null | undefined;
 const note = (entries: PerformanceEntryList) => {
   for (const entry of entries as PerformanceResourceTiming[]) {
     const url = new URL(entry.name, location.href);
-    if (url.pathname === "/cashier" && url.searchParams.has("_rsc") && entry.responseEnd > 0) kasseAnswered = Math.max(kasseAnswered, entry.responseEnd);
+    // responseStart: Chrome also lists an aborted prefetch, with an end but no answer.
+    if (url.pathname === "/cashier" && url.searchParams.has("_rsc") && entry.responseStart > 0 && entry.responseEnd > 0) kasseAnswered = Math.max(kasseAnswered, entry.responseEnd);
   }
 };
 function watchKasse() {
