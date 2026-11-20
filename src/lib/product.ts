@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, ownerAcceptances, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
@@ -105,6 +105,8 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
+    // ENG-277: the sign-up acceptance gets its business once the business exists.
+    await tx.update(ownerAcceptances).set({ tenantId: tenant.id }).where(and(eq(ownerAcceptances.userId, input.userId), isNull(ownerAcceptances.tenantId)));
     return startProgramme(tx, tenant.id, location, input, earningMode);
   });
 }

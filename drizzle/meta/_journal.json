@@ -358,6 +358,13 @@
       "when": 1795081495208,
       "tag": "0050_confirmed_existing_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1795175857390,
+      "tag": "0051_owner_acceptances",
+      "breakpoints": true
     }
   ]
 }

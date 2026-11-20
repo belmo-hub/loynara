@@ -1,11 +1,17 @@
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import DatenschutzPage from "./datenschutz/page";
 import TeilnahmebedingungenPage from "./teilnahmebedingungen/page";
 import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./datenschutz/geschaefte/page";
 import { InviteClient } from "@/components/invite-client";
+import VertragsbedingungenPage, { metadata as TermsMetadata } from "./vertragsbedingungen/page";
+import AvvPage, { metadata as AvvMetadata } from "./avv/page";
+
+const search = vi.hoisted(() => ({ value: "" }));
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({}), useSearchParams: () => new URLSearchParams(search.value) }));
+const { default: RegisterPage } = await import("./register/page");
 
 // Customers tick a checkbox linking to these pages when they create a card.
 describe("customer legal pages", () => {
@@ -106,3 +112,48 @@ describe("owner privacy notice", () => {
   });
 });
 
+
+// ENG-277: Legal's sentence above „Konto erstellen“ (legal-ops/2026-11-20-eng-277-signup-acceptance.md) and the two pages.
+describe("owner sign-up acceptance", () => {
+  const register = (query = "") => {
+    search.value = query;
+    return renderToStaticMarkup(createElement(RegisterPage)).replaceAll("<!-- -->", "").replace(/ class="[^"]*"/g, "");
+  };
+  const link = (href: string, text: string) => `<a target="_blank" rel="noopener" href="${href}">${text}</a>`;
+
+  it("states the contract above the button, links the three owner documents in a new tab, and has no checkbox", () => {
+    const page = register();
+    expect(page).toContain(`<p>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den ${link("/vertragsbedingungen", "Vertragsbedingungen für Geschäfte")} und den ${link("/avv", "Vertrag zur Auftragsverarbeitung")}. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den ${link("/datenschutz/geschaefte", "Datenschutzhinweisen für Geschäfte")}.</p>`);
+    expect(page.indexOf("Mit „Konto erstellen“")).toBeLessThan(page.indexOf('type="submit"'));
+    expect(page).not.toContain("Es wird keine Zahlung ausgelöst.");
+    expect(page).not.toContain('type="checkbox"');
+  });
+
+  it("shows staff coming from an invitation no contract sentence", () => {
+    const page = register(`next=${encodeURIComponent(`/invite/${"a".repeat(43)}`)}`);
+    expect(page).not.toContain("Mit „Konto erstellen“");
+    expect(page).toContain("Es wird keine Zahlung ausgelöst.");
+  });
+
+  it("the terms page is Legal's part 1 with its Stand, version and the AVV linked", () => {
+    const html = renderToStaticMarkup(createElement(VertragsbedingungenPage)).replaceAll("<!-- -->", "");
+    expect(TermsMetadata.title).toBe("Vertragsbedingungen für Geschäfte – Loynara");
+    expect(html).toContain("<h1>Vertragsbedingungen für Geschäfte</h1>");
+    expect(html).toContain("Stand: 20. November 2026. Fassung 2026-11-20.");
+    expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
+    expect(html).toContain("(1) Das Entgelt beträgt 49 € je Standort und Monat.");
+    expect(html).toContain('Der <a href="/avv">Vertrag zur Auftragsverarbeitung</a> (AVV) ist Teil dieses Vertrags');
+    expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern.");
+    expect(html).not.toMatch(/\{[^}]*\}|Entwurf/);
+  });
+
+  it("the AVV page is the web AVV: made with the terms, no signature block, no counsel marks", () => {
+    const html = renderToStaticMarkup(createElement(AvvPage)).replaceAll("<!-- -->", "");
+    expect(AvvMetadata.title).toBe("Vertrag zur Auftragsverarbeitung – Loynara");
+    expect(html).toContain("<h1>Vertrag zur Auftragsverarbeitung</h1>");
+    expect(html).toContain("nach den Vertragsbedingungen für Geschäfte (Hauptvertrag)");
+    expect(html).toContain("Dieser Vertrag kommt zusammen mit dem Hauptvertrag zustande, wenn der Betrieb ihn bei der Registrierung annimmt. Das elektronische Format genügt (Art. 28 Abs. 9 DSGVO).");
+    expect(html).toContain(">Anlage 3 · Unterauftragsverarbeiter</h2>");
+    expect(html).not.toMatch(/⚖|Pilotvereinbarung|Unterschrift|\{\{/);
+  });
+});
