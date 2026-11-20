@@ -8,7 +8,7 @@ import { isQuestion } from "./program-helpers";
 const loaded = vi.hoisted(() => ({ program: null as unknown }));
 vi.mock("./use-load", () => ({ useLoad: (url: string) => [url.startsWith("/api/program/") ? { state: "ok", data: loaded.program, at: 0 } : { state: "error", message: "" }, () => {}] }));
 vi.mock("./owner-context", () => ({ useOwner: () => ({ hiddenSurfaces: [] }) }));
-import { ProgramExample, ProgramList, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
+import { exampleCard, ProgramExample, ProgramList, programSections, quoteStart, rewardChip, type ListData } from "./program-list";
 import styles from "./program-list.module.css";
 import { ruleChips } from "./program-rule-changes";
 
@@ -180,8 +180,32 @@ describe("the example card under „Aussehen“ (mix A)", () => {
     const html = renderToStaticMarkup(createElement(ProgramExample, { me: shop, type: "points", reward: rewards[0], rewards }));
     expect(html).not.toContain("ow-cardprev");
     expect(html).toContain("Einlösbar ab");
-    expect(html).toContain("150 Punkten");
+    expect(html).toContain("300 Punkten");
+    expect(html).toContain("Pizza Margherita");
     expect(html).toContain("Familienmenü");
+  });
+  it("names the second reward and has reached the first, with 2+ points rewards (Design, 20 Nov)", () => {
+    const r = (cost: number, i: number) => ({ id: `r${i}`, title: `Prämie ${i}`, cost });
+    const shown = (costs: number[]) => { const rewards = costs.map(r); const card = exampleCard("points", rewards[0], rewards); return [card.reward.cost, card.balance]; };
+    expect(shown([60])).toEqual([60, 37]);
+    expect(shown([60, 150, 300])).toEqual([150, 93]);
+    expect(shown([300, 60, 150, 500, 800])).toEqual([150, 93]);
+    // The owner's order is not the cost order: the shop's own second-cheapest reward is named.
+    const owned = [r(300, 1), r(60, 2), r(150, 3)];
+    expect(exampleCard("points", owned[0], owned).reward).toEqual(r(150, 3));
+    expect(shown([100, 120])).toEqual([120, 100]);
+    expect(exampleCard("stamp", r(8, 1), [r(8, 1), r(12, 2)])).toEqual({ reward: r(8, 1), balance: 5 });
+    const rewards = [60, 150, 300].map(r);
+    const html = renderToStaticMarkup(createElement(ProgramExample, { me: shop, type: "points", reward: rewards[0], rewards }));
+    expect(html).toContain("93 von 300 Punkten");
+    expect(html).toMatch(/<small>Prämie<\/small><strong>Prämie 1<\/strong>/);
+    expect(html).toContain("150 Punkten");
+  });
+  it("waits to play, unseen, until it is in view; the motion lives under no-preference only", () => {
+    expect(render("points", 60)).toContain('data-play="wait"');
+    const css = readFileSync(new URL("./program-list.module.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.example\[data-play="wait"\] > section \{ opacity: 0; \}/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*\.example\[data-play="play"\] > section \{ animation: card-arrive var\(--dur-ui\)/);
   });
 });
 
