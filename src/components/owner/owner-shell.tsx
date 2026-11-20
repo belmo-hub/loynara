@@ -193,13 +193,12 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
           if (emptied.has(record.target)) {
             const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
-            // Inside a swap still fading in (a cold load's screen, then its list): one fade at a time, never two multiplied.
-            // From 0.9 on the outer one ends at once, unseen, and the inner one fades; below that the inner rides the
-            // outer's fade, already at .4 or more.
-            const outer = swap?.parentElement?.closest<HTMLElement>("[data-swap]");
-            const fading = outer?.getAnimations().filter(animation => animation.playState !== "finished") ?? [];
-            if (swap && (!fading.length || Number(getComputedStyle(outer!).opacity) >= 0.9)) {
-              for (const animation of fading) animation.finish();
+            // Inside a swap still fading in (a cold load's screen, then its list) the inner one starts where the content
+            // shows at .4 in all, whatever the outer has reached: both then only climb, nothing snaps or cuts (owner.css).
+            if (swap) {
+              let shown = 1;
+              for (let node = swap.parentElement; node && !node.matches(".ow-content"); node = node.parentElement) shown *= Number(getComputedStyle(node).opacity);
+              (swap as HTMLElement).style.setProperty("--swap-from", String(Math.min(1, 0.4 / Math.max(shown, 0.4))));
               swap.setAttribute("data-swap", "");
             }
           }

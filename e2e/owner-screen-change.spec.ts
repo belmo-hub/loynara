@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { PLACEHOLDER } from "./support/placeholders";
 
 // The screen change in the owner area (DESIGN.md, Motion): the old screen fades out over --dur-press, the new one stands
 // at full from the first frame, the bars stay.
@@ -368,19 +369,19 @@ test("content that takes a placeholder's place fades in from a floor: no frame s
     await settled();
     // Every frame until 300 ms after the placeholder has gone (a slow runner answers late): is a placeholder there, and
     // how strong is the weakest outermost swap.
-    const frames = page.evaluate(() => new Promise<{ placeholder: boolean; swap: number | null }[]>(done => {
+    const frames = page.evaluate(placeholders => new Promise<{ placeholder: boolean; swap: number | null }[]>(done => {
       const seen: { placeholder: boolean; swap: number | null }[] = [];
       const limit = performance.now() + 3000;
       let gone = 0;
       const look = () => {
         const swaps = [...document.querySelectorAll(".ow-content [data-swap]")].filter(node => !node.parentElement?.closest("[data-swap]"));
-        const placeholder = !!document.querySelector(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)");
+        const placeholder = !!document.querySelector(`.ow-content :is(${placeholders})`);
         seen.push({ placeholder, swap: swaps.length ? Math.min(...swaps.map(node => Number(getComputedStyle(node).opacity))) : null });
         if (!placeholder && !gone) gone = performance.now();
         if ((gone && performance.now() - gone > 300) || performance.now() > limit) done(seen); else requestAnimationFrame(look);
       };
       look();
-    }));
+    }), PLACEHOLDER);
     release();
     const seen = await frames;
     await page.unroute(read);

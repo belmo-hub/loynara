@@ -1222,7 +1222,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    reduced motion none of the entrances exists and no loop runs (the placeholder is still). A fact (a price, a date, a
    balance) may arrive with its row or block, never on its own; the bars stay still. */
 @keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
-@keyframes ow-swap { from { opacity: .4; } }
+@keyframes ow-swap { from { opacity: var(--swap-from, .4); } } /* owner-shell sets where a swap inside a fading one starts */
 @keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
 @keyframes ow-grow { from { transform: scaleY(0); } }
