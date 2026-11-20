@@ -38,6 +38,9 @@ async function signInAccount(request: Request) {
 }
 
 export async function GET(request: Request) {
+  // ENG-286: Better Auth's own reset link redirects with the token in the query, into server and proxy logs. Our mail links
+  // to /reset-password#token=… instead, so this route is closed.
+  if (new URL(request.url).pathname.includes("/reset-password/")) return new Response(null, { status: 404 });
   try { validateIngress(request); return await handlers.GET(request); }
   catch (error) { return respondError(error); }
 }

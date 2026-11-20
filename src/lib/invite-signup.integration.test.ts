@@ -49,6 +49,8 @@ describe("invite-gated staff sign-up", () => {
     expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(false);
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, created.user.id))).toHaveLength(0);
     expect(await acceptStaffInvite({ userId: created.user.id, token: invite.token })).toMatchObject({ role: "cashier", locationId: merchant.locationId });
+    // ENG-285: the inviter, not the invited inbox, receives the link, so accepting it confirms nothing.
+    expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(false);
 
     // An accepted invitation cannot open registration again, not even for another address.
     await expect(signUp("second@example.test", invite.token)).rejects.toThrow(/Registration is not enabled/);

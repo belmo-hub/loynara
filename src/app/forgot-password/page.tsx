@@ -42,8 +42,8 @@ export default function ForgotPasswordPage() {
 
   if (sent) return <AuthShell>
     <div key="sent" ref={page} className={styles.page}>
-      <PageHeader title="Schau in dein Postfach." description="Wenn es für diese Adresse ein bestätigtes Konto gibt, haben wir dir einen Link für ein neues Passwort geschickt. Er gilt eine Stunde." />
-      {/* Marketing, 19 Nov: an unconfirmed owner gets no mail at all, so support is the way on. */}
+      <PageHeader title="Schau in dein Postfach." description="Wenn es für diese Adresse ein Konto gibt, haben wir dir einen Link für ein neues Passwort geschickt. Er gilt eine Stunde." />
+      {/* Marketing, 19 Nov: when no mail arrives (spam, a capped address), support is the way on. */}
       <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam-Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
       <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href="/login">Zurück zur Anmeldung</Link></p>
     </div>
