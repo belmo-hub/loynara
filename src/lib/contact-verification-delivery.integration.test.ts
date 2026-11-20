@@ -98,12 +98,21 @@ describe("local verification delivery", () => {
   });
   it("sends for an unconfirmed owner who accepted the operator's owner invitation at the same address, not another", async () => {
     const f = await fixture({ confirmed: false });
-    const invite = (email: string) => pool.query(`INSERT INTO staff_invites (tenant_id, location_id, invited_email, role, token_hash, invited_by_user_id, expires_at, accepted_at)
-      VALUES ($1, $2, $3, 'owner', $4, $5, now() + interval '7 days', now())`, [f.merchant.tenantId, f.merchant.locationId, email, randomUUID().replace(/-/g, ""), f.ownerId]);
+    const own = `${f.ownerId}@example.test`;
+    const invite = (email: string, role = "owner", accepted = true) => pool.query(`INSERT INTO staff_invites (tenant_id, location_id, invited_email, role, token_hash, invited_by_user_id, expires_at, accepted_at)
+      VALUES ($1, $2, $3, $4, $5, $6, now() + interval '7 days', CASE WHEN $7 THEN now() END)`, [f.merchant.tenantId, f.merchant.locationId, email, role, randomUUID().replace(/-/g, ""), f.ownerId, accepted]);
     const send = vi.fn(async (message: LocalMessage) => { void message; });
+    const deliver = () => deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send);
+    // Another address, an invitation never accepted, a manager invitation: none counts.
     await invite("someone-else@example.test");
-    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "suppressed", reason: "Owner email not confirmed" });
-    await invite(`${f.ownerId}@example.test`);
+    await invite(own, "owner", false);
+    await invite(own, "manager");
+    expect(await deliver()).toMatchObject({ status: "suppressed", reason: "Owner email not confirmed" });
+    await invite(own);
+    // An owner whose access was revoked counts for nothing, invitation or not.
+    await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [f.ownerId]);
+    expect(await deliver()).toMatchObject({ status: "suppressed", reason: "Owner email not confirmed" });
+    await pool.query("UPDATE staff_roles SET active = true WHERE user_id = $1", [f.ownerId]);
     expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
     expect(send).toHaveBeenCalledTimes(1);
   });
