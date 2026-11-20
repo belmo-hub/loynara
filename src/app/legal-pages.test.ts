@@ -167,6 +167,7 @@ describe("owner sign-up acceptance", () => {
     expect(html).toContain("nach den Vertragsbedingungen für Geschäfte (Hauptvertrag)");
     expect(html).toContain("Dieser Vertrag kommt zusammen mit dem Hauptvertrag zustande, wenn der Betrieb ihn bei der Registrierung annimmt. Das elektronische Format genügt (Art. 28 Abs. 9 DSGVO).");
     expect(html).toContain(">Anlage 3 · Unterauftragsverarbeiter</h2>");
+    expect(html).toContain("Leistung: Versand von E-Mails an die Kundschaft (Bestätigung und Wiederherstellung; E-Mail-Angebote nur wenn freigeschaltet) und an das Team (Bestätigung der E-Mail-Adresse, Zurücksetzen des Passworts).");
     expect(html).not.toMatch(/⚖|Pilotvereinbarung|Unterschrift|\{\{/);
   });
 });
