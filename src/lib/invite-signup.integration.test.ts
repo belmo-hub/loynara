@@ -49,8 +49,8 @@ describe("invite-gated staff sign-up", () => {
     expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(false);
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, created.user.id))).toHaveLength(0);
     expect(await acceptStaffInvite({ userId: created.user.id, token: invite.token })).toMatchObject({ role: "cashier", locationId: merchant.locationId });
-    // ENG-285: accepting the link mailed to this address proves the inbox, so it confirms the account.
-    expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(true);
+    // ENG-285: the inviter, not the invited inbox, receives the link, so accepting it confirms nothing.
+    expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [created.user.id])).rows[0].emailVerified).toBe(false);
 
     // An accepted invitation cannot open registration again, not even for another address.
     await expect(signUp("second@example.test", invite.token)).rejects.toThrow(/Registration is not enabled/);
@@ -128,8 +128,6 @@ describe("invitation lifecycle", () => {
     const stranger = await auth.api.signUpEmail({ body: { name: "Stranger", email: "fremd@example.test", password: "synthetic-password-long-enough" } });
     process.env.PUBLIC_REGISTRATION_ENABLED = "false";
     await expect(acceptStaffInvite({ userId: stranger.user.id, token: invite.token })).rejects.toMatchObject({ code: "INVITE_EMAIL_MISMATCH" });
-    // ENG-285: another address's invitation confirms nothing.
-    expect((await pool.query('SELECT "emailVerified" FROM "user" WHERE id = $1', [stranger.user.id])).rows[0].emailVerified).toBe(false);
     // An account that already works for a merchant cannot be moved by an invitation.
     const busyOwner = await createStaffInvite({ actorUserId: owner, email: "bestehend@example.test", role: "cashier", locationId: merchant.locationId });
     await db.insert(staffRoles).values({ tenantId: merchant.tenantId, userId: account.user.id, role: "cashier", locationId: merchant.locationId });

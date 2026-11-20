@@ -70,8 +70,6 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
       if (!inserted.length) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     }
     await tx.update(staffInvites).set({ acceptedAt: new Date() }).where(eq(staffInvites.id, invite.id));
-    // ENG-285: the link was mailed to the invited address, so accepting it proves that inbox; only that address confirms.
-    await tx.execute(sql`UPDATE "user" SET "emailVerified" = true, "updatedAt" = now() WHERE id = ${input.userId} AND lower(email) = ${invite.invitedEmail} AND NOT "emailVerified"`);
     await tx.insert(staffAuditEvents).values({ tenantId: invite.tenantId, action: "invite_accepted", actorUserId: input.userId, subjectUserId: input.userId, inviteId: invite.id, locationId: invite.locationId, role: invite.role });
     return { tenantId: invite.tenantId, locationId: invite.locationId, role: invite.role };
   });
