@@ -53,9 +53,12 @@ export async function deliverVerificationEmail(
     // The shop is the controller; the operator sends on its behalf (Legal, 1 Nov), in both variants.
     const shop = (await tx.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, job.tenantId)))[0]?.name;
     if (!shop) return finish("suppressed", "Shop unavailable");
-    // ENG-285: only a shop whose owner confirmed an address mails strangers. Operator-made shops have confirmed owners.
+    // ENG-285: only a shop whose owner confirmed an address mails strangers. An owner who accepted the operator's
+    // invitation at that address proved the inbox too (accounts from before acceptance confirmed it, no migration).
     const confirmed = await tx.execute(sql`SELECT 1 FROM staff_roles o JOIN "user" u ON u.id = o.user_id
-      WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active AND u."emailVerified" LIMIT 1`);
+      WHERE o.tenant_id = ${job.tenantId} AND o.role = 'owner' AND o.active AND (u."emailVerified" OR EXISTS (
+        SELECT 1 FROM staff_invites i WHERE i.tenant_id = o.tenant_id AND i.role = 'owner' AND i.accepted_at IS NOT NULL AND i.invited_email = lower(u.email)))
+      LIMIT 1`);
     if (!confirmed.rows.length) return finish("suppressed", "Owner email not confirmed");
     // The shop's own text, so only ever a quoted name in the body: the sender is always Loynara. A name from before the
     // rule that carries a link or number reads as „dein Geschäft“ instead (named: nominative, of: dative).

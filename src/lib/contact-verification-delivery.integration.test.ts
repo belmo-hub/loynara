@@ -96,6 +96,17 @@ describe("local verification delivery", () => {
     expect(send).not.toHaveBeenCalled();
     await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, max: 1, identity: f.job.tenantId });
   });
+  it("sends for an unconfirmed owner who accepted the operator's owner invitation at the same address, not another", async () => {
+    const f = await fixture({ confirmed: false });
+    const invite = (email: string) => pool.query(`INSERT INTO staff_invites (tenant_id, location_id, invited_email, role, token_hash, invited_by_user_id, expires_at, accepted_at)
+      VALUES ($1, $2, $3, 'owner', $4, $5, now() + interval '7 days', now())`, [f.merchant.tenantId, f.merchant.locationId, email, randomUUID().replace(/-/g, ""), f.ownerId]);
+    const send = vi.fn(async (message: LocalMessage) => { void message; });
+    await invite("someone-else@example.test");
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "suppressed", reason: "Owner email not confirmed" });
+    await invite(`${f.ownerId}@example.test`);
+    expect(await deliverVerificationEmail({ id: f.job.id, tenantId: f.job.tenantId, payload: f.job.payload }, send)).toMatchObject({ status: "complete" });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
   it("refuses a link or phone number in a shop name at setup and rename", async () => {
     await expect(fixture({ businessName: "Bitte hier einloggen: https://evil.example/login" })).rejects.toMatchObject({ code: "INVALID_SHOP_NAME", message: SHOP_NAME_REFUSAL });
     const f = await fixture();

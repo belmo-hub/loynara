@@ -132,10 +132,14 @@ export const firstProblem = (problems: Record<string, string>) => Object.values(
 // ---- The shop's name in mail (ENG-285) ----
 
 // Anyone can register a shop and its name reaches strangers' inboxes, so it may carry no link (`://`, `www.`, a dotted
-// domain like x.de) and no phone number (six or more digits, spaces, slashes or dashes between them).
-const NAME_LINK = /:\/\/|www\.|[\p{L}\d-]\.\p{L}{2,}(?![\p{L}\d])/iu;
-const NAME_PHONE = /\d(?:[\s/-]*\d){5}/u;
-export const unsafeShopName = (name: string) => NAME_LINK.test(name) || NAME_PHONE.test(name);
+// domain like x.de) and no phone number (six or more digits, a few non-letters such as spaces, dots or brackets between
+// them). Tested on the NFKC form without invisible format characters, so full-width or zero-width tricks don't slip by.
+const NAME_LINK = /:\/\/|www[.。]|[\p{L}\p{Nd}-][.。]\p{L}{2,}(?![\p{L}\p{Nd}])/iu;
+const NAME_PHONE = /\p{Nd}(?:[^\p{L}\p{Nd}]{0,3}\p{Nd}){5}/u;
+export function unsafeShopName(name: string) {
+  const plain = name.normalize("NFKC").replace(/\p{Cf}/gu, "");
+  return NAME_LINK.test(plain) || NAME_PHONE.test(plain);
+}
 export const SHOP_NAME_REFUSAL = "Der Name deines Geschäfts darf keine Links und keine Telefonnummern enthalten.";
 
 // ---- Legal's footer ----
