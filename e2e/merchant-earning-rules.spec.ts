@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // ENG-099 3c: the earning sentence by purchase amount, the owner's own rule when switching to manual points, and Legal's
 // exclusions on the sign-up page.
@@ -7,7 +8,7 @@ const EXCLUDED = "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.";
 
 async function owner(url: string, programme: Record<string, unknown>) {
   const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic rules owner", email: `rules-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(api, { data: { name: "Synthetic rules owner", email: `rules-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const made = await api.post("/api/merchant/onboard", { data: {
     businessName: "Synthetic Feinkost", locationName: "Kassel West", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Genusskarte", rewardTitle: "Espresso gratis", rewardCost: 50, ...programme,

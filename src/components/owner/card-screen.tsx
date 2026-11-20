@@ -154,12 +154,12 @@ export function CardScreen({ id, seed, back, onMember }: { id: string; seed?: { 
 
 /** A flat placeholder of `width` × `height` with the house shimmer passing over it (still under reduced motion). */
 const Bar = ({ width, height, className }: { width: number | string; height: number; className?: string }) =>
-  <span className={cx(s.sk, s.bar, className)} style={{ width, height }} />;
+  <span className={cx("ow-ph", s.sk, s.bar, className)} style={{ width, height }} />;
 
 /** While the card loads: the page's own shapes at each width (card, figures, „Verlauf“ with three lines), no Details yet. */
 function CardLoading() {
   return <div className={s.layout} role="status" aria-label="Wird geladen" aria-busy="true">
-    <div className={cx(s.sk, s.card, s.ghost)} aria-hidden="true" />
+    <div className={cx("ow-ph", s.sk, s.card, s.ghost)} aria-hidden="true" />
     <CardRest />
   </div>;
 }
@@ -173,7 +173,7 @@ function CardRest() {
     <section className={cx(mixStyles.panel, s.feed)}>
       <div className={mixStyles.ph}><h2 className={mixStyles.h}>Verlauf</h2></div>
       {[0, 1, 2].map(i => <div key={i} className={mixStyles.row} data-lead="tile" aria-hidden="true">
-        <span className={cx(s.sk, s.tileBar)} />
+        <span className={cx("ow-ph", s.sk, s.tileBar)} />
         <div className={mixStyles.body}><span className={mixStyles.text}><Bar width={96} height={16} /><Bar width={110} height={12} /></span><Bar width={40} height={16} className={s.amountBar} /></div>
       </div>)}
     </section>

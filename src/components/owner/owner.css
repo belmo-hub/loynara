@@ -107,13 +107,14 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* ENG-219: the old screen is invisible at rest and only its running fade shows it. Where WebKit (every iPhone browser)
    does not paint that fade it draws the old screen as styled here for the whole change: with opacity 1 at rest it lay
    over the new one. Where the fade is not painted the change is a cut, and the blocks still rise. */
+/* It starts at .4, not 1: at 1 the first frame still showed both screens' texts on top of each other (Design, #314). */
 ::view-transition-old(.ow-screen) { opacity: 0; animation: ow-fade-out var(--dur-press) var(--ease-out); }
-@keyframes ow-fade-out { from { opacity: 1; } }
+@keyframes ow-fade-out { from { opacity: .4; } }
 ::view-transition-new(.ow-screen) { animation: none; }
 /* ENG-221: every other change uses a second, identical keyframe name (owner-shell's freshFade): under the name the
    last change used WebKit shows only the fade's end state. */
 :root[data-ow-fade]::view-transition-old(.ow-screen) { animation-name: ow-fade-out-b; }
-@keyframes ow-fade-out-b { from { opacity: 1; } }
+@keyframes ow-fade-out-b { from { opacity: .4; } }
 /* The bars stay: each is captured on its own layer above the screens and shows its new state at once, without the
    browser's own crossfade. */
 .ow-topbar { view-transition-name: ow-topbar; }
@@ -1235,6 +1236,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    reduced motion none of the entrances exists and no loop runs (the placeholder is still). A fact (a price, a date, a
    balance) may arrive with its row or block, never on its own; the bars stay still. */
 @keyframes ow-row { from { opacity: 0; transform: translateY(6px); } }
+@keyframes ow-swap { from { opacity: .4; } }
 @keyframes ow-drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes ow-in { from { opacity: 0; transform: scale(.96); } }
 @keyframes ow-grow { from { transform: scaleY(0); } }
@@ -1264,11 +1266,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(5) { --ow-r: 4; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(6) { --ow-r: 5; }
   :is(.ow-rows, .ow-prog ul, .ow-rewards, .ow-feed, .ow-sent, .ow-goals, .ow-table tbody, .ow-diary) > :nth-child(7) { --ow-r: 6; }
-  /* Skeleton to content: what takes a placeholder's place (owner-shell marks it data-swap) fades in as one, with no
-     rise; its rows and notices neither rise nor stagger. A screen come back to through the history (data-return) stands
+  /* Skeleton to content: what takes a placeholder's place (owner-shell marks it data-swap) fades in as one from a floor
+     of .4, never from nothing (a frame with neither placeholder nor content), with no rise; its rows and notices neither
+     rise nor stagger. A screen come back to through the history (data-return) stands
      at once, and its bars do not grow again. Nor do the bars of a new period (data-switched): they would grow from 0,
      not from the value before. */
-  .ow-content [data-swap] { animation: ow-fade var(--dur-ui) var(--ease-out) backwards; }
+  .ow-content [data-swap] { animation: ow-swap var(--dur-ui) var(--ease-out) backwards; }
   .ow-content [data-return]:is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
   /* The rows of a block that arrives come with their block. */
   .ow-content [data-arrive]:is(li, tr, .ow-goal, .ow-day), .ow-content [data-arrive] :is(li, tr, .ow-goal, .ow-day) { animation: none; }

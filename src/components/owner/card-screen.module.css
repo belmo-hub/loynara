@@ -58,7 +58,8 @@
 @media (min-width: 1024px) { .alert { width: fit-content; max-width: 100%; } }
 
 /* Loading: placeholders in the loaded page's places. The card's is a neutral card-shaped block, never the shop colour. */
-.sk { border-radius: var(--radius-sm); background: var(--color-fill) linear-gradient(90deg, transparent, var(--color-surface), transparent) -100% 0 / 50% 100% no-repeat; }
+/* Also .ow-ph, which owner-shell takes for a placeholder; this outranks its flat fill so the shimmer stays. */
+:global(.ow-ph).sk { border-radius: var(--radius-sm); background: var(--color-fill) linear-gradient(90deg, transparent, var(--color-surface), transparent) -100% 0 / 50% 100% no-repeat; }
 @keyframes shimmer { to { background-position: 200% 0; } }
 @media (prefers-reduced-motion: no-preference) { .sk { animation: shimmer 1.4s linear infinite; } }
 .bar { display: block; flex: none; margin-block: var(--space-1); }

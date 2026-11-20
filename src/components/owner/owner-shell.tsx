@@ -53,8 +53,15 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   // The sheet needs the Kasse prefetched and fresh (kasseSheetReady): warm it once the owner screen is idle, then keep it
   // warm (a no-op while the router still holds it; a new fetch once it went stale, and when the tab comes back).
   useEffect(() => {
-    const warm = () => warmKasse(href => router.prefetch(href));
-    const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 60_000);
+    // ENG-294: the areas too. The owner area is dynamic, so their links fetch nothing ahead and every tap waited a server
+    // round trip before the screen could change. Their links prefetch the whole page (the Kasse's loading
+    // route makes do with less), and the router drops it after 5 minutes, so the check runs often.
+    const full = { kind: "full" } as Parameters<typeof router.prefetch>[1];
+    const warm = () => {
+      warmKasse(href => router.prefetch(href));
+      if (document.visibilityState === "visible") for (const link of document.querySelectorAll<HTMLAnchorElement>(".ow-tabs a, .ow-nav a")) router.prefetch(link.pathname, full);
+    };
+    const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 10_000);
     const visible = () => { if (document.visibilityState === "visible") warm(); };
     document.addEventListener("visibilitychange", visible);
     return () => { window.clearTimeout(first); window.clearInterval(again); document.removeEventListener("visibilitychange", visible); };
@@ -161,8 +168,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   useEffect(() => {
     const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading";
     const holds = (node: Element, selector: string) => node.matches(selector) || node.querySelector(selector) !== null;
-    // A placeholder, or a whole loading page (the shell's, or a page that swaps its root when its data is there).
-    const placeholder = (node: Node) => node instanceof Element && (node.matches(PLACEHOLDER) || (node.matches(".ow-page") && node.querySelector(PLACEHOLDER) !== null));
+    // A placeholder, or anything that holds one (a loading page, a block, the Übersicht's next-step frame); a screen that
+    // leaves is no placeholder, whatever it still held.
+    const placeholder = (node: Node) => node instanceof Element && holds(node, PLACEHOLDER) && !holds(node, ".ow-screen");
     const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
     // The segment picked when the pointer went down; a key press forgets it, so only the pointer's own pick slides.
     let was: Element | null = null;
@@ -182,7 +190,12 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         for (const node of record.addedNodes) {
           if (!(node instanceof Element)) continue;
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
-          if (emptied.has(record.target)) (node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node))?.setAttribute("data-swap", "");
+          if (emptied.has(record.target)) {
+            const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
+            // Inside a swap still fading in (a cold load's screen and its list) only the outer one fades: two would multiply.
+            const outer = swap?.parentElement?.closest("[data-swap]");
+            if (swap && !outer?.getAnimations().some(animation => animation.playState !== "finished")) swap.setAttribute("data-swap", "");
+          }
           else if (holds(node, ".ow-screen")) {
             if (returning) (node.matches(".ow-screen") ? node : node.querySelector(".ow-screen"))?.setAttribute("data-return", "");
             else for (const block of node.querySelectorAll(".ow-page > *, .ow-q > *")) if (!holds(block, PLACEHOLDER)) block.setAttribute("data-arrive", "");
@@ -251,7 +264,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
           {visibleGroups(role, hidden).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
           ))}
         </nav>
         <div className="ow-side-foot">
@@ -288,9 +301,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
-          <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
+          <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
         </nav>
       </div>
     </div>

@@ -15,12 +15,19 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
-    // ENG-279: self-service reset. Every address gets the same answer; only a confirmed one gets a mail. The link lasts an
-    // hour, works once, and the reset signs every device out.
+    // ENG-283: sign-up never signs in. Better Auth then answers an existing address like a new one, and leaves it alone.
+    autoSignIn: false,
+    // ENG-279: self-service reset. Every address gets the same answer. The link lasts an hour, works once, and the reset
+    // signs every device out. ENG-286: an unconfirmed account gets the mail too, so the inbox's owner can take back an
+    // address someone else registered; using the link proves the inbox, so it also confirms the address.
     resetPasswordTokenExpiresIn: 60 * 60,
     revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      // The password is already changed and every device signed out; a failure here leaves the address unconfirmed only.
+      await authPool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [user.id])
+        .catch(error => console.error(`Address not confirmed after reset (${error instanceof Error ? error.name : "error"})`));
+    },
     sendResetPassword: async ({ user, token }) => {
-      if (!user.emailVerified) return;
       const { sendPasswordReset } = await import("./account-verification");
       // Not awaited: the answer must not take longer for an address that gets a mail than for one that does not.
       void sendPasswordReset(user.email, token)
@@ -34,13 +41,16 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, token }, request) => {
       // Loaded lazily, like the sign-up hook below. A failed send never fails the sign-up: the owner can resend.
       const { sendAccountVerification } = await import("./account-verification");
-      const outcome = await sendAccountVerification(user.email, token).catch(error => {
+      const sending = sendAccountVerification(user.email, token).catch(error => {
         console.error(`Verification email not sent (${error instanceof Error ? error.name : "error"})`);
         return "unavailable" as const;
       });
-      // A signed-in owner pressing „E-Mail erneut senden“ learns that nothing went out (Design). Sign-up and an anonymous
-      // resend always answer alike, so they reveal nothing about an address.
-      if (outcome === "sent" || !request?.url.endsWith("/send-verification-email")) return;
+      // Sign-up does not wait for the mail (ENG-283): an existing address gets none, so waiting would show in the timing.
+      if (!request?.url.endsWith("/send-verification-email")) return;
+      // A signed-in owner pressing „E-Mail erneut senden“ learns that nothing went out (Design). An anonymous resend
+      // always answers alike, so it reveals nothing about an address.
+      const outcome = await sending;
+      if (outcome === "sent") return;
       const { auth: self } = await import("./auth");
       if (!await self.api.getSession({ headers: request.headers })) return;
       throw new APIError(outcome === "limited" ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", { message: "Verification email not sent" });

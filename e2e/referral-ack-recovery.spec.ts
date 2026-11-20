@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { configureReferrals } from "../src/lib/referrals";
 import { pool } from "../src/db";
+import { signUp } from "./support/sign-up";
 
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_referral_087") throw new Error("Dedicated synthetic referral database required");
@@ -13,9 +14,9 @@ test.beforeAll(async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL });
     try {
       const id = randomUUID();
-      const signup = await context.request.post("/api/auth/sign-up/email", { headers: { Origin: origin }, data: { name: "Synthetic referral owner", email: `${id}@example.test`, password: "Synthetic-Referrals-087-Only!" } });
+      const signup = await signUp(context.request, { headers: { Origin: origin }, data: { name: "Synthetic referral owner", email: `${id}@example.test`, password: "Synthetic-Referrals-087-Only!" } });
       expect(signup.ok()).toBe(true); const { user } = await signup.json();
-      const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: `Synthetic ${locale} ${id}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Synthetic referrals", programType: "stamp", rulesText: "One synthetic confirmed visit", rewardTitle: "Coffee", rewardCost: 5 } });
+      const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: `Synthetic ${locale} ${id.replace(/\d/g, "")}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Synthetic referrals", programType: "stamp", rulesText: "One synthetic confirmed visit", rewardTitle: "Coffee", rewardCost: 5 } });
       expect(setup.status()).toBe(201); const merchant = await setup.json();
       await configureReferrals({ actorUserId: user.id, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
       const enrolled = await context.request.post("/api/enroll", { headers: { Origin: origin }, data: { slug: merchant.programSlug, acceptedTerms: true } }); expect(enrolled.status()).toBe(201); const { cardToken } = await enrolled.json();

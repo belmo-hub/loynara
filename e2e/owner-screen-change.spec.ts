@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, request as apiRequest, test, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // The screen change in the owner area (DESIGN.md, Motion): the old screen fades out over --dur-press, the new one stands
 // at full from the first frame, the bars stay.
@@ -32,9 +33,9 @@ const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|
 /** Resolves in the frame in which the outgoing screen's fade exists. */
 const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(") && !/\((root|ow-topbar|ow-subnav|ow-tabs)\)/.test((animation.effect as KeyframeEffect).pseudoElement!)));
 /** From the next frame on, until the change ends: in every frame, the opacity of each screen layer. */
-const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[] }[]>(done => {
+const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[]; block: number | null }[]>(done => {
   const screen = new RegExp(source);
-  const frames: { old: number[]; new: number[] }[] = [];
+  const frames: { old: number[]; new: number[]; block: number | null }[] = [];
   let seen = false;
   const look = () => {
     const old = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition-old(") && screen.test(layer));
@@ -43,7 +44,8 @@ const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; n
       // A new screen has no animation, so its layers are found by the names its elements carry during the change.
       const names = [...document.querySelectorAll<HTMLElement>(".ow-content, .ow-content *")].map(node => getComputedStyle(node).viewTransitionName).filter(name => name && name !== "none");
       seen = true;
-      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)) });
+      const block = document.querySelector(".ow-content [data-arrive]");
+      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)), block: block ? Number(getComputedStyle(block).opacity) : null });
     } else if (seen) { done(frames); return; }
     requestAnimationFrame(look);
   };
@@ -64,9 +66,16 @@ test("a step in fades to the end: a page that swaps its loading frame for its fo
     };
     look();
   }));
+  // Every title the document takes after the tap. The page's metadata later puts the site's title back (a known fault of
+  // its own), so the test asks whether the screen named itself, not what the title is at the end.
+  await page.evaluate(() => {
+    const titles: string[] = [];
+    (window as unknown as { titles: string[] }).titles = titles;
+    new MutationObserver(() => titles.push(document.title)).observe(document.head, { childList: true, subtree: true, characterData: true });
+  });
   await page.getByRole("link", { name: /Prämie hinzufügen/ }).click();
   await expect(page).toHaveURL(/\/merchant\/program\/rewards\/new$/);
-  await expect(page, "the new screen names itself to assistive tech").toHaveTitle(/ – Loynara$/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { titles: string[] }).titles.some(title => / – Loynara$/.test(title) && !title.startsWith("Programm"))), { message: "the new screen names itself to assistive tech" }).toBe(true);
   expect(await ran, "the old screen's fade ran to its end").toBe(true);
 });
 
@@ -229,6 +238,30 @@ test("on a slow connection the tapped tab looks current at once and the screen i
   await page.unroute(/\/merchant\/more(\?|$)/);
 });
 
+// ENG-294: by the page's own clock, from the finger down to the frame in which the tapped tab is drawn current.
+test("a tapped tab looks current within 100 ms, before its screen has arrived", async () => {
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  await page.route(/\/merchant\/customers(\?|$)/, async route => { await held; await route.continue(); });
+  await page.evaluate(() => {
+    const link = document.querySelector<HTMLElement>('.ow-tabs a[href="/merchant/customers"]')!;
+    const timing = { down: 0, current: 0 };
+    (window as unknown as { tabTiming: typeof timing }).tabTiming = timing;
+    document.addEventListener("pointerdown", () => {
+      timing.down = performance.now();
+      const frame = () => { if (getComputedStyle(link).fontWeight === "800") timing.current = performance.now(); else requestAnimationFrame(frame); };
+      requestAnimationFrame(frame);
+    }, { capture: true, once: true });
+  });
+  await tab("Kunden").click();
+  await page.waitForFunction(() => (window as unknown as { tabTiming: { current: number } }).tabTiming.current > 0);
+  const { down, current } = await page.evaluate(() => (window as unknown as { tabTiming: { down: number; current: number } }).tabTiming);
+  expect(current - down, "ms from the tap to the tab drawn current").toBeLessThan(100);
+  release();
+  await expect(page).toHaveURL(/\/merchant\/customers$/);
+  await page.unroute(/\/merchant\/customers(\?|$)/);
+});
+
 test("on a slow connection a tapped row holds the selected look until its screen shows", async () => {
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
@@ -288,8 +321,8 @@ test("opening a customer card and going back are screen changes; a filter is not
   const count = (request: { url(): string }) => { if (request.url().includes("/api/merchant/customers?")) listReads++; };
   page.on("request", count);
   await page.locator(".ow-content a.ow-back:visible").click();
-  // The card leaves as the old screen; the list stands at full again at once.
   await fadeStarted();
+  expect(await page.evaluate(() => { const list = document.querySelector<HTMLElement>(".ow-under")!; return !list.hidden && getComputedStyle(list).viewTransitionName === "ow-under"; }), "the list comes back as the new screen").toBe(true);
   await settled();
   await expect(first).toBeVisible();
   page.off("request", count);
@@ -303,17 +336,18 @@ test("reduced motion: the change is a cut", async () => {
   expect(await inLayer("::view-transition", true)).toBe(false);
 });
 
-// ENG-298 (Design's option B): today's crossfade showed both screens at half strength for about 160 ms. Now the new
-// screen stands at full from the first frame and only the old one fades, so no frame has two screens partly drawn.
-test("the two screens never both show at partial opacity: the new one is at full, only the old one fades", async () => {
+// ENG-298 (Design's option B): the crossfade showed both screens at half strength for about 160 ms. Now the new screen
+// stands at full from the first frame and its blocks rise in, while the old one leaves from 40 % (Design, #314: from 100 %
+// the first frame still showed both screens' texts over each other).
+test("the old screen is never above 40 % while the new one is in place; the new one is at full", async () => {
   for (const name of ["Kunden", "Programm", "Kunden"]) {
     const frames = watchLayers();
     await tab(name).click();
     const seen = await frames;
     await settled();
-    expect(seen.length, `${name}: the change was sampled`).toBeGreaterThan(0);
-    const partly = (values: number[]) => values.some(value => value > 0.01 && value < 0.99);
-    expect(seen.filter(frame => partly(frame.old) && partly(frame.new)), `${name}: frames with both screens partly drawn`).toEqual([]);
+    const fading = seen.filter(frame => frame.old.length && frame.block !== null);
+    expect(fading.length, `${name}: frames with the old screen leaving over the new screen's first block`).toBeGreaterThan(0);
+    expect(fading.filter(frame => Math.max(...frame.old) > 0.41), `${name}: frames with the old screen above 40 %`).toEqual([]);
     expect(seen.flatMap(frame => frame.new).every(value => value === 1), `${name}: the new screen is at full in every frame`).toBe(true);
   }
   // The hidden root takes no fade of its own: in WebKit it kept the change alive for 250 ms after the old screen left.
@@ -418,7 +452,7 @@ test("reduced motion: a card opens and closes with a cut", async () => {
 test("a points card opened from its row fills only once it has landed", async ({ browser }) => {
   const url = test.info().project.use.baseURL!;
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic card owner", email: `card-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic card owner", email: `card-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Card Café", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je vollem Euro an der Kasse.", rewardTitle: "Kuchen", rewardCost: 50 } });
   expect(setup.status()).toBe(201);
@@ -440,4 +474,35 @@ test("a points card opened from its row fills only once it has landed", async ({
     const delays = await shop.evaluate(() => document.querySelector("[data-card-face]")!.getAnimations({ subtree: true }).flatMap(animation => /grow/.test((animation as CSSAnimation).animationName) ? [Number(animation.effect!.getTiming().delay)] : []));
     expect(delays, "the fill grows once, after the card has landed").toEqual([480]);
   } finally { await context.close(); }
+});
+
+// Design, #314: what takes a placeholder's place fades in from a floor of 40 %, never from nothing; a frame with neither
+// placeholder nor content read as a blank screen.
+test("content that takes a placeholder's place fades in from a floor: no frame shows neither", async () => {
+  for (const [name, read] of [["Programm", /\/api\/program\//], ["Kunden", /\/api\/merchant\/customers\?/]] as const) {
+    await page.goto("/merchant");
+    await settled();
+    let release = () => {};
+    const held = new Promise<void>(done => { release = done; });
+    await page.route(read, async route => { await held; await route.continue(); });
+    await tab(name).click();
+    await expect(page.locator(".ow-content :is(.ow-loading, .ow-skel)").first()).toBeVisible();
+    await settled();
+    // Every frame for half a second: is a placeholder there, and how strong is the weakest outermost swap.
+    const frames = page.evaluate(() => new Promise<{ placeholder: boolean; swap: number | null }[]>(done => {
+      const seen: { placeholder: boolean; swap: number | null }[] = [];
+      const end = performance.now() + 500;
+      const look = () => {
+        const swaps = [...document.querySelectorAll(".ow-content [data-swap]")].filter(node => !node.parentElement?.closest("[data-swap]"));
+        seen.push({ placeholder: !!document.querySelector(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)"), swap: swaps.length ? Math.min(...swaps.map(node => Number(getComputedStyle(node).opacity))) : null });
+        if (performance.now() < end) requestAnimationFrame(look); else done(seen);
+      };
+      look();
+    }));
+    release();
+    const seen = await frames;
+    await page.unroute(read);
+    expect(seen.some(frame => frame.swap !== null), `${name}: the content is marked as taking the placeholder's place`).toBe(true);
+    expect(seen.filter(frame => !frame.placeholder && (frame.swap === null || frame.swap < 0.39)), `${name}: frames with neither placeholder nor content at 40 %`).toEqual([]);
+  }
 });

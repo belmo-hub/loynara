@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // Phones have no navigation drawer since ENG-122c: „Mehr“ is a page of signposts, reached and left by keyboard alone.
 test("mobile „Mehr“ tab opens its page by keyboard and its rows lead on, the tab staying current", async ({ browser, baseURL }) => {
   const url = baseURL ?? "http://localhost:3000";
   const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await api.post("/api/auth/sign-up/email", { data: {
+    expect((await signUp(api, { data: {
       name: "Synthetic navigation owner", email: `navigation-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
     } })).status()).toBe(200);
     expect((await api.post("/api/merchant/onboard", { data: {
