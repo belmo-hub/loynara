@@ -2,7 +2,7 @@
    Phone: card, Verlauf, figures, Details, action. 600 to 1199: card beside the figures (rows as tall as the card), the
    rest full width, Details in two columns. From 1200: D's rail (400) beside the statement, 40 apart. */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); grid-template-areas: "card" "feed" "facts" "details" "action"; }
-.card { grid-area: card; display: grid; }
+.card { grid-area: card; display: grid; --grow-after: var(--dur-reward); } /* a fill grows once the card has landed */
 .facts { grid-area: facts; }
 .feed { grid-area: feed; }
 .details { grid-area: details; }

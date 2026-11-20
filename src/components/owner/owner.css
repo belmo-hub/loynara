@@ -125,6 +125,20 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* A customer card opens over its list, which stays mounted and hidden: the list is a layer of its own, so it leaves
    like a screen and stands at full again when the card closes. */
 .ow-under { view-transition-name: ow-under; view-transition-class: ow-screen; }
+/* ENG-299: a card opened from its row grows out of the row's thumbnail and shrinks back into it. customers-view puts
+   data-ow-card on the root for exactly those changes, so a tab, a search or a filter names no row. The thumbnail fades
+   out and the card in over the first 40 %; the box moves and scales the whole way, clipped to the card's corners.
+   Both fades rest at their end state and alternate their keyframe names with the screens' (ENG-219, ENG-221). */
+:root[data-ow-card] .ow-under [data-opened] > :first-child, :root[data-ow-card] [data-card-face] { view-transition-name: ow-card; }
+/* Above the screens: on the way back the list is a layer only the new state has, which the browser would paint over the
+   card. The bars stay above it (--z-nav). */
+::view-transition-group(ow-card) { z-index: 1; animation-duration: var(--dur-reward); animation-timing-function: var(--ease-drawer); border-radius: var(--radius-xl); overflow: hidden; }
+::view-transition-old(ow-card), ::view-transition-new(ow-card) { height: 100%; object-fit: cover; }
+::view-transition-old(ow-card) { opacity: 0; animation: ow-fade-out calc(var(--dur-reward) * .4) linear; }
+::view-transition-new(ow-card) { animation: ow-fade calc(var(--dur-reward) * .4) linear both; }
+:root[data-ow-fade]::view-transition-old(ow-card) { animation-name: ow-fade-out-b; }
+:root[data-ow-fade]::view-transition-new(ow-card) { animation-name: ow-fade-in-b; }
+@keyframes ow-fade-in-b { from { opacity: 0; } to { opacity: 1; } }
 /* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
 ::view-transition-old(root) { display: none; animation: none; }
 ::view-transition-new(root) { animation: none; }

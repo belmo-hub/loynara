@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request as apiRequest, test, type Page } from "@playwright/test";
 
 // The screen change in the owner area (DESIGN.md, Motion): the old screen fades out over --dur-press, the new one stands
 // at full from the first frame, the bars stay.
@@ -27,7 +28,7 @@ test.beforeEach(async () => {
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const inLayer = (prefix: string, running = false) => page.evaluate(([start, mustRun]) => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(start as string) && (!mustRun || animation.playState === "running")), [prefix, running] as const);
 /** The layers of the screens, not those of the bars or the hidden root. */
-const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/;
+const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\)|ow-card\))/;
 /** Resolves in the frame in which the outgoing screen's fade exists. */
 const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(") && !/\((root|ow-topbar|ow-subnav|ow-tabs)\)/.test((animation.effect as KeyframeEffect).pseudoElement!)));
 /** From the next frame on, until the change ends: in every frame, the opacity of each screen layer. */
@@ -319,4 +320,124 @@ test("the two screens never both show at partial opacity: the new one is at full
   await tab("Mehr").click();
   await fadeStarted();
   expect(await page.evaluate(() => getComputedStyle(document.documentElement, "::view-transition-old(root)").animationName)).toBe("none");
+});
+
+// ENG-299: a card opened from its Kunden row grows out of the row's thumbnail and shrinks back into it. Exactly one pair
+// is named, only for those two changes; the card is there in the change's first frame; the address changes in place.
+/** Every frame of the next change: its ow-card layers, whether the card's face is there, and whether a loading frame is. */
+const watchCard = () => page.evaluate(() => new Promise<{ card: string[]; face: boolean; loading: boolean }[]>(done => {
+  const frames: { card: string[]; face: boolean; loading: boolean }[] = [];
+  const end = performance.now() + 3000;
+  let seen = false;
+  const look = () => {
+    const layers = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition"));
+    if (layers.length) {
+      seen = true;
+      frames.push({ card: [...new Set(layers.filter(layer => layer.includes("(ow-card)")))], face: !!document.querySelector("[data-card-face]"), loading: !!document.querySelector(".ow-content [role=status][aria-busy=true]") });
+    } else if (seen || performance.now() > end) { done(frames); return; }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}));
+const cardRow = () => page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
+async function toList() {
+  await page.goto("/merchant/customers?activity=all");
+  await expect(cardRow()).toBeVisible();
+  await settled();
+}
+
+test("a card grows out of its row and shrinks back into it: one named pair, the card in the first frame, no server wait", async () => {
+  await toList();
+  const card = await page.evaluate(() => (document.querySelector('section[aria-labelledby="cu-h"] a.ow-prog-row') as HTMLAnchorElement).href);
+  const reads: string[] = [];
+  const note = (request: { url(): string }) => { if (request.url().includes("_rsc")) reads.push(request.url()); };
+  page.on("request", note);
+  let frames = watchCard();
+  await cardRow().click();
+  const open = await frames;
+  page.off("request", note);
+  await expect(page).toHaveURL(card);
+  const growing = open.filter(frame => frame.card.length);
+  expect(growing.length, "the card grows").toBeGreaterThan(0);
+  expect([...new Set(growing.flatMap(frame => frame.card))].sort(), "one pair: the card's group, the thumbnail leaving and the card arriving").toEqual(["::view-transition-group(ow-card)", "::view-transition-new(ow-card)", "::view-transition-old(ow-card)"]);
+  expect(growing.every(frame => frame.face && !frame.loading), "the card is painted from its row in every frame, with no loading frame in its place").toBe(true);
+  expect(reads, "opening a card asks the server for nothing but its data").toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.hasAttribute("data-ow-card")), "the pair is named only for the change").toBe(false);
+  await settled();
+
+  frames = watchCard();
+  await page.locator(".ow-content a.ow-back:visible").click();
+  const back = await frames;
+  expect(back.some(frame => frame.card.includes("::view-transition-group(ow-card)")), "the card shrinks into its row").toBe(true);
+  await expect(cardRow()).toBeVisible();
+  await settled();
+  // A tab change from the list names no row.
+  frames = watchCard();
+  await tab("Programm").click();
+  expect((await frames).flatMap(frame => frame.card), "a tab change has no card layer").toEqual([]);
+});
+
+test("Back with the card scrolled out of view is a plain screen change; browser Back is one too", async () => {
+  await page.setViewportSize({ width: 390, height: 420 });
+  try {
+    await toList();
+    await cardRow().click();
+    await expect(page.locator("[data-card-face]")).toBeVisible();
+    await settled();
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+    expect(await page.evaluate(() => document.querySelector("[data-card-face]")!.getBoundingClientRect().top), "the card's top is above the screen").toBeLessThan(0);
+    // The back link sits at the page's top, so a tap brings the card into view first; Enter from the keyboard does not.
+    await page.evaluate(() => document.querySelector<HTMLElement>(".ow-content a.ow-back")!.focus({ preventScroll: true }));
+    let frames = watchCard();
+    await page.keyboard.press("Enter");
+    expect((await frames).flatMap(frame => frame.card), "no shrink").toEqual([]);
+    await expect(cardRow()).toBeVisible();
+    await settled();
+    // Next.js runs no view transition for the history's Back, here as on every owner screen.
+    await cardRow().click();
+    await expect(page.locator("[data-card-face]")).toBeVisible();
+    await settled();
+    frames = watchCard();
+    await page.goBack();
+    expect((await frames).flatMap(frame => frame.card), "browser Back: no shrink").toEqual([]);
+    await expect(cardRow()).toBeVisible();
+  } finally { await page.setViewportSize({ width: 390, height: 844 }); }
+});
+
+test("reduced motion: a card opens and closes with a cut", async () => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await toList();
+  await cardRow().click();
+  await expect(page.locator("[data-card-face]")).toBeVisible();
+  expect(await inLayer("::view-transition-group(ow-card)", true)).toBe(false);
+  await page.locator(".ow-content a.ow-back:visible").click();
+  await expect(cardRow()).toBeVisible();
+  expect(await inLayer("::view-transition", true)).toBe(false);
+});
+
+test("a points card opened from its row fills only once it has landed", async ({ browser }) => {
+  const url = test.info().project.use.baseURL!;
+  const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
+  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic card owner", email: `card-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Card Café", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
+    programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je vollem Euro an der Kasse.", rewardTitle: "Kuchen", rewardCost: 50 } });
+  expect(setup.status()).toBe(201);
+  const { programSlug } = await setup.json() as { programSlug: string };
+  const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
+  expect((await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } })).ok()).toBe(true);
+  await guest.dispose();
+  const context = await browser.newContext({ storageState: await owner.storageState(), viewport: { width: 390, height: 844 } });
+  await owner.dispose();
+  try {
+    const shop = await context.newPage();
+    await shop.goto("/merchant/customers?activity=all");
+    const row = shop.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
+    await expect(row).toBeVisible();
+    await shop.waitForTimeout(500);
+    await row.click();
+    await expect(shop.locator("[data-card-face]")).toBeVisible();
+    // The fill's growth waits for the card's own move, --dur-reward.
+    const delays = await shop.evaluate(() => document.querySelector("[data-card-face]")!.getAnimations({ subtree: true }).flatMap(animation => /grow/.test((animation as CSSAnimation).animationName) ? [Number(animation.effect!.getTiming().delay)] : []));
+    expect(delays, "the fill grows once, after the card has landed").toEqual([480]);
+  } finally { await context.close(); }
 });

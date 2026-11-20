@@ -46,8 +46,9 @@
 .ladder[data-tone="mix"] .mark[data-new] .dot { animation: open-until var(--press-at) linear, pop var(--dur-reward) var(--ease-out) var(--press-at); --press-at: calc(var(--dur-ui) + var(--land-stagger, 0ms)); }
 @keyframes open-until { from, to { border: var(--open-ring); background: var(--open-disc); color: transparent; border-radius: 50%; } }
 @keyframes pop { from { transform: scale(1.3); } 60% { transform: scale(.94); } }
-/* Bars grow: only where the page asks (the guest card's first paint) the fill grows from the start. Anywhere else, and
-   on every later change, it moves from the old value to the new, never from 0. */
-.ladder[data-grow] .fill { animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+/* Bars grow: only where the page asks (the guest card's first paint, a card opened from its row) the fill grows from the
+   start, after --grow-after. Anywhere else, and on every later change, it moves from the old value to the new, never
+   from 0. */
+.ladder[data-grow] .fill { animation: grow var(--dur-reward) var(--ease-in-out) var(--grow-after, 0ms) backwards; }
 @keyframes grow { from { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } .ladder[data-grow] .fill, .mark[data-new] .dot, .ladder[data-tone="mix"] .mark[data-new] .dot { animation: none; } }
