@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // Synthetic local acceptance only. Provider capability is mocked at the browser boundary; flags stay OFF.
 const sizes = [{ width: 1440, height: 900 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 844 }];
@@ -9,7 +10,7 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
   const origin = baseURL ?? "http://localhost:3000";
   expect(["localhost", "127.0.0.1"]).toContain(new URL(origin).hostname);
   const owner = await apiRequest.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic combined owner", email: `${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic combined owner", email: `${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Combined Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Combined Card", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Kaffee gratis", rewardCost: 5 } });
   expect(setup.status()).toBe(201);
   const { programSlug } = await setup.json();

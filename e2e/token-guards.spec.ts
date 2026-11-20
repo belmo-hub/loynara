@@ -33,3 +33,30 @@ test("/recover/confirm names each restore button by its card", async ({ page }) 
   await expect(buttons.nth(0)).toHaveAccessibleDescription("Synthetic Café");
   await expect(buttons.nth(1)).toHaveAccessibleDescription("Synthetic Salon");
 });
+
+// ENG-286: the reset token travels in the fragment, which no server or proxy logs. A link with it in the query (sent before
+// the change) gets the expired state, and the page scrubs the fragment once read.
+test("/reset-password posts the token from its fragment and scrubs it from the address", async ({ page }) => {
+  let posted: unknown;
+  await page.route("**/api/auth/reset-password", async route => { posted = route.request().postDataJSON(); await route.fulfill({ json: { status: true } }); });
+  await page.goto("/reset-password#token=synthetic_token_value");
+  await page.getByLabel("Neues Passwort", { exact: true }).fill("synthetic-new-password");
+  await page.getByLabel("Passwort wiederholen", { exact: true }).fill("synthetic-new-password");
+  await expect(page).toHaveURL(/\/reset-password$/);
+  await page.getByRole("button", { name: "Passwort speichern" }).click();
+  await expect(page.getByRole("heading", { name: "Dein Passwort ist geändert." })).toBeVisible();
+  expect(posted).toMatchObject({ token: "synthetic_token_value", newPassword: "synthetic-new-password" });
+});
+
+test("Better Auth's own reset link, which would put the token in a server URL, answers 404", async ({ request }) => {
+  const response = await request.get("/api/auth/reset-password/synthetic_token_value?callbackURL=/reset-password", { maxRedirects: 0 });
+  expect(response.status()).toBe(404);
+});
+
+for (const path of ["/reset-password", "/reset-password?token=synthetic_token_value"]) {
+  test(`${path} shows „Dieser Link gilt nicht mehr.“ and no password field`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: "Dieser Link gilt nicht mehr." })).toBeVisible();
+    await expect(page.getByLabel("Neues Passwort", { exact: true })).toHaveCount(0);
+  });
+}

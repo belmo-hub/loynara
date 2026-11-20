@@ -31,7 +31,7 @@ afterAll(async () => { await pool.end(); });
 async function fixture(email = "holder@example.test") {
   const userId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic owner", `${userId}@example.test`]);
-  const merchant = await createMerchant({ userId, businessName: `Synthetic Merchant ${userId.slice(0, 6)}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 8 });
+  const merchant = await createMerchant({ userId, businessName: `Synthetic Merchant ${userId.replace(/\d/g, "").slice(0, 6)}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 8 });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   await requestContactVerification(card.cardToken, email);
   const [challenge] = await db.select().from(contactVerificationChallenges).where(eq(contactVerificationChallenges.membershipId, card.id));

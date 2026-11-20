@@ -53,8 +53,15 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   // The sheet needs the Kasse prefetched and fresh (kasseSheetReady): warm it once the owner screen is idle, then keep it
   // warm (a no-op while the router still holds it; a new fetch once it went stale, and when the tab comes back).
   useEffect(() => {
-    const warm = () => warmKasse(href => router.prefetch(href));
-    const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 60_000);
+    // ENG-294: the areas too. The owner area is dynamic, so their links fetch nothing ahead and every tap waited a server
+    // round trip before the screen could change. Their links prefetch the whole page (the Kasse's loading
+    // route makes do with less), and the router drops it after 5 minutes, so the check runs often.
+    const full = { kind: "full" } as Parameters<typeof router.prefetch>[1];
+    const warm = () => {
+      warmKasse(href => router.prefetch(href));
+      if (document.visibilityState === "visible") for (const link of document.querySelectorAll<HTMLAnchorElement>(".ow-tabs a, .ow-nav a")) router.prefetch(link.pathname, full);
+    };
+    const first = window.setTimeout(warm, 1_000), again = window.setInterval(warm, 10_000);
     const visible = () => { if (document.visibilityState === "visible") warm(); };
     document.addEventListener("visibilitychange", visible);
     return () => { window.clearTimeout(first); window.clearInterval(again); document.removeEventListener("visibilitychange", visible); };
@@ -251,7 +258,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
           {visibleGroups(role, hidden).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
           ))}
         </nav>
         <div className="ow-side-foot">
@@ -288,9 +295,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
-            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
+            <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
-          <GuardedLink href={MORE_HREF} className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
+          <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
         </nav>
       </div>
     </div>

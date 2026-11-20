@@ -65,6 +65,8 @@ it("answers an empty 404 to anonymous visitors, shop owners and cross-origin cal
   expect((await post({ ...shopBody(), ownerEmail: "not-an-address" }, operator.cookie)).status).toBe(400);
   expect(await code(() => createShopWithOwnerInvite({ actorUserId: owner.user, env: env(), shop: shopBody() }))).toBe("FORBIDDEN");
   expect(await code(() => createShopWithOwnerInvite({ actorUserId: operator.userId, env: {}, shop: shopBody() }))).toBe("FORBIDDEN");
+  // ENG-285: no link or phone number in a shop name, from the operator either.
+  expect(await code(() => createShopWithOwnerInvite({ actorUserId: operator.userId, env: env(), shop: { ...shopBody(), businessName: "Barbier 0561 123456" } }))).toBe("INVALID_SHOP_NAME");
   expect(await db.select().from(tenants)).toHaveLength(1); // only the owner's own shop
   expect(await db.select().from(staffInvites)).toHaveLength(0);
 });

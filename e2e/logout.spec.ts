@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 type Role = "owner" | "manager" | "cashier";
 
@@ -9,7 +10,7 @@ async function account(baseURL: string) {
   const api = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: url.origin } });
   const email = `logout-${randomUUID()}@example.test`;
   const password = `Local!${randomUUID()}Aa`;
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic logout user", email, password } })).status()).toBe(200);
+  expect((await signUp(api, { data: { name: "Synthetic logout user", email, password } })).status()).toBe(200);
   return { api, email, password };
 }
 

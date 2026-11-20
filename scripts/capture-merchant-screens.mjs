@@ -22,9 +22,10 @@ const guest = await request.newContext({ baseURL: origin, extraHTTPHeaders: { Or
 let browser;
 try {
   assert.equal((await owner.get("/api/health")).status(), 200);
-  assert.equal((await owner.post("/api/auth/sign-up/email", { data: {
-    name: "Synthetic capture owner", email: `capture-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
-  } })).status(), 200);
+  const account = { email: `capture-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` };
+  assert.equal((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic capture owner", ...account } })).status(), 200);
+  // Sign-up never signs in (ENG-283).
+  assert.equal((await owner.post("/api/auth/sign-in/email", { data: account })).status(), 200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: "Morgenlicht Café (synthetisch)", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Morgenlicht Punkte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 3,
