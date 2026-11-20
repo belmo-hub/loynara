@@ -182,3 +182,27 @@ test("a hidden tab sends no Kasse prefetch however long it waits, and exactly on
   expect(round.length).toBeLessThanOrEqual(2);
   expect(Math.max(...round) - Math.min(...round)).toBeLessThan(1_000);
 });
+
+// ENG-304: the browser's resource timing list holds 250 entries; a day at the counter fills it with tab changes and their
+// prefetches, and a Kasse prefetch that answers after that is missing from it. Clearing the list first stands in for that:
+// the fresh prefetch is then in no list, and 60 tab changes fill it again.
+test("after 60 tab changes have filled the timing buffer, the Kasse still opens as a sheet", async ({ page }) => {
+  test.setTimeout(180_000);
+  await recordTransitions(page);
+  await signIn(page);
+  await page.goto("/merchant");
+  await prefetched(page);
+  await page.evaluate(() => performance.clearResourceTimings());
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+  for (let change = 0; change < 60; change++) {
+    const name = ["Kunden", "Programm", "Übersicht"][change % 3];
+    await nav.getByRole("link", { name, exact: true }).click();
+    await expect(nav.getByRole("link", { name, exact: true }), `change ${change + 1}`).toHaveAttribute("aria-current", "page");
+    await page.waitForTimeout(400); // the screen change ends, as an owner reads the screen before the next tap
+  }
+  expect(await page.evaluate(() => performance.getEntriesByType("resource").length), "the list is full").toBeGreaterThanOrEqual(250);
+  await openKasse(page);
+  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(1);
+  expect(await vtErrors(page)).toEqual([]);
+});
