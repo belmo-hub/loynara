@@ -178,8 +178,13 @@ describe("owner sign-up acceptance", () => {
     expect(html).not.toMatch(/Google Wallet|Google-Wallet|UV-1[012]/);
     expect(html).toContain("Push-Dienste der Kassengeräte (Apple, Google, Mozilla)");
     expect(html).toContain("die physische Sicherheit verantworten diese Anbieter. Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.</p>");
-    expect(html).toContain("bei den Dienstleistern erreichbar. Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet. Die Datenbank");
+    expect(html).toContain("bei den Dienstleistern erreichbar. Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet. Schlüssel und Passwörter");
+    // Legal § 6 (20 Nov): Annex 2 says only what is true today; the restore test is a dated commitment, not a claim.
+    expect(html).toContain("<strong>Verfügbarkeit und Wiederherstellung.</strong> Tägliche automatische Datenbanksicherung, verschlüsselt (age) und außerhalb des Hosters gespeichert. Der Anbieter prüft die Wiederherstellung aus einer Sicherung in einer getrennten Umgebung, erstmals bis zum 4. Dezember 2026, danach mindestens einmal im Kalendervierteljahr, und hält jeden Test mit Datum und Ergebnis fest. Jede Freigabe hält die vorherigen Versionen als Ziel für eine Rücknahme fest. Erreichbarkeit, Hintergrunddienst und Sicherung werden überwacht; bei einem Ausfall wird der Anbieter benachrichtigt.</p>");
+    expect(html).toContain("Verbindungen zur Anwendung und zu den Dienstleistern laufen über HTTPS (TLS).");
+    expect(html).toContain("Leistung: DNS, TLS und Schutz der Verbindung; Speicher für verschlüsselte Sicherungen (R2).");
+    expect(html).not.toMatch(/bereits angewendet|öffentlichen Port|Cloudflare-Tunnel|Wiederherstellungsperson|Release-Protokoll|Alle Verbindungen|zuletzt am|Mobiltelefone/);
     expect(html).toContain("<strong>Mailgun</strong>, Mailgun Technologies, Inc., 112 E Pecan Street #1135, San Antonio, TX 78205, USA.");
-    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-10"]);
+    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual([]);
   });
 });

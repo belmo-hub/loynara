@@ -49,8 +49,10 @@ describe("production configuration gate", () => {
     // ENG-277 (Reviewer F-1): the gate reads the same fill-ins /avv renders.
     it("refuses open sign-up while the AVV has open fill-ins, and allows it once none is left", () => {
       const issue = expect.stringMatching(/requires the AVV page without open fill-ins/);
-      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" })).toEqual([issue]);
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" }, { contractOpen: true })).toEqual([issue]);
       expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" }, { contractOpen: false })).toEqual([]);
+      // The default reads AVV_FILL_INS: nothing is open any more.
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" })).toEqual([]);
       for (const registration of ["false", undefined]) expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: registration }, { contractOpen: true })).toEqual([]);
       expect(hasOpenMarks({ a: "Firma GmbH", b: "[[UV-01: offen]]" })).toBe(true);
       expect(hasOpenMarks({ a: "Firma GmbH", b: "SCC" })).toBe(false);
@@ -501,13 +503,14 @@ describe("production startup gate as a process", () => {
     } finally { rmSync(custody, { recursive: true, force: true }); }
   }, 180_000);
 
-  // ENG-277 (Reviewer F-1): while /avv has open fill-ins, open sign-up cannot start. Once they are filled this test flips.
-  it("refuses to start with public registration on while the AVV page has open fill-ins", async () => {
-    expect(hasOpenMarks()).toBe(true);
+  // ENG-277 (Reviewer F-1): the AVV has no open fill-in left (Legal, 20 Nov), so open sign-up may start; a new open mark
+  // in AVV_FILL_INS makes this test fail together with the start.
+  it("starts with public registration on while invite sign-up is off or unset, now that the AVV has no open fill-ins", async () => {
+    expect(hasOpenMarks()).toBe(false);
     for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "false" }]) {
       const result = await guard(extra);
-      expect(result.code, JSON.stringify(extra)).toBe(1);
-      expect(result.output).toContain("PUBLIC_REGISTRATION_ENABLED=true requires the AVV page without open fill-ins");
+      expect(result.output, JSON.stringify(extra)).toContain("Production configuration gate passed.");
+      expect(result.code).toBe(0);
     }
   }, 120_000);
 
