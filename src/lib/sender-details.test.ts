@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addressProblems, contactProblems, footerPreview, footerText, LEGAL_FORMS, pieceText, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails } from "./sender-details";
+import { addressProblems, contactProblems, footerPreview, footerText, LEGAL_FORMS, pieceText, missingParts, missingRefusal, missingSentence, registeredForm, normalizeRegisterNumber, normalizeVatId, partList, registerProblems, representativeProblems, senderFooter, type SenderDetails, unsafeShopName } from "./sender-details";
 
 const complete: SenderDetails = {
   shopName: "Café Lindenblatt", street: "Friedrich-Ebert-Straße 12", postalCode: "34117", city: "Kassel", representative: "Mara Lind",
@@ -131,5 +131,15 @@ describe("the owner's footer preview (Design, 1 Nov)", () => {
     const registered = footerPreview({ ...complete, legalForm: "GmbH", registerCourt: null, registerNumber: null });
     expect(registered.register!.filter(piece => piece.missing).map(piece => piece.text)).toEqual(["Registergericht fehlt", "Registernummer fehlt"]);
     expect(footerPreview({ ...complete, legalForm: "Einzelunternehmen", registerCourt: null, registerNumber: null }).register).toBeNull();
+  });
+});
+
+describe("the shop's name in mail (ENG-285)", () => {
+  it("refuses links and phone numbers, and keeps ordinary names", () => {
+    for (const name of ["Bitte hier einloggen: https://evil.example/login", "Gewinn auf www.gewinn", "Café gewinn.de", "Pizza GEWINN.DE heute", "Ruf an 0900123456", "Ruf an 0900 123 456", "Tel 0561/73-92-21", "Shop ftp://x",
+      "Ruf 0900.123.456", "Ruf (0900) 12 34 56", "Ruf ０９００１２３４５６", "Ruf 09\u200B00\u200B12\u200B34", "gewinn．de", "gewinn。de", "ww\u200Bw.gewinn"])
+      expect(unsafeShopName(name), name).toBe(true);
+    for (const name of ["Café am Markt", "Pizzeria Da Mario 2000", "St. Pauli Bar", "Barber & Co. KG", "e.K. Friseur", "Salon 34117 Kassel", "Bäckerei Müller-Lüdenscheidt", "No. 1 Döner"])
+      expect(unsafeShopName(name), name).toBe(false);
   });
 });
