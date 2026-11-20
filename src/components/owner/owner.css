@@ -132,7 +132,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 :root[data-ow-card] .ow-under [data-opened] > :first-child, :root[data-ow-card] [data-card-face] { view-transition-name: ow-card; }
 /* Above the screens: on the way back the list is a layer only the new state has, which the browser would paint over the
    card. The bars stay above it (--z-nav). */
-::view-transition-group(ow-card) { z-index: 1; animation-duration: var(--dur-reward); animation-timing-function: var(--ease-drawer); border-radius: var(--radius-xl); overflow: hidden; }
+::view-transition-group(ow-card) { z-index: var(--z-sticky); animation-duration: var(--dur-reward); animation-timing-function: var(--ease-drawer); border-radius: var(--radius-xl); overflow: hidden; }
 ::view-transition-old(ow-card), ::view-transition-new(ow-card) { height: 100%; object-fit: cover; }
 ::view-transition-old(ow-card) { opacity: 0; animation: ow-fade-out calc(var(--dur-reward) * .4) linear; }
 ::view-transition-new(ow-card) { animation: ow-fade calc(var(--dur-reward) * .4) linear both; }
