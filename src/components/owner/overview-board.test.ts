@@ -253,9 +253,9 @@ describe("Übersicht direction D (ENG-085)", () => {
     expect(html).toContain(`<b>1${NBSP}Karte kann jetzt eine Prämie einlösen</b>`);
     expect(html).toMatch(/data-ow="next"[^]*<a class="[^"]*" data-go="" href="[^"]+">Ansehen<svg/);
     expect(html.indexOf('data-ow="next"')).toBeLessThan(html.indexOf('data-ow="board"')); // in the flow, under the greeting
-    // Points stay off the mix card until Design draws a points card (Design, 18 Nov): no thumbnail in „Als Nächstes“.
+    // Points have their own mix thumbnail since ENG-292 (Design, 19 Nov): „Als Nächstes“ leads with it too.
     const points = html.slice(html.indexOf('data-ow="next"'), html.indexOf('data-ow="board"'));
-    expect(points).not.toMatch(/data-lead="card"|role="img"/);
+    expect(points).toMatch(/role="img"/);
     // A stamp shop's ready reward leads with the card's thumbnail, full (F, ENG-260).
     state.me = me({ programType: "stamp", rewardCost: 8 });
     expect(render()).toMatch(/data-ow="next"[^]*role="img" aria-label="8 von 8 Stempeln"[^]*kann jetzt eine Prämie einlösen/);
