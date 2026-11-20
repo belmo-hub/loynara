@@ -166,7 +166,8 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   // moves over from the segment picked before, after a pointer press only. A keyboard action shows its change at once:
   // data-keys on the root is set from a key press to the next pointer press.
   useEffect(() => {
-    const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading";
+    // The Übersicht's greeting keeps its line with an empty, hidden one until the name is there.
+    const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading, .ow-hello[aria-hidden]";
     const holds = (node: Element, selector: string) => node.matches(selector) || node.querySelector(selector) !== null;
     // A placeholder, or anything that holds one (a loading page, a block, the Übersicht's next-step frame); a screen that
     // leaves is no placeholder, whatever it still held.
@@ -192,10 +193,13 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
           if (emptied.has(record.target)) {
             const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
-            // Inside a swap still fading in (a cold load's screen, then its list) the outer one ends at once, almost at full
-            // by then, and the inner one fades: one fade at a time, never two multiplied.
-            if (swap) {
-              for (const animation of swap.parentElement?.closest("[data-swap]")?.getAnimations() ?? []) animation.finish();
+            // Inside a swap still fading in (a cold load's screen, then its list): one fade at a time, never two multiplied.
+            // From 0.9 on the outer one ends at once, unseen, and the inner one fades; below that the inner rides the
+            // outer's fade, already at .4 or more.
+            const outer = swap?.parentElement?.closest<HTMLElement>("[data-swap]");
+            const fading = outer?.getAnimations().filter(animation => animation.playState !== "finished") ?? [];
+            if (swap && (!fading.length || Number(getComputedStyle(outer!).opacity) >= 0.9)) {
+              for (const animation of fading) animation.finish();
               swap.setAttribute("data-swap", "");
             }
           }
