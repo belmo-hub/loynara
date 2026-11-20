@@ -11,6 +11,8 @@ import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
 import { inviteReturnPath, withInviteReturn } from "@/lib/invite-return";
+import { OWNER_AVV, OWNER_TERMS, SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "@/lib/owner-contract";
+import { OWNER_PRIVACY_NOTICE } from "@/lib/owner-privacy";
 import styles from "@/components/auth/auth.module.css";
 import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
 
@@ -40,7 +42,7 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       let result: Awaited<ReturnType<typeof authClient.signUp.email>>;
-      try { result = await authClient.signUp.email({ name, email, password }); }
+      try { result = await authClient.signUp.email({ name, email, password, ...(next ? {} : { fetchOptions: { headers: { [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION } } }) }); }
       catch { setError(CONNECTION_LOST); return; }
       if (result.error) { setError(signUpMessage(result.error, "register")); return; }
       setSent(true);
@@ -66,8 +68,10 @@ export default function RegisterPage() {
           <TextField id="rg-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
             error={fields.error("rg-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={20} aria-hidden="true" />{error}</p> : null}
+          {/* ENG-277, Legal's sentence: the click makes the shop's contract. Staff from an invitation conclude nothing here. */}
+          {next ? null : <p className={styles.note}>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den <Link className={styles.link} href={OWNER_TERMS.href} target="_blank" rel="noopener">Vertragsbedingungen für Geschäfte</Link> und dem <Link className={styles.link} href={OWNER_AVV.href} target="_blank" rel="noopener">Vertrag zur Auftragsverarbeitung</Link>. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den <Link className={styles.link} href={OWNER_PRIVACY_NOTICE.href} target="_blank" rel="noopener">Datenschutzhinweisen für Geschäfte</Link>.</p>}
           <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
-          <p className={styles.note}>Es wird keine Zahlung ausgelöst.</p>
+          {next ? <p className={styles.note}>Es wird keine Zahlung ausgelöst.</p> : null}
         </form>
         <p className={styles.note}>Du hast schon ein Konto? <Link className={styles.link} href={withInviteReturn("/login", next)}>Anmelden</Link></p>
       </div>

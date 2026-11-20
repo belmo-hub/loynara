@@ -94,6 +94,8 @@ async function busyShop(label: string, plate: string) {
   const handoff = (await pool.query("INSERT INTO billing_handoffs (tenant_id, provider, status, currency, amount_minor, provider_ref) VALUES ($1, 'stripe', 'complete', 'EUR', 4900, $2) RETURNING id", [shop.tenantId, `cs_test_${randomUUID().slice(0, 8)}`])).rows[0].id as string;
   await pool.query("INSERT INTO billing_invoices (tenant_id, handoff_id, provider_invoice_id, status, currency, amount_minor, period_end) VALUES ($1, $2, $3, 'fixture_paid', 'EUR', 4900, now())", [shop.tenantId, handoff, `in_test_${randomUUID().slice(0, 8)}`]);
   await pool.query("INSERT INTO billing_webhook_events (event_id, tenant_id, event_type, payload_hash) VALUES ($1, $2, 'invoice.paid', 'synthetic')", [`evt_${randomUUID().replaceAll("-", "")}`, shop.tenantId]);
+  // The owner's sign-up acceptance (ENG-277): kept with the contract record.
+  await pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ('synthetic-owner', $1, 'v', 'v', 'v', 'v')", [shop.tenantId]);
   const sessionId = randomUUID();
   await pool.query('INSERT INTO session (id, "expiresAt", token, "createdAt", "updatedAt", "userId") VALUES ($1, now() + interval \'1 day\', $2, now(), now(), $3)', [sessionId, randomUUID(), ownerId]);
   await pool.query("UPDATE locations SET contact_email = $1, latitude = 51.3, longitude = 9.5 WHERE tenant_id = $2", [`laden-${label}@example.test`, shop.tenantId]);
@@ -151,8 +153,8 @@ async function rowsNaming(tenantId: string) {
   return counts;
 }
 const nonEmpty = (counts: Record<string, number>) => Object.keys(counts).filter(name => counts[name] > 0).sort();
-// Legal's ruling with the CTO's (#210), pinned here rather than read from the module: billing records (8 years) and the tenant row.
-const LEGAL_KEEP = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "subscriptions", "tenants"];
+// Legal's ruling with the CTO's (#210), pinned here rather than read from the module: billing records (8 years), the sign-up acceptance (ENG-277) and the tenant row.
+const LEGAL_KEEP = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "owner_acceptances", "subscriptions", "tenants"];
 const kept = (name: string) => LEGAL_KEEP.includes(name.split(".")[0]);
 /** Providers as the erasure calls them: Google objects deactivated (the pass rows marked revoked), Mailgun addresses recorded. */
 function fakeProviders() {

@@ -61,7 +61,7 @@ try {
   await json(await owner.get("/api/health"));
   for (const [session, role] of [[owner, "inhaber"], [cashier, "kasse"]]) {
     const account = { email: `${role}-${stamp}@example.test`, password: `Local!${randomUUID()}Aa` };
-    await json(await session.post("/api/auth/sign-up/email", { data: { name: `${role} · synthetische Demo`, ...account } }));
+    await json(await session.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: `${role} · synthetische Demo`, ...account } }));
     // Sign-up never signs in (ENG-283).
     await json(await session.post("/api/auth/sign-in/email", { data: account }));
   }

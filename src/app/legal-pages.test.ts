@@ -1,11 +1,24 @@
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import DatenschutzPage from "./datenschutz/page";
 import TeilnahmebedingungenPage from "./teilnahmebedingungen/page";
 import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./datenschutz/geschaefte/page";
 import { InviteClient } from "@/components/invite-client";
+import VertragsbedingungenPage, { metadata as TermsMetadata } from "./vertragsbedingungen/page";
+import AvvPage, { metadata as AvvMetadata } from "./avv/page";
+import { AVV_FILL_INS, hasOpenMarks } from "@/lib/owner-contract";
+
+const search = vi.hoisted(() => ({ value: "" }));
+// Lets a test show the pages with an open AVV fill-in; otherwise the real check.
+const marks = vi.hoisted(() => ({ open: false }));
+vi.mock("@/lib/owner-contract", async importOriginal => {
+  const real = await importOriginal<typeof import("@/lib/owner-contract")>();
+  return { ...real, hasOpenMarks: (...args: Parameters<typeof real.hasOpenMarks>) => marks.open || real.hasOpenMarks(...args) };
+});
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({}), useSearchParams: () => new URLSearchParams(search.value) }));
+const { default: RegisterPage } = await import("./register/page");
 
 // Customers tick a checkbox linking to these pages when they create a card.
 describe("customer legal pages", () => {
@@ -107,3 +120,84 @@ describe("owner privacy notice", () => {
   });
 });
 
+
+// ENG-277: Legal's sentence above „Konto erstellen“ (legal-ops/2026-11-20-eng-277-signup-acceptance.md) and the two pages.
+describe("owner sign-up acceptance", () => {
+  const register = (query = "") => {
+    search.value = query;
+    return renderToStaticMarkup(createElement(RegisterPage)).replaceAll("<!-- -->", "").replace(/ class="[^"]*"/g, "");
+  };
+  const link = (href: string, text: string) => `<a target="_blank" rel="noopener" href="${href}">${text}</a>`;
+
+  it("states the contract above the button, links the three owner documents in a new tab, and has no checkbox", () => {
+    const page = register();
+    expect(page).toContain(`<p>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den ${link("/vertragsbedingungen", "Vertragsbedingungen für Geschäfte")} und dem ${link("/avv", "Vertrag zur Auftragsverarbeitung")}. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den ${link("/datenschutz/geschaefte", "Datenschutzhinweisen für Geschäfte")}.</p>`);
+    expect(page.indexOf("Mit „Konto erstellen“")).toBeLessThan(page.indexOf('type="submit"'));
+    expect(page).not.toContain("Es wird keine Zahlung ausgelöst.");
+    expect(page).not.toContain('type="checkbox"');
+  });
+
+  it("shows staff coming from an invitation no contract sentence", () => {
+    const page = register(`next=${encodeURIComponent(`/invite/${"a".repeat(43)}`)}`);
+    expect(page).not.toContain("Mit „Konto erstellen“");
+    expect(page).toContain("Es wird keine Zahlung ausgelöst.");
+  });
+
+  const open = (Page: () => unknown, registration?: string) => {
+    const saved = process.env.PUBLIC_REGISTRATION_ENABLED;
+    if (registration === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = registration;
+    try { return renderToStaticMarkup(createElement(Page as () => null)).replaceAll("<!-- -->", ""); }
+    finally { if (saved === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = saved; }
+  };
+
+  // Legal, 20 Nov: never served with an open fill-in; otherwise always, whether /register is open or closed.
+  it.each([["terms", VertragsbedingungenPage], ["AVV", AvvPage]] as const)("the %s page answers 404 while the AVV has an open fill-in, and is served otherwise, sign-up open or closed", (_name, Page) => {
+    marks.open = true;
+    try { for (const registration of [undefined, "false", "true"]) expect(() => open(Page, registration)).toThrow(expect.objectContaining({ digest: expect.stringContaining("404") })); }
+    finally { marks.open = false; }
+    for (const registration of [undefined, "false"]) expect(open(Page, registration)).toContain("<h1>");
+    expect(open(Page, "true")).toContain("Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland, E-Mail: support@getloynara.com.");
+  });
+
+  it("the terms page is Legal's part 1 with its Stand, version and the AVV linked", () => {
+    const html = open(VertragsbedingungenPage, "true");
+    expect(TermsMetadata.title).toBe("Vertragsbedingungen für Geschäfte – Loynara");
+    expect(html).toContain("<h1>Vertragsbedingungen für Geschäfte</h1>");
+    expect(html).toContain("Stand: 20. November 2026. Fassung 2026-11-20.");
+    expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
+    expect(html).toContain("(1) Das Entgelt beträgt 49 € je Standort und Monat.");
+    expect(html).toContain('Der <a href="/avv">Vertrag zur Auftragsverarbeitung</a> (AVV) ist Teil dieses Vertrags');
+    expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern.");
+    expect(html).not.toMatch(/\{[^}]*\}|Entwurf/);
+  });
+
+  it("the AVV page is the web AVV: made with the terms, no signature block, no counsel marks", () => {
+    const html = open(AvvPage, "true");
+    expect(AvvMetadata.title).toBe("Vertrag zur Auftragsverarbeitung – Loynara");
+    expect(html).toContain("<h1>Vertrag zur Auftragsverarbeitung</h1>");
+    expect(html).toContain("nach den Vertragsbedingungen für Geschäfte (Hauptvertrag)");
+    expect(html).toContain("Dieser Vertrag kommt zusammen mit dem Hauptvertrag zustande, wenn der Betrieb ihn bei der Registrierung annimmt. Das elektronische Format genügt (Art. 28 Abs. 9 DSGVO).");
+    expect(html).toContain(">Anlage 3 · Unterauftragsverarbeiter</h2>");
+    expect(html).toContain("Leistung: Versand von E-Mails an die Kundschaft (Bestätigung und Wiederherstellung; E-Mail-Angebote nur wenn freigeschaltet) und an das Team (Bestätigung der E-Mail-Adresse, Zurücksetzen des Passworts).");
+    expect(html).not.toMatch(/⚖|Pilotvereinbarung|Unterschrift|\{\{/);
+    // Reviewer F-1: the page's open fill-ins are exactly the ones the configuration gate reads.
+    expect(html.includes("[[")).toBe(hasOpenMarks());
+    for (const mark of Object.values(AVV_FILL_INS)) expect(html).toContain(mark);
+    // Founder, 20 Nov: Google Wallet is in the AVV, with Google as its own controller (Legal's text B), not a sub-processor.
+    expect(html).toContain("<p><strong>Google (nur wenn Google Wallet für den Betrieb freigeschaltet ist).</strong> Fügt eine Kundin oder ein Kunde die Karte zu Google Wallet hinzu, übermittelt der Anbieter auf Weisung des Betriebs über die Google Wallet API an Google. Vertragspartner der Google Wallet API ist die Google LLC, 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA; für Daten aus dem Europäischen Wirtschaftsraum ist Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland, verantwortlich. Übermittelt werden zum Programm Name und Logo des Betriebs, Programmname, Farbe und, falls eingetragen, die Lage des Standorts; zur Karte Kartennummer, QR-Kartencode, Stempel- oder Punktestand, die nächste Prämie mit ihrem Status und, nur mit Einwilligung, Nachrichten des Betriebs auf dem Pass. Google verarbeitet diese Daten als eigener Verantwortlicher nach seinen eigenen Bedingungen und Datenschutzhinweisen; Google ist kein Unterauftragsverarbeiter im Sinne von § 5. Grundlage für den Drittlandbezug: EU-US Data Privacy Framework (Zertifizierung der Google LLC). Wird die Karte geschlossen oder neu ausgestellt, setzt der Anbieter den Pass auf ungültig und entfernt Kartennummer, QR-Kartencode und Stand.</p>");
+    expect(html.indexOf("<strong>Apple.</strong>")).toBeLessThan(html.indexOf("<strong>Google (nur wenn"));
+    expect(html).toContain("<p><strong>Art der Verarbeitung:</strong> Erheben, Speichern, Abfragen, Verwenden, Anzeigen für das Team, Übermitteln an Unterauftragsverarbeiter und, soweit Google Wallet freigeschaltet ist, an Google als eigenen Verantwortlichen (Anlage 3), Export, Löschen.</p>");
+    expect(html).toContain("Einträge eines Programms bei Google Wallet lassen sich nicht löschen; der Anbieter deaktiviert die Pässe und überschreibt den Eintrag mit neutralen Angaben ohne Namen und Logo des Betriebs.</p>");
+    expect(html).not.toMatch(/UV-1[012]|<strong>Google<\/strong>,/);
+    expect(html).toContain("Push-Dienste der Kassengeräte (Apple, Google, Mozilla)");
+    expect(html).toContain("die physische Sicherheit verantworten diese Anbieter. Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.</p>");
+    expect(html).toContain("bei den Dienstleistern erreichbar. Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet, ebenso beim Google-Konto, über das sich der Anbieter bei Dienstleistern anmeldet. Schlüssel und Passwörter");
+    // Legal § 6 (20 Nov): Annex 2 says only what is true today; the restore test is a dated commitment, not a claim.
+    expect(html).toContain("<strong>Verfügbarkeit und Wiederherstellung.</strong> Tägliche automatische Datenbanksicherung, verschlüsselt (age) und außerhalb des Hosters gespeichert. Der Anbieter prüft die Wiederherstellung aus einer Sicherung in einer getrennten Umgebung, erstmals bis zum 4. Dezember 2026, danach mindestens einmal im Kalendervierteljahr, und hält jeden Test mit Datum und Ergebnis fest. Jede Freigabe hält die vorherigen Versionen als Ziel für eine Rücknahme fest. Erreichbarkeit, Hintergrunddienst und Sicherung werden überwacht; bei einem Ausfall wird der Anbieter benachrichtigt.</p>");
+    expect(html).toContain("Verbindungen zur Anwendung und zu den Dienstleistern laufen über HTTPS (TLS).");
+    expect(html).toContain("Leistung: DNS, TLS und Schutz der Verbindung; Speicher für verschlüsselte Sicherungen (R2).");
+    expect(html).not.toMatch(/bereits angewendet|öffentlichen Port|Cloudflare-Tunnel|Wiederherstellungsperson|Release-Protokoll|Alle Verbindungen|zuletzt am|Mobiltelefone/);
+    expect(html).toContain("<strong>Mailgun</strong>, Mailgun Technologies, Inc., 112 E Pecan Street #1135, San Antonio, TX 78205, USA.");
+    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual([]);
+  });
+});

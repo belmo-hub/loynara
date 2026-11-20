@@ -25,11 +25,12 @@ type Executor = Pick<Transaction, "execute">;
 
 /**
  * Loynara's own records (Legal: billing 8 years, the contract 6 years), never deleted by the erasure: the billing records
- * with their Stripe references, and the tenant row they hang off, reduced to its legal name and ids. No location row
+ * with their Stripe references, the owner's sign-up acceptance (ENG-277), and the tenant row they hang off, reduced to its
+ * legal name and ids. No location row
  * survives (CTO: a sole trader's shop name and city can be personal data); the per-location plan facts are copied into the
  * erasure record first, and billing_location_plans goes with the locations.
  */
-export const ERASURE_KEEP: readonly string[] = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "subscriptions", "tenants"];
+export const ERASURE_KEEP: readonly string[] = ["billing_invoices", "billing_handoffs", "billing_webhook_events", "owner_acceptances", "subscriptions", "tenants"];
 /** A kept row keeps only what the kept records need: its other fields are cleared. */
 const ERASURE_REDUCE: Record<string, SQL> = {
   // ENG-164: the sender details name a person (the representative) and identify the business; an erased shop keeps none.

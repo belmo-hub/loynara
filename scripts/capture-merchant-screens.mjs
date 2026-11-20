@@ -23,7 +23,7 @@ let browser;
 try {
   assert.equal((await owner.get("/api/health")).status(), 200);
   const account = { email: `capture-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` };
-  assert.equal((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic capture owner", ...account } })).status(), 200);
+  assert.equal((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic capture owner", ...account } })).status(), 200);
   // Sign-up never signs in (ENG-283).
   assert.equal((await owner.post("/api/auth/sign-in/email", { data: account })).status(), 200);
   const setup = await owner.post("/api/merchant/onboard", { data: {

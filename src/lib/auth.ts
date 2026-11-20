@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
 import { guardPoolErrors } from "@/db/pool-errors";
+import { SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "./owner-contract";
 
 // Separate from the application pool. It needs the same listeners: without them a dropped idle connection ends the
 // web process.
@@ -69,6 +70,19 @@ export const auth = betterAuth({
         const body = context.body as { email?: unknown } | undefined;
         if (inviteSignUpEnabled() && await inviteAllowsSignUp(context.headers?.get("x-loynara-invite"), body?.email)) return;
         throw new APIError("FORBIDDEN", { message: "Registration is not enabled" });
+      }
+      // ENG-277: a page from before a change of Legal's sentence would be recorded under the new text.
+      const shown = context.path === "/sign-up/email" ? context.headers?.get(SIGNUP_ACCEPTANCE_HEADER) : null;
+      if (shown && shown !== SIGNUP_ACCEPTANCE_TEXT_VERSION) throw new APIError("BAD_REQUEST", { message: "Acceptance text changed" });
+    }),
+    after: createAuthMiddleware(async (context) => {
+      // ENG-277: the click under Legal's sentence on /register makes the contract; record it once the account exists. Sign-up
+      // creates no session (ENG-283), so the id comes from its answer; for an address already taken that answer is made up,
+      // and recordOwnerAcceptance writes nothing for an id without a user row.
+      const userId = (context.context.returned as { user?: { id?: unknown } } | undefined)?.user?.id;
+      if (context.path === "/sign-up/email" && typeof userId === "string" && process.env.PUBLIC_REGISTRATION_ENABLED === "true" && context.headers?.get(SIGNUP_ACCEPTANCE_HEADER)) {
+        const { recordOwnerAcceptance } = await import("./owner-acceptance");
+        await recordOwnerAcceptance(userId);
       }
     }),
   },

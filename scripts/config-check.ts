@@ -8,6 +8,7 @@ import { stripeConfigIssues } from "../src/lib/stripe-config";
 import { erasureDelayDays } from "../src/lib/programme-end-date";
 import { demoConfigIssues } from "../src/lib/demo-environment";
 import { EXPERIENCE_FLAGS } from "../src/lib/experience-flags";
+import { hasOpenMarks } from "../src/lib/owner-contract";
 const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parsedUrl(value?: string): URL | null {
@@ -20,7 +21,7 @@ function parsedUrl(value?: string): URL | null {
  * without the production marker. It gets these same rules, minus the few that name production itself (its identity and
  * approved origin, the database name rule, the billing fixture refusals), plus its own refusals (demoConfigIssues).
  */
-export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false" } = {}): string[] {
+export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO_ENVIRONMENT !== undefined && env.DEMO_ENVIRONMENT !== "false", contractOpen = hasOpenMarks() } = {}): string[] {
   const issues: string[] = demo ? demoConfigIssues(env) : [];
   const database = parsedUrl(env.DATABASE_URL);
   const databaseIdentity = database ? `${database.hostname}/${database.pathname}/${database.username}` : "";
@@ -61,6 +62,8 @@ export function productionConfigIssues(env: NodeJS.ProcessEnv, { demo = env.DEMO
   // Open sign-up is allowed in production (founder decision, 18 Nov 2026); the value must be unambiguous. Absent means off.
   const registration = env.PUBLIC_REGISTRATION_ENABLED;
   if (registration !== undefined && registration !== "true" && registration !== "false") issues.push("PUBLIC_REGISTRATION_ENABLED must be exactly true or false when set");
+  // ENG-277 (Reviewer F-1): open sign-up makes the contract, so never on an AVV that still has open fill-ins.
+  if (registration === "true" && contractOpen) issues.push("PUBLIC_REGISTRATION_ENABLED=true requires the AVV page without open fill-ins ([[…]])");
   // Invite-gated staff sign-up (approved for the pilot) is a narrow exception, not a form of registration: an account may be
   // created only for the exact invited address with the invitation's secret token while it is pending, unexpired, unrevoked
   // and unused (src/lib/auth.ts + invite-signup.ts; no other setting can relax that). It is meant only for closed
