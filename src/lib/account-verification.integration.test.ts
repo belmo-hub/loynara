@@ -4,9 +4,15 @@ import { pool } from "@/db";
 import { recipientHash, type TransactionalMessage } from "./transactional-email";
 
 const sent = vi.hoisted(() => [] as TransactionalMessage[]);
+// How long the fake provider takes to accept a mail.
+const provider = vi.hoisted(() => ({ delayMs: 0 }));
 vi.mock("./transactional-email", async importOriginal => ({
   ...await importOriginal<typeof import("./transactional-email")>(),
-  transactionalProvider: () => ({ name: "mailpit", async send(message: TransactionalMessage) { sent.push(message); return { state: "accepted", messageId: `local:${message.jobId}` }; } }),
+  transactionalProvider: () => ({ name: "mailpit", async send(message: TransactionalMessage) {
+    await new Promise(resolve => setTimeout(resolve, provider.delayMs));
+    sent.push(message);
+    return { state: "accepted", messageId: `local:${message.jobId}` };
+  } }),
 }));
 const { GET, POST } = await import("@/app/api/auth/[...all]/route");
 
@@ -20,6 +26,7 @@ let peer = 0;
 beforeEach(async () => {
   await pool.query('TRUNCATE tenants, "user", rate_limits, email_suppressions CASCADE');
   sent.length = 0;
+  provider.delayMs = 0;
   process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
   process.env.PUBLIC_REGISTRATION_ENABLED = "true";
 });
@@ -124,4 +131,15 @@ it("answers a new and an existing address alike, signs in neither, and mails and
   expect(sent.map(mail => mail.to)).toEqual([fresh]);
   expect(await stored()).toEqual(before);
   expect((await post("/sign-in/email", { email: existing, password: "synthetic-other-password" })).status).toBe(401);
+});
+
+it("answers a new address within the floor even when the provider is slow: the mail goes out after the answer", async () => {
+  provider.delayMs = 600;
+  const started = performance.now();
+  expect((await post("/sign-up/email", { name: "Synthetic owner", email: `${randomUUID()}@example.test`, password: "synthetic-verify-password" })).status).toBe(200);
+  const time = performance.now() - started;
+  expect(time).toBeGreaterThanOrEqual(395);
+  expect(time).toBeLessThan(550);
+  expect(sent).toHaveLength(0);
+  await vi.waitFor(() => expect(sent).toHaveLength(1), { timeout: 2000 });
 });
