@@ -18,6 +18,15 @@ test.beforeAll(async ({ browser }) => {
     const started: string[] = [];
     (window as unknown as { started: string[] }).started = started;
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
+    // In every frame: how many swaps fade in inside another swap that is fading in too (their opacities would multiply).
+    const w = window as unknown as { nestedSwaps: number };
+    w.nestedSwaps = 0;
+    const fading = (node: Element) => node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running");
+    const look = () => {
+      w.nestedSwaps = Math.max(w.nestedSwaps, [...document.querySelectorAll("[data-swap] [data-swap]")].filter(node => fading(node) && fading(node.parentElement!.closest("[data-swap]")!)).length);
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
   });
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
@@ -105,6 +114,8 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   await page.waitForTimeout(800);
   // What replaces the shell's placeholder fades in (Skeleton to content); nothing rises or staggers.
   expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing rises or staggers on a cold load").toBe(0);
+  expect(await started("ow-swap"), "what replaces the placeholders fades in").toBeGreaterThan(0);
+  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "only the outermost swap fades").toBe(0);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
@@ -196,12 +207,12 @@ test("data that takes a placeholder's place fades in without a rise, and a new p
   expect(await started("ow-arrive", "ow-rise"), "the title arrived with the screen").toBeGreaterThan(0);
   expect(await board.evaluate(node => node.closest(".ow-page > *")?.hasAttribute("data-arrive")), "the block with the placeholder did not").toBe(false);
   const before = await started("ow-arrive", "ow-rise", "ow-row");
-  const fadesBefore = await started("ow-fade");
+  const fadesBefore = await started("ow-swap");
   release();
   await expect(page.locator(".ow-content .ow-board-big")).toBeVisible();
   expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
   await page.waitForTimeout(400);
-  expect(await started("ow-fade"), "it fades in instead of cutting").toBeGreaterThan(fadesBefore);
+  expect(await started("ow-swap"), "it fades in instead of cutting").toBeGreaterThan(fadesBefore);
   expect(await started("ow-arrive", "ow-rise", "ow-row"), "no rise and no stagger").toBe(before);
   await page.unroute(/\/api\/merchant\/analytics\?/);
 
@@ -209,6 +220,32 @@ test("data that takes a placeholder's place fades in without a rise, and a new p
   expect(await entrances(), "the 90 days do not arrive").toBe(0);
   await expect(page.locator(".ow-content .ow-board-sub")).toContainText("90 Tage");
   expect(await started("ow-arrive", "ow-rise", "ow-row")).toBe(before);
+});
+
+// Design, #314: the Übersicht's board and next-step frame and the card's page hold their placeholders inside blocks of
+// their own; what replaces them fades in too, and only once (the outermost swap).
+for (const [where, url, read] of [["Übersicht", "/merchant", /\/api\/merchant\/(analytics\/location|retention|readiness)/], ["Kartenseite", "", /\/api\/merchant\/customers\/[^?/]+$/]] as const) test(`the ${where} fades its content in from its placeholders`, async () => {
+  let release = () => {};
+  const held = new Promise<void>(done => { release = done; });
+  const hold = () => page.route(read, async route => { await held; await route.continue(); });
+  if (url) { await hold(); await page.goto(url); }
+  else {
+    await page.goto("/merchant/customers?activity=all");
+    const row = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row').first();
+    await expect(row).toBeVisible();
+    await hold();
+    await row.click();
+  }
+  await expect(page.locator(".ow-content .ow-ph").first()).toBeVisible();
+  await page.waitForTimeout(300);
+  const swaps = await started("ow-swap");
+  release();
+  await expect(page.locator(".ow-content .ow-ph")).toHaveCount(0);
+  await page.waitForTimeout(400);
+  expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
+  expect(await started("ow-swap"), "it fades in instead of cutting").toBeGreaterThan(swaps);
+  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "never two swaps fading in, one inside the other").toBe(0);
+  await page.unroute(read);
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {

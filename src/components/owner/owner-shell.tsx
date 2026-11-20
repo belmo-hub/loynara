@@ -168,8 +168,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   useEffect(() => {
     const PLACEHOLDER = ".ow-skel, .ow-ph, .ow-board-ph, .ow-loading";
     const holds = (node: Element, selector: string) => node.matches(selector) || node.querySelector(selector) !== null;
-    // A placeholder, or a whole loading page (the shell's, or a page that swaps its root when its data is there).
-    const placeholder = (node: Node) => node instanceof Element && (node.matches(PLACEHOLDER) || (node.matches(".ow-page") && node.querySelector(PLACEHOLDER) !== null));
+    // A placeholder, or anything that holds one (a loading page, a block, the Übersicht's next-step frame); a screen that
+    // leaves is no placeholder, whatever it still held.
+    const placeholder = (node: Node) => node instanceof Element && holds(node, PLACEHOLDER) && !holds(node, ".ow-screen");
     const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
     // The segment picked when the pointer went down; a key press forgets it, so only the pointer's own pick slides.
     let was: Element | null = null;
@@ -189,7 +190,12 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         for (const node of record.addedNodes) {
           if (!(node instanceof Element)) continue;
           // The mark goes on the screen, not on the body that outlives it, and never on the bars: they stay still.
-          if (emptied.has(record.target)) (node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node))?.setAttribute("data-swap", "");
+          if (emptied.has(record.target)) {
+            const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
+            // Inside a swap still fading in (a cold load's screen and its list) only the outer one fades: two would multiply.
+            const outer = swap?.parentElement?.closest("[data-swap]");
+            if (swap && !outer?.getAnimations().some(animation => animation.playState !== "finished")) swap.setAttribute("data-swap", "");
+          }
           else if (holds(node, ".ow-screen")) {
             if (returning) (node.matches(".ow-screen") ? node : node.querySelector(".ow-screen"))?.setAttribute("data-return", "");
             else for (const block of node.querySelectorAll(".ow-page > *, .ow-q > *")) if (!holds(block, PLACEHOLDER)) block.setAttribute("data-arrive", "");
