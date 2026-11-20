@@ -15,17 +15,25 @@ import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN } from "@/components/auth/a
 const TRY_AGAIN = "Das Passwort wurde nicht geändert. Prüfe deine Angaben und versuche es erneut.";
 
 // ENG-279: the page the reset mail links to. The token is the link's; the server checks it again.
-export function ResetForm({ token }: { token: string }) {
+export function ResetForm() {
   const page = useRef<HTMLDivElement>(null);
+  const token = useRef("");
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const [busy, setBusy] = useState(false);
   // A missing, spent or expired link is an end state of its own, without fields (Design, 19 Nov).
-  const [state, setState] = useState<"form" | "done" | "expired">(token ? "form" : "expired");
+  const [state, setState] = useState<"form" | "done" | "expired">("form");
   const [mismatch, setMismatch] = useState(false);
   const [error, setError] = useState("");
   const fields = useFormCheck();
+  useEffect(() => {
+    // ENG-286: the token is in the fragment, out of every server log. It is scrubbed after the first read, so a second
+    // run (strict effects) keeps the captured token.
+    const next = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
+    if (next) { token.current = next; window.history.replaceState(null, "", window.location.pathname); }
+    else if (!token.current) setState("expired");
+  }, []);
   // The new state is announced: its title takes focus.
-  useEffect(() => { const title = state === "done" || (state === "expired" && token) ? page.current?.querySelector("h1") : null; if (title) { title.tabIndex = -1; title.focus(); } }, [state, token]);
+  useEffect(() => { const title = state === "done" || (state === "expired" && token.current) ? page.current?.querySelector("h1") : null; if (title) { title.tabIndex = -1; title.focus(); } }, [state]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,7 +44,7 @@ export function ResetForm({ token }: { token: string }) {
     setError("");
     setBusy(true);
     try {
-      const { error: failed } = await authClient.resetPassword({ newPassword, token });
+      const { error: failed } = await authClient.resetPassword({ newPassword, token: token.current });
       if (!failed) setState("done");
       else if (failed.status === 429) setError("Zu viele Versuche. Warte bitte etwas und versuche es erneut.");
       else if (failed.status === 400 && failed.code !== "PASSWORD_TOO_SHORT" && failed.code !== "PASSWORD_TOO_LONG") setState("expired");
