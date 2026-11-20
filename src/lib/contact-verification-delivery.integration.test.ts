@@ -67,6 +67,9 @@ describe("local verification delivery", () => {
     expect(JSON.stringify(stored)).not.toContain("cardholder@example.test");
   });
 
+  it("caps each shop at 50 of these mails a day", () => {
+    expect(SHOP_CONTACT_MAIL_DAY_LIMIT).toEqual({ scope: "contact_mail_shop_day", max: 50, windowSeconds: 86_400 });
+  });
   it("sends nothing once the shop reached its daily cap, and marks the job suppressed", async () => {
     const f = await fixture();
     for (let hit = 0; hit < SHOP_CONTACT_MAIL_DAY_LIMIT.max; hit += 1) await enforceRateLimit({ ...SHOP_CONTACT_MAIL_DAY_LIMIT, identity: f.job.tenantId });
