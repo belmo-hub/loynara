@@ -178,7 +178,8 @@ describe("owner sign-up acceptance", () => {
     expect(html).not.toMatch(/Google Wallet|Google-Wallet|UV-1[012]/);
     expect(html).toContain("Push-Dienste der Kassengeräte (Apple, Google, Mozilla)");
     expect(html).toContain("die physische Sicherheit verantworten diese Anbieter. Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.</p>");
+    expect(html).toContain("bei den Dienstleistern erreichbar. Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet. Die Datenbank");
     expect(html).toContain("<strong>Mailgun</strong>, Mailgun Technologies, Inc., 112 E Pecan Street #1135, San Antonio, TX 78205, USA.");
-    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-09", "DS-10"]);
+    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-10"]);
   });
 });

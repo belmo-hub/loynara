@@ -10,11 +10,11 @@ export const SIGNUP_ACCEPTANCE_HEADER = "x-loynara-acceptance";
  * The AVV's fill-ins still open (Legal, 20 Nov). /avv renders them from here, and the configuration gate refuses open
  * sign-up while any is left (Reviewer F-1): an AVV with open brackets is no AVV. Fill one by replacing its text.
  * Provider values: CTO, company/cto/2026-11-20-avv-provider-fill-ins.md (public sources and the DPF list, 20 Nov); Mailgun's
- * address from its DPF profile. DS-08: the founder (Q-106, 20 Nov).
+ * address from its DPF profile. DS-08 and DS-09: the founder (20 Nov).
  */
 export const AVV_FILL_INS = {
   devices: "Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.",
-  twoFactor: "[[DS-09: Zwei-Faktor-Anmeldung bei Railway, Cloudflare, Mailgun, Apple (Entwicklerkonto) und GitHub bestätigen]]",
+  twoFactor: "Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet.",
   restoreTest: "[[DS-10: Datum des letzten erfolgreichen Wiederherstellungstests]]",
   railway: "Railway Corporation, 548 Market St PMB 68956, San Francisco, CA 94104, USA",
   railwayBasis: "EU-US Data Privacy Framework (Zertifizierung der Railway Corporation); zusätzlich Standardvertragsklauseln der EU (Durchführungsbeschluss (EU) 2021/914, Modul 2 bzw. 3), Bestandteil des Railway-DPA",
