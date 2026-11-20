@@ -11,6 +11,12 @@ import AvvPage, { metadata as AvvMetadata } from "./avv/page";
 import { AVV_FILL_INS, hasOpenMarks } from "@/lib/owner-contract";
 
 const search = vi.hoisted(() => ({ value: "" }));
+// Lets a test show the pages with an open AVV fill-in; otherwise the real check.
+const marks = vi.hoisted(() => ({ open: false }));
+vi.mock("@/lib/owner-contract", async importOriginal => {
+  const real = await importOriginal<typeof import("@/lib/owner-contract")>();
+  return { ...real, hasOpenMarks: (...args: Parameters<typeof real.hasOpenMarks>) => marks.open || real.hasOpenMarks(...args) };
+});
 vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({}), useSearchParams: () => new URLSearchParams(search.value) }));
 const { default: RegisterPage } = await import("./register/page");
 
@@ -144,9 +150,12 @@ describe("owner sign-up acceptance", () => {
     finally { if (saved === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = saved; }
   };
 
-  // Legal, 20 Nov: the two pages are online only while /register is open.
-  it.each([["terms", VertragsbedingungenPage], ["AVV", AvvPage]] as const)("the %s page answers 404 while /register is closed, and is served while it is open", (_name, Page) => {
-    for (const closed of [undefined, "false"]) expect(() => open(Page, closed)).toThrow(expect.objectContaining({ digest: expect.stringContaining("404") }));
+  // Legal, 20 Nov: never served with an open fill-in; otherwise always, whether /register is open or closed.
+  it.each([["terms", VertragsbedingungenPage], ["AVV", AvvPage]] as const)("the %s page answers 404 while the AVV has an open fill-in, and is served otherwise, sign-up open or closed", (_name, Page) => {
+    marks.open = true;
+    try { for (const registration of [undefined, "false", "true"]) expect(() => open(Page, registration)).toThrow(expect.objectContaining({ digest: expect.stringContaining("404") })); }
+    finally { marks.open = false; }
+    for (const registration of [undefined, "false"]) expect(open(Page, registration)).toContain("<h1>");
     expect(open(Page, "true")).toContain("Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland, E-Mail: support@getloynara.com.");
   });
 

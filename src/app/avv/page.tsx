@@ -1,17 +1,16 @@
 import { notFound } from "next/navigation";
 import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
-import { AVV_FILL_INS, OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
+import { AVV_FILL_INS, hasOpenMarks, OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 
-export const dynamic = "force-dynamic";
 export const metadata = { title: "Vertrag zur Auftragsverarbeitung – Loynara" };
 
 // Legal's AVV (legal-drafts-2026-10-17/02-avv.md, Stand 22.10.) with the web changes of part 2 of
 // legal-ops/2026-11-20-vertragsbedingungen-geschaefte-draft.md: proposed fill-ins as proposed, the counsel marks left out.
 // The fill-ins still open come from AVV_FILL_INS; the configuration gate keeps sign-up closed while any is left.
 export default function AvvPage() {
-  // Legal: online only while /register is open; read per request, like the register layout.
-  if (process.env.PUBLIC_REGISTRATION_ENABLED !== "true") notFound();
+  // Legal: never with an open fill-in; otherwise always readable, so a shop that accepted can read its contract.
+  if (hasOpenMarks()) notFound();
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Vertrag zur Auftragsverarbeitung</h1>

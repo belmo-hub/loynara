@@ -1,16 +1,15 @@
 import { notFound } from "next/navigation";
 import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
-import { OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
+import { hasOpenMarks, OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 
-export const dynamic = "force-dynamic";
 export const metadata = { title: "Vertragsbedingungen für Geschäfte – Loynara" };
 
 // Legal's text, verbatim (legal-ops/2026-11-20-vertragsbedingungen-geschaefte-draft.md, part 1). The provider's name and
 // address are the Impressum's, as on /datenschutz.
 export default function VertragsbedingungenPage() {
-  // Legal: online only while /register is open; read per request, like the register layout.
-  if (process.env.PUBLIC_REGISTRATION_ENABLED !== "true") notFound();
+  // Legal: never with an open fill-in; otherwise always readable, so a shop that accepted can read its contract.
+  if (hasOpenMarks()) notFound();
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Vertragsbedingungen für Geschäfte</h1>
