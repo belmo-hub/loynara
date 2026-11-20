@@ -272,7 +272,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           <strong>{c.tenant}</strong>
           <span className="ow-muted" style={{ overflowWrap: "anywhere" }}>{c.ownerEmail ?? "keine E-Mail"}</span>
           {c.addresses.map((a, i) => <span key={i} className="ow-muted">{a}</span>)}
-          <span className="ow-muted">Vertrag seit {new Date(c.acceptedAt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" })} · {c.endDate ? `endet am ${germanDate(c.endDate)}` : "kein Vertragsende"}</span>
+          <span className="ow-muted">Vertrag seit {new Date(c.acceptedAt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" })} · {c.endDate ? `Vertrag bis ${germanDate(c.endDate)}` : <span style={{ whiteSpace: "nowrap" }}>kein Vertragsende</span>}</span>
         </li>)}
         {contracts.length === 0 ? <li className="ow-muted">Noch kein Geschäft hat den Vertrag online angenommen.</li> : null}
       </ul>
