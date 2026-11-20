@@ -195,11 +195,17 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
             const swap = node.querySelector(".ow-screen") ?? (node.closest(".ow-content") && node);
             // Inside a swap still fading in (a cold load's screen, then its list) the inner one starts where the content
             // shows at .4 in all, whatever the outer has reached: both then only climb, nothing snaps or cuts (owner.css).
+            // The content is painted a frame later, when the outer has climbed on: the start is set again then, from the
+            // same parents. An ancestor below .4 fades itself in and is trusted to (the start is 1 under it).
             if (swap) {
-              let shown = 1;
-              for (let node = swap.parentElement; node && !node.matches(".ow-content"); node = node.parentElement) shown *= Number(getComputedStyle(node).opacity);
-              (swap as HTMLElement).style.setProperty("--swap-from", String(Math.min(1, 0.4 / Math.max(shown, 0.4))));
+              const from = () => {
+                let shown = 1;
+                for (let node = swap.parentElement; node && !node.matches(".ow-content"); node = node.parentElement) shown *= Number(getComputedStyle(node).opacity);
+                (swap as HTMLElement).style.setProperty("--swap-from", String(Math.min(1, 0.4 / Math.max(shown, 0.4))));
+              };
+              from();
               swap.setAttribute("data-swap", "");
+              requestAnimationFrame(from);
             }
           }
           else if (holds(node, ".ow-screen")) {

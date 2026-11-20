@@ -21,7 +21,7 @@ test.beforeAll(async ({ browser }) => {
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
     // Every frame: each swap's opacity as shown, its own times every one above it up to the content (a swap inside one
     // still fading multiplies with it), from the frame it is marked in. The first 40 frames of each.
-    type Series = { inner: boolean; from: number; values: number[]; done?: boolean; name: string };
+    type Series = { ready: boolean; inner: boolean; from: number; values: number[]; times: number[]; marked: number; done?: boolean; name: string };
     const series = new Map<Element, Series>();
     (window as unknown as { swaps: () => Series[] }).swaps = () => [...series.values()];
     const shownOf = (node: Element) => {
@@ -29,18 +29,25 @@ test.beforeAll(async ({ browser }) => {
       for (let up: Element | null = node; up && !up.matches(".ow-content"); up = up.parentElement) shown *= Number(getComputedStyle(up).opacity);
       return shown;
     };
+    // Noted when it is marked; its values are taken in the frames after, the first of them the frame it is painted in.
+    const mark = (node: Element, observed = false) => {
+      // Seen by the observer, after the shell marked it: its first value is taken in the next frame, after the shell's own
+      // callback for that frame, as it is painted.
+      if (observed && !series.has(node)) requestAnimationFrame(() => { series.get(node)!.ready = true; note(node); });
+      if (!series.has(node)) series.set(node, { ready: !observed, inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], times: [], marked: performance.now(), name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
+    };
     const note = (node: Element) => {
-      let entry = series.get(node);
-      if (!entry) series.set(node, entry = { inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
-      if (entry.done || entry.values.length >= 40) return;
+      mark(node);
+      const entry = series.get(node)!;
+      if (!entry.ready || entry.done || entry.values.length >= 40) return;
       // Hidden (a card opened over the list while it still faded in): no longer on screen, nothing more to sample.
       if (!node.checkVisibility()) { entry.done = true; return; }
       entry.values.push(shownOf(node));
+      entry.times.push(performance.now());
       // Its own fade over: what happens to it later (a swap above it) is that swap's.
       if (entry.values.length > 1 && !node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running")) entry.done = true;
     };
-    // The frame a swap is marked in is the first it is painted in: its value is taken then, before the frame.
-    addEventListener("DOMContentLoaded", () => new MutationObserver(records => { for (const record of records) if (record.target instanceof Element && record.target.matches(".ow-content [data-swap]") && !series.has(record.target)) note(record.target); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-swap"] }));
+    addEventListener("DOMContentLoaded", () => new MutationObserver(records => { for (const record of records) if (record.target instanceof Element && record.target.matches(".ow-content [data-swap]")) mark(record.target, true); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-swap"] }));
     const look = () => {
       for (const node of document.querySelectorAll(".ow-content [data-swap]")) note(node);
       requestAnimationFrame(look);
@@ -57,7 +64,14 @@ test.afterAll(() => page.close());
 test.beforeEach(() => page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" }));
 
 /** Swaps that do not start at .4 as shown (0.35 to 0.45) or that step by more than 0.3 between two frames. */
-const swapFaults = () => page.evaluate(() => (window as unknown as { swaps: () => { values: number[]; name: string }[] }).swaps().filter(({ values }) => values.length && (values[0]! < 0.35 || values[0]! > 0.45 || values.some((value, i) => i > 0 && Math.abs(value - values[i - 1]!) > 0.3))).map(({ values, name }) => `${name}: ${values.map(value => value.toFixed(2)).join(" ")}`));
+/** Swaps whose first painted frame is not at .4 as shown (0.35 to 0.45), or that step by more than 0.3 between two
+ *  frames; both bounds grow with the time a frame took past 16.7 ms, so a dropped frame on a slow runner is no fault. */
+const swapFaults = () => page.evaluate(() => (window as unknown as { swaps: () => { values: number[]; times: number[]; marked: number; name: string }[] }).swaps().filter(({ values, times, marked }) => {
+  if (!values.length) return false;
+  const late = (ms: number) => 0.3 * Math.max(0, ms - 1000 / 60) / (1000 / 60);
+  if (values[0]! < 0.35 || values[0]! > 0.45 + late(times[0]! - marked)) return true;
+  return values.some((value, i) => i > 0 && Math.abs(value - values[i - 1]!) > 0.3 + late(times[i]! - times[i - 1]!));
+}).map(({ values, name }) => `${name}: ${values.map(value => value.toFixed(2)).join(" ")}`));
 const started = (...names: string[]) => page.evaluate(wanted => (window as unknown as { started: string[] }).started.filter(item => wanted.includes(item)).length, names);
 /** The most entrances (Arrive, List arrive) seen running in any frame of the next `ms`. A finished one does not count. */
 const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done => {
