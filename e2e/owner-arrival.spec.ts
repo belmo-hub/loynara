@@ -18,6 +18,15 @@ test.beforeAll(async ({ browser }) => {
     const started: string[] = [];
     (window as unknown as { started: string[] }).started = started;
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
+    // The opacity of every swap the shell ends early, taken just before it ends.
+    const finishes: number[] = [];
+    (window as unknown as { swapFinishes: number[] }).swapFinishes = finishes;
+    const finish = Animation.prototype.finish;
+    Animation.prototype.finish = function (this: Animation) {
+      const target = (this.effect as KeyframeEffect | null)?.target;
+      if ((this as CSSAnimation).animationName === "ow-swap" && target) finishes.push(Number(getComputedStyle(target).opacity));
+      return finish.call(this);
+    };
     // Swaps that fade in on something inside a screen (a list, a split), not the screen itself.
     (window as unknown as { innerSwaps: number }).innerSwaps = 0;
     document.addEventListener("animationstart", event => { if (event.animationName === "ow-swap" && !(event.target as Element).matches(".ow-screen")) (window as unknown as { innerSwaps: number }).innerSwaps++; }, true);
@@ -327,14 +336,31 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
   for (const name of ["ow-arrive", "ow-rise", "ow-row", "ow-fade", "ow-slide", "ow-grow", "ow-drop", "ow-shimmer", "ow-pulse"]) expect(await started(name), name).toBe(0);
 });
 
-// Design, #314 re-check: on a cold load the screen fades in from its loading frame and the list or split inside it
-// follows from its own placeholder about 130 ms later. The screen's fade then ends (nearly at full) and the inner one
-// fades: one at a time, and the inner content never cuts in.
-for (const url of ["/merchant/customers", "/merchant/program"]) test(`a cold load of ${url}: what replaces the inner placeholder fades in too`, async () => {
-  await page.goto(url);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.locator(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)")).toHaveCount(0);
-  await page.waitForTimeout(400);
-  expect(await page.evaluate(() => (window as unknown as { innerSwaps: number }).innerSwaps), "an ow-swap started on the list or split").toBeGreaterThan(0);
-  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
+// Design, #314 re-checks: on a cold load the screen fades in from its loading frame and the list, split or greeting
+// inside it follows from its own placeholder. If the screen's fade is at 0.9 or more by then it ends, unseen, and the
+// inner one fades; if not, the inner rides the screen's fade. One fade at a time, never a cut, never a snap.
+const coldLoads = [["/merchant/customers", /\/api\/merchant\/customers\?/], ["/merchant/program", /\/api\/program\//], ["/merchant", /\/api\/merchant\/(analytics\/location|retention|readiness)/]] as const;
+for (const [url, read] of coldLoads) test(`a cold load of ${url}: a slow inner read fades in on its own, after the screen's fade ended unseen`, async () => {
+  await page.route(read, async route => { await new Promise(done => setTimeout(done, 120)); await route.continue(); });
+  try {
+    await page.goto(url);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading, .ow-hello[aria-hidden])")).toHaveCount(0);
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => (window as unknown as { innerSwaps: number }).innerSwaps), "an ow-swap started inside the screen").toBeGreaterThan(0);
+    const finishes = await page.evaluate(() => (window as unknown as { swapFinishes: number[] }).swapFinishes);
+    expect(finishes.filter(opacity => opacity < 0.9), "the screen's fade ended only from 0.9 on").toEqual([]);
+    expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
+  } finally { await page.unroute(read); }
+});
+for (const [url, read] of coldLoads) test(`a cold load of ${url}: a fast inner read rides the screen's fade, which never snaps`, async () => {
+  await page.route(read, async route => { await new Promise(done => setTimeout(done, 30)); await route.continue(); });
+  try {
+    await page.goto(url);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.waitForTimeout(600);
+    const finishes = await page.evaluate(() => (window as unknown as { swapFinishes: number[] }).swapFinishes);
+    expect(finishes.filter(opacity => opacity < 0.9), "no fade ended below 0.9").toEqual([]);
+    expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
+  } finally { await page.unroute(read); }
 });
