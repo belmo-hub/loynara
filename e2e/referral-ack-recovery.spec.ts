@@ -13,7 +13,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL });
     try {
       const id = randomUUID();
-      const signup = await context.request.post("/api/auth/sign-up/email", { headers: { Origin: origin }, data: { name: "Synthetic referral owner", email: `${id}@example.test`, password: "Synthetic-Referrals-087-Only!" } });
+      const signup = await context.request.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20", Origin: origin }, data: { name: "Synthetic referral owner", email: `${id}@example.test`, password: "Synthetic-Referrals-087-Only!" } });
       expect(signup.ok()).toBe(true); const { user } = await signup.json();
       const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: `Synthetic ${locale} ${id}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Synthetic referrals", programType: "stamp", rulesText: "One synthetic confirmed visit", rewardTitle: "Coffee", rewardCost: 5 } });
       expect(setup.status()).toBe(201); const merchant = await setup.json();

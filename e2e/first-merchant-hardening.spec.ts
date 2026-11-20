@@ -9,7 +9,7 @@ import { expect, request as apiRequest, test, type APIRequestContext, type Page 
 
 async function merchant(url: string, name: string) {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic hardening owner", email: `hardening-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic hardening owner", email: `hardening-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: `${name} Karte`, programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Pizza gratis", rewardCost: 10,

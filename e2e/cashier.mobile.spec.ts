@@ -53,7 +53,7 @@ const apart = (a: number[], b: number[]) => a.reduce((sum, n, i) => sum + Math.a
 async function ownShop(page: Page, goals: number[]) {
   const origin = new URL(test.info().project.use.baseURL!).origin;
   const api = page.request;
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic shop", email: `shop-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic shop", email: `shop-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin, "x-loynara-acceptance": "2026-11-20" } })).status()).toBe(200);
   const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Laden", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: goals[0] } });
   expect(onboard.status()).toBe(201);
   const { programSlug } = await onboard.json() as { programSlug: string };
@@ -288,7 +288,7 @@ test.describe("cashier on phones", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const origin = new URL(test.info().project.use.baseURL!).origin;
     const api = page.request;
-    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic two rewards", email: `two-rewards-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic two rewards", email: `two-rewards-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin, "x-loynara-acceptance": "2026-11-20" } })).status()).toBe(200);
     const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Zwei Prämien", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: 8 } });
     expect(onboard.status()).toBe(201);
     const { programSlug } = await onboard.json() as { programSlug: string };
@@ -362,7 +362,7 @@ test.describe("cashier on phones", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const origin = new URL(test.info().project.use.baseURL!).origin;
     const api = page.request;
-    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic twelve", email: `twelve-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin } })).status()).toBe(200);
+    expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic twelve", email: `twelve-${crypto.randomUUID()}@example.test`, password: `Local!${crypto.randomUUID()}Aa` }, headers: { Origin: origin, "x-loynara-acceptance": "2026-11-20" } })).status()).toBe(200);
     const onboard = await api.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Zwölf", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Stempelkarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Gratiskaffee", rewardCost: 12 } });
     expect(onboard.status()).toBe(201);
     const { programSlug } = await onboard.json() as { programSlug: string };

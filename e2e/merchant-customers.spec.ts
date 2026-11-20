@@ -4,7 +4,7 @@ import { expect, request as apiRequest, test, type APIRequestContext } from "@pl
 async function account(baseURL: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `members-${randomUUID()}@example.test`;
-  expect((await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic merchant tester", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await context.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic merchant tester", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   return { context, email };
 }
 

@@ -6,7 +6,7 @@ test("owner edits merchant identity with a live preview and customer card sees t
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: {
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: {
       name: "Synthetic brand owner", email: `brand-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
     } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: {

@@ -11,6 +11,7 @@ vi.mock("./transactional-email", async importOriginal => ({
 }));
 const { POST } = await import("@/app/api/auth/[...all]/route");
 const { createMerchant } = await import("./product");
+const { POST: onboard } = await import("@/app/api/merchant/onboard/route");
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
 
@@ -72,4 +73,21 @@ it("gets the business once the owner's shop exists, and is append-only after tha
   await expect(pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid()")).rejects.toThrow(/append-only/);
   await expect(pool.query("UPDATE owner_acceptances SET terms_version = 'x'")).rejects.toThrow(/append-only/);
   await expect(pool.query("DELETE FROM owner_acceptances")).rejects.toThrow(/append-only/);
+});
+
+it("sets up a shop through the setup route only for an account that accepted at /register (CTO, 20 Nov)", async () => {
+  const setup = { businessName: "Synthetic Gate Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 };
+  const setUp = async (shown?: string) => {
+    const cookie = (await signUp(`${randomUUID()}@example.test`, shown)).headers.getSetCookie().map(c => c.split(";")[0]).join("; ");
+    return onboard(new Request(`${origin}/api/merchant/onboard`, { method: "POST", headers: { origin, cookie, "content-type": "application/json", "cf-connecting-ip": "198.51.100.251" }, body: JSON.stringify(setup) }));
+  };
+  // A direct call to the sign-up API, without the sentence, makes an account but no shop.
+  const refused = await setUp();
+  expect(refused.status).toBe(403);
+  expect(await refused.json()).toMatchObject({ error: expect.stringContaining("Vertragsbedingungen nicht angenommen") });
+  expect((await pool.query("SELECT count(*)::int AS n FROM tenants")).rows[0].n).toBe(0);
+  // The /register path.
+  const created = await setUp(SIGNUP_ACCEPTANCE_TEXT_VERSION);
+  expect(created.status).toBe(201);
+  expect((await rows()).map(row => row.tenant_id)).toEqual([(await created.json()).tenantId]);
 });

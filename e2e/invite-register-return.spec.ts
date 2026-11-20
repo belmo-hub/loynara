@@ -14,7 +14,7 @@ let owner: APIRequestContext, locationId: string;
 test.beforeAll(async ({ baseURL }) => {
   const url = baseURL ?? "http://localhost:3000";
   owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic invite owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic invite owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Pizzeria", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Pizza card", programType: "stamp", rulesText: "One confirmed visit", rewardTitle: "Pizza", rewardCost: 8 } });
   expect(setup.status()).toBe(201);
   ({ locationId } = await setup.json() as { locationId: string });
@@ -40,7 +40,7 @@ test("a new staff member registers from the invitation and is back on it to acce
 test("an existing account signs in from the invitation and is back on it", async ({ page, baseURL }) => {
   const email = `staff-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
   const staff = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL!).origin } });
-  try { expect((await staff.post("/api/auth/sign-up/email", { data: { name: "Synthetic cashier", email, password } })).status()).toBe(200); }
+  try { expect((await staff.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic cashier", email, password } })).status()).toBe(200); }
   finally { await staff.dispose(); }
   const token = await invite(owner, locationId, email);
   await page.goto(`/invite/${token}`);

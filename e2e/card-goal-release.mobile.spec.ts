@@ -10,7 +10,7 @@ test.beforeAll(async ({ baseURL }) => {
   const url = baseURL ?? "http://localhost:3000";
   options = { baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } };
   owner = await apiRequest.newContext(options);
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic goal owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic goal owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
 });
 test.afterAll(async () => { await owner.dispose(); for (const guest of guests) await guest.dispose(); });
 

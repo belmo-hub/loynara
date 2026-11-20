@@ -49,7 +49,7 @@ export async function merchantWithTag(baseURL: string, businessName = "NFC Café
   if (process.env.E2E_AUTH_SETUP_GAP_MS === "11000") await new Promise(resolve => setTimeout(resolve, 11_000));
   const origin = { Origin: new URL(baseURL).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const onboard = await owner.post("/api/merchant/onboard", { data: { businessName, locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "NFC card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 5, ...program } });
   expect(onboard.status()).toBe(201);
   const me = await (await owner.get("/api/me")).json() as { programId: string; tenantId: string; locationId: string; programSlug: string };
@@ -58,7 +58,7 @@ export async function merchantWithTag(baseURL: string, businessName = "NFC Café
   // a cashier of this location
   const cashier = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   const email = `nfc-cashier-${randomUUID()}@example.test`;
-  expect((await cashier.post("/api/auth/sign-up/email", { data: { name: "NFC cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await cashier.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "NFC cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const invite = await (await owner.post("/api/staff/invite", { data: { locationId: me.locationId, email, role: "cashier" } })).json() as { token: string };
   expect((await cashier.post("/api/staff/accept", { data: { token: invite.token } })).status()).toBe(200);
 

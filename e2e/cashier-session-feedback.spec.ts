@@ -12,7 +12,7 @@ test.beforeAll(async ({ baseURL }) => {
   const owner = await apiRequest.newContext(options);
   const staff = await apiRequest.newContext(options);
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic session owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic session owner", email: `owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic session Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Session card", programType: "stamp", rulesText: "One confirmed visit", rewardTitle: "Coffee", rewardCost: 5 } });
     expect(setup.status()).toBe(201);
     const merchant = await setup.json() as { programSlug: string; locationId: string };
@@ -20,7 +20,7 @@ test.beforeAll(async ({ baseURL }) => {
     const invite = await owner.post("/api/staff/invite", { data: { locationId: merchant.locationId, email, role: "cashier" } });
     expect(invite.status()).toBe(201);
     const { token } = await invite.json() as { token: string };
-    expect((await staff.post("/api/auth/sign-up/email", { data: { name: "Synthetic session cashier", email, password } })).status()).toBe(200);
+    expect((await staff.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic session cashier", email, password } })).status()).toBe(200);
     expect((await staff.post("/api/staff/accept", { data: { token } })).status()).toBe(200);
   } finally { await owner.dispose(); await staff.dispose(); }
 });

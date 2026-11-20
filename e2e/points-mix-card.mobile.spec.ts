@@ -19,7 +19,7 @@ async function card(kind: "manual" | "purchase" = "manual", middle = "Pizza") {
   const costs = kind === "manual" ? [60, 150, 300] : [50, 150, 300], mode = `${kind}:${middle}`, earningMode = kind;
   if (!slugs[mode]) {
     owners[mode] = await apiRequest.newContext(options);
-    expect((await owners[mode].post("/api/auth/sign-up/email", { data: { name: "Synthetic points owner", email: `points-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owners[mode].post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic points owner", email: `points-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const setup = await owners[mode].post("/api/merchant/onboard", { data: { businessName: "Synthetic Pizzeria", locationName: `Kassel ${kind}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", earningMode, pointsPerCurrencyUnit: 1, rulesText: "Punkte an der Kasse.", rewardTitle: "Espresso", rewardCost: costs[0] } });
     expect(setup.status()).toBe(201);
     slugs[mode] = (await setup.json() as { programSlug: string }).programSlug;

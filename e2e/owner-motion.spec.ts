@@ -6,7 +6,7 @@ for (const width of [375, 1280]) for (const reducedMotion of ["reduce", "no-pref
     const url = baseURL ?? "http://localhost:3000";
     const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await api.post("/api/auth/sign-up/email", { data: {
+      expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: {
         name: "Synthetic motion owner", email: `motion-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
       } })).status()).toBe(200);
       expect((await api.post("/api/merchant/onboard", { data: {

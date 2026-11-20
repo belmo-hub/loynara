@@ -10,8 +10,8 @@ test("owner sees tenant-scoped checkout analytics while cashier and guest cannot
   try {
     const ownerEmail = `analytics-owner-${randomUUID()}@example.test`;
     const cashierEmail = `analytics-cashier-${randomUUID()}@example.test`;
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic analytics owner", email: ownerEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
-    expect((await cashier.post("/api/auth/sign-up/email", { data: { name: "Synthetic analytics cashier", email: cashierEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic analytics owner", email: ownerEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await cashier.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic analytics cashier", email: cashierEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Analytics Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Synthetic analytics card", programType: "stamp", rulesText: "One stamp per confirmed synthetic checkout.", rewardTitle: "Coffee", rewardCost: 5,

@@ -11,7 +11,7 @@ const productionLike = process.env.E2E_PILOT_PRODUCTION === "1";
 
 async function ownerWithProgramme(baseURL: string) {
   const api = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin, ...(productionLike ? { "cf-connecting-ip": "203.0.113.7" } : {}) } });
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Pilot NFC owner", email: `nfc-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Pilot NFC owner", email: `nfc-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const onboard = await api.post("/api/merchant/onboard", { data: { businessName: "Pilot NFC Café", locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "NFC card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 5 } });
   expect(onboard.status()).toBe(201);
   const me = await (await api.get("/api/me")).json() as { programId: string; programSlug: string; tapAutomaticAllowed?: boolean; hiddenSurfaces?: string[] };
@@ -63,7 +63,7 @@ test("manager sees an accurate read-only programme action while the owner keeps 
   const manager = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...(productionLike ? { "cf-connecting-ip": "203.0.113.8" } : {}) } });
   try {
     const email = `manager-${randomUUID()}@example.test`;
-    expect((await manager.post("/api/auth/sign-up/email", { data: { name: "Pilot manager", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await manager.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Pilot manager", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const invite = await owner.post("/api/staff/invite", { data: { locationId: (await (await owner.get("/api/me")).json() as { locationId: string }).locationId, email, role: "manager" } });
     expect(invite.status()).toBe(201);
     expect((await manager.post("/api/staff/accept", { data: { token: (await invite.json() as { token: string }).token } })).status()).toBe(200);
@@ -93,7 +93,7 @@ test("cashier screen shows the NFC confirmation panel only for staff-confirmed p
   const cashier = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin, ...(productionLike ? { "cf-connecting-ip": "203.0.113.10" } : {}) } });
   try {
     const email = `cashier-${randomUUID()}@example.test`;
-    expect((await cashier.post("/api/auth/sign-up/email", { data: { name: "Pilot cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await cashier.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Pilot cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const { locationId } = await (await owner.get("/api/me")).json() as { locationId: string };
     const invite = await owner.post("/api/staff/invite", { data: { locationId, email, role: "cashier" } });
     expect(invite.status()).toBe(201);

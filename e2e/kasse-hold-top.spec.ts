@@ -13,7 +13,7 @@ type Shop = { owner: Awaited<ReturnType<typeof apiRequest.newContext>>; programS
 
 async function shop(url: string, programType: "points" | "stamp", extraRewards: number[] = []): Promise<Shop> {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic hold owner", email: `hold-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic hold owner", email: `hold-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: "Synthetic Hold Pizzeria", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     ...(programType === "points"

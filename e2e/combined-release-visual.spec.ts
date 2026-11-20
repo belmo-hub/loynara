@@ -9,7 +9,7 @@ test("combined join, card refresh, Wallet and next-customer/offline counter fit 
   const origin = baseURL ?? "http://localhost:3000";
   expect(["localhost", "127.0.0.1"]).toContain(new URL(origin).hostname);
   const owner = await apiRequest.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic combined owner", email: `${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic combined owner", email: `${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Combined Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Combined Card", programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Kaffee gratis", rewardCost: 5 } });
   expect(setup.status()).toBe(201);
   const { programSlug } = await setup.json();

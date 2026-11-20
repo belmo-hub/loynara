@@ -13,7 +13,7 @@ test.beforeAll(async ({ playwright, baseURL }) => {
   const origin = new URL(baseURL!).origin, api = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const guest = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const ok = async (response: APIResponse, status: number) => { expect(response.status(), response.url()).toBe(status); return response.json(); };
-  await ok(await api.post("/api/auth/sign-up/email", { data: { name: "Leiter Test", email: `ladder-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } }), 200);
+  await ok(await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Leiter Test", email: `ladder-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } }), 200);
   ({ programSlug } = await ok(await api.post("/api/merchant/onboard", { data: { businessName: "Punkte Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", rulesText: "Ein Punkt je Besuch", rewardTitle: "Espresso", rewardCost: 5 } }), 201));
   for (const [title, cost] of [["Cappuccino", 12], ["Frühstück", 20]] as const) await ok(await api.post("/api/merchant/program/rewards", { data: { action: "create", programSlug, title, cost } }), 201);
   ({ cardToken } = await ok(await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } }), 201));

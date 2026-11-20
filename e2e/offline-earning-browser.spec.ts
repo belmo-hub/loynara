@@ -7,7 +7,7 @@ test("cashier queues an explicit offline award without credit, reloads, and sync
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic offline owner", email: `offline-ui-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic offline owner", email: `offline-ui-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Offline Bakery", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Offline browser test", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Bread", rewardCost: 5,

@@ -50,7 +50,7 @@ test.beforeAll(async ({ baseURL }) => {
   const make = async (shop: Shop, programme: Record<string, unknown>, extras?: Record<string, unknown>) => {
     const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic payload owner", email: `payloads-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+      expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic payload owner", email: `payloads-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
       expect((await api.post("/api/merchant/onboard", { data: { businessName: `Synthetic ${shop}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", rewardTitle: "Kaffee", rewardCost: 100, ...programme } })).status()).toBe(201);
       if (extras) expect((await api.post(EXTRAS, { data: { programId: (await (await api.get("/api/me")).json() as { programId: string }).programId, ...extras } })).status()).toBe(200);
       shops[shop] = await api.storageState();

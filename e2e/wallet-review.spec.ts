@@ -26,7 +26,7 @@ let appOrigin: string;
 async function signup(baseURL: string, label: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `wallet-review-${label}-${randomUUID()}@example.test`;
-  const response = await context.post("/api/auth/sign-up/email", { data: { name: `Synthetic Wallet ${label}`, email, password: `Local!${randomUUID()}Aa` } });
+  const response = await context.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: `Synthetic Wallet ${label}`, email, password: `Local!${randomUUID()}Aa` } });
   expect(response.status(), "synthetic signup must succeed").toBe(200);
   return { context, email };
 }

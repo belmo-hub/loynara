@@ -7,7 +7,7 @@ test("owner sees priced location plans and actual card usage without a live char
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic billing owner", email: `billing-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic billing owner", email: `billing-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Billing Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic card", programType: "stamp", rulesText: "One stamp per confirmed synthetic checkout.", rewardTitle: "Coffee", rewardCost: 5 } });
     expect(onboard.status()).toBe(201);
     const { programSlug } = await onboard.json() as { programSlug: string };
@@ -36,7 +36,7 @@ test("local fixture handoff records a test period and owner cancellation in the 
   const url = baseURL ?? "http://localhost:3000";
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic fixture owner", email: `fixture-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic fixture owner", email: `fixture-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     expect((await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Fixture Bakery", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Fixture card", programType: "stamp", rulesText: "One stamp per confirmed synthetic checkout.", rewardTitle: "Bread", rewardCost: 5 } })).status()).toBe(201);
     const unsigned = await owner.post("/api/billing/fixture/webhook", { data: { id: `evt_${randomUUID()}`, type: "payment.failed" } });
     expect(unsigned.status()).toBe(400);

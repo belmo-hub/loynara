@@ -6,7 +6,7 @@ test("owner previews an audience and saves a campaign draft without claiming del
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
     const email = `campaign-owner-${randomUUID()}@example.test`;
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic campaign owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic campaign owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Campaign Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Synthetic campaign card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,

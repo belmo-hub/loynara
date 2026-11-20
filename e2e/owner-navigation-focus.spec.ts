@@ -6,7 +6,7 @@ test("mobile „Mehr“ tab opens its page by keyboard and its rows lead on, the
   const url = baseURL ?? "http://localhost:3000";
   const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await api.post("/api/auth/sign-up/email", { data: {
+    expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: {
       name: "Synthetic navigation owner", email: `navigation-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
     } })).status()).toBe(200);
     expect((await api.post("/api/merchant/onboard", { data: {

@@ -9,7 +9,7 @@ async function syntheticAccount(baseURL: string) {
   const origin = new URL(baseURL).origin;
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const email = `http-${randomUUID()}@example.test`;
-  const response = await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic HTTP tester", email, password: `Local!${randomUUID()}Aa` } });
+  const response = await context.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic HTTP tester", email, password: `Local!${randomUUID()}Aa` } });
   expect(response.status()).toBe(200);
   return { context, email };
 }

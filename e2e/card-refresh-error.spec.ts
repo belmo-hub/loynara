@@ -7,7 +7,7 @@ for (const width of [375, 1280]) {
     const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic refresh owner", email: `refresh-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+      expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic refresh owner", email: `refresh-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
       const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic refresh Café", locationName: "Synthetic Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Refresh card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 } });
       expect(setup.status()).toBe(201);
       const { programSlug } = await setup.json() as { programSlug: string };

@@ -7,7 +7,7 @@ const EXCLUDED = "Nicht auf Tabak, Presse, Bücher, Lotto und Handyguthaben.";
 
 async function owner(url: string, programme: Record<string, unknown>) {
   const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic rules owner", email: `rules-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await api.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic rules owner", email: `rules-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const made = await api.post("/api/merchant/onboard", { data: {
     businessName: "Synthetic Feinkost", locationName: "Kassel West", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Genusskarte", rewardTitle: "Espresso gratis", rewardCost: 50, ...programme,

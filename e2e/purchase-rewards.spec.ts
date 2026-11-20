@@ -7,7 +7,7 @@ test("saved purchase rule and reward catalogue drive checkout through authentica
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
     const email = `points-${randomUUID()}@example.test`;
-    const signUp = await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic points merchant", email, password: `Local!${randomUUID()}Aa` } });
+    const signUp = await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic points merchant", email, password: `Local!${randomUUID()}Aa` } });
     expect(signUp.status()).toBe(200);
 
     const onboard = await owner.post("/api/merchant/onboard", { data: {

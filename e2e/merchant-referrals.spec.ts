@@ -8,7 +8,7 @@ test("synthetic referral link earns once after checkout and reverses with its qu
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: origin } });
   try {
     const email = `referral-${randomUUID()}@example.test`;
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic referral owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await owner.post("/api/auth/sign-up/email", { headers: { "x-loynara-acceptance": "2026-11-20" }, data: { name: "Synthetic referral owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Referral Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Synthetic Referral Card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,
