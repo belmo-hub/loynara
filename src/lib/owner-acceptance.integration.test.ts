@@ -135,3 +135,13 @@ it("stamps accepted_at with the server's time on insert, ignoring a time the cal
   const { rows: [row] } = await pool.query("INSERT INTO owner_acceptances (user_id, terms_version, avv_version, privacy_version, text_version, accepted_at) VALUES ('synthetic', 'v', 'v', 'v', 'v', '2000-01-01T00:00:00Z') RETURNING accepted_at, now() AS server");
   expect(row.accepted_at).toEqual(row.server);
 });
+
+// Reviewer D3: the one permitted change (setting tenant_id once) cannot carry a new accepted_at along with it.
+it("refuses to move accepted_at even together with the first setting of the business", async () => {
+  const insert = async () => (await pool.query<{ id: string }>("INSERT INTO owner_acceptances (user_id, terms_version, avv_version, privacy_version, text_version) VALUES ('synthetic', 'v', 'v', 'v', 'v') RETURNING id")).rows[0].id;
+  const moved = await insert();
+  await expect(pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid(), accepted_at = '2000-01-01T00:00:00Z' WHERE id = $1", [moved])).rejects.toThrow(/append-only/);
+  // The same change without the time is allowed, so the refusal above is the time's.
+  const kept = await insert();
+  expect((await pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid() WHERE id = $1", [kept])).rowCount).toBe(1);
+});
