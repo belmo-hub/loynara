@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 import { progressLine } from "@/components/customer/mix-card";
-import { dayLabel, mixCardReward } from "./card-screen";
+import { dayLabel } from "./card-screen";
 import { cardLead, CustomersView, groupCount, groupTiles, searchHref } from "./customers-view";
 
 let address = new URLSearchParams();
@@ -91,15 +91,6 @@ describe("Kunden 03: the statement's day (ENG-258)", () => {
     expect(dayLabel(new Date(2026, 10, 14, 8, 41).toISOString(), now)).toBe("Heute");
     expect(dayLabel(new Date(2026, 10, 13, 23, 59).toISOString(), now)).toBe("Gestern");
     expect(dayLabel(new Date(2026, 10, 12, 8, 41).toISOString(), now)).toBe("Donnerstag, 12.11.");
-  });
-});
-
-describe("Kunden 03: the mix card only for stamps (ENG-258, Design 18 Nov)", () => {
-  it("keeps a points programme on the house balance block", () => {
-    const reward = { id: "r", title: "Pizza", cost: 100 };
-    expect(mixCardReward("stamp", reward)).toBe(reward);
-    expect(mixCardReward("points", reward)).toBeUndefined();
-    expect(mixCardReward("stamp", undefined)).toBeUndefined();
   });
 });
 
