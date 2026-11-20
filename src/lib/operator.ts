@@ -79,6 +79,8 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
           FROM locations l WHERE l.tenant_id = t.id), '{}') AS addresses
       FROM (SELECT DISTINCT ON (tenant_id) tenant_id, user_id, accepted_at FROM owner_acceptances WHERE tenant_id IS NOT NULL ORDER BY tenant_id, accepted_at) a
       JOIN tenants t ON t.id = a.tenant_id LEFT JOIN "user" u ON u.id = a.user_id
+      -- An erased shop keeps its tenant row and acceptance (ERASURE_KEEP) but is no live contract.
+      WHERE NOT EXISTS (SELECT 1 FROM shop_erasures e WHERE e.erased_tenant_id = t.id)
       ORDER BY t.name, t.id`);
     // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
     const freeMonths = await freeMonthsEndingSoon();
