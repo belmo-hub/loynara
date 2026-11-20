@@ -67,10 +67,16 @@ describe("card search (ENG-179, fault 18)", () => {
 describe("Kunden rows in the mix (ENG-257)", () => {
   const render = (node: ReturnType<typeof cardLead>) => renderToStaticMarkup(createElement("div", null, node));
   const coffee = { id: "r", title: "Gratiskaffee", cost: 8 };
-  it("leads a stamp card with the mix thumbnail and a points card with nothing until Design draws a points card", () => {
+  it("leads a stamp card with the mix thumbnail", () => {
     expect(render(cardLead({ programType: "stamp", balance: 5 }, coffee))).toContain('role="img"');
     expect(render(cardLead({ programType: "stamp", balance: 5 }))).toContain('aria-hidden="true"'); // the shop's colour, no dots
-    expect(cardLead({ programType: "points", balance: 186 }, coffee)).toBeNull();
+  });
+  it.each([[0, 0, false], [21, 3, false], [150, 18, false], [300, 36, true], [420, 36, true]])("leads a points card at %i with a %i px fill to the dearest reward (ENG-292 §4)", (balance, px, reached) => {
+    const html = render(cardLead({ programType: "points", balance }, { id: "r", title: "Pizza", cost: 60 }, 300));
+    expect(html).toContain(`aria-label="${balance} Punkte"`);
+    expect(html).toContain(`style="width:${px ? `${px}px` : 0}"`);
+    expect(html.includes("data-on")).toBe(reached);
+    expect(render(cardLead({ programType: "points", balance }))).toContain('aria-hidden="true"'); // no target here: the shop's colour alone
   });
 });
 

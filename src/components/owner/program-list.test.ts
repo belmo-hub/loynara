@@ -175,10 +175,13 @@ describe("the example card under „Aussehen“ (mix A)", () => {
     expect(html).toContain("Einlösbar ab");
     expect(html).not.toContain("ow-cardprev");
   });
-  it("keeps points on the house example until a points mix card is drawn (Design, 18 Nov)", () => {
-    const html = render("points", 250);
-    expect(html).toContain("ow-cardprev");
-    expect(html).not.toContain("Einlösbar ab");
+  it("draws a points programme on the mix card with every reward on its ladder (ENG-292 §5)", () => {
+    const rewards = [{ id: "r1", title: "Pizza Margherita", cost: 150 }, { id: "r2", title: "Familienmenü", cost: 300 }];
+    const html = renderToStaticMarkup(createElement(ProgramExample, { me: shop, type: "points", reward: rewards[0], rewards }));
+    expect(html).not.toContain("ow-cardprev");
+    expect(html).toContain("Einlösbar ab");
+    expect(html).toContain("150 Punkten");
+    expect(html).toContain("Familienmenü");
   });
 });
 
