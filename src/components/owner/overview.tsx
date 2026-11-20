@@ -6,6 +6,7 @@ import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, 
 import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
+import { PointsThumb } from "@/components/customer/points-thumb";
 import { cx } from "@/components/ui/cx";
 import { MixChip, mixButton, mixStyles as mix, MixTile } from "@/components/ui/mix";
 import { merchantPalette } from "@/components/ui/merchant-color";
@@ -150,9 +151,10 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
   // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
   const panel = (next !== null || milestone !== null) && (answered || failed) && !(failed && !board);
-  // A ready reward leads with the card's thumbnail, full, in the shop's colour. Points stay off the mix card until Design draws one (18 Nov).
-  const thumb = next?.kind === "reward-ready" && me.programType === "stamp"
-    ? <span className={s.thumb} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}><MixCard size="thumb" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={me.rewardCost} reward={{ id: "", title: me.rewardTitle, cost: me.rewardCost }} /></span> : undefined;
+  // A ready reward leads with the card's thumbnail, full, in the shop's colour: a points card drawn at the reward's cost.
+  const thumb = next?.kind === "reward-ready"
+    ? <span className={s.thumb} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>{me.programType === "points" ? <PointsThumb balance={me.rewardCost} cost={me.rewardCost} />
+      : <MixCard size="thumb" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={me.rewardCost} reward={{ id: "", title: me.rewardTitle, cost: me.rewardCost }} />}</span> : undefined;
   // The board leads with bookings when the shop has no till amounts: then the Buchungen row would repeat its figure.
   const bookingsBoard = !!board?.spend && !boardEuros(board.spend.figures);
   // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
