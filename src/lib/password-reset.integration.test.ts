@@ -43,6 +43,8 @@ async function account(confirmed: boolean) {
   const email = `${randomUUID()}@example.test`;
   await post("/sign-up/email", { name: "Synthetic owner", email, password });
   await pool.query('UPDATE "user" SET "emailVerified" = $2 WHERE email = $1', [email, confirmed]);
+  // The sign-up's confirmation mail counts against the address's daily budget; each test starts with a full one.
+  await pool.query("DELETE FROM rate_limits");
   sent.length = 0;
   provider.delayMs = 0;
   return email;
@@ -88,6 +90,7 @@ it("answers an unknown and an unconfirmed address exactly like a confirmed one, 
 });
 
 it("gives a squatted, never-confirmed address back to the inbox's owner: the link confirms it and signs the squatter out", async () => {
+  const other = await account(false);
   const email = await account(false);
   expect((await post("/request-password-reset", { email })).status).toBe(200);
   await vi.waitFor(() => expect(resetMails()).toHaveLength(1));
@@ -99,6 +102,8 @@ it("gives a squatted, never-confirmed address back to the inbox's owner: the lin
   expect(await verified()).toBe(false);
   expect((await post("/reset-password", { token, newPassword: "synthetic-reset-new-password" })).status).toBe(200);
   expect(await verified()).toBe(true);
+  // Only the account the link was for.
+  expect((await pool.query('SELECT "emailVerified" AS v FROM "user" WHERE email = $1', [other])).rows[0].v).toBe(false);
   expect((await pool.query('SELECT count(*)::int AS n FROM session s JOIN "user" u ON u.id = s."userId" WHERE u.email = $1', [email])).rows[0].n).toBe(0);
   expect((await post("/sign-in/email", { email, password })).status).toBe(401);
   expect((await post("/sign-in/email", { email, password: "synthetic-reset-new-password" })).status).toBe(200);
@@ -122,6 +127,16 @@ it("sends an unconfirmed address at most three links an hour and five a day", as
     await settled();
     expect(resetMails()).toHaveLength(Math.min(5, 3 * (hour + 1)));
   }
+});
+
+it("shares the five-a-day cap between confirmation and reset mails", async () => {
+  const email = await account(false);
+  for (let i = 0; i < 3; i += 1) expect((await post("/send-verification-email", { email })).status).toBe(200);
+  await pool.query("UPDATE rate_limits SET reset_at = now() - interval '1 second' WHERE reset_at < now() + interval '2 hours'");
+  for (let i = 0; i < 3; i += 1) expect((await post("/request-password-reset", { email })).status).toBe(200);
+  await settled();
+  expect(sent).toHaveLength(5);
+  expect(resetMails()).toHaveLength(2);
 });
 
 it("sends at most three links an hour to one address, and limits requests per peer", async () => {
