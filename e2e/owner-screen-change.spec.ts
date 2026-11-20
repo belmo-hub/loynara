@@ -581,3 +581,136 @@ test("in dark mode the card flies with the dark object shadow, from the root its
     expect(shadows[0], "the root has the shadow the themed page has").toBe(shadows[1]);
   } finally { await page.emulateMedia({ colorScheme: "light" }); }
 });
+
+// Design, batch ef415313: the Programm example inside Skeleton to content. Mounted in view it plays before the first
+// paint and only scales, so it rides the block's fade with its heading instead of waiting at 0 and fading on top of it.
+/** A synthetic points shop's owner session, for the second shop. */
+async function pointsOwner() {
+  const url = test.info().project.use.baseURL!;
+  const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
+  expect((await signUp(owner, { data: { name: "Synthetic example owner", email: `example-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Example Café", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
+    programName: "Punktekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 1, rulesText: "Ein Punkt je vollem Euro an der Kasse.", rewardTitle: "Kuchen", rewardCost: 50 } })).status()).toBe(201);
+  const state = await owner.storageState();
+  await owner.dispose();
+  return state;
+}
+test("the Programm example rides its block's fade: at least .35 and with its heading, warm and cold, both shops", async ({ browser }) => {
+  const shops = [["stamps", await page.context().storageState()], ["points", await pointsOwner()]] as const;
+  for (const [shop, storageState] of shops) for (const width of [390, 1440]) {
+    const context = await browser.newContext({ storageState, viewport: { width, height: 900 } });
+    try {
+      const view = await context.newPage();
+      // Every frame with the example: whether a placeholder is still there, the card's and its heading's opacity as shown.
+      await view.addInitScript(placeholders => {
+        const frames: { placeholder: boolean; card: number; heading: number }[] = [];
+        (window as unknown as { example: typeof frames }).example = frames;
+        const shown = (node: Element | null) => { let value = 1; for (let up = node; up && !up.matches(".ow-content"); up = up.parentElement) value *= Number(getComputedStyle(up).opacity); return value; };
+        const look = () => {
+          const card = document.querySelector(".ow-content [data-play] > section");
+          const heading = [...document.querySelectorAll(".ow-content :is(h2, h3)")].find(node => node.textContent?.trim().startsWith("Aussehen")) ?? null;
+          if (card && heading && frames.length < 60) frames.push({ placeholder: !!document.querySelector(`.ow-content :is(${placeholders})`), card: shown(card), heading: shown(heading) });
+          requestAnimationFrame(look);
+        };
+        requestAnimationFrame(look);
+      }, PLACEHOLDER);
+      for (const way of ["cold", "warm"] as const) {
+        if (way === "cold") await view.goto("/merchant/program");
+        else {
+          await view.goto("/merchant");
+          await expect(view.getByRole("heading", { level: 1 })).toBeVisible();
+          await view.waitForTimeout(500);
+          await view.evaluate(() => { (window as unknown as { example: unknown[] }).example.length = 0; });
+          await view.locator(".ow-tabs a:visible, .ow-nav a:visible").getByText("Programm", { exact: true }).first().click();
+        }
+        await expect(view.locator(".ow-content [data-play]")).toBeAttached();
+        await view.waitForTimeout(700);
+        const frames = await view.evaluate(() => (window as unknown as { example: { placeholder: boolean; card: number; heading: number }[] }).example);
+        const after = frames.filter(frame => !frame.placeholder);
+        expect(after.length, `${shop} ${width} ${way}: frames sampled`).toBeGreaterThan(0);
+        expect(after.filter(frame => frame.card < 0.35 || Math.abs(frame.card - frame.heading) > 0.15).map(frame => `${frame.card.toFixed(2)}/${frame.heading.toFixed(2)}`), `${shop} ${width} ${way}: frames where the card is bare or apart from its heading`).toEqual([]);
+      }
+    } finally { await context.close(); }
+  }
+});
+
+// A return scrolled below the example: the scroll is back before the first paint, so the example, out of view, waits.
+test("back to Programm scrolled below the example: the example has not played", async () => {
+  // Programm's reads answered at once from what the first visit read, as a warm server does: the list is then ready
+  // during the screen change, where React holds passive effects until it ends (a passive restore painted the top first).
+  const reads = /\/api\/(program\/|merchant\/(program\/(winback|rewards)|referrals))/;
+  const answers = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>();
+  await page.route(reads, async route => {
+    const key = route.request().url();
+    if (!answers.has(key)) { const response = await route.fetch(); answers.set(key, { status: response.status(), headers: response.headers(), body: await response.body() }); }
+    await route.fulfill(answers.get(key)!);
+  });
+  await tab("Programm").click();
+  await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
+  await settled();
+  const last = page.locator('.ow-content a[href^="/merchant/program/"]').last();
+  await expect(async () => { await last.scrollIntoViewIfNeeded({ timeout: 500 }); }).toPass();
+  expect(await page.evaluate(() => document.querySelector(".ow-content [data-play]")!.getBoundingClientRect().bottom), "the example is above the screen").toBeLessThan(0);
+  await last.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeHidden();
+  await settled();
+  // Every frame in which the list is there: how far down the page is. The list's first frame must already be at the
+  // return position; a frame at its top is where the example, then in view, started to play.
+  const frames = page.evaluate(() => new Promise<number[]>(done => {
+    const seen: number[] = [];
+    const end = performance.now() + 1500;
+    const look = () => {
+      if (document.querySelector(".ow-content [data-play]")) seen.push(Math.round(window.scrollY));
+      if (performance.now() < end) requestAnimationFrame(look); else done(seen);
+    };
+    look();
+  }));
+  await page.locator(".ow-content a.ow-back:visible").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Programm" })).toBeVisible();
+  const ys = await frames;
+  expect(ys.length, "frames with the list").toBeGreaterThan(0);
+  expect(ys.filter(y => y < 100), "frames of the list at its top before the jump back").toEqual([]);
+  await expect(page.locator(".ow-content [data-play]"), "the example is still waiting for its turn").toHaveAttribute("data-play", "wait");
+  await page.unroute(reads);
+});
+
+// Design, batch ef415313: the row's data paints only the card its own tap opens. A later mount of that card (Back in the
+// history, back from the Kasse) waits for its own read, so a booking made since never shows the old balance first.
+test("a card opened again after a booking shows the new balance, never the row's old one, and grows nothing", async () => {
+  await toList();
+  await cardRow().click();
+  await expect(page.locator("[data-card-face]")).toBeVisible();
+  await settled();
+  const label = () => page.evaluate(() => document.querySelector("[data-card-face] [role=img]")?.getAttribute("aria-label") ?? null);
+  const before = await label();
+  expect(before).not.toBeNull();
+  await tab("Programm").click();
+  await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
+  await settled();
+  // A booking since: the card's read answers one more than the row had.
+  await page.route(/\/api\/merchant\/customers\/[^?/]+$/, async route => {
+    const response = await route.fetch();
+    const body = await response.json() as { member: { balance: number } };
+    body.member.balance += 1;
+    await route.fulfill({ response, json: body });
+  });
+  try {
+    const labels = page.evaluate(() => new Promise<{ labels: (string | null)[]; grow: boolean }>(done => {
+      const labels: (string | null)[] = [];
+      let grow = false;
+      const end = performance.now() + 1500;
+      const look = () => {
+        const face = document.querySelector("[data-card-face]");
+        labels.push(face?.querySelector("[role=img]")?.getAttribute("aria-label") ?? null);
+        grow ||= !!face?.querySelector("[data-grow]");
+        if (performance.now() < end) requestAnimationFrame(look); else done({ labels, grow });
+      };
+      look();
+    }));
+    await page.goBack();
+    const seen = await labels;
+    expect(seen.labels.filter(Boolean), "the card shows a balance").not.toEqual([]);
+    expect(seen.labels.filter(value => value === before), "frames with the row's old balance").toEqual([]);
+    expect(seen.grow, "the fill does not grow a second time").toBe(false);
+  } finally { await page.unroute(/\/api\/merchant\/customers\/[^?/]+$/); }
+});

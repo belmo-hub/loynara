@@ -36,7 +36,7 @@ function referralLabel(value: MerchantMember["referralStatus"]) {
  * figures, „Verlauf“ grouped by day with „Korrigieren“ per entry, „Details“, then „Karte neu ausstellen“. Correcting (04) and reissuing (05/06) are steps in
  * this page's history (useReview), so Back returns to the card. `onMember` tells the list what the card read says now.
  */
-export function CardScreen({ id, seed, back, onMember }: { id: string; seed?: { member: MerchantMember; program: PublicProgram }; back: Back; onMember: (member: MerchantMember) => void }) {
+export function CardScreen({ id, seed: given, back, onMember }: { id: string; seed?: { member: MerchantMember; program: PublicProgram }; back: Back; onMember: (member: MerchantMember) => void }) {
   const me = useOwner().me!;
   const [first, reload] = useLoad<MerchantMemberDetail>(`/api/merchant/customers/${encodeURIComponent(id)}`);
   // The target reward comes from the active location's programme: the card read lists only the rewards already reached.
@@ -49,6 +49,8 @@ export function CardScreen({ id, seed, back, onMember }: { id: string; seed?: { 
   const box = useRef<HTMLDivElement>(null), y = useRef(0);
   const detail = first.state === "ok" ? first.data : null, loaded = detail !== null;
   // Opened from its row, a points card's fill grows once the card has landed (ENG-299); a step's return does not grow it again.
+  // The row's data, only for the mount a tap made (customers-view): kept, so a later render of this mount cannot drop it.
+  const [seed] = useState(given);
   const [grow, setGrow] = useState(Boolean(seed));
   useEffect(() => { if (detail) onMember(detail.member); }, [detail, onMember]);
   // A step or the card comes in at the top with its heading focused; back on the card, where it was left (or at the notice).

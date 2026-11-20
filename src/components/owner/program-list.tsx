@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Archive, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
@@ -130,17 +130,31 @@ export function exampleCard(type: PublicProgram["programType"], reward: { id: st
  * It plays once per visit, when half of it is in view (Design, 20 Nov): the card arrives from .98, a points fill grows
  * from 0 and presses each marker it reached, earned stamps land 90 ms apart. Until then it waits unseen; reduced motion
  * shows the end state at once. Once played it settles, so a re-read replays nothing.
+ * `place`: puts the page's scroll where it will stay (ProgramList's return), called before it measures whether half is in view.
+ * In view then, it plays before the first paint; inside a fade that is still running (owner-shell's Skeleton to content)
+ * the card only scales, and rides that fade rather than fading from nothing on top of it (Design, batch ef415313).
  */
-export function ProgramExample({ me, type, reward, rewards }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number }; rewards?: Array<{ id: string; title: string; cost: number }> }) {
+export function ProgramExample({ me, type, reward, rewards, place }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number }; rewards?: Array<{ id: string; title: string; cost: number }>; place?: () => void }) {
   const shown = exampleCard(type, reward, rewards);
   const ref = useRef<HTMLDivElement>(null);
   // Mounted only once the programme is read, so on the client: reduced motion starts at the end state.
   const [phase, setPhase] = useState<"wait" | "play" | "done">(() => typeof window === "undefined" || (typeof IntersectionObserver === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) ? "wait" : "done");
+  const [ride, setRide] = useState(false);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || phase === "done") return;
     if (phase === "wait") {
-      const observer = new IntersectionObserver(([entry]) => { if (entry?.isIntersecting) { observer.disconnect(); setPhase("play"); } }, { threshold: 0.5 });
+      place?.();
+      const box = el.getBoundingClientRect();
+      const inView = Math.min(box.bottom, window.innerHeight) - Math.max(box.top, 0);
+      // Mounted in view: it is part of what the page shows first, so it arrives with the page's own fade.
+      if (box.height > 0 && inView >= box.height / 2) { setRide(true); setPhase("play"); return; }
+      const observer = new IntersectionObserver(([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        // Scrolled in later: never ride. It was painted at 0, so it fades in with its own card-arrive.
+        setPhase("play");
+      }, { threshold: 0.5 });
       observer.observe(el);
       return () => observer.disconnect();
     }
@@ -149,8 +163,8 @@ export function ProgramExample({ me, type, reward, rewards }: { me: Pick<MeRespo
     const settle = () => { if (live) setPhase("done"); };
     void Promise.all((el.getAnimations?.({ subtree: true }) ?? []).map(animation => animation.finished)).then(settle, settle);
     return () => { live = false; };
-  }, [phase]);
-  return <div ref={ref} className={styles.example} data-play={phase} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+  }, [phase, place]);
+  return <div ref={ref} className={styles.example} data-play={phase} data-ride={ride || undefined} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
     <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={type === "points" ? "points" : "stamps"} balance={shown.balance} reward={{ id: shown.reward.id, title: shown.reward.title, cost: shown.reward.cost }} rewards={rewards}
       landedFrom={phase === "play" ? 0 : undefined} grow={phase === "play"} />
   </div>;
@@ -166,18 +180,24 @@ export function ProgramList({ me }: { me: MeResponse }) {
   const [stored] = useLoad<{ rewards: Array<{ active: boolean }> }>(`/api/merchant/program/rewards?programSlug=${slug}`);
   const [back] = useState(readReturn);
   const [toast, setToast] = useState(Boolean(back?.saved));
-  const list = useRef<HTMLDivElement>(null);
   // The two side reads only fill values; waiting for them keeps rows from moving once the list shows.
   const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading" && stored.state !== "loading";
   useEffect(() => { writeReturn(null); }, []);
-  useEffect(() => {
-    if (!ready || !back) return;
+  // Before the first paint of the list: no frame of its top before the jump back, and the example measures itself where the
+  // page will stay (a passive effect let it play off-screen on a return scrolled down). Once per visit; the example's
+  // layout effect runs before this one, so it calls it first.
+  const placed = useRef(false);
+  const place = useCallback(() => {
+    if (placed.current || !back) return;
+    placed.current = true;
     if (typeof back.y === "number") window.scrollTo({ top: back.y, behavior: "instant" });
-    const row = Array.from(list.current?.querySelectorAll("a") ?? []).find(link => link.getAttribute("href") === back.row);
+    // From the document: called from the example's layout effect, before the list's own ref is attached.
+    const row = Array.from(document.querySelectorAll(".ow-content a")).find(link => link.getAttribute("href") === back.row);
     row?.scrollIntoView({ block: "nearest", behavior: "instant" });
     if (back.saved) row?.setAttribute("data-saved", "");
-    row?.focus({ preventScroll: true });
-  }, [ready, back]);
+    (row as HTMLElement | undefined)?.focus({ preventScroll: true });
+  }, [back]);
+  useLayoutEffect(() => { if (ready) place(); }, [ready, place]);
   useEffect(() => {
     if (!ready || !toast) return;
     const timer = window.setTimeout(() => setToast(false), 4000);
@@ -201,10 +221,10 @@ export function ProgramList({ me }: { me: MeResponse }) {
       <PageHead title="Programm" />
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
         // One click handler for every row: the list comes back to the row it was left from.
-        <div ref={list} className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
+        <div className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
           {reward && program.state === "ok" ? <>
             <div className={styles.col}>
-              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} rewards={program.data.rewards} /></MixSection></div>
+              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} rewards={program.data.rewards} place={place} /></MixSection></div>
               {section("So sammeln Kunden")}
               {section("Infos auf der Karte")}
             </div>
