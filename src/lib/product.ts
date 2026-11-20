@@ -61,7 +61,8 @@ const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. 
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
 /** `newShop: false` (the setup route while public registration is closed): an account without a role gets no shop of its own; only the owner of a shop the operator created finishes its setup.
- *  `requireAcceptance` (the setup route while it is open, ENG-277): a new shop only for an account that accepted the terms at /register. */
+ *  `requireAcceptance` (the setup route while it is open, ENG-277): a new shop only for an account that accepted the terms at /register.
+ *  Only an invited owner (operator-made shop, paper contract) skips it, through the existing-owner branch; staff never get a shop. */
 export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true, requireAcceptance = false } = {}) {
   const input = merchantInput.parse(raw);
   const earningMode = input.earningMode ?? "manual";

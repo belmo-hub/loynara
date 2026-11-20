@@ -91,3 +91,23 @@ it("sets up a shop through the setup route only for an account that accepted at 
   expect(created.status).toBe(201);
   expect((await rows()).map(row => row.tenant_id)).toEqual([(await created.json()).tenantId]);
 });
+
+it("gives a staff-invite account without an acceptance no shop of its own (CTO, 20 Nov)", async () => {
+  const { acceptStaffInvite, createStaffInvite } = await import("./staff");
+  const ownerEmail = `${randomUUID()}@example.test`;
+  await signUp(ownerEmail, SIGNUP_ACCEPTANCE_TEXT_VERSION);
+  const owner = await userId(ownerEmail);
+  const shop = await createMerchant({ userId: owner, businessName: "Synthetic Staff Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 });
+  for (const role of ["cashier", "manager"] as const) {
+    const email = `${randomUUID()}@example.test`;
+    const invite = await createStaffInvite({ actorUserId: owner, locationId: shop.locationId, email, role });
+    await signUp(email);
+    const staff = await userId(email);
+    const setup = { userId: staff, businessName: `Synthetic ${role} shop`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10 } as const;
+    // Before accepting the invitation, and after: no row, so no shop.
+    await expect(createMerchant(setup, { requireAcceptance: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await acceptStaffInvite({ userId: staff, token: invite.token });
+    await expect(createMerchant(setup, { requireAcceptance: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  }
+  expect((await pool.query("SELECT count(*)::int AS n FROM tenants")).rows[0].n).toBe(1);
+});
