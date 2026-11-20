@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLayoutEffect, useRef, useState, ViewTransition, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, ViewTransition, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Activity as ActivityIcon, ArrowRight, ChevronDown, ChevronRight, Clock, Gift, RefreshCw, ScanLine, Search, Target, Users, type LucideIcon } from "lucide-react";
 import { apiJson, type PublicProgram } from "@/components/client-api";
 import { cardGoal, type CardReward } from "@/components/customer/card-face";
@@ -110,6 +110,41 @@ export function groupCount(s: RetentionSummary, filters: Pick<Filters, "activity
 
 /** Where Back lands after a card: the list it was opened from and that list's scroll offset when the row was tapped. */
 let listY: { list: string; y: number } | null = null;
+/** The row tapped last, with what its card's face needs: the card screen paints it from these in the navigation's commit. */
+let opened: { member: MerchantMember; program: PublicProgram } | null = null;
+
+/**
+ * ENG-299: a card opened from its row grows out of the row's thumbnail, and shrinks back into it on the way back. While
+ * data-ow-card is on the root the tapped row's lead and the card's face share one view-transition name (owner.css); the
+ * card's boundary takes it off once the change has captured both. Anything else (a tab, a search, a filter) names nothing.
+ */
+const pairCard = (way: "open" | "back") => document.documentElement.setAttribute("data-ow-card", way);
+const unpairCard = () => document.documentElement.removeAttribute("data-ow-card");
+/** The card's boundary calls this as the change starts. The value sets the corners' direction until the change has
+ *  finished: its layers paint one frame after their animations end, and without "back" that frame was a pill. */
+function unpairAfter() {
+  const root = document.documentElement;
+  const change = (document as Document & { activeViewTransition?: { finished: Promise<void> } | null }).activeViewTransition;
+  if (change) { void change.finished.finally(unpairCard); return; }
+  // Where the document does not expose the change, the root says while one is running.
+  if (!CSS.supports("selector(:active-view-transition)")) { unpairCard(); return; }
+  const wait = () => { if (root.matches(":active-view-transition")) requestAnimationFrame(wait); else unpairCard(); };
+  requestAnimationFrame(wait);
+}
+/** A plain click: a modifier or another button opens the link elsewhere and must mark nothing. */
+const plain = (event: React.MouseEvent) => !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0;
+/** Opening and closing a card need nothing from the server, so a plain click changes the address in place (Next.js keeps
+ *  its router in step): the change starts at the tap, not after a round trip. Callers check `plain` first. */
+function inPlace(event: React.MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  window.history.pushState(null, "", event.currentTarget.href);
+}
+/** Back shrinks the card only where both ends are in view: the card's top on screen and its row under it in the list.
+ *  The history's Back runs no view transition in Next.js, so it stays a cut. */
+function pairBack(card: string) {
+  const face = document.querySelector("[data-card-face]")?.getBoundingClientRect();
+  if (opened?.member.id === card && face && face.top >= 0 && face.top < window.innerHeight && document.querySelector(".ow-under [data-opened]")) pairCard("back");
+}
 
 /**
  * Kunden (ENG-122a, rest-build-map 01–06): the groups, one group's cards, one card. A card opens over its list (`card` in
@@ -126,6 +161,7 @@ export function CustomersView() {
   // Opening and closing a card are screen changes of their own (freshFade); the path stays the same.
   const shownCard = useRef(card);
   useLayoutEffect(() => { if (card !== shownCard.current) freshFade(); shownCard.current = card; }, [card]);
+  useEffect(() => unpairCard, []);
   useLayoutEffect(() => {
     // Back from a card is a return, not an arrival: showing the list again restarts its entrances, so they end before
     // the paint. A loop (the placeholder's shimmer) has no end to jump to and is left alone.
@@ -140,7 +176,8 @@ export function CustomersView() {
   // or a filter starts no change, so those stay in place with no fade. The card's box stays while its loading frame is
   // swapped for the card.
   return <>
-    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none"><div><CardScreen key={card} id={card} back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten" }}
+    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none" onEnter={unpairAfter} onExit={unpairAfter}><div><CardScreen key={card} id={card} seed={opened?.member.id === card ? opened : undefined}
+      back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten", onClick: event => { if (plain(event)) { pairBack(card); inPlace(event); } } }}
       onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} /></div></ViewTransition>}
     <div ref={listBox} className="ow-under" hidden={Boolean(card)}><ListScreen fresh={fresh} /></div>
   </>;
@@ -316,7 +353,18 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
           // As on the card's page: the target is the active location's programme, so only its own open cards have one.
           const ours = !member.closedAt && member.locationId === me.locationId;
           const target = ours ? cardGoal(rewards, member.balance) : undefined;
-          return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={() => { listY = { list: list.toString(), y: window.scrollY }; }}>
+          return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={event => {
+            // A new tab or window: the link's own, and nothing here is marked.
+            if (!plain(event)) return;
+            listY = { list: list.toString(), y: window.scrollY };
+            // A row without a goal has no thumbnail to grow from: its card comes in with the screen change alone.
+            opened = target && program.state === "ok" ? { member, program: program.data } : null;
+            for (const row of document.querySelectorAll("[data-opened]")) row.removeAttribute("data-opened");
+            if (opened) { event.currentTarget.setAttribute("data-opened", ""); pairCard("open"); }
+            // The card needs nothing from the server, so the address changes in place (Next.js keeps its router in step):
+            // the change starts at the tap, not after a round trip.
+            inPlace(event);
+          }}>
             {cardLead(member, target, dearest)}
             <span className="ow-prog-main">
               <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <MixChip>Geschlossen</MixChip>

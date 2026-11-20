@@ -36,7 +36,7 @@ function referralLabel(value: MerchantMember["referralStatus"]) {
  * figures, „Verlauf“ grouped by day with „Korrigieren“ per entry, „Details“, then „Karte neu ausstellen“. Correcting (04) and reissuing (05/06) are steps in
  * this page's history (useReview), so Back returns to the card. `onMember` tells the list what the card read says now.
  */
-export function CardScreen({ id, back, onMember }: { id: string; back: { href: string; label: string }; onMember: (member: MerchantMember) => void }) {
+export function CardScreen({ id, seed, back, onMember }: { id: string; seed?: { member: MerchantMember; program: PublicProgram }; back: Back; onMember: (member: MerchantMember) => void }) {
   const me = useOwner().me!;
   const [first, reload] = useLoad<MerchantMemberDetail>(`/api/merchant/customers/${encodeURIComponent(id)}`);
   // The target reward comes from the active location's programme: the card read lists only the rewards already reached.
@@ -48,6 +48,8 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
   const { step, open, back: stepBack } = useReview<string>();
   const box = useRef<HTMLDivElement>(null), y = useRef(0);
   const detail = first.state === "ok" ? first.data : null, loaded = detail !== null;
+  // Opened from its row, a points card's fill grows once the card has landed (ENG-299); a step's return does not grow it again.
+  const [grow, setGrow] = useState(Boolean(seed));
   useEffect(() => { if (detail) onMember(detail.member); }, [detail, onMember]);
   // A step or the card comes in at the top with its heading focused; back on the card, where it was left (or at the notice).
   useLayoutEffect(() => {
@@ -57,14 +59,16 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
 
   // A failed read shows no title placeholder; a card that is not there (404) gets no retry, which could not find it.
   if (first.state === "error") return <div ref={box} className="ow-page"><Head back={back} title={null} /><div className={s.alert}><ErrorNotice message={first.message} onRetry={first.status === 404 ? undefined : reload} /></div></div>;
-  if (!detail) return <div ref={box} className="ow-page"><Head back={back} /><CardLoading /></div>;
+  // From its row the card is there in the navigation's own commit, painted from the row; only the rest waits for the read.
+  if (!detail && !seed) return <div ref={box} className="ow-page"><Head back={back} /><CardLoading /></div>;
 
-  const member = detail.member, kind = member.programType;
-  const timeline = [...detail.timeline, ...older?.timeline ?? []];
-  const nextCursor = older ? older.next : detail.nextCursor;
+  const member = detail?.member ?? seed!.member, kind = member.programType;
+  const programData = program.state === "ok" ? program.data : seed?.program;
+  const timeline = [...detail?.timeline ?? [], ...older?.timeline ?? []];
+  const nextCursor = older ? older.next : detail?.nextCursor ?? null;
   // Corrections and reissues run against the active location (the server checks the same); elsewhere only explain.
   const canAct = member.locationId === me.locationId && !member.closedAt;
-  const openStep = (next: string) => { y.current = window.scrollY; setNotice(""); open(next); };
+  const openStep = (next: string) => { y.current = window.scrollY; setNotice(""); setGrow(false); open(next); };
   const done = (text: string) => { setNotice(text); setOlder(null); reload(); y.current = 0; };
   const stepBackTo = { label: member.cardLocator, onClick: stepBack };
   const correcting = step?.startsWith("correct:") ? timeline.find(entry => entry.id === step.slice(8)) : undefined;
@@ -72,9 +76,9 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
   if (canAct && correcting && correctable(correcting)) return <div ref={box}><CorrectionStep entry={correcting} kind={kind} locationId={me.locationId} balance={member.balance} back={stepBackTo}
     onDone={() => { done("Korrektur gebucht. Der Kontostand und der Verlauf sind aktualisiert."); stepBack(); }} /></div>;
 
-  const target = !member.closedAt && member.locationId === me.locationId && program.state === "ok" ? nearestReward(program.data.rewards, member.balance) : undefined;
+  const target = !member.closedAt && member.locationId === me.locationId && programData ? nearestReward(programData.rewards, member.balance) : undefined;
   // The mix card counts to the next reward not reached yet, as the guest's card and the Kasse do (Design, #285 b).
-  const rewards = program.state === "ok" ? program.data.rewards : [], mixTarget = target && cardGoal(rewards, member.balance);
+  const rewards = programData?.rewards ?? [], mixTarget = target && cardGoal(rewards, member.balance);
   async function loadOlder() {
     if (!nextCursor || olderBusy) return;
     setOlderBusy(true); setOlderError("");
@@ -89,7 +93,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     if (last?.[0] === day) last[1].push(entry); else list.push([day, [entry]]);
     return list;
   }, []);
-  const details: Array<[string, string | number]> = [
+  const details: Array<[string, string | number]> = !detail ? [] : [
     ["Prämienstatus", eligibilityLabel(member.eligibility)],
     ...detail.eligibleRewards.length > 0 ? [["Jetzt einlösbar", detail.eligibleRewards.map(reward => `${reward.title} · ${withUnit(reward.cost, kind)}`).join(", ")] as [string, string]] : [],
     ["Erste Buchung", when(member.firstQualifyingAt)],
@@ -103,11 +107,11 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
     <div ref={box} className="ow-page">
       <Head back={back} title={member.cardLocator} closed={Boolean(member.closedAt)} />
       {notice && <Notice tone="ok" role="status">{notice}</Notice>}
-      <div className={s.layout}>
-        {mixTarget && program.state === "ok"
-          ? <div className={s.card} style={merchantPalette(program.data.brandColor ?? "", "light").cssVars as CSSProperties}>
-            <MixCard businessName={program.data.businessName} locationName={program.data.locationName} programType={kind === "points" ? "points" : "stamps"}
-              balance={member.balance} reward={mixTarget} rewards={rewards} lineReward={target} voice="owner" />
+      <div className={s.layout} aria-busy={!detail || undefined}>
+        {mixTarget && programData
+          ? <div className={s.card} data-card-face="" style={merchantPalette(programData.brandColor ?? "", "light").cssVars as CSSProperties}>
+            <MixCard businessName={programData.businessName} locationName={programData.locationName} programType={kind === "points" ? "points" : "stamps"}
+              balance={member.balance} reward={mixTarget} rewards={rewards} lineReward={target} voice="owner" grow={grow && kind === "points"} />
           </div>
           // A card without a target (no reward set up, closed, another location) keeps the house balance block.
           : <section className={cx("ow-board ow-stand", s.card)} aria-labelledby="cu-stand">
@@ -115,6 +119,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
             <p className="ow-board-big"><NumberRoll value={member.balance}>{nf.format(member.balance)}</NumberRoll>{NBSP}<small>{unitWord(member.balance, kind)}</small></p>
             {target && <p className="ow-board-news">{progressLine(member.balance, target, kind)}</p>}
           </section>}
+        {!detail ? <CardRest /> : <>
         <MixPanel pad className={s.facts}>
           <Fact value={nf.format(member.qualifyingCheckouts)} label={member.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"} />
           <Fact value={nf.format(member.redemptionCount)} label={member.redemptionCount === 1 ? "Einlösung" : "Einlösungen"} />
@@ -141,6 +146,7 @@ export function CardScreen({ id, back, onMember }: { id: string; back: { href: s
               <ChevronRight className={mixStyles.chev} size={20} aria-hidden="true" /></span>
           </button></MixPanel>
           : <MixPanel pad className={s.action}><p className={mixStyles.sub}>Korrigieren und neu ausstellen ist am Standort {member.locationName} möglich. Wechsle dazu den aktiven Standort.</p></MixPanel>)}
+        </>}
       </div>
     </div>
   );
@@ -154,6 +160,13 @@ const Bar = ({ width, height, className }: { width: number | string; height: num
 function CardLoading() {
   return <div className={s.layout} role="status" aria-label="Wird geladen" aria-busy="true">
     <div className={cx("ow-ph", s.sk, s.card, s.ghost)} aria-hidden="true" />
+    <CardRest />
+  </div>;
+}
+
+/** The figures and „Verlauf“ while they load; the card above them may already be painted from its row. */
+function CardRest() {
+  return <>
     <MixPanel pad className={s.facts}>
       {[[32, 72], [32, 64], [128, 64]].map(([figure, label], i) => <div key={i} aria-hidden="true"><Bar width={figure} height={20} /><span className={s.label}><Bar width={label} height={12} /></span></div>)}
     </MixPanel>
@@ -164,7 +177,7 @@ function CardLoading() {
         <div className={mixStyles.body}><span className={mixStyles.text}><Bar width={96} height={16} /><Bar width={110} height={12} /></span><Bar width={40} height={16} className={s.amountBar} /></div>
       </div>)}
     </section>
-  </div>;
+  </>;
 }
 
 /** A figure over its label in the wide rail, a row with the label first up to 1199 (the phone since ENG-290). */
@@ -213,9 +226,10 @@ export function dayLabel(at: string, today = new Date()) {
 }
 
 /** Back to the list the card came from, and the card number as the heading (a placeholder while it loads). */
-function Head({ back, title, closed = false }: { back: { href: string; label: string }; title?: string | null; closed?: boolean }) {
+type Back = { href: string; label: string; onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void };
+function Head({ back, title, closed = false }: { back: Back; title?: string | null; closed?: boolean }) {
   return <header className="ow-pagehead"><div className="ow-qhead">
-    <Link href={back.href} scroll={false} className="ow-back"><ChevronLeft size={20} aria-hidden="true" />{back.label}</Link>
+    <Link href={back.href} scroll={false} className="ow-back" onClick={back.onClick}><ChevronLeft size={20} aria-hidden="true" />{back.label}</Link>
     {title ? <h1 tabIndex={-1} className={s.cardNumber}>{title}</h1> : title === null ? null : <Bar width={200} height={34} className={s.titleBar} />}
     {closed && <span className="ow-chip">Geschlossen</span>}
   </div></header>;
