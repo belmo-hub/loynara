@@ -29,13 +29,13 @@ test.beforeEach(async () => {
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const inLayer = (prefix: string, running = false) => page.evaluate(([start, mustRun]) => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(start as string) && (!mustRun || animation.playState === "running")), [prefix, running] as const);
 /** The layers of the screens, not those of the bars or the hidden root. */
-const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\)|ow-card\))/;
+const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/;
 /** Resolves in the frame in which the outgoing screen's fade exists. */
 const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(") && !/\((root|ow-topbar|ow-subnav|ow-tabs)\)/.test((animation.effect as KeyframeEffect).pseudoElement!)));
 /** From the next frame on, until the change ends: in every frame, the opacity of each screen layer. */
-const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[]; block: number | null }[]>(done => {
+const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[]; block: number | null; card: boolean }[]>(done => {
   const screen = new RegExp(source);
-  const frames: { old: number[]; new: number[]; block: number | null }[] = [];
+  const frames: { old: number[]; new: number[]; block: number | null; card: boolean }[] = [];
   let seen = false;
   const look = () => {
     const old = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition-old(") && screen.test(layer));
@@ -45,7 +45,7 @@ const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; n
       const names = [...document.querySelectorAll<HTMLElement>(".ow-content, .ow-content *")].map(node => getComputedStyle(node).viewTransitionName).filter(name => name && name !== "none");
       seen = true;
       const block = document.querySelector(".ow-content [data-arrive]");
-      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)), block: block ? Number(getComputedStyle(block).opacity) : null });
+      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)), block: block ? Number(getComputedStyle(block).opacity) : null, card: old.some(layer => layer.includes("(ow-card)")) || document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.includes("(ow-card)")) });
     } else if (seen) { done(frames); return; }
     requestAnimationFrame(look);
   };
@@ -99,7 +99,8 @@ test("the old screen is invisible at rest: only its running fade shows it", asyn
 test("each screen change takes the other pair of keyframes", async () => {
   const names = async () => {
     await fadeStarted();
-    const used = await page.evaluate(source => document.getAnimations().flatMap(animation => new RegExp(source).test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []), SCREEN.source);
+    // The screens' fades; a card's own pair has its own names (the card tests).
+    const used = await page.evaluate(source => document.getAnimations().flatMap(animation => { const layer = (animation.effect as KeyframeEffect | null)?.pseudoElement ?? ""; return new RegExp(source).test(layer) && !layer.includes("(ow-card)") ? [(animation as CSSAnimation).animationName] : []; }), SCREEN.source);
     await settled();
     return [...new Set(used)].sort().join(" ");
   };
@@ -349,6 +350,7 @@ test("the old screen is never above 40 % while the new one is in place; the new 
     expect(fading.length, `${name}: frames with the old screen leaving over the new screen's first block`).toBeGreaterThan(0);
     expect(fading.filter(frame => Math.max(...frame.old) > 0.41), `${name}: frames with the old screen above 40 %`).toEqual([]);
     expect(seen.flatMap(frame => frame.new).every(value => value === 1), `${name}: the new screen is at full in every frame`).toBe(true);
+    expect(seen.filter(frame => frame.card), `${name}: a tab change carries no card layer`).toEqual([]);
   }
   // The hidden root takes no fade of its own: in WebKit it kept the change alive for 250 ms after the old screen left.
   await tab("Mehr").click();
@@ -359,15 +361,19 @@ test("the old screen is never above 40 % while the new one is in place; the new 
 // ENG-299: a card opened from its Kunden row grows out of the row's thumbnail and shrinks back into it. Exactly one pair
 // is named, only for those two changes; the card is there in the change's first frame; the address changes in place.
 /** Every frame of the next change: its ow-card layers, whether the card's face is there, and whether a loading frame is. */
-const watchCard = () => page.evaluate(() => new Promise<{ card: string[]; face: boolean; loading: boolean }[]>(done => {
-  const frames: { card: string[]; face: boolean; loading: boolean }[] = [];
+type Pair = { name: string; direction: string; blend: string[] };
+const watchCard = () => page.evaluate(() => new Promise<{ card: string[]; face: boolean; loading: boolean; pair: Pair | null }[]>(done => {
+  const frames: { card: string[]; face: boolean; loading: boolean; pair: Pair | null }[] = [];
   const end = performance.now() + 3000;
   let seen = false;
   const look = () => {
     const layers = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition"));
     if (layers.length) {
       seen = true;
-      frames.push({ card: [...new Set(layers.filter(layer => layer.includes("(ow-card)")))], face: !!document.querySelector("[data-card-face]"), loading: !!document.querySelector(".ow-content [role=status][aria-busy=true]") });
+      const corners = document.getAnimations().find(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement === "::view-transition-image-pair(ow-card)") as CSSAnimation | undefined;
+      const root = document.documentElement;
+      frames.push({ card: [...new Set(layers.filter(layer => layer.includes("(ow-card)")))], face: !!document.querySelector("[data-card-face]"), loading: !!document.querySelector(".ow-content [role=status][aria-busy=true]"),
+        pair: corners ? { name: corners.animationName, direction: getComputedStyle(root, "::view-transition-image-pair(ow-card)").animationDirection, blend: ["old", "new"].map(side => getComputedStyle(root, `::view-transition-${side}(ow-card)`).mixBlendMode) } : null });
     } else if (seen || performance.now() > end) { done(frames); return; }
     requestAnimationFrame(look);
   };
@@ -393,16 +399,18 @@ test("a card grows out of its row and shrinks back into it: one named pair, the 
   await expect(page).toHaveURL(card);
   const growing = open.filter(frame => frame.card.length);
   expect(growing.length, "the card grows").toBeGreaterThan(0);
-  expect([...new Set(growing.flatMap(frame => frame.card))].sort(), "one pair: the card's group, the thumbnail leaving and the card arriving").toEqual(["::view-transition-group(ow-card)", "::view-transition-new(ow-card)", "::view-transition-old(ow-card)"]);
+  expect([...new Set(growing.flatMap(frame => frame.card))].sort(), "one pair: the card's group, its corners, the thumbnail leaving and the card arriving").toEqual(["::view-transition-group(ow-card)", "::view-transition-image-pair(ow-card)", "::view-transition-new(ow-card)", "::view-transition-old(ow-card)"]);
   expect(growing.every(frame => frame.face && !frame.loading), "the card is painted from its row in every frame, with no loading frame in its place").toBe(true);
   expect(reads, "opening a card asks the server for nothing but its data").toEqual([]);
-  expect(await page.evaluate(() => document.documentElement.hasAttribute("data-ow-card")), "the pair is named only for the change").toBe(false);
+  expect(open.find(frame => frame.pair)?.pair, "the image pair carries the corners and the shadow forward; both images add up (plus-lighter)").toEqual({ name: expect.stringMatching(/^ow-card-corners/), direction: "normal", blend: ["plus-lighter", "plus-lighter"] });
+  await expect.poll(() => page.evaluate(() => document.documentElement.hasAttribute("data-ow-card")), { message: "the pair is named only for the change" }).toBe(false);
   await settled();
 
   frames = watchCard();
   await page.locator(".ow-content a.ow-back:visible").click();
   const back = await frames;
   expect(back.some(frame => frame.card.includes("::view-transition-group(ow-card)")), "the card shrinks into its row").toBe(true);
+  expect(back.find(frame => frame.pair)?.pair?.direction, "the corners and the shadow go back to the thumbnail's").toBe("reverse");
   await expect(cardRow()).toBeVisible();
   await settled();
   // A tab change from the list names no row.
@@ -505,4 +513,37 @@ test("content that takes a placeholder's place fades in from a floor: no frame s
     expect(seen.some(frame => frame.swap !== null), `${name}: the content is marked as taking the placeholder's place`).toBe(true);
     expect(seen.filter(frame => !frame.placeholder && (frame.swap === null || frame.swap < 0.39)), `${name}: frames with neither placeholder nor content at 40 %`).toEqual([]);
   }
+});
+
+test("a modified or middle click on a row marks nothing: the next tab change has no card layer", async () => {
+  await toList();
+  for (const click of [{ modifiers: ["ControlOrMeta"] as const }, { modifiers: ["Shift"] as const }, { button: "middle" as const }]) {
+    const opened = page.context().waitForEvent("page", { timeout: 3000 }).then(other => other.close()).catch(() => {});
+    await cardRow().click({ ...click, modifiers: click.modifiers ? [...click.modifiers] : undefined });
+    await opened;
+    expect(await page.evaluate(() => [document.documentElement.hasAttribute("data-ow-card"), document.querySelectorAll("[data-opened]").length]), `${JSON.stringify(click)}: nothing marked`).toEqual([false, 0]);
+  }
+  await expect(page).toHaveURL(/\/merchant\/customers\?activity=all$/);
+  const frames = watchLayers();
+  await tab("Programm").click();
+  expect((await frames).filter(frame => frame.card), "the tab change carries no card layer").toEqual([]);
+});
+
+test("a card's own read starts at the tap: with a 120 ms server its page is complete within about 300 ms", async () => {
+  await toList();
+  await page.route(/\/api\/merchant\/customers\/[^?/]+$/, async route => { await new Promise(done => setTimeout(done, 120)); await route.continue(); });
+  try {
+    const done = page.evaluate(() => new Promise<number>(resolve => {
+      document.addEventListener("pointerdown", () => {
+        const down = performance.now();
+        const look = () => { // The list under the card stays mounted and hidden: only placeholders on screen count.
+        if (document.querySelector("[data-card-face]") && ![...document.querySelectorAll(".ow-content .ow-ph")].some(node => node.checkVisibility())) resolve(performance.now() - down); else requestAnimationFrame(look); };
+        requestAnimationFrame(look);
+      }, { capture: true, once: true });
+    }));
+    await cardRow().click();
+    const ms = Math.round(await done);
+    // About 300 by Design's ruling: the 120 ms read plus the request's own trip; under the growth's 480 ms in any case.
+    expect(ms, `ms from the tap to the page with no placeholder left (${ms})`).toBeLessThan(400);
+  } finally { await page.unroute(/\/api\/merchant\/customers\/[^?/]+$/); }
 });

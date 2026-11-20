@@ -118,12 +118,18 @@ let opened: { member: MerchantMember; program: PublicProgram } | null = null;
  * data-ow-card is on the root the tapped row's lead and the card's face share one view-transition name (owner.css); the
  * card's boundary takes it off once the change has captured both. Anything else (a tab, a search, a filter) names nothing.
  */
-const pairCard = () => document.documentElement.setAttribute("data-ow-card", "");
+const pairCard = (way: "open" | "back") => document.documentElement.setAttribute("data-ow-card", way);
 const unpairCard = () => document.documentElement.removeAttribute("data-ow-card");
+/** The card's boundary calls this as the change starts: the value still sets the corners' direction until it ends. */
+function unpairAfter() {
+  const running = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.includes("(ow-card)"));
+  void Promise.allSettled(running.map(animation => animation.finished)).then(unpairCard);
+}
+/** A plain click: a modifier or another button opens the link elsewhere and must mark nothing. */
+const plain = (event: React.MouseEvent) => !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0;
 /** Opening and closing a card need nothing from the server, so a plain click changes the address in place (Next.js keeps
- *  its router in step): the change starts at the tap, not after a round trip. */
+ *  its router in step): the change starts at the tap, not after a round trip. Callers check `plain` first. */
 function inPlace(event: React.MouseEvent<HTMLAnchorElement>) {
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
   event.preventDefault();
   window.history.pushState(null, "", event.currentTarget.href);
 }
@@ -131,7 +137,7 @@ function inPlace(event: React.MouseEvent<HTMLAnchorElement>) {
  *  The history's Back runs no view transition in Next.js, so it stays a cut. */
 function pairBack(card: string) {
   const face = document.querySelector("[data-card-face]")?.getBoundingClientRect();
-  if (opened?.member.id === card && face && face.top >= 0 && face.top < window.innerHeight && document.querySelector(".ow-under [data-opened]")) pairCard();
+  if (opened?.member.id === card && face && face.top >= 0 && face.top < window.innerHeight && document.querySelector(".ow-under [data-opened]")) pairCard("back");
 }
 
 /**
@@ -164,8 +170,8 @@ export function CustomersView() {
   // or a filter starts no change, so those stay in place with no fade. The card's box stays while its loading frame is
   // swapped for the card.
   return <>
-    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none" onEnter={unpairCard} onExit={unpairCard}><div><CardScreen key={card} id={card} seed={opened?.member.id === card ? opened : undefined}
-      back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten", onClick: event => { pairBack(card); inPlace(event); } }}
+    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none" onEnter={unpairAfter} onExit={unpairAfter}><div><CardScreen key={card} id={card} seed={opened?.member.id === card ? opened : undefined}
+      back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten", onClick: event => { if (plain(event)) { pairBack(card); inPlace(event); } } }}
       onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} /></div></ViewTransition>}
     <div ref={listBox} className="ow-under" hidden={Boolean(card)}><ListScreen fresh={fresh} /></div>
   </>;
@@ -342,11 +348,13 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
           const ours = !member.closedAt && member.locationId === me.locationId;
           const target = ours ? cardGoal(rewards, member.balance) : undefined;
           return <li key={member.id}><Link className="ow-prog-row" href={`/merchant/customers?${href}`} scroll={false} onClick={event => {
+            // A new tab or window: the link's own, and nothing here is marked.
+            if (!plain(event)) return;
             listY = { list: list.toString(), y: window.scrollY };
             // A row without a goal has no thumbnail to grow from: its card comes in with the screen change alone.
             opened = target && program.state === "ok" ? { member, program: program.data } : null;
             for (const row of document.querySelectorAll("[data-opened]")) row.removeAttribute("data-opened");
-            if (opened) { event.currentTarget.setAttribute("data-opened", ""); pairCard(); }
+            if (opened) { event.currentTarget.setAttribute("data-opened", ""); pairCard("open"); }
             // The card needs nothing from the server, so the address changes in place (Next.js keeps its router in step):
             // the change starts at the tap, not after a round trip.
             inPlace(event);

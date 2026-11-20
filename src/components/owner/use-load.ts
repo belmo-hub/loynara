@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { apiJson, ClientApiError } from "@/components/client-api";
 
 export type Loadable<T> = { state: "idle" } | { state: "loading" } | { state: "ok"; data: T; at: number } | { state: "error"; message: string; status?: number };
@@ -11,7 +11,9 @@ export function useLoad<T>(url: string | null): [Loadable<T>, () => void] {
   const [store, setStore] = useState<Stored<T> | null>(null);
   const [tick, setTick] = useState(0);
   const key = url ? `${url}#${tick}` : null;
-  useEffect(() => {
+  // A layout effect, so the read starts in the commit that shows the screen: in a screen change React holds passive
+  // effects until its animations end, which kept a card's page on placeholders for the whole growth (ENG-299).
+  useLayoutEffect(() => {
     if (!url || !key) return;
     let live = true;
     void apiJson<T>(url).then(data => { if (live) setStore({ url, key, value: { state: "ok", data, at: Date.now() } }); })

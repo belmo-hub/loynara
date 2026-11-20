@@ -127,18 +127,29 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
    like a screen and stands at full again when the card closes. */
 .ow-under { view-transition-name: ow-under; view-transition-class: ow-screen; }
 /* ENG-299: a card opened from its row grows out of the row's thumbnail and shrinks back into it. customers-view puts
-   data-ow-card on the root for exactly those changes, so a tab, a search or a filter names no row. The thumbnail fades
-   out and the card in over the first 40 %; the box moves and scales the whole way, clipped to the card's corners.
-   Both fades rest at their end state and alternate their keyframe names with the screens' (ENG-219, ENG-221). */
+   data-ow-card="open" or "back" on the root for exactly those changes, so a tab, a search or a filter names no row. The
+   box moves and scales over --dur-reward on the drawer curve; the image pair clips it and carries the corners and the
+   shadow from the thumbnail's (--radius-sm, none) to the card's (--radius-xl, --shadow-object) and back. The thumbnail
+   and the card crossfade (plus-lighter, so the box stays covered) over the first 25 % on open, when the box is still
+   small, and over the last 40 % on back. Both fades rest at their end state and alternate their keyframe names with the
+   screens' (ENG-219, ENG-221). */
 :root[data-ow-card] .ow-under [data-opened] > :first-child, :root[data-ow-card] [data-card-face] { view-transition-name: ow-card; }
 /* Above the screens: on the way back the list is a layer only the new state has, which the browser would paint over the
    card. The bars stay above it (--z-nav). */
-::view-transition-group(ow-card) { z-index: var(--z-sticky); animation-duration: var(--dur-reward); animation-timing-function: var(--ease-drawer); border-radius: var(--radius-xl); overflow: hidden; }
-::view-transition-old(ow-card), ::view-transition-new(ow-card) { height: 100%; object-fit: cover; }
-::view-transition-old(ow-card) { opacity: 0; animation: ow-fade-out calc(var(--dur-reward) * .4) linear; }
-::view-transition-new(ow-card) { animation: ow-fade calc(var(--dur-reward) * .4) linear both; }
-:root[data-ow-fade]::view-transition-old(ow-card) { animation-name: ow-fade-out-b; }
+::view-transition-group(ow-card) { z-index: var(--z-sticky); animation-duration: var(--dur-reward); animation-timing-function: var(--ease-drawer); }
+::view-transition-image-pair(ow-card) { overflow: hidden; border-radius: var(--radius-xl); box-shadow: var(--shadow-object); animation: ow-card-corners var(--dur-reward) var(--ease-drawer) both; }
+:root[data-ow-card="back"]::view-transition-image-pair(ow-card) { animation-direction: reverse; }
+@keyframes ow-card-corners { from { border-radius: var(--radius-sm); box-shadow: none; } to { border-radius: var(--radius-xl); box-shadow: var(--shadow-object); } }
+:root[data-ow-fade]::view-transition-image-pair(ow-card) { animation-name: ow-card-corners-b; }
+@keyframes ow-card-corners-b { from { border-radius: var(--radius-sm); box-shadow: none; } to { border-radius: var(--radius-xl); box-shadow: var(--shadow-object); } }
+::view-transition-old(ow-card), ::view-transition-new(ow-card) { height: 100%; object-fit: cover; mix-blend-mode: plus-lighter; }
+::view-transition-old(ow-card) { opacity: 0; animation: ow-card-out calc(var(--dur-reward) * .25) linear both; }
+::view-transition-new(ow-card) { animation: ow-fade calc(var(--dur-reward) * .25) linear both; }
+:root[data-ow-card="back"]::view-transition-old(ow-card), :root[data-ow-card="back"]::view-transition-new(ow-card) { animation-duration: calc(var(--dur-reward) * .4); animation-delay: calc(var(--dur-reward) * .6); }
+:root[data-ow-fade]::view-transition-old(ow-card) { animation-name: ow-card-out-b; }
 :root[data-ow-fade]::view-transition-new(ow-card) { animation-name: ow-fade-in-b; }
+@keyframes ow-card-out { from { opacity: 1; } }
+@keyframes ow-card-out-b { from { opacity: 1; } }
 @keyframes ow-fade-in-b { from { opacity: 0; } to { opacity: 1; } }
 /* The rest of the page (the desktop sidebar) does not take part: without this the browser crossfades it by itself. */
 ::view-transition-old(root) { display: none; animation: none; }
