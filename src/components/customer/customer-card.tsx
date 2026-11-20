@@ -127,15 +127,31 @@ export function CustomerCard(props: CustomerCardProps) {
   // plays the goal is the one before it, so the grid does not change under the landing stamp (as the Kasse holds it).
   const selected = rewards.find((reward) => reward.id === selectedId) ?? cardGoal(rewards, moment ? moment.balance - moment.credited : balance);
   const readyCount = rewards.filter((reward) => balance >= reward.cost).length;
-  // During a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak of
-  // the real balance from the start: a line count that changed at the step would move the card as the stamp lands.
-  const told = moment ? moment.balance : balance;
-  const toldSelected = rewards.find((reward) => reward.id === selectedId) ?? nearestReward(rewards, told);
-  const toldReady = rewards.filter((reward) => told >= reward.cost).length;
-  const toldNext = [...rewards].filter((reward) => reward.cost > told).sort((a, b) => a.cost - b.cost)[0];
+  // Stamps: during a booking moment the card steps from the balance last seen, but the words (goal line, ticket hint) speak
+  // of the real balance from the start: a line count that changed at the step would move the card as the stamp lands.
+  // Points (Design, 20 Nov): the foot speaks of the balance the card shows, and a booking that made a reward ready
+  // brings its new words in with the ready band, after the last crossed marker has pressed.
+  const crossed = moment ? rewards.filter((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited).length : 0;
+  const [wordsFor, setWordsFor] = useState<number>();
+  const held = programType === "points" && moment && crossed > 0 && wordsFor !== moment.balance;
+  const momentBalance = moment?.balance;
+  useEffect(() => {
+    if (programType !== "points" || momentBalance === undefined || !crossed || landed === undefined) return;
+    const root = getComputedStyle(document.documentElement), ms = (name: string) => {
+      const value = root.getPropertyValue(name).trim(); // the minifier writes .22s, so the unit is read too
+      return parseFloat(value) * (value.endsWith("ms") ? 1 : 1000) || 0;
+    };
+    const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms("--dur-ui") + ms("--dur-reward") + (crossed - 1) * 90;
+    const timer = setTimeout(() => setWordsFor(momentBalance), wait);
+    return () => clearTimeout(timer);
+  }, [programType, momentBalance, crossed, landed]);
+  const told = programType === "points" ? (held ? moment.balance - moment.credited : balance) : moment ? moment.balance : balance;
+  const wordsAt = (n: number) => ({ selected: rewards.find((reward) => reward.id === selectedId) ?? nearestReward(rewards, n), readyCount: rewards.filter((reward) => n >= reward.cost).length, nextGoal: [...rewards].filter((reward) => reward.cost > n).sort((a, b) => a.cost - b.cost)[0] });
+  const { selected: toldSelected, readyCount: toldReady, nextGoal: toldNext } = wordsAt(told);
+  // The points words just changed: a sub-line the held words did not have opens its slot.
+  const opening = programType === "points" && moment && crossed > 0 && !held && !goalSub({ t, number, programType, balance: moment.balance - moment.credited, ...wordsAt(moment.balance - moment.credited) });
   // The reward moment (ENG-206): this booking made a reward ready. The card presses once the stamps have landed (CSS).
   // Points: the band opens once the last marker this booking crossed has pressed, 90 ms apart after --dur-ui (Design, 19 Nov).
-  const crossed = moment ? rewards.filter((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited).length : 0;
   const bandDelay = programType === "points" && crossed ? { "--band-delay": `calc(var(--dur-ui) + var(--dur-reward) + ${(crossed - 1) * 90}ms)` } as CSSProperties : undefined;
   const rewardMoment = Boolean(moment && rewards.some((reward) => reward.cost <= moment.balance && reward.cost > moment.balance - moment.credited));
   const notes = goodToKnow({ t, locale, programType, happyHourUntil, winback, pointsExpiry, challenge, level, changes, openRules: () => setSheet("rules") });
@@ -162,7 +178,7 @@ export function CustomerCard(props: CustomerCardProps) {
 
       <div className={`customer-balance-panel ${styles.cardGroup}`}>
         <GuestMixCard className={`customer-card ${styles.object} ${styles.mix}`} businessName={businessName} locationName={locationName} programType={programType} balance={balance} reward={selected ?? NO_REWARD} rewards={rewards} landed={landed} landedCount={landedCount} grow={arriving && !moment} locale={locale}
-          foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} />} />
+          foot={<Goal t={t} number={number} programType={programType} balance={told} selected={toldSelected} readyCount={toldReady} nextGoal={toldNext} opening={Boolean(opening)} />} />
         {/* A reward this booking made ready: the slot opens together with the band, after the stamps have landed. */}
         {readyCount > 0 ? <div className={styles.bandSlot} data-arrive={(moment && !rewards.some((reward) => moment.balance - moment.credited >= reward.cost)) || undefined} style={bandDelay}><div><p className={styles.band}><span className={styles.bandIcon}><Gift size={22} aria-hidden="true" /></span><span><b>{t.readyTitle}</b><small>{t.readyText}</small></span></p></div></div> : null}
       </div>
@@ -388,17 +404,29 @@ function Signpost({ title, sub, onOpen }: { title: string; sub?: string; onOpen:
   </button>;
 }
 
-/** The goal in the card's foot: how many are missing for which reward, or which reward is ready, the reward on its own line. */
-function Goal({ t, number, programType, balance, selected, readyCount, nextGoal }: { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward }) {
+type GoalWords = { t: Copy; number: Intl.NumberFormat; programType: "stamps" | "points"; balance: number; selected?: Reward; readyCount: number; nextGoal?: Reward };
+/** The line under the goal: the ready count, or the next goal once this one is reached. */
+function goalSub({ t, number, programType, balance, selected, readyCount, nextGoal }: GoalWords) {
+  if (!selected) return null;
+  const remaining = Math.max(0, selected.cost - balance), left = nextGoal ? nextGoal.cost - balance : 0;
+  return remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
+    : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(left), t.unit(left, programType), nextGoal.title) : null;
+}
+
+/**
+ * The goal in the card's foot: how many are missing for which reward, or which reward is ready, the reward on its own line.
+ * opening: the words just changed in a points moment and the sub-line is new, so it opens its slot over --dur-ui.
+ */
+function Goal({ opening, ...words }: GoalWords & { opening?: boolean }) {
+  const { t, number, programType, balance, selected } = words;
   if (!selected) return null;
   const unitFor = (n: number) => t.unit(n, programType);
   const remaining = Math.max(0, selected.cost - balance);
-  const sub = remaining > 0 ? (readyCount === 1 ? t.readyOne : readyCount > 1 ? t.readyMany(readyCount) : null)
-    : readyCount > 1 ? t.readyMany(readyCount) : nextGoal ? t.nextGoal(number.format(nextGoal.cost - balance), unitFor(nextGoal.cost - balance), nextGoal.title) : null;
+  const sub = goalSub(words);
   return <>
     <p className={`reward-remaining ${styles.goalLine}`}>{remaining === 0 ? t.readyFor
       : <>{t.still} <NumberRoll value={remaining} className={styles.goalNum}>{number.format(remaining)}</NumberRoll> {t.toReward(unitFor(remaining))}</>} <span className={`goal-reward ${styles.rewardName}`}>{selected.title}</span></p>
-    {sub ? <p className={styles.goalSub}>{sub}</p> : null}
+    {sub ? opening ? <div className={styles.subSlot}><p className={styles.goalSub}>{sub}</p></div> : <p className={styles.goalSub}>{sub}</p> : null}
   </>;
 }
 

@@ -179,6 +179,9 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .bandSlot[data-arrive] { animation: slot-open var(--dur-ui) var(--ease-out) var(--band-delay, var(--dur-reward)) backwards; }
 .bandSlot[data-arrive] .band { animation: band-in var(--dur-ui) var(--ease-out) var(--band-delay, var(--dur-reward)) backwards; }
 @keyframes slot-open { from { grid-template-rows: 0fr; } }
+/* Points: a sub-line the booking's words add opens with the band, in its own slot (Design, 20 Nov). */
+.subSlot { display: grid; grid-template-rows: 1fr; animation: slot-open var(--dur-ui) var(--ease-out) backwards; }
+.subSlot > .goalSub { min-height: 0; overflow: hidden; margin: 0; padding-top: var(--space-1); }
 @keyframes band-in { from { opacity: 0; } }
 @keyframes pill-in { from { opacity: 0; transform: translateY(var(--pill-shift)); } }
 @keyframes pill-out { to { opacity: 0; transform: translateY(var(--pill-shift)); } }
@@ -187,7 +190,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 @keyframes pill-rise { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) {
   .pill { --pill-shift: 0px; }
-  .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band { animation: none; }
+  .pillCheck, .pillCheck path, .pillChip, .bandSlot[data-arrive], .bandSlot[data-arrive] .band, .subSlot { animation: none; }
 }
 
 /* The placeholder's groups are the page's own (.lead, .rest), so its wrapper takes no box. Its blocks fade in, so

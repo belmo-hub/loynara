@@ -15,10 +15,15 @@
 .mark { position: absolute; top: 0; left: calc(var(--at) * 100%); display: grid; justify-items: center; gap: 6px; transform: translateX(-50%); }
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
-/* The mix card (ENG-292): an open marker is a filled dim disc, as the card's open stamp (ruling 1: no dashed ring). */
-.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: 0; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }
-/* Forced colours drop the disc's fill: it takes the open stamp's ring (after the rule above, which it overrides). */
-@media (forced-colors: active) { .ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: 1px solid CanvasText; } }
+/* The mix card (ENG-292): an open marker is a filled dim disc, as the card's open stamp (ruling 1: no dashed ring). It is
+   opaque at the tone 14 % ink gives over the card, so the track does not show through it (Design, 20 Nov). */
+.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 14%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }
+.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }
+/* Forced colours: the disc in Canvas over the track, with the open stamp's ring (after the rule above). */
+@media (forced-colors: active) {
+  .ladder[data-tone="mix"] { --open-disc: Canvas; --open-ring: 1px solid CanvasText; }
+  .ladder[data-tone="mix"] .mark:not([data-reached]) .dot { forced-color-adjust: none; }
+}
 .cost { font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .mark[data-label-hidden] .cost, .mark[data-label-hidden] .title, .title[data-title-hidden], .mark[data-price-hidden] .cost { visibility: hidden; }
 .ladder[data-titles] { height: 80px; }
@@ -37,8 +42,12 @@
 /* On the guest card the crossed marks press 90 ms apart (--land-stagger, set by the page). */
 .mark[data-new] .dot { animation: land var(--dur-reward) var(--ease-out) calc(var(--dur-ui) + var(--land-stagger, 0ms)) both; }
 @keyframes land { from { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } }
+/* In the mix card a crossed marker stays the open disc until its own press, then pops into coral (Design, 20 Nov). */
+.ladder[data-tone="mix"] .mark[data-new] .dot { animation: open-until var(--press-at) linear, pop var(--dur-reward) var(--ease-out) var(--press-at); --press-at: calc(var(--dur-ui) + var(--land-stagger, 0ms)); }
+@keyframes open-until { from, to { border: var(--open-ring); background: var(--open-disc); color: transparent; border-radius: 50%; } }
+@keyframes pop { from { transform: scale(1.3); } 60% { transform: scale(.94); } }
 /* Bars grow: only where the page asks (the guest card's first paint) the fill grows from the start. Anywhere else, and
    on every later change, it moves from the old value to the new, never from 0. */
 .ladder[data-grow] .fill { animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
 @keyframes grow { from { transform: scaleX(0); } }
-@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .ladder[data-grow] .fill, .mark[data-new] .dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .ladder[data-grow] .fill, .mark[data-new] .dot, .ladder[data-tone="mix"] .mark[data-new] .dot { animation: none; } }

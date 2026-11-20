@@ -83,7 +83,7 @@ const rank = (at: number) => (at === 1 ? 0 : at < START_ALIGN ? 1 : 2);
  * still sits under its marker. The ellipsis is the last resort, for a goal wider than the whole track. A price under
  * another reward's shown name is hidden too (`covered`), so no price reads as that name's; its dot stays.
  */
-export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[], prices?: number[]): { titles: Array<{ width: number; shift: number } | null>; covered: boolean[] } {
+export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, track: number, needs: number[], prices?: number[], whole = false): { titles: Array<{ width: number; shift: number } | null>; covered: boolean[] } {
   const placed: Array<[number, number, number]> = [];
   const result: Array<{ width: number; shift: number } | null> = marks.map(() => null);
   const order = marks.map((_, i) => i).filter((i) => !marks[i].hideLabel).sort((a, b) => rank(marks[a].at) - rank(marks[b].at) || marks[b].at - marks[a].at);
@@ -96,6 +96,8 @@ export function titleLayout(marks: Array<{ at: number; hideLabel: boolean }>, tr
     const room = at === 1 ? x + EDGE - left : at < START_ALIGN ? right - (x - EDGE) : right - left;
     const width = Math.max(0, Math.min(needs[i], room));
     if (at !== 1 && width < Math.min(needs[i], TITLE_FLOOR)) continue;
+    // whole (the mix card, Design 20 Nov): a name is never cut; without its room it hides, the goal's too.
+    if (whole && width < needs[i]) continue;
     // A middle name is centred under its marker, slid into its free stretch when it would touch a neighbour.
     const from = at === 1 ? x + EDGE - width : at < START_ALIGN ? x - EDGE : Math.min(Math.max(x - width / 2, left), right - width);
     const shift = at === 1 || at < START_ALIGN ? 0 : from - (x - width / 2);
@@ -151,11 +153,14 @@ export function PointsLadder({ balance, rewards, landedFrom, locale = "de", titl
   const track = measured?.track ?? DEFAULT_TRACK;
   const prices = measured?.prices.length === sorted.length ? measured.prices : sorted.map((r) => estimatePrice(number(r.cost)));
   const marks = hideTouchingPrices(ladderMarks(sorted, max, balance), track, prices);
-  const layout = titles ? titleLayout(marks, track, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title)), prices) : null;
+  const layout = titles ? titleLayout(marks, track, measured?.needs.length === marks.length ? measured.needs : marks.map((m) => estimate(m.title)), prices, tone === "mix") : null;
+  // The marks this booking crossed press in order, 90 ms apart (they are next to each other: sorted by cost).
+  const isNew = (m: { reached: boolean; cost: number }) => m.reached && landedFrom !== undefined && m.cost > landedFrom;
+  const firstNew = marks.findIndex(isNew);
   const label = locale === "fr" ? `${number(balance)} ${unitWord(balance, "points", "fr")} sur ${number(max)}` : `${number(balance)} von ${number(max)} ${unitWord(max, "points", "de", "dat")}`;
   return <div ref={ref} className={cx(styles.ladder, className)} role="img" aria-label={keep ? keepUnits(label) : label} data-tone={tone} data-titles={titles || undefined} data-grow={grow || undefined}>
     <div className={styles.track}><span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, balance / max)})` }} /></div>
-    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at } as CSSProperties} data-reached={m.reached || undefined} data-new={(m.reached && landedFrom !== undefined && m.cost > landedFrom) || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
+    {marks.map((m, i) => <span key={`${m.title}-${m.cost}`} className={styles.mark} style={{ "--at": m.at, ...(isNew(m) && i > firstNew ? { "--land-stagger": `${(i - firstNew) * 90}ms` } : {}) } as CSSProperties} data-reached={m.reached || undefined} data-new={isNew(m) || undefined} data-label-hidden={m.hideLabel || undefined} data-price-hidden={layout?.covered[i] || undefined} data-end={m.at === 1 || undefined} data-start={m.at < START_ALIGN || undefined}>
       <span className={styles.dot}>{m.reached ? <Check size={16} strokeWidth={3} /> : null}</span>
       <small className={styles.cost}>{number(m.cost)}</small>
       {titles ? <small className={styles.title} data-title style={{ "--room": `${layout?.titles[i]?.width ?? 0}px`, "--shift": `${layout?.titles[i]?.shift ?? 0}px` } as CSSProperties} data-title-hidden={!layout?.titles[i] || undefined}>{m.title}</small> : null}

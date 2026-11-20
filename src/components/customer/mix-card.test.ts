@@ -117,9 +117,14 @@ describe("the mix card (ENG-253)", () => {
 
   it("dims the open marker as the open stamp, titles at the card's 78 %, and rings it in forced colours", () => {
     const css = readFileSync(join(__dirname, "../ui/points-ladder.module.css"), "utf8");
-    expect(css).toContain('.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: 0; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }');
+    // Opaque at the tone 14 % ink gives over the card, so the track never shows through (Design, 20 Nov).
+    expect(css).toContain('.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 14%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }');
+    expect(css).toContain('.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }');
     expect(css).toContain('.ladder[data-tone="mix"] .title { color: var(--on-card); }');
-    expect(css).toMatch(/@media \(forced-colors: active\) \{[^@]*\.ladder\[data-tone="mix"\] \.mark:not\(\[data-reached\]\) \.dot \{ border: 1px solid CanvasText; \}/);
+    expect(css).toMatch(/@media \(forced-colors: active\) \{\s*\.ladder\[data-tone="mix"\] \{ --open-disc: Canvas; --open-ring: 1px solid CanvasText; \}\s*\.ladder\[data-tone="mix"\] \.mark:not\(\[data-reached\]\) \.dot \{ forced-color-adjust: none; \}/);
+    // A crossed marker stays that open disc until its own press, then pops into coral: never opacity 0.
+    expect(css).toContain('.ladder[data-tone="mix"] .mark[data-new] .dot { animation: open-until var(--press-at) linear, pop var(--dur-reward) var(--ease-out) var(--press-at); --press-at: calc(var(--dur-ui) + var(--land-stagger, 0ms)); }');
+    expect(css).toContain("@keyframes pop { from { transform: scale(1.3); } 60% { transform: scale(.94); } }");
   });
 
   it("names the region „Karte“ everywhere but on the guest's own full card", () => {
