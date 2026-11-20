@@ -351,13 +351,22 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
 test("a cold load: content that replaces an inner placeholder shows at .4 first, whatever the screen has reached", async () => {
   const loads = [["/merchant/customers", /\/api\/merchant\/customers\?/], ["/merchant/program", /\/api\/program\//], ["/merchant", /\/api\/(merchant\/(analytics\/location|retention|readiness)|auth\/get-session)/]] as const;
   let caughtEarly = false;
-  for (const [url, read] of loads) for (const delay of [0, 30, 45, 120]) {
-    await page.route(read, async route => { if (delay) await new Promise(done => setTimeout(done, delay)); await route.continue(); });
+  // The inner reads are answered from what a first load read, after exactly `delay`: a slow runner's server would
+  // otherwise always answer after the screen's fade is near its end, and the early case would never be tested.
+  const answers = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>();
+  for (const [url, read] of loads) for (const delay of [-1, 0, 30, 45, 120]) {
+    await page.route(read, async route => {
+      const key = route.request().url();
+      if (!answers.has(key)) { const response = await route.fetch(); answers.set(key, { status: response.status(), headers: response.headers(), body: await response.body() }); }
+      if (delay > 0) await new Promise(done => setTimeout(done, delay));
+      await route.fulfill(answers.get(key)!);
+    });
     try {
       await page.goto(url);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.locator(`.ow-content :is(${PLACEHOLDER})`)).toHaveCount(0);
       await page.waitForTimeout(500);
+      if (delay < 0) continue; // the first load only fills the answers
       const swaps = await page.evaluate(() => (window as unknown as { swaps: () => { inner: boolean; from: number }[] }).swaps());
       expect(swaps.filter(swap => swap.inner).length, `${url} at ${delay} ms: content inside the screen took a placeholder's place`).toBeGreaterThan(0);
       // An inner swap that starts above .444 arrived while the screen was still below 0.9.
