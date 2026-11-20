@@ -174,5 +174,9 @@ describe("owner sign-up acceptance", () => {
     // Reviewer F-1: the page's open fill-ins are exactly the ones the configuration gate reads.
     expect(html.includes("[[")).toBe(hasOpenMarks());
     for (const mark of Object.values(AVV_FILL_INS)) expect(html).toContain(mark);
+    // Legal, 20 Nov: Google Wallet is off, so the AVV names Google only for the cashier devices' web push.
+    expect(html).not.toMatch(/Google Wallet|Google-Wallet|UV-1[012]/);
+    expect(html).toContain("Push-Dienste der Kassengeräte (Apple, Google, Mozilla)");
+    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-08", "DS-09", "DS-10", "UV-05"]);
   });
 });

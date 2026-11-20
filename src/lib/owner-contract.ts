@@ -13,7 +13,7 @@ export const SIGNUP_ACCEPTANCE_HEADER = "x-loynara-acceptance";
  */
 export const AVV_FILL_INS = {
   devices: "[[DS-08: Festplattenverschlüsselung und Bildschirmsperre der Arbeitsgeräte bestätigen]]",
-  twoFactor: "[[DS-09: Zwei-Faktor-Anmeldung bei Railway, Cloudflare, Mailgun, Apple (Entwicklerkonto), Google und GitHub bestätigen]]",
+  twoFactor: "[[DS-09: Zwei-Faktor-Anmeldung bei Railway, Cloudflare, Mailgun, Apple (Entwicklerkonto) und GitHub bestätigen]]",
   restoreTest: "[[DS-10: Datum des letzten erfolgreichen Wiederherstellungstests]]",
   railway: "Railway Corporation, 548 Market St PMB 68956, San Francisco, CA 94104, USA",
   railwayBasis: "EU-US Data Privacy Framework (Zertifizierung der Railway Corporation); zusätzlich Standardvertragsklauseln der EU (Durchführungsbeschluss (EU) 2021/914, Modul 2 bzw. 3), Bestandteil des Railway-DPA",
@@ -21,8 +21,5 @@ export const AVV_FILL_INS = {
   cloudflareBasis: "EU-US Data Privacy Framework (Zertifizierung der Cloudflare, Inc.); bei Wegfall Standardvertragsklauseln der EU (Durchführungsbeschluss (EU) 2021/914, Modul 2 bzw. 3)",
   mailgun: "[[UV-05: Firma und Anschrift (aus Mailgun-DPA)]]",
   mailgunBasis: "EU-US Data Privacy Framework (Zertifizierung der Mailgun Technologies, Inc.) und Standardvertragsklauseln der EU (Durchführungsbeschluss (EU) 2021/914, Modul 2 bzw. 3); Daten der EU-Region liegen in Rechenzentren in Belgien",
-  google: "[[UV-10: Firma und Anschrift (Google Wallet)]]",
-  googlePlace: "[[UV-11: Verarbeitungsort Google Wallet]]",
-  googleBasis: "[[UV-12: Grundlage Google]]",
 } as const;
 export const hasOpenMarks = (fillIns: Record<string, string> = AVV_FILL_INS) => Object.values(fillIns).some(text => text.includes("[["));
