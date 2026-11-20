@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { PLACEHOLDER } from "./support/placeholders";
 
 // Motion in the owner area (DESIGN.md, Motion): a screen that is navigated to arrives once; a cold load, data in a
 // placeholder's place and a return (Back, a filter, a period) do not; a tap after a screen change lands from --dur-press
@@ -18,24 +19,30 @@ test.beforeAll(async ({ browser }) => {
     const started: string[] = [];
     (window as unknown as { started: string[] }).started = started;
     document.addEventListener("animationstart", event => started.push(event.animationName), true);
-    // The opacity of every swap the shell ends early, taken just before it ends.
-    const finishes: number[] = [];
-    (window as unknown as { swapFinishes: number[] }).swapFinishes = finishes;
-    const finish = Animation.prototype.finish;
-    Animation.prototype.finish = function (this: Animation) {
-      const target = (this.effect as KeyframeEffect | null)?.target;
-      if ((this as CSSAnimation).animationName === "ow-swap" && target) finishes.push(Number(getComputedStyle(target).opacity));
-      return finish.call(this);
+    // Every frame: each swap's opacity as shown, its own times every one above it up to the content (a swap inside one
+    // still fading multiplies with it), from the frame it is marked in. The first 40 frames of each.
+    type Series = { inner: boolean; from: number; values: number[]; done?: boolean; name: string };
+    const series = new Map<Element, Series>();
+    (window as unknown as { swaps: () => Series[] }).swaps = () => [...series.values()];
+    const shownOf = (node: Element) => {
+      let shown = 1;
+      for (let up: Element | null = node; up && !up.matches(".ow-content"); up = up.parentElement) shown *= Number(getComputedStyle(up).opacity);
+      return shown;
     };
-    // Swaps that fade in on something inside a screen (a list, a split), not the screen itself.
-    (window as unknown as { innerSwaps: number }).innerSwaps = 0;
-    document.addEventListener("animationstart", event => { if (event.animationName === "ow-swap" && !(event.target as Element).matches(".ow-screen")) (window as unknown as { innerSwaps: number }).innerSwaps++; }, true);
-    // In every frame: how many swaps fade in inside another swap that is fading in too (their opacities would multiply).
-    const w = window as unknown as { nestedSwaps: number };
-    w.nestedSwaps = 0;
-    const fading = (node: Element) => node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running");
+    const note = (node: Element) => {
+      let entry = series.get(node);
+      if (!entry) series.set(node, entry = { inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
+      if (entry.done || entry.values.length >= 40) return;
+      // Hidden (a card opened over the list while it still faded in): no longer on screen, nothing more to sample.
+      if (!node.checkVisibility()) { entry.done = true; return; }
+      entry.values.push(shownOf(node));
+      // Its own fade over: what happens to it later (a swap above it) is that swap's.
+      if (entry.values.length > 1 && !node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running")) entry.done = true;
+    };
+    // The frame a swap is marked in is the first it is painted in: its value is taken then, before the frame.
+    addEventListener("DOMContentLoaded", () => new MutationObserver(records => { for (const record of records) if (record.target instanceof Element && record.target.matches(".ow-content [data-swap]") && !series.has(record.target)) note(record.target); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-swap"] }));
     const look = () => {
-      w.nestedSwaps = Math.max(w.nestedSwaps, [...document.querySelectorAll("[data-swap] [data-swap]")].filter(node => fading(node) && fading(node.parentElement!.closest("[data-swap]")!)).length);
+      for (const node of document.querySelectorAll(".ow-content [data-swap]")) note(node);
       requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
@@ -49,6 +56,8 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(() => page.close());
 test.beforeEach(() => page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" }));
 
+/** Swaps that do not start at .4 as shown (0.35 to 0.45) or that step by more than 0.3 between two frames. */
+const swapFaults = () => page.evaluate(() => (window as unknown as { swaps: () => { values: number[]; name: string }[] }).swaps().filter(({ values }) => values.length && (values[0]! < 0.35 || values[0]! > 0.45 || values.some((value, i) => i > 0 && Math.abs(value - values[i - 1]!) > 0.3))).map(({ values, name }) => `${name}: ${values.map(value => value.toFixed(2)).join(" ")}`));
 const started = (...names: string[]) => page.evaluate(wanted => (window as unknown as { started: string[] }).started.filter(item => wanted.includes(item)).length, names);
 /** The most entrances (Arrive, List arrive) seen running in any frame of the next `ms`. A finished one does not count. */
 const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done => {
@@ -127,7 +136,7 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   // What replaces the shell's placeholder fades in (Skeleton to content); nothing rises or staggers.
   expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing rises or staggers on a cold load").toBe(0);
   expect(await started("ow-swap"), "what replaces the placeholders fades in").toBeGreaterThan(0);
-  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
+  expect(await swapFaults(), "every swap shows at .4 first and climbs without a jump").toEqual([]);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
@@ -256,7 +265,7 @@ for (const [where, url, read] of [["Übersicht", "/merchant", /\/api\/merchant\/
   await page.waitForTimeout(400);
   expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
   expect(await started("ow-swap"), "it fades in instead of cutting").toBeGreaterThan(swaps);
-  expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "never two swaps fading in, one inside the other").toBe(0);
+  expect(await swapFaults(), "every swap shows at .4 first and climbs without a jump").toEqual([]);
   await page.unroute(read);
 });
 
@@ -337,30 +346,24 @@ test("reduced motion: nothing arrives, slides, grows or loops", async () => {
 });
 
 // Design, #314 re-checks: on a cold load the screen fades in from its loading frame and the list, split or greeting
-// inside it follows from its own placeholder. If the screen's fade is at 0.9 or more by then it ends, unseen, and the
-// inner one fades; if not, the inner rides the screen's fade. One fade at a time, never a cut, never a snap.
-const coldLoads = [["/merchant/customers", /\/api\/merchant\/customers\?/], ["/merchant/program", /\/api\/program\//], ["/merchant", /\/api\/merchant\/(analytics\/location|retention|readiness)/]] as const;
-for (const [url, read] of coldLoads) test(`a cold load of ${url}: a slow inner read fades in on its own, after the screen's fade ended unseen`, async () => {
-  await page.route(read, async route => { await new Promise(done => setTimeout(done, 120)); await route.continue(); });
-  try {
-    await page.goto(url);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.locator(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading, .ow-hello[aria-hidden])")).toHaveCount(0);
-    await page.waitForTimeout(400);
-    expect(await page.evaluate(() => (window as unknown as { innerSwaps: number }).innerSwaps), "an ow-swap started inside the screen").toBeGreaterThan(0);
-    const finishes = await page.evaluate(() => (window as unknown as { swapFinishes: number[] }).swapFinishes);
-    expect(finishes.filter(opacity => opacity < 0.9), "the screen's fade ended only from 0.9 on").toEqual([]);
-    expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
-  } finally { await page.unroute(read); }
-});
-for (const [url, read] of coldLoads) test(`a cold load of ${url}: a fast inner read rides the screen's fade, which never snaps`, async () => {
-  await page.route(read, async route => { await new Promise(done => setTimeout(done, 30)); await route.continue(); });
-  try {
-    await page.goto(url);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await page.waitForTimeout(600);
-    const finishes = await page.evaluate(() => (window as unknown as { swapFinishes: number[] }).swapFinishes);
-    expect(finishes.filter(opacity => opacity < 0.9), "no fade ended below 0.9").toEqual([]);
-    expect(await page.evaluate(() => (window as unknown as { nestedSwaps: number }).nestedSwaps), "one swap fades at a time").toBe(0);
-  } finally { await page.unroute(read); }
+// inside it follows from its own placeholder, at any point of the screen's fade. The inner fade starts where the
+// content shows at .4 in all (owner-shell's --swap-from), so neither layer snaps and nothing cuts in.
+test("a cold load: content that replaces an inner placeholder shows at .4 first, whatever the screen has reached", async () => {
+  const loads = [["/merchant/customers", /\/api\/merchant\/customers\?/], ["/merchant/program", /\/api\/program\//], ["/merchant", /\/api\/(merchant\/(analytics\/location|retention|readiness)|auth\/get-session)/]] as const;
+  let caughtEarly = false;
+  for (const [url, read] of loads) for (const delay of [0, 30, 45, 120]) {
+    await page.route(read, async route => { if (delay) await new Promise(done => setTimeout(done, delay)); await route.continue(); });
+    try {
+      await page.goto(url);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.locator(`.ow-content :is(${PLACEHOLDER})`)).toHaveCount(0);
+      await page.waitForTimeout(500);
+      const swaps = await page.evaluate(() => (window as unknown as { swaps: () => { inner: boolean; from: number }[] }).swaps());
+      expect(swaps.filter(swap => swap.inner).length, `${url} at ${delay} ms: content inside the screen took a placeholder's place`).toBeGreaterThan(0);
+      // An inner swap that starts above .444 arrived while the screen was still below 0.9.
+      caughtEarly ||= swaps.some(swap => swap.inner && swap.from > 0.4 / 0.9 + 1e-3);
+      expect(await swapFaults(), `${url} at ${delay} ms: swaps that do not show at .4 first or that jump`).toEqual([]);
+    } finally { await page.unroute(read); }
+  }
+  expect(caughtEarly, "at least one inner swap arrived while the screen's fade was below 0.9").toBe(true);
 });
