@@ -84,6 +84,8 @@ it("gets the business once the owner's shop exists, and is append-only after tha
   expect(byUser).toEqual({ [await userId(email)]: merchant.tenantId, [await userId(other)]: null });
   await expect(pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid() WHERE tenant_id IS NOT NULL")).rejects.toThrow(/append-only/);
   await expect(pool.query("UPDATE owner_acceptances SET terms_version = 'x'")).rejects.toThrow(/append-only/);
+  // D3: the acceptance time cannot be moved afterwards either.
+  await expect(pool.query("UPDATE owner_acceptances SET accepted_at = '2000-01-01T00:00:00Z'")).rejects.toThrow(/append-only/);
   await expect(pool.query("DELETE FROM owner_acceptances")).rejects.toThrow(/append-only/);
 });
 
