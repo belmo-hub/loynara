@@ -68,9 +68,10 @@ export const auth = betterAuth({
     after: createAuthMiddleware(async (context) => {
       // ENG-277: the click under Legal's sentence on /register makes the contract; record it once the account exists.
       const userId = context.context.newSession?.user.id;
-      if (context.path !== "/sign-up/email" || !userId || process.env.PUBLIC_REGISTRATION_ENABLED !== "true" || !context.headers?.get(SIGNUP_ACCEPTANCE_HEADER)) return;
-      const { recordOwnerAcceptance } = await import("./owner-acceptance");
-      await recordOwnerAcceptance(userId);
+      if (context.path === "/sign-up/email" && userId && process.env.PUBLIC_REGISTRATION_ENABLED === "true" && context.headers?.get(SIGNUP_ACCEPTANCE_HEADER)) {
+        const { recordOwnerAcceptance } = await import("./owner-acceptance");
+        await recordOwnerAcceptance(userId);
+      }
     }),
   },
 });
