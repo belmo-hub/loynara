@@ -362,18 +362,24 @@ test("the old screen is never above 40 % while the new one is in place; the new 
 // is named, only for those two changes; the card is there in the change's first frame; the address changes in place.
 /** Every frame of the next change: its ow-card layers, whether the card's face is there, and whether a loading frame is. */
 type Pair = { name: string; direction: string; blend: string[] };
-const watchCard = () => page.evaluate(() => new Promise<{ card: string[]; face: boolean; loading: boolean; pair: Pair | null }[]>(done => {
-  const frames: { card: string[]; face: boolean; loading: boolean; pair: Pair | null }[] = [];
+type CardFrame = { card: string[]; face: boolean; loading: boolean; pair: Pair | null; pseudo: boolean; way: string | null; radius: number; width: number };
+/** Every frame of the next change, also the frames its layers still paint after their animations have ended. */
+const watchCard = () => page.evaluate(() => new Promise<CardFrame[]>(done => {
+  const frames: CardFrame[] = [];
   const end = performance.now() + 3000;
+  const root = document.documentElement;
+  const told = CSS.supports("selector(:active-view-transition)");
   let seen = false;
   const look = () => {
     const layers = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition"));
-    if (layers.length) {
+    if (layers.length || (told && root.matches(":active-view-transition"))) {
       seen = true;
       const corners = document.getAnimations().find(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement === "::view-transition-image-pair(ow-card)") as CSSAnimation | undefined;
-      const root = document.documentElement;
+      const group = getComputedStyle(root, "::view-transition-group(ow-card)").width, pair = getComputedStyle(root, "::view-transition-image-pair(ow-card)");
       frames.push({ card: [...new Set(layers.filter(layer => layer.includes("(ow-card)")))], face: !!document.querySelector("[data-card-face]"), loading: !!document.querySelector(".ow-content [role=status][aria-busy=true]"),
-        pair: corners ? { name: corners.animationName, direction: getComputedStyle(root, "::view-transition-image-pair(ow-card)").animationDirection, blend: ["old", "new"].map(side => getComputedStyle(root, `::view-transition-${side}(ow-card)`).mixBlendMode) } : null });
+        pair: corners ? { name: corners.animationName, direction: pair.animationDirection, blend: ["old", "new"].map(side => getComputedStyle(root, `::view-transition-${side}(ow-card)`).mixBlendMode) } : null,
+        // A layer that is not there has no width of its own.
+        pseudo: group !== "auto" && parseFloat(group) > 0, way: root.getAttribute("data-ow-card"), radius: parseFloat(pair.borderTopLeftRadius), width: parseFloat(group) });
     } else if (seen || performance.now() > end) { done(frames); return; }
     requestAnimationFrame(look);
   };
@@ -402,7 +408,8 @@ test("a card grows out of its row and shrinks back into it: one named pair, the 
   expect([...new Set(growing.flatMap(frame => frame.card))].sort(), "one pair: the card's group, its corners, the thumbnail leaving and the card arriving").toEqual(["::view-transition-group(ow-card)", "::view-transition-image-pair(ow-card)", "::view-transition-new(ow-card)", "::view-transition-old(ow-card)"]);
   expect(growing.every(frame => frame.face && !frame.loading), "the card is painted from its row in every frame, with no loading frame in its place").toBe(true);
   expect(reads, "opening a card asks the server for nothing but its data").toEqual([]);
-  expect(open.find(frame => frame.pair)?.pair, "the image pair carries the corners and the shadow forward; both images add up (plus-lighter)").toEqual({ name: expect.stringMatching(/^ow-card-corners/), direction: "normal", blend: ["plus-lighter", "plus-lighter"] });
+  expect(open.find(frame => frame.pair)?.pair, "the image pair carries the corners and the shadow forward; both images add up (plus-lighter)").toEqual({ name: expect.stringMatching(/^ow-card-corners(-b)?$/), direction: "normal", blend: ["plus-lighter", "plus-lighter"] });
+  expect(open.filter(frame => frame.pseudo && frame.way !== "open"), "every frame with the card's layer is marked as an open").toEqual([]);
   await expect.poll(() => page.evaluate(() => document.documentElement.hasAttribute("data-ow-card")), { message: "the pair is named only for the change" }).toBe(false);
   await settled();
 
@@ -410,7 +417,13 @@ test("a card grows out of its row and shrinks back into it: one named pair, the 
   await page.locator(".ow-content a.ow-back:visible").click();
   const back = await frames;
   expect(back.some(frame => frame.card.includes("::view-transition-group(ow-card)")), "the card shrinks into its row").toBe(true);
-  expect(back.find(frame => frame.pair)?.pair?.direction, "the corners and the shadow go back to the thumbnail's").toBe("reverse");
+  expect(back.find(frame => frame.pair)?.pair, "the corners and the shadow go back to the thumbnail's on keyframes of their own, forward").toMatchObject({ name: expect.stringMatching(/^ow-card-corners-back(-b)?$/), direction: "normal" });
+  // Design, #315 re-check: the last painted frame without "back" jumped to the card's corners and shadow on the thumbnail.
+  expect(back.filter(frame => frame.pseudo && frame.way !== "back"), "every frame with the card's layer, the last one too, is marked as a back").toEqual([]);
+  // The corners shrink with the box: never rounder than the box's width allows (8 px on the 64 px thumbnail, 28 on the card).
+  const shrinking = back.filter(frame => frame.pseudo);
+  const full = shrinking[0]!.width;
+  expect(shrinking.filter(frame => frame.radius > 8 + 20 * Math.max(0, (frame.width - 64) / (full - 64)) + 1).map(frame => [frame.width, frame.radius]), "frames with corners rounder than the box's size").toEqual([]);
   await expect(cardRow()).toBeVisible();
   await settled();
   // A tab change from the list names no row.
@@ -549,7 +562,17 @@ test("a card's own read starts at the tap: with a 120 ms server its page is comp
     }));
     await cardRow().click();
     const ms = Math.round(await done);
-    // About 300 by Design's ruling: the 120 ms read plus the request's own trip; under the growth's 480 ms in any case.
-    expect(ms, `ms from the tap to the page with no placeholder left (${ms})`).toBeLessThan(400);
+    // About 300 locally (Design's ruling), 417 on a CI runner's dev server: the bound is the growth's 480 ms, which the
+    // read used to wait out (837 ms).
+    expect(ms, `ms from the tap to the page with no placeholder left (${ms})`).toBeLessThan(480);
   } finally { await page.unroute(/\/api\/merchant\/customers\/[^?/]+$/); }
+});
+
+test("in dark mode the card flies with the dark object shadow, from the root its layers hang off", async () => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  try {
+    await toList();
+    const shadows = await page.evaluate(() => [getComputedStyle(document.documentElement).getPropertyValue("--shadow-object").trim(), getComputedStyle(document.querySelector(".ow-content")!).getPropertyValue("--shadow-object").trim()]);
+    expect(shadows[0], "the root has the shadow the themed page has").toBe(shadows[1]);
+  } finally { await page.emulateMedia({ colorScheme: "light" }); }
 });

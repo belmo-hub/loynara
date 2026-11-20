@@ -120,10 +120,16 @@ let opened: { member: MerchantMember; program: PublicProgram } | null = null;
  */
 const pairCard = (way: "open" | "back") => document.documentElement.setAttribute("data-ow-card", way);
 const unpairCard = () => document.documentElement.removeAttribute("data-ow-card");
-/** The card's boundary calls this as the change starts: the value still sets the corners' direction until it ends. */
+/** The card's boundary calls this as the change starts. The value sets the corners' direction until the change has
+ *  finished: its layers paint one frame after their animations end, and without "back" that frame was a pill. */
 function unpairAfter() {
-  const running = document.getAnimations().filter(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.includes("(ow-card)"));
-  void Promise.allSettled(running.map(animation => animation.finished)).then(unpairCard);
+  const root = document.documentElement;
+  const change = (document as Document & { activeViewTransition?: { finished: Promise<void> } | null }).activeViewTransition;
+  if (change) { void change.finished.finally(unpairCard); return; }
+  // Where the document does not expose the change, the root says while one is running.
+  if (!CSS.supports("selector(:active-view-transition)")) { unpairCard(); return; }
+  const wait = () => { if (root.matches(":active-view-transition")) requestAnimationFrame(wait); else unpairCard(); };
+  requestAnimationFrame(wait);
 }
 /** A plain click: a modifier or another button opens the link elsewhere and must mark nothing. */
 const plain = (event: React.MouseEvent) => !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0;

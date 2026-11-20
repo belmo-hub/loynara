@@ -171,6 +171,10 @@
   }
 }
 
+/* A view transition's layers hang off the root, outside the themed box: they take the dark object shadow from there. */
+:root:has(.ly-theme-dark) { --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8); }
+@media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) { --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8); } }
+
 .ly-theme-auto, .ly-theme-dark {
   color-scheme: light;
   background: var(--color-bg);
