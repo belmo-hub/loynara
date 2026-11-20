@@ -123,7 +123,7 @@ describe("owner sign-up acceptance", () => {
 
   it("states the contract above the button, links the three owner documents in a new tab, and has no checkbox", () => {
     const page = register();
-    expect(page).toContain(`<p>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den ${link("/vertragsbedingungen", "Vertragsbedingungen für Geschäfte")} und den ${link("/avv", "Vertrag zur Auftragsverarbeitung")}. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den ${link("/datenschutz/geschaefte", "Datenschutzhinweisen für Geschäfte")}.</p>`);
+    expect(page).toContain(`<p>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den ${link("/vertragsbedingungen", "Vertragsbedingungen für Geschäfte")} und dem ${link("/avv", "Vertrag zur Auftragsverarbeitung")}. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den ${link("/datenschutz/geschaefte", "Datenschutzhinweisen für Geschäfte")}.</p>`);
     expect(page.indexOf("Mit „Konto erstellen“")).toBeLessThan(page.indexOf('type="submit"'));
     expect(page).not.toContain("Es wird keine Zahlung ausgelöst.");
     expect(page).not.toContain('type="checkbox"');
@@ -135,8 +135,21 @@ describe("owner sign-up acceptance", () => {
     expect(page).toContain("Es wird keine Zahlung ausgelöst.");
   });
 
+  const open = (Page: () => unknown, registration?: string) => {
+    const saved = process.env.PUBLIC_REGISTRATION_ENABLED;
+    if (registration === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = registration;
+    try { return renderToStaticMarkup(createElement(Page as () => null)).replaceAll("<!-- -->", ""); }
+    finally { if (saved === undefined) delete process.env.PUBLIC_REGISTRATION_ENABLED; else process.env.PUBLIC_REGISTRATION_ENABLED = saved; }
+  };
+
+  // Legal, 20 Nov: the two pages are online only while /register is open.
+  it.each([["terms", VertragsbedingungenPage], ["AVV", AvvPage]] as const)("the %s page answers 404 while /register is closed, and is served while it is open", (_name, Page) => {
+    for (const closed of [undefined, "false"]) expect(() => open(Page, closed)).toThrow(expect.objectContaining({ digest: expect.stringContaining("404") }));
+    expect(open(Page, "true")).toContain("Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland, E-Mail: support@getloynara.com.");
+  });
+
   it("the terms page is Legal's part 1 with its Stand, version and the AVV linked", () => {
-    const html = renderToStaticMarkup(createElement(VertragsbedingungenPage)).replaceAll("<!-- -->", "");
+    const html = open(VertragsbedingungenPage, "true");
     expect(TermsMetadata.title).toBe("Vertragsbedingungen für Geschäfte – Loynara");
     expect(html).toContain("<h1>Vertragsbedingungen für Geschäfte</h1>");
     expect(html).toContain("Stand: 20. November 2026. Fassung 2026-11-20.");
@@ -148,7 +161,7 @@ describe("owner sign-up acceptance", () => {
   });
 
   it("the AVV page is the web AVV: made with the terms, no signature block, no counsel marks", () => {
-    const html = renderToStaticMarkup(createElement(AvvPage)).replaceAll("<!-- -->", "");
+    const html = open(AvvPage, "true");
     expect(AvvMetadata.title).toBe("Vertrag zur Auftragsverarbeitung – Loynara");
     expect(html).toContain("<h1>Vertrag zur Auftragsverarbeitung</h1>");
     expect(html).toContain("nach den Vertragsbedingungen für Geschäfte (Hauptvertrag)");

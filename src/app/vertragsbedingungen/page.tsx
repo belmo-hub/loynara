@@ -1,17 +1,21 @@
+import { notFound } from "next/navigation";
 import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
 import { OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Vertragsbedingungen für Geschäfte – Loynara" };
 
 // Legal's text, verbatim (legal-ops/2026-11-20-vertragsbedingungen-geschaefte-draft.md, part 1). The provider's name and
 // address are the Impressum's, as on /datenschutz.
 export default function VertragsbedingungenPage() {
+  // Legal: online only while /register is open; read per request, like the register layout.
+  if (process.env.PUBLIC_REGISTRATION_ENABLED !== "true") notFound();
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Vertragsbedingungen für Geschäfte</h1>
     <p>Stand: {OWNER_TERMS.stand}. Fassung {OWNER_TERMS.version}.</p>
-    <p><strong>Anbieter:</strong> Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, E-Mail: support@getloynara.com.<br /><strong>Betrieb:</strong> das Unternehmen, für das ein Konto bei Loynara erstellt wird. Name, Anschrift, Standorte und E-Mail-Adresse trägt der Betrieb bei der Registrierung und im Inhaberbereich ein.</p>
+    <p><strong>Anbieter:</strong> Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland, E-Mail: support@getloynara.com.<br /><strong>Betrieb:</strong> das Unternehmen, für das ein Konto bei Loynara erstellt wird. Name, Anschrift, Standorte und E-Mail-Adresse trägt der Betrieb bei der Registrierung und im Inhaberbereich ein.</p>
 
     <h2>§ 0 Geltung</h2>
     <p>(1) Diese Bedingungen gelten für Verträge über Loynara, die ein Betrieb online abschließt. Der Anbieter schließt Verträge nur mit Unternehmern im Sinne von § 14 BGB, die Loynara für ihr Geschäft nutzen.</p>

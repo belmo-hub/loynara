@@ -1,19 +1,23 @@
+import { notFound } from "next/navigation";
 import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
 import { OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Vertrag zur Auftragsverarbeitung – Loynara" };
 
 // Legal's AVV (legal-drafts-2026-10-17/02-avv.md, Stand 22.10.) with the web changes of part 2 of
 // legal-ops/2026-11-20-vertragsbedingungen-geschaefte-draft.md: proposed fill-ins as proposed, the counsel marks left out.
 // The [[…]] marks are the fill-ins still open; Legal: the page is published only once none is left.
 export default function AvvPage() {
+  // Legal: online only while /register is open; read per request, like the register layout.
+  if (process.env.PUBLIC_REGISTRATION_ENABLED !== "true") notFound();
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Vertrag zur Auftragsverarbeitung</h1>
     <p>Vertrag über die Verarbeitung personenbezogener Daten im Auftrag nach Art. 28 DSGVO. Stand: {OWNER_AVV.stand}. Fassung {OWNER_AVV.version}.</p>
     <p><strong>Verantwortlicher</strong> (nachfolgend „Betrieb“): der Betrieb, der die <a href={OWNER_TERMS.href}>Vertragsbedingungen für Geschäfte</a> angenommen hat; Name und Anschrift laut Inhaberbereich. Weisungsberechtigt: das Inhaberkonto. E-Mail für Datenschutzfragen: die E-Mail-Adresse des Inhaberkontos.</p>
-    <p><strong>Auftragsverarbeiter</strong> (nachfolgend „Anbieter“): Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, E-Mail: support@getloynara.com. Ansprechperson für Datenschutz: der Anbieter, support@getloynara.com.</p>
+    <p><strong>Auftragsverarbeiter</strong> (nachfolgend „Anbieter“): Youssef Belmokhtar, Loynara, Friedrich-Ebert-Straße 70, 34119 Kassel, Deutschland, E-Mail: support@getloynara.com. Ansprechperson für Datenschutz: der Anbieter, support@getloynara.com.</p>
 
     <h2>§ 1 Gegenstand und Dauer</h2>
     <p>(1) Der Anbieter betreibt für den Betrieb das digitale Kundenkartenprogramm „Loynara“ nach den Vertragsbedingungen für Geschäfte (Hauptvertrag). Gegenstand, Art und Zweck der Verarbeitung, Art der Daten und Kategorien betroffener Personen beschreibt Anlage 1.</p>
