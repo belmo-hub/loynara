@@ -115,9 +115,10 @@ test("a card's „Verlauf“ keeps the mix rhythm", async () => {
 });
 
 // The card's figures on the phone (ENG-290, Design 19 Nov): label left, figure right, one row each, and the longest
-// house date („27. Sept. 2026“) never breaks, at 320, 390 and 430, with no sideways scroll.
+// house date („27. Sept. 2026“) never breaks, with no sideways scroll; all three figures share one size, 22 under 360
+// and at 600–699, 28 elsewhere (Design 20 Nov).
 test("a card's figures stay on one line, on their label's row, on the phone", async () => {
-  for (const width of [320, 390, 430]) {
+  for (const width of [320, 359, 360, 390, 430, 600, 699, 700]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/merchant/customers?activity=all&card=${cardId}`);
     const since = page.locator("#ow-main").getByText("Karte seit", { exact: true });
@@ -126,6 +127,7 @@ test("a card's figures stay on one line, on their label's row, on the phone", as
       [...panel.querySelectorAll("b")].at(-1)!.textContent = "27. Sept. 2026";
       return {
         scroll: document.documentElement.scrollWidth - innerWidth,
+        sizes: [...new Set([...panel.querySelectorAll("b")].map(b => getComputedStyle(b).fontSize))],
         rows: [...panel.children].map(row => {
           const figure = row.querySelector("b")!, label = row.querySelector("span")!, f = figure.getBoundingClientRect(), l = label.getBoundingClientRect();
           return { lines: figure.getClientRects().length, tall: f.height > parseFloat(getComputedStyle(figure).lineHeight) + .5,
@@ -133,7 +135,8 @@ test("a card's figures stay on one line, on their label's row, on the phone", as
         }),
       };
     });
-    expect(facts, `at ${width}`).toEqual({ scroll: 0, rows: Array(3).fill({ lines: 1, tall: false, labelFirst: true, sameRow: true }) });
+    const size = width < 360 || (width >= 600 && width < 700) ? "22px" : "28px";
+    expect(facts, `at ${width}`).toEqual({ scroll: 0, sizes: [size], rows: Array(3).fill({ lines: 1, tall: false, labelFirst: true, sameRow: true }) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
 });
