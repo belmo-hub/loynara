@@ -58,7 +58,7 @@ export async function deliverVerificationEmail(
     const message = challenge.marketing ? {
       to: challenge.email,
       fromName: "Loynara",
-      subject: `Bitte bestätige: E-Mails von ${name}`,
+      subject: "Bitte bestätige: E-Mails zu deiner Karte",
       body: `Hallo,\n\nschön, dass du die Karte von ${name} nutzt! Du hast diese E-Mail-Adresse eingetragen, damit du deine Karte wiederfindest und damit ${name} dir Angebote, Neuigkeiten und Erinnerungen schicken darf.\n\nEin Klick, und du bist dabei:\nJa, ich möchte E-Mails von ${name}\n${link.toString()}\n\nDer Link gilt 30 Minuten.\n\nWarst du das nicht? Dann ignorier diese E-Mail einfach. Ohne Klick bekommst du keine Nachrichten.${footer}`,
       jobId: job.id,
     } : {
