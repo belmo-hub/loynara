@@ -152,7 +152,7 @@ export function ProgramExample({ me, type, reward, rewards, place }: { me: Pick<
       const observer = new IntersectionObserver(([entry]) => {
         if (!entry?.isIntersecting) return;
         observer.disconnect();
-        setRide(el.closest("[data-swap]")?.getAnimations().some(animation => animation.playState === "running") ?? false);
+        // Scrolled in later: never ride. It was painted at 0, so it fades in with its own card-arrive.
         setPhase("play");
       }, { threshold: 0.5 });
       observer.observe(el);
