@@ -345,7 +345,7 @@ test("the old screen is never above 40 % while the new one is in place; the new 
     await settled();
     const fading = seen.filter(frame => frame.old.length && frame.block !== null);
     expect(fading.length, `${name}: frames with the old screen leaving over the new screen's first block`).toBeGreaterThan(0);
-    expect(fading.filter(frame => Math.max(...frame.old) > 0.41), `${name}: frames with the old screen above 40 %`).toEqual([]);
+    expect(fading.filter(frame => Math.max(...frame.old) > 0.4 + 1e-6), `${name}: frames with the old screen's layer above 0.40`).toEqual([]);
     expect(seen.flatMap(frame => frame.new).every(value => value === 1), `${name}: the new screen is at full in every frame`).toBe(true);
   }
   // The hidden root takes no fade of its own: in WebKit it kept the change alive for 250 ms after the old screen left.
@@ -381,6 +381,7 @@ test("content that takes a placeholder's place fades in from a floor: no frame s
     const seen = await frames;
     await page.unroute(read);
     expect(seen.some(frame => frame.swap !== null), `${name}: the content is marked as taking the placeholder's place`).toBe(true);
-    expect(seen.filter(frame => !frame.placeholder && (frame.swap === null || frame.swap < 0.39)), `${name}: frames with neither placeholder nor content at 40 %`).toEqual([]);
+    // Pin 1 (Design, #314 re-check): in the frame the placeholder leaves and every one after, the content is at 40 % or more.
+    expect(seen.filter(frame => !frame.placeholder && (frame.swap === null || frame.swap < 0.4 - 1e-3)), `${name}: frames after the placeholder left with the content below 40 %`).toEqual([]);
   }
 });
