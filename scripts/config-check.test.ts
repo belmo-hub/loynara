@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { productionConfigIssues } from "./config-check";
+import { hasOpenMarks } from "../src/lib/owner-contract";
 import { GOOGLE_SERVICE_ACCOUNT_VALUE } from "./google-wallet-credential";
 import { appleFixture } from "../src/lib/wallet/test-support";
 
@@ -42,7 +43,20 @@ describe("production configuration gate", () => {
   });
 
   describe("invite-gated staff sign-up (approved for the pilot, default off)", () => {
-    const invitation = (flag: string | undefined, registration: string | undefined = "false") => productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: flag, PUBLIC_REGISTRATION_ENABLED: registration });
+    // The AVV rule (ENG-277) has its own test below; these pin the invite rules with a complete AVV.
+    const invitation = (flag: string | undefined, registration: string | undefined = "false") => productionConfigIssues({ ...safe, STAFF_INVITE_SIGNUP_ENABLED: flag, PUBLIC_REGISTRATION_ENABLED: registration }, { contractOpen: false });
+
+    // ENG-277 (Reviewer F-1): the gate reads the same fill-ins /avv renders.
+    it("refuses open sign-up while the AVV has open fill-ins, and allows it once none is left", () => {
+      const issue = expect.stringMatching(/requires the AVV page without open fill-ins/);
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" }, { contractOpen: true })).toEqual([issue]);
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" }, { contractOpen: false })).toEqual([]);
+      // The default reads AVV_FILL_INS: nothing is open any more.
+      expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: "true" })).toEqual([]);
+      for (const registration of ["false", undefined]) expect(productionConfigIssues({ ...safe, PUBLIC_REGISTRATION_ENABLED: registration }, { contractOpen: true })).toEqual([]);
+      expect(hasOpenMarks({ a: "Firma GmbH", b: "[[UV-01: offen]]" })).toBe(true);
+      expect(hasOpenMarks({ a: "Firma GmbH", b: "SCC" })).toBe(false);
+    });
 
     it("A: registration off, invite sign-up off or unset: passes", () => {
       expect(invitation("false")).toEqual([]);
@@ -489,7 +503,10 @@ describe("production startup gate as a process", () => {
     } finally { rmSync(custody, { recursive: true, force: true }); }
   }, 180_000);
 
-  it("starts with public registration on while invite sign-up is off or unset", async () => {
+  // ENG-277 (Reviewer F-1): the AVV has no open fill-in left (Legal, 20 Nov), so open sign-up may start; a new open mark
+  // in AVV_FILL_INS makes this test fail together with the start.
+  it("starts with public registration on while invite sign-up is off or unset, now that the AVV has no open fill-ins", async () => {
+    expect(hasOpenMarks()).toBe(false);
     for (const extra of [{ PUBLIC_REGISTRATION_ENABLED: "true" }, { PUBLIC_REGISTRATION_ENABLED: "true", STAFF_INVITE_SIGNUP_ENABLED: "false" }]) {
       const result = await guard(extra);
       expect(result.output, JSON.stringify(extra)).toContain("Production configuration gate passed.");

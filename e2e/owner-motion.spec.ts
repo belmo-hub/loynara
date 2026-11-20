@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 for (const width of [375, 1280]) for (const reducedMotion of ["reduce", "no-preference"] as const) {
   test(`owner discard dialog respects ${reducedMotion} at ${width}px`, async ({ browser, baseURL }) => {
     const url = baseURL ?? "http://localhost:3000";
     const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await api.post("/api/auth/sign-up/email", { data: {
+      expect((await signUp(api, { data: {
         name: "Synthetic motion owner", email: `motion-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
       } })).status()).toBe(200);
       expect((await api.post("/api/merchant/onboard", { data: {

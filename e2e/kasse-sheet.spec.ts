@@ -182,3 +182,54 @@ test("a hidden tab sends no Kasse prefetch however long it waits, and exactly on
   expect(round.length).toBeLessThanOrEqual(2);
   expect(Math.max(...round) - Math.min(...round)).toBeLessThan(1_000);
 });
+
+// ENG-304: the browser's resource timing list holds 250 entries; a day at the counter fills it with tab changes and their
+// prefetches, and a Kasse prefetch that answers after that is missing from it. The list is cleared and 60 tab changes
+// fill it again; then the test waits, in real time, until the warm-up prefetch is past the gate's window and the router
+// has fetched the Kasse anew. Only that new answer, which is in no list, can make the Kasse fresh. Real time, because the
+// browser's own timestamps on the new answer cannot be moved with a faked clock.
+test("a Kasse prefetch that answers after the timing list is full still opens the sheet", async ({ page }) => {
+  test.setTimeout(480_000);
+  await recordTransitions(page);
+  await signIn(page);
+  await page.goto("/merchant");
+  await prefetched(page);
+  const warmedAt = await page.evaluate(() => performance.now());
+  await page.evaluate(() => performance.clearResourceTimings());
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+  for (let change = 0; change < 60; change++) {
+    const name = ["Kunden", "Programm", "Übersicht"][change % 3];
+    await nav.getByRole("link", { name, exact: true }).click();
+    await expect(nav.getByRole("link", { name, exact: true }), `change ${change + 1}`).toHaveAttribute("aria-current", "page");
+    await page.waitForTimeout(400); // the screen change ends, as an owner reads the screen before the next tap
+  }
+  expect(await page.evaluate(() => performance.getEntriesByType("resource").length), "the list is full").toBeGreaterThanOrEqual(250);
+  // The router's cache window is 5 minutes and the warm-up checks every 10 s.
+  const answer = await page.waitForResponse(response => { const url = new URL(response.url()); return url.pathname === "/cashier" && url.searchParams.has("_rsc"); }, { timeout: 360_000 });
+  await answer.finished();
+  const now = await page.evaluate(() => performance.now());
+  expect(now - warmedAt, "the warm-up prefetch is past the gate's 4.5 minutes").toBeGreaterThan(270_000);
+  expect(await page.evaluate(() => performance.getEntriesByType("resource").some(entry => new URL(entry.name).pathname === "/cashier")), "the new answer is in no list").toBe(false);
+  await openKasse(page);
+  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(1);
+  expect(await vtErrors(page)).toEqual([]);
+});
+
+// Chrome lists an aborted prefetch with an end time; it carries no payload, so the Kasse must not wait for one as a sheet.
+test("an aborted Kasse prefetch does not count: the open fades", async ({ page }) => {
+  await recordTransitions(page);
+  await signIn(page);
+  let aborted = 0;
+  await page.route(url => url.pathname === "/cashier" && url.searchParams.has("_rsc"), async route => {
+    if (route.request().headers()["next-router-prefetch"]) { aborted++; await route.abort(); } else await route.continue();
+  });
+  await page.goto("/merchant");
+  await expect.poll(() => aborted, { timeout: 15_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(500);
+  await openKasse(page);
+  await expect(page.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible({ timeout: 15_000 });
+  expect(await kasseTypes(page)).toBe(0);
+  expect(await vtErrors(page)).toEqual([]);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});

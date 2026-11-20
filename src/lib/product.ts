@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, ownerAcceptances, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
+import { SHOP_NAME_REFUSAL, unsafeShopName } from "./sender-details";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
@@ -56,12 +57,16 @@ export const merchantInput = z.object({
 });
 
 function randomCode(bytes: number) { return randomBytes(bytes).toString("base64url"); }
+const ACCEPTANCE_MISSING = "Mit diesem Konto kannst du kein Geschäft einrichten, weil die Vertragsbedingungen nicht angenommen sind. Erstelle dein Konto über „Konto erstellen“.";
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
-/** `newShop: false` (the setup route while public registration is closed): an account without a role gets no shop of its own; only the owner of a shop the operator created finishes its setup. */
-export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true } = {}) {
+/** `newShop: false` (the setup route while public registration is closed): an account without a role gets no shop of its own; only the owner of a shop the operator created finishes its setup.
+ *  `requireAcceptance` (the setup route while it is open, ENG-277): a new shop only for an account that accepted the terms at /register.
+ *  Only an invited owner (operator-made shop, paper contract) skips it, through the existing-owner branch; staff never get a shop. */
+export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true, requireAcceptance = false } = {}) {
   const input = merchantInput.parse(raw);
+  if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
   const earningMode = input.earningMode ?? "manual";
   if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   checkRulesText(input.programType, earningMode, input.rulesText);
@@ -101,10 +106,13 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
     if (!newShop) throw new DomainError("FORBIDDEN", "Mit diesem Konto kannst du kein Geschäft einrichten. Nimm zuerst deine Einladung an.");
+    if (requireAcceptance && !(await tx.select({ id: ownerAcceptances.id }).from(ownerAcceptances).where(eq(ownerAcceptances.userId, input.userId)).limit(1)).length) throw new DomainError("FORBIDDEN", ACCEPTANCE_MISSING);
     const { tenant, location } = await insertShop(tx, input, await logo());
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
+    // ENG-277: the sign-up acceptance gets its business once the business exists.
+    await tx.update(ownerAcceptances).set({ tenantId: tenant.id }).where(and(eq(ownerAcceptances.userId, input.userId), isNull(ownerAcceptances.tenantId)));
     return startProgramme(tx, tenant.id, location, input, earningMode);
   });
 }

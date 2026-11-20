@@ -10,9 +10,15 @@ const handlers = toNextJsHandler(auth);
 // over many addresses. Every attempt reserves a slot atomically before the password is checked, so parallel guesses
 // cannot all slip through; the slot is given back unless the password was wrong.
 const accountFailures = { scope: "auth_signin_account_failure", max: 10, windowSeconds: 15 * 60 };
-// ENG-279: only an existing account gets a reset token written (and a mail queued), so every reset request answers no
-// sooner than this, whatever the address; its time then tells nothing about it.
-const RESET_ANSWER_MS = 400;
+// ENG-279, ENG-283: a reset writes a token only for an existing account, and a sign-up writes an account only for a new
+// address, so both answer no sooner than this, whatever the address; the time then tells nothing about it.
+const ANSWER_MS = 400;
+
+async function answerNoSooner(request: Request) {
+  const started = Date.now();
+  try { return await handlers.POST(request); }
+  finally { await new Promise(resolve => setTimeout(resolve, Math.max(0, ANSWER_MS - (Date.now() - started)))); }
+}
 
 function validateIngress(request: Request) {
   // All auth endpoints can reach Better Auth's own IP limits/session metadata.
@@ -32,6 +38,9 @@ async function signInAccount(request: Request) {
 }
 
 export async function GET(request: Request) {
+  // ENG-286: Better Auth's own reset link redirects with the token in the query, into server and proxy logs. Our mail links
+  // to /reset-password#token=… instead, so this route is closed.
+  if (new URL(request.url).pathname.includes("/reset-password/")) return new Response(null, { status: 404 });
   try { validateIngress(request); return await handlers.GET(request); }
   catch (error) { return respondError(error); }
 }
@@ -40,13 +49,16 @@ export async function POST(request: Request) {
   try {
     validateIngress(request);
     const path = new URL(request.url).pathname;
-    if (path.endsWith("/sign-up/email")) await enforcePeerLimit(request, "auth_signup_peer", 15, 15 * 60);
+    if (path.endsWith("/sign-up/email")) {
+      await enforcePeerLimit(request, "auth_signup_peer", 15, 15 * 60);
+      // Better Auth answers an existing address with a made-up account; a fixed body leaves nothing to compare.
+      const response = await answerNoSooner(request);
+      return response.ok ? Response.json({ status: true }) : response;
+    }
     if (path.endsWith("/send-verification-email")) await enforcePeerLimit(request, "auth_verify_peer", 5, 15 * 60);
     if (path.endsWith("/request-password-reset")) {
       await enforcePeerLimit(request, "auth_reset_peer", 5, 15 * 60);
-      const started = Date.now();
-      try { return await handlers.POST(request); }
-      finally { await new Promise(resolve => setTimeout(resolve, Math.max(0, RESET_ANSWER_MS - (Date.now() - started)))); }
+      return await answerNoSooner(request);
     }
     if (path.endsWith("/reset-password")) await enforcePeerLimit(request, "auth_reset_use_peer", 10, 15 * 60);
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);

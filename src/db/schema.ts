@@ -1186,3 +1186,23 @@ export const shopErasures = pgTable("shop_erasures", {
   confirmationSendableAt: timestamp("confirmation_sendable_at", { withTimezone: true }).notNull(),
   confirmationSentAt: timestamp("confirmation_sent_at", { withTimezone: true }),
 });
+
+/**
+ * ENG-277: an owner's acceptance of the terms and the AVV at open sign-up (/register), one row per acceptance (Legal,
+ * 20 Nov). Loynara's contract record: it survives the shop's erasure (ERASURE_KEEP), so no foreign keys. No IP, no
+ * browser. Append-only: the only permitted change is setting tenant_id once, when the owner's shop is created (trigger).
+ */
+export const ownerAcceptances = pgTable("owner_acceptances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  tenantId: uuid("tenant_id"),
+  path: varchar("path", { length: 16 }).notNull().default("register"),
+  termsVersion: varchar("terms_version", { length: 40 }).notNull(),
+  avvVersion: varchar("avv_version", { length: 40 }).notNull(),
+  privacyVersion: varchar("privacy_version", { length: 40 }).notNull(),
+  textVersion: varchar("text_version", { length: 40 }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+}, (t) => [
+  index("owner_acceptances_user_idx").on(t.userId),
+  check("owner_acceptances_path_valid", sql`${t.path} = 'register'`),
+]);
