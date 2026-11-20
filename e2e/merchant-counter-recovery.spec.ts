@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Request } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function account(baseURL: string, label: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `${label}-${randomUUID()}@example.test`;
-  expect((await context.post("/api/auth/sign-up/email", { data: { name: `Synthetic ${label}`, email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(context, { data: { name: `Synthetic ${label}`, email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   return { context, email };
 }
 

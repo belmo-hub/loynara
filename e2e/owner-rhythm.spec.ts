@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, request as apiRequest, test, type Page } from "@playwright/test";
 import { smallTargets } from "./support/targets";
+import { signUp } from "./support/sign-up";
 
 // The owner area's one rhythm (Design, 12 Nov, rulings SP1 to SP5 and SP9), measured on the rendered pages:
 // 24 from the page head to the first block; 20 above a section label and 8 below it, with or without its „?“;
@@ -284,7 +285,7 @@ test("the address notice's button stays put through busy, sent, limited and fail
   const owner = await browser.newPage();
   try {
     const email = `notice-${randomUUID()}@example.test`;
-    expect((await owner.request.post("/api/auth/sign-up/email", { data: { name: "Synthetic notice owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(owner.request, { data: { name: "Synthetic notice owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     for (const width of [880, 1440]) {
       await owner.setViewportSize({ width, height: 900 });
       for (const [outcome, status] of [["sent", 200], ["limited", 429], ["failed", 503]] as const) {

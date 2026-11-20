@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // ENG-292 (Design, 19 Nov, part 1): a points programme is the mix card on the guest card and at the Kasse. A booking
 // that crosses markers presses each once, 90 ms apart after --dur-ui, and the ready band opens after the last press.
@@ -19,7 +20,7 @@ async function card(kind: "manual" | "purchase" = "manual", middle = "Pizza") {
   const costs = kind === "manual" ? [60, 150, 300] : [50, 150, 300], mode = `${kind}:${middle}`, earningMode = kind;
   if (!slugs[mode]) {
     owners[mode] = await apiRequest.newContext(options);
-    expect((await owners[mode].post("/api/auth/sign-up/email", { data: { name: "Synthetic points owner", email: `points-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(owners[mode], { data: { name: "Synthetic points owner", email: `points-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const setup = await owners[mode].post("/api/merchant/onboard", { data: { businessName: "Synthetic Pizzeria", locationName: `Kassel ${kind}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", earningMode, pointsPerCurrencyUnit: 1, rulesText: "Punkte an der Kasse.", rewardTitle: "Espresso", rewardCost: costs[0] } });
     expect(setup.status()).toBe(201);
     slugs[mode] = (await setup.json() as { programSlug: string }).programSlug;

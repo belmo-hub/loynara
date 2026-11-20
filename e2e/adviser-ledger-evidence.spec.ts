@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { pool } from "../src/db";
 import { award, reverseEntry } from "../src/lib/loyalty";
 import { getMerchantAdvice } from "../src/lib/adviser";
+import { signUp } from "./support/sign-up";
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname) || database.port !== "55433" || database.pathname !== "/looplocal_browser_qr_089") throw new Error("Dedicated synthetic advice database required");
 const origin = "http://localhost:3000";
@@ -12,7 +13,7 @@ test("actual adviser reflects duplicate, legitimate reversal and established 30/
   try {
     const fixtures = [];
     for (const context of [owner, foreign]) {
-      const id = randomUUID(); const signup = await context.request.post("/api/auth/sign-up/email", { headers: { Origin: origin }, data: { name: "Synthetic advice owner", email: `${id}@example.test`, password: "Synthetic-Advice-089-Only!" } }); expect(signup.ok()).toBe(true); const { user } = await signup.json();
+      const id = randomUUID(); const signup = await signUp(context.request, { headers: { Origin: origin }, data: { name: "Synthetic advice owner", email: `${id}@example.test`, password: "Synthetic-Advice-089-Only!" } }); expect(signup.ok()).toBe(true); const { user } = await signup.json();
       const setup = await context.request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: `Synthetic advice ${id}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic advice card", programType: "stamp", rulesText: "One confirmed purchase", rewardTitle: "Coffee", rewardCost: 5 } }); expect(setup.status()).toBe(201); const merchant = await setup.json();
       const enrolled = await context.request.post("/api/enroll", { headers: { Origin: origin }, data: { slug: merchant.programSlug, acceptedTerms: true } }); expect(enrolled.status()).toBe(201); const { cardToken } = await enrolled.json(); const membership = (await pool.query("SELECT id FROM memberships WHERE tenant_id=$1 AND card_token=$2", [merchant.tenantId, cardToken])).rows[0].id;
       fixtures.push({ ...merchant, user: user.id, membership });
