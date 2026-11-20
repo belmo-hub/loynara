@@ -112,6 +112,9 @@ export function groupCount(s: RetentionSummary, filters: Pick<Filters, "activity
 let listY: { list: string; y: number } | null = null;
 /** The row tapped last, with what its card's face needs: the card screen paints it from these in the navigation's commit. */
 let opened: { member: MerchantMember; program: PublicProgram } | null = null;
+/** The card a tap is opening right now: only that mount paints from the row. A later mount of the same card (Back in the
+ *  history, back from the Kasse) reads afresh, or it would show the balance the row had before a booking (Design, batch). */
+let seedFor: string | null = null;
 
 /**
  * ENG-299: a card opened from its row grows out of the row's thumbnail, and shrinks back into it on the way back. While
@@ -161,6 +164,8 @@ export function CustomersView() {
   // Opening and closing a card are screen changes of their own (freshFade); the path stays the same.
   const shownCard = useRef(card);
   useLayoutEffect(() => { if (card !== shownCard.current) freshFade(); shownCard.current = card; }, [card]);
+  // The tap's own mount has its seed now: no later one takes it.
+  useLayoutEffect(() => { if (card) seedFor = null; }, [card]);
   useEffect(() => unpairCard, []);
   useLayoutEffect(() => {
     // Back from a card is a return, not an arrival: showing the list again restarts its entrances, so they end before
@@ -176,7 +181,7 @@ export function CustomersView() {
   // or a filter starts no change, so those stay in place with no fade. The card's box stays while its loading frame is
   // swapped for the card.
   return <>
-    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none" onEnter={unpairAfter} onExit={unpairAfter}><div><CardScreen key={card} id={card} seed={opened?.member.id === card ? opened : undefined}
+    {card && <ViewTransition enter="ow-screen" exit="ow-screen" default="none" onEnter={unpairAfter} onExit={unpairAfter}><div><CardScreen key={card} id={card} seed={seedFor === card && opened?.member.id === card ? opened : undefined}
       back={{ href: `/merchant/customers?${listKey}`, label: params.has("activity") ? groupName(filtersFromParams(params).activity) : "Kundenkarten", onClick: event => { if (plain(event)) { pairBack(card); inPlace(event); } } }}
       onMember={member => setFresh(current => current[member.id] === member ? current : { ...current, [member.id]: member })} /></div></ViewTransition>}
     <div ref={listBox} className="ow-under" hidden={Boolean(card)}><ListScreen fresh={fresh} /></div>
@@ -359,6 +364,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
             listY = { list: list.toString(), y: window.scrollY };
             // A row without a goal has no thumbnail to grow from: its card comes in with the screen change alone.
             opened = target && program.state === "ok" ? { member, program: program.data } : null;
+            seedFor = opened && member.id;
             for (const row of document.querySelectorAll("[data-opened]")) row.removeAttribute("data-opened");
             if (opened) { event.currentTarget.setAttribute("data-opened", ""); pairCard("open"); }
             // The card needs nothing from the server, so the address changes in place (Next.js keeps its router in step):
