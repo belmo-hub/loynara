@@ -496,14 +496,18 @@ test("content that takes a placeholder's place fades in from a floor: no frame s
     await tab(name).click();
     await expect(page.locator(".ow-content :is(.ow-loading, .ow-skel)").first()).toBeVisible();
     await settled();
-    // Every frame for half a second: is a placeholder there, and how strong is the weakest outermost swap.
+    // Every frame until 300 ms after the placeholder has gone (a slow runner answers late): is a placeholder there, and
+    // how strong is the weakest outermost swap.
     const frames = page.evaluate(() => new Promise<{ placeholder: boolean; swap: number | null }[]>(done => {
       const seen: { placeholder: boolean; swap: number | null }[] = [];
-      const end = performance.now() + 500;
+      const limit = performance.now() + 3000;
+      let gone = 0;
       const look = () => {
         const swaps = [...document.querySelectorAll(".ow-content [data-swap]")].filter(node => !node.parentElement?.closest("[data-swap]"));
-        seen.push({ placeholder: !!document.querySelector(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)"), swap: swaps.length ? Math.min(...swaps.map(node => Number(getComputedStyle(node).opacity))) : null });
-        if (performance.now() < end) requestAnimationFrame(look); else done(seen);
+        const placeholder = !!document.querySelector(".ow-content :is(.ow-skel, .ow-ph, .ow-board-ph, .ow-loading)");
+        seen.push({ placeholder, swap: swaps.length ? Math.min(...swaps.map(node => Number(getComputedStyle(node).opacity))) : null });
+        if (!placeholder && !gone) gone = performance.now();
+        if ((gone && performance.now() - gone > 300) || performance.now() > limit) done(seen); else requestAnimationFrame(look);
       };
       look();
     }));
