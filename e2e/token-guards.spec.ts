@@ -48,6 +48,11 @@ test("/reset-password posts the token from its fragment and scrubs it from the a
   expect(posted).toMatchObject({ token: "synthetic_token_value", newPassword: "synthetic-new-password" });
 });
 
+test("Better Auth's own reset link, which would put the token in a server URL, answers 404", async ({ request }) => {
+  const response = await request.get("/api/auth/reset-password/synthetic_token_value?callbackURL=/reset-password", { maxRedirects: 0 });
+  expect(response.status()).toBe(404);
+});
+
 for (const path of ["/reset-password", "/reset-password?token=synthetic_token_value"]) {
   test(`${path} shows „Dieser Link gilt nicht mehr.“ and no password field`, async ({ page }) => {
     await page.goto(path);

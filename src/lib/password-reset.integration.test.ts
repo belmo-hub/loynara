@@ -14,7 +14,7 @@ vi.mock("./transactional-email", async importOriginal => ({
     return { state: "accepted", messageId: `local:${message.jobId}` };
   } }),
 }));
-const { POST } = await import("@/app/api/auth/[...all]/route");
+const { GET, POST } = await import("@/app/api/auth/[...all]/route");
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
 
@@ -71,6 +71,16 @@ it("mails a confirmed owner a one-hour link in fixed words; the link sets the pa
   expect((await pool.query('SELECT count(*)::int AS n FROM session s JOIN "user" u ON u.id = s."userId" WHERE u.email = $1', [email])).rows[0].n).toBe(0);
   expect((await post("/reset-password", { token, newPassword: "synthetic-reset-third-password" })).status).toBe(400);
   expect((await post("/sign-in/email", { email, password: "synthetic-reset-new-password" })).status).toBe(200);
+});
+
+it("closes Better Auth's own reset link, which would redirect with the token in the query", async () => {
+  const email = await account(true);
+  await post("/request-password-reset", { email });
+  await vi.waitFor(() => expect(resetMails()).toHaveLength(1));
+  const token = /#token=([\w-]+)/.exec(resetMails()[0].body)![1];
+  const response = await GET(new Request(`${origin}/api/auth/reset-password/${token}?callbackURL=/reset-password`, { headers: { "cf-connecting-ip": "198.51.100.7" } }));
+  expect(response.status).toBe(404);
+  expect(response.headers.get("location")).toBeNull();
 });
 
 it("answers an unknown and an unconfirmed address exactly like a confirmed one, and mails both accounts", async () => {
