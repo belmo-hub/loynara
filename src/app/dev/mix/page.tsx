@@ -10,7 +10,9 @@ export const metadata: Metadata = { title: "Mix – Vorschau", robots: { index: 
 // The demo shop of the approved mix pictures: navy, white ink, coral stamps.
 const navy = { "--merchant": "#1F3A5F", "--merchant-deep": "#16293F", "--merchant-ink": "#FFFFFF" } as CSSProperties;
 const shop = { businessName: "Demo Kaffeebar Kassel", locationName: "Kassel Mitte", programType: "stamps" as const, balance: 5, reward: { id: "r", title: "Gratiskaffee", cost: 8 } };
-const breakfast = { id: "p", title: "Frühstück für zwei", cost: 250 };
+const pizza = { id: "p2", title: "Pizza Margherita", cost: 150 }, family = { id: "p3", title: "Familienmenü", cost: 300 };
+const five = [{ id: "p0", title: "Espresso", cost: 40 }, { id: "p1", title: "Erste Prämie", cost: 60 }, pizza, family, { id: "p4", title: "Party-Blech", cost: 500 }];
+const points = { ...shop, programType: "points" as const, balance: 186, reward: family, rewards: [five[1], pizza, family] };
 
 function Spec({ name, children }: { name: string; children: ReactNode }) {
   return <section data-spec={name} style={{ display: "grid", gap: 16 }}><p style={{ margin: 0, font: "12px/16px var(--font-mono)", color: "var(--color-ink-faint)" }}>{name}</p>{children}</section>;
@@ -28,7 +30,11 @@ export default function MixPage() {
     <Spec name="thumb 0 … 8"><div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{Array.from({ length: 9 }, (_, n) => <MixCard key={n} {...shop} balance={n} size="thumb" />)}</div></Spec>
     <Spec name="10 and 12 stamps"><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 10 }} size="thumb" /><MixCard {...shop} balance={7} reward={{ ...shop.reward, cost: 12 }} size="thumb" />{[13, 16, 20, 21, 25, 30].map(n => <MixCard key={n} {...shop} balance={5} reward={{ ...shop.reward, cost: n }} size="thumb" />)}</div></Spec>
-    <Spec name="points (house ladder)"><MixCard {...shop} programType="points" balance={186} reward={breakfast} rewards={[{ id: "a", title: "Kaffee", cost: 60 }, breakfast]} /></Spec>
+    <Spec name="points full 0 · 21 · 186 · 420 (guest), 60 / 150 / 300"><MixCard {...points} balance={0} reward={five[1]} /><MixCard {...points} balance={21} reward={five[1]} /><MixCard {...points} /><MixCard {...points} balance={420} reward={family} /></Spec>
+    <Spec name="points full, owner voice"><MixCard {...points} voice="owner" lineReward={five[1]} /></Spec>
+    <Spec name="points 1 and 5 rewards, a long reward name"><MixCard {...points} rewards={[pizza]} reward={pizza} balance={21} /><MixCard {...points} rewards={five} />
+      <MixCard {...points} rewards={[pizza, { ...family, title: "Großes Familienmenü mit Getränken und Nachtisch" }]} reward={{ ...family, title: "Großes Familienmenü mit Getränken und Nachtisch" }} balance={210} /></Spec>
+    <Spec name="points Programm example"><MixCard {...points} size="example" reward={pizza} balance={93} /></Spec>
     <MixStack className="patterns">
       <MixSection title="Deine Karte"><MixPanel>{["Programmregeln", "So findest du deine Karte wieder", "Meine Kartendaten exportieren"].map(t => <MixRow key={t} title={t} href="#" />)}</MixPanel></MixSection>
       <MixSection title={<><Flag size={20} aria-hidden="true" />Als Nächstes</>}><MixPanel><MixRow title="Deine 100. Karte" href="#" /></MixPanel></MixSection>
@@ -50,6 +56,7 @@ export default function MixPage() {
       <a className={mixButton({ lg: true, block: true })} href="#">Ansehen</a>
     </MixStack>
     <div className="ly-theme-dark" style={{ margin: "16px -16px -40px", padding: "16px 16px 40px", background: "var(--color-bg)", display: "grid", gap: 16 }}>
+      <Spec name="points kasse"><MixCard {...points} size="kasse" title="K-C7YPM6" sub="Geprüfte Karte" label="Aktueller Kontostand" /></Spec>
       <Spec name="kasse"><MixCard {...shop} size="kasse" title="K-C7YPM6" sub="Geprüfte Karte" label="Aktueller Kontostand"
         foot={<><span style={{ height: 56, padding: "0 20px 0 16px", borderRadius: 999, background: "rgba(255,255,255,.16)", display: "inline-flex", alignItems: "center", fontWeight: 720 }}>Andere Karte</span><span style={{ fontWeight: 720 }}>Karte offen</span></>} /></Spec>
     </div>

@@ -15,7 +15,6 @@ import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
 import styles from "./program-list.module.css";
-import { BrowserCardPreview } from "./card-preview";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -117,14 +116,13 @@ export function writeReturn(value: Return | null, list = RETURN) {
 export function markSaved(row: string, from = row, toast = "Gespeichert", list = RETURN) { const last = readReturn(list); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }, list); }
 
 /**
- * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. Points stay on the
- * house example (the ladder) until Design draws a points mix card (Design, 18 Nov).
+ * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. A points card
+ * draws every reward on its ladder (Design, ENG-292 §5).
  */
-export function ProgramExample({ me, type, reward }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number } }) {
+export function ProgramExample({ me, type, reward, rewards }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number }; rewards?: Array<{ id: string; title: string; cost: number }> }) {
   const balance = Math.floor(reward.cost * 5 / 8);
-  if (type === "points") return <BrowserCardPreview businessName={me.businessName} locationName={me.locationName} brandColor={me.brandColor ?? ""} programType="points" rewardTitle={reward.title} rewardCost={reward.cost} balance={balance} showCode={false} />;
   return <div style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
-    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={balance} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} />
+    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={type === "points" ? "points" : "stamps"} balance={balance} reward={{ id: reward.id, title: reward.title, cost: reward.cost }} rewards={rewards} />
   </div>;
 }
 
@@ -176,7 +174,7 @@ export function ProgramList({ me }: { me: MeResponse }) {
         <div ref={list} className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
           {reward && program.state === "ok" ? <>
             <div className={styles.col}>
-              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} /></MixSection></div>
+              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} rewards={program.data.rewards} /></MixSection></div>
               {section("So sammeln Kunden")}
               {section("Infos auf der Karte")}
             </div>
