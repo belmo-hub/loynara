@@ -14,7 +14,7 @@ export const SIGNUP_ACCEPTANCE_HEADER = "x-loynara-acceptance";
  */
 export const AVV_FILL_INS = {
   devices: "Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.",
-  twoFactor: "Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet.",
+  twoFactor: "Zwei-Faktor-Anmeldung ist bei Railway, Cloudflare, Mailgun, dem Apple-Entwicklerkonto und GitHub eingeschaltet, ebenso beim Google-Konto, über das sich der Anbieter bei Dienstleistern anmeldet.",
   railway: "Railway Corporation, 548 Market St PMB 68956, San Francisco, CA 94104, USA",
   railwayBasis: "EU-US Data Privacy Framework (Zertifizierung der Railway Corporation); zusätzlich Standardvertragsklauseln der EU (Durchführungsbeschluss (EU) 2021/914, Modul 2 bzw. 3), Bestandteil des Railway-DPA",
   cloudflare: "Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, USA",
