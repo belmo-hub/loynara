@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, locations, membershipContacts, outboxJobs, plateLinkEvents, secureTags, walletPasses } from "@/db/schema";
+import { ledgerEntries, locations, membershipContacts, outboxJobs, plateLinkEvents, programs, secureTags, walletPasses } from "@/db/schema";
 import { auth } from "./auth";
 import { nfcFixture } from "./nfc-test-db";
 import { operatorOverview, parseCoordinates } from "./operator";
@@ -221,5 +221,32 @@ describe("location coordinates on /operator", () => {
     for (const cookie of ["", owner.cookie]) { const res = await post(body(f, true), cookie); expect(res.status).toBe(404); expect(await res.text()).toBe(""); }
     expect((await post({ ...body(f, true), tenantId: other.tenant.id }, operator.cookie)).status).toBe(404);
     expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
+  });
+});
+
+describe("contract shops on /operator (ENG-310)", () => {
+  const accept = (userId: string, tenantId: string | null) => pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 't', 'a', 'p', 'x')", [userId, tenantId]);
+
+  it("lists only shops with an acceptance, each with its own locations, owner email, start and confirmed end", async () => {
+    const operator = await identity(), a = await nfcFixture(), b = await nfcFixture(), c = await nfcFixture();
+    await db.update(locations).set({ name: "Altstadt", street: "Markt 1", postalCode: "34117" }).where(eq(locations.id, a.location.id));
+    const [north] = await db.insert(locations).values({ tenantId: a.tenant.id, name: "Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    // An ended programme with a confirmed date is no contract end while another programme of the shop still runs.
+    await db.insert(programs).values({ tenantId: a.tenant.id, locationId: north.id, slug: `ended-${a.userId}`, name: "Alt", type: "stamp", rulesText: "x", status: "ended", cancellationEndDate: "2026-01-31", cancellationConfirmedAt: new Date() });
+    await accept(a.userId, a.tenant.id); await accept(c.userId, c.tenant.id); await accept(b.userId, null); // b registered, shop not yet tied
+    await pool.query("UPDATE programs SET cancellation_end_date = '2026-12-31', cancellation_requested_at = now() WHERE tenant_id = $1", [c.tenant.id]);
+    const env = { PLATE_OPERATOR_USER_IDS: operator.userId };
+    await expect(operatorOverview(a.userId, env)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const { contracts } = await operatorOverview(operator.userId, env);
+    expect(contracts.map(row => row.tenantId).sort()).toEqual([a.tenant.id, c.tenant.id].sort());
+    const shop = contracts.find(row => row.tenantId === a.tenant.id)!;
+    expect(shop).toMatchObject({ tenant: "Tap Test Café", ownerEmail: `${a.userId}@example.test`, endDate: null, addresses: ["Altstadt, Markt 1, 34117 Kassel", "Nord, Kassel"] });
+    expect(new Date(shop.acceptedAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    // Only the requested (unconfirmed) end so far: no contract end. Confirmed, it shows.
+    expect(contracts.find(row => row.tenantId === c.tenant.id)).toMatchObject({ ownerEmail: `${c.userId}@example.test`, endDate: null, addresses: ["Kassel, Kassel"] });
+    await pool.query("UPDATE programs SET cancellation_confirmed_at = now() WHERE tenant_id = $1", [c.tenant.id]);
+    expect((await operatorOverview(operator.userId, env)).contracts.find(row => row.tenantId === c.tenant.id)?.endDate).toBe("2026-12-31");
+    const text = JSON.stringify(contracts);
+    for (const other of [b.userId, b.tenant.id]) expect(text).not.toContain(other);
   });
 });

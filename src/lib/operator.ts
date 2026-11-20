@@ -69,9 +69,20 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .from(billingLocationPlans).innerJoin(tenants, eq(tenants.id, billingLocationPlans.tenantId))
       .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
+    // ENG-310 (Art. 30 (2) record): every shop whose owner accepted the online contract. Start = the first acceptance; end =
+    // the confirmed cancellation's last day, once no active programme runs without one (a cancellation covers the whole shop).
+    const { rows: contracts } = await tx.execute<{ tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] }>(sql`
+      SELECT t.id AS "tenantId", t.name AS tenant, u.email AS "ownerEmail", to_json(a.accepted_at) #>> '{}' AS "acceptedAt",
+        CASE WHEN NOT EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = t.id AND p.status = 'active' AND p.cancellation_confirmed_at IS NULL)
+          THEN (SELECT max(p.cancellation_end_date) FROM programs p WHERE p.tenant_id = t.id AND p.cancellation_confirmed_at IS NOT NULL)::text END AS "endDate",
+        coalesce((SELECT array_agg(concat_ws(', ', l.name, nullif(l.street, ''), concat_ws(' ', l.postal_code, l.city)) ORDER BY l.created_at, l.id)
+          FROM locations l WHERE l.tenant_id = t.id), '{}') AS addresses
+      FROM (SELECT DISTINCT ON (tenant_id) tenant_id, user_id, accepted_at FROM owner_acceptances WHERE tenant_id IS NOT NULL ORDER BY tenant_id, accepted_at) a
+      JOIN tenants t ON t.id = a.tenant_id LEFT JOIN "user" u ON u.id = a.user_id
+      ORDER BY t.name, t.id`);
     // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
     const freeMonths = await freeMonthsEndingSoon();
-    return { awaiting, billing, guarantees, freeMonths, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    return { awaiting, billing, guarantees, freeMonths, contracts, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
 

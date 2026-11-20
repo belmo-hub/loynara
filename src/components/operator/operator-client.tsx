@@ -33,6 +33,7 @@ type Invitation = { tenant: string; email: string; link: string; qr: string; exp
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
 type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
+type Contract = { tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
@@ -51,7 +52,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; demo?: { running: DemoRunning | null } }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -261,6 +262,18 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
                 </form>
                 : <div><Button variant="secondary" onClick={() => openStart(b)}>Abrechnung starten (Go-live)</Button></div>}
         </li>)}
+      </ul>
+    </Card>
+
+    <Card as="section" aria-labelledby="op-contracts">
+      <CardHeader id="op-contracts" title="Verträge" description="Jedes Geschäft, das den Vertrag online angenommen hat, für das Verzeichnis nach Art. 30 Abs. 2 DSGVO. Nur Lesen." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {contracts.map(c => <li key={c.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
+          <span><strong>{c.tenant}</strong> · <span style={{ overflowWrap: "anywhere" }}>{c.ownerEmail ?? "keine E-Mail"}</span></span>
+          {c.addresses.map((a, i) => <span key={i} className="ow-muted">{a}</span>)}
+          <span className="ow-muted">Vertrag seit {when(c.acceptedAt)} · {c.endDate ? `endet am ${germanDate(c.endDate)}` : "kein Vertragsende"}</span>
+        </li>)}
+        {contracts.length === 0 ? <li className="ow-muted">Noch kein Geschäft hat den Vertrag online angenommen.</li> : null}
       </ul>
     </Card>
 
