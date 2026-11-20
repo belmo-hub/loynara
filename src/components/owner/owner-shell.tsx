@@ -39,11 +39,11 @@ function GuardedLink({ href, children, ...rest }: { href: string; children: Reac
 }
 export { GuardedLink };
 
-/** ENG-221: WebKit (every iPhone browser) paints a screen change's fades only under keyframe names the last change did
- *  not use; with the same names it shows just their end states, a cut. Each change therefore takes the other of two
- *  identical keyframe pairs (owner.css, data-ow-fade). Called in the commit that makes the change, inside the browser's
- *  update step, before the change's layers exist: renaming their running animations instead crashed WebKit's page when
- *  a tap read them. */
+/** ENG-221: WebKit (every iPhone browser) paints a screen change's fade only under a keyframe name the last change did
+ *  not use; with the same name it shows just its end state, a cut. Each change therefore takes the other of two
+ *  identical keyframes for the old screen (owner.css, data-ow-fade). Called in the commit that makes the change, inside
+ *  the browser's update step, before the change's layers exist: renaming their running animations instead crashed
+ *  WebKit's page when a tap read them. */
 export function freshFade() { document.documentElement.toggleAttribute("data-ow-fade"); }
 
 /** `notice`: one line of state above every screen (ENG-278), outside the screen change so it never ghosts. */
@@ -155,7 +155,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   // The motion that depends on what was on screen before (DESIGN.md, Motion); owner.css draws it.
   // Arrive: the blocks a screen has when it is navigated to are marked, so only they rise in, once; a block that holds a
   // placeholder is not. Skeleton to content: what takes a placeholder's place (a cold load and a location switch too) is
-  // marked data-swap and stands there at once, with no rise and no stagger. Indicator slide: a segmented control's pill
+  // marked data-swap and fades in as one, with no rise and no stagger. Indicator slide: a segmented control's pill
   // moves over from the segment picked before, after a pointer press only. A keyboard action shows its change at once:
   // data-keys on the root is set from a key press to the next pointer press.
   useEffect(() => {

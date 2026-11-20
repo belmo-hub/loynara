@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-// The screen change in the owner area (DESIGN.md, Motion): the old screen fades out, the new one fades in, the bars stay.
+// The screen change in the owner area (DESIGN.md, Motion): the old screen fades out over --dur-press, the new one stands
+// at full from the first frame, the bars stay.
 const access = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 
 // One sign-in for the file: the login limit counts every attempt.
@@ -25,8 +26,28 @@ test.beforeEach(async () => {
 
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const inLayer = (prefix: string, running = false) => page.evaluate(([start, mustRun]) => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(start as string) && (!mustRun || animation.playState === "running")), [prefix, running] as const);
-/** Resolves in the frame in which the incoming screen's fade exists. */
-const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+/** The layers of the screens, not those of the bars or the hidden root. */
+const SCREEN = /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/;
+/** Resolves in the frame in which the outgoing screen's fade exists. */
+const fadeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(") && !/\((root|ow-topbar|ow-subnav|ow-tabs)\)/.test((animation.effect as KeyframeEffect).pseudoElement!)));
+/** From the next frame on, until the change ends: in every frame, the opacity of each screen layer. */
+const watchLayers = () => page.evaluate(source => new Promise<{ old: number[]; new: number[] }[]>(done => {
+  const screen = new RegExp(source);
+  const frames: { old: number[]; new: number[] }[] = [];
+  let seen = false;
+  const look = () => {
+    const old = document.getAnimations().map(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? "").filter(layer => layer.startsWith("::view-transition-old(") && screen.test(layer));
+    const active = CSS.supports("selector(:active-view-transition)") ? document.documentElement.matches(":active-view-transition") : old.length > 0;
+    if (active) {
+      // A new screen has no animation, so its layers are found by the names its elements carry during the change.
+      const names = [...document.querySelectorAll<HTMLElement>(".ow-content, .ow-content *")].map(node => getComputedStyle(node).viewTransitionName).filter(name => name && name !== "none");
+      seen = true;
+      frames.push({ old: old.map(layer => Number(getComputedStyle(document.documentElement, layer).opacity)), new: names.map(name => Number(getComputedStyle(document.documentElement, `::view-transition-new(${name})`).opacity)) });
+    } else if (seen) { done(frames); return; }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}), SCREEN.source);
 // WebKit keeps a finished layer animation after a change (#263), so only unfinished ones count.
 const settled = () => page.waitForFunction(() => !document.getAnimations().some(animation => animation.playState !== "finished" && (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
 
@@ -34,12 +55,18 @@ test("a step in fades to the end: a page that swaps its loading frame for its fo
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
   await settled();
+  // A change cut short cancels its fade; one that runs out finishes it.
+  const ran = page.evaluate(() => new Promise<boolean>(done => {
+    const look = () => {
+      const fade = document.getAnimations().find(animation => /^::view-transition-old\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? ""));
+      if (fade) fade.finished.then(() => done(true), () => done(false)); else requestAnimationFrame(look);
+    };
+    look();
+  }));
   await page.getByRole("link", { name: /Prämie hinzufügen/ }).click();
-  await fadeStarted();
-  await page.waitForTimeout(100);
-  expect(await inLayer("::view-transition-new(", true), "the fade is still running 100 ms after it started").toBe(true);
   await expect(page).toHaveURL(/\/merchant\/program\/rewards\/new$/);
   await expect(page, "the new screen names itself to assistive tech").toHaveTitle(/ – Loynara$/);
+  expect(await ran, "the old screen's fade ran to its end").toBe(true);
 });
 
 // ENG-219: WebKit (every iPhone browser) does not always paint the old screen's fade and then draws it as styled at
@@ -62,7 +89,7 @@ test("the old screen is invisible at rest: only its running fade shows it", asyn
 test("each screen change takes the other pair of keyframes", async () => {
   const names = async () => {
     await fadeStarted();
-    const used = await page.evaluate(() => document.getAnimations().flatMap(animation => /^::view-transition-(old|new)\((?!root\)|ow-topbar\)|ow-subnav\)|ow-tabs\))/.test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []));
+    const used = await page.evaluate(source => document.getAnimations().flatMap(animation => new RegExp(source).test((animation.effect as KeyframeEffect | null)?.pseudoElement ?? "") ? [(animation as CSSAnimation).animationName] : []), SCREEN.source);
     await settled();
     return [...new Set(used)].sort().join(" ");
   };
@@ -72,7 +99,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   const second = await names();
   await tab("Programm").click();
   const third = await names();
-  expect([first, second].sort(), "two changes in a row use both pairs").toEqual(["ow-fade ow-fade-out", "ow-fade-b ow-fade-out-b"]);
+  expect([first, second].sort(), "two changes in a row use both names").toEqual(["ow-fade-out", "ow-fade-out-b"]);
   expect(third, "the third change takes the first pair again").toBe(first);
   // A customer card opens and closes on the same path: those are changes of their own too.
   await page.goto("/merchant/customers?activity=all");
@@ -84,7 +111,7 @@ test("each screen change takes the other pair of keyframes", async () => {
   const opened = await names();
   await page.locator(".ow-content a.ow-back:visible").click();
   const closed = await names();
-  expect(opened, "opening a card takes the pair the list did not").toBe(before ? "ow-fade ow-fade-out" : "ow-fade-b ow-fade-out-b");
+  expect(opened, "opening a card takes the pair the list did not").toBe(before ? "ow-fade-out" : "ow-fade-out-b");
   expect(closed, "closing it takes the other one").not.toBe(opened);
 });
 
@@ -260,8 +287,8 @@ test("opening a customer card and going back are screen changes; a filter is not
   const count = (request: { url(): string }) => { if (request.url().includes("/api/merchant/customers?")) listReads++; };
   page.on("request", count);
   await page.locator(".ow-content a.ow-back:visible").click();
+  // The card leaves as the old screen; the list stands at full again at once.
   await fadeStarted();
-  expect(await inLayer("::view-transition-new(ow-under)"), "the list comes back as the new screen").toBe(true);
   await settled();
   await expect(first).toBeVisible();
   page.off("request", count);
@@ -272,5 +299,24 @@ test("reduced motion: the change is a cut", async () => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await tab("Programm").click();
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
-  expect(await inLayer("::view-transition-new(", true)).toBe(false);
+  expect(await inLayer("::view-transition", true)).toBe(false);
+});
+
+// ENG-298 (Design's option B): today's crossfade showed both screens at half strength for about 160 ms. Now the new
+// screen stands at full from the first frame and only the old one fades, so no frame has two screens partly drawn.
+test("the two screens never both show at partial opacity: the new one is at full, only the old one fades", async () => {
+  for (const name of ["Kunden", "Programm", "Kunden"]) {
+    const frames = watchLayers();
+    await tab(name).click();
+    const seen = await frames;
+    await settled();
+    expect(seen.length, `${name}: the change was sampled`).toBeGreaterThan(0);
+    const partly = (values: number[]) => values.some(value => value > 0.01 && value < 0.99);
+    expect(seen.filter(frame => partly(frame.old) && partly(frame.new)), `${name}: frames with both screens partly drawn`).toEqual([]);
+    expect(seen.flatMap(frame => frame.new).every(value => value === 1), `${name}: the new screen is at full in every frame`).toBe(true);
+  }
+  // The hidden root takes no fade of its own: in WebKit it kept the change alive for 250 ms after the old screen left.
+  await tab("Mehr").click();
+  await fadeStarted();
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement, "::view-transition-old(root)").animationName)).toBe("none");
 });

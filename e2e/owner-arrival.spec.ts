@@ -41,7 +41,7 @@ const entrances = (ms = 400) => page.evaluate(time => new Promise<number>(done =
 }), ms);
 const tab = (name: string) => page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name, exact: true });
 const team = () => page.locator('.ow-content a.ow-prog-row[href="/merchant/staff"]');
-const changeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+const changeStarted = () => page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(")));
 
 test("the milestone card stays once it is shown", async () => {
   // Right after sign-in: this browser has not shown the shop's milestone yet.
@@ -103,7 +103,8 @@ test("a cold load does not arrive; a screen that is navigated to arrives once", 
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.waitForTimeout(800);
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "nothing rises, staggers or fades in on a cold load").toBe(0);
+  // What replaces the shell's placeholder fades in (Skeleton to content); nothing rises or staggers.
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "nothing rises or staggers on a cold load").toBe(0);
 
   await tab("Mehr").click();
   await expect(team()).toBeVisible();
@@ -151,7 +152,7 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   });
   expect(await token(), "the drop window is --dur-press").toBe(120);
   // A runner's round trips alone take a tap about 130 ms into the change, so the window and the fade are stretched for
-  // this test: the shell reads its window from --dur-press, and the change outlasts the late tap. Same code path, same rule.
+  // this test: the shell reads its window from --dur-press. Same code path, same rule.
   const [press, ui] = [400, 1200];
   for (const [wait, lands] of [[0, false], [press + 100, true]] as const) {
     await page.goto("/merchant/program");
@@ -171,9 +172,8 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     const since = Math.round(await page.evaluate(() => (window as unknown as { tapSince: number }).tapSince));
     if (lands) {
-      expect(since, "the late tap came after the window and while the change ran").toBeGreaterThanOrEqual(press);
-      expect(since).toBeLessThan(press / 2 + ui);
-      await expect(page, `a tap ${since} ms into the change lands on the row`).toHaveURL(/\/merchant\/staff$/);
+      // The change lasts as long as the old screen's fade, --dur-press: a tap after it is an ordinary tap on the new screen.
+      await expect(page, `a tap ${press + 100} ms after the change began lands on the row`).toHaveURL(/\/merchant\/staff$/);
     } else {
       expect(since, "the early tap came inside the window").toBeLessThan(press);
       await page.waitForTimeout(700);
@@ -183,7 +183,7 @@ test("a content tap after a tab tap is dropped before 120 ms and lands from 120 
   }
 });
 
-test("data that takes a placeholder's place stands there at once, and a new period does not arrive", async () => {
+test("data that takes a placeholder's place fades in without a rise, and a new period does not arrive", async () => {
   let release = () => {};
   const held = new Promise<void>(done => { release = done; });
   // The page's own read (the shell needs none of it), so the screen stands with its placeholders until it answers.
@@ -195,18 +195,20 @@ test("data that takes a placeholder's place stands there at once, and a new peri
   await page.waitForTimeout(600);
   expect(await started("ow-arrive", "ow-rise"), "the title arrived with the screen").toBeGreaterThan(0);
   expect(await board.evaluate(node => node.closest(".ow-page > *")?.hasAttribute("data-arrive")), "the block with the placeholder did not").toBe(false);
-  const before = await started("ow-arrive", "ow-rise", "ow-row", "ow-fade");
+  const before = await started("ow-arrive", "ow-rise", "ow-row");
+  const fadesBefore = await started("ow-fade");
   release();
   await expect(page.locator(".ow-content .ow-board-big")).toBeVisible();
   expect(await page.locator(".ow-content [data-swap]").count(), "what replaced a placeholder is marked").toBeGreaterThan(0);
   await page.waitForTimeout(400);
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade"), "no rise, no stagger and no fade from nothing").toBe(before);
+  expect(await started("ow-fade"), "it fades in instead of cutting").toBeGreaterThan(fadesBefore);
+  expect(await started("ow-arrive", "ow-rise", "ow-row"), "no rise and no stagger").toBe(before);
   await page.unroute(/\/api\/merchant\/analytics\?/);
 
   await page.getByRole("group", { name: "Zeitraum" }).getByRole("button", { name: "90 Tage" }).click();
   expect(await entrances(), "the 90 days do not arrive").toBe(0);
   await expect(page.locator(".ow-content .ow-board-sub")).toContainText("90 Tage");
-  expect(await started("ow-arrive", "ow-rise", "ow-row", "ow-fade")).toBe(before);
+  expect(await started("ow-arrive", "ow-rise", "ow-row")).toBe(before);
 });
 
 test("Back from a card and a filter chip are returns: nothing arrives again", async () => {

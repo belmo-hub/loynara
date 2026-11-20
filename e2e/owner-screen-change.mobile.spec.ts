@@ -51,10 +51,10 @@ test("in the second screen change the old screen is not painted over the new one
   const layers = (act: "pause" | "finish") => page.evaluate(step => {
     for (const animation of document.getAnimations()) {
       if (!(animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")) continue;
-      if (step === "finish") animation.finish(); else { animation.pause(); animation.currentTime = 215; } // 5 ms before the 220 ms fades end
+      if (step === "finish") animation.finish(); else { animation.pause(); animation.currentTime = 115; } // 5 ms before the 120 ms fade ends
     }
   }, act);
-  const changing = () => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new("));
+  const changing = () => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old("));
 
   await toCustomers(page);
   await tab(page, "Programm").click();
@@ -82,7 +82,7 @@ test("in the second screen change the old screen fades out instead of cutting aw
   await page.addStyleTag({ content: ":root { --dur-press: 1200ms !important; --dur-ui: 2200ms !important; }" });
   await toCustomers(page);
   await tab(page, "Programm").click();
-  await page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-new(")));
+  await page.waitForFunction(() => document.getAnimations().some(animation => (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition-old(")));
   const frames = [await page.screenshot(), await page.screenshot(), await page.screenshot()];
   await expect(page.getByRole("heading", { name: "Programm", level: 1 })).toBeVisible();
   await page.waitForFunction(() => !document.getAnimations().some(animation => animation.playState !== "finished" && (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition")));
