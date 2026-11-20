@@ -548,23 +548,27 @@ test("a modified or middle click on a row marks nothing: the next tab change has
   expect((await frames).filter(frame => frame.card), "the tab change carries no card layer").toEqual([]);
 });
 
-test("a card's own read starts at the tap: with a 120 ms server its page is complete within about 300 ms", async () => {
+test("a card's own read starts at the tap, under the growth, not after it", async () => {
   await toList();
   await page.route(/\/api\/merchant\/customers\/[^?/]+$/, async route => { await new Promise(done => setTimeout(done, 120)); await route.continue(); });
   try {
-    const done = page.evaluate(() => new Promise<number>(resolve => {
+    // By the page's clock: from the finger down to the card's read leaving. It waited out the growth (527 to 562 ms)
+    // while React held passive effects; a server's own speed does not enter this measure.
+    const left = page.evaluate(() => new Promise<number>(resolve => {
       document.addEventListener("pointerdown", () => {
         const down = performance.now();
-        const look = () => { // The list under the card stays mounted and hidden: only placeholders on screen count.
-        if (document.querySelector("[data-card-face]") && ![...document.querySelectorAll(".ow-content .ow-ph")].some(node => node.checkVisibility())) resolve(performance.now() - down); else requestAnimationFrame(look); };
-        requestAnimationFrame(look);
+        const fetch = window.fetch;
+        window.fetch = (...args: Parameters<typeof window.fetch>) => {
+          if (/\/api\/merchant\/customers\/[^?/]+$/.test(String(args[0] instanceof Request ? args[0].url : args[0]))) { resolve(performance.now() - down); window.fetch = fetch; }
+          return fetch(...args);
+        };
       }, { capture: true, once: true });
     }));
     await cardRow().click();
-    const ms = Math.round(await done);
-    // About 300 locally (Design's ruling), 417 on a CI runner's dev server: the bound is the growth's 480 ms, which the
-    // read used to wait out (837 ms).
-    expect(ms, `ms from the tap to the page with no placeholder left (${ms})`).toBeLessThan(480);
+    const ms = Math.round(await left);
+    expect(ms, `ms from the tap to the card's read leaving (${ms})`).toBeLessThan(240);
+    // And the page is complete once the read is in, during or just after the growth.
+    await expect(page.locator(".ow-content .ow-ph:visible")).toHaveCount(0);
   } finally { await page.unroute(/\/api\/merchant\/customers\/[^?/]+$/); }
 });
 
