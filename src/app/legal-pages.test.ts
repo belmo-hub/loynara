@@ -177,6 +177,8 @@ describe("owner sign-up acceptance", () => {
     // Legal, 20 Nov: Google Wallet is off, so the AVV names Google only for the cashier devices' web push.
     expect(html).not.toMatch(/Google Wallet|Google-Wallet|UV-1[012]/);
     expect(html).toContain("Push-Dienste der Kassengeräte (Apple, Google, Mozilla)");
-    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-08", "DS-09", "DS-10", "UV-05"]);
+    expect(html).toContain("die physische Sicherheit verantworten diese Anbieter. Die Festplatten der Arbeitsgeräte sind verschlüsselt (FileVault); der Bildschirm sperrt sich nach 5 Minuten.</p>");
+    expect(html).toContain("<strong>Mailgun</strong>, Mailgun Technologies, Inc., 112 E Pecan Street #1135, San Antonio, TX 78205, USA.");
+    expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual(["DS-09", "DS-10"]);
   });
 });
