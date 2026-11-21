@@ -16,7 +16,7 @@ async function fixture(browser: Browser, baseURL: string | undefined, width: num
   const page = await context.newPage(); await page.goto("/merchant"); await expect(page).toHaveURL(/\/merchant\/program$/);
   const name = `Synthetic Café ${randomUUID().slice(0,8)}`;
   const weiter = () => page.getByRole("button", { name: "Weiter", exact: true }).click();
-  await page.getByLabel("Geschäftsname").fill(name); await page.getByLabel("Standortname").fill("Synthetic Mitte"); await page.getByLabel("Stadt").fill("Kassel");
+  await page.getByLabel("Geschäftsname").fill(name); await page.getByLabel("Stadt").fill("Kassel");
   await weiter(); await weiter(); await page.getByText("Kaffee aufs Haus", { exact: true }).click(); await weiter();
   await page.getByText("Weitere Einstellungen", { exact: true }).click();
   await page.getByLabel("Programmname", { exact: true }).fill("Synthetic persisted programme");

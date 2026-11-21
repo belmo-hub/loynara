@@ -9,7 +9,6 @@ async function stubbed(page: Page, onboard: Parameters<Page["route"]>[1]) {
 /** Step 1 filled, on to the card type. */
 async function named(page: Page) {
   await page.getByLabel("Geschäftsname").fill("Synthetisches Café");
-  await page.getByLabel("Standortname").fill("Kassel Mitte");
   await page.getByLabel("Stadt").fill("Kassel");
   await weiter(page);
 }
@@ -24,6 +23,10 @@ test("guided setup walks four questions, validates inline and previews the card 
   await weiter(page);
   await expect(page.getByText("Bitte den Geschäftsnamen eingeben.")).toBeVisible();
   await expect(page.getByLabel("Geschäftsname")).toBeFocused();
+  // ENG-322: one shop is named after its city, and self sign-up is Germany only.
+  await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  await expect(page.getByLabel("Standortname")).toHaveCount(0);
+  await expect(page.getByLabel("Land")).toHaveCount(0);
   await named(page);
 
   // Step 2: stamps by default with the proposed rule; who confirms is stated separately.
@@ -96,12 +99,16 @@ test("review submits normalized valid coordinates and programme fields", async (
   await page.getByText("Kaffee aufs Haus", { exact: true }).click();
   await weiter(page);
   await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  await page.getByLabel("Farbwert (Hex)").fill("#12ab");
+  await expect(page.getByText("Bitte einen Farbwert wie #1F4A3A eingeben.")).toBeVisible(); // at once, like the studio
+  await page.getByLabel("Farbe wählen").fill("#7c3848"); // ENG-322: a free colour, not only the swatches
+  await expect(page.getByLabel("Farbwert (Hex)")).toHaveValue("#7c3848");
   await page.getByLabel("Programmname", { exact: true }).fill("  Café Treuekarte  ");
   await page.getByLabel("Gültig ab", { exact: true }).fill("2026-10-10");
   await page.getByLabel("Breitengrad (optional)").fill("52,5");
   await page.getByLabel("Längengrad (optional)").fill("0");
   await page.getByRole("button", { name: "Programm starten", exact: true }).click();
-  await expect.poll(() => payload).toMatchObject({ programName: "Café Treuekarte", effectiveDate: "2026-10-10", latitude: 52.5, longitude: 0 });
+  await expect.poll(() => payload).toMatchObject({ programName: "Café Treuekarte", effectiveDate: "2026-10-10", latitude: 52.5, longitude: 0, brandColor: "#7c3848" });
 });
 
 // The setup posts the same body as before ENG-122f: every field, by points per purchase amount with empty extra rules.
@@ -119,7 +126,7 @@ test("points by purchase amount post the whole onboarding body unchanged", async
   await expect.poll(() => payload).toEqual({
     businessName: "Synthetisches Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Synthetisches Café Treuekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2,
-    rulesText: "", rewardTitle: "Dessert aufs Haus", rewardCost: 100, locationName: "Kassel Mitte", brandColor: "#1F4A3A",
+    rulesText: "", rewardTitle: "Dessert aufs Haus", rewardCost: 100, locationName: "Kassel", brandColor: "#1F4A3A",
     effectiveDate: new Date().toISOString().slice(0, 10),
   });
 });
