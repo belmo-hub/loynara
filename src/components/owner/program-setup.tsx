@@ -228,7 +228,7 @@ export function ProgramSetup() {
               <p className="ow-hint">{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p>
               <div className="ow-field"><span className="ow-label" id="su-color-l">Markenfarbe</span>
                 <div className="ow-swatches" role="group" aria-labelledby="su-color-l">{SWATCHES.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={f.brandColor.toLowerCase() === hex.toLowerCase()} onClick={() => set({ brandColor: hex })} />)}</div>
-                <input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" />
+                <div className="ow-colorrow"><input type="color" aria-label="Farbe wählen" value={HEX.test(f.brandColor) ? f.brandColor : "#000000"} onChange={event => set({ brandColor: event.target.value })} /><input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" /></div>
                 <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
               </div>
               {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><div className="ow-logo-row">

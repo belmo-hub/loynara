@@ -99,12 +99,14 @@ test("review submits normalized valid coordinates and programme fields", async (
   await page.getByText("Kaffee aufs Haus", { exact: true }).click();
   await weiter(page);
   await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  await page.getByLabel("Farbe wählen").fill("#7c3848"); // ENG-322: a free colour, not only the swatches
+  await expect(page.getByLabel("Farbwert (Hex)")).toHaveValue("#7c3848");
   await page.getByLabel("Programmname", { exact: true }).fill("  Café Treuekarte  ");
   await page.getByLabel("Gültig ab", { exact: true }).fill("2026-10-10");
   await page.getByLabel("Breitengrad (optional)").fill("52,5");
   await page.getByLabel("Längengrad (optional)").fill("0");
   await page.getByRole("button", { name: "Programm starten", exact: true }).click();
-  await expect.poll(() => payload).toMatchObject({ programName: "Café Treuekarte", effectiveDate: "2026-10-10", latitude: 52.5, longitude: 0 });
+  await expect.poll(() => payload).toMatchObject({ programName: "Café Treuekarte", effectiveDate: "2026-10-10", latitude: 52.5, longitude: 0, brandColor: "#7c3848" });
 });
 
 // The setup posts the same body as before ENG-122f: every field, by points per purchase amount with empty extra rules.
