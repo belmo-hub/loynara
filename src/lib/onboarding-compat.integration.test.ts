@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { billingLocationPlans, locations, programs, staffRoles, subscriptions, tenants } from "@/db/schema";
-import { createMerchant, getMerchantContext } from "./product";
+import { billingLocationPlans, locations, ownerAcceptances, programs, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { createMerchant, getMerchantContext, maySetUpShop } from "./product";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 beforeEach(async () => { await pool.query('TRUNCATE TABLE tenants, "user", demo_requests CASCADE'); });
@@ -91,3 +91,39 @@ describe("temporary identity-only onboarding bridge", () => {
     expect(await db.select().from(locations)).toHaveLength(2);
   });
 });
+
+// ENG-323: the operator created the shop, its owner finishes setup (the awaitsSetup path).
+async function awaitingShop() {
+  const f = await partial(true);
+  const [location] = await db.select().from(locations).where(eq(locations.tenantId, f.tenantId));
+  await db.insert(staffInvites).values({ tenantId: f.tenantId, locationId: location.id, invitedEmail: "owner@example.test", role: "owner", tokenHash: randomUUID().replaceAll("-", ""), invitedByUserId: f.userId, expiresAt: new Date(Date.now() + 86_400_000), acceptedAt: new Date() });
+  return { ...f, locationId: location.id };
+}
+const accept = (userId: string, terms = "2026-11-21") => db.insert(ownerAcceptances).values({ userId, termsVersion: terms, avvVersion: "2026-11-20", privacyVersion: terms, textVersion: "2026-11-20" });
+
+describe("the Google shop search (ENG-323)", () => {
+  it("keeps the place id and clock on the awaiting-setup path too, so that point is refreshed or cleared like any other (review R24)", async () => {
+    const f = await awaitingShop();
+    await createMerchant({ ...input(f.userId), latitude: 51.3127, longitude: 9.4797, googlePlaceId: "ChIJ_synthetic-1" });
+    const [location] = await db.select().from(locations).where(eq(locations.id, f.locationId));
+    expect(location).toMatchObject({ name: "Mitte", latitude: 51.3127, googlePlaceId: "ChIJ_synthetic-1", placeLocationFetchedAt: expect.any(Date) });
+  });
+
+  it("is offered only to an account that may set up a shop now (review F-1)", async () => {
+    const eligible = await identity(), unaccepted = await identity(), awaiting = await awaitingShop();
+    await accept(eligible);
+    expect(await maySetUpShop(eligible, true)).toBe(true);
+    expect(await maySetUpShop(eligible, false)).toBe(false); // sign-up closed: no new shop of its own
+    expect(await maySetUpShop(unaccepted, true)).toBe(false);
+    expect(await maySetUpShop(awaiting.userId, false)).toBe(true);
+    const finished = await identity();
+    await accept(finished);
+    const shop = await createMerchant(input(finished));
+    expect(await maySetUpShop(finished, true)).toBe(false);
+    const cashier = await identity();
+    await accept(cashier);
+    await db.insert(staffRoles).values({ tenantId: shop.tenantId, locationId: shop.locationId, userId: cashier, role: "cashier" });
+    expect(await maySetUpShop(cashier, true)).toBe(false);
+  });
+});
+
