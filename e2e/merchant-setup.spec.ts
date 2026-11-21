@@ -119,10 +119,14 @@ test("review submits the picked place's point and programme fields", async ({ pa
   await expect(page.getByRole("link", { name: "Datenschutzerklärung von Google" })).toHaveAttribute("href", "https://policies.google.com/privacy");
   await search.fill("Café am");
   await expect(page.getByRole("option")).toHaveCount(2);
-  await expect(page.getByRole("listbox")).toContainText("Google Maps");
-  await expect(page.getByRole("status").filter({ hasText: "2 Vorschläge" })).toBeVisible();
-  // Design's review: the list closes when focus leaves and comes back with it.
+  await expect(page.locator(".ow-options")).toContainText("Google Maps");
+  await expect(page.getByRole("status").filter({ hasText: "2 Vorschläge" })).toHaveCount(1);
+  // Design's review: a press on the list's padding keeps it open; the list closes when focus leaves and comes back with it.
+  await page.locator(".ow-options").click({ position: { x: 2, y: 2 } });
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(search).toBeFocused();
   await search.press("Tab");
+  await expect(page.getByRole("link", { name: "Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth" })).toBeFocused();
   await expect(page.getByRole("listbox")).toBeHidden();
   await expect(search).toHaveAttribute("aria-expanded", "false");
   await search.focus();
