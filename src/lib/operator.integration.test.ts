@@ -223,6 +223,10 @@ describe("location coordinates on /operator", () => {
     expect(picked.at!.getTime()).toBeGreaterThanOrEqual(sent - 1000);
     expect((await post({ ...body(f, true), coordinates: "51.40000, 9.50000" }, operator.cookie)).status).toBe(200);
     expect(await place()).toMatchObject({ placeId: "ChIJ_synthetic-1", at: null });
+    // A re-pick whose point matches the stored one to the digit still saves the id and the clock (Legal's re-pick ruling).
+    expect(await (await post({ ...body(f, false), coordinates: "51.4000000, 9.5000000", googlePlaceId: "ChIJ_synthetic-2" }, operator.cookie)).json()).toMatchObject({ changed: true });
+    expect((await post({ ...body(f, true), coordinates: "51.4000000, 9.5000000", googlePlaceId: "ChIJ_synthetic-2" }, operator.cookie)).status).toBe(200);
+    expect(await place()).toMatchObject({ placeId: "ChIJ_synthetic-2", at: expect.any(Date) });
     expect((await post({ ...body(f, true), googlePlaceId: "../x" }, operator.cookie)).status).toBe(400);
   });
 

@@ -13,6 +13,10 @@ export function placeCoordinates(body: unknown): { latitude: number; longitude: 
   return typeof latitude === "number" && typeof longitude === "number" && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null;
 }
 
+/** The console's point fields (ENG-331): a pick fills in its point; a hand edit drops the pick, so it is never saved as Google's with the clock. */
+export const pickedPoint = (place: ShopPlace | null) => ({ place, coordinates: place ? `${place.latitude.toFixed(7)}, ${place.longitude.toFixed(7)}` : "" });
+export const handTypedPoint = (coordinates: string) => ({ place: null, coordinates });
+
 /** Setup's shop search (ENG-323): a combobox over our own place routes; the browser never talks to Google. */
 export function ShopSearch({ value, onChange, label = "Dein Geschäft" }: { value: ShopPlace | null; onChange: (place: ShopPlace | null) => void; label?: string }) {
   const [text, setText] = useState("");

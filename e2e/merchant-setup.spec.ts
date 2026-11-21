@@ -128,6 +128,22 @@ test("review submits the picked place's point and programme fields", async ({ pa
   expect(JSON.stringify(payload)).not.toContain("Königsplatz"); // Google's address is never stored (P-4)
 });
 
+test("„Ändern“ drops the pick, so nothing of it is sent", async ({ page }) => {
+  let payload: Record<string, unknown> | undefined;
+  await page.route("**/api/merchant/place-search", route => route.fulfill({ json: { suggestions: [{ id: "place_1", main: "Café am Platz", secondary: "Kassel" }] } }));
+  await page.route("**/api/merchant/place-location", route => route.fulfill({ json: { latitude: 51.3127, longitude: 9.4797 } }));
+  await stubbed(page, route => { payload = route.request().postDataJSON(); return route.fulfill({ json: { programSlug: "synthetic-cafe" } }); });
+  const search = await toSearch(page);
+  await search.fill("Café am");
+  await page.getByRole("option").first().click();
+  await page.getByRole("button", { name: "Ändern" }).click();
+  await expect(search).toBeFocused();
+  await page.getByRole("button", { name: "Programm starten", exact: true }).click();
+  await expect.poll(() => payload).toBeTruthy();
+  expect(payload).not.toHaveProperty("googlePlaceId");
+  expect(payload).not.toHaveProperty("latitude");
+});
+
 test("a failed shop search says so and setup still starts without a location", async ({ page }) => {
   let payload: Record<string, unknown> | undefined;
   await page.route("**/api/merchant/place-search", route => route.fulfill({ status: 502, json: { error: "Place search failed" } }));

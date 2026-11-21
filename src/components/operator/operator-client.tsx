@@ -20,7 +20,7 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
-import { ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
+import { handTypedPoint, pickedPoint, ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
 import { DemoMode, type DemoRunning } from "./demo-mode";
 
 type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
@@ -373,8 +373,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
         {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
-        {placeSearch ? <ShopSearch label="Geschäft suchen" value={place} onChange={picked => { setPlace(picked); setCoordinates(picked ? `${picked.latitude.toFixed(7)}, ${picked.longitude.toFixed(7)}` : ""); setPointPreview(null); setError(""); }} /> : null}
-        <TextField label="Koordinaten (vom Geschäft genannt oder vor Ort ermittelt)" placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPlace(null); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        {placeSearch ? <ShopSearch label="Geschäft suchen" value={place} onChange={picked => { const next = pickedPoint(picked); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} /> : null}
+        <TextField label="Koordinaten (vom Geschäft genannt oder vor Ort ermittelt)" placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
         {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
