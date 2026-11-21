@@ -20,7 +20,9 @@ const withApple = <T>(run: () => Promise<T>) => withEnv(apple.env, run);
 async function shop(locale: "de" | "fr" = "de") {
   const owner = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [owner, "Join consent fixture", `${owner}@example.test`]);
-  return createMerchant({ userId: owner, businessName: "Tick Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Eine Einheit pro Kauf.", rewardTitle: "Kaffee", rewardCost: 5 });
+  const merchant = await createMerchant({ userId: owner, businessName: "Tick Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Eine Einheit pro Kauf.", rewardTitle: "Kaffee", rewardCost: 5 });
+  if (locale === "fr") await pool.query("UPDATE tenants SET locale = 'fr' WHERE id = $1", [merchant.tenantId]); // an existing French shop: new ones are German only
+  return merchant;
 }
 const consents = async () => (await pool.query("SELECT membership_id, text_version, withdrawn_at FROM wallet_message_consents")).rows;
 const cards = async () => (await pool.query("SELECT count(*)::int AS n FROM memberships")).rows[0].n;

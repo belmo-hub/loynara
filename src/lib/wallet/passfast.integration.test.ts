@@ -86,7 +86,8 @@ async function fake(input: string | URL | Request, options?: RequestInit): Promi
 async function fixture(locale: "de" | "fr" = "de") {
   const owner = randomUUID();
   await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [owner,"Synthetic PassFast owner",`${owner}@example.test`]);
-  const merchant = await createMerchant({ userId: owner, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Coffee", programType: "stamp", rulesText: "One per purchase", rewardTitle: "Coffee", rewardCost: 5 });
+  const merchant = await createMerchant({ userId: owner, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Coffee", programType: "stamp", rulesText: "One per purchase", rewardTitle: "Coffee", rewardCost: 5 });
+  if (locale === "fr") await pool.query("UPDATE tenants SET locale = 'fr' WHERE id = $1", [merchant.tenantId]); // an existing French shop: new ones are German only
   const member = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   templateBindings.push({ tenantId: merchant.tenantId, locationId: merchant.locationId, templateId: randomUUID() });
   vi.stubEnv("PASSFAST_TENANT_TEMPLATES", JSON.stringify(templateBindings));

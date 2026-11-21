@@ -43,6 +43,12 @@ describe("merchant and customer journey", () => {
       .rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
   });
+  it("sets up German shops only (ENG-328) and saves nothing for another country", async () => {
+    const userId = await createUser();
+    const moroccan = { userId, businessName: "Synthetic Riad", city: "Rabat", country: "MA", timezone: "Africa/Casablanca", locale: "de", currency: "MAD", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Einkauf.", rewardTitle: "Tee gratis", rewardCost: 8 };
+    await expect(createMerchant(moroccan as unknown as Parameters<typeof createMerchant>[0])).rejects.toThrow();
+    expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
+  });
 
   it("stores the configured draft EUR price shown on the homepage", async () => {
     const previous = process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR;
