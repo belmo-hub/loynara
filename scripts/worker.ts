@@ -404,7 +404,7 @@ async function main() {
       }
       if (Date.now() - placesRefreshedAt >= 24 * 60 * 60_000) {
         try {
-          // Daily and idempotent (ENG-323): Google points are refreshed after 25 days and cleared by day 29 (Google's EEA terms).
+          // Daily and idempotent (ENG-323): Google points are refreshed after 25 days and cleared from day 27 (Google's EEA terms).
           const { refreshPlaceLocations } = await import("../src/lib/place-refresh");
           const result = await refreshPlaceLocations();
           if (result.refreshed || result.cleared) console.log(`Shop places: ${result.refreshed} refreshed, ${result.cleared} cleared`);

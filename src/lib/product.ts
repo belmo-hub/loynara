@@ -172,6 +172,16 @@ export async function setupDraft(userId: string) {
   return { businessName: row.businessName, locationName: row.locationName, city: row.city, country: row.country, timezone: row.timezone, locale: row.locale };
 }
 
+/** ENG-323 F-1: whether this account may set up a shop now, by createMerchant's gate: the owner of a shop awaiting setup, or,
+ *  while sign-up is open, an account without a staff role that accepted the terms. Gates the Google shop search. */
+export async function maySetUpShop(userId: string, registrationOpen = process.env.PUBLIC_REGISTRATION_ENABLED === "true") {
+  if (await setupDraft(userId)) return true;
+  if (!registrationOpen) return false;
+  const [staff] = await db.select({ userId: staffRoles.userId }).from(staffRoles).where(eq(staffRoles.userId, userId)).limit(1);
+  const [accepted] = staff ? [] : await db.select({ id: ownerAcceptances.id }).from(ownerAcceptances).where(eq(ownerAcceptances.userId, userId)).limit(1);
+  return Boolean(accepted);
+}
+
 // Every field but the programme is optional: a Programm question posts only its own (ENG-099 N-3), the rest stays as stored.
 const updateProgramInput = z.object({
   actorUserId: z.string().min(1),

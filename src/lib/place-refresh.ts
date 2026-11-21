@@ -5,9 +5,10 @@ import { placeLocation } from "./place-search";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 
 const DAY = 24 * 60 * 60_000;
-// Google's EEA terms keep a Places point at most 30 days from its fetch (Legal P-1). Refreshed after 25; cleared by day 29,
-// because a daily run can come almost a day late. Counted from place_location_fetched_at only, never from other edits.
-export const REFRESH_AFTER_DAYS = 25, CLEAR_AFTER_DAYS = 29;
+// Google's EEA terms keep a Places point at most 30 days from its fetch (Legal P-1). Refreshed after 25; cleared from day 27
+// (Legal, after the review: runs drift by their own length and a calendar reading counts the fetch day). Counted from
+// place_location_fetched_at only, never from other edits.
+export const REFRESH_AFTER_DAYS = 25, CLEAR_AFTER_DAYS = 27;
 
 /** Daily (ENG-323): refresh due Google points via Place Details (`location` only), clear those that could not be refreshed in
  *  time, and bring back a cleared one once Google answers again. The place id stays. Without a key it only clears. */
