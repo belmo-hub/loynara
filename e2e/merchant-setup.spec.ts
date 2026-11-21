@@ -23,10 +23,13 @@ test("guided setup walks four questions, validates inline and previews the card 
   await weiter(page);
   await expect(page.getByText("Bitte den Geschäftsnamen eingeben.")).toBeVisible();
   await expect(page.getByLabel("Geschäftsname")).toBeFocused();
-  // ENG-322: one shop is named after its city, and self sign-up is Germany only.
-  await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  // ENG-322/328: step 1 asks for name and city only (the location is named after the city, German only, the
+  // contact email is asked for in Absender).
+  await expect(page.getByText("Weitere Einstellungen", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Kontakt-E-Mail/)).toHaveCount(0);
   await expect(page.getByLabel("Standortname")).toHaveCount(0);
   await expect(page.getByLabel("Land")).toHaveCount(0);
+  await expect(page.getByLabel("Sprache der Karte")).toHaveCount(0);
   await named(page);
 
   // Step 2: stamps by default with the proposed rule; who confirms is stated separately.
