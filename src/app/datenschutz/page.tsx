@@ -27,7 +27,7 @@ export default function DatenschutzPage() {
   return <AuthShell width="reading">
     <article className={styles.legal}>
     <h1>Datenschutzhinweise</h1>
-    <p>Stand: 20. November 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
+    <p>Stand: 21. November 2026. Diese Hinweise gelten für deine digitale Kundenkarte, die du über einen QR-Code oder ein NFC-Schild eines Geschäfts anlegst.</p>
     <LegalContents sections={SECTIONS} />
     <h2 id="wer-ist-verantwortlich">Wer ist verantwortlich?</h2>
     <p>Für deine Karte ist das Geschäft verantwortlich, bei dem du sie nutzt. Name und Standort stehen auf deiner Karte. Die technische Plattform betreibt Loynara im Auftrag dieses Geschäfts:</p>
