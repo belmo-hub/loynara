@@ -196,9 +196,12 @@ describe("location coordinates on /operator", () => {
     expect(await (await post(body(f, false), operator.cookie)).json()).toEqual({ latitude: 51.3127, longitude: 9.4797, changed: true });
     expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
     expect(await refreshes()).toHaveLength(0);
+    // ENG-323: a shop-search point the operator replaces becomes the operator's own, out of the 30-day refresh.
+    await db.update(locations).set({ googlePlaceId: "ChIJ_synthetic-1", placeLocationFetchedAt: new Date() }).where(eq(locations.id, f.location.id));
 
     expect((await post(body(f, true), operator.cookie)).status).toBe(200);
     expect(await point(f.location.id)).toEqual({ latitude: 51.3127, longitude: 9.4797 });
+    expect((await db.select({ at: locations.placeLocationFetchedAt }).from(locations).where(eq(locations.id, f.location.id)))[0].at).toBeNull();
     expect((await refreshes()).map(job => job.payload.membershipId)).toEqual([f.member.id]);
     expect((await operatorOverview(operator.userId)).rows[0]).toMatchObject({ latitude: 51.3127, longitude: 9.4797 });
 
