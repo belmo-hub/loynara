@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useReducer, useRef, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
 import { postJson } from "@/components/client-api";
@@ -72,6 +73,13 @@ export function latestOnly() {
   return { next: () => { const mine = ++current; return () => mine === current; }, cancel: () => { current++; } };
 }
 
+/** Google's official logo, unmodified from its asset pack and served from our origin (Legal P-2): gray on light surfaces,
+ *  white on dark ones, 18 px high, with Google's clear space around it. */
+const GoogleMapsLogo = () => <span className="ow-gmaps">
+  <Image unoptimized className="ow-gmaps-light" src="/google/GoogleMaps_Logo_Gray.svg" alt="Google Maps" width={98} height={18} />
+  <Image unoptimized className="ow-gmaps-dark" src="/google/GoogleMaps_Logo_White.svg" alt="Google Maps" width={98} height={18} />
+</span>;
+
 /** Setup's shop search (ENG-323): a combobox over our own place routes; the browser never talks to Google. */
 export function ShopSearch({ value, onChange, label, pickedLabel = label, purpose, fallback, inputClassName = "ow-input" }: {
   value: ShopPlace | null; onChange: (place: ShopPlace | null) => void; label: string; pickedLabel?: string; purpose?: string; fallback?: string; inputClassName?: string;
@@ -122,7 +130,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
 
   if (value) return <div className="ow-field">
     <span className="ow-label">{pickedLabel}</span>
-    <div id="su-place-picked" tabIndex={-1} className="ow-place-picked"><strong>{value.name}</strong>{value.address && <small>{value.address}</small>}<small>Google Maps</small></div>
+    <div id="su-place-picked" tabIndex={-1} className="ow-place-picked"><strong>{value.name}</strong>{value.address && <small>{value.address}</small>}<GoogleMapsLogo /></div>
     {purpose && <p className="ow-hint">{purpose}</p>}
     <button type="button" className="ow-btn ow-btn--secondary ow-place-change" onClick={() => { onChange(null); requestAnimationFrame(() => document.getElementById("su-place")?.focus()); }}>Ändern</button>
   </div>;
@@ -140,7 +148,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
           <strong>{option.main}</strong>{option.secondary && <small>{option.secondary}</small>}
         </li>)}
       </ul>
-      <p className="ow-options-by">Google Maps</p>
+      <div className="ow-options-by"><GoogleMapsLogo /></div>
     </div>
     {/* One polite region, always there, so each new line is announced; the count is for screen readers only. */}
     <p className="ow-hint ow-place-status" role="status" aria-live="polite">{status && <span key={status} className={state.status === "shown" && state.open ? "ow-sr" : undefined} data-alert={state.status === "failed" || state.status === "pickFailed" || undefined}>{status}</span>}</p>
