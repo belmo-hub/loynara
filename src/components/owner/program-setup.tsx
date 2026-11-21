@@ -42,7 +42,7 @@ export function ProgramSetup() {
   // A shop the operator created arrives with its name and place filled in; the owner confirms or changes them.
   const draft = owner.setupDraft;
   const [f, setF] = useState({
-    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
+    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", contactEmail: "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
     programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
   });
@@ -125,7 +125,7 @@ export function ProgramSetup() {
     setBusy(true); setError("");
     try {
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
-        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: f.locale, currency,
+        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: "de", currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         locationName, ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
@@ -166,7 +166,6 @@ export function ProgramSetup() {
           <p className="ow-hint">Name und Stadt stehen auf der Kundenkarte.</p>
           <details className="ow-qpanel"><summary>Weitere Einstellungen</summary>
             <div className="ow-stack">
-              <Field id="su-locale" label="Sprache der Karte"><select id="su-locale" className="ow-select" value={f.locale} onChange={event => set({ locale: event.target.value as "de" | "fr" })}><option value="de">Deutsch</option><option value="fr">Französisch</option></select></Field>
               <Field id="su-contactEmail" label="Kontakt-E-Mail (optional)" error={err("contactEmail")}><input id="su-contactEmail" className="ow-input" type="email" value={f.contactEmail} onChange={event => set({ contactEmail: event.target.value })} {...invalid("contactEmail")} /></Field>
             </div>
           </details>

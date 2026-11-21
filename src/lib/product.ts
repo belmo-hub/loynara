@@ -37,10 +37,10 @@ export const merchantInput = z.object({
   businessName: shortText,
   locationName: shortText.optional(),
   city: z.string().trim().min(2).max(120),
-  // New shops are German only (ENG-328, founder 21 Nov). Stored MAD data and its types stay.
+  // New shops are German only (ENG-328, founder 21 Nov). Stored MAD/French data and its types stay.
   country: z.enum(["DE"]),
   timezone: z.string().min(3).max(80),
-  locale: z.enum(["de", "fr"]),
+  locale: z.enum(["de"]), // German only for now (founder 21 Nov); stored French shops keep working
   currency: z.enum(["EUR"]),
   programName: shortText,
   programType: z.enum(["stamp", "points"]),
