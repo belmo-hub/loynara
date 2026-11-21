@@ -23,7 +23,7 @@ const shopInput = z.object({
   businessName: shortText,
   locationName: shortText.optional(),
   city: z.string().trim().min(2).max(120),
-  country: z.enum(["DE", "MA"]),
+  country: z.enum(["DE"]), // ENG-328: Germany only
   timezone: z.string().min(3).max(80),
   ownerEmail: z.email().max(320),
 });

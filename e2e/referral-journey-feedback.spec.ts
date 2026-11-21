@@ -10,7 +10,8 @@ const origin = "http://localhost:3000";
 async function merchantFixture(locale: "de" | "fr" = "de") {
   const userId = randomUUID();
   await pool.query('INSERT INTO "user" (id,name,email,"emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic referral owner", `${userId}@example.test`]);
-  const merchant = await createMerchant({ userId, businessName: `Synthetic ${locale} Café`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale, currency: "EUR", programName: "Synthetic referral card", programType: "stamp", rulesText: "One synthetic confirmed visit", rewardTitle: "Coffee", rewardCost: 5 });
+  const merchant = await createMerchant({ userId, businessName: `Synthetic ${locale} Café`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic referral card", programType: "stamp", rulesText: "One synthetic confirmed visit", rewardTitle: "Coffee", rewardCost: 5 });
+  if (locale === "fr") await pool.query("UPDATE tenants SET locale = 'fr' WHERE id = $1", [merchant.tenantId]); // an existing French shop: new ones are German only
   await configureReferrals({ actorUserId: userId, programSlug: merchant.programSlug, enabled: true, referrerBonus: 2, referredBonus: 1 });
   return { userId, ...merchant };
 }
