@@ -99,6 +99,8 @@ test("review submits normalized valid coordinates and programme fields", async (
   await page.getByText("Kaffee aufs Haus", { exact: true }).click();
   await weiter(page);
   await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  await page.getByLabel("Farbwert (Hex)").fill("#12ab");
+  await expect(page.getByText("Bitte einen Farbwert wie #1F4A3A eingeben.")).toBeVisible(); // at once, like the studio
   await page.getByLabel("Farbe wählen").fill("#7c3848"); // ENG-322: a free colour, not only the swatches
   await expect(page.getByLabel("Farbwert (Hex)")).toHaveValue("#7c3848");
   await page.getByLabel("Programmname", { exact: true }).fill("  Café Treuekarte  ");

@@ -64,7 +64,7 @@ export function ProgramSetup() {
   // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
   const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
   // One shop names its location after the city; a second location is named where it is added (ENG-322).
-  const locationName = f.locationName.trim() || f.city.trim();
+  const locationName = (f.city.trim() === (draft?.city ?? "").trim() && f.locationName.trim()) || f.city.trim();
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
   const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
 
@@ -162,7 +162,7 @@ export function ProgramSetup() {
       <form className="ow-q" onSubmit={event => { event.preventDefault(); if (step < 3) next(); else void submit(); }} noValidate>
         {step === 0 && <>
           <Field panel id="su-businessName" label="Geschäftsname" error={err("businessName")}><input id="su-businessName" className="ow-input" value={f.businessName} maxLength={120} autoComplete="organization" onChange={event => set({ businessName: event.target.value })} {...invalid("businessName")} placeholder="z. B. Café am Platz" /></Field>
-          <Field panel id="su-city" label="Stadt" error={err("city")}><input id="su-city" className="ow-input" value={f.city} maxLength={120} autoComplete="address-level2" onChange={event => set({ city: event.target.value })} {...invalid("city")} /></Field>
+          <Field panel id="su-city" label="Stadt" error={err("city")}><input id="su-city" className="ow-input" value={f.city} maxLength={120} autoComplete="address-level2" onChange={event => set({ city: event.target.value })} {...invalid("city")} placeholder="z. B. Kassel" /></Field>
           <p className="ow-hint">Name und Stadt stehen auf der Kundenkarte.</p>
           <details className="ow-qpanel"><summary>Weitere Einstellungen</summary>
             <div className="ow-stack">
@@ -228,8 +228,9 @@ export function ProgramSetup() {
               <p className="ow-hint">{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p>
               <div className="ow-field"><span className="ow-label" id="su-color-l">Markenfarbe</span>
                 <div className="ow-swatches" role="group" aria-labelledby="su-color-l">{SWATCHES.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={f.brandColor.toLowerCase() === hex.toLowerCase()} onClick={() => set({ brandColor: hex })} />)}</div>
-                <div className="ow-colorrow"><input type="color" aria-label="Farbe wählen" value={HEX.test(f.brandColor) ? f.brandColor : "#000000"} onChange={event => set({ brandColor: event.target.value })} /><input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" /></div>
-                <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
+                <div className="ow-colorrow"><input type="color" aria-label="Farbe wählen" value={HEX.test(f.brandColor) ? f.brandColor : "#000000"} onChange={event => set({ brandColor: event.target.value })} /><div className="ow-field"><label htmlFor="su-brandColor" className="ow-hint">Farbwert (Hex)</label><input id="su-brandColor" className="ow-input" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={!HEX.test(f.brandColor)} aria-describedby={HEX.test(f.brandColor) ? undefined : "su-brandColor-error"} /></div></div>
+                {/* Shown while typing, like the card studio: the well and preview already react to the value. */}
+                <FieldError id="su-brandColor-error">{HEX.test(f.brandColor) ? "" : problems[3].brandColor}</FieldError>
               </div>
               {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><div className="ow-logo-row">
                 {/* The picked logo itself, as in the card studio, and a German button instead of the browser's own file control. */}
