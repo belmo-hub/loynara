@@ -20,6 +20,7 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
+import { ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
 import { DemoMode, type DemoRunning } from "./demo-mode";
 
 type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
@@ -52,7 +53,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -69,6 +70,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
   const [pointRow, setPointRow] = useState<Row | null>(null);
   const [coordinates, setCoordinates] = useState("");
+  const [place, setPlace] = useState<ShopPlace | null>(null); // the shop search's pick (ENG-331); typing a point by hand drops it
   const [pointPreview, setPointPreview] = useState<{ latitude: number; longitude: number; changed: boolean } | null>(null);
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
@@ -114,12 +116,12 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function sendPoint(execute: boolean) {
     setBusy(true); setError("");
     try {
-      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, execute });
+      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, googlePlaceId: place?.id, execute });
       if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
     } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
-  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPointPreview(null); setError(""); };
+  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPlace(null); setPointPreview(null); setError(""); };
   const closePoint = () => { setPointRow(null); setPointPreview(null); setError(""); };
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
@@ -371,7 +373,8 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
         {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
-        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
+        {placeSearch ? <ShopSearch label="Geschäft suchen" value={place} onChange={picked => { setPlace(picked); setCoordinates(picked ? `${picked.latitude.toFixed(7)}, ${picked.longitude.toFixed(7)}` : ""); setPointPreview(null); setError(""); }} /> : null}
+        <TextField label="Koordinaten (vom Geschäft genannt oder vor Ort ermittelt)" placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPlace(null); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
         {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>

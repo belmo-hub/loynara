@@ -14,7 +14,7 @@ export function placeCoordinates(body: unknown): { latitude: number; longitude: 
 }
 
 /** Setup's shop search (ENG-323): a combobox over our own place routes; the browser never talks to Google. */
-export function ShopSearch({ value, onChange }: { value: ShopPlace | null; onChange: (place: ShopPlace | null) => void }) {
+export function ShopSearch({ value, onChange, label = "Dein Geschäft" }: { value: ShopPlace | null; onChange: (place: ShopPlace | null) => void; label?: string }) {
   const [text, setText] = useState("");
   const [options, setOptions] = useState<Suggestion[]>([]);
   const [active, setActive] = useState(-1);
@@ -56,12 +56,12 @@ export function ShopSearch({ value, onChange }: { value: ShopPlace | null; onCha
     }
   }
 
-  if (value) return <div className="ow-field"><span className="ow-label">Dein Geschäft</span>
+  if (value) return <div className="ow-field"><span className="ow-label">{label}</span>
     <p><strong>{value.name}</strong>{value.address && <><br />{value.address}</>}</p>
     <button type="button" className="ow-btn ow-btn--secondary" onClick={() => { onChange(null); requestAnimationFrame(() => document.getElementById("su-place")?.focus()); }}>Ändern</button>
   </div>;
   return <div className="ow-field">
-    <label htmlFor="su-place">Dein Geschäft (optional)</label>
+    <label htmlFor="su-place">{label} (optional)</label>
     <input id="su-place" className="ow-input" role="combobox" aria-expanded={open} aria-controls="su-place-list" aria-autocomplete="list" aria-activedescendant={open && active >= 0 ? `su-place-${active}` : undefined}
       autoComplete="off" placeholder="Name oder Adresse" value={text} onChange={event => { setText(event.target.value); if (event.target.value.trim().length < 2) setOptions([]); }} onKeyDown={onKeyDown} />
     <ul id="su-place-list" role="listbox" aria-label="Vorschläge" className="ow-options" hidden={!open}>

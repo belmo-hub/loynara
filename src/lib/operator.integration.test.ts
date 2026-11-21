@@ -173,13 +173,14 @@ it("refuses an end date before tomorrow (Berlin) with a pointer to the console a
 it.each([
   ["51.31270, 9.47970", 51.3127, 9.4797],
   [" -33.8688,151.2093 ", -33.8688, 151.2093],
-  ["https://www.google.com/maps/place/Laden/@51.3,9.4,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d51.3127!4d9.4797!16s", 51.3127, 9.4797],
 ])("reads the pin from %s", (text, latitude, longitude) => {
   expect(parseCoordinates(text)).toEqual({ latitude, longitude });
 });
 
-it.each(["", "Kassel", "51, 9", "51,3127 9,4797", "91.0, 9.4", "51.3, 181.0", "51.3, 9.4, 17z", "https://maps.app.goo.gl/abc", "https://www.google.com/maps/@51.3,9.4,17z"])("refuses %j", text => {
-  expect(() => parseCoordinates(text)).toThrow("Google Maps");
+it.each(["", "Kassel", "51, 9", "51,3127 9,4797", "91.0, 9.4", "51.3, 181.0", "51.3, 9.4, 17z", "https://maps.app.goo.gl/abc", "https://www.google.com/maps/@51.3,9.4,17z",
+  // ENG-331: a Maps link is no longer read; the console takes a point from the shop search or as the shop names it.
+  "https://www.google.com/maps/place/Laden/@51.3,9.4,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d51.3127!4d9.4797!16s"])("refuses %j", text => {
+  expect(() => parseCoordinates(text)).toThrow("Bitte gib die Koordinaten so ein: 51.31270, 9.47970.");
 });
 
 describe("location coordinates on /operator", () => {
@@ -208,6 +209,21 @@ describe("location coordinates on /operator", () => {
     await pool.query("DELETE FROM outbox_jobs");
     expect(await (await post(body(f, true), operator.cookie)).json()).toMatchObject({ changed: false });
     expect(await refreshes()).toHaveLength(0);
+  });
+
+  // ENG-331, Legal P-4: a pick keeps the place id, the point and the refresh clock; never Google's name or address.
+  it("stores a shop-search pick with its place id and clock, and a later hand-set point drops the clock", async () => {
+    const operator = await identity(), f = await nfcFixture();
+    process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+    const place = async () => (await db.select({ name: locations.name, city: locations.city, street: locations.street, placeId: locations.googlePlaceId, at: locations.placeLocationFetchedAt }).from(locations).where(eq(locations.id, f.location.id)))[0];
+    const before = await place(), sent = Date.now();
+    expect((await post({ ...body(f, true), coordinates: "51.3127000, 9.4797000", googlePlaceId: "ChIJ_synthetic-1" }, operator.cookie)).status).toBe(200);
+    const picked = await place();
+    expect(picked).toMatchObject({ name: before.name, city: before.city, street: before.street, placeId: "ChIJ_synthetic-1" });
+    expect(picked.at!.getTime()).toBeGreaterThanOrEqual(sent - 1000);
+    expect((await post({ ...body(f, true), coordinates: "51.40000, 9.50000" }, operator.cookie)).status).toBe(200);
+    expect(await place()).toMatchObject({ placeId: "ChIJ_synthetic-1", at: null });
+    expect((await post({ ...body(f, true), googlePlaceId: "../x" }, operator.cookie)).status).toBe(400);
   });
 
   it("answers 400 to the operator for bad input and writes nothing", async () => {
