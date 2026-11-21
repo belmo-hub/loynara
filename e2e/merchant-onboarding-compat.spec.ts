@@ -14,7 +14,6 @@ test("identity-only account completes the wizard and safely retries the complete
       await page.goto("/merchant");
       await expect(page).toHaveURL(/\/merchant\/program$/);
       await page.getByLabel("Geschäftsname").fill("Synthetic Bridge Café");
-      await page.getByLabel("Standortname").fill("Mitte");
       await page.getByLabel("Stadt").fill("Kassel");
       const weiter = () => page.getByRole("button", { name: "Weiter", exact: true }).click();
       await weiter(); await weiter(); await page.getByText("Kaffee aufs Haus", { exact: true }).click(); await weiter();

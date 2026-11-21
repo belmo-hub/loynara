@@ -52,7 +52,7 @@ export function ProgramSetup() {
   // A later pick wins over a slower earlier read.
   const logoPick = useRef(0);
   const pickLogo = (file: File | undefined, pick = ++logoPick.current) => file ? imageToDataUrl(file).then(logoData => pick === logoPick.current && set({ logoData, logoError: "" }), (cause: Error) => pick === logoPick.current && set({ logoData: undefined, logoError: cause.message })) : set({ logoData: undefined, logoError: "" });
-  const touched = f.businessName !== (draft?.businessName ?? "") || f.locationName !== (draft?.locationName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
+  const touched = f.businessName !== (draft?.businessName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
   const currency = f.country === "DE" ? "EUR" : "MAD";
@@ -63,11 +63,13 @@ export function ProgramSetup() {
   const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode);
   // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
   const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
+  // One shop names its location after the city; a second location is named where it is added (ENG-322).
+  const locationName = f.locationName.trim() || f.city.trim();
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
   const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
 
   const problems: Array<Record<string, string>> = [
-    { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
+    { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
     { rate: rateValid ? "" : `Gib eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} ein.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
     { rewardName: !f.rewardName.trim() ? REWARD_NAME_MISSING : f.rewardName.trim().length < 2 ? SHORT_NAME : "", cost: cost === null ? WHOLE_NUMBER : "" },
     { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", logo: f.logoError, ...reviewValidation.problems },
@@ -126,7 +128,7 @@ export function ProgramSetup() {
         businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
-        locationName: f.locationName.trim(), ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
+        locationName, ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
         brandColor: f.brandColor, effectiveDate: f.date, logoData: f.logoData,
         ...reviewValidation.coordinates,
       });
@@ -160,12 +162,10 @@ export function ProgramSetup() {
       <form className="ow-q" onSubmit={event => { event.preventDefault(); if (step < 3) next(); else void submit(); }} noValidate>
         {step === 0 && <>
           <Field panel id="su-businessName" label="Geschäftsname" error={err("businessName")}><input id="su-businessName" className="ow-input" value={f.businessName} maxLength={120} autoComplete="organization" onChange={event => set({ businessName: event.target.value })} {...invalid("businessName")} placeholder="z. B. Café am Platz" /></Field>
-          <Field panel id="su-locationName" label="Standortname" error={err("locationName")}><input id="su-locationName" className="ow-input" value={f.locationName} maxLength={120} onChange={event => set({ locationName: event.target.value })} {...invalid("locationName")} placeholder="z. B. Kassel Mitte" /></Field>
           <Field panel id="su-city" label="Stadt" error={err("city")}><input id="su-city" className="ow-input" value={f.city} maxLength={120} autoComplete="address-level2" onChange={event => set({ city: event.target.value })} {...invalid("city")} /></Field>
-          <p className="ow-hint">Name und Standort stehen auf der Kundenkarte.</p>
+          <p className="ow-hint">Name und Stadt stehen auf der Kundenkarte.</p>
           <details className="ow-qpanel"><summary>Weitere Einstellungen</summary>
             <div className="ow-stack">
-              <Field id="su-country" label="Land"><select id="su-country" className="ow-select" value={f.country} onChange={event => set({ country: event.target.value as "DE" | "MA" })}><option value="DE">Deutschland (EUR)</option><option value="MA">Marokko (MAD)</option></select></Field>
               <Field id="su-locale" label="Sprache der Karte"><select id="su-locale" className="ow-select" value={f.locale} onChange={event => set({ locale: event.target.value as "de" | "fr" })}><option value="de">Deutsch</option><option value="fr">Französisch</option></select></Field>
               <Field id="su-contactEmail" label="Kontakt-E-Mail (optional)" error={err("contactEmail")}><input id="su-contactEmail" className="ow-input" type="email" value={f.contactEmail} onChange={event => set({ contactEmail: event.target.value })} {...invalid("contactEmail")} /></Field>
             </div>
@@ -219,7 +219,7 @@ export function ProgramSetup() {
             <CardLinePreview label="So sieht deine Karte aus" shop={f.businessName.trim()} brandColor={HEX.test(f.brandColor) ? f.brandColor : undefined} rules={shownRules}>{reward}</CardLinePreview>
           </div>
           <ul className="ow-rows">
-            {([[Store, "Geschäft", `${f.businessName.trim()} · ${f.locationName.trim()}`], [Gift, "Prämie", reward], [ScrollText, "Regel", quoteStart(shownRules)]] as const).map(([Icon, title, sub]) => (
+            {([[Store, "Geschäft", `${f.businessName.trim()} · ${locationName}`], [Gift, "Prämie", reward], [ScrollText, "Regel", quoteStart(shownRules)]] as const).map(([Icon, title, sub]) => (
               <li key={title}><div className="ow-prog-row"><span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span><span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong><small>{sub}</small></span></span></div></li>
             ))}
           </ul>

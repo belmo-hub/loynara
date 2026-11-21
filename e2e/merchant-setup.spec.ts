@@ -9,7 +9,6 @@ async function stubbed(page: Page, onboard: Parameters<Page["route"]>[1]) {
 /** Step 1 filled, on to the card type. */
 async function named(page: Page) {
   await page.getByLabel("Geschäftsname").fill("Synthetisches Café");
-  await page.getByLabel("Standortname").fill("Kassel Mitte");
   await page.getByLabel("Stadt").fill("Kassel");
   await weiter(page);
 }
@@ -24,6 +23,10 @@ test("guided setup walks four questions, validates inline and previews the card 
   await weiter(page);
   await expect(page.getByText("Bitte den Geschäftsnamen eingeben.")).toBeVisible();
   await expect(page.getByLabel("Geschäftsname")).toBeFocused();
+  // ENG-322: one shop is named after its city, and self sign-up is Germany only.
+  await page.getByText("Weitere Einstellungen", { exact: true }).click();
+  await expect(page.getByLabel("Standortname")).toHaveCount(0);
+  await expect(page.getByLabel("Land")).toHaveCount(0);
   await named(page);
 
   // Step 2: stamps by default with the proposed rule; who confirms is stated separately.
@@ -119,7 +122,7 @@ test("points by purchase amount post the whole onboarding body unchanged", async
   await expect.poll(() => payload).toEqual({
     businessName: "Synthetisches Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Synthetisches Café Treuekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2,
-    rulesText: "", rewardTitle: "Dessert aufs Haus", rewardCost: 100, locationName: "Kassel Mitte", brandColor: "#1F4A3A",
+    rulesText: "", rewardTitle: "Dessert aufs Haus", rewardCost: 100, locationName: "Kassel", brandColor: "#1F4A3A",
     effectiveDate: new Date().toISOString().slice(0, 10),
   });
 });
