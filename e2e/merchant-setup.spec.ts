@@ -119,7 +119,7 @@ test("review submits the picked place's point and programme fields", async ({ pa
   await expect(page.getByRole("link", { name: "Datenschutzerklärung von Google" })).toHaveAttribute("href", "https://policies.google.com/privacy");
   await search.fill("Café am");
   await expect(page.getByRole("option")).toHaveCount(2);
-  await expect(page.locator(".ow-options")).toContainText("Google Maps");
+  await expect(page.locator(".ow-options").getByRole("img", { name: "Google Maps" })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "2 Vorschläge" })).toHaveCount(1);
   // Design's review: a press on the list's padding keeps it open; the list closes when focus leaves and comes back with it.
   await page.locator(".ow-options").click({ position: { x: 2, y: 2 } });
@@ -136,6 +136,7 @@ test("review submits the picked place's point and programme fields", async ({ pa
   await search.press("Enter");
   await expect(page.getByText("Königsplatz 1, Kassel")).toBeVisible();
   await expect(page.locator("#su-place-picked")).toBeFocused(); // focus lands on the pick, not the page
+  await expect(page.locator("#su-place-picked").getByRole("img", { name: "Google Maps" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
   expect(asked.at(-1)).toMatchObject({ text: "Café am", sessionToken: expect.any(String) });
   await page.getByRole("button", { name: "Programm starten", exact: true }).click();
