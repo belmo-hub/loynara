@@ -101,6 +101,7 @@ export function parseCoordinates(text: string) {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// A hand-set point carries no refresh clock, so it must never be copied from Google Maps: that would be Google content without the 30-day limit (Legal, ENG-323).
 /** Sets one location's point for the Wallet near-shop suggestion. Dry run unless `execute`; a change reaches every pass of the location. */
 export async function setLocationCoordinates(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; coordinates: string; execute: boolean }) {
   if (!UUID.test(input.tenantId) || !UUID.test(input.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
