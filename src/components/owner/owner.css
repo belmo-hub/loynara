@@ -1303,7 +1303,9 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
   /* Field error and notices: a message that appears fades in and settles 4 px down; the field's border changes with it. */
-  .ow-error, .ow-notice, .ow-board-help { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  /* The shop search's suggestions open like a menu, from their top edge. */
+  .ow-options:not([hidden]) { transform-origin: top; animation: ow-in var(--dur-ui) var(--ease-out) backwards; }
   /* Disclosure: a fold's content that the browser cannot open by its row height (below) settles in the same way. */
   .owner-app details[open]:not(.ow-more) > :not(summary) { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
   /* Saved: the bar comes up when there is something to save, its line changes with a short fade, and a check draws
@@ -1385,9 +1387,15 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 }
 
 /* The shop search's suggestions in setup (ENG-323): a plain list under the field, one row per place. */
-.ow-options { margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
+.ow-options { max-height: 320px; overflow: auto; margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
 .ow-options li { display: grid; align-content: center; min-height: 44px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
 .ow-options li small { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-options [role="option"]:hover, .ow-options [aria-selected="true"] { background: var(--color-fill); }
+.ow-options [aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--color-focus); } /* the active row's own marker; hover keeps the fill only */
 /* Google's attribution under its suggestions (P-2): the text form until the official wordmark is in our assets. */
-.ow-options .ow-options-by { min-height: 0; padding-block: var(--space-1); cursor: default; justify-items: end; color: var(--color-ink-muted); font-size: var(--text-12); }
+.ow-options .ow-options-by { min-height: 0; padding-block: var(--space-1); cursor: default; justify-items: end; color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-place-picked { display: grid; }
+.ow-place-picked small { color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-place-change { align-self: start; }
+.ow-place-status:empty { margin-top: calc(-1 * var(--space-2)); } /* always there for screen readers, no gap while silent */
+.ow-place-status > span { display: block; }
