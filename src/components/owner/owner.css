@@ -1399,6 +1399,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    version on the dark theme, the gray one on light. */
 .ow-gmaps { display: flex; padding: 10px 10px 5px; }
 .ow-gmaps img { width: auto; height: 18px; }
+.ow-place-picked .ow-gmaps { padding-bottom: var(--space-2); } /* over the 5 px minimum, so the gap below stays on the scale (8 + 8) */
 .ow-gmaps .ow-gmaps-dark, .ly-theme-dark .ow-gmaps .ow-gmaps-light { display: none; }
 .ly-theme-dark .ow-gmaps .ow-gmaps-dark { display: block; }
 @media (prefers-color-scheme: dark) { .ly-theme-auto .ow-gmaps .ow-gmaps-light { display: none; } .ly-theme-auto .ow-gmaps .ow-gmaps-dark { display: block; } }
