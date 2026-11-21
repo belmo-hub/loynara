@@ -37,10 +37,11 @@ export const merchantInput = z.object({
   businessName: shortText,
   locationName: shortText.optional(),
   city: z.string().trim().min(2).max(120),
-  country: z.enum(["DE", "MA"]),
+  // New shops are German only (ENG-328, founder 21 Nov). Stored MAD data and its types stay.
+  country: z.enum(["DE"]),
   timezone: z.string().min(3).max(80),
   locale: z.enum(["de", "fr"]),
-  currency: z.enum(["EUR", "MAD"]),
+  currency: z.enum(["EUR"]),
   programName: shortText,
   programType: z.enum(["stamp", "points"]),
   earningMode: z.enum(["manual", "purchase"]).optional(),
@@ -71,7 +72,6 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
   if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   checkRulesText(input.programType, earningMode, input.rulesText);
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
-  if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
   if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
   // Decoding a large logo costs real memory, so it waits until the account may set up this shop.
   const logo = async () => input.logoData ? checkedLogoUpload(input.logoData) : null;

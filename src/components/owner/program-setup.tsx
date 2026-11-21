@@ -42,7 +42,7 @@ export function ProgramSetup() {
   // A shop the operator created arrives with its name and place filled in; the owner confirms or changes them.
   const draft = owner.setupDraft;
   const [f, setF] = useState({
-    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", country: (draft?.country === "MA" ? "MA" : "DE") as "DE" | "MA", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
+    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
     programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
   });
@@ -55,7 +55,7 @@ export function ProgramSetup() {
   const touched = f.businessName !== (draft?.businessName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
-  const currency = f.country === "DE" ? "EUR" : "MAD";
+  const currency = "EUR";
   const rate = Number(f.rate);
   const cost = parseWholeNumber(f.cost);
   const effectiveMode: EarningMode = f.type === "stamp" ? "manual" : f.mode;
@@ -125,7 +125,7 @@ export function ProgramSetup() {
     setBusy(true); setError("");
     try {
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
-        businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
+        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: f.locale, currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         locationName, ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
