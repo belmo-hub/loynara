@@ -1393,12 +1393,18 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-options li small { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-options [role="option"]:hover, .ow-options [aria-selected="true"] { background: var(--color-fill); }
 .ow-options [aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--color-focus); } /* the active row's own marker; hover keeps the fill only */
-/* Google's attribution under its suggestions (P-2): the text form until the official wordmark is in our assets. */
-.ow-options-by { margin: 0; padding: var(--space-1) var(--space-3); text-align: end; color: var(--color-ink-muted); font-size: var(--text-14); }
+/* Google's attribution under its suggestions (P-2), at the box's end. */
+.ow-options-by { display: flex; justify-content: flex-end; }
+/* Google's logo rules: native 18 px height, aspect kept, clear space 10 px left, right and top and 5 px below; the white
+   version on the dark theme, the gray one on light. */
+.ow-gmaps { display: flex; padding: 10px 10px 5px; }
+.ow-gmaps img { width: auto; height: 18px; }
+.ow-gmaps .ow-gmaps-dark, .ly-theme-dark .ow-gmaps .ow-gmaps-light { display: none; }
+.ly-theme-dark .ow-gmaps .ow-gmaps-dark { display: block; }
+@media (prefers-color-scheme: dark) { .ly-theme-auto .ow-gmaps .ow-gmaps-light { display: none; } .ly-theme-auto .ow-gmaps .ow-gmaps-dark { display: block; } }
 .ow-place-picked { display: grid; border-radius: var(--radius-sm); }
 .ow-place-picked:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
 .ow-place-picked small { color: var(--color-ink-muted); font-size: var(--text-14); }
-.ow-place-picked small:last-child { margin-top: var(--space-1); }
 .ow-place-change { align-self: start; }
 .ow-place-status:empty { margin-top: calc(-1 * var(--space-2)); } /* always there for screen readers, no gap while silent */
 .ow-place-status > span { display: block; }
