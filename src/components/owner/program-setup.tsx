@@ -7,7 +7,7 @@ import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users 
 import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
 import { purchaseRuleSentence } from "@/lib/points";
 import { withUnit } from "@/lib/units";
-import { setupReviewValidation } from "./program-setup-validation";
+import { setupLocation, setupReviewValidation } from "./program-setup-validation";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { ShopSearch, type ShopPlace } from "./shop-search";
 import { CardLinePreview, Notice, NumberStepper } from "./owner-ui";
@@ -65,8 +65,7 @@ export function ProgramSetup() {
   const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode);
   // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
   const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
-  // One shop names its location after the city; a second location is named where it is added (ENG-322).
-  const locationName = (f.city.trim() === (draft?.city ?? "").trim() && f.locationName.trim()) || f.city.trim();
+  const location = setupLocation(f, draft, placeOffered), { locationName } = location;
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
   const reviewValidation = setupReviewValidation({ programName, date: f.date });
 
@@ -130,9 +129,8 @@ export function ProgramSetup() {
         businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
-        locationName, ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
+        ...location, ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
         brandColor: f.brandColor, effectiveDate: f.date, logoData: f.logoData,
-        ...(placeOffered && f.place ? { latitude: f.place.latitude, longitude: f.place.longitude, googlePlaceId: f.place.id } : {}),
       });
       if (!await owner.refresh()) throw new Error("Die Einrichtung konnte noch nicht geladen werden. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest.");
       router.replace("/merchant");

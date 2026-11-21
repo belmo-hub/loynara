@@ -19,8 +19,10 @@ const location = z.object({ location: z.object({ latitude: z.number().min(-90).m
 async function places(http: typeof fetch, url: string, init: RequestInit): Promise<unknown> {
   try {
     const response = await http(url, { ...init, signal: AbortSignal.timeout(5_000) });
-    return response.ok ? await response.json() : null;
-  } catch { return null; }
+    if (response.ok) return await response.json();
+    console.warn(`Google Places answered ${response.status}`); // the status only: never the text or the user
+  } catch { console.warn("Google Places unreachable"); }
+  return null;
 }
 
 export async function placeSuggestions(input: string, token: string, env: Env = process.env, http: typeof fetch = fetch) {
