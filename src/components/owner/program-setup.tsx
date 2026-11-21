@@ -239,10 +239,7 @@ export function ProgramSetup() {
               </div></Field>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input ow-field--narrow" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} /></Field>
-              {placeOffered && <>
-                <ShopSearch value={f.place} onChange={place => set({ place })} />
-                <span className="ow-hint">Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert.</span>
-              </>}
+              {placeOffered && <ShopSearch value={f.place} onChange={place => set({ place })} purpose="Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert." />}
             </div>
           </details>
           <p className="ow-hint">Das Programm startet mit dem Speichern (gültig ab {f.date.split("-").reverse().join(".")}). Kunden können sich dann anmelden.</p>
