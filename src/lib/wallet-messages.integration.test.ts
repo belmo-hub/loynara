@@ -543,7 +543,7 @@ describe("removed cards", () => {
     const { s, c, sentAt } = await removalSetup(); // 2 recipients: one removal is 50 percent
     await removal(c.passId, sentAt);
     expect(await report(s)).toMatchObject({ removed: 1, warn: true });
-    expect((await walletMessageStats()).get(s.programId)).toMatchObject({ messages: 1, sent: 2, removed: 1, warn: true });
+    expect((await walletMessageStats(db, NOON)).get(s.programId)).toMatchObject({ messages: 1, sent: 2, removed: 1, warn: true });
   });
 
   it("an unregistered card gets no more messages until its device registers it again", async () => {
@@ -695,7 +695,7 @@ describe("Google Wallet messages (ENG-054)", () => {
     await pool.query("INSERT INTO wallet_pass_events (pass_id, tenant_id, event, event_at) SELECT id, tenant_id, 'device.unregistered', now() FROM wallet_passes WHERE id = $1", [a.passId]);
     // 1 removal of 1 Apple send (100 %), not 1 of 21 sends (4.8 %, under the 5 % threshold).
     expect((await walletMessageOverview({ actorUserId: s.owner, programSlug: s.slug }, NOON)).history[0]).toMatchObject({ sent: 21, removed: 1, warn: true });
-    expect((await walletMessageStats()).get(s.programId)).toMatchObject({ sent: 21, removed: 1, warn: true });
+    expect((await walletMessageStats(db, NOON)).get(s.programId)).toMatchObject({ sent: 21, removed: 1, warn: true });
   });
 
   it("switching the flag off stops Google deliveries already queued; Apple recipients still get theirs", async () => {
