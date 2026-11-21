@@ -117,10 +117,18 @@ test("review submits the picked place's point and programme fields", async ({ pa
   await search.fill("Café am");
   await expect(page.getByRole("option")).toHaveCount(2);
   await expect(page.getByRole("listbox")).toContainText("Google Maps");
+  await expect(page.getByRole("status").filter({ hasText: "2 Vorschläge" })).toBeVisible();
+  // Design's review: the list closes when focus leaves and comes back with it.
+  await search.press("Tab");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await expect(search).toHaveAttribute("aria-expanded", "false");
+  await search.focus();
+  await expect(search).toHaveAttribute("aria-expanded", "true");
   await search.press("ArrowDown");
   await expect(search).toHaveAttribute("aria-activedescendant", "su-place-0");
   await search.press("Enter");
   await expect(page.getByText("Königsplatz 1, Kassel")).toBeVisible();
+  await expect(page.locator("#su-place-picked")).toBeFocused(); // focus lands on the pick, not the page
   await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
   expect(asked.at(-1)).toMatchObject({ text: "Café am", sessionToken: expect.any(String) });
   await page.getByRole("button", { name: "Programm starten", exact: true }).click();
