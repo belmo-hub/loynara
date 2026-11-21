@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
+import { placeId } from "./place-search";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, ownerAcceptances, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
@@ -52,10 +53,12 @@ export const merchantInput = z.object({
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  googlePlaceId: placeId.optional(), // the shop search's pick (ENG-323); never its name or address
   logoData: z.string().max(3_000_000).optional(),
   effectiveDate: z.iso.date().optional(),
 });
 
+const placeFields = ({ googlePlaceId }: { googlePlaceId?: string }) => googlePlaceId ? { googlePlaceId, placeLocationFetchedAt: new Date() } : {};
 function randomCode(bytes: number) { return randomBytes(bytes).toString("base64url"); }
 const ACCEPTANCE_MISSING = "Mit diesem Konto kannst du kein Geschäft einrichten, weil die Vertragsbedingungen nicht angenommen sind. Erstelle dein Konto über „Konto erstellen“.";
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
@@ -72,7 +75,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
   checkRulesText(input.programType, earningMode, input.rulesText);
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
-  if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
+  if ((input.latitude === undefined) !== (input.longitude === undefined) || (input.googlePlaceId && input.latitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
   // Decoding a large logo costs real memory, so it waits until the account may set up this shop.
   const logo = async () => input.logoData ? checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
@@ -92,7 +95,7 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
         // A shop the operator created (ENG-047): the owner's answers replace the operator's draft, then the programme starts.
         const logoData = await logo();
         await tx.update(tenants).set({ name: input.businessName, currency: input.currency, locale: input.locale }).where(eq(tenants.id, tenant.id));
-        const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude })
+        const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude, ...placeFields(input) })
           .where(and(eq(locations.id, location.id), eq(locations.tenantId, tenant.id))).returning();
         return startProgramme(tx, tenant.id, updated, input, earningMode);
       }
@@ -123,7 +126,7 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export async function insertShop(tx: Transaction, input: z.output<typeof merchantInput>, logoData: string | null, slug?: string) {
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
   const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: slug ?? `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
-  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude, ...placeFields(input) }).returning();
   return { tenant, location };
 }
 

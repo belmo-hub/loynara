@@ -115,7 +115,7 @@ export type MeResponse = {
   /** False on the production deployment (pilot policy); absent is treated as false. */
   tapAutomaticAllowed?: boolean;
   /** Merchant surfaces withheld on the real production deployment (see lib/pilot-surfaces). Absent means none. */
-  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "revenue">;
+  hiddenSurfaces?: Array<"billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "revenue" | "shopSearch">;
   tapCooldownSeconds?: number | null;
   /** Extra stamps or points with a card's first staff-confirmed award; 0 = off. */
   welcomeBonus?: number;

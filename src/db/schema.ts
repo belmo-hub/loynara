@@ -56,6 +56,10 @@ export const locations = pgTable("locations", {
   logoData: text("logo_data"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
+  // ENG-323: a point from Google's Places may be kept 30 days from its fetch, the place id for good (Google's EEA terms).
+  // Null fetched-at means the point is the owner's or the operator's own and has no limit.
+  googlePlaceId: text("google_place_id"),
+  placeLocationFetchedAt: timestamp("place_location_fetched_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
   unique("locations_tenant_id_id_uq").on(t.tenantId, t.id),

@@ -1383,3 +1383,11 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 @media (prefers-reduced-motion: reduce) {
   :is(.ow-seg button, .ow-days button, .ow-swatch, .ow-goal, .ow-utility, .ow-tile-q, .ow-board-q, .ow-iconbtn, .ow-add, .ow-qlink, .ow-board-textbtn, .ow-back, .ow-radio-card):active { transform: none; }
 }
+
+/* The shop search's suggestions in setup (ENG-323): a plain list under the field, one row per place. */
+.ow-options { margin: 0; padding: var(--space-1); list-style: none; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); }
+.ow-options li { display: grid; align-content: center; min-height: 44px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
+.ow-options li small { color: var(--color-ink-muted); font-size: var(--text-14); }
+.ow-options [role="option"]:hover, .ow-options [aria-selected="true"] { background: var(--color-fill); }
+/* Google's attribution under its suggestions (P-2): the text form until the official wordmark is in our assets. */
+.ow-options .ow-options-by { min-height: 0; padding-block: var(--space-1); cursor: default; justify-items: end; color: var(--color-ink-muted); font-size: var(--text-12); }

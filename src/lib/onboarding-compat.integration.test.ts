@@ -45,6 +45,18 @@ describe("temporary identity-only onboarding bridge", () => {
     expect(await getMerchantContext(userId)).toMatchObject({ rewardCost: 8 });
   });
 
+  // ENG-323, Google's terms P-4: from the shop search only the place id and the point are kept, with the fetch time.
+  it("stores a picked place as its id and point, and the location keeps the owner's own name and city", async () => {
+    const userId = await identity();
+    const before = Date.now();
+    const merchant = await createMerchant({ ...input(userId), latitude: 51.3127, longitude: 9.4797, googlePlaceId: "ChIJ_synthetic-1" });
+    const [location] = await db.select().from(locations).where(eq(locations.id, merchant.locationId));
+    expect(location).toMatchObject({ name: "Mitte", city: "Kassel", street: null, postalCode: null, latitude: 51.3127, longitude: 9.4797, googlePlaceId: "ChIJ_synthetic-1" });
+    expect(location.placeLocationFetchedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    await expect(createMerchant({ ...input(await identity()), googlePlaceId: "ChIJ_synthetic-1" })).rejects.toMatchObject({ code: "INVALID_COORDINATES" });
+    await expect(createMerchant({ ...input(await identity()), latitude: 1, longitude: 1, googlePlaceId: "../x" })).rejects.toThrow();
+  });
+
   it.each([true, false])("shows an explicit setup error for a partial tenant (location exists: %s)", async withLocation => {
     const f = await partial(withLocation);
     await expect(createMerchant(input(f.userId))).rejects.toMatchObject({ code: "SETUP_INCOMPLETE", message: expect.stringContaining("Einrichtung") });

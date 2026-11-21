@@ -112,7 +112,7 @@ export async function setLocationCoordinates(input: { actorUserId: string; env: 
     if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
     const changed = location.latitude !== point.latitude || location.longitude !== point.longitude;
     if (changed && input.execute) {
-      await tx.update(locations).set(point).where(where);
+      await tx.update(locations).set({ ...point, placeLocationFetchedAt: null }).where(where); // the operator's own point: no 30-day limit
       const held = await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.tenantId, input.tenantId), eq(programs.locationId, input.locationId)));
       for (const program of held) await enqueueWalletProgramRefresh(tx, input.tenantId, program.id);
     }

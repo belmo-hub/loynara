@@ -365,6 +365,13 @@
       "when": 1795175857390,
       "tag": "0051_owner_acceptances",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1795297981700,
+      "tag": "0052_location_place",
+      "breakpoints": true
     }
   ]
 }

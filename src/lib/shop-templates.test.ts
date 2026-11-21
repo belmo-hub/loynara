@@ -26,7 +26,7 @@ describe("shop templates", () => {
   it.each(SHOP_TEMPLATES.map(t => [t.id, t] as const))("%s maps to input the setup and onboard checks accept", (_, t) => {
     const programme = templateProgramme(t);
     const programName = "Salon Test Treuekarte", rulesText = draftRules(programme.programType, programme.earningMode);
-    const review = setupReviewValidation({ programName, date: "2026-11-09", latitude: "", longitude: "" });
+    const review = setupReviewValidation({ programName, date: "2026-11-09" });
     expect(Object.values(review.problems).filter(Boolean)).toEqual([]);
     const input = merchantInput.parse({ userId: "u1", businessName: "Salon Test", locationName: "Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName, rulesText, effectiveDate: "2026-11-09", ...programme });
     expect(() => checkRulesText(input.programType, input.earningMode ?? "manual", input.rulesText)).not.toThrow();
