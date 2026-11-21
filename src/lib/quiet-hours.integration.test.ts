@@ -29,7 +29,7 @@ afterAll(async () => { await pool.end(); });
 async function queuedRun(timezone: string) {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
-  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Café", city: "Kassel", country: timezone === "Africa/Casablanca" ? "MA" : "DE", timezone, locale: "de", currency: timezone === "Africa/Casablanca" ? "MAD" : "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Café", city: "Kassel", country: "DE", timezone, locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
   await fillSender(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "quiet@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));
@@ -75,7 +75,7 @@ describe("quiet hours at delivery", () => {
 async function queuedCampaign(timezone = "Europe/Berlin") {
   const ownerId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [ownerId, "Synthetic owner", `${ownerId}@example.test`]);
-  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Campaign Café", city: "Kassel", country: timezone === "Africa/Casablanca" ? "MA" : "DE", timezone, locale: "de", currency: timezone === "Africa/Casablanca" ? "MAD" : "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
+  const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Quiet Campaign Café", city: "Kassel", country: "DE", timezone, locale: "de", currency: "EUR", programName: "Stamps", programType: "stamp", rulesText: "One stamp for a confirmed purchase.", rewardTitle: "Coffee", rewardCost: 8 });
   await fillSender(ownerId, { locationId: merchant.locationId, street: "Teststraße 1", postalCode: "34117", city: "Kassel", representative: "Erika Muster", contactPhone: "0561 123456" });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true, email: "campaign-quiet@example.test", marketingOptIn: true });
   await db.update(membershipContacts).set({ emailVerified: true }).where(eq(membershipContacts.membershipId, card.id));

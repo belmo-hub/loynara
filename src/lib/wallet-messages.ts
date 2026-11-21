@@ -146,10 +146,10 @@ const removedWithin48h = sql`(SELECT count(DISTINCT r.pass_id)::int FROM wallet_
   AND e.event_at >= r.sent_at AND e.event_at <= r.sent_at + interval '48 hours' WHERE r.message_id = m.id AND r.status = 'sent')`;
 
 /** Operator view: owner messages of the last 30 days per programme, counts only. */
-export async function walletMessageStats(tx: Tx = db) {
+export async function walletMessageStats(tx: Tx = db, now = new Date()) {
   const stats = rows<{ programId: string; messages: number; sent: number; appleSent: number; removed: number }>(await tx.execute(sql`
     SELECT m.program_id AS "programId", count(*)::int AS messages, sum(m.sent_count)::int AS sent, sum(${appleSent})::int AS "appleSent", sum(${removedWithin48h})::int AS removed
-    FROM wallet_messages m WHERE m.kind = 'owner' AND m.created_at > now() - interval '30 days' GROUP BY m.program_id`));
+    FROM wallet_messages m WHERE m.kind = 'owner' AND m.created_at > ${now}::timestamptz - interval '30 days' GROUP BY m.program_id`));
   return new Map(stats.map(({ appleSent: apple, ...row }) => [row.programId, { ...row, warn: removalWarning(row.removed, apple) }]));
 }
 
