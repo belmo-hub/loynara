@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { db, pool } from "@/db";
 import { eq } from "drizzle-orm";
-import { memberships, programRuleVersions, rewardVersions } from "@/db/schema";
+import { locations, memberships, programRuleVersions, rewardVersions } from "@/db/schema";
 import { getMerchantExport } from "./export";
 import { award, redeem, reverseEntry } from "./loyalty";
 import { addStaff, nfcFixture } from "./nfc-test-db";
@@ -140,3 +140,18 @@ it("refuses an export with more rule versions than one file holds instead of cut
   await pool.query(`insert into program_rule_versions (tenant_id, program_id, version, name, type, rules_text, earning_mode, points_per_currency_unit) values ($1, $2, 50001, 'Synthetic', 'stamp', '', 'manual', 1)`, [f.tenant.id, f.program.id]);
   await expect(getMerchantExport(f.userId)).rejects.toMatchObject({ code: "EXPORT_TOO_LARGE" });
 }, 15000);
+
+// ENG-323, Legal: a point fetched from Google is Google's content and stays out of the export; its place id goes instead.
+it("exports a Google point as its place id only, and a hand-set point as before", async () => {
+  const f = await nfcFixture();
+  const set = (values: Partial<typeof locations.$inferInsert>) => db.update(locations).set(values).where(eq(locations.id, f.location.id));
+  const exported = async () => (await getMerchantExport(f.userId)).locations[0];
+  await set({ latitude: 51.3127, longitude: 9.4797, googlePlaceId: "ChIJ_synthetic-1", placeLocationFetchedAt: new Date() });
+  expect(await exported()).toMatchObject({ id: f.location.id, googlePlaceId: "ChIJ_synthetic-1" });
+  expect(await exported()).not.toHaveProperty("latitude");
+  expect(await exported()).not.toHaveProperty("longitude");
+  expect(await exported()).not.toHaveProperty("placeLocationFetchedAt");
+  await set({ placeLocationFetchedAt: null });
+  expect(await exported()).toMatchObject({ latitude: 51.3127, longitude: 9.4797, googlePlaceId: "ChIJ_synthetic-1" });
+});
+

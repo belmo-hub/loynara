@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sessionUser, enforcePeerLimit, enforceRateLimit } = vi.hoisted(() => ({ sessionUser: vi.fn(), enforcePeerLimit: vi.fn(), enforceRateLimit: vi.fn() }));
+const { sessionUser, enforcePeerLimit, enforceRateLimit, maySetUpShop } = vi.hoisted(() => ({ sessionUser: vi.fn(), enforcePeerLimit: vi.fn(), enforceRateLimit: vi.fn(), maySetUpShop: vi.fn() }));
 vi.mock("@/lib/http", () => ({
   sessionUser,
   requireSameOrigin: (request: Request) => { if (request.headers.get("origin") !== new URL(request.url).origin) throw Object.assign(new Error("origin"), { code: "INVALID_ORIGIN" }); },
   jsonBody: async (request: Request) => request.json(),
-  respondError: (cause: { code?: string }) => Response.json({ code: cause.code }, { status: cause.code === "UNAUTHENTICATED" ? 401 : cause.code === "INVALID_ORIGIN" ? 403 : cause.code === "RATE_LIMIT" ? 429 : 400 }),
+  respondError: (cause: { code?: string }) => Response.json({ code: cause.code }, { status: cause.code === "UNAUTHENTICATED" ? 401 : cause.code === "INVALID_ORIGIN" || cause.code === "FORBIDDEN" ? 403 : cause.code === "RATE_LIMIT" ? 429 : 400 }),
 }));
+vi.mock("@/lib/product", () => ({ maySetUpShop }));
 vi.mock("@/lib/rate-limit", () => ({ enforcePeerLimit, enforceRateLimit }));
 
 import { POST as search } from "./route";
@@ -20,6 +21,7 @@ const google = vi.fn<typeof fetch>();
 beforeEach(() => {
   vi.clearAllMocks();
   sessionUser.mockResolvedValue({ id: "synthetic-owner", email: "owner@example.test" });
+  maySetUpShop.mockResolvedValue(true);
   vi.stubEnv("GOOGLE_MAPS_API_KEY", "synthetic-test-key");
   vi.stubGlobal("fetch", google);
 });
@@ -35,7 +37,8 @@ describe("place search route", () => {
     const [url, init] = google.mock.calls[0];
     expect(url).toBe("https://places.googleapis.com/v1/places:autocomplete");
     expect(JSON.parse(String(init?.body))).toEqual({ input: "Café am Platz", sessionToken: TOKEN, includedRegionCodes: ["de"], regionCode: "de", languageCode: "de" });
-    expect(init?.headers).toMatchObject({ "X-Goog-Api-Key": "synthetic-test-key" });
+    // Exactly these headers: no cookie, no forwarded IP, nothing about the owner (Legal § 4.2).
+    expect(init?.headers).toEqual({ "Content-Type": "application/json", "X-Goog-Api-Key": "synthetic-test-key", "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat" });
     expect(JSON.stringify(init)).not.toMatch(/synthetic-owner|owner@example/);
     expect(enforcePeerLimit).toHaveBeenCalledWith(expect.any(Request), "place_search_peer", 240, 900);
     expect(enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ scope: "place_search_user", identity: "synthetic-owner" }));
@@ -51,15 +54,29 @@ describe("place search route", () => {
     expect(google).not.toHaveBeenCalled();
   });
 
+  it("is only for an account that may set up a shop now (review F-1)", async () => {
+    maySetUpShop.mockResolvedValue(false);
+    expect((await call(search, "place-search", { text: "Café", sessionToken: TOKEN })).status).toBe(403);
+    expect((await call(locate, "place-location", { placeId: "place_1", sessionToken: TOKEN })).status).toBe(403);
+    expect(maySetUpShop).toHaveBeenCalledWith("synthetic-owner");
+    expect(google).not.toHaveBeenCalled();
+  });
+
   it("is not offered without the key, and a Google failure is a calm 502", async () => {
     vi.stubEnv("GOOGLE_MAPS_API_KEY", "");
     expect((await call(search, "place-search", { text: "Café", sessionToken: TOKEN })).status).toBe(404);
     expect((await call(locate, "place-location", { placeId: "place_1", sessionToken: TOKEN })).status).toBe(404);
     expect(google).not.toHaveBeenCalled();
     vi.stubEnv("GOOGLE_MAPS_API_KEY", "synthetic-test-key");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const timeout = vi.spyOn(AbortSignal, "timeout");
     google.mockResolvedValueOnce(new Response("quota", { status: 429 })).mockRejectedValueOnce(new Error("offline"));
-    expect((await call(search, "place-search", { text: "Café", sessionToken: TOKEN })).status).toBe(502);
+    expect((await call(search, "place-search", { text: "Café am Platz", sessionToken: TOKEN })).status).toBe(502);
     expect((await call(locate, "place-location", { placeId: "place_1", sessionToken: TOKEN })).status).toBe(502);
+    expect(timeout.mock.calls).toEqual([[5_000], [5_000]]);
+    // The status only: never the text, the place or the user.
+    expect(warn.mock.calls).toEqual([["Google Places answered 429"], ["Google Places unreachable"]]);
+    warn.mockRestore(); timeout.mockRestore();
   });
 });
 
@@ -70,8 +87,9 @@ describe("place location route", () => {
     expect(await response.json()).toEqual({ latitude: 51.3127, longitude: 9.4797 });
     const [url, init] = google.mock.calls[0];
     expect(url).toBe(`https://places.googleapis.com/v1/places/ChIJ_synthetic-1?sessionToken=${TOKEN}`);
-    expect(init?.headers).toMatchObject({ "X-Goog-FieldMask": "location" });
-    expect(enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ scope: "place_location_user", identity: "synthetic-owner" }));
+    expect(init?.headers).toEqual({ "X-Goog-Api-Key": "synthetic-test-key", "X-Goog-FieldMask": "location" });
+    expect(enforcePeerLimit).toHaveBeenCalledWith(expect.any(Request), "place_location_peer", 60, 900);
+    expect(enforceRateLimit).toHaveBeenCalledWith({ scope: "place_location_user", identity: "synthetic-owner", max: 30, windowSeconds: 900 });
   });
 
   it("refuses a place id that could leave the path and an answer without a usable point", async () => {

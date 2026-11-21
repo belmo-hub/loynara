@@ -145,3 +145,13 @@ it("refuses to move accepted_at even together with the first setting of the busi
   const kept = await insert();
   expect((await pool.query("UPDATE owner_acceptances SET tenant_id = gen_random_uuid() WHERE id = $1", [kept])).rowCount).toBe(1);
 });
+
+// ENG-323 (review L5): a new terms Fassung forces no re-acceptance: an owner holding only the older one still sets up.
+it("sets up a shop for an account that accepted an older Fassung", async () => {
+  const userId = randomUUID();
+  await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $2, $3, false)', [userId, "Synthetic earlier owner", `${userId}@example.test`]);
+  await pool.query("INSERT INTO owner_acceptances (user_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, '2026-11-20', '2026-11-20', '2026-11-20', '2026-11-20')", [userId]);
+  expect(OWNER_TERMS.version).not.toBe("2026-11-20");
+  const shop = await createMerchant({ userId, businessName: "Synthetic Earlier Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 }, { newShop: true, requireAcceptance: true });
+  expect(shop.tenantId).toEqual(expect.any(String));
+});
