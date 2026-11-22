@@ -2,9 +2,10 @@ import type { MeResponse } from "@/components/client-api";
 import type { PilotSurface } from "@/lib/pilot-surfaces";
 
 export type OwnerRole = MeResponse["role"];
-export type NavIconName = "home" | "loyalty" | "users" | "megaphone" | "gear";
+export type NavIconName = "home" | "loyalty" | "users" | "megaphone" | "gear" | "calendar";
 export type SubItem = { label: string; href: string; roles: OwnerRole[]; exactMatch?: boolean; surface?: PilotSurface };
-export type NavGroup = { id: string; label: string; icon: NavIconName; roles: OwnerRole[]; prefixes: string[]; exact?: boolean; items: SubItem[] };
+export type NavGroup = { id: string; label: string; icon: NavIconName; roles: OwnerRole[]; prefixes: string[]; exact?: boolean; items: SubItem[];
+  /** Only where the operator switched online booking on. */ booking?: boolean; /** Desktop sidebar only: the phone keeps its five tabs, and Mehr leads there. */ desktopOnly?: boolean };
 /** Surfaces withheld on this deployment (from /api/me). Hidden items vanish from the navigation; a group with no visible item vanishes too. */
 export type HiddenSurfaces = readonly PilotSurface[];
 
@@ -24,13 +25,15 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "Kundenkarten", href: "/merchant/customers", roles: BOTH },
     { label: "Zielgruppen", href: "/merchant/audiences", roles: BOTH, surface: "audiences" },
   ] },
+  // D2 (Design, 22 Nov): the day view is a daily tool, so desktop gets its own item, only with booking on; never a sixth tab.
+  { id: "termine", label: "Termine", icon: "calendar", roles: BOTH, prefixes: ["/merchant/termine"], booking: true, desktopOnly: true, items: [{ label: "Termine", href: "/merchant/termine", roles: BOTH }] },
   // Aktionen is a list of rows (ENG-122d): Nachricht, Happy Hour, Ergebnisse, Beratung and, where offered, Kampagnen and
   // Automationen open from it, so the area has no sub-tabs; the list leaves out what a deployment withholds.
   { id: "actions", label: "Aktionen", icon: "megaphone", roles: OWNER, prefixes: ["/merchant/actions", "/merchant/campaigns", "/merchant/automations", "/merchant/wallet-messages", "/merchant/analytics", "/merchant/adviser"], items: [
     { label: "Aktionen", href: "/merchant/actions", roles: OWNER },
   ] },
   // Geschäft, Standorte, Team and Abrechnung are rows of the „Mehr“ page (ENG-122c), so the area has no sub-tabs either.
-  { id: "settings", label: "Einstellungen", icon: "gear", roles: OWNER, prefixes: [MORE_HREF, "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/merchant/termine"], items: [
+  { id: "settings", label: "Einstellungen", icon: "gear", roles: OWNER, prefixes: [MORE_HREF, "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"], items: [
     { label: "Einstellungen", href: MORE_HREF, roles: OWNER },
   ] },
 ];
@@ -39,12 +42,12 @@ const under = (path: string, prefix: string) => path === prefix || path.startsWi
 
 const shown = (item: SubItem, role: OwnerRole, hidden: HiddenSurfaces) => item.roles.includes(role) && !(item.surface && hidden.includes(item.surface));
 
-export function visibleGroups(role: OwnerRole, hidden: HiddenSurfaces = []) {
-  return NAV_GROUPS.filter(group => group.roles.includes(role) && group.items.some(item => shown(item, role, hidden)));
+export function visibleGroups(role: OwnerRole, hidden: HiddenSurfaces = [], booking = false) {
+  return NAV_GROUPS.filter(group => group.roles.includes(role) && (!group.booking || booking) && group.items.some(item => shown(item, role, hidden)));
 }
 
-export function activeGroup(path: string, role: OwnerRole, hidden: HiddenSurfaces = []): NavGroup | undefined {
-  const groups = visibleGroups(role, hidden);
+export function activeGroup(path: string, role: OwnerRole, hidden: HiddenSurfaces = [], booking = false): NavGroup | undefined {
+  const groups = visibleGroups(role, hidden, booking);
   return groups.find(group => group.exact ? path === "/merchant" : group.prefixes.some(prefix => under(path, prefix)));
 }
 

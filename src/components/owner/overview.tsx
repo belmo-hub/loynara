@@ -2,7 +2,7 @@
 
 import { weekLine } from "./week-line";
 import Link from "next/link";
-import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
+import { CalendarDays, ChartColumn, Check, ChevronRight, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
@@ -81,12 +81,21 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 }
 
 /** One line on today's appointments, only where online booking is set up (the day read says so); links to the day view. */
+/** D5 (Design, 22 Nov): today's appointments as one row in a panel, the daily way into Termine; gone at 0 and 0. */
 function TodayAppointments() {
   const booking = useOwner().me?.bookingEnabled === true;
   const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>(booking ? "/api/merchant/booking/day" : null);
   if (!booking || day.state !== "ok" || day.data.bookingEnabled === null) return null;
   const n = day.data.appointments.filter(a => !a.status.startsWith("cancelled")).length, m = day.data.pendingRequests;
-  return <p style={{ margin: 0 }}><Link className="ow-link ow-link--block" href="/merchant/termine">Heute {n === 1 ? "1 Termin" : `${n} Termine`} · {m === 1 ? "1 offene Anfrage" : `${m} offene Anfragen`} insgesamt</Link></p>;
+  if (!n && !m) return null;
+  return <section className={cx(mix.panel, "ow-arrive")} aria-label="Termine">
+    <Link className={mix.row} data-lead="tile" href="/merchant/termine">
+      <MixTile><CalendarDays size={20} aria-hidden="true" /></MixTile>
+      <span className={mix.body}><span className={mix.text}><b>{n ? `Heute: ${n === 1 ? "1 Termin" : `${n} Termine`}` : "Heute: keine Termine"}</b>
+        {m > 0 && <MixChip warm>{m === 1 ? "1 Anfrage wartet auf dich" : `${m} Anfragen warten auf dich`}</MixChip>}</span>
+        <ChevronRight className={mix.chev} size={20} aria-hidden="true" /></span>
+    </Link>
+  </section>;
 }
 
 /* ───────────── Active business ───────────── */

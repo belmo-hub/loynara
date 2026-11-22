@@ -261,7 +261,8 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   const me = owner.me;
   const role = me?.role ?? owner.role;
   const hidden = me?.hiddenSurfaces ?? owner.hiddenSurfaces;
-  const group = activeGroup(pathname, role, hidden);
+  const booking = me?.bookingEnabled === true;
+  const group = activeGroup(pathname, role, hidden, booking);
   const subItems = group ? visibleItems(group, role, hidden) : [];
   // The Kasse slides up over the app as a sheet (ENG-256): the navigation carries its transition type, and the Kasse's
   // loading frame shows this location from the first frame.
@@ -275,7 +276,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         <div className="ow-brand"><GuardedLink href="/merchant" aria-label="Loynara – zur Übersicht"><BrandMark /></GuardedLink></div>
         <LocationBox />
         <nav className="ow-nav" aria-label="Hauptnavigation">
-          {visibleGroups(role, hidden).map(item => (
+          {visibleGroups(role, hidden, booking).map(item => (
             <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch aria-current={group?.id === item.id ? "page" : undefined}><OwnerIcon name={item.icon} />{item.label}</GuardedLink>
           ))}
         </nav>
@@ -312,10 +313,10 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav className="ow-tabs" aria-label="Bereiche">
-          {visibleGroups(role, hidden).slice(0, 4).map(item => (
+          {visibleGroups(role, hidden).filter(item => !item.desktopOnly).slice(0, 4).map(item => (
             <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
-          <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
+          <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" || group?.desktopOnly ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>
         </nav>
       </div>
     </div>

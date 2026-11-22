@@ -29,17 +29,16 @@ export const SPEND_COPY = {
   bookingsNote: "Die Zahlen zu Buchungen zeigen bestätigte Buchungen, nicht alle Besuche. Beträge stehen nur unter „Umsatz deiner Loynara-Kunden“.",
 } as const;
 
-const termine = (n: number, dative = false) => `${n.toLocaleString("de-DE")}\u00a0${n === 1 ? "Termin" : dative ? "Terminen" : "Termine"}`;
 
 /** Loynara Termin lines under the spend figures: list prices are an estimate, cashier amounts are named apart. */
 export const BOOKING_COPY = {
   title: "Termine",
-  today: (n: number, next7: number) => `Heute: ${termine(n)} · nächste 7 Tage: ${termine(next7)}`,
+  // D6 (Design, 22 Nov): a label per figure, the number in the value column, the period as the muted sub.
+  today: "Heute", next7: "Nächste 7 Tage", noShowTitle: "Nicht erschienen", listPriceTitle: "Listenpreise erledigter Termine",
+  confirmedTitle: "Davon an der Kasse bestätigt", rebookedTitle: "Über Erinnerung neu gebucht",
+  last30: "letzte 30 Tage", estimated: "geschätzt, nicht kassiert, letzte 30 Tage",
+  noShowValue: (noShow: number, total: number) => `${noShow.toLocaleString("de-DE")} von ${total.toLocaleString("de-DE")}`,
   empty: "Nach deinem ersten erledigten Termin siehst du hier Ausfälle und die Listenpreise erledigter Termine.",
-  noShow: (noShow: number, total: number) => `${noShow.toLocaleString("de-DE")} von ${termine(total, true)} nicht erschienen, letzte 30 Tage`,
-  rebooked: (n: number) => `${termine(n)} über Erinnerung neu gebucht, letzte 30 Tage`,
-  listPrice: (amount: string) => `Listenpreise erledigter Termine: ${amount} · geschätzt, nicht kassiert`,
-  confirmed: (amount: string) => `davon an der Kasse bestätigt: ${amount}`,
   howWeCount: "Es zählen Termine nach ihrer Startzeit an deinem Standort. „Letzte 30 Tage“ heißt: heute und die 29 Tage davor. Nicht erschienen zählt gegen alle erledigten, nicht erschienenen und kurzfristig abgesagten Termine. Neu gebucht über Erinnerung heißt: über den Link aus der Erinnerung an den nächsten Termin. „Listenpreise erledigter Termine“ ist die Summe der Preise, so wie sie beim Buchen galten. Das ist kein kassierter Betrag. „An der Kasse bestätigt“ ist der Betrag, den dein Team beim Abschluss des Termins eingegeben hat; korrigierte Buchungen fallen weg.",
 } as const;
 
