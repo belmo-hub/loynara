@@ -13,7 +13,7 @@ const { default: LoginPage } = await import("./page");
 
 const render = async (query: Record<string, string>) => renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve(query) }));
 const redirected = (query: Record<string, string>) => LoginPage({ searchParams: Promise.resolve(query) }).then(() => null, (error: { to?: string }) => error.to);
-const CONFIRMED = "Deine E-Mail-Adresse ist bestätigt. Melde dich jetzt an.";
+const CONFIRMED = "Deine E-Mail-Adresse ist bestätigt.";
 
 // ENG-341: the confirmation link lands on /login?verified=1 (account-verification.ts).
 describe("login after the confirmation link", () => {

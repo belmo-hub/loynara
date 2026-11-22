@@ -67,7 +67,7 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
       <PageHeader className={styles.signin} title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
       <div className={styles.sheet}>
         <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
-          {verified ? <p className={styles.alert} data-tone="ok" role="status"><CircleCheck size={20} aria-hidden="true" />Deine E-Mail-Adresse ist bestätigt. Melde dich jetzt an.</p> : null}
+          {verified ? <p className={styles.alert} data-tone="ok" role="status"><CircleCheck size={20} aria-hidden="true" />Deine E-Mail-Adresse ist bestätigt.</p> : null}
           <TextField id="login-email" error={fields.error("login-email")} label="E-Mail-Adresse" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" required placeholder="du@geschaeft.de" />
           <TextField id="login-password" error={fields.error("login-password")} label="Passwort" type="password" name="password" autoComplete="current-password" enterKeyHint="go" required />
           <Link className={styles.forgot} href="/forgot-password">Passwort vergessen?</Link>
