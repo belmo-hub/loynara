@@ -248,6 +248,6 @@ test("points by purchase amount post the whole onboarding body unchanged", async
     businessName: "Synthetisches Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Synthetisches Café Treuekarte", programType: "points", earningMode: "purchase", pointsPerCurrencyUnit: 2,
     rulesText: "", rewardTitle: "Dessert aufs Haus", rewardCost: 100, locationName: "Kassel", brandColor: "#1F4A3A",
-    effectiveDate: new Date().toISOString().slice(0, 10),
+    effectiveDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date()), // the shop's day, as setup defaults (ENG-346)
   });
 });
