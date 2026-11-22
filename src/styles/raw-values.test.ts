@@ -25,6 +25,7 @@ const CONTROLS = [".owner-app summary", ".ow-radio-card input", '.ow-colorrow in
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },
+  ...["src/app/layout.tsx", "src/app/merchant/layout.tsx"].map(file => ({ file, kind: "colour" as const, reason: "theme-color metadata is a hex string for the browser bar, pinned to the tokens by src/app/theme-colour.test.ts (Design 36c)" })),
   { file: "src/app/global-error.tsx", kind: "colour", selectors: [":root"], reason: "global-error renders without the app's CSS, so it inlines the token values" },
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
