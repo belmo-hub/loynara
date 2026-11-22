@@ -35,4 +35,12 @@
   .sheet:is([data-side="end"], [data-side="auto"]) .handle { display: none; }
   .sheet:is([data-side="end"], [data-side="auto"]) .header { padding-top: var(--space-5); }
 }
-@media (prefers-reduced-motion: reduce) { .sheet, .sheet:not([open]), .sheet::backdrop, .sheet[open]::backdrop { transition: none; } .close:active { transform: none; } }
+/* Reduced motion: fade only (DESIGN.md, Slide in), as the dialog does. The panel stays in place and fades; the
+   backdrop keeps its fade. Same specificity as the rules above, so these win by order. */
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet:not([open]), .sheet:is([data-side="end"], [data-side="auto"]):not([open]) { transform: none; }
+  @starting-style { .sheet[open], .sheet:is([data-side="end"], [data-side="auto"])[open] { transform: none; opacity: 0; } }
+  .sheet { transition-property: opacity, overlay, display; }
+  .sheet:not([open]) { opacity: 0; }
+  .close:active { transform: none; }
+}
