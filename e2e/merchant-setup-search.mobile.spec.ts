@@ -21,4 +21,5 @@ test("focus lands on the picked place after a slow place-location answer", async
   await page.getByRole("option").first().click();
   await expect(page.getByRole("status").filter({ hasText: "Café am Platz wird übernommen …" })).toHaveCount(1);
   await expect(page.locator("#su-place-picked")).toBeFocused();
+  await expect(page.locator("#su-place-picked")).not.toHaveAttribute("data-kbd"); // no ring after a tap
 });
