@@ -383,7 +383,7 @@ export async function move(input: Scope & { appointmentId: string; start: Date; 
     const { slot, nextFree } = await findSlot(tx, scope, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
     await moveRow(tx, row, slot.staffId, input.start, service).catch(slotTaken(nextFree));
     await scheduleReminders(tx, row.a.id, now);
-    await notifyShopChange(tx, row.a.id, "moved", now);
+    await notifyShopChange(tx, row.a.id, "moved", now, row.start);
     return ownerView(await ownerAppointment(tx, input, row.a.id), now);
   });
 }

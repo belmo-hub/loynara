@@ -332,3 +332,34 @@ it("GET …/booking reports the push state; the push and consent routes store a 
   expect((await pushRoute(request(`/api/card/${second.cardToken}/booking/push`, { body: { subscription: { endpoint: device, expirationTime: null, keys } } }), other)).status).toBe(204);
   expect(await read()).toEqual({ publicKey: env.VAPID_PUBLIC_KEY, subscribed: false, rebookConsent: true });
 });
+
+it("a move at night from 07:30 to 10:00 goes out at once: the earlier of the two starts decides (Legal, 22 Nov)", async () => {
+  const shop = await bookingShop();
+  await subscribe(shop);
+  const appointment = await bookAt(shop, "2026-11-03T06:30:00Z"); // 07:30 Berlin
+  const night = new Date("2026-11-02T22:00:00Z"); // 23:00 Berlin
+  await move({ ...shop.scope, appointmentId: appointment.id, start: new Date("2026-11-03T09:00:00Z"), staffId: shop.staffId }, night); // 10:00 Berlin
+  const [moved] = await jobs("booking.change", appointment.id);
+  expect(moved.payload).toMatchObject({ kind: "moved", from: "2026-11-03T06:30:00.000Z" });
+  expect(moved.next_attempt_at.toISOString()).toBe(night.toISOString());
+  const send = fakeSender();
+  expect(await deliverShopChange(moved, { env, send, now: night })).toEqual({ status: "complete" });
+  expect(JSON.parse(send.mock.calls[0][1]).body).toBe("Dein Termin ist jetzt Di 03.11. um 10:00 bei Lena.");
+});
+
+it("a move at night from 10:00 to 07:30 goes out at once too; a move at night between two daytime starts still waits for 08:00", async () => {
+  const shop = await bookingShop();
+  await subscribe(shop);
+  const early = await bookAt(shop, "2026-11-03T09:00:00Z"); // 10:00 Berlin
+  const night = new Date("2026-11-02T22:00:00Z");
+  await move({ ...shop.scope, appointmentId: early.id, start: new Date("2026-11-03T06:30:00Z"), staffId: shop.staffId }, night);
+  const [moved] = await jobs("booking.change", early.id);
+  expect(moved.next_attempt_at.toISOString()).toBe(night.toISOString());
+  expect(await deliverShopChange(moved, { env, send: fakeSender(), now: night })).toEqual({ status: "complete" });
+
+  const later = await bookAt(shop, "2026-11-03T12:00:00Z"); // 13:00 Berlin
+  await move({ ...shop.scope, appointmentId: later.id, start: new Date("2026-11-03T13:00:00Z"), staffId: shop.staffId }, night);
+  const [waits] = await jobs("booking.change", later.id);
+  expect(waits.next_attempt_at.toISOString()).toBe("2026-11-03T07:00:00.000Z");
+  expect(await deliverShopChange(waits, { env, send: fakeSender(), now: night })).toEqual({ status: "deferred", reason: "Quiet hours", until: new Date("2026-11-03T07:00:00Z") });
+});

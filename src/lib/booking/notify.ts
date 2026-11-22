@@ -87,12 +87,19 @@ const changeWake = (now: Date, start: Date, timeZone: string) => {
   return wake && (wake < start || start <= now) ? wake : null;
 };
 
-/** One push about a shop cancellation, move or confirmation; immediate, or at 08:00 when it happens at night. */
-export async function notifyShopChange(tx: Tx, appointmentId: string, kind: "shop_cancel" | "moved" | "confirmed", now = new Date()) {
+/** A move is urgent for the earlier of its two starts: 07:30 moved to 10:00 at night must reach the guest before 07:30 (Legal, 22 Nov). */
+const earlierStart = (start: Date, from: unknown) => {
+  const old = typeof from === "string" && !Number.isNaN(Date.parse(from)) ? new Date(from) : null;
+  return old && old < start ? old : start;
+};
+
+/** One push about a shop cancellation, move or confirmation; immediate, or at 08:00 when it happens at night. `from`: a move's old start. */
+export async function notifyShopChange(tx: Tx, appointmentId: string, kind: "shop_cancel" | "moved" | "confirmed", now = new Date(), from?: Date) {
   const { rows: [a] } = await tx.execute<{ tenant_id: string; timezone: string; start: Date | string }>(sql`
     SELECT a.tenant_id, l.timezone, lower(a.during) AS start FROM booking_appointments a JOIN locations l ON l.tenant_id = a.tenant_id AND l.id = a.location_id WHERE a.id = ${appointmentId}::uuid`);
   if (!a) return;
-  await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind: "booking.change", payload: { appointmentId, kind, at: now.toISOString() }, nextAttemptAt: changeWake(now, new Date(a.start), a.timezone) ?? now });
+  const payload = { appointmentId, kind, at: now.toISOString(), ...(kind === "moved" && from ? { from: from.toISOString() } : {}) };
+  await tx.insert(outboxJobs).values({ tenantId: a.tenant_id, kind: "booking.change", payload, nextAttemptAt: changeWake(now, earlierStart(new Date(a.start), payload.from), a.timezone) ?? now });
 }
 
 // ---- Sending ---------------------------------------------------------------------------------------------------------------
@@ -146,11 +153,11 @@ const page = (a: Loaded) => `/card/${encodeURIComponent(a.token)}/termin`;
  * Sends once per job: booking_push_log holds one row per appointment and kind, refreshed on each send, so a retry after a
  * send (log newer than the job) completes without a second push while a later job of the same kind (after a move) still sends.
  */
-async function deliver(a: Loaded, kind: string, at: unknown, message: Message, deps: Deps): Promise<Outcome> {
+async function deliver(a: Loaded, kind: string, at: unknown, message: Message, deps: Deps, urgentFor = a.start): Promise<Outcome> {
   if (!vapidDetails(deps.env)) return { status: "suppressed", reason: "Push not configured" };
   // Quiet hours hold at send time too: a backlog or a retry never pushes at night. The job waits for 08:00 without losing an
   // attempt; a reminder that is useless by then is dropped by its own lateness check.
-  const now = deps.now ?? new Date(), wake = CHANGE_KINDS.includes(kind) ? changeWake(now, a.start, a.timezone) : quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
+  const now = deps.now ?? new Date(), wake = CHANGE_KINDS.includes(kind) ? changeWake(now, urgentFor, a.timezone) : quietHoursDeferral(now, a.timezone, WALLET_QUIET_HOURS);
   if (wake) return { status: "deferred", reason: "Quiet hours", until: wake };
   const since = typeof at === "string" && !Number.isNaN(Date.parse(at)) ? new Date(at) : new Date(0);
   const { rows: [logged] } = await db.execute(sql`SELECT 1 FROM booking_push_log WHERE appointment_id = ${a.id}::uuid AND kind = ${kind} AND sent_at >= ${since}::timestamptz`);
@@ -192,7 +199,7 @@ export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: D
     : kind === "moved" ? `Dein Termin ist jetzt ${day(a)} um ${time(a)} bei ${a.staff}.`
     : a.cancel_reason === UNCONFIRMED ? `Dein Termin ${day(a)} um ${time(a)} konnte nicht bestätigt werden. Buch gern einen neuen.`
     : `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.`;
-  return deliver(a, kind, job.payload.at, { title: a.shop, body, url: page(a) }, deps);
+  return deliver(a, kind, job.payload.at, { title: a.shop, body, url: page(a) }, deps, kind === "moved" ? earlierStart(a.start, job.payload.from) : a.start);
 }
 
 /**
