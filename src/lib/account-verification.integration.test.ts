@@ -58,8 +58,11 @@ it("sends one link in fixed words on sign-up, and the link confirms the address"
   expect(await verified(email)).toBe(false);
   const response = await GET(new Request(link!, { headers: { "cf-connecting-ip": "198.51.100.200" } }));
   expect(response.status).toBe(302);
-  expect(response.headers.get("location")).toBe("/merchant");
+  // ENG-341: the owner lands on the sign-in page, which says the address is confirmed (and sends a signed-in owner on).
+  expect(response.headers.get("location")).toBe("/login?verified=1");
   expect(await verified(email)).toBe(true);
+  const broken = await GET(new Request(link!.replace(/token=[^&]+/, "token=broken"), { headers: { "cf-connecting-ip": "198.51.100.201" } }));
+  expect(broken.headers.get("location")).toBe("/login?verified=1&error=INVALID_TOKEN");
 });
 
 it("sends at most three links an hour to one address, and limits the resend button per peer", async () => {
