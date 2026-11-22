@@ -316,7 +316,7 @@ function Wizard({ initial }: { initial: Setup }) {
             <Choice id="bs-reschedule" label="Verschieben" value={r.maxReschedulesPerMonth} options={withValue(RESCHEDULE, r.maxReschedulesPerMonth, n => `${n}-mal im Monat`)} onChange={maxReschedulesPerMonth => setRules({ maxReschedulesPerMonth })} />
           </div>
           <Choice id="bs-open" label="Offene Termine pro Kunde" hint="So viele Termine kann ein Kunde gleichzeitig gebucht haben." value={r.maxOpenPerCard} options={withValue(OPEN_PER_CARD, r.maxOpenPerCard, n => `${n} Termine`)} onChange={maxOpenPerCard => setRules({ maxOpenPerCard })} />
-          <Choice id="bs-noshow" label="Online-Buchung pausieren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${missedPhrase(n)}`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
+          <Choice id="bs-noshow" label="Kunden sperren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${missedPhrase(n)}`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
             hint={r.noShowBlockAfter ? `Wer ${r.noShowBlockAfter}-mal in 12 Monaten ohne Absage fehlt, kann nur noch anrufen. Du hebst das mit einem Tipp auf.` : "Niemand wird pausiert, auch nach vielen verpassten Terminen nicht."} />
           <Field id="bs-terms" label="Text für deine Kunden" hint={form.termsEdited ? "Dein eigener Text. Prüfe ihn, wenn du die Regeln änderst." : "Folgt deinen Regeln. Du kannst ihn frei ändern."}>
             <textarea id="bs-terms" className="ow-textarea" rows={5} maxLength={600} value={form.termsEdited ? form.termsText : defaultTerms(r)} onChange={event => set({ termsText: event.target.value, termsEdited: true })} />

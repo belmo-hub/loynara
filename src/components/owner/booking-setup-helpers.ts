@@ -79,6 +79,6 @@ export function defaultTerms(rules: { cancelDeadlineHours: number; maxReschedule
     rules.cancelDeadlineHours ? `Absagen bitte ${until}; später zählt es als kurzfristige Absage.` : "Absagen geht jederzeit bis zum Termin.",
     rules.maxReschedulesPerMonth ? `Verschieben geht online ${until}, bis zu ${rules.maxReschedulesPerMonth}-mal im Monat.` : "Verschieben geht online nicht: bitte absagen und neu buchen.",
   ];
-  if (rules.noShowBlockAfter) lines.push(`Nach ${missedPhrase(rules.noShowBlockAfter)} ohne Absage ist die Online-Buchung für dich pausiert; ruf dann kurz an.`);
+  if (rules.noShowBlockAfter) lines.push(`Nach ${missedPhrase(rules.noShowBlockAfter)} ohne Absage sind die Online-Termine für dich pausiert; ruf dann kurz an.`);
   return lines.join(" ");
 }

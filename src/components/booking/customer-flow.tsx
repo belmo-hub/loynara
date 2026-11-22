@@ -27,7 +27,8 @@ type Problem = { text: string; nextFree?: string; retry?: boolean; pick?: boolea
 type Failure = { status: number; code?: string; nextFree?: string };
 
 const CONTACT = "loynara_booking_contact";
-const PAUSED = "Online-Buchung in diesem Geschäft ist pausiert. Ruf kurz an.";
+// C-R6 (Design, 22 Nov): a guest reads „Online-Termine“, never „Buchung“, which on the card means a stamp.
+const PAUSED = "Online-Termine sind für deine Karte pausiert. Ruf kurz im Geschäft an.";
 const PAST: Record<string, string> = { done: "erledigt", no_show: "nicht erschienen", cancelled_by_customer: "abgesagt", cancelled_by_shop: "vom Geschäft abgesagt", requested: "vorbei", confirmed: "vorbei" };
 // The slots route serves at most 14 days per request; "Weitere Tage" asks for the next 14.
 const WINDOW = 14;
@@ -56,7 +57,7 @@ function problemFor(cause: unknown, view: Enabled): Problem {
   if (code === "STALE") return { text: "Der Termin hat sich inzwischen geändert. Schau oben nach." };
   if (code === "TOO_MANY_BOOKINGS") return { text: TOO_MANY_BOOKINGS };
   if (code === "RATE_LIMIT") return { text: "Zu viele Versuche. Warte kurz und versuch es dann noch mal.", retry: true };
-  if (code === "NOT_FOUND") return { text: "Online-Buchung geht hier gerade nicht. Ruf kurz im Geschäft an." };
+  if (code === "NOT_FOUND") return { text: "Online-Termine gehen hier gerade nicht. Ruf kurz im Geschäft an." };
   return { text: "Das hat nicht geklappt. Versuch es noch mal.", retry: true };
 }
 
@@ -305,7 +306,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
             {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
             <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
             {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
-            {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
+            {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten sind die Online-Termine für deine Karte pausiert.</p> : null}
           </details>
         </div>
       </> : null}
