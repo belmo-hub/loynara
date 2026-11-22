@@ -71,7 +71,7 @@ export function assertInWindow(start: Date, settings: Pick<Settings, "leadTimeMi
 
 export async function cardScope(reader: Reader, token: string) {
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-  const [card] = await reader.select({ tenantId: memberships.tenantId, membershipId: memberships.id, locationId: programs.locationId, timezone: locations.timezone, shopName: tenants.name, brandColor: locations.brandColor })
+  const [card] = await reader.select({ tenantId: memberships.tenantId, membershipId: memberships.id, locationId: programs.locationId, timezone: locations.timezone, shopName: tenants.name, brandColor: locations.brandColor, cardLocator: memberships.cardLocator })
     .from(memberships)
     .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
     .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
@@ -190,7 +190,7 @@ export async function cardView(token: string, now = new Date()) {
   const mine = and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId));
   const upcoming = sql`${bookingAppointments.status} in ('requested','confirmed') and upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`;
   return {
-    enabled: true, blocked: await isBlocked(db, card),
+    enabled: true, blocked: await isBlocked(db, card), cardLocator: formatCardLocator(card.cardLocator),
     shop: { name: card.shopName, brandColor: card.brandColor, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
       noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard, maxDaysAhead: settings.maxDaysAhead },
     services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),

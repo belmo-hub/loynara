@@ -56,7 +56,7 @@ export type Appointment = {
 };
 export type Service = { id: string; name: string; durationMin: number; priceMinor: number; priceFrom: boolean };
 export type BookingView = { enabled: false } | {
-  enabled: true; blocked: boolean;
+  enabled: true; blocked: boolean; /** The card number: device storage is keyed by it, never by the private link (ENG-214). */ cardLocator: string;
   shop: { name: string; brandColor: string; timezone: string; termsText: string; cancelDeadlineHours: number; maxReschedulesPerMonth: number; autoConfirm: boolean; noShowBlockAfter: number; maxOpenPerCard: number; maxDaysAhead: number };
   services: Service[]; staff: { id: string; name: string; serviceIds: string[] }[]; upcoming: Appointment[]; past: Appointment[];
   push: PushView;
