@@ -85,5 +85,5 @@ export const TERMIN_COPY = {
   planNote: 'Alles aus dem 49‑€‑Paket, dazu Online-Termine.',
   included: ['Online-Termine direkt von der Kundenkarte', 'Erinnerung einen Tag und zwei Stunden vorher', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Deine Kundenliste gehört dir: CSV-Export'],
   fine: 'Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.',
-  notIncluded: 'Keine Online-Zahlung und keine Anzahlung · keine Warteliste · keine Gruppenkurse · kein Abgleich mit Google Kalender, Treatwell oder Fresha · keine SMS und kein WhatsApp · keine Serientermine.',
+  notIncluded: 'Keine Online-Zahlung und keine Anzahlung, keine Warteliste, keine Gruppenkurse, kein Abgleich mit Google Kalender, Treatwell oder Fresha, keine SMS und kein WhatsApp, keine Serientermine.',
 } as const;

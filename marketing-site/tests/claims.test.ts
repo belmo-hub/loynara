@@ -87,7 +87,9 @@ test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', 
 test('booking gate on: the Termin + Treue plan without a price or a money-back promise, the Salons link and the salon page', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
   assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
-  assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Weniger Nichterscheinen/);
+  assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Termine auf der Kundenkarte\. Erinnert per Push\./);
+  // Design r2: no outcome promise, no founding price, no amount next to the unpriced plan, and the card names its plan.
+  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><b>Termin \+ Treue<\/b><\/p>/);
 });
 
 test('booking gate on: the home Termin plan uses the home page\'s own plan classes, which home.css styles', () => {
