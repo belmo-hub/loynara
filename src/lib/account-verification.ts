@@ -33,7 +33,7 @@ const appLink = (path: string, query: Record<string, string>, fragment?: Record<
 
 export function sendAccountVerification(email: string, token: string) {
   return sendAccountMail("auth_verify_email", email, "Bestätige deine E-Mail-Adresse für Loynara",
-    `Hallo,\n\nbitte bestätige, dass diese E-Mail-Adresse zu deinem Loynara-Konto gehört:\n${appLink("/api/auth/verify-email", { token, callbackURL: "/merchant" })}\n\nDer Link gilt eine Stunde. Erst nach der Bestätigung schicken wir dir E-Mails zu deinem Geschäft, zum Beispiel den Wochenbericht.\n\nHast du kein Konto bei Loynara angelegt? Dann ignorier diese E-Mail einfach. Ohne Klick passiert nichts.\n\nBei Fragen schreib an support@getloynara.com.`);
+    `Hallo,\n\nbitte bestätige, dass diese E-Mail-Adresse zu deinem Loynara-Konto gehört:\n${appLink("/api/auth/verify-email", { token, callbackURL: "/login?verified=1" })}\n\nDer Link gilt eine Stunde. Erst nach der Bestätigung schicken wir dir E-Mails zu deinem Geschäft, zum Beispiel den Wochenbericht.\n\nHast du kein Konto bei Loynara angelegt? Dann ignorier diese E-Mail einfach. Ohne Klick passiert nichts.\n\nBei Fragen schreib an support@getloynara.com.`);
 }
 
 export function sendPasswordReset(email: string, token: string) {
