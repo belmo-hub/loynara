@@ -92,7 +92,9 @@ describe("owner privacy notice", () => {
   it("is Legal's text with its Stand, the customer page and the Impressum linked", () => {
     expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
     expect(GeschaefteMetadata.title).toBe("Datenschutzhinweise für Geschäfte – Loynara");
-    expect(html).toContain("Stand: 22. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
+    expect(html).toContain("Stand: 29. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
+    // Legal, 22 Nov (passkeys, #349): word for word, right after the session sentence.
+    expect(html).toContain("Bei jeder Anmeldung speichern wir die Sitzung mit IP-Adresse und Browser. Richtest du einen Passkey ein, speichern wir seinen öffentlichen Schlüssel, seine Kennung, einen Anmeldezähler, das Datum und technische Angaben zum Speicherort (zum Beispiel ob der Passkey in einem Passwortmanager gesichert ist). Fingerabdruck, Gesicht und Geräte-PIN bleiben auf deinem Gerät; wir erhalten sie nie. Einen Passkey entfernst du unter Mehr › Konto; setzt du dein Passwort zurück, löschen wir alle Passkeys deines Kontos. ");
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
     expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");
