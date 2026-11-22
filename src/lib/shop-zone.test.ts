@@ -23,6 +23,10 @@ describe.each(["UTC", "America/New_York", "Europe/Berlin"])("on a device set to 
     expect(activityDay(lateEvening, "de-DE", afterMidnight)).toBe("Gestern");
     expect(activityDay(afterMidnight.toISOString(), "de-DE", afterMidnight, "Europe/Berlin")).toBe("Heute");
     expect(germanDate(lateEvening, "feed")).toBe("22.11., 23:30");
+    // Z3: an older day is named on the shop's clock: 00:30 on Friday 13 Nov in Berlin is still Thursday on UTC and in New York.
+    expect(dayLabel("2026-11-12T23:30:00Z", afterMidnight)).toBe("Freitag, 13.11.");
+    // Z5: the year across New Year: 00:30 on 1 Jan 2027 in Berlin is still 2026 in New York, so no year is shown on 10 Jan.
+    expect(activityDay("2026-12-31T23:30:00Z", "de-DE", new Date("2027-01-10T12:00:00Z"))).toBe("1. Jan.");
     expect(renderToStaticMarkup(createElement(SwitchedOn, { shop: "Café", givenAt: lateEvening, busy: false, onSwitchOff: () => {}, timeZone: "Europe/Berlin" }))).toContain("Erlaubt am 22. Nov., 23:30");
   });
 });
