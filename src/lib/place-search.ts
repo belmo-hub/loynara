@@ -37,8 +37,8 @@ export async function placeSuggestions(input: string, token: string, env: Env = 
 }
 
 /** Place Details with the field mask `location` only: the cheapest SKU, and nothing about the place is kept but its point. */
-export async function placeLocation(id: string, token: string, env: Env = process.env, http: typeof fetch = fetch) {
-  const body = await places(http, `${PLACES}/places/${encodeURIComponent(id)}?sessionToken=${encodeURIComponent(token)}`, {
+export async function placeLocation(id: string, token: string | undefined, env: Env = process.env, http: typeof fetch = fetch) {
+  const body = await places(http, `${PLACES}/places/${encodeURIComponent(id)}${token ? `?sessionToken=${encodeURIComponent(token)}` : ""}`, {
     headers: { "X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY ?? "", "X-Goog-FieldMask": "location" },
   });
   const parsed = location.safeParse(body);
