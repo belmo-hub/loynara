@@ -68,7 +68,14 @@ export const auth = betterAuth({
   session: { expiresIn: 60 * 60 * 24 * 7, freshAge: 10 * 60 },
   // Optional passkeys next to the password (web audit finding 10): added by a signed-in person in Einstellungen, used
   // from the sign-in form's autofill. The relying party is the app's own host; nothing here changes password sign-in.
-  plugins: [passkey({ rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname, rpName: "Loynara" })],
+  // User verification is required (CTO, 22 Nov): a passkey always asks for Face ID, a fingerprint or the device PIN, so a
+  // security key without a PIN cannot sign in with a tap. Adding one needs a signed-in session (pinned by a test).
+  plugins: [passkey({
+    rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname,
+    rpName: "Loynara",
+    authenticatorSelection: { userVerification: "required" },
+    registration: { requireSession: true },
+  })],
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {
     before: createAuthMiddleware(async (context) => {
