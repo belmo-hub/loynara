@@ -233,8 +233,10 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   const awardTail = !extras.length && locale !== "fr" ? `${counted.slice(String(awardCount).length)} ${direct ? "vergeben" : "prüfen"}` : undefined;
   const awardLabel = extras.length ? [counted, ...extras].join(" + ")
     : awardTail ? `${awardCount}${awardTail}` : `${direct ? "Ajouter" : "Vérifier"} ${counted}`;
+  // A visit the owner already finished (Design, 22 Nov): even one stamp goes through „Trotzdem vergeben?“.
+  const appointmentDone = Boolean(card?.appointment?.done);
   function awardQuantity(selected: CashierCard) {
-    if (awardCount === 1 && !offlineChoice) award(selected, { quantity: awardCount });
+    if (awardCount === 1 && !offlineChoice && !selected.appointment?.done) award(selected, { quantity: awardCount });
     else setConfirm({ kind: "award", award: { quantity: awardCount } });
   }
   const purchaseAward = purchaseMode && purchasePreview ? { purchaseAmountMinor: purchasePreview.amountMinor, ruleVersionId: card.ruleVersionId } : null;
@@ -273,7 +275,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         : card || preview ? "open" : "ready";
   const stateLabel = booked ? booked.title
     : status === "rejected" ? t.rejected : status === "offline" ? t.offline : status === "pending" ? t.pending : busy ? t.working
-      : card ? t.cardOpen : preview ? t.cardCheck : t.ready;
+      : card ? (card.appointment && !card.appointment.done ? `${t.cardOpen} · Termin ${card.appointment.startLabel}` : t.cardOpen) : preview ? t.cardCheck : t.ready;
   const stateDetail = booked || status === "rejected" || status === "offline" ? undefined : card?.cardLocator ?? preview?.cardLocator;
   // Status and "Kamera öffnen" come first; overview and sign-out wait behind one menu button.
   const headerActions = <div className={styles.headerActions}>
@@ -378,6 +380,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <span className={styles.outcomeIcon} aria-hidden="true"><Clock size={22} /></span>
         <span className={styles.outcomeText}><strong>{t.pending}</strong><span>{keptNotice.message}</span></span>
       </div>}
+      {/* The owner already finished this card's booked visit: the till's warning, at the top, before anything is booked. */}
+      {appointmentDone && card?.appointment && !booked && status === "idle" && <div className={cx("cashier-appointment-done", styles.outcome)} data-tone="pending" role="status">
+        <span className={styles.outcomeIcon} aria-hidden="true"><Clock size={22} /></span>
+        <span className={styles.outcomeText}><strong>{t.pending}</strong><span>Achtung: Termin {card.appointment.startLabel} ist schon erledigt und gutgeschrieben.</span></span>
+      </div>}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, awarding || redeeming ? styles.srOnly : styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : rejectedTitle ?? t.rejected}</strong>{message && <span id="cashier-outcome-text">{message}</span>}</span>
@@ -398,7 +405,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     </div>}
     {shown && !goal && <section className={styles.card} aria-labelledby="cashier-card-title">
       <div className={cx("card-result-head", styles.cardHead)}>
-        <div><span className={styles.eyebrow}>{t.verified}</span><h2 id="cashier-card-title" className={styles.locator}>{shown.cardLocator}</h2></div>
+        <div><span className={styles.eyebrow}>{card?.appointment && !card.appointment.done ? `${t.verified} · Termin ${card.appointment.startLabel}` : t.verified}</span><h2 id="cashier-card-title" className={styles.locator}>{shown.cardLocator}</h2></div>
         {card || !camera ? <Button variant="quiet" size="sm" icon={<X size={16} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button> : null}
       </div>
       <div className={cx(card && "balance-display", styles.balance)}>
@@ -438,7 +445,6 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {winback > 0 && <strong>{locale === "fr" ? `Bon retour : +${withUnit(winback, card.programType, locale)} en plus` : winbackCashierLine(card.programType === "points" ? "points" : "stamp", winback)}</strong>}
       {birthday > 0 && <strong>{locale === "fr" ? `Anniversaire : +${withUnit(birthday, card.programType, locale)} en plus` : birthdayCashierLine(card.programType === "points" ? "points" : "stamp", birthday)}</strong>}
       <small>{WINBACK_EXCLUSIONS}</small></p>}
-    {card?.appointment && <p className={styles.note} role="note"><strong>Termin {card.appointment.startLabel} · {card.appointment.serviceName}</strong>{card.appointment.done ? ` · schon erledigt, ${unit} sind gebucht` : ""}</p>}
     {card?.level && goal && <p className={styles.note} role="note"><b>{card.level.name}</b>{card.level.perk && <> · {locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</>}</p>}
     {card?.level?.perk && !goal && <p className={styles.note} role="note">{locale === "fr" ? "Avantage" : "Vorteil"}: {card.level.perk}</p>}
     {/* While „Gebucht“ holds the dock over the closed card, the camera and the scan form stay mounted and working (a
@@ -481,7 +487,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       </Sheet>}
       {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
-    {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
+    {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? (appointmentDone ? "Trotzdem vergeben?" : t.confirmAward) : t.confirmRedeem}
       description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))}{"\u00a0"}{unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{formatMinor(confirm.award.purchaseAmountMinor, card.currency)}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}
       actions={<>
         <Button variant="secondary" onClick={cancelConfirm}>{t.cancel}</Button>
