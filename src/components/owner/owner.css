@@ -632,6 +632,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
 .ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
 .ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
+.ow-prog-sub { animation: ow-fade var(--dur-ui) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .ow-prog-sub { animation: none; } }
 .ow-prog-value { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ow-prog-value[data-off] { color: var(--color-ink-muted); }
 .ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
