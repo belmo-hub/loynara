@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { RELEASED_GATES, GATES, COPY_VARIANTS } from '../src/claims.js';
+import { SITE } from '../src/site.js';
 
 const here = import.meta.dirname;
 const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
@@ -72,6 +73,6 @@ test('public home and industry FAQs explain live lookup, correction and secure m
     assert.match(text, /gleiche Mitgliedschaft/);
     assert.match(text, /alte Link, der alte QR-Code und eine auf Wunsch gespeicherte Apple-Wallet-Karte[^.]*nicht mehr/);
     assert.doesNotMatch(text, /kommt mit dem nächsten Update|mit dem nächsten Update|comes with the next update/i);
-    assert.doesNotMatch(html, /href="[^"\s]*\.invalid[^"\s]*"|href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
+    assert.doesNotMatch(html.replaceAll(`href="${SITE.registerUrl}"`, ''), /href="[^"\s]*\.invalid[^"\s]*"|href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i, 'the only sign-up link is the app\'s own');
   }
 });
