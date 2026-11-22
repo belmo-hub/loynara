@@ -9,9 +9,10 @@ import { selectedLocationFromRequest } from "@/lib/locations";
 import { awardInTransaction, DomainError } from "@/lib/loyalty";
 import { programInForce } from "@/lib/rule-versions";
 import { getMerchantContext } from "@/lib/product";
-import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
+import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError } from "@/lib/rate-limit";
 import { GRID_MIN, slots } from "./availability";
 import { awardWindow, visitAt } from "./award-window";
+import { TOO_MANY_BOOKINGS } from "@/components/booking/booking-format";
 import { notifyShopChange, pushState, scheduleReminders } from "./notify";
 import { getSetup } from "./setup";
 import { addDays, instantToWall, wallToInstant } from "./time";
@@ -506,6 +507,14 @@ export async function cardBookingLimits(request: Request, token: string, write =
   if (write) requireSameOrigin(request);
   await enforcePeerLimit(request, write ? "booking_write_peer" : "booking_read_peer", write ? 60 : 240, 15 * 60);
   await enforceRateLimit({ scope: write ? "booking_write_token" : "booking_read_token", identity: token, max: write ? 20 : 90, windowSeconds: 15 * 60 });
+}
+
+/** F-4 (CTO): besides 2 open per card, one peer creates at most 10 bookings an hour at one shop, whichever cards it uses. */
+export async function bookingCreateLimit(request: Request, token: string) {
+  const card = await cardScope(db, token);
+  // The peer limit, per shop: a scope is a fixed name, so the shop goes into the identity beside the peer.
+  try { await enforceRateLimit({ scope: "booking_create_peer", identity: `${peerIdentity(request)}:${card.locationId}`, max: 10, windowSeconds: 60 * 60 }); }
+  catch (error) { if (error instanceof RateLimitError) throw Object.assign(error, { code: "TOO_MANY_BOOKINGS", message: TOO_MANY_BOOKINGS }); throw error; }
 }
 
 /** Path ids that are not uuids are simply not found. */

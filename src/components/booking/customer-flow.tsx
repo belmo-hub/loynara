@@ -19,7 +19,7 @@ import { defaultTerms, durationLabel, missedPhrase } from "../owner/booking-setu
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
 import { moveTokenFlags } from "../card-client";
-import { attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
+import { TOO_MANY_BOOKINGS, attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
 
 type Step = "service" | "day" | "time" | "confirm" | "done";
 type Enabled = Extract<BookingView, { enabled: true }>;
@@ -54,6 +54,7 @@ function problemFor(cause: unknown, view: Enabled): Problem {
   if (code === "TOO_LATE") return { text: "Dafür ist es jetzt zu spät. Ruf kurz im Geschäft an." };
   if (code === "OWN_OVERLAP") return { text: "Du hast zu dieser Zeit schon einen Termin. Such dir eine andere Zeit aus.", pick: true };
   if (code === "STALE") return { text: "Der Termin hat sich inzwischen geändert. Schau oben nach." };
+  if (code === "TOO_MANY_BOOKINGS") return { text: TOO_MANY_BOOKINGS };
   if (code === "RATE_LIMIT") return { text: "Zu viele Versuche. Warte kurz und versuch es dann noch mal.", retry: true };
   if (code === "NOT_FOUND") return { text: "Online-Buchung geht hier gerade nicht. Ruf kurz im Geschäft an." };
   return { text: "Das hat nicht geklappt. Versuch es noch mal.", retry: true };
