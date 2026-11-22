@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { ShopPlace } from "./shop-search";
 
+/** Today's date where the shop is, as YYYY-MM-DD; toISOString() would give the UTC day, yesterday just after midnight in Germany. */
+export const shopToday = (timeZone: string, now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
+
 type ReviewFields = { programName: string; date: string };
 
 /** Validate review fields before posting them to the existing merchant API. */
