@@ -8,7 +8,10 @@
 .sheet:not([open]) { display: none; transform: translateY(100%); transition-duration: 160ms; transition-timing-function: var(--ease-out); }
 @starting-style { .sheet[open] { transform: translateY(100%); } }
 /* The backdrop fades with the panel instead of cutting: 260 ms in, 160 ms out. */
-.sheet::backdrop { background: rgba(15, 23, 19, .48); opacity: 0; transition: opacity 160ms var(--ease-out); }
+.sheet:modal { overscroll-behavior: contain; }
+/* A drag on the backdrop or in a short sheet must not scroll the page underneath: the backdrop becomes a scroll
+   container that keeps its scroll (Chrome 144, Firefox 150; Safari ignores it). Never lock html or body instead. */
+.sheet::backdrop { overflow: hidden; overscroll-behavior: contain; background: rgba(15, 23, 19, .48); opacity: 0; transition: opacity 160ms var(--ease-out); }
 .sheet[open]::backdrop { opacity: 1; transition-duration: 260ms; }
 @starting-style { .sheet[open]::backdrop { opacity: 0; } }
 .handle { display: grid; place-items: center; min-height: 28px; cursor: grab; touch-action: none; }

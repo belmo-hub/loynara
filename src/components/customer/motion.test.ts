@@ -55,7 +55,7 @@ describe("guest page motion", () => {
     expect(state).toMatch(/\.out \{ position: absolute; inset: 0 0 auto 0;/);
     const sheet = readFileSync(join(__dirname, "../ui/sheet.module.css"), "utf8");
     expect(sheet).toContain("transition-duration: 160ms; transition-timing-function: var(--ease-out);");
-    expect(sheet).toContain(".sheet::backdrop { background: rgba(15, 23, 19, .48); opacity: 0; transition: opacity 160ms var(--ease-out); }");
+    expect(sheet).toContain(".sheet::backdrop { overflow: hidden; overscroll-behavior: contain; background: rgba(15, 23, 19, .48); opacity: 0; transition: opacity 160ms var(--ease-out); }");
   });
 
   it("sends a state's first words as plain text and marks a state that is still asking", () => {
