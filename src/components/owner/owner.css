@@ -1392,7 +1392,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-options ul { max-height: max(320px, 50dvh); overflow: auto; margin: 0; padding: 0; list-style: none; /* five rows fit on a phone */
   /* A shade at the bottom edge only while more rows follow: the cover scrolls with the rows and hides it at the end. */
   background: linear-gradient(transparent, var(--color-raised) 70%) center bottom / 100% var(--space-10) no-repeat local,
-    linear-gradient(transparent, var(--shade-scroll)) center calc(100% + 1px) / 100% var(--space-3) no-repeat scroll; }
+    linear-gradient(transparent, var(--shade-scroll)) center calc(100% - 1px) / 100% var(--space-3) no-repeat scroll; }
 .ow-options li { display: grid; align-content: center; min-height: 44px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
 .ow-options li small { color: var(--color-ink-muted); font-size: var(--text-14); }
 .ow-options [role="option"]:hover, .ow-options [aria-selected="true"] { background: var(--color-fill); }
@@ -1403,13 +1403,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
    version on the dark theme, the gray one on light. */
 .ow-gmaps { display: flex; padding: 10px 10px 5px; }
 .ow-gmaps img { width: auto; height: 18px; }
-.ow-place-picked .ow-gmaps { padding-bottom: var(--space-2); padding-left: 0; }
-.ow-options .ow-gmaps { padding-right: var(--space-3); } /* over the 5 px minimum, so the gap below stays on the scale (8 + 8) */
+.ow-place-picked .ow-gmaps { padding-bottom: var(--space-2); padding-left: 0; } /* over the 5 px minimum, so the gap below stays on the scale (8 + 8) */
+.ow-options .ow-gmaps { padding-right: var(--space-3); }
 .ow-gmaps .ow-gmaps-dark, .ly-theme-dark .ow-gmaps .ow-gmaps-light { display: none; }
 .ly-theme-dark .ow-gmaps .ow-gmaps-dark { display: block; }
 @media (prefers-color-scheme: dark) { .ly-theme-auto .ow-gmaps .ow-gmaps-light { display: none; } .ly-theme-auto .ow-gmaps .ow-gmaps-dark { display: block; } }
-.ow-place-picked { display: grid; border-radius: var(--radius-sm); }
-.ow-place-picked { margin-block: var(--space-1); }
+.ow-place-picked { display: grid; margin-block: var(--space-1); border-radius: var(--radius-sm); }
 /* Only ever focused by script, after a pick: the ring shows for a keyboard pick only, never after a tap. */
 .owner-app .ow-place-picked[data-kbd]:focus { outline: 2px solid var(--color-focus); outline-offset: 4px; }
 .owner-app .ow-place-picked:focus:not([data-kbd]) { outline: none; }
