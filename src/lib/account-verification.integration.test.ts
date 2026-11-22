@@ -143,3 +143,22 @@ it("answers a new address within the floor even when the provider is slow: the m
   expect(sent).toHaveLength(0);
   await vi.waitFor(() => expect(sent).toHaveLength(1), { timeout: 2000 });
 });
+
+// ENG-344: signed out, a resend for an unconfirmed address answers as fast as for an unknown or confirmed one, even when the
+// provider is slow; the mail still goes out afterwards.
+it("answers an anonymous resend alike for every address when the provider is slow", async () => {
+  const unconfirmed = `${randomUUID()}@example.test`, confirmed = `${randomUUID()}@example.test`;
+  for (const email of [unconfirmed, confirmed]) await post("/sign-up/email", { name: "Synthetic owner", email, password: "synthetic-verify-password" });
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE email = $1', [confirmed]);
+  await vi.waitFor(() => expect(sent).toHaveLength(2));
+  sent.length = 0;
+  provider.delayMs = 900;
+  const times: number[] = [];
+  for (const email of [unconfirmed, confirmed, `${randomUUID()}@example.test`]) {
+    const started = performance.now();
+    expect((await post("/send-verification-email", { email })).status).toBe(200);
+    times.push(performance.now() - started);
+  }
+  for (const time of times) expect(time).toBeLessThan(550);
+  await vi.waitFor(() => expect(sent.map(mail => mail.to)).toEqual([unconfirmed]), { timeout: 2000 });
+});
