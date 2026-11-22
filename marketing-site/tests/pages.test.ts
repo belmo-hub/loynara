@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { subPage, homePage } from '../template.js';
 import { SUB_PAGES, barber, pizzeria, referrals, salons, visitsToCoverFee } from '../src/pages.js';
 import { SITE } from '../src/site.js';
+import { TERMIN_COPY } from '../src/claims.js';
 
 const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 const pages = SUB_PAGES.map(p => ({ p, html: subPage(p), text: visible(subPage(p)) }));
@@ -80,8 +81,8 @@ test('accessible structure: example pictures are labelled, FAQ uses native discl
 
 test('salon page: two plans from the price sources, the guarantee wording, booking limits stated', () => {
   const t = visible(subPage(salons));
-  assert.match(t, new RegExp(`${SITE.terminPlan.amount} € pro Monat und Standort`)); assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`));
-  assert.ok(t.includes(SITE.guarantee));
+  assert.match(t, new RegExp(`${TERMIN_COPY.amount} € pro Monat und Standort`)); assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`));
+  assert.ok(t.includes(TERMIN_COPY.guarantee));
   assert.match(t, /Keine Provision, nie/); assert.match(t, /Keine Online-Zahlung und keine Anzahlung/); assert.match(t, /kein Abgleich mit Google Kalender, Treatwell oder Fresha/); assert.match(t, /keine SMS und kein WhatsApp/);
   assert.doesNotMatch(t, /Garantie|garantiert|risikofrei/);
 });

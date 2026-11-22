@@ -81,6 +81,10 @@ export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
 
 /** Termin + Treue claims (docs/booking-design.md). Only what the booking slice does; out-of-scope items are listed as not included. */
 export const TERMIN_COPY = {
+  /** Termin + Treue: the 49 € plan plus online booking. Same founding-price rule as SITE.price. */
+  amount: 69,
+  /** Founder wording 24 Oct 2026. Legal must confirm the agreement carries the identical condition before this is published. */
+  guarantee: 'Und wenn deine Loynara-Kunden im ersten Monat weniger als 70 € bei dir ausgeben, bekommst du dein Geld zurück. Kündigen kannst du jeden Monat. Voraussetzung: Das Schild stand am Tresen und Einkäufe wurden normal erfasst.',
   planNote: 'Termin + Treue: alles aus dem 49-€-Paket, dazu Online-Buchung.',
   included: ['Alles aus dem Treue-Paket für 49 €', 'Online-Termine direkt von der Kundenkarte', 'Erinnerung 24 Stunden und 2 Stunden vorher per Push', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Keine Provision, nie', 'Deine Kundenliste gehört dir: CSV-Export'],
   fine: 'Push-Erinnerungen kommen an, wenn dein Kunde Mitteilungen erlaubt. Zahlung oder Anzahlung online gehören nicht dazu.',

@@ -210,7 +210,7 @@ function Wizard({ initial }: { initial: Setup }) {
         {STEPS.map((label, index) => (
           <li key={label} aria-current={index === step ? "step" : undefined} data-done={index < step || (returning && index !== step)} style={{ padding: 0 }}>
             <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" style={{ color: "inherit", paddingLeft: "var(--space-2)" }} disabled={index > reached} onClick={() => go(index)}>
-              <span className="ow-stepper-n">{index < step || (returning && index !== step) ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}
+              <span className="ow-stepper-n">{index < step || (returning && index !== step) ? <OwnerIcon name="check" size={16} /> : index + 1}</span>{label}
             </button>
           </li>
         ))}
@@ -267,7 +267,7 @@ function Wizard({ initial }: { initial: Setup }) {
               </li>
             ))}
           </ul>
-          <div><button id="bs-add-service" type="button" className="ow-btn ow-btn--secondary" onClick={() => set({ services: [...form.services, { key: newKey(), name: "", durationMin: 30, bufferMin: 0, price: "", priceFrom: false, rebookAfterDays: 0 }] })}><OwnerIcon name="plus" size={18} />Leistung hinzufügen</button></div>
+          <div><button id="bs-add-service" type="button" className="ow-btn ow-btn--secondary" onClick={() => set({ services: [...form.services, { key: newKey(), name: "", durationMin: 30, bufferMin: 0, price: "", priceFrom: false, rebookAfterDays: 0 }] })}><OwnerIcon name="plus" size={20} />Leistung hinzufügen</button></div>
           {err("bs-add-service") && <span className="ow-error" role="alert">{err("bs-add-service")}</span>}
         </>}
 
@@ -294,14 +294,14 @@ function Wizard({ initial }: { initial: Setup }) {
                 <label className="ow-check"><input type="checkbox" role="switch" checked={member.serviceKeys === null} onChange={event => setStaff(member.key, { serviceKeys: event.target.checked ? null : form.services.map(service => service.key) })} /> Bietet alle Leistungen an</label>
                 {member.serviceKeys && <fieldset className="ow-group" id={`bs-pserv-${member.key}`} tabIndex={-1}>
                   <legend className="ow-sr">Leistungen von {member.name || "dieser Person"}</legend>
-                  {form.services.map(service => <label key={service.key} className="ow-check" style={{ fontWeight: 500 }}><input type="checkbox" checked={member.serviceKeys!.includes(service.key)} onChange={event => setStaff(member.key, { serviceKeys: event.target.checked ? [...member.serviceKeys!, service.key] : member.serviceKeys!.filter(key => key !== service.key) })} />{service.name || "Ohne Namen"}</label>)}
+                  {form.services.map(service => <label key={service.key} className="ow-check" style={{ fontWeight: "var(--weight-label)" }}><input type="checkbox" checked={member.serviceKeys!.includes(service.key)} onChange={event => setStaff(member.key, { serviceKeys: event.target.checked ? [...member.serviceKeys!, service.key] : member.serviceKeys!.filter(key => key !== service.key) })} />{service.name || "Ohne Namen"}</label>)}
                   {err(`bs-pserv-${member.key}`) && <span className="ow-error" role="alert">{err(`bs-pserv-${member.key}`)}</span>}
                 </fieldset>}
                 {form.staff.length > 1 && <div><button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label={`${member.name || "Person"} entfernen`} onClick={() => set({ staff: form.staff.filter(item => item.key !== member.key) })}>Entfernen</button></div>}
               </li>
             ))}
           </ul>
-          <div><button id="bs-add-staff" type="button" className="ow-btn ow-btn--secondary" onClick={() => set({ staff: [...form.staff, emptyStaff()] })}><OwnerIcon name="plus" size={18} />Person hinzufügen</button></div>
+          <div><button id="bs-add-staff" type="button" className="ow-btn ow-btn--secondary" onClick={() => set({ staff: [...form.staff, emptyStaff()] })}><OwnerIcon name="plus" size={20} />Person hinzufügen</button></div>
         </>}
 
         {step === 4 && <>
@@ -346,7 +346,7 @@ function HoursEditor({ id, days, onChange, error }: { id: string; days: Day[]; o
         return (
           <fieldset key={WEEKDAYS[index]} className="ow-group" style={{ gap: "var(--space-2)" }}>
             <legend className="ow-sr">{WEEKDAYS[index]}</legend>
-            <label className="ow-check"><input type="checkbox" role="switch" checked={day.open} onChange={event => setDay(index, { open: event.target.checked })} /> {WEEKDAYS[index]}{!day.open && <span className="ow-muted" style={{ fontWeight: 500 }}>geschlossen</span>}</label>
+            <label className="ow-check"><input type="checkbox" role="switch" checked={day.open} onChange={event => setDay(index, { open: event.target.checked })} /> {WEEKDAYS[index]}{!day.open && <span className="ow-muted" style={{ fontWeight: "var(--weight-label)" }}>geschlossen</span>}</label>
             {day.open && <>
               <div className="ow-row" style={{ gap: "var(--space-2)" }}>
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} ab`} value={day.start} onChange={event => setDay(index, { start: event.target.value })} />
@@ -358,11 +358,11 @@ function HoursEditor({ id, days, onChange, error }: { id: string; days: Day[]; o
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} Pause ab`} value={day.breakStart} onChange={event => setDay(index, { breakStart: event.target.value })} />
                 <span aria-hidden="true">–</span>
                 <input type="time" step={300} className="ow-input" style={{ width: "auto" }} aria-label={`${WEEKDAYS[index]} Pause bis`} value={day.breakEnd} onChange={event => setDay(index, { breakEnd: event.target.value })} />
-                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label={`${WEEKDAYS[index]} ohne Pause`} onClick={() => setDay(index, { breakStart: "", breakEnd: "" })}><OwnerIcon name="close" size={18} /></button>
+                <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label={`${WEEKDAYS[index]} ohne Pause`} onClick={() => setDay(index, { breakStart: "", breakEnd: "" })}><OwnerIcon name="close" size={20} /></button>
               </div> : null}
               {problem && <span className="ow-error">{problem}</span>}
               <div className="ow-row" style={{ gap: "var(--space-2)" }}>
-                {!day.breakStart && !day.breakEnd && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setDay(index, { breakStart: "13:00", breakEnd: "13:30" })}><OwnerIcon name="plus" size={18} />Pause hinzufügen</button>}
+                {!day.breakStart && !day.breakEnd && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => setDay(index, { breakStart: "13:00", breakEnd: "13:30" })}><OwnerIcon name="plus" size={20} />Pause hinzufügen</button>}
                 {index === first && <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => onChange(days.map(other => other.open ? { ...day } : other))}>Für alle Tage übernehmen</button>}
               </div>
             </>}

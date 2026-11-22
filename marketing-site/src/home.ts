@@ -176,8 +176,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
         <div class="acts"><a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="Im Preis enthalten">
         <li>Stempel- oder Punktekarte mit deinen Prämien</li><li>NFC-Antippen und QR-Einstieg am Tresen</li><li>Bestätigung durch dein Team, mit Rollen</li><li>Apple Wallet auf Wunsch. Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert</li><li>Empfehlungen und Willkommen-zurück-Bonus</li><li>Happy Hour bei Punkten nach Einkaufswert, Geburtstags-Bonus mit Apple Wallet</li><li>Überblick, wie viele wiederkommen</li><li>Kunden, Karten und dein Team kosten nichts extra</li>
-      </ul>
-      ${GATES.bookingLive ? `<div class="price-pair">${terminCard()}${guaranteeLine()}</div>` : ''}
+      </ul>${GATES.bookingLive ? `<div class="price-pair">${terminCard()}${guaranteeLine()}</div>` : ''}
     </div>
   </div>
 </section>
@@ -221,6 +220,6 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
   </div>
   <div class="bookend" aria-hidden="true"><span class="plate"><span class="pl"><i aria-hidden="true"><img src="/assets/loynara-mark.svg" alt=""></i>Antippen oder scannen<span class="q"><svg viewBox="0 0 21 21"><use href="#qr"/></svg></span></span></span></div>
 </section>
-<footer><div class="wrap"><div class="rule"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><span class="c">© Loynara</span></div></div></footer>
+<footer><div class="wrap"><div class="rule"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a>${GATES.bookingLive ? '<a href="/fuer-salons/">Für Salons</a>' : ''}<a href="/empfehlungen/">Kunden werben Kunden</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><span class="c">© Loynara</span></div></div></footer>
 
 <nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="#rq" data-want="start">1. Monat gratis</a></nav>`;

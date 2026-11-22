@@ -59,7 +59,7 @@ export function BookingDay() {
         {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
-      {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
+      {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
         Gesperrt: {blockedCount === 1 ? "1 Kunde" : `${blockedCount} Kunden`}</button></div>}
 
       <nav className="ow-row" aria-label="Tag wählen" style={{ flexWrap: "nowrap", gap: "var(--space-1)" }}>
@@ -76,7 +76,7 @@ export function BookingDay() {
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
         <Notice tone="warn" actions={<Link className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/termine/einrichten">Zur Einrichtung</Link>}>Online-Buchung ist aus. Kunden können gerade nicht buchen.</Notice>
       )}
-      {ready && shown && <p className="ow-num" style={{ fontWeight: 700, margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
+      {ready && shown && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
       {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>

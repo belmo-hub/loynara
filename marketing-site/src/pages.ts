@@ -50,8 +50,8 @@ const breakEven = (basket: number, what: string) => {
 
 /** The 69 € plan card and the guarantee line; shared by the home page and the salon page. */
 export const terminCard = (reveal = false) =>
-  `<div class="price-card"${reveal ? ' data-reveal' : ''}><p class="price"><b>${SITE.terminPlan.amount} €</b><span>pro Monat und Standort</span></p><p class="price-note">${T.planNote}</p><ul class="checks">${T.included.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">${T.fine}</p></div>`;
-export const guaranteeLine = () => `<p class="fine">${SITE.guarantee}</p>`;
+  `<div class="price-card"${reveal ? ' data-reveal' : ''}><p class="price"><b>${T.amount} €</b><span>pro Monat und Standort</span></p><p class="price-note">${T.planNote}</p><ul class="checks">${T.included.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">${T.fine}</p></div>`;
+export const guaranteeLine = () => `<p class="fine">${T.guarantee}</p>`;
 
 // ── Barber ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const barberBrand: BrandState = { ...initialBrand(), style: 'graphit' };
