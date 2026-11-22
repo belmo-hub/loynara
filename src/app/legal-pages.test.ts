@@ -216,6 +216,13 @@ describe("owner sign-up acceptance", () => {
 
 // ENG-201: Legal's Loynara Termin texts, verbatim (legal-ops/2026-11-22-eng-201-termin-booking.md, B-1 to B-4).
 describe("Loynara Termin legal texts", () => {
+  it("the storage section no longer says the booking page keeps name and phone on the device (Legal, 22 Nov, § 25 TDDDG)", () => {
+    const html = renderToStaticMarkup(createElement(DatenschutzPage)).replaceAll("<!-- -->", "");
+    expect(html).toContain("<p>Loynara setzt auf deinem Gerät nur technisch notwendige Cookies und Browserspeicher ein. Sie verbinden dein Gerät mit deiner Karte, damit du sie wieder öffnen kannst und das Team einen Besuch für die richtige Karte bestätigen kann. Es gibt keine Werbe- oder Analyse-Cookies und keine Tracker von Drittanbietern.</p>");
+    expect(html).not.toContain("bleiben auf deinem Gerät gespeichert, damit sie beim nächsten Termin schon eingetragen sind");
+    expect(html).toContain("Stand: 29. November 2026.");
+  });
+
   it("the privacy notice's Terminbuchung section is Legal's five paragraphs, in order, and nothing of the old one", () => {
     const html = renderToStaticMarkup(createElement(DatenschutzPage)).replaceAll("<!-- -->", "");
     const section = html.slice(html.indexOf('<h2 id="terminbuchung">'), html.indexOf('<h2 id="geburtstag">'));

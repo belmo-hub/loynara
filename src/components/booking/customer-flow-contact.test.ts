@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import { afterEach, expect, it, vi } from "vitest";
-import { contactKey, readContact } from "./customer-flow";
+import { forgetContact } from "./customer-flow";
 
-// ENG-201 F-2: the booking prefill is keyed by the card number, so the card page's ENG-214 move of token-named entries
-// neither loses it nor finds the private link in device storage.
+// Legal, 22 Nov (§ 25 TDDDG): the booking page stores no name or phone on the device; the browser's autofill does that.
+// This replaces ENG-201 F-2's tests on the per-card key, which no longer exists.
 const token = "card_SyntheticPrivateLinkToken0123456789ab";
 const storage = (seed: Record<string, string> = {}) => {
   const items = new Map(Object.entries(seed));
@@ -14,21 +15,20 @@ const storage = (seed: Record<string, string> = {}) => {
 };
 afterEach(() => { vi.unstubAllGlobals(); });
 
-it("reads the prefill under the card number", () => {
-  storage({ [contactKey("K-7QX2MA")]: JSON.stringify({ name: "Mia", phone: "0170" }) });
-  expect(contactKey("K-7QX2MA")).toBe("loynara_booking_contact:K-7QX2MA");
-  expect(readContact(token, "K-7QX2MA")).toEqual({ name: "Mia", phone: "0170" });
+it("forgets what older versions saved, under every key they used, and leaves the rest", () => {
+  const items = storage({ loynara_booking_contact: "{}", "loynara_booking_contact:K-7QX2MA": "{\"name\":\"Mia\"}", [`loynara_booking_contact:${token}`]: "{\"name\":\"Mia\"}", "loynara_wallet_step:K-7QX2MA": "shown" });
+  forgetContact(token, "K-7QX2MA");
+  expect([...items.keys()]).toEqual(["loynara_wallet_step:K-7QX2MA"]);
 });
 
-it("moves a token-named prefill to the card number and leaves no key holding the private link", () => {
-  const items = storage({ [`loynara_booking_contact:${token}`]: JSON.stringify({ name: "Mia", phone: "" }), loynara_booking_contact: "{\"name\":\"Someone else\"}" });
-  expect(readContact(token, "K-7QX2MA")).toEqual({ name: "Mia", phone: "" });
-  expect([...items.keys()]).toEqual(["loynara_booking_contact:K-7QX2MA"]);
+it("does nothing where storage is blocked", () => {
+  vi.stubGlobal("localStorage", { removeItem: () => { throw new Error("blocked"); } });
+  expect(() => forgetContact(token, "K-7QX2MA")).not.toThrow();
 });
 
-it("an empty or blocked storage gives an empty form", () => {
-  storage();
-  expect(readContact(token, "K-7QX2MA")).toEqual({ name: "", phone: "" });
-  vi.stubGlobal("localStorage", { get length(): number { throw new Error("blocked"); }, getItem: () => { throw new Error("blocked"); }, removeItem: () => { throw new Error("blocked"); } });
-  expect(readContact(token, "K-7QX2MA")).toEqual({ name: "", phone: "" });
+it("the booking page never reads or writes device storage, and leaves name and phone to the browser's autofill", () => {
+  const source = readFileSync("src/components/booking/customer-flow.tsx", "utf8");
+  expect(source).not.toMatch(/localStorage\.(setItem|getItem)|sessionStorage|indexedDB|document\.cookie/);
+  expect(source).toContain('autoComplete="name"');
+  expect(source).toContain('autoComplete="tel"');
 });

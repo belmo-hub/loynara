@@ -18,7 +18,6 @@ import styles from "./customer-flow.module.css";
 import { defaultTerms, durationLabel, missedPhrase } from "../owner/booking-setup-helpers";
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
-import { moveTokenFlags } from "../card-client";
 import { TOO_MANY_BOOKINGS, attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
 
 type Step = "service" | "day" | "time" | "confirm" | "done";
@@ -71,15 +70,10 @@ function rebookArrival(view: Enabled) {
   return { service, staffId, rebook: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rebook) ? rebook : undefined };
 }
 
-// Per card, so a shared phone does not prefill one card's booking with the last person's name; by the card number, never
-// by the private link (ENG-214), so the card page's move of token-named entries keeps it.
-export const contactKey = (cardLocator: string) => `${CONTACT}:${cardLocator}`;
-
-export function readContact(token: string, cardLocator: string): { name: string; phone: string } {
-  // The oldest key held the last person's details for every card on this phone; a token-named one moves to the card number.
-  try { localStorage.removeItem(CONTACT); } catch {}
-  moveTokenFlags(token, cardLocator);
-  try { return { name: "", phone: "", ...JSON.parse(localStorage.getItem(contactKey(cardLocator)) ?? "{}") }; } catch { return { name: "", phone: "" }; }
+// Legal, 22 Nov (§ 25 TDDDG): Loynara keeps no booking contact on the device; the browser's own autofill fills name and phone.
+// What older versions saved (one key for every card, then one per card number or per card link) is removed once.
+export function forgetContact(token: string, cardLocator: string) {
+  for (const key of [CONTACT, `${CONTACT}:${cardLocator}`, `${CONTACT}:${token}`]) { try { localStorage.removeItem(key); } catch { /* blocked storage kept nothing */ } }
 }
 
 /** The customer's booking page: „Meine Termine“ first, then service → day → time → confirm, all in one component. */
@@ -100,7 +94,7 @@ export function CustomerFlow({ token }: { token: string }) {
 
 function Flow({ token, base, view, reload }: { token: string; base: string; view: Enabled; reload: () => Promise<void> }) {
   const tz = view.shop.timezone;
-  // Flow mounts only after the client read, so the URL and localStorage are there on first render.
+  // Flow mounts only after the client read, so the URL is there on first render.
   const [arrival] = useState(() => rebookArrival(view));
   const [step, setStep] = useState<Step>(arrival ? "day" : "service");
   const [moving, setMoving] = useState<Appointment | null>(null);
@@ -114,7 +108,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const [moreBusy, setMoreBusy] = useState(false);
   const [day, setDay] = useState<SlotDay | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [contact, setContact] = useState(() => readContact(token, view.cardLocator));
+  const [contact, setContact] = useState(() => { forgetContact(token, view.cardLocator); return { name: "", phone: "" }; });
   const [showPhone, setShowPhone] = useState(() => Boolean(contact.phone));
   const [nameError, setNameError] = useState("");
   const [key, setKey] = useState("");
@@ -193,7 +187,6 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       const appointment = moving
         ? await post<Appointment>(`${base}/appointments/${moving.id}/reschedule`, { start, staffId: staffId || undefined })
         : await post<Appointment>(`${base}/appointments`, { serviceId: service.id, staffId: staffId || undefined, start, customerName: contact.name.trim(), customerPhone: contact.phone.trim() || undefined, idempotencyKey: attempt, rebookSourceId });
-      if (!moving) { try { localStorage.setItem(contactKey(view.cardLocator), JSON.stringify({ name: contact.name.trim(), phone: contact.phone.trim() })); } catch { /* prefill is a convenience */ } }
       setResult(appointment); setRebookSourceId(undefined); go("done"); void reload();
     } catch (cause) {
       setProblem(problemFor(cause, view));
