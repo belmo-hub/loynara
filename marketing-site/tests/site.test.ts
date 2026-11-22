@@ -40,13 +40,15 @@ test('scene: four steps with real headings in the order of one visit, each with 
   const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
   assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*\.still\{display:flex/, 'reduced motion stacks the stills');
 });
-test('every action leads to the request form with its wish; there is no sign-up link', () => {
+test('the start buttons open the app sign-up, the demo buttons the request form with its wish', () => {
   const actions = [...home.matchAll(/<a class="btn [^"]*"[^>]*>/g)].map(m => m[0]);
   assert.ok(actions.length >= 8);
-  for (const a of actions) assert.match(a, /href="#rq" data-want="(start|demo)"/, a);
-  assert.match(home, /<select id="rq-want" name="want"><option value="start">Ersten Monat gratis starten<\/option><option value="demo">Erst eine Demo sehen<\/option><\/select>/);
-  assert.doesNotMatch(home, /href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i);
-  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen<\/a><a class="btn btn-pri" href="#rq" data-want="start">1\. Monat gratis<\/a><\/nav>/);
+  const start = actions.filter(a => a.includes(SITE.registerUrl));
+  assert.equal(start.length, 5, 'header, hero, phone row, price card, sticky bar');
+  for (const a of actions) assert.match(a, /href="https:\/\/app\.getloynara\.com\/register"|href="#rq" data-want="demo"/, a);
+  assert.equal(SITE.registerUrl, `${SITE.appOrigin}/register`);
+  assert.doesNotMatch(home, /href="[^"\s]*(?:sign-up|signup|checkout)[^"\s]*"/i);
+  assert.match(home, /<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen<\/a><a class="btn btn-pri" href="https:\/\/app\.getloynara\.com\/register">1\. Monat gratis<\/a><\/nav>/);
 });
 test('nothing covers a control or a jump target: hero buttons take clicks, the header and the bar leave room, no long label from 1024 to 1119 px', () => {
   const css = readFileSync(resolve(import.meta.dirname, '../design/home.css'), 'utf8');
