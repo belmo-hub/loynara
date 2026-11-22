@@ -246,16 +246,16 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
     {inProgress ? null : mine}
 
-    {view.blocked ? null : step === "done" && result ? <section className={styles.panel} aria-labelledby="booking-step-title">
-      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {result.service.name}, {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
+    {view.blocked ? null : step === "done" && result ? <section className={`${mix.panel} ${mix.pad}`} aria-labelledby="booking-step-title">
+      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {result.service.name}, {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
       {result.status === "requested" ? <p className={card.muted}>Das Geschäft bestätigt dir {moving ? "die neue Zeit" : "den Termin"}. Ohne Bestätigung verfällt die Anfrage nach dem Termin.</p> : null}
       <p className={card.muted}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
       {view.upcoming.length >= view.shop.maxOpenPerCard ? null : <Button variant="quiet" size="sm" className={styles.edge} onClick={reset}>Noch einen Termin buchen</Button>}
-    </section> : <section key={step} className={`booking-flow ${styles.panel} ${styles.arrive}`} aria-labelledby="booking-step-title">
+    </section> : <section key={step} className={`booking-flow ${mix.panel} ${mix.pad} ${styles.arrive}`} aria-labelledby="booking-step-title">
       <div className={styles.head}>
-        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
+        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
         <p className={styles.step}>{index} von {total}</p>
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
@@ -346,8 +346,8 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
   }
 
   if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
-  return <section className={`booking-mine ${styles.panel}`} aria-labelledby="booking-mine-title">
-    <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={styles.panelTitle}>Meine Termine</h2>
+  return <section className={`booking-mine ${mix.panel} ${mix.pad}`} aria-labelledby="booking-mine-title">
+    <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
     {view.upcoming.length ? <ul className={styles.list}>{view.upcoming.map(a => {
       return <li key={a.id}>
