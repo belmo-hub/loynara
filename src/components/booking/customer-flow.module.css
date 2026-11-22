@@ -32,3 +32,15 @@
 /* The page head beside the shop's mono tile: the name, then „Termine“ as the h1 in the card head's muted subline. */
 .headText { display: grid; min-width: 0; }
 .headTitle { margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-body); color: var(--color-ink-muted); }
+
+/* D3: the shop's rules under the button as one disclosure; the folded „Meine Termine“ line sits on the content edge. */
+.rules summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: var(--weight-strong); }
+.rules[open] summary { margin-bottom: var(--space-2); }
+.mineLine { margin: 0; }
+
+/* D8 (Design, 22 Nov): each step and each problem line arrives (an 8 px rise over --dur-ui); chips and rows press. */
+.arrive { animation: booking-arrive var(--dur-ui) var(--ease-out) both; }
+@keyframes booking-arrive { from { opacity: 0; transform: translateY(8px); } }
+.chip, .rewardRow { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.chip:active:not(:disabled), .rewardRow:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .arrive { animation: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }

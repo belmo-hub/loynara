@@ -187,6 +187,13 @@ async function one(reader: Reader, tenantId: string, id: string) {
 
 // ---- Customer (card token) --------------------------------------------------------------------------------------------
 
+/** Every reschedule of the card is logged on its appointment; the month is the shop's calendar month. */
+async function reschedulesThisMonth(reader: Reader, card: { tenantId: string; membershipId: string; timezone: string }, now: Date) {
+  const { rows: [month] } = await reader.execute<{ count: number }>(sql`SELECT count(*)::int AS count FROM booking_appointments a, unnest(a.rescheduled_at) AS t
+    WHERE a.tenant_id = ${card.tenantId}::uuid AND a.membership_id = ${card.membershipId}::uuid AND to_char(t AT TIME ZONE ${card.timezone}, 'YYYY-MM') = ${instantToWall(now, card.timezone).date.slice(0, 7)}`);
+  return month.count;
+}
+
 export async function cardView(token: string, now = new Date()) {
   const card = await cardScope(db, token);
   const [settings] = await db.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, card.tenantId), eq(bookingSettings.locationId, card.locationId)));
@@ -196,6 +203,8 @@ export async function cardView(token: string, now = new Date()) {
   const upcoming = sql`${bookingAppointments.status} in ('requested','confirmed') and upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`;
   return {
     enabled: true, blocked: await isBlocked(db, card), cardLocator: formatCardLocator(card.cardLocator),
+    // Design (22 Nov): limits are known before the work, so the page can say so before step 1.
+    reschedulesLeft: Math.max(0, settings.maxReschedulesPerMonth - await reschedulesThisMonth(db, card, now)),
     shop: { name: card.shopName, brandColor: card.brandColor, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
       noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard, maxDaysAhead: settings.maxDaysAhead },
     services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),
@@ -269,10 +278,7 @@ export async function reschedule(input: { token: string; appointmentId: string; 
     if (await isBlocked(tx, card)) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
     if (row.start.getTime() === input.start.getTime() && (!input.staffId || input.staffId === row.a.staffId)) return customerView(row, now);
     if (isLateCancel(row.start, settings.cancelDeadlineHours, now)) throw new DomainError("TOO_LATE", "Too late to reschedule online");
-    // Every reschedule of the card is logged on its appointment; the month is the shop's calendar month.
-    const { rows: [month] } = await tx.execute<{ count: number }>(sql`SELECT count(*)::int AS count FROM booking_appointments a, unnest(a.rescheduled_at) AS t
-      WHERE a.tenant_id = ${card.tenantId}::uuid AND a.membership_id = ${card.membershipId}::uuid AND to_char(t AT TIME ZONE ${card.timezone}, 'YYYY-MM') = ${instantToWall(now, card.timezone).date.slice(0, 7)}`);
-    if (!rescheduleAllowed(month.count, settings.maxReschedulesPerMonth)) throw new DomainError("RESCHEDULE_LIMIT", "Reschedule limit reached this month");
+    if (!rescheduleAllowed(await reschedulesThisMonth(tx, card, now), settings.maxReschedulesPerMonth)) throw new DomainError("RESCHEDULE_LIMIT", "Reschedule limit reached this month");
     assertInWindow(input.start, settings, now, card.timezone);
     const service = bookedService(row);
     const { slot, nextFree } = await findSlot(tx, card, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings, now });

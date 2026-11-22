@@ -31,6 +31,8 @@ async function shopWithAppointment(baseURL: string, done: boolean) {
   const booked = await guest.post(`/api/card/${cardToken}/booking/appointments`, { data: { serviceId, start: nextQuarter().toISOString(), customerName: "Mia", idempotencyKey: randomUUID() } });
   expect(booked.status()).toBe(201);
   const appointment = await booked.json() as { id: string };
+  // „Fertig“ opens 10 minutes before the start: the booked quarter hour is moved to have started 5 minutes ago.
+  if (done) await pool.query("UPDATE booking_appointments SET during = tstzrange(date_trunc('minute', now()) - interval '5 minutes', date_trunc('minute', now()) + interval '25 minutes') WHERE id = $1", [appointment.id]);
   if (done) expect((await owner.post(`/api/merchant/booking/appointments/${appointment.id}/transition`, { data: { to: "done", expected: "confirmed" } })).status()).toBe(200);
   const { scanCode } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
   return { owner, scanCode, close: async () => { await owner.dispose(); await guest.dispose(); } };

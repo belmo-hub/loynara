@@ -57,6 +57,12 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await dayChips.nth(2).click();
   await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
   await shot(page, "04-time");
+  // Back and Forward walk the steps (Design, 22 Nov): the booking is not lost to the browser's history.
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Tag wählen" })).toBeVisible();
+  await expect(page).toHaveURL(/schritt=tag/);
+  await page.goForward();
+  await expect(page.getByRole("heading", { name: "Uhrzeit wählen" })).toBeVisible();
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).first().click();
 
   await expect(page.getByRole("heading", { name: "Termin prüfen" })).toBeVisible();
@@ -66,9 +72,11 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await shot(page, "05-confirm");
   await page.getByRole("button", { name: "Termin buchen" }).click();
 
-  await expect(page.getByRole("heading", { name: /^Dein Termin ist fix: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Dein Termin ist fix: Haarschnitt, \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2} bei (Lena|Tom)$/u })).toBeVisible();
   const booked = (await page.getByRole("heading", { name: /^Dein Termin ist fix/ }).textContent())!.match(/(\p{L}{2} \d{2}\.\d{2}\.), (\d{2}:\d{2}) bei (Lena|Tom)$/u)!;
-  await expect(page.getByText(/^Haarschnitt\. Kostenlos absagen bis /)).toBeVisible();
+  await expect(page.getByText(/^Kostenlos absagen bis /).first()).toBeVisible();
+  // D3: on the done step „Meine Termine“ is folded to one line under the result; it opens on a tap.
+  await page.getByRole("button", { name: "1 offener Termin · ansehen" }).click();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06-done");
 
@@ -83,7 +91,9 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).nth(1).click();
   await expect(page.getByRole("heading", { name: "Verschieben prüfen" })).toBeVisible();
   await page.getByRole("button", { name: "Hierhin verschieben" }).click();
-  await expect(page.getByRole("heading", { name: new RegExp(`^Verschoben: \\p{L}{2} \\d{2}\\.\\d{2}\\., \\d{2}:\\d{2} bei ${booked[3]}$`, "u") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`^Verschoben: Haarschnitt, \\p{L}{2} \\d{2}\\.\\d{2}\\., \\d{2}:\\d{2} bei ${booked[3]}$`, "u") })).toBeVisible();
+  const folded = page.getByRole("button", { name: "1 offener Termin · ansehen" });
+  if (await folded.count()) await folded.click();
   await expect(page.locator(".booking-mine li")).toHaveCount(1);
   await shot(page, "06b-moved");
 
@@ -113,4 +123,29 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await page.goto(`/card/${card.cardToken}`);
   await expect(page.locator(".customer-qr img")).toBeVisible();
   await expect(page.locator(".card-booking")).toHaveCount(0);
+});
+
+test("D3 at 390x664 with two open appointments: the step comes first and „Termin buchen“ is above the fold; a third is refused before step 1", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  const { merchant, card } = await bookingShop();
+  const services = await pool.query("SELECT id FROM booking_services WHERE tenant_id = $1 ORDER BY sort LIMIT 1", [merchant.tenantId]);
+  const day = new Date(); day.setUTCDate(day.getUTCDate() + 3);
+  for (const hour of [9, 11]) {
+    const start = new Date(day); start.setUTCHours(hour, 0, 0, 0);
+    const response = await page.request.post(`/api/card/${card.cardToken}/booking/appointments`, { data: { serviceId: services.rows[0].id, start: start.toISOString(), customerName: "Mia", idempotencyKey: randomUUID() }, headers: { origin: new URL(page.url() === "about:blank" ? (process.env.E2E_BASE_URL ?? "http://localhost:3000") : page.url()).origin } });
+    expect(response.status()).toBe(201);
+  }
+  await page.goto(`/card/${card.cardToken}/termin`);
+  await expect(page.getByText(/^Du hast schon 2 offene Termine\. Mehr gehen hier nicht gleichzeitig\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Haarschnitt/ })).toHaveCount(0);
+  // With one open appointment the flow runs; on the confirm step the button sits above the fold.
+  await page.getByRole("button", { name: "Absagen" }).first().click();
+  await page.getByRole("button", { name: "Ja, absagen" }).click();
+  await page.getByRole("button", { name: /Haarschnitt/ }).click();
+  await page.locator(".booking-flow button[aria-pressed]").filter({ hasText: /^\p{L}{2} \d{2}\.\d{2}\.$/u }).nth(4).click();
+  await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Termin prüfen" })).toBeVisible();
+  const button = page.getByRole("button", { name: "Termin buchen" });
+  await page.evaluate(() => document.querySelector(".booking-flow")?.scrollIntoView({ block: "start" }));
+  await expect(button).toBeInViewport({ ratio: 1 });
 });

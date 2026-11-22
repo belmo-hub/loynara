@@ -62,6 +62,8 @@ function problemFor(cause: unknown, view: Enabled): Problem {
 
 const passed = (instant: number) => Date.now() >= instant;
 
+const STEP_PARAM: Partial<Record<Step, string>> = { day: "tag", time: "zeit", confirm: "pruefen" };
+
 function rebookArrival(view: Enabled) {
   const query = new URLSearchParams(window.location.search);
   const service = view.blocked ? undefined : view.services.find(s => s.id === query.get("service"));
@@ -133,7 +135,26 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   // Each step change moves focus to its heading, so a screen reader announces the new step and the page scrolls to it.
   useEffect(() => { if (moved.current) heading.current?.focus(); }, [step, moving]);
 
-  function go(next: Step) { moved.current = true; setProblem(null); setStep(next); }
+  // Design (22 Nov): each step is a history entry (?schritt=tag|zeit|pruefen), so Back and the iPhone swipe walk the steps
+  // instead of leaving the booking. The choices stay in this page's state; „done“ replaces its entry, so Back never
+  // returns to a confirm that already went through.
+  function go(next: Step) {
+    moved.current = true; setProblem(null); setStep(next);
+    const url = new URL(window.location.href), param = STEP_PARAM[next];
+    if (param) url.searchParams.set("schritt", param); else url.searchParams.delete("schritt");
+    if (next === "done") window.history.replaceState({ booking: next }, "", url); else window.history.pushState({ booking: next }, "", url);
+  }
+  useEffect(() => {
+    // A reload starts over at the first step: drop a stale ?schritt from the address.
+    if (new URL(window.location.href).searchParams.has("schritt")) { const url = new URL(window.location.href); url.searchParams.delete("schritt"); window.history.replaceState(null, "", url); }
+    const onPop = (event: PopStateEvent) => {
+      const target = (event.state as { booking?: Step } | null)?.booking ?? "service";
+      moved.current = true; setProblem(null);
+      setStep(current => target === "done" || (target !== "service" && current === "done") ? "service" : target);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   async function fetchDays(target: Service, staff: string, from: string, moveId?: string) {
     const query = new URLSearchParams({ serviceId: target.id, from, days: String(WINDOW) });
@@ -212,19 +233,26 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     <div className={styles.headText}><strong>{view.shop.name}</strong><h1 className={styles.headTitle}>Termine</h1></div>
   </div>;
 
+  const inProgress = step !== "service" || Boolean(result);
+  // Design (22 Nov): the open-appointment limit is known on load, so it is said before step 1, not after four steps.
+  const atLimit = !moving && view.upcoming.length >= view.shop.maxOpenPerCard;
+  const mine = <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} collapsed={inProgress} />;
+  // A refusal that a retry cannot fix (a taken slot, a limit) takes the main button's place: one primary at a time.
+  const submitBlocked = Boolean(problem && !problem.retry);
+
   return <CustomerShell brandColor={view.shop.brandColor} header={header} footer={<LegalLinks newTab />}>
     {view.blocked ? <p className={notice.notice} role="status">{PAUSED}</p> : null}
 
-    <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} />
+    {inProgress ? null : mine}
 
     {view.blocked ? null : step === "done" && result ? <section className={styles.panel} aria-labelledby="booking-step-title">
-      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
+      <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {result.service.name}, {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
       {result.status === "requested" ? <p className={card.muted}>Das Geschäft bestätigt dir {moving ? "die neue Zeit" : "den Termin"}. Ohne Bestätigung verfällt die Anfrage nach dem Termin.</p> : null}
-      <p className={card.muted}>{result.service.name}. {!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
+      <p className={card.muted}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
-      <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>
-    </section> : <section className={`booking-flow ${styles.panel}`} aria-labelledby="booking-step-title">
+      {view.upcoming.length >= view.shop.maxOpenPerCard ? null : <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>}
+    </section> : <section key={step} className={`booking-flow ${styles.panel} ${styles.arrive}`} aria-labelledby="booking-step-title">
       <div className={styles.head}>
         <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
         <p className={styles.step}>{index} von {total}</p>
@@ -232,7 +260,8 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
       {service && step !== "service" && !moving ? <p className={card.muted}>{service.name} · {durationLabel(service.durationMin)} · {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
 
-      {step === "service" ? view.services.length ? <div className={styles.rewardList}>
+      {step === "service" && atLimit ? <p className={card.muted}>{`Du hast schon ${view.upcoming.length === 1 ? "einen offenen Termin" : `${view.upcoming.length} offene Termine`}. Mehr gehen hier nicht gleichzeitig. Sag oben einen ab, dann geht ein neuer.`}</p>
+        : step === "service" ? view.services.length ? <div className={styles.rewardList}>
         {view.services.map(s => <button key={s.id} type="button" className={styles.rewardRow} onClick={() => chooseService(s)}>
           <span className={styles.rewardText}><strong>{s.name}</strong><small>{durationLabel(s.durationMin)}</small></span>
           <span className={styles.price}>{formatPrice(s.priceMinor, s.priceFrom)}</span>
@@ -262,23 +291,26 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       </> : null}
 
       {step === "confirm" && slot ? <>
-        <p className={styles.when}><strong>{formatWhen(slot.start, tz)}</strong>{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
+        <p className={styles.when}>{problem?.nextFree ? <s>{formatWhen(slot.start, tz)}</s> : <strong>{formatWhen(slot.start, tz)}</strong>}{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
         {moving ? null : <>
           <TextField id="booking-name" required label="Dein Name" hint="Damit das Geschäft weiß, wer kommt." autoComplete="name" maxLength={60} value={contact.name} error={nameError} onChange={event => setContact({ ...contact, name: event.target.value })} />
           {showPhone ? <TextField label="Telefon (freiwillig)" type="tel" autoComplete="tel" maxLength={30} value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} />
             : <Button variant="quiet" size="sm" onClick={() => setShowPhone(true)}>Telefon angeben</Button>}
         </>}
+        {submitBlocked ? null : <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>}
+        {/* D3: the deadline stays in view; the shop's other rules fold into one disclosure under the button. */}
         <div className={styles.terms}>
-          {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
           <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
-          <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
-          {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
-          {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
+          <details className={styles.rules}><summary>Regeln des Geschäfts</summary>
+            {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
+            <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
+            {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
+            {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten geht Online-Buchung hier nicht mehr.</p> : null}
+          </details>
         </div>
-        <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>
       </> : null}
 
-      {problem ? <div className={notice.notice} role="alert">
+      {problem ? <div className={`${notice.notice} ${styles.arrive}`} role="alert">
         <p>{problem.text}</p>
         {problem.nextFree ? <Button size="sm" loading={busy} onClick={() => takeNextFree(problem.nextFree!)}>{formatTime(problem.nextFree, tz)} nehmen</Button> : null}
         {problem.retry && slot ? <Button variant="secondary" size="sm" loading={busy} onClick={() => void submit(slot.start, key)}>Noch mal versuchen</Button> : null}
@@ -288,12 +320,15 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       {step !== "service" ? <Button variant="quiet" size="sm" icon={<ChevronLeft size={16} />} onClick={back}>{step === "day" && moving ? "Nicht verschieben" : "Zurück"}</Button> : null}
     </section>}
 
-    <p className={card.links}><Link href={`/card/${encodeURIComponent(token)}`}>Zurück zur Karte</Link></p>
+    {/* D3 (Design, 22 Nov): while a booking runs, the step comes first and „Meine Termine“ folds to one line under it. */}
+    {inProgress ? mine : null}
+    {step === "done" ? null : <p className={card.links}><Link href={`/card/${encodeURIComponent(token)}`}>Zurück zur Karte</Link></p>}
   </CustomerShell>;
 }
 
 /** Upcoming appointments with move and cancel, then the last past ones. One line when there are none. */
-function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean }) {
+function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean; collapsed?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const tz = view.shop.timezone;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -309,6 +344,7 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
     finally { setBusy(false); }
   }
 
+  if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
   return <section className={`booking-mine ${styles.panel}`} aria-labelledby="booking-mine-title">
     <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={styles.panelTitle}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
@@ -324,8 +360,9 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
           </div>
         </div> : <>
           {onMove && !a.canReschedule && view.shop.maxReschedulesPerMonth > 0 && passed(Date.parse(a.cancelDeadline)) && !passed(Date.parse(a.start)) ? <p className={card.muted}>Verschieben ging bis {formatWhen(a.cancelDeadline, tz)}. Ruf kurz im Geschäft an.</p> : null}
+          {a.canReschedule && onMove && view.reschedulesLeft === 0 ? <p className={card.muted}>Diesen Monat hast du schon {view.shop.maxReschedulesPerMonth}-mal verschoben. Sag ab und buch neu.</p> : null}
           <div className={styles.actions}>
-            {a.canReschedule && onMove ? <Button variant="secondary" size="sm" onClick={() => onMove(a)}>Verschieben</Button> : null}
+            {a.canReschedule && onMove && view.reschedulesLeft > 0 ? <Button variant="secondary" size="sm" onClick={() => onMove(a)}>Verschieben</Button> : null}
             {a.canCancel ? <Button variant="quiet" size="sm" onClick={() => { setError(""); setConfirming({ id: a.id, late: Date.now() >= Date.parse(a.cancelDeadline) }); }}>Absagen</Button> : null}
           </div>
         </>}
