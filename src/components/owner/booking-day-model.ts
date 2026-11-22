@@ -4,7 +4,7 @@ export type AppointmentStatus = "requested" | "confirmed" | "done" | "no_show" |
 export type OwnerAppointment = {
   id: string; status: AppointmentStatus; start: string; durationMin: number; priceMinor: number;
   service: { id: string; name: string }; staff: { id: string; name: string };
-  customerName: string; customerPhone: string | null; cardLocator: string; membershipId: string; noShowCount: number; lateCancel?: boolean;
+  customerName: string; customerPhone: string | null; cardLocator: string; membershipId: string; noShowCount: number; lateCancel?: boolean; rejected?: boolean;
   doneAward?: { balance: number; creditedQuantity: number };
 };
 export type DayBlock = { id: string; staffId: string | null; start: string; end: string; reason: string };
@@ -23,7 +23,9 @@ export const STATUS_CHIP: Record<AppointmentStatus, string> = {
 };
 
 /** The status in words; a customer's cancel after the free deadline reads „kurzfristig abgesagt“. */
-export const statusWord = (a: Pick<OwnerAppointment, "status" | "lateCancel">) => a.status === "cancelled_by_customer" && a.lateCancel ? "kurzfristig abgesagt" : STATUS_WORD[a.status];
+export const statusWord = (a: Pick<OwnerAppointment, "status" | "lateCancel" | "rejected">) => a.status === "cancelled_by_customer" && a.lateCancel ? "kurzfristig abgesagt" : a.rejected ? "abgelehnt" : STATUS_WORD[a.status];
+/** The list chip's tone, from the same table as the sheet's chip (Design D7): requests warn, no-shows danger, cancelled neutral. */
+export const chipTone = (status: AppointmentStatus): "ok" | "warn" | "danger" | "neutral" => status === "requested" ? "warn" : status === "no_show" ? "danger" : status === "done" ? "ok" : "neutral";
 const OPEN: AppointmentStatus[] = ["requested", "confirmed"];
 
 /**
@@ -91,9 +93,11 @@ const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR"
 /** The day's numbers on top: appointments that still count, open requests, and the list price of what is done (an estimate). */
 export function dayTotals(appointments: OwnerAppointment[]) {
   const live = appointments.filter(a => a.status !== "cancelled_by_customer" && a.status !== "cancelled_by_shop");
-  const requests = live.filter(a => a.status === "requested").length;
+  // Design, 22 Nov: the totals line only with a live appointment; the list says the rest.
+  if (!live.length) return null;
+  const requests = live.filter(a => a.status === "requested").length, cancelled = appointments.length - live.length;
   const done = live.filter(a => a.status === "done");
-  const count = `${live.length === 1 ? "1 Termin" : `${live.length} Termine`}${requests ? `, davon ${requests === 1 ? "1 Anfrage" : `${requests} Anfragen`}` : ""}`;
+  const count = `${live.length === 1 ? "1 Termin" : `${live.length} Termine`}${requests ? `, davon ${requests === 1 ? "1 Anfrage" : `${requests} Anfragen`}` : ""}${cancelled ? `, ${cancelled} abgesagt` : ""}`;
   return done.length ? `${count} · ${done.length} erledigt: ${euro.format(done.reduce((sum, a) => sum + a.priceMinor, 0) / 100)} nach Listenpreis, nicht kassiert` : count;
 }
 

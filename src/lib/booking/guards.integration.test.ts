@@ -143,3 +143,12 @@ it("P-9: a second location of the same business: its service, appointment, card 
   expect((await pool.query("SELECT status FROM booking_appointments WHERE id = $1", [appointmentThere.id])).rows[0].status).toBe("confirmed");
   expect((await pool.query("SELECT count(*)::int AS n FROM booking_blocked_customers WHERE membership_id = $1", [cardThere.id])).rows[0].n).toBe(0);
 });
+
+it("D7: a request the shop turns down without a reason comes back as rejected; a cancelled confirmed appointment does not", async () => {
+  const shop = await bookingShop({ autoConfirm: false });
+  const { appointment } = await bookFor(shop.card.cardToken, shop.serviceId, tomorrowAt(9));
+  expect(await transition({ ...shop.scope, userId: shop.owner.userId, appointmentId: appointment.id, to: "cancelled_by_shop", expected: "requested" })).toMatchObject({ status: "cancelled_by_shop", rejected: true });
+  const other = await bookingShop();
+  const { appointment: confirmed } = await bookFor(other.card.cardToken, other.serviceId, tomorrowAt(9));
+  expect(await transition({ ...other.scope, userId: other.owner.userId, appointmentId: confirmed.id, to: "cancelled_by_shop", expected: "confirmed" })).toMatchObject({ status: "cancelled_by_shop", rejected: false });
+});

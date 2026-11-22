@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
-import { actionError, actionsFor, awardLine, dayName, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { actionError, actionsFor, awardLine, dayName, chipTone, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
 import { missedPhrase } from "./booking-setup-helpers";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
@@ -76,7 +76,7 @@ export function BookingDay() {
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
         <Notice tone="warn" actions={<Link className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/termine/einrichten">Zur Einrichtung</Link>}>Online-Buchung ist aus. Kunden können gerade nicht buchen.</Notice>
       )}
-      {ready && shown && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
+      {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
       {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
@@ -97,16 +97,19 @@ export function BookingDay() {
   );
 }
 
+/** A block from midnight to the next midnight in the shop's zone reads „Ganzer Tag“, never „00:00–00:00“. */
+const wholeDay = (block: DayBlock, zone: string) => wallTime(block.start, zone) === "00:00" && wallTime(block.end, zone) === "00:00" && Date.parse(block.end) > Date.parse(block.start);
+
 function DayList({ day, label, onOpen, onBlock }: { day: DayResponse; label: string; onOpen: (appointment: OwnerAppointment) => void; onBlock: (block: DayBlock) => void }) {
   const rows = dayRows(day);
   const staffName = (id: string | null) => id ? day.staff.find(s => s.id === id)?.name ?? "Mitarbeiter" : "Ganzes Geschäft";
-  if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title={`${/^(Heute|Morgen|Gestern)$/.test(label) ? label : `Am ${label}`} keine Termine.`}>Kunden buchen über ihre Karte.</EmptyState></section>;
+  if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title="Keine Termine">Kunden buchen über ihre Karte.</EmptyState></section>;
   return (
     <div className="ow-prog"><Rows title="Termine des Tages">{rows.map(row => row.kind === "block"
-      ? <Row key={row.block.id} icon={Ban} title={`${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
+      ? <Row key={row.block.id} icon={Ban} title={`${wholeDay(row.block, day.timezone) ? "Ganzer Tag" : `${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)}`} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
       : <Row key={row.appointment.id} icon={CalendarDays} title={`${wallTime(row.appointment.start, day.timezone)} · ${row.appointment.service.name}`}
-          sub={<>{row.appointment.customerName} · {row.appointment.staff.name}{row.inBlock && <><br />liegt in geblockter Zeit</>}</>}
-          chip={row.appointment.status === "confirmed" && !row.inBlock ? undefined : { label: statusWord(row.appointment), warn: row.appointment.status !== "done" }} onClick={() => onOpen(row.appointment)} />)}
+          sub={`${row.appointment.customerName} bei ${row.appointment.staff.name}`}
+          chip={row.inBlock && row.appointment.status === "confirmed" ? { label: "in geblockter Zeit", tone: "warn" } : row.appointment.status === "confirmed" ? undefined : { label: statusWord(row.appointment), tone: chipTone(row.appointment.status) }} onClick={() => onOpen(row.appointment)} />)}
     </Rows></div>
   );
 }

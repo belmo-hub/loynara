@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionError, actionsFor, awardLine, dayName, dayRows, dayTotals, euroInput, patchDay, requestsLine, STATUS_WORD, statusWord, subLine, wallTime, wallToIso, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { actionError, actionsFor, awardLine, chipTone, dayName, dayRows, dayTotals, euroInput, patchDay, requestsLine, STATUS_WORD, statusWord, subLine, wallTime, wallToIso, type DayResponse, type OwnerAppointment } from "./booking-day-model";
 
 const appointment = (id: string, start: string, status: OwnerAppointment["status"] = "confirmed", priceMinor = 3000) => ({ id, start, status, durationMin: 30, priceMinor, staff: { id: "lena", name: "Lena" } } as OwnerAppointment);
 
@@ -23,8 +23,12 @@ describe("booking day model", () => {
   });
 
   it("sums the day on top and names the next request's day", () => {
-    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine, davon 1 Anfrage · 2 erledigt: 76\u00a0€ nach Listenpreis, nicht kassiert");
-    expect(dayTotals([])).toBe("0 Termine");
+    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine, davon 1 Anfrage, 1 abgesagt · 2 erledigt: 76\u00a0€ nach Listenpreis, nicht kassiert");
+    // Design, 22 Nov: no totals line without a live appointment, also when the day holds only cancelled ones.
+    expect(dayTotals([])).toBeNull();
+    expect(dayTotals([appointment("d", "x", "cancelled_by_shop")])).toBeNull();
+    expect(statusWord({ status: "cancelled_by_shop", rejected: true })).toBe("abgelehnt");
+    expect([chipTone("requested"), chipTone("no_show"), chipTone("cancelled_by_customer"), chipTone("cancelled_by_shop"), chipTone("done")]).toEqual(["warn", "danger", "neutral", "neutral", "ok"]);
     expect(requestsLine(2, "2026-10-29", "2026-10-27")).toBe("2 offene Anfragen, die nächste am Donnerstag, 29. Oktober.");
     expect(requestsLine(1, "2026-10-27", "2026-10-27")).toBe("1 offene Anfrage, die nächste heute.");
   });

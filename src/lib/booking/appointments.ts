@@ -173,8 +173,12 @@ function customerView(row: Row, now: Date) {
 }
 
 function ownerView(row: Row, now: Date) {
-  return { ...customerView(row, now), customerName: row.a.customerName, customerPhone: row.a.customerPhone, cardLocator: formatCardLocator(row.cardLocator), membershipId: row.a.membershipId, noShowCount: row.noShowCount };
+  return { ...customerView(row, now), customerName: row.a.customerName, customerPhone: row.a.customerPhone, cardLocator: formatCardLocator(row.cardLocator), membershipId: row.a.membershipId, noShowCount: row.noShowCount,
+    // A request the shop turned down reads „abgelehnt“ (Design D7), not „abgesagt“.
+    rejected: row.a.status === "cancelled_by_shop" && row.a.cancelReason === REJECTED };
 }
+
+const REJECTED = "Anfrage abgelehnt";
 
 async function one(reader: Reader, tenantId: string, id: string) {
   const [row] = await appointmentRows(reader, and(eq(bookingAppointments.tenantId, tenantId), eq(bookingAppointments.id, id)));
@@ -356,7 +360,7 @@ export async function transition(input: TransitionInput, now = new Date()) {
       }
       await setStatus(tx, row, "done", { doneLedgerEntryId: entryId });
     } else {
-      await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || "Vom Geschäft abgesagt" } : {});
+      await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || (row.a.status === "requested" ? REJECTED : "Vom Geschäft abgesagt") } : {});
       if (input.to === "confirmed") { await scheduleReminders(tx, row.a.id, now); await notifyShopChange(tx, row.a.id, "confirmed", now); }
       if (input.to === "cancelled_by_shop") await notifyShopChange(tx, row.a.id, "shop_cancel", now);
     }
