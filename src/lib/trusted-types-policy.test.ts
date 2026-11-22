@@ -15,6 +15,8 @@ describe("Trusted Types default policy", () => {
     expect(rules.createScriptURL("/_next/static/chunks/a.js")).toBe("/_next/static/chunks/a.js");
     // null is a reported violation; it never throws, which would break the page even in report-only mode.
     for (const url of ["https://evil.example/_next/static/a.js", "/api/qr", "/trusted.js", "data:text/javascript,1"]) expect(rules.createScriptURL(url)).toBeNull();
+    // A URL the parser refuses is a reported violation too, never an exception in the page's code (review of #350).
+    expect(rules.createScriptURL("http://[not-a-host")).toBeNull();
   });
   it("passes only zod's empty eval probe as a script string", () => {
     const rules = policy();

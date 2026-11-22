@@ -8,6 +8,6 @@
  * returning nothing is just a violation (reported, and allowed while report-only).
  */
 export const TRUSTED_TYPES_POLICY = `if (window.trustedTypes && !trustedTypes.defaultPolicy) trustedTypes.createPolicy("default", {
-  createScriptURL: function (value) { var url = new URL(value, location.href); if (url.origin === location.origin && url.pathname.indexOf("/_next/static/") === 0) return value; return null; },
+  createScriptURL: function (value) { var url; try { url = new URL(value, location.href); } catch (e) { return null; } if (url.origin === location.origin && url.pathname.indexOf("/_next/static/") === 0) return value; return null; },
   createScript: function (value) { if (value === "(function anonymous(\\n) {\\n\\n})") return value; return null; }
 });`;
