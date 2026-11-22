@@ -81,8 +81,7 @@ export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
 
 /** Termin + Treue claims (docs/booking-design.md). Only what the booking slice does; out-of-scope items are listed as not included. */
 export const TERMIN_COPY = {
-  /** Termin + Treue: the 49 € plan plus online booking. Same founding-price rule as SITE.price. */
-  amount: 69,
+  // No amount: the Termin + Treue price is the founder's decision and stays out of the repository until then (CTO, 22 Nov).
   planNote: 'Termin + Treue: alles aus dem 49-€-Paket, dazu Online-Buchung.',
   included: ['Alles aus dem Treue-Paket für 49 €', 'Online-Termine direkt von der Kundenkarte', 'Erinnerung 24 Stunden und 2 Stunden vorher per Push', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Keine Provision, nie', 'Deine Kundenliste gehört dir: CSV-Export'],
   fine: 'Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.',

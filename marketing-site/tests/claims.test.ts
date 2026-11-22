@@ -82,8 +82,8 @@ test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', 
   assert.equal(r.pages.length, 3); assert.ok(r.pages.every(p => !p.includes('/fuer-salons/')));
 });
 
-test('booking gate on: the 69 € plan without a money-back promise, the Salons link and the salon page', () => {
+test('booking gate on: the Termin + Treue plan without a price or a money-back promise, the Salons link and the salon page', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
-  assert.match(t, /69 € pro Monat und Standort Termin \+ Treue/); assert.match(t, /Keine Provision, nie/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
+  assert.match(t, /Termin \+ Treue: alles aus dem 49-€-Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.match(t, /Keine Provision, nie/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Weniger Nichterscheinen/);
 });

@@ -48,9 +48,9 @@ const breakEven = (basket: number, what: string) => {
   return `<div class="price-card"><p class="price"><b>${price()}</b><span>pro Monat und Standort</span></p><p class="price-note">${SITE.price.note}</p><ul class="checks"><li>Bei rund ${basket} € pro ${what} entsprechen ${price()} etwa ${n} zusätzlichen ${n === 1 ? 'Besuch' : 'Besuchen'} im Monat.</li><li>Ohne App für deine Kunden, ohne Kassenanbindung.</li><li>Prämie, Bonus und Regeln legst du selbst fest.</li></ul><p class="fine">Rechenbeispiel, keine Prognose. Wareneinsatz, Prämien und Arbeitszeit sind nicht berücksichtigt. <a href="/#rechner">Mit deinen eigenen Zahlen rechnen</a></p></div>`;
 };
 
-/** The 69 € plan card; shared by the home page and the salon page. No guarantee line (D-021, Legal 22 Nov). */
+/** The Termin + Treue plan card, without a price until the founder sets one; shared by the home page and the salon page. No guarantee line (D-021, Legal 22 Nov). */
 export const terminCard = (reveal = false) =>
-  `<div class="price-card"${reveal ? ' data-reveal' : ''}><p class="price"><b>${T.amount} €</b><span>pro Monat und Standort</span></p><p class="price-note">${T.planNote}</p><ul class="checks">${T.included.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">${T.fine}</p></div>`;
+  `<div class="price-card"${reveal ? ' data-reveal' : ''}><p class="price-note">${T.planNote}</p><ul class="checks">${T.included.map(x => `<li>${x}</li>`).join('')}</ul><a class="btn btn-primary btn-block" href="#anfrage">Demo anfragen</a><p class="fine">${T.fine}</p></div>`;
 
 // ── Barber ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const barberBrand: BrandState = { ...initialBrand(), style: 'graphit' };

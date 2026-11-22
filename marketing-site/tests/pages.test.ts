@@ -79,9 +79,10 @@ test('accessible structure: example pictures are labelled, FAQ uses native discl
   }
 });
 
-test('salon page: two plans from the price sources, no money-back promise, the iPhone limit and booking limits stated', () => {
+test('salon page: the loyalty price, the Termin plan without a price, no money-back promise, the iPhone limit and booking limits stated', () => {
   const t = visible(subPage(salons));
-  assert.match(t, new RegExp(`${TERMIN_COPY.amount} € pro Monat und Standort`)); assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`));
+  // The Termin + Treue price is undecided: the card names the plan, never an amount (CTO, 22 Nov).
+  assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`)); assert.match(t, /Termin \+ Treue: alles aus dem 49-€-Paket, dazu Online-Buchung\./); assert.doesNotMatch(t, /\b69\s*€/); assert.ok(!('amount' in TERMIN_COPY));
   assert.ok(t.includes('Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.'));
   // D-021 and Legal (22 Nov): no guarantee; the contract has no such clause.
   assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/); assert.ok(!('guarantee' in TERMIN_COPY));
