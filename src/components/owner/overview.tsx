@@ -19,7 +19,7 @@ import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
-import { downloadCounterSign, joinUrlOf } from "./join-card";
+import { joinUrlOf, openCounterSign, SIGN_NOTE } from "./join-card";
 import { BigMoney, BoardPlaceholder, BonusOffBand, BookPlaceholder, FactsPlaceholder, Brought, CardStock, DemoDataChip, Diary, EmptyStrip, Facts, FactsHelp, NextBandPlaceholder, NextPanel, Strip, type NextAction, type Tile } from "./overview-board";
 import s from "./overview.module.css";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
@@ -95,6 +95,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
   const firstName = useFirstName(me.userId);
   const [signError, setSignError] = useState("");
+  const [signed, setSigned] = useState<"opened" | "downloaded" | null>(null);
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
@@ -134,7 +135,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const quiet = a ? quietOf(a) : null;
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
-  const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
+  const sign = () => { setSignError(""); setSigned(null); openCounterSign(me).then(setSigned, cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
   const next = failed || !answered ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
@@ -148,7 +149,8 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
       // The suggestion stands once (Design): when „Als Nächstes“ already offers the bonus, „Vorschlag“ is left out.
       : a.winbackSetting?.enabled === false && !offersBonus(next?.action) ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
-  const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
+  const signFailed = signError ? <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>
+    : signed && <p className={cx("ow-muted", s.signError)} role="status">{SIGN_NOTE[signed]}.</p>;
   // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
   const panel = (next !== null || milestone !== null) && (answered || failed) && !(failed && !board);
   // A ready reward leads with the card's thumbnail, full, in the shop's colour: a points card drawn at the reward's cost.

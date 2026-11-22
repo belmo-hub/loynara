@@ -3,34 +3,51 @@
 import { ChevronRight, Link2, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
-import { counterSignHtml } from "@/lib/counter-sign";
+import { counterSignHtml, SIGN_FONT } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
 import { CopyLabel, useCopy } from "@/components/copy-text";
 
 /** The public programme address customers join at, not a private card link; "" while it is not configured. */
 export const joinUrlOf = (me: MeResponse) => me.publicBaseUrl ? new URL(`/join/${encodeURIComponent(me.programSlug)}`, me.publicBaseUrl).toString() : "";
 
-/** Downloads the printable counter sign (Tresenschild) for this programme; throws a German message on failure. */
-export async function downloadCounterSign(me: MeResponse) {
+/**
+ * ENG-343: opens the printable counter sign (Tresenschild) in a new tab with a „Drucken“ button, so a phone can print or
+ * share it; where no tab may open, downloads it as before. Throws a German message on failure.
+ */
+export async function openCounterSign(me: MeResponse): Promise<"opened" | "downloaded"> {
   const joinUrl = joinUrlOf(me);
   if (!joinUrl) throw new Error("Die öffentliche Adresse ist noch nicht konfiguriert.");
-  const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
-  if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
-  // The sign prints in Manrope when the font loads; without it, in Arial.
-  const fontDataUrl = await fetch("/fonts/manrope-latin.woff2").then(r => r.ok ? r.blob() : null).then(blob => blob && new Promise<string>((resolve, reject) => {
-    const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]*;/, "data:font/woff2;")); reader.onerror = reject; reader.readAsDataURL(blob);
-  })).catch(() => undefined) ?? undefined;
-  const html = counterSignHtml({ fontDataUrl, businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
-  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url; link.download = "anmeldeschild.html"; link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Before the first await: a phone opens a tab only straight from the tap. Empty until the sign is ready.
+  const tab = window.open("", "_blank");
+  try {
+    const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
+    if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
+    const sign = { businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost };
+    if (tab) {
+      const html = counterSignHtml({ ...sign, fontSrc: SIGN_FONT });
+      tab.document.open(); tab.document.write(html); tab.document.close();
+      return "opened";
+    }
+    // The file prints in Manrope when the font loads; without it, in Arial.
+    const fontSrc = await fetch(SIGN_FONT).then(r => r.ok ? r.blob() : null).then(blob => blob && new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]*;/, "data:font/woff2;")); reader.onerror = reject; reader.readAsDataURL(blob);
+    })).catch(() => undefined) ?? undefined;
+    const url = URL.createObjectURL(new Blob([counterSignHtml({ ...sign, fontSrc })], { type: "text/html;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = "anmeldeschild.html"; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return "downloaded";
+  } catch (error) { tab?.close(); throw error; }
 }
+
+/** What the Tresenschild row says after a tap (ENG-343): the tab may open behind this one, so the row confirms it. */
+export const SIGN_NOTE = { idle: "Mit QR-Code zum Ausdrucken", busy: "Wird erstellt …", opened: "Schild geöffnet", downloaded: "Schild heruntergeladen" } as const;
 
 /** „Kunden einladen“ on Kunden (ENG-122a, R3) as two rows: copy the sign-up link, download the Tresenschild. */
 export function InviteRows({ me }: { me: MeResponse }) {
   const { copied, copy } = useCopy();
   const [error, setError] = useState("");
+  const [sign, setSign] = useState<"idle" | "busy" | "opened" | "downloaded">("idle");
   const joinUrl = joinUrlOf(me);
   const row = (icon: ReactNode, title: string, sub: string | undefined, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
     <span className="ow-prog-icon">{icon}</span>
@@ -43,10 +60,10 @@ export function InviteRows({ me }: { me: MeResponse }) {
       {!joinUrl ? <p className="ow-prog-note">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p> : <ul>
         {row(<Link2 size={20} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", undefined,
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
-        {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
-          () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
+        {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", SIGN_NOTE[sign],
+          () => { setSign("busy"); openCounterSign(me).then(setSign, cause => { setSign("idle"); setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }); })}
       </ul>}
-      <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
+      <div role="status" aria-live="polite" className="ow-sr">{copied ? "Link kopiert." : sign === "idle" ? null : SIGN_NOTE[sign]}</div>
       {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
     </div>
   );
@@ -64,7 +81,7 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
   }
   async function downloadSign() {
     setError("");
-    try { await downloadCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
+    try { await openCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
   }
 
   if (!joinUrl) return <div className="ow-card"><h2>Kunden einladen</h2><p className="ow-muted ow-mt-2">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p></div>;
