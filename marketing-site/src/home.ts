@@ -1,7 +1,7 @@
 /** Home page body (website set, 10 Nov 2026): static HTML, German only. Every drawing is HTML and CSS (design/home.css);
  *  the starting state works without script, src/home-browser.ts adds the tap, the scroll scene, the calculator and the request draft. */
 import { GATES, RECOVERY_COPY } from './claims.js';
-import { terminCard, guaranteeLine } from './pages.js';
+import { terminCard } from './pages.js';
 import { SITE, industries, industryKeys } from './site.js';
 
 const price = `${SITE.price.amount} €`;
@@ -176,7 +176,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
         <div class="acts"><a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="Im Preis enthalten">
         <li>Stempel- oder Punktekarte mit deinen Prämien</li><li>NFC-Antippen und QR-Einstieg am Tresen</li><li>Bestätigung durch dein Team, mit Rollen</li><li>Apple Wallet auf Wunsch. Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert</li><li>Empfehlungen und Willkommen-zurück-Bonus</li><li>Happy Hour bei Punkten nach Einkaufswert, Geburtstags-Bonus mit Apple Wallet</li><li>Überblick, wie viele wiederkommen</li><li>Kunden, Karten und dein Team kosten nichts extra</li>
-      </ul>${GATES.bookingLive ? `<div class="price-pair">${terminCard()}${guaranteeLine()}</div>` : ''}
+      </ul>${GATES.bookingLive ? `<div class="price-pair">${terminCard()}</div>` : ''}
     </div>
   </div>
 </section>

@@ -79,10 +79,12 @@ test('accessible structure: example pictures are labelled, FAQ uses native discl
   }
 });
 
-test('salon page: two plans from the price sources, the guarantee wording, booking limits stated', () => {
+test('salon page: two plans from the price sources, no money-back promise, the iPhone limit and booking limits stated', () => {
   const t = visible(subPage(salons));
   assert.match(t, new RegExp(`${TERMIN_COPY.amount} € pro Monat und Standort`)); assert.match(t, new RegExp(`${SITE.price.amount} € pro Monat und Standort`));
-  assert.ok(t.includes(TERMIN_COPY.guarantee));
+  assert.ok(t.includes('Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.'));
+  // D-021 and Legal (22 Nov): no guarantee; the contract has no such clause.
+  assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/); assert.ok(!('guarantee' in TERMIN_COPY));
   assert.match(t, /Keine Provision, nie/); assert.match(t, /Keine Online-Zahlung und keine Anzahlung/); assert.match(t, /kein Abgleich mit Google Kalender, Treatwell oder Fresha/); assert.match(t, /keine SMS und kein WhatsApp/);
   assert.doesNotMatch(t, /Garantie|garantiert|risikofrei/);
 });

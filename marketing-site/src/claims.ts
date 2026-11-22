@@ -83,10 +83,8 @@ export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
 export const TERMIN_COPY = {
   /** Termin + Treue: the 49 € plan plus online booking. Same founding-price rule as SITE.price. */
   amount: 69,
-  /** Founder wording 24 Oct 2026. Legal must confirm the agreement carries the identical condition before this is published. */
-  guarantee: 'Und wenn deine Loynara-Kunden im ersten Monat weniger als 70 € bei dir ausgeben, bekommst du dein Geld zurück. Kündigen kannst du jeden Monat. Voraussetzung: Das Schild stand am Tresen und Einkäufe wurden normal erfasst.',
   planNote: 'Termin + Treue: alles aus dem 49-€-Paket, dazu Online-Buchung.',
   included: ['Alles aus dem Treue-Paket für 49 €', 'Online-Termine direkt von der Kundenkarte', 'Erinnerung 24 Stunden und 2 Stunden vorher per Push', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Keine Provision, nie', 'Deine Kundenliste gehört dir: CSV-Export'],
-  fine: 'Push-Erinnerungen kommen an, wenn dein Kunde Mitteilungen erlaubt. Zahlung oder Anzahlung online gehören nicht dazu.',
+  fine: 'Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.',
   notIncluded: 'Keine Online-Zahlung und keine Anzahlung · keine Warteliste · keine Gruppenkurse · kein Abgleich mit Google Kalender, Treatwell oder Fresha · keine SMS und kein WhatsApp · keine Serientermine · kein Kundenkonto.',
 } as const;
