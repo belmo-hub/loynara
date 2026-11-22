@@ -14,6 +14,8 @@ const shots = process.env.E2E_SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
 const shot = (page: Page, name: string) => shots ? page.screenshot({ path: `${shots}/${name}.png`, fullPage: true }) : Promise.resolve();
 
+/** The steps arrive with motion (D8): measure targets once every animation has finished. */
+const settled = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => undefined))));
 test.use({ baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000", viewport: { width: 390, height: 844 }, hasTouch: true });
 test.afterAll(async () => { await pool.end(); });
 
@@ -43,6 +45,7 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await expect(page.getByRole("heading", { name: "Leistung wählen" })).toBeVisible();
   await expect(page.getByText("Noch keine Termine. Such dir unten einen aus.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Impressum" })).toBeVisible();
+  await settled(page);
   expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   await shot(page, "02-service");
 
@@ -68,6 +71,7 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await expect(page.getByRole("heading", { name: "Termin prüfen" })).toBeVisible();
   await expect(page.getByText(/^Kostenlos absagen bis /)).toBeVisible();
   await page.getByLabel("Dein Name").fill("Mia");
+  await settled(page);
   expect(await smallTargets(page, { scope: "main" })).toEqual([]);
   await shot(page, "05-confirm");
   await page.getByRole("button", { name: "Termin buchen" }).click();
