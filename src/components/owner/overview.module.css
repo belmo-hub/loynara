@@ -53,6 +53,7 @@
 .line.line > button[data-link]:active, .help:active { transform: scale(.97); }
 .thumb { display: flex; flex: none; }
 .signError { margin: 0; }
+.signError:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; } /* the waiting status takes no room */
 /* The panel's slot while its reads load: a flat block of the panel with both rows (the loaded picture's size). */
 .nextPh { display: block; height: 255px; border-radius: var(--radius-lg); }
 @media (min-width: 600px) { .nextPh { height: 199px; } }

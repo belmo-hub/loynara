@@ -49,11 +49,12 @@ export const auth = betterAuth({
       // Sign-up does not wait for the mail (ENG-283): an existing address gets none, so waiting would show in the timing.
       if (!request?.url.endsWith("/send-verification-email")) return;
       // A signed-in owner pressing „E-Mail erneut senden“ learns that nothing went out (Design). An anonymous resend
-      // always answers alike, so it reveals nothing about an address.
-      const outcome = await sending;
-      if (outcome === "sent") return;
+      // always answers alike and does not wait for the mail either (ENG-344): only an unconfirmed address gets one, so
+      // a slow provider would show in the timing.
       const { auth: self } = await import("./auth");
       if (!await self.api.getSession({ headers: request.headers })) return;
+      const outcome = await sending;
+      if (outcome === "sent") return;
       throw new APIError(outcome === "limited" ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", { message: "Verification email not sent" });
     },
   },

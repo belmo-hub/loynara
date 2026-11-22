@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 const access = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 
-test("failed sign download leaves the merchant dashboard usable and can be retried", async ({ page }) => {
+test("failed sign leaves the merchant dashboard usable and can be retried", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
   await page.getByLabel("Passwort").fill(access.ownerPassword);
@@ -25,9 +25,10 @@ test("failed sign download leaves the merchant dashboard usable and can be retri
   await page.getByRole("button", { name: "Tresenschild laden" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "QR-Code konnte nicht geladen werden" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Tresenschild laden" })).toBeVisible();
-  const downloadPromise = page.waitForEvent("download");
+  // The tab opened for the failed try is closed again (ENG-343); the retry opens the sign.
+  expect(page.context().pages()).toHaveLength(1);
+  const opened = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Tresenschild laden" }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("anmeldeschild.html");
+  await expect((await opened).getByRole("button", { name: "Drucken", exact: true })).toBeVisible();
   await expect(page.getByRole("alert").filter({ hasText: "QR-Code konnte nicht geladen werden" })).toHaveCount(0);
 });

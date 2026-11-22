@@ -3,6 +3,7 @@ export const SITE = {
   origin: 'https://getloynara.com',
   appOrigin: 'https://app.getloynara.com',
   loginUrl: 'https://app.getloynara.com/login',
+  registerUrl: 'https://app.getloynara.com/register',
   supportEmail: 'support@getloynara.com',
   /** Provisional introductory offer. Shown with "details in a personal conversation"; no setup fee, discount or VAT statement is made. */
   price: { amount: 49, unit: 'Monat / Standort', note: 'Kunden und Karten kosten nichts extra.' },

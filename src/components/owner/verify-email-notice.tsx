@@ -7,7 +7,7 @@ import { Notice } from "./owner-ui";
 
 const IDLE = "E-Mail erneut senden";
 // U+2011 (non-breaking hyphen) keeps „E‑Mail“ and „Spam‑Ordner“ whole in the narrow action column.
-const OUTCOME = {
+export const OUTCOME = {
   sent: "Wir haben dir eine neue E‑Mail geschickt. Schau auch im Spam‑Ordner nach.",
   limited: "Zu viele Versuche. Warte bitte etwas und versuche es erneut.",
   failed: "Die E‑Mail konnte gerade nicht verschickt werden. Versuche es später erneut.",
