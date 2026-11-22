@@ -1,7 +1,9 @@
 import { expect, it } from "vitest";
 import { pool } from "@/db";
 import { GET as setupGet, PUT as setupPut } from "@/app/api/merchant/booking/setup/route";
-import { getSetup } from "./setup";
+import { randomUUID } from "node:crypto";
+import { book, dayView } from "./appointments";
+import { getSetup, outsideOpeningHours } from "./setup";
 import { bookingShop, identity, request, withBookingDatabase } from "./test-fixture";
 
 withBookingDatabase();
@@ -40,4 +42,28 @@ it("first-time set-up: a row from the operator's switch is not „set up“; the
   expect((await getSetup(shop.scope)).settings).not.toBeNull();
   expect((await save(shop.ownerCookie, await body(shop))).status).toBe(200);
   expect((await pool.query("SELECT setup_done_at FROM booking_settings WHERE location_id = $1", [shop.scope.locationId])).rows[0].setup_done_at).toEqual(first);
+});
+
+it("closing hours on a booked day: the save lists the appointment and the day view marks it; open hours list nothing", async () => {
+  const shop = await bookingShop();
+  const day = new Date(); day.setUTCDate(day.getUTCDate() + 2); day.setUTCHours(9, 0, 0, 0); // 10:00 Berlin
+  const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: day, customerName: "Mia", idempotencyKey: randomUUID() });
+  const weekday = ((day.getUTCDay() + 6) % 7) + 1;
+  const all = [1, 2, 3, 4, 5, 6, 7].map(d => ({ weekday: d, start: "08:00", end: "20:00", breaks: [] }));
+  const open = await save(shop.ownerCookie, await body(shop, { openingHours: all }));
+  expect((await open.json()).outsideHours).toEqual([]);
+  const closed = await save(shop.ownerCookie, await body(shop, { openingHours: all.filter(d => d.weekday !== weekday) }));
+  expect(closed.status).toBe(200);
+  expect((await closed.json()).outsideHours).toMatchObject([{ id: appointment.id, status: "confirmed", serviceName: "Haarschnitt", customerName: "Mia", timezone: "Europe/Berlin" }]);
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(day);
+  expect((await dayView({ ...shop.scope, date })).appointments).toMatchObject([{ id: appointment.id, outsideHours: true }]);
+});
+
+it("outsideOpeningHours: inside, across the end, on a closed day, and with no hours stored", () => {
+  const hours = [{ weekday: 1, start: "09:00", end: "18:00", breaks: [] }];
+  const monday10 = new Date("2026-11-23T09:00:00Z"); // Monday 10:00 Berlin
+  expect(outsideOpeningHours(monday10, 30, "Europe/Berlin", hours)).toBe(false);
+  expect(outsideOpeningHours(new Date("2026-11-23T16:45:00Z"), 30, "Europe/Berlin", hours)).toBe(true); // 17:45 to 18:15
+  expect(outsideOpeningHours(new Date("2026-11-24T09:00:00Z"), 30, "Europe/Berlin", hours)).toBe(true); // Tuesday
+  expect(outsideOpeningHours(monday10, 30, "Europe/Berlin", null)).toBe(false);
 });

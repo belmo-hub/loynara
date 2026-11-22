@@ -111,7 +111,7 @@ function DayList({ day, onOpen, onBlock }: { day: DayResponse; onOpen: (appointm
       ? <Row key={row.block.id} icon={Ban} title={`${wholeDay(row.block, day.timezone) ? "Ganzer Tag" : `${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)}`} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
       : <Row key={row.appointment.id} icon={CalendarDays} title={`${wallTime(row.appointment.start, day.timezone)} · ${row.appointment.service.name}`}
           sub={`${row.appointment.customerName} bei ${row.appointment.staff.name}`}
-          chip={row.inBlock && row.appointment.status === "confirmed" ? { label: "in geblockter Zeit", tone: "warn" } : row.appointment.status === "confirmed" ? undefined : { label: statusWord(row.appointment), tone: chipTone(row.appointment.status) }} onClick={() => onOpen(row.appointment)} />)}
+          chip={row.inBlock && row.appointment.status === "confirmed" ? { label: "in geblockter Zeit", tone: "warn" } : row.appointment.outsideHours ? { label: "außerhalb der Öffnungszeiten", tone: "warn" } : row.appointment.status === "confirmed" ? undefined : { label: statusWord(row.appointment), tone: chipTone(row.appointment.status) }} onClick={() => onOpen(row.appointment)} />)}
     </Rows></div>
   );
 }

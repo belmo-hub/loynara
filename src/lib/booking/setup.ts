@@ -1,10 +1,11 @@
 import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { bookingAppointments, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, staffRoles } from "@/db/schema";
+import { bookingAppointments, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, locations, staffRoles } from "@/db/schema";
 import { DomainError } from "@/lib/loyalty";
 import { BookingError, lockLocation, type Reader, type Tx } from "./appointments";
 import { PRESETS } from "./presets";
+import { instantToWall } from "./time";
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$|^24:00$/);
 const span = z.object({ start: time, end: time }).refine(s => s.end > s.start, "End must be after start");
@@ -50,6 +51,29 @@ type Scope = { tenantId: string; locationId: string };
 export async function bookingEnabledAt(scope: Scope, reader: Reader = db) {
   const [row] = await reader.select({ enabled: bookingSettings.enabled }).from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
   return row?.enabled ?? false;
+}
+
+type OpeningDay = z.infer<typeof workingDay>;
+
+/** Whether an appointment from `start` for `minutes` lies outside the shop's opening hours on its day; no hours stored: never. */
+export function outsideOpeningHours(start: Date, minutes: number, timeZone: string, hours: OpeningDay[] | null | undefined) {
+  if (!hours) return false;
+  const from = instantToWall(start, timeZone), until = instantToWall(new Date(start.getTime() + minutes * 60_000), timeZone);
+  const end = until.date !== from.date ? (until.time === "00:00" ? "24:00" : "99:99") : until.time;
+  return !hours.some(day => day.weekday === from.weekday && day.start <= from.time && end <= day.end);
+}
+
+/** Design (22 Nov): the location's open future appointments that its opening hours no longer cover, after a save. */
+export async function appointmentsOutsideHours(scope: Scope, reader: Reader = db) {
+  const [row] = await reader.select({ hours: bookingSettings.openingHours, timezone: locations.timezone }).from(bookingSettings)
+    .innerJoin(locations, and(eq(locations.tenantId, bookingSettings.tenantId), eq(locations.id, bookingSettings.locationId)))
+    .where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  if (!row?.hours) return [];
+  const open = await reader.select({ id: bookingAppointments.id, status: bookingAppointments.status, start: sql<Date>`lower(${bookingAppointments.during})`.mapWith(value => new Date(value)), durationMin: bookingAppointments.durationMin, customerName: bookingAppointments.customerName, serviceName: bookingServices.name })
+    .from(bookingAppointments).innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`lower(${bookingAppointments.during}) > now()`))
+    .orderBy(asc(sql`lower(${bookingAppointments.during})`));
+  return open.filter(a => outsideOpeningHours(a.start, a.durationMin, row.timezone, row.hours as OpeningDay[])).map(a => ({ ...a, start: a.start.toISOString(), timezone: row.timezone }));
 }
 
 export async function getSetup(scope: Scope, reader: Reader = db) {
@@ -111,7 +135,7 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
       await tx.delete(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), eq(bookingStaffServices.staffId, staff[index])));
       if (member.serviceIds.length) await tx.insert(bookingStaffServices).values(member.serviceIds.map(serviceId => ({ tenantId: scope.tenantId, staffId: staff[index], serviceId })));
     }
-    return getSetup(scope, tx);
+    return { ...await getSetup(scope, tx), outsideHours: await appointmentsOutsideHours(scope, tx) };
   });
 }
 

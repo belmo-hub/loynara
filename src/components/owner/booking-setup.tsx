@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiJson, ClientApiError } from "@/components/client-api";
+import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
+import { formatWhen } from "@/components/booking/booking-format";
 import type { WorkingDay } from "@/db/schema";
 import { dayProblem, defaultTerms, durationLabel, fromDays, hoursProblem, missedPhrase, parsePrice, priceText, sameHours, toDays, unionHours, WEEKDAYS, withinHours, type Day } from "./booking-setup-helpers";
 import { useDirtyGuard } from "./owner-context";
-import { ErrorNotice, LoadingBlock, MoreInfo, Notice, OwnerIcon, PageHead, SaveBar } from "./owner-ui";
+import { ErrorNotice, LoadingBlock, MoreInfo, Notice, OwnerDialog, OwnerIcon, PageHead, SaveBar } from "./owner-ui";
 import { useLoad } from "./use-load";
 
 type ShopType = "nagelstudio" | "barber" | "kosmetik";
@@ -17,7 +18,10 @@ type Setup = {
   services: Service[];
   staff: { id: string; name: string; userId: string | null; workingHours: WorkingDay[]; serviceIds: string[] }[];
   presets: Record<ShopType, Preset>;
+  /** After a save: open future appointments the opening hours no longer cover (Design, 22 Nov). */
+  outsideHours?: OutsideAppointment[];
 };
+type OutsideAppointment = { id: string; status: "requested" | "confirmed"; start: string; customerName: string; serviceName: string; timezone: string };
 type ServiceRow = { key: string; id?: string; name: string; durationMin: number; bufferMin: number; price: string; priceFrom: boolean; rebookAfterDays: number };
 // hours null = the shop hours; serviceKeys null = every service.
 type StaffRow = { key: string; id?: string; name: string; userId: string | null; hours: Day[] | null; serviceKeys: string[] | null };
@@ -125,6 +129,7 @@ function Wizard({ initial }: { initial: Setup }) {
   const [reached, setReached] = useState(returning ? STEPS.length - 1 : 0);
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [outside, setOutside] = useState<OutsideAppointment[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<{ staffId: string; name: string; count: number }[] | null>(null);
   const [serviceBusy, setServiceBusy] = useState<{ serviceId: string; name: string; count: number } | null>(null);
@@ -167,6 +172,7 @@ function Wizard({ initial }: { initial: Setup }) {
       if (needsSecondSave(next)) result = await put(payload({ ...next, services: next.services.map((service, index) => ({ ...service, id: result.services[index].id })), staff: next.staff.map((member, index) => ({ ...member, id: result.staff[index].id })) }));
       const fresh = fromSetup(result);
       setData(result); setForm(fresh); setBaseline(JSON.stringify(payload(fresh))); setReached(STEPS.length - 1); setSavedOnce(true);
+      if (result.outsideHours?.length) setOutside(result.outsideHours);
     } catch (cause) {
       const body = cause instanceof ClientApiError ? cause.body : undefined;
       if (cause instanceof ClientApiError && cause.code === "STAFF_HAS_APPOINTMENTS" && typeof body?.staffId === "string") {
@@ -331,6 +337,7 @@ function Wizard({ initial }: { initial: Setup }) {
           {!last && <button type="submit" className="ow-btn ow-btn--primary">Weiter</button>}
         </div>
       </form>
+      {outside && <OutsideHoursDialog appointments={outside} onClose={() => setOutside(null)} />}
       {showSave && <SaveBar state={saveState} onSave={() => void save()} canSave={!saving} errorLabel={busy || serviceBusy ? "Nicht gespeichert" : undefined} detail={saveState === "dirty" && !returning ? "Erst mit Speichern ist alles übernommen." : undefined} />}
     </div>
   );
@@ -380,4 +387,24 @@ function Choice({ id, label, hint, value, options, onChange }: { id: string; lab
 
 function Field({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return <div className="ow-field"><label htmlFor={id}>{label}</label>{children}{hint && !error && <span className="ow-hint">{hint}</span>}{error && <span className="ow-error" role="alert">{error}</span>}</div>;
+}
+
+/** After closing hours that held appointments: the block sheet's question, keep them or cancel them all (Design, 22 Nov). */
+function OutsideHoursDialog({ appointments, onClose }: { appointments: OutsideAppointment[]; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function cancelAll() {
+    setBusy(true); setError("");
+    try {
+      for (const a of appointments) await postJson(`/api/merchant/booking/appointments/${a.id}/transition`, { to: "cancelled_by_shop", expected: a.status, reason: "Geschäft geschlossen", idempotencyKey: newRequestId() }).catch(cause => { if (!(cause instanceof ClientApiError && cause.code === "STALE")) throw cause; });
+      onClose();
+    } catch { setError("Nicht alle Termine konnten abgesagt werden. Sieh in der Tagesansicht nach."); }
+    finally { setBusy(false); }
+  }
+  return <OwnerDialog title={appointments.length === 1 ? "1 Termin liegt außerhalb der Öffnungszeiten" : `${appointments.length} Termine liegen außerhalb der Öffnungszeiten`} tone="danger" onClose={onClose}
+    actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={busy} data-autofocus>Termine behalten</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancelAll()} disabled={busy} aria-busy={busy}>Alle absagen</button></>}>
+    <p>Gespeichert. Diese Termine bleiben, bis du sie absagst; die Kunden bekommen dann eine Mitteilung.</p>
+    <ul className="ow-feed">{appointments.map(a => <li key={a.id}><span><strong className="ow-num">{formatWhen(a.start, a.timezone)}</strong>, {a.serviceName}, {a.customerName}</span></li>)}</ul>
+    {error && <p className="ow-error" role="alert">{error}</p>}
+  </OwnerDialog>;
 }

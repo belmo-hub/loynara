@@ -4,7 +4,7 @@ export type AppointmentStatus = "requested" | "confirmed" | "done" | "no_show" |
 export type OwnerAppointment = {
   id: string; status: AppointmentStatus; start: string; durationMin: number; priceMinor: number;
   service: { id: string; name: string }; staff: { id: string; name: string };
-  customerName: string; customerPhone: string | null; cardLocator: string; membershipId: string; noShowCount: number; lateCancel?: boolean; rejected?: boolean;
+  customerName: string; customerPhone: string | null; cardLocator: string; membershipId: string; noShowCount: number; lateCancel?: boolean; rejected?: boolean; /** Open, but the opening hours no longer cover it (Design, 22 Nov). */ outsideHours?: boolean;
   doneAward?: { balance: number; creditedQuantity: number };
 };
 export type DayBlock = { id: string; staffId: string | null; start: string; end: string; reason: string };

@@ -14,7 +14,7 @@ import { GRID_MIN, slots } from "./availability";
 import { awardWindow, visitAt } from "./award-window";
 import { TOO_MANY_BOOKINGS } from "@/components/booking/booking-format";
 import { notifyShopChange, pushState, scheduleReminders } from "./notify";
-import { getSetup } from "./setup";
+import { getSetup, outsideOpeningHours } from "./setup";
 import { addDays, instantToWall, wallToInstant } from "./time";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -460,6 +460,7 @@ export async function dayView(input: Scope & { date?: string }, now = new Date()
   if (!from || !to) throw new DomainError("INVALID_DATE", "Invalid date");
   const scope = and(eq(bookingAppointments.tenantId, input.tenantId), eq(bookingAppointments.locationId, input.locationId));
   const appointments = await appointmentRows(db, and(scope, sql`${bookingAppointments.during} && ${range(from, to)}`));
+  const [opening] = await db.select({ hours: bookingSettings.openingHours }).from(bookingSettings).where(and(eq(bookingSettings.tenantId, input.tenantId), eq(bookingSettings.locationId, input.locationId)));
   const blocks = await db.select({ id: bookingBlocks.id, staffId: bookingBlocks.staffId, start: lower(bookingBlocks.during), end: upper(bookingBlocks.during), reason: bookingBlocks.reason }).from(bookingBlocks)
     .where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), sql`${bookingBlocks.during} && ${range(from, to)}`)).orderBy(asc(sql`lower(${bookingBlocks.during})`));
   const staff = await db.select({ id: bookingStaff.id, name: bookingStaff.name, sort: bookingStaff.sort }).from(bookingStaff)
@@ -467,7 +468,8 @@ export async function dayView(input: Scope & { date?: string }, now = new Date()
   const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(bookingAppointments)
     .where(and(scope, eq(bookingAppointments.status, "requested"), sql`upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`));
   return {
-    date, appointments: appointments.map(row => ownerView(row, now)),
+    // Design (22 Nov): an open appointment the opening hours no longer cover is marked in the day list.
+    date, appointments: appointments.map(row => ({ ...ownerView(row, now), outsideHours: isOpen(row.a.status) && outsideOpeningHours(row.start, row.a.durationMin, timezone, opening?.hours as Parameters<typeof outsideOpeningHours>[3]) })),
     blocks: blocks.map(b => ({ ...b, start: b.start.toISOString(), end: b.end.toISOString() })), staff, pendingRequests: pending.count,
   };
 }
