@@ -57,7 +57,7 @@ it("delivers a reminder once with the fake sender, a retry is a no-op, and a can
   expect(await deliverReminder(day, { env, send, now: day.next_attempt_at })).toEqual({ status: "complete" });
   expect(await deliverReminder(day, { env, send, now: day.next_attempt_at })).toEqual({ status: "complete", reason: "already sent" });
   expect(send).toHaveBeenCalledTimes(1);
-  expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Dein Termin Haarschnitt ist Di 03.11. um 10:00 bei Lena.", url: `/card/${shop.card.cardToken}/termin` });
+  expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Dein Termin für Haarschnitt ist Di 03.11. um 10:00 bei Lena.", url: `/card/${shop.card.cardToken}/termin` });
   expect((await pool.query("SELECT kind FROM booking_push_log WHERE appointment_id = $1", [appointment.id])).rows).toEqual([{ kind: "reminder_24h" }]);
   // Without VAPID keys nothing is sent.
   expect((await deliverReminder(day, { env: {}, send, now: day.next_attempt_at })).status).toBe("suppressed");
@@ -96,7 +96,7 @@ it("a move makes the old reminder jobs no-ops and notifies the customer; cancelA
   const cancel = (await jobs("booking.change", appointment.id)).find(j => j.payload.kind === "shop_cancel")!;
   expect(cancel).toBeDefined();
   expect(await deliverShopChange(cancel, { env, send, now: daytime })).toEqual({ status: "complete" });
-  expect(JSON.parse(send.mock.calls[1][1]).body).toBe("Dein Termin Di 03.11. 14:00 wurde abgesagt. Neuen Termin wählen.");
+  expect(JSON.parse(send.mock.calls[1][1]).body).toBe("Dein Termin Di 03.11. um 14:00 wurde abgesagt. Wähl gern einen neuen.");
 });
 
 it("the rebook scan respects consent, an open appointment and the cap shared with Wallet messages, and claims once", async () => {
@@ -151,7 +151,7 @@ it("the rebook scan respects consent, an open appointment and the cap shared wit
   await cancelByCustomer({ token: shop.card.cardToken, appointmentId: early.appointment.id }, scan);
   const send = fakeSender();
   expect(await deliverRebook(job, { env, send, now: scan })).toEqual({ status: "complete" });
-  expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Zeit für Haarschnitt? Dein Slot bei Lena: Termin buchen.",
+  expect(JSON.parse(send.mock.calls[0][1])).toEqual({ title: "Synthetic Barber", body: "Zeit für Haarschnitt? Buch deinen nächsten Termin bei Lena.",
     url: `/card/${shop.card.cardToken}/termin?service=${shop.serviceId}&staff=${shop.staffId}&rebook=${first.id}` });
   // The link's source lands on the new booking, only for this card's own appointment.
   const rebooked = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date("2026-11-28T09:00:00Z"), customerName: "Mia", idempotencyKey: randomUUID(), rebookSourceId: first.id }, scan);

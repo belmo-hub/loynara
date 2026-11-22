@@ -82,13 +82,14 @@ export function actionError(cause: { code?: string; status?: number; message?: s
   }
   // Connection and rate-limit messages from apiJson are already German.
   if ((cause.status === 0 || cause.status === 429) && cause.message) return cause.message;
-  return "Das hat nicht geklappt. Versuch es noch einmal.";
+  return "Das hat nicht geklappt. Versuch es noch mal.";
 }
 
 /** "HH:MM" on `date` in the shop's zone → ISO instant; null in the spring-forward gap. */
 export const wallToIso = (date: string, time: string, timeZone: string) => wallToInstant(date, time, timeZone)?.toISOString() ?? null;
 
-const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+// Cents only where there are some, as the customer side writes prices (Design minor: 12,50 € never shows as 13 €).
+const euro = { format: (value: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(value) };
 
 /** The day's numbers on top: appointments that still count, open requests, and the list price of what is done (an estimate). */
 export function dayTotals(appointments: OwnerAppointment[]) {

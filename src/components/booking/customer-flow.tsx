@@ -88,7 +88,7 @@ export function CustomerFlow({ token }: { token: string }) {
   const load = useCallback(() => apiJson<BookingView>(base).then(result => { setView(result); setLoadError(""); }, () => setLoadError("Lad die Seite gleich noch mal. Wenn es nicht geht, ruf kurz im Geschäft an.")), [base]);
   useEffect(() => { void load(); }, [load]);
 
-  if (loadError && !view) return <CustomerState title="Termine nicht erreichbar." message={loadError} tone="error"><Button onClick={() => void load()}>Noch mal laden</Button></CustomerState>;
+  if (loadError && !view) return <CustomerState title="Termine nicht erreichbar" message={loadError} tone="error"><Button onClick={() => void load()}>Noch mal laden</Button></CustomerState>;
   if (!view) return <CustomerShell footer={<LegalLinks newTab />}><div className={mix.stack} aria-busy="true" aria-label="Termine werden geladen.">
     <Skeleton height={48} width="60%" radius={14} /><Skeleton height={140} radius={20} /><Skeleton height={280} radius={20} />
   </div></CustomerShell>;
@@ -259,7 +259,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         <p className={styles.step}>{index} von {total}</p>
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
-      {service && step !== "service" && !moving ? <p className={card.muted}>{service.name} · {durationLabel(service.durationMin)} · {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
+      {service && step !== "service" && !moving ? <p className={card.muted}>{service.name}, {durationLabel(service.durationMin)}, {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
 
       {step === "service" && atLimit ? <p className={card.muted}>{`Du hast schon ${view.upcoming.length === 1 ? "einen offenen Termin" : `${view.upcoming.length} offene Termine`}. Mehr gehen hier nicht gleichzeitig. Sag oben einen ab, dann geht ein neuer.`}</p>
         : step === "service" ? view.services.length ? <div className={styles.rewardList}>

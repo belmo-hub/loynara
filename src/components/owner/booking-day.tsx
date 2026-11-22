@@ -185,9 +185,9 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const transition = (to: "confirmed" | "done" | "no_show" | "cancelled_by_shop", extra: object = {}) =>
     postJson<OwnerAppointment>(`/api/merchant/booking/appointments/${appointment.id}/transition`, { to, expected: appointment.status, idempotencyKey: newRequestId(), ...extra });
 
-  const confirm = () => run(() => transition("confirmed"), (row: OwnerAppointment) => onDone(`Termin ${time} bestätigt.`, "ok", row));
+  const confirm = () => run(() => transition("confirmed"), (row: OwnerAppointment) => onDone(`Termin ${time} bestätigt`, "ok", row));
   const finish = () => run(() => transition("done", pointsAmount && amountMinor ? { purchaseAmountMinor: amountMinor } : {}),
-    (row: OwnerAppointment) => onAward(row.doneAward ? awardLine(programType, row.doneAward.creditedQuantity) : "Termin erledigt.", row));
+    (row: OwnerAppointment) => onAward(row.doneAward ? awardLine(programType, row.doneAward.creditedQuantity) : "Termin erledigt", row));
   const noShow = () => run(() => transition("no_show"), (row: OwnerAppointment) => onDone(`${appointment.customerName}: nicht erschienen.`, "ok", row));
   const cancel = () => run(() => transition("cancelled_by_shop", reason.trim() ? { reason: reason.trim() } : {}), (row: OwnerAppointment) => onDone(appointment.status === "requested" ? `Anfrage ${time} abgelehnt.` : `Termin ${time} abgesagt.`, "ok", row));
   const moveName = dayName(moveDate, todayIn(zone));
@@ -238,7 +238,8 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
       {primary === "confirm" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void confirm()} disabled={busy} aria-busy={busy} data-autofocus>Bestätigen</button>}
       {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || amountInvalid} aria-busy={busy} data-autofocus>Fertig</button>}
     </>, body: <>
-      <p>{appointment.customerName} · <span translate="no">{appointment.cardLocator}</span> · bei {appointment.staff.name}</p>
+      <p>{appointment.customerName} bei {appointment.staff.name}</p>
+      <p className="ow-hint" translate="no">{appointment.cardLocator}</p>
       <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{statusWord(appointment)}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
       {actions.includes("done") && (pointsAmount
         ? <div className="ow-field"><label htmlFor="bd-amount">Betrag in Euro</label><input id="bd-amount" className="ow-input ow-num" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amountInvalid || undefined} aria-describedby="bd-amount-hint" /><span id="bd-amount-hint" className="ow-hint">Bei „Fertig“ werden Punkte für diesen Betrag gutgeschrieben. Ohne Betrag gibt es keine Punkte.</span></div>
@@ -252,7 +253,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
         <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button>
       </div>}
       <div className="ow-row" style={{ justifyContent: "space-between" }}>
-        <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen." : `${appointment.noShowCount}× nicht erschienen, 12 Monate.`}{blocked && " Online-Buchung gesperrt."}</span>
+        <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen" : `In 12 Monaten ${appointment.noShowCount}× nicht erschienen`}{blocked && " Online-Buchung gesperrt."}</span>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setError(""); if (blocked) void toggleBlock(); else setMode("block"); }} disabled={busy}>{blocked ? "Kunde entsperren" : "Kunde sperren"}</button>
       </div>
     </> };
@@ -345,7 +346,7 @@ function ReleaseDialog({ block, onClose, onDone }: { block: DayBlock; onClose: (
       const response = await fetch(`/api/merchant/booking/blocks/${block.id}`, { method: "DELETE", credentials: "same-origin" });
       if (!response.ok && response.status !== 404) throw new Error();
       onDone("Zeit wieder frei. Kunden können buchen.");
-    } catch { setError("Das hat nicht geklappt. Versuch es noch einmal."); setBusy(false); }
+    } catch { setError("Das hat nicht geklappt. Versuch es noch mal."); setBusy(false); }
   }
   return (
     <OwnerDialog title="Zeit freigeben?" onClose={onClose} actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={busy}>Abbrechen</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void release()} disabled={busy} aria-busy={busy} data-autofocus>Freigeben</button></>}>
@@ -370,7 +371,7 @@ function BlockedDialog({ customers, onClose, onDone }: { customers: Blocked[]; o
   }
   return (
     <OwnerDialog title="Gesperrte Kunden" onClose={onClose} actions={<button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={Boolean(busy)}>Schließen</button>}>
-      <p>Sie können nicht online buchen, nur anrufen.</p>
+      <p>Diese Kunden können nicht online buchen, nur anrufen.</p>
       {customers.length === 0 ? <p className="ow-muted">Niemand ist gesperrt.</p> : <ul className="ow-feed">{customers.map(customer => (
         <li key={customer.membershipId}>
           <span><strong>{customer.name}</strong> · <span translate="no">{customer.cardLocator}</span><small className="ow-muted" style={{ display: "block" }}>seit {germanDate(customer.blockedAt)}{customer.reason && ` · ${customer.reason}`}</small></span>

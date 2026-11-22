@@ -83,13 +83,13 @@ function problems(form: Form): Record<string, string>[] {
   const services: Record<string, string> = {};
   if (!form.services.length) services["bs-add-service"] = "Füge mindestens eine Leistung hinzu.";
   form.services.forEach(service => {
-    if (!service.name.trim()) services[`bs-sname-${service.key}`] = "Bitte einen Namen eingeben.";
-    if (parsePrice(service.price) === null) services[`bs-price-${service.key}`] = "Preis wie 25 oder 12,50 eingeben, höchstens 1.000 €.";
+    if (!service.name.trim()) services[`bs-sname-${service.key}`] = "Trag einen Namen ein.";
+    if (parsePrice(service.price) === null) services[`bs-price-${service.key}`] = "Gib einen Preis wie 25 oder 12,50 ein, höchstens 1.000 €.";
   });
   const staff: Record<string, string> = {};
   if (!form.staff.length) staff["bs-add-staff"] = "Mindestens eine Person muss Termine annehmen.";
   form.staff.forEach(member => {
-    if (!member.name.trim()) staff[`bs-pname-${member.key}`] = "Bitte einen Namen eingeben.";
+    if (!member.name.trim()) staff[`bs-pname-${member.key}`] = "Trag einen Namen ein.";
     if (member.hours && (hoursProblem(member.hours) || withinHours(member.hours, form.hours))) staff[`bs-phours-${member.key}`] = hoursProblem(member.hours) || withinHours(member.hours, form.hours);
     if (member.serviceKeys && !member.serviceKeys.length) staff[`bs-pserv-${member.key}`] = "Wähle mindestens eine Leistung.";
   });
@@ -107,8 +107,8 @@ function saveMessage(cause: unknown) {
   if (cause.status === 401) return "Deine Anmeldung ist abgelaufen. Melde dich erneut an.";
   if (cause.code === "FORBIDDEN") return "Nur die Inhaberin oder der Inhaber kann die Online-Termine einrichten.";
   if (cause.code === "NOT_FOUND" || cause.code === "INVALID_SERVICE") return "Die Einrichtung wurde inzwischen woanders geändert. Lade die Seite neu.";
-  if (cause.status === 429) return "Zu viele Anfragen. Warte kurz und versuche es erneut.";
-  return "Nicht gespeichert. Prüfe die Angaben und versuche es erneut.";
+  if (cause.status === 429) return "Zu viele Anfragen. Warte kurz und versuch es noch mal.";
+  return "Nicht gespeichert. Prüf die Angaben und versuch es noch mal.";
 }
 
 export function BookingSetup() {

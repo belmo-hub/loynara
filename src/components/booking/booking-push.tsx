@@ -46,7 +46,7 @@ export function BookingPush({ base, scope, push, reload }: { base: string; scope
 
   // A yes given in the home-screen app must stay withdrawable from any browser, with or without push here.
   if (!push.publicKey || !supported) return push.publicKey || push.rebookConsent ? <div data-slot="booking-push">
-    {push.publicKey ? <p className={card.muted}>Auf dem iPhone: Karte zum Home-Bildschirm hinzufügen, dann Mitteilungen erlauben.</p> : null}
+    {push.publicKey ? <p className={card.muted}>Leg die Karte auf dem iPhone auf den Home-Bildschirm und erlaube dann Mitteilungen.</p> : null}
     {push.rebookConsent ? consent : null}
     {failed}
   </div> : null;

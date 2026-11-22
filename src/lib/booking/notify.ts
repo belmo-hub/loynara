@@ -182,7 +182,7 @@ export async function deliverReminder(job: Pick<OutboxJob, "payload">, deps: Dep
   // A job planned for another start (moved since) or delivered far too late says nothing.
   if (job.payload.start !== a.start.toISOString() || !due || now.getTime() - due.getTime() > 45 * MINUTE || now >= a.start) return { status: "suppressed", reason: "Reminder no longer due" };
   return deliver(a, which === "24h" ? "reminder_24h" : "reminder_2h", job.payload.at,
-    { title: a.shop, body: `Dein Termin ${a.service} ist ${day(a)} um ${time(a)} bei ${a.staff}.`, url: page(a) }, deps);
+    { title: a.shop, body: `Dein Termin für ${a.service} ist ${day(a)} um ${time(a)} bei ${a.staff}.`, url: page(a) }, deps);
 }
 
 const UNCONFIRMED = "Nicht bestätigt";
@@ -198,7 +198,7 @@ export async function deliverShopChange(job: Pick<OutboxJob, "payload">, deps: D
   const body = kind === "confirmed" ? `Dein Termin ${day(a)} um ${time(a)} bei ${a.staff} ist bestätigt.`
     : kind === "moved" ? `Dein Termin ist jetzt ${day(a)} um ${time(a)} bei ${a.staff}.`
     : a.cancel_reason === UNCONFIRMED ? `Dein Termin ${day(a)} um ${time(a)} konnte nicht bestätigt werden. Buch gern einen neuen.`
-    : `Dein Termin ${day(a)} ${time(a)} wurde abgesagt. Neuen Termin wählen.`;
+    : `Dein Termin ${day(a)} um ${time(a)} wurde abgesagt. Wähl gern einen neuen.`;
   return deliver(a, kind, job.payload.at, { title: a.shop, body, url: page(a) }, deps, kind === "moved" ? earlierStart(a.start, job.payload.from) : a.start);
 }
 
@@ -257,7 +257,7 @@ export async function deliverRebook(job: Pick<OutboxJob, "payload">, deps: Deps 
   if (!still) return { status: "suppressed", reason: "No consent or already booked" };
   const query = new URLSearchParams({ service: a.service_id, staff: a.staff_id, rebook: a.id });
   return deliver(a, "rebook", job.payload.at,
-    { title: a.shop, body: `Zeit für ${a.service}? Dein Slot bei ${a.staff}: Termin buchen.`, url: `${page(a)}?${query}` }, deps);
+    { title: a.shop, body: `Zeit für ${a.service}? Buch deinen nächsten Termin bei ${a.staff}.`, url: `${page(a)}?${query}` }, deps);
 }
 
 /** The worker's entry for booking.reminder, booking.change, booking.request and booking.rebook. */

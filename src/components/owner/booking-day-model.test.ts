@@ -23,7 +23,7 @@ describe("booking day model", () => {
   });
 
   it("sums the day on top and names the next request's day", () => {
-    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine, davon 1 Anfrage, 1 abgesagt · 2 erledigt: 76\u00a0€ nach Listenpreis, nicht kassiert");
+    expect(dayTotals([appointment("a", "x", "done"), appointment("b", "x", "done", 4550), appointment("c", "x", "requested"), appointment("d", "x", "cancelled_by_shop")])).toBe("3 Termine, davon 1 Anfrage, 1 abgesagt · 2 erledigt: 75,50\u00a0€ nach Listenpreis, nicht kassiert");
     // Design, 22 Nov: no totals line without a live appointment, also when the day holds only cancelled ones.
     expect(dayTotals([])).toBeNull();
     expect(dayTotals([appointment("d", "x", "cancelled_by_shop")])).toBeNull();
@@ -76,6 +76,6 @@ describe("booking day model", () => {
     expect(actionError({ code: "STALE" })).toBe("Schon geändert, Liste aktualisiert.");
     expect(actionError({ code: "TOO_EARLY" }, { start: "2026-10-27T09:00:00.000Z" })).toBe("Geht erst ab 09:50 Uhr.");
     expect(actionError({ status: 0, message: "Keine Verbindung." })).toBe("Keine Verbindung.");
-    expect(actionError({ status: 500, message: "Internal error" })).toBe("Das hat nicht geklappt. Versuch es noch einmal.");
+    expect(actionError({ status: 500, message: "Internal error" })).toBe("Das hat nicht geklappt. Versuch es noch mal.");
   });
 });
