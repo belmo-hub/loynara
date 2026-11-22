@@ -20,5 +20,8 @@ main[tabindex="-1"]:focus { outline: none; }
    the value is the dark --color-bg from tokens.css. */
 :root:has(.ly-theme-dark) body { background-color: #0F1713; }
 @media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) body { background-color: #0F1713; } }
+/* The root says it is dark too, or the page scrollbar and the browser's own controls stay light. */
+:root:has(.ly-theme-dark) { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) { color-scheme: dark; } }
 ::selection { background: color-mix(in oklab, var(--color-ink) 18%, transparent); color: var(--color-ink); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
