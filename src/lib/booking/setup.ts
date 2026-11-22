@@ -20,7 +20,7 @@ export const setupInput = z.object({
     maxReschedulesPerMonth: z.number().int().min(0).max(10),
     autoConfirm: z.boolean(),
     noShowBlockAfter: z.number().int().min(0).max(10),
-    maxOpenPerCard: z.number().int().min(1).max(5),
+    maxOpenPerCard: z.number().int().min(1).max(2),
     termsText: z.string().trim().max(600).default(""),
     // The shop's hours, stored for the wizard (staff who follow them get a copy); availability reads staff hours only.
     openingHours: z.array(workingDay).max(14).nullable().optional(),

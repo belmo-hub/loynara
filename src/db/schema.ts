@@ -1194,7 +1194,7 @@ export const bookingSettings = pgTable("booking_settings", {
 }, (t) => [
   primaryKey({ columns: [t.tenantId, t.locationId] }),
   foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
-  check("booking_settings_valid", sql`${t.shopType} in ('nagelstudio','barber','kosmetik') and ${t.leadTimeMin} between 0 and 1440 and ${t.maxDaysAhead} between 1 and 180 and ${t.cancelDeadlineHours} between 0 and 168 and ${t.maxReschedulesPerMonth} between 0 and 10 and ${t.noShowBlockAfter} between 0 and 10 and ${t.maxOpenPerCard} between 1 and 5`),
+  check("booking_settings_valid", sql`${t.shopType} in ('nagelstudio','barber','kosmetik') and ${t.leadTimeMin} between 0 and 1440 and ${t.maxDaysAhead} between 1 and 180 and ${t.cancelDeadlineHours} between 0 and 168 and ${t.maxReschedulesPerMonth} between 0 and 10 and ${t.noShowBlockAfter} between 0 and 10 and ${t.maxOpenPerCard} between 1 and 2`),
 ]);
 
 export const bookingServices = pgTable("booking_services", {

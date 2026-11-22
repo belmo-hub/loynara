@@ -38,7 +38,7 @@ const AHEAD: [number, string][] = [[7, "1 Woche im Voraus"], [14, "2 Wochen im V
 const DEADLINE: [number, string][] = [[0, "jederzeit"], [2, "bis 2 Std. vorher"], [12, "bis 12 Std. vorher"], [24, "bis 24 Std. vorher"], [48, "bis 2 Tage vorher"], [168, "bis 1 Woche vorher"]];
 const RESCHEDULE: [number, string][] = [[0, "online nicht"], ...[1, 2, 3, 4, 5].map(n => [n, `${n}-mal im Monat`] as [number, string])];
 const NO_SHOW: [number, string][] = [[0, "nie"], ...[1, 2, 3, 4, 5].map(n => [n, `nach ${missedPhrase(n)}`] as [number, string])];
-const OPEN_PER_CARD: [number, string][] = [1, 2, 3].map(n => [n, n === 1 ? "1 Termin" : `${n} Termine`]);
+const OPEN_PER_CARD: [number, string][] = [1, 2].map(n => [n, n === 1 ? "1 Termin" : `${n} Termine`]);
 const REBOOK: [number, string][] = [[0, "Aus"], [14, "nach 2 Wochen"], [21, "nach 3 Wochen"], [28, "nach 4 Wochen"], [42, "nach 6 Wochen"], [56, "nach 8 Wochen"]];
 
 let seq = 0;

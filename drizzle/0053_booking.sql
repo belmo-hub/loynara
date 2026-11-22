@@ -113,7 +113,7 @@ CREATE TABLE "booking_settings" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "booking_settings_tenant_id_location_id_pk" PRIMARY KEY("tenant_id","location_id"),
-	CONSTRAINT "booking_settings_valid" CHECK ("booking_settings"."shop_type" in ('nagelstudio','barber','kosmetik') and "booking_settings"."lead_time_min" between 0 and 1440 and "booking_settings"."max_days_ahead" between 1 and 180 and "booking_settings"."cancel_deadline_hours" between 0 and 168 and "booking_settings"."max_reschedules_per_month" between 0 and 10 and "booking_settings"."no_show_block_after" between 0 and 10 and "booking_settings"."max_open_per_card" between 1 and 5)
+	CONSTRAINT "booking_settings_valid" CHECK ("booking_settings"."shop_type" in ('nagelstudio','barber','kosmetik') and "booking_settings"."lead_time_min" between 0 and 1440 and "booking_settings"."max_days_ahead" between 1 and 180 and "booking_settings"."cancel_deadline_hours" between 0 and 168 and "booking_settings"."max_reschedules_per_month" between 0 and 10 and "booking_settings"."no_show_block_after" between 0 and 10 and "booking_settings"."max_open_per_card" between 1 and 2)
 );
 --> statement-breakpoint
 CREATE TABLE "booking_staff" (

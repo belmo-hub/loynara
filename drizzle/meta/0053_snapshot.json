@@ -1933,7 +1933,7 @@
       "checkConstraints": {
         "booking_settings_valid": {
           "name": "booking_settings_valid",
-          "value": "\"booking_settings\".\"shop_type\" in ('nagelstudio','barber','kosmetik') and \"booking_settings\".\"lead_time_min\" between 0 and 1440 and \"booking_settings\".\"max_days_ahead\" between 1 and 180 and \"booking_settings\".\"cancel_deadline_hours\" between 0 and 168 and \"booking_settings\".\"max_reschedules_per_month\" between 0 and 10 and \"booking_settings\".\"no_show_block_after\" between 0 and 10 and \"booking_settings\".\"max_open_per_card\" between 1 and 5"
+          "value": "\"booking_settings\".\"shop_type\" in ('nagelstudio','barber','kosmetik') and \"booking_settings\".\"lead_time_min\" between 0 and 1440 and \"booking_settings\".\"max_days_ahead\" between 1 and 180 and \"booking_settings\".\"cancel_deadline_hours\" between 0 and 168 and \"booking_settings\".\"max_reschedules_per_month\" between 0 and 10 and \"booking_settings\".\"no_show_block_after\" between 0 and 10 and \"booking_settings\".\"max_open_per_card\" between 1 and 2"
         }
       },
       "isRLSEnabled": false
