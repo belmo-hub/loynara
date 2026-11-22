@@ -66,7 +66,8 @@ export function parsePrice(raw: string): number | null {
 export function durationLabel(minutes: number) {
   const hours = Math.floor(minutes / 60), rest = minutes % 60;
   if (!hours) return `${rest} Min.`;
-  return rest ? `${hours}:${String(rest).padStart(2, "0")} Std.` : `${hours} Std.`;
+  // D9: never clock notation; „1:30 Std.“ read like a time next to the 10:30 chips.
+  return rest ? `${hours} Std. ${rest} Min.` : `${hours} Std.`;
 }
 
 const hoursPhrase = (hours: number) => hours === 1 ? "1 Stunde" : hours % 24 === 0 && hours > 24 ? `${hours / 24} Tage` : `${hours} Stunden`;

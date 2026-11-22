@@ -45,8 +45,9 @@ describe("booking set-up helpers", () => {
   it("labels durations", () => {
     expect(durationLabel(45)).toBe("45 Min.");
     expect(durationLabel(60)).toBe("1 Std.");
-    expect(durationLabel(90)).toBe("1:30 Std.");
-    expect(durationLabel(65)).toBe("1:05 Std.");
+    expect(durationLabel(90)).toBe("1 Std. 30 Min.");
+    expect(durationLabel(65)).toBe("1 Std. 5 Min.");
+    expect(durationLabel(135)).toBe("2 Std. 15 Min.");
   });
   it("default terms name the deadline, the reschedule cap and the no-show pause", () => {
     expect(defaultTerms({ cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, noShowBlockAfter: 3 })).toBe("Absagen bitte bis 24 Stunden vorher; später zählt es als kurzfristige Absage. Verschieben geht online bis 24 Stunden vorher, bis zu 2-mal im Monat. Nach 3 verpassten Terminen ohne Absage ist die Online-Buchung für dich pausiert; ruf dann kurz an.");
