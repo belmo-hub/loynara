@@ -75,13 +75,17 @@ describe("customer legal pages", () => {
     expect(html).toContain("Bei Apple-Wallet-Karten erhält Apple für Aktualisierungen den Push-Token deines Geräts, aber keine Karteninhalte.");
     expect(html).toContain("erstellen wir den Pass mit deinem Kartenstand selbst, und dein Gerät lädt ihn von unserem Server.");
     expect(html).not.toContain("PassFast");
-    expect(html).toContain("Stand: 21. November 2026.");
+    // ENG-201: the Terminbuchung Stand, a placeholder set to the ship date like the AVV (Legal, 22 Nov).
+    expect(html).toContain("Stand: 29. November 2026.");
+    expect(html).not.toContain("Stand: 21. November 2026.");
   });
 
   it("announces changes to the customer's disadvantage four weeks ahead (ENG-100, Legal §3 and Q-88)", () => {
     const html = renderToStaticMarkup(createElement(TeilnahmebedingungenPage));
     expect(html).toContain("Es gelten die Regeln, die auf deiner Karte angezeigt werden. Das Geschäft kann sie für die Zukunft ändern. Verbesserungen gelten sofort. Ändert das Geschäft etwas zu deinem Nachteil, zeigt deine Karte das mindestens vier Wochen vorher mit Datum an, zum Beispiel wenn eine Prämie mehr Stempel oder Punkte braucht, kleiner oder eingeschränkt wird oder wegfällt, oder wenn du für deinen Einkauf weniger bekommst. Bis dahin gilt die bisherige Regel. Deine gesammelten Stempel und Punkte bleiben erhalten. Extra-Boni wie den Willkommen-zurück- oder den Geburtstagsbonus kann das Geschäft jederzeit ändern oder beenden; schon gebuchte Boni bleiben dir.");
-    expect(html).toContain("Stand: 30. Oktober 2026.");
+    // ENG-201: the Online-Termine Stand, a placeholder set to the ship date like the AVV (Legal, 22 Nov).
+    expect(html).toContain("Stand: 29. November 2026.");
+    expect(html).not.toContain("Stand: 30. Oktober 2026.");
     expect(html).not.toContain("die bei der Anmeldung für das gewählte Programm angezeigt werden");
   });
 });
