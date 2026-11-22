@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RELEASED_GATES, GATES, COPY_VARIANTS } from '../src/claims.js';
 
@@ -85,7 +85,7 @@ test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', 
 
 test('booking gate on: the Termin + Treue plan without a price or a money-back promise, the Salons link and the salon page', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
-  assert.match(t, /Termin \+ Treue: alles aus dem 49-€-Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.match(t, /Keine Provision, nie/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
+  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Weniger Nichterscheinen/);
 });
 
@@ -98,4 +98,12 @@ test('booking gate on: the home Termin plan uses the home page\'s own plan class
   assert.ok(!r.home.includes('price-pair') && !r.home.includes('class="price-card"'));
   const css = readFileSync(resolve(here, '../design/home.css'), 'utf8');
   assert.match(css, /\.pcard,\.incl\{[^}]*background:var\(--surface\)/); assert.match(css, /\.btn-pri\{background:var\(--action\)/);
+});
+
+test('the built site carries nothing of Termin while bookingLive is off (Design minor, 22 Nov)', () => {
+  if (RELEASED_GATES.bookingLive) return;
+  const files: string[] = [];
+  const walk = (dir: string) => { for (const name of readdirSync(dir)) { const path = resolve(dir, name); if (statSync(path).isDirectory()) walk(path); else if (/\.(html|js|css|xml|txt)$/.test(name)) files.push(path); } };
+  walk(resolve(here, '../site'));
+  for (const file of files) assert.doesNotMatch(readFileSync(file, 'utf8'), /69\s*€|Geld zurück|fuer-salons|price-pair|Termin \+ Treue/, file);
 });
