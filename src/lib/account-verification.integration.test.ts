@@ -5,11 +5,12 @@ import { recipientHash, type TransactionalMessage } from "./transactional-email"
 
 const sent = vi.hoisted(() => [] as TransactionalMessage[]);
 // How long the fake provider takes to accept a mail.
-const provider = vi.hoisted(() => ({ delayMs: 0 }));
+const provider = vi.hoisted(() => ({ delayMs: 0, fail: false }));
 vi.mock("./transactional-email", async importOriginal => ({
   ...await importOriginal<typeof import("./transactional-email")>(),
   transactionalProvider: () => ({ name: "mailpit", async send(message: TransactionalMessage) {
     await new Promise(resolve => setTimeout(resolve, provider.delayMs));
+    if (provider.fail) throw new Error("synthetic provider outage");
     sent.push(message);
     return { state: "accepted", messageId: `local:${message.jobId}` };
   } }),
@@ -27,6 +28,7 @@ beforeEach(async () => {
   await pool.query('TRUNCATE tenants, "user", rate_limits, email_suppressions CASCADE');
   sent.length = 0;
   provider.delayMs = 0;
+  provider.fail = false;
   process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
   process.env.PUBLIC_REGISTRATION_ENABLED = "true";
 });
@@ -161,4 +163,23 @@ it("answers an anonymous resend alike for every address when the provider is slo
   }
   for (const time of times) expect(time).toBeLessThan(550);
   await vi.waitFor(() => expect(sent.map(mail => mail.to)).toEqual([unconfirmed]), { timeout: 2000 });
+});
+
+// ENG-344: the signed-out resend no longer waits for the mail, so a provider that throws must still be caught in the
+// background; an unhandled rejection can stop the server.
+it("answers a signed-out resend when the provider throws, and leaves no unhandled rejection", async () => {
+  const email = `${randomUUID()}@example.test`;
+  await post("/sign-up/email", { name: "Synthetic owner", email, password: "synthetic-verify-password" });
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  const unhandled: unknown[] = [];
+  const listener = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", listener);
+  try {
+    provider.fail = true; provider.delayMs = 200;
+    const response = await post("/send-verification-email", { email });
+    expect([response.status, await response.text()]).toEqual([200, '{"status":true}']);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    expect(unhandled).toEqual([]);
+    expect(sent).toHaveLength(1);
+  } finally { process.off("unhandledRejection", listener); }
 });
