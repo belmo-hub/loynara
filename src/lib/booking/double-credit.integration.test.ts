@@ -107,3 +107,34 @@ it("outside the window a counter award is a new visit; a reversed „Fertig“ c
   await pool.query("UPDATE memberships SET balance = balance - 1 WHERE id = $1", [other.card.id]);
   expect((await counter(other)).status).toBe(200);
 });
+
+// F-1b (Reviewer, a0b330e2): an online award's deviceAt is the client's clock; it never moves the visit out of the window.
+const counterAt = (shop: Shop, deviceAt: Date) => awardRoute(request("/api/cashier/award", { body: { membershipId: shop.card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID(), deviceAt: deviceAt.toISOString() }, cookie: shop.ownerCookie }));
+const dayBack = () => new Date(Date.now() - 86_400_000);
+
+it("C1: „Fertig“, then an online award claiming a till time a day back, is refused; one credit", async () => {
+  const shop = await bookingShop(), appointment = await bookAt(shop, quarterNow());
+  expect((await fertig(shop, appointment.id)).status).toBe(200);
+  const refused = await counterAt(shop, dayBack());
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toMatchObject({ code: "STALE" });
+  expect(await credits(shop)).toBe(1);
+});
+
+it("C2: an online award claiming a till time a day back completes the appointment; „Fertig“ afterwards is STALE; one credit", async () => {
+  const shop = await bookingShop(), appointment = await bookAt(shop, quarterNow());
+  const response = await counterAt(shop, dayBack());
+  expect(response.status).toBe(200);
+  const { entryId } = await response.json();
+  expect(await row(appointment.id)).toEqual({ status: "done", done_ledger_entry_id: entryId });
+  expect((await fertig(shop, appointment.id)).status).toBe(409);
+  expect(await credits(shop)).toBe(1);
+});
+
+it("C2, linked at „Fertig“: an online award with an old till time whose completion did not run is still this visit", async () => {
+  const shop = await bookingShop(), appointment = await bookAt(shop, quarterNow());
+  const made = await db.transaction(tx => awardInTransaction(tx, { userId: shop.owner.userId, locationId: shop.scope.locationId, membershipId: shop.card.id, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID(), deviceAt: dayBack() }));
+  expect((await fertig(shop, appointment.id)).status).toBe(200);
+  expect(await row(appointment.id)).toEqual({ status: "done", done_ledger_entry_id: made.entryId });
+  expect(await credits(shop)).toBe(1);
+});

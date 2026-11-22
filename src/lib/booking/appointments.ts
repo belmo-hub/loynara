@@ -473,7 +473,8 @@ export async function completeAppointmentForAward(entryId: string, reader: Reade
   const [entry] = await reader.select({ tenantId: ledgerEntries.tenantId, locationId: ledgerEntries.locationId, membershipId: ledgerEntries.membershipId, createdAt: ledgerEntries.createdAt, deviceAt: ledgerEntries.deviceAt, kind: ledgerEntries.kind, source: ledgerEntries.source })
     .from(ledgerEntries).where(eq(ledgerEntries.id, entryId));
   if (!entry || entry.kind !== "award" || !["staff_online", "staff_offline", "nfc_tap"].includes(entry.source)) return null;
-  const at = (entry.deviceAt ?? entry.createdAt).toISOString();
+  // F-1b: only an offline award's till time is the visit; an online award's client clock is not trusted.
+  const at = (entry.source === "staff_offline" && entry.deviceAt ? entry.deviceAt : entry.createdAt).toISOString();
   const { rows: [done] } = await reader.execute<{ id: string }>(sql`
     UPDATE booking_appointments SET status = 'done', done_ledger_entry_id = ${entryId}::uuid, updated_at = now()
     WHERE tenant_id = ${entry.tenantId}::uuid AND status IN ('requested','confirmed') AND id = (

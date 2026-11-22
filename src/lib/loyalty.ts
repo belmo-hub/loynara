@@ -145,7 +145,7 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
     if (!input.idempotencyKey.startsWith("booking:") && input.source !== "synthetic_seed") {
       const { rows: [done] } = await tx.execute(sql`SELECT 1 FROM booking_appointments b
         WHERE b.tenant_id = ${member.tenantId}::uuid AND b.location_id = ${input.locationId}::uuid AND b.membership_id = ${member.id}::uuid
-          AND b.status = 'done' AND b.done_ledger_entry_id IS NOT NULL AND ${awardWindow(input.deviceAt ? input.deviceAt.toISOString() : sql`clock_timestamp()`, "b")}
+          AND b.status = 'done' AND b.done_ledger_entry_id IS NOT NULL AND ${awardWindow(input.source === "staff_offline" && input.deviceAt ? input.deviceAt.toISOString() : sql`clock_timestamp()`, "b")}
           AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = b.tenant_id AND r.reversal_of_id = b.done_ledger_entry_id) LIMIT 1`);
       if (done) throw new DomainError("STALE", APPOINTMENT_ALREADY_CREDITED);
     }
