@@ -11,6 +11,7 @@ import { programInForce } from "@/lib/rule-versions";
 import { getMerchantContext } from "@/lib/product";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { GRID_MIN, slots } from "./availability";
+import { awardWindow, visitAt } from "./award-window";
 import { notifyShopChange, pushState, scheduleReminders } from "./notify";
 import { getSetup } from "./setup";
 import { addDays, instantToWall, wallToInstant } from "./time";
@@ -332,8 +333,17 @@ export async function transition(input: TransitionInput, now = new Date()) {
       const purchase = inForce.type === "points" && inForce.earningMode === "purchase";
       // A purchase programme credits only an amount the team typed: the list price is an estimate, never a confirmed purchase.
       // No amount, one too small for a point, or a closed card (nothing left to credit) completes the appointment without a credit.
-      let entryId: string | null = null;
-      if (!closedAt && (!purchase || (input.purchaseAmountMinor ?? 0) >= 1)) {
+      // F-1: the visit may already be on the card (a counter, offline or plate credit in the window that nothing completed):
+      // then „Fertig“ links that entry and credits nothing. The card lock above keeps a new credit from landing meanwhile.
+      const { rows: [credited] } = await tx.execute<{ id: string }>(sql`
+        SELECT e.id FROM ledger_entries e JOIN booking_appointments a ON a.tenant_id = e.tenant_id AND a.id = ${row.a.id}::uuid
+        WHERE e.tenant_id = ${input.tenantId}::uuid AND e.location_id = ${input.locationId}::uuid AND e.membership_id = ${row.a.membershipId}::uuid
+          AND e.kind = 'award' AND e.source IN ('staff_online','staff_offline','nfc_tap') AND ${awardWindow(visitAt("e"), "a")}
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = e.tenant_id AND r.reversal_of_id = e.id)
+          AND NOT EXISTS (SELECT 1 FROM booking_appointments d WHERE d.tenant_id = e.tenant_id AND d.done_ledger_entry_id = e.id)
+        ORDER BY abs(extract(epoch FROM lower(a.during) - ${visitAt("e")})) LIMIT 1`);
+      let entryId: string | null = credited?.id ?? null;
+      if (!credited && !closedAt && (!purchase || (input.purchaseAmountMinor ?? 0) >= 1)) {
         try {
           const award = await awardInTransaction(tx, {
             userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
@@ -453,21 +463,17 @@ export async function dayView(input: Scope & { date?: string }, now = new Date()
 
 // ---- Cashier fusion (wired into the cashier routes in slice 4) ----------------------------------------------------------
 
-/**
- * The award belongs to the appointment when it lands between 30 minutes before the start (early arrivals) and 90 minutes
- * after the booked end (long services, paying afterwards); an earlier purchase on the same day is not the visit.
- */
-export const awardWindow = (at: string, alias: string) => sql`lower(${sql.raw(alias)}.during) <= ${at}::timestamptz + interval '30 minutes' AND upper(${sql.raw(alias)}.during) >= ${at}::timestamptz - interval '90 minutes'`;
+export { awardWindow } from "./award-window";
 
 /**
- * After a staff award: the card's open appointment at that location inside `awardWindow` becomes done, linked to that
+ * After a counter, offline or plate award: the card's open appointment at that location inside `awardWindow` becomes done, linked to that
  * ledger entry, without a second award. Whichever runs first (this or the owner's "Fertig") wins. Returns the id or null.
  */
 export async function completeAppointmentForAward(entryId: string, reader: Reader = db) {
-  const [entry] = await reader.select({ tenantId: ledgerEntries.tenantId, locationId: ledgerEntries.locationId, membershipId: ledgerEntries.membershipId, createdAt: ledgerEntries.createdAt, kind: ledgerEntries.kind, source: ledgerEntries.source })
+  const [entry] = await reader.select({ tenantId: ledgerEntries.tenantId, locationId: ledgerEntries.locationId, membershipId: ledgerEntries.membershipId, createdAt: ledgerEntries.createdAt, deviceAt: ledgerEntries.deviceAt, kind: ledgerEntries.kind, source: ledgerEntries.source })
     .from(ledgerEntries).where(eq(ledgerEntries.id, entryId));
-  if (!entry || entry.kind !== "award" || entry.source !== "staff_online") return null;
-  const at = entry.createdAt.toISOString();
+  if (!entry || entry.kind !== "award" || !["staff_online", "staff_offline", "nfc_tap"].includes(entry.source)) return null;
+  const at = (entry.deviceAt ?? entry.createdAt).toISOString();
   const { rows: [done] } = await reader.execute<{ id: string }>(sql`
     UPDATE booking_appointments SET status = 'done', done_ledger_entry_id = ${entryId}::uuid, updated_at = now()
     WHERE tenant_id = ${entry.tenantId}::uuid AND status IN ('requested','confirmed') AND id = (

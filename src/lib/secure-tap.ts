@@ -11,6 +11,7 @@ import { formatCardLocator } from "./card-locator";
 import { ownerTenant } from "./billing";
 import { programInForce } from "./rule-versions";
 import { enqueueTapPush } from "./staff-push";
+import { completeInAwardTransaction } from "./booking/cashier";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
 
 export type { TapKeyProvider, TapKeys };
@@ -252,6 +253,7 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
         customerActivityAt: qualifying ? Math.floor(now.getTime()/1000) : undefined };
     }
     const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
+    if (!booked.duplicate) await completeInAwardTransaction(tx, booked.entryId);
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
     await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
     return { ...base, state: "awarded", balance: booked.balance, cardLocator };

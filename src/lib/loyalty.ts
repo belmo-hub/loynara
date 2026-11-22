@@ -13,6 +13,10 @@ import { liveReward, notSuperseded } from "./reward-versions";
 import { programInForce } from "./rule-versions";
 import { surfaceHidden } from "./pilot-surfaces";
 import { birthdayWeek, WINBACK_WINDOW_DAYS } from "./wallet-message-rules";
+import { awardWindow } from "./booking/award-window";
+
+/** The cashier's answer when the booked visit was already credited by „Fertig“ (ENG-201 F-1). */
+export const APPOINTMENT_ALREADY_CREDITED = "Dieser Termin ist schon erledigt und gutgeschrieben.";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -134,6 +138,16 @@ async function bookAwardInTransaction(tx: Transaction, input: AwardInput, truste
         if (purchase.amountMinor !== input.purchaseAmountMinor || purchase.ruleVersionId !== input.ruleVersionId || purchase.pointsAwarded !== existing.delta || input.quantity !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       } else if (purchase || existing.delta !== input.quantity || input.purchaseAmountMinor !== undefined || input.ruleVersionId !== undefined) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
       return { balance: member.balance, duplicate: true, entryId: existing.id, creditedQuantity: existing.delta };
+    }
+    // ENG-201 F-1 (CTO's rule): a counter, offline or plate credit within the award window of an appointment this card
+    // already finished here, credited and not reversed, is that same visit: refused, nothing booked. Booking's own „Fertig“
+    // ("booking:" key) is the credit itself. Under the card lock above, so it cannot race the owner's „Fertig“.
+    if (!input.idempotencyKey.startsWith("booking:") && input.source !== "synthetic_seed") {
+      const { rows: [done] } = await tx.execute(sql`SELECT 1 FROM booking_appointments b
+        WHERE b.tenant_id = ${member.tenantId}::uuid AND b.location_id = ${input.locationId}::uuid AND b.membership_id = ${member.id}::uuid
+          AND b.status = 'done' AND b.done_ledger_entry_id IS NOT NULL AND ${awardWindow(input.deviceAt ? input.deviceAt.toISOString() : sql`clock_timestamp()`, "b")}
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = b.tenant_id AND r.reversal_of_id = b.done_ledger_entry_id) LIMIT 1`);
+      if (done) throw new DomainError("STALE", APPOINTMENT_ALREADY_CREDITED);
     }
     // A new booking: shared and held until commit, so an owner's programme save (FOR UPDATE) and a booking wait for each
     // other and the save's "no activity yet" check before a type change cannot miss a first award committing at the
