@@ -1,10 +1,8 @@
 # Loynara Termin – design doc (checkpoint 1)
 
-2026-10-26. Branch `feat/booking` from `railway-rc` 7d344ec. **Design only, no production code.** Plan „Termin + Treue“ 69 €/month; loyalty-only stays 49 € (39 € founding, first ten shops).
+2026-10-26. Branch `feat/booking` from `railway-rc` 7d344ec. **Design only, no production code.** Plan „Termin + Treue“; its price is the founder's decision and lives outside the repository.
 
 **Stack correction.** The brief says Kotlin/Quarkus/Vue. The repository is Next.js 16 (route handlers in `src/app/api`), Drizzle on Postgres 18, Stripe (built, off in production), PassFast Apple Wallet, Google Wallet (pending), Web Push for cashier phones (VAPID live), one worker (`scripts/worker.ts`: outbox plus nightly message scans). Everything below is designed for that stack.
-
-**Evidence.** `knowledge/pitch-log.csv` has a header and no rows: no field evidence about salons yet, so every decision is theory or product rule, labelled in §11. The four skills and the notes live on branch `knowledge/sales-psychology`, not on `railway-rc`.
 
 **Two decisions left to me.** (a) Auto-confirm follows the preset: on for Barber, off for Nagelstudio and Kosmetik; the wizard shows the cost of each choice in one line and the owner can flip it. (b) Prices are always shown; a service may carry an „ab“ flag so nail studios need not lie about variable prices.
 
@@ -107,5 +105,4 @@ Setup from a preset in under 5 minutes (measured in rehearsal, never promised). 
 ## 12. Needs the founder's yes
 
 1. Slice 1: `CREATE EXTENSION btree_gist` in migration 0042 (trusted, no superuser).
-2. Slice 7: `billing_location_plans.plan_code` CHECK gains `'termin_treue'`; `wallet_messages.kind` CHECK gains `'rebook'`. Two one-line edits on existing tables; without the second, rebook stays Web Push and card banner, fine for Monday.
-3. This worktree sits under `~/Desktop` (iCloud); the engineering bar says `~/Developer`. Slice 1 onward should move there.
+2. Slice 7: `billing_location_plans.plan_code` CHECK gains `'termin_treue'`; `wallet_messages.kind` CHECK gains `'rebook'`. Two one-line edits on existing tables, not in migration 0053; without the second, rebook stays Web Push and card banner.

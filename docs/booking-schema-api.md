@@ -207,4 +207,4 @@ Local run: `DATABASE_URL=postgresql://looplocal:looplocal_local_only@127.0.0.1:5
 5. `lib/booking/notify.ts`, worker dispatch for `booking.reminder` / `booking.rebook`, nightly `queueRebookPushes`, `public/card-sw.js`, push/consent routes, Wallet pass back field + „Nächster Termin“ (`lib/wallet/*`), card UI for the push toggle and consent box.
 6. `lib/merchant-analytics.ts` + analytics page euro section; `lib/export.ts` kind `appointments`; customer export.
 7. `/operator` toggle „Termin + Treue“ per location → `booking_settings.enabled`; `/merchant/billing` shows the plan; marketing site pricing card; the two CHECK edits stay unapplied (founder's yes).
-8. `scripts/seed-booking-demo.ts`; `docs/booking-pitch-addendum.md`.
+8. `scripts/seed-booking-demo.ts`.
