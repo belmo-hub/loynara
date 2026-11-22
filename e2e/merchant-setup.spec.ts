@@ -144,6 +144,33 @@ test("review submits the picked place's point and programme fields", async ({ pa
   expect(JSON.stringify(payload)).not.toContain("Königsplatz"); // Google's address is never stored (P-4)
 });
 
+test("a late answer never lands once the text is cut below two characters", async ({ page }) => {
+  let payload: Record<string, unknown> | undefined;
+  const late = (ms: number) => new Promise(done => setTimeout(done, ms));
+  await page.route("**/api/merchant/place-search", async route => { await late(600); await route.fulfill({ json: { suggestions: [{ id: "place_1", main: "Café am Platz", secondary: "Kassel" }] } }); });
+  await stubbed(page, route => { payload = route.request().postDataJSON(); return route.fulfill({ json: { programSlug: "synthetic-cafe" } }); });
+  const search = await toSearch(page);
+  // A search in flight, then „C“: the old answer must not open the list.
+  await search.fill("Café");
+  await page.waitForTimeout(350); // past the debounce, the answer still on its way
+  await search.fill("C");
+  await page.waitForTimeout(700);
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await expect(search).toHaveAttribute("aria-expanded", "false");
+  // A pick in flight, then the field emptied: the pick must not land.
+  await page.unroute("**/api/merchant/place-search");
+  await page.route("**/api/merchant/place-search", route => route.fulfill({ json: { suggestions: [{ id: "place_1", main: "Café am Platz", secondary: "Kassel" }] } }));
+  await page.route("**/api/merchant/place-location", async route => { await late(600); await route.fulfill({ json: { latitude: 51.3127, longitude: 9.4797 } }); });
+  await search.fill("Café am");
+  await page.getByRole("option").first().click();
+  await search.fill("");
+  await page.waitForTimeout(800);
+  await expect(page.locator("#su-place-picked")).toHaveCount(0);
+  await page.getByRole("button", { name: "Programm starten", exact: true }).click();
+  await expect.poll(() => payload).toBeTruthy();
+  expect(payload).not.toHaveProperty("googlePlaceId");
+});
+
 test("a failed shop search says so and setup still starts without a location", async ({ page }) => {
   let payload: Record<string, unknown> | undefined;
   await page.route("**/api/merchant/place-search", route => route.fulfill({ status: 502, json: { error: "Place search failed" } }));

@@ -254,8 +254,15 @@ jobs:
       # owner-arrival and owner-screen-change sign in as the local demo owner from var/demo-access.json.
       - name: Seed the synthetic demo shop
         run: npx tsx scripts/seed.ts
+      # ENG-323: a synthetic value only offers setup's shop search. The merchant-setup specs answer every place route in the
+      # browser and no other spec types in the search, so nothing here reaches Google.
+      - name: Offer the shop search with a synthetic key
+        run: echo "GOOGLE_MAPS_API_KEY=synthetic-not-a-key" >> "$GITHUB_ENV"
       - *start-app
       # Desktop project only, as above; the owner *.mobile.spec.ts files need WebKit.
       - name: Run the owner specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm e2e/guest-rhythm e2e/invite-register-return
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm e2e/guest-rhythm e2e/invite-register-return e2e/merchant-setup.spec.ts
+      # The shop search's focus pin is about the iPhone engine, so this one spec runs on WebKit.
+      - name: Run the shop search spec on WebKit
+        run: npx playwright install --with-deps webkit && npx playwright test --config=playwright.returning.config.ts --project=mobile-iphone-14 e2e/merchant-setup-search.mobile.spec.ts
       - *app-log
