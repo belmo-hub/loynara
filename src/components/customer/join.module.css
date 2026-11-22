@@ -12,7 +12,7 @@
 .reward strong { font-size: var(--text-16); font-weight: var(--weight-heavy); }
 
 .panel { display: grid; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
-.headline { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
+.headline { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; }
 .lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
 .headline + .lead { margin-top: calc(var(--space-1) - var(--space-4)); } /* a title's lead sits 4 under it */
@@ -36,8 +36,8 @@
 /* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
 .rules p + p { margin-top: var(--space-4); }
 
-.form { display: grid; gap: var(--space-4); }
-.form > button { margin-top: var(--space-2); }
+.form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); overflow-wrap: break-word; }
+.form > button { margin-top: var(--space-2); white-space: normal; text-wrap: balance; } /* large text: the label takes a second line, not more width (Design R1) */
 /* A sentence that names the button is its caption: 8 above it. */
 .form > .notice + button { margin-top: calc(var(--space-2) - var(--space-4)); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
