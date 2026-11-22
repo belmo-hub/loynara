@@ -1,7 +1,8 @@
 "use client";
 
 import { Check, Info, TriangleAlert, X } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cx } from "./cx";
 import styles from "./toast.module.css";
 
@@ -13,24 +14,36 @@ const ToastContext = createContext<Api | null>(null);
 const VISIBLE_MS = 5000;
 const EXIT_MS = 160;
 const icons = { success: Check, error: TriangleAlert, info: Info } as const;
+const portal = (host: HTMLDialogElement | null, node: ReactNode) => host ? createPortal(node, host) : node;
 
 /**
  * Mount once per shell. Announces every toast through one polite live region. The region has no status role, so a
  * page keeps exactly one status message of its own (specs and screen readers rely on that).
- * The region is a manual popover, open for the provider's life: it lives in the top layer, so a toast is not hidden
- * under an open Sheet or Dialog, and nothing dismisses it but its own timer or close button.
+ * The region is a manual popover, open while it is mounted: it lives in the top layer, and nothing dismisses it but
+ * its own timer or close button. While a modal Sheet or Dialog is open, the region moves into that modal (Design R4,
+ * 23 Nov): the page under a modal is inert, so only there is the toast live, tappable and announced. The Kasse dock's
+ * offset does not apply inside a modal.
  */
 export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: { children?: ReactNode; closeLabel?: string }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
   const paused = useRef(false);
   const region = useRef<HTMLDivElement>(null);
+  // The open modal the region lives in, or null for the page.
+  const [host, setHost] = useState<HTMLDialogElement | null>(null);
   useEffect(() => {
     const el = region.current;
     if (!el || typeof el.showPopover !== "function") return; // no popover support: the fixed region as before
     el.showPopover();
     return () => { if (el.matches(":popover-open")) el.hidePopover(); };
-  }, []);
+  }, [host]);
+  // Back to the page when the modal closes.
+  useEffect(() => {
+    if (!host) return;
+    const back = () => setHost(null);
+    host.addEventListener("close", back);
+    return () => host.removeEventListener("close", back);
+  }, [host]);
 
   const dismiss = useCallback((id: number) => {
     setToasts((all) => all.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
@@ -39,11 +52,7 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
 
   const show = useCallback<Api["show"]>((message, options) => {
     const id = nextId.current++;
-    // A modal opened after the region sits above it in the top layer: show the region again to put it on top.
-    // The page under a modal stays inert, the live region with it, so the open modal announces a plain-text toast.
-    const el = region.current, modal = document.querySelector<HTMLDialogElement>("dialog:modal");
-    if (el && modal && el.matches(":popover-open")) { el.hidePopover(); el.showPopover(); }
-    if (modal && typeof message === "string") (modal as HTMLDialogElement & { ariaNotify?: (text: string) => void }).ariaNotify?.(message);
+    setHost(document.querySelector<HTMLDialogElement>("dialog:modal"));
     setToasts((all) => [...all.slice(-2), { id, message, tone: options?.tone ?? "success" }]);
   }, []);
 
@@ -65,13 +74,14 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
   const api = useMemo(() => ({ show }), [show]);
   return <ToastContext.Provider value={api}>
     {children}
-    <div ref={region} popover="manual" className={styles.region} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }} onFocus={() => { paused.current = true; }} onBlur={() => { paused.current = false; }}>
+    {/* Keyed by its host: moving between the page and a modal mounts the region afresh, shown again on top. */}
+    {portal(host, <div key={host ? "modal" : "page"} ref={region} popover="manual" className={styles.region} style={host ? { "--toast-offset": "0px" } as CSSProperties : undefined} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }} onFocus={() => { paused.current = true; }} onBlur={() => { paused.current = false; }}>
       {toasts.map((t) => { const Icon = icons[t.tone]; return <div key={t.id} className={cx(styles.toast, styles[t.tone], t.leaving && styles.leaving)}>
         <Icon size={20} aria-hidden="true" className={styles.icon} /><span className={styles.message} aria-hidden="true">{t.message}</span>
         <button type="button" className={styles.close} onClick={() => dismiss(t.id)} aria-label={closeLabel}><X size={20} aria-hidden="true" /></button>
       </div>; })}
       <div className={styles.live} aria-live="polite" aria-atomic="true">{toasts.findLast((t) => !t.leaving)?.message}</div>
-    </div>
+    </div>)}
   </ToastContext.Provider>;
 }
 
