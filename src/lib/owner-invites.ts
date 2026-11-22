@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { locations, programs, staffAuditEvents, staffInvites, staffRoles, subscriptions, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
+import { SHOP_NAME_REFUSAL, unsafeShopName } from "./sender-details";
 import { assertPlateOperator } from "./plates";
 import { slugOf } from "./product";
 import { inviteTokenHash } from "./staff";
@@ -22,7 +23,7 @@ const shopInput = z.object({
   businessName: shortText,
   locationName: shortText.optional(),
   city: z.string().trim().min(2).max(120),
-  country: z.enum(["DE", "MA"]),
+  country: z.enum(["DE"]), // ENG-328: Germany only
   timezone: z.string().min(3).max(80),
   ownerEmail: z.email().max(320),
 });
@@ -46,9 +47,10 @@ export async function createShopWithOwnerInvite({ actorUserId, env, shop }: { ac
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
   return db.transaction(async tx => {
     await assertPlateOperator(tx, actorUserId, env);
+    if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
     const suffix = randomBytes(5).toString("base64url").toLowerCase().replace(/[^a-z0-9]/g, "");
     const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: `${slugOf(input.businessName)}-${suffix}`, currency: input.country === "DE" ? "EUR" : "MAD", locale: input.country === "DE" ? "de" : "fr" }).returning({ id: tenants.id });
-    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone }).returning({ id: locations.id });
+    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.city, city: input.city, country: input.country, timezone: input.timezone }).returning({ id: locations.id });
     return { tenantId: tenant.id, locationId: location.id, ...await issue(tx, tenant.id, location.id, input.ownerEmail.toLowerCase(), actorUserId) };
   });
 }

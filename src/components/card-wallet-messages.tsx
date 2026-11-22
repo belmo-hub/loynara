@@ -88,7 +88,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
     {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}
     {state.granted ? <SwitchedOn demo={state.demo} shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff demo={state.demo} shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
       {!state.demo && <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>}
-      <Checkbox checked={false} disabled={busy} onChange={() => void change(true)}><ConsentLabel lead={lead} demo={state.demo} /></Checkbox>
+      <Checkbox checked={busy} disabled={busy} onChange={() => void change(true)}><ConsentLabel lead={lead} demo={state.demo} /></Checkbox>
       <p className={styles.muted}>{lines.under}</p>
     </>}
     {error && <p role="alert" className={styles.error}>{error}</p>}

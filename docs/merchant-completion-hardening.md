@@ -96,7 +96,10 @@ any fixture/preview passes must be re-added.
 
 ## 5. Invite-gated staff sign-up
 
-Public registration stays **off**. Account creation is admitted only when **all** hold: `STAFF_INVITE_SIGNUP_ENABLED=true`, a pending,
+Open sign-up is allowed in production when the founder sets `PUBLIC_REGISTRATION_ENABLED=true` on the web service (founder decision,
+18 Nov 2026); the value must be exactly `true` or `false`, and absent means off. Invite-gated sign-up is meant only for closed
+registration, so `STAFF_INVITE_SIGNUP_ENABLED=true` together with public registration on is refused at start.
+With public registration off, account creation is admitted only when **all** hold: `STAFF_INVITE_SIGNUP_ENABLED=true`, a pending,
 unexpired, unrevoked, unconsumed invitation, the exact invited address (case-insensitive), and the invitation's secret token in `x-loynara-invite`.
 Verified (`invite-signup.integration.test.ts`, 8 tests + browser journey with registration closed):
 
@@ -247,7 +250,7 @@ native backup restore test (O-017), a migration rehearsal on a restored producti
 * **Nothing is required to deploy with defaults.** `STAFF_INVITE_SIGNUP_ENABLED` absent = off; no new variable is mandatory.
 * Running migration `0019_card_locators` through the existing migrate service needs its own explicit approval, a fresh backup first, and the rollback note above.
 * **Invite sign-up (owner-approved for the pilot; superseded text, see section 17):** set `STAFF_INVITE_SIGNUP_ENABLED=true` on the **web** service only,
-  with `PUBLIC_REGISTRATION_ENABLED=false`. The production guard now accepts exactly that combination and refuses public registration on.
+  with `PUBLIC_REGISTRATION_ENABLED=false`. The production guard refuses invite sign-up with public registration on (open sign-up itself is allowed since 18 Nov 2026, see section 5).
 * Do not set any NFC, Wallet or e-mail flag as part of this release.
 
 ## 16. Verdict

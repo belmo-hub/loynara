@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import styles from "./layout.module.css";
+import "./kasse-sheet.css";
+import { KasseSheetFrame } from "./kasse-sheet-frame";
 
 export const metadata: Metadata = {
+  // The tab and the task switcher name the Kasse, in the words its home-screen icon already carries.
+  title: "Loynara Kasse",
   manifest: "/cashier.webmanifest",
   icons: { apple: "/cashier-icon-192.png" },
   appleWebApp: { capable: true, title: "Loynara Kasse", statusBarStyle: "default" },
@@ -11,5 +16,6 @@ export const viewport: Viewport = {
 };
 
 export default function CashierLayout({ children }: LayoutProps<"/cashier">) {
-  return <>{children}</>;
+  // The layout mounts once per visit, so the sheet enters from the owner's link (type kasse-sheet) and nowhere else.
+  return <KasseSheetFrame className={styles.sheet}>{children}</KasseSheetFrame>;
 }

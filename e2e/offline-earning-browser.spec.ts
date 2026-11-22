@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("cashier queues an explicit offline award without credit, reloads, and syncs once online", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -7,7 +8,7 @@ test("cashier queues an explicit offline award without credit, reloads, and sync
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: headers });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic offline owner", email: `offline-ui-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(owner, { data: { name: "Synthetic offline owner", email: `offline-ui-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Offline Bakery", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Offline browser test", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Bread", rewardCost: 5,

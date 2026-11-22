@@ -6,6 +6,7 @@ import { bookingPushSubscriptions, cardRecoveryChallenges, cardSecurityEvents, m
 import { recoveryTokenForChallenge, recoveryTokenHash } from "./contact-token";
 import { emailTransportMode } from "./transactional-email";
 import { DomainError } from "./loyalty";
+import { revokeCardWalletPasses } from "./wallet/enqueue";
 
 const emailInput = z.email().max(320);
 const invalid = () => new DomainError("INVALID_RECOVERY", "Dieser Wiederherstellungslink ist ungültig oder abgelaufen.");
@@ -56,7 +57,7 @@ export async function recoveryOptions(token: string) {
   return { cards };
 }
 
-/** GET never invokes this operation. The POST rotates exactly one bearer credential. */
+/** GET never invokes this operation. The POST replaces the card link and its QR code and withdraws saved Wallet passes. */
 export async function completeCardRecovery(token: string, membershipId: string) {
   const challenge = await validChallenge(token);
   return db.transaction(async tx => {
@@ -69,11 +70,14 @@ export async function completeCardRecovery(token: string, membershipId: string) 
       .where(and(eq(membershipContacts.tenantId, member.tenantId), eq(membershipContacts.membershipId, member.id))).for("update");
     if (!contact || !contact.emailVerified || contact.email !== current.email) throw invalid();
     const cardToken = `card_${randomBytes(32).toString("base64url")}`;
-    await tx.update(memberships).set({ cardToken }).where(and(eq(memberships.id, member.id), eq(memberships.tenantId, member.tenantId), isNull(memberships.closedAt)));
+    const scanCode = `sc_${randomBytes(24).toString("base64url")}`;
+    await tx.update(memberships).set({ cardToken, scanCode }).where(and(eq(memberships.id, member.id), eq(memberships.tenantId, member.tenantId), isNull(memberships.closedAt)));
     // Booking pushes link to the card by its token: the lost browser's devices must not learn the new one.
     await tx.delete(bookingPushSubscriptions).where(and(eq(bookingPushSubscriptions.tenantId, member.tenantId), eq(bookingPushSubscriptions.membershipId, member.id)));
     await tx.delete(cardRecoveryChallenges).where(eq(cardRecoveryChallenges.email, current.email));
     await tx.insert(cardSecurityEvents).values({ tenantId: member.tenantId, membershipId: member.id, action: "card_credential_rotated" });
+    // As in the staff reissue: whoever held the old link also saw its QR code and may have saved a Wallet pass. Both go.
+    await revokeCardWalletPasses(tx, member.tenantId, member.id, "reissued");
     await tx.insert(outboxJobs).values({ tenantId: member.tenantId, kind: "email.recovery_notice", payload: { membershipId: member.id } });
     return { cardToken, membershipId: member.id };
   });

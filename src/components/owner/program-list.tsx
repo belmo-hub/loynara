@@ -1,16 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Archive, ArrowUpDown, BadgePlus, Bell, Cake, CalendarCheck, CalendarClock, Check, Clock, Coins, Gift, Hourglass, Medal, Megaphone, Nfc, Palette, Plus, ReceiptText, RefreshCw, ScrollText, Star, UserPlus, type LucideIcon } from "lucide-react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
+import { MixCard } from "@/components/customer/mix-card";
+import { cx } from "@/components/ui/cx";
+import { merchantPalette } from "@/components/ui/merchant-color";
+import { MixChip, MixPanel, MixRow, MixSection, mixStyles } from "@/components/ui/mix";
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
 import { useOwner } from "./owner-context";
-import { ErrorNotice, LoadingBlock, nf, PageHead } from "./owner-ui";
+import { ErrorNotice, LinkPending, LoadingBlock, nf, PageHead } from "./owner-ui";
 import { cardDay } from "@/lib/change-lines";
 import { ruleChips } from "./program-rule-changes";
 import { euro, EXTRA_RULES, QUESTIONS, ruleKind, unitDative, unitName, type Question } from "./program-helpers";
 import { ALL_MODES } from "./tap-policy";
+import styles from "./program-list.module.css";
 import { useLoad } from "./use-load";
 import type { Winback } from "./winback-card";
 
@@ -49,7 +53,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
   const rules = program.ownerRulesText ?? program.rulesText, extras = ruleKind(type, program.earningMode) === "purchase";
   // ENG-100: rows keep the value in force; a change waiting for its date shows as a chip (Design gaps §1).
   const chips = ruleChips(program), expiry = program.pendingExpiry ? program.pendingExpiry.before : me.pointsExpiryMonths;
-  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules) } : off("Keine")) } : { sub: quoteStart(rules) }) };
+  // The whole rule, as the customer reads it; the row clamps it after two lines (Design, 18 Nov).
+  const rule: Row = { ...ask("rule"), icon: ScrollText, pending: chips.rule, ...(extras ? { title: EXTRA_RULES, ...(rules ? { sub: quoteStart(rules, Infinity) } : off("Keine")) } : { sub: quoteStart(rules, Infinity) }) };
   const earning: Row[] = points ? [{ ...ask("earning"), icon: Coins, pending: chips.earning, sub: program.earningMode === "purchase" ? `Nach Einkaufswert: ${nf.format(rate)} ${unitName(type, rate)} pro ${program.currency === "EUR" ? "€" : program.currency}` : "Manuell" }] : [];
   const sections: Array<{ title: string; rows: Row[]; note?: string }> = [
     { title: "Prämien", rows: [
@@ -80,8 +85,9 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
       ...(points ? [{ ...ask("happy-hour"), icon: Clock, ...(program.earningMode !== "purchase" ? { sub: "Nur bei Punkten nach Einkaufswert", ...off("Aus") } : me.happyHourEnabled ? { value: "An" } : off("Aus")) }] : []),
     ] },
     // The card studio holds the names (W38); where the logo upload is withheld (pilot surfaces) it offers the colour, no logo.
-    { title: "Aussehen", rows: [{ href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" }] },
+    // Mix A: its row leads the infos; „Aussehen“ is the card example above them.
     { title: "Infos auf der Karte", rows: [
+      { href: "/merchant/program/card", icon: Palette, title: "Kundenkarte", sub: logo ? "Namen, Logo und Farbe" : "Namen und Farbe" },
       { ...ask("news"), icon: Megaphone, ...(me.cardNews ? { sub: quoteStart(me.cardNews) } : off("Keine")) },
       { ...ask("review-link"), icon: Star, ...(me.reviewUrl ? { sub: host(me.reviewUrl) } : off("Kein Link")) },
     ] },
@@ -97,6 +103,8 @@ export function programSections({ me, program, winback, referrals, nfc, logo, ar
 // and the toast's words when a save did more than save („Neuigkeit entfernt“).
 type Return = { row: string; y?: number; saved?: boolean; toast?: string };
 const RETURN = "owner-programm-return";
+/** Where each section stands in the mix layout (program-list.module.css). */
+const AREA: Record<string, "rule" | "rew" | "ext" | "info" | "res"> = { "So sammeln Kunden": "rule", "Prämien": "rew", "Extras": "ext", "Infos auf der Karte": "info", "Für die Ergebnisse": "res" };
 /** `list` names another list's return (Geschäft's sender rows, ENG-164); Programm's by default. */
 export function readReturn(list = RETURN): Return | null {
   try { const value = JSON.parse(sessionStorage.getItem(list) ?? "null"); return typeof value?.row === "string" ? value : null; } catch { return null; }
@@ -106,6 +114,61 @@ export function writeReturn(value: Return | null, list = RETURN) {
 }
 /** A row's page saved: the list outlines `row` and says `toast`, scrolled as when the owner tapped `from`. */
 export function markSaved(row: string, from = row, toast = "Gespeichert", list = RETURN) { const last = readReturn(list); writeReturn({ row, y: last?.row === from ? last.y : undefined, saved: true, toast }, list); }
+
+/**
+ * The example card under „Aussehen“, at five eighths of the first reward as the picture draws 5 of 8. A points card
+ * draws every reward on its ladder (Design, ENG-292 §5); with two or more it names the second and has reached the first,
+ * so a marker is pressed and the fill runs past it (Design, 20 Nov).
+ */
+export function exampleCard(type: PublicProgram["programType"], reward: { id: string; title: string; cost: number }, rewards?: Array<{ id: string; title: string; cost: number }>) {
+  const [first, second] = [...(rewards ?? [])].sort((a, b) => a.cost - b.cost);
+  if (type !== "points" || !second) return { reward, balance: Math.floor(reward.cost * 5 / 8) };
+  return { reward: second, balance: Math.max(first.cost, Math.floor(second.cost * 5 / 8)) };
+}
+
+/**
+ * It plays once per visit, when half of it is in view (Design, 20 Nov): the card arrives from .98, a points fill grows
+ * from 0 and presses each marker it reached, earned stamps land 90 ms apart. Until then it waits unseen; reduced motion
+ * shows the end state at once. Once played it settles, so a re-read replays nothing.
+ * `place`: puts the page's scroll where it will stay (ProgramList's return), called before it measures whether half is in view.
+ * In view then, it plays before the first paint; inside a fade that is still running (owner-shell's Skeleton to content)
+ * the card only scales, and rides that fade rather than fading from nothing on top of it (Design, batch ef415313).
+ */
+export function ProgramExample({ me, type, reward, rewards, place }: { me: Pick<MeResponse, "businessName" | "locationName" | "brandColor">; type: PublicProgram["programType"]; reward: { id: string; title: string; cost: number }; rewards?: Array<{ id: string; title: string; cost: number }>; place?: () => void }) {
+  const shown = exampleCard(type, reward, rewards);
+  const ref = useRef<HTMLDivElement>(null);
+  // Mounted only once the programme is read, so on the client: reduced motion starts at the end state.
+  const [phase, setPhase] = useState<"wait" | "play" | "done">(() => typeof window === "undefined" || (typeof IntersectionObserver === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) ? "wait" : "done");
+  const [ride, setRide] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || phase === "done") return;
+    if (phase === "wait") {
+      place?.();
+      const box = el.getBoundingClientRect();
+      const inView = Math.min(box.bottom, window.innerHeight) - Math.max(box.top, 0);
+      // Mounted in view: it is part of what the page shows first, so it arrives with the page's own fade.
+      if (box.height > 0 && inView >= box.height / 2) { setRide(true); setPhase("play"); return; }
+      const observer = new IntersectionObserver(([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        // Scrolled in later: never ride. It was painted at 0, so it fades in with its own card-arrive.
+        setPhase("play");
+      }, { threshold: 0.5 });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+    el.querySelectorAll<HTMLElement>('[role="img"] > span[data-on]').forEach((stamp, i) => { stamp.setAttribute("data-new", ""); stamp.style.setProperty("--land-stagger", `${i * 90}ms`); });
+    let live = true;
+    const settle = () => { if (live) setPhase("done"); };
+    void Promise.all((el.getAnimations?.({ subtree: true }) ?? []).map(animation => animation.finished)).then(settle, settle);
+    return () => { live = false; };
+  }, [phase, place]);
+  return <div ref={ref} className={styles.example} data-play={phase} data-ride={ride || undefined} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>
+    <MixCard size="example" businessName={me.businessName} locationName={me.locationName} programType={type === "points" ? "points" : "stamps"} balance={shown.balance} reward={{ id: shown.reward.id, title: shown.reward.title, cost: shown.reward.cost }} rewards={rewards}
+      landedFrom={phase === "play" ? 0 : undefined} grow={phase === "play"} />
+  </div>;
+}
 
 /** Programm for owners (ENG-099, Wegweiser): section labels on the grey, one link per setting with its current value. */
 export function ProgramList({ me }: { me: MeResponse }) {
@@ -117,17 +180,24 @@ export function ProgramList({ me }: { me: MeResponse }) {
   const [stored] = useLoad<{ rewards: Array<{ active: boolean }> }>(`/api/merchant/program/rewards?programSlug=${slug}`);
   const [back] = useState(readReturn);
   const [toast, setToast] = useState(Boolean(back?.saved));
-  const list = useRef<HTMLDivElement>(null);
   // The two side reads only fill values; waiting for them keeps rows from moving once the list shows.
   const ready = program.state === "ok" && winback.state !== "loading" && referrals.state !== "loading" && stored.state !== "loading";
   useEffect(() => { writeReturn(null); }, []);
-  useEffect(() => {
-    if (!ready || !back) return;
+  // Before the first paint of the list: no frame of its top before the jump back, and the example measures itself where the
+  // page will stay (a passive effect let it play off-screen on a return scrolled down). Once per visit; the example's
+  // layout effect runs before this one, so it calls it first.
+  const placed = useRef(false);
+  const place = useCallback(() => {
+    if (placed.current || !back) return;
+    placed.current = true;
     if (typeof back.y === "number") window.scrollTo({ top: back.y, behavior: "instant" });
-    const row = Array.from(list.current?.querySelectorAll("a") ?? []).find(link => link.getAttribute("href") === back.row);
+    // From the document: called from the example's layout effect, before the list's own ref is attached.
+    const row = Array.from(document.querySelectorAll(".ow-content a")).find(link => link.getAttribute("href") === back.row);
     row?.scrollIntoView({ block: "nearest", behavior: "instant" });
-    row?.focus({ preventScroll: true });
-  }, [ready, back]);
+    if (back.saved) row?.setAttribute("data-saved", "");
+    (row as HTMLElement | undefined)?.focus({ preventScroll: true });
+  }, [back]);
+  useLayoutEffect(() => { if (ready) place(); }, [ready, place]);
   useEffect(() => {
     if (!ready || !toast) return;
     const timer = window.setTimeout(() => setToast(false), 4000);
@@ -138,26 +208,39 @@ export function ProgramList({ me }: { me: MeResponse }) {
     me, program: program.data, winback: winback.state === "ok" ? winback.data : null, nfc: !owner.hiddenSurfaces.includes("nfc"), logo: !owner.hiddenSurfaces.includes("cardLogo"), messages: !owner.hiddenSurfaces.includes("walletMessages"),
     referrals: referrals.state === "ok" ? referrals.data.referrals : [], archived: stored.state === "ok" ? stored.data.rewards.filter(reward => !reward.active).length : 0,
   }) : null;
+  const section = (title: string) => {
+    const found = sections?.find(item => item.title === title);
+    return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel>{found.rows.map(({ icon: Icon, ...row }) =>
+      <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub && row.href === "/merchant/program/rule" ? <span className={styles.clamp}>{row.sub}</span> : row.sub}
+        title={<>{row.title}{row.pending && <span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span>}<LinkPending /></>}
+        end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} />)}</MixPanel></MixSection></div>;
+  };
+  const reward = program.state === "ok" ? program.data.rewards[0] : undefined;
   return (
     <div className="ow-page">
       <PageHead title="Programm" />
       {program.state === "error" ? <ErrorNotice message={program.message} onRetry={reload} /> : !sections ? <LoadingBlock rows={4} height={64} /> : (
-        <div ref={list} className="ow-prog">
-          {sections.map(section => <div key={section.title}>
-            <h2>{section.title}</h2>
-            <ul>{section.rows.map(({ icon: Icon, ...row }) => <li key={row.href}>
-              <Link href={row.href} className="ow-prog-row" data-saved={(back?.saved && back.row === row.href) || undefined} onClick={() => writeReturn({ row: row.href, y: window.scrollY })}>
-                <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
-                <span className="ow-prog-main">
-                  <span className="ow-prog-text"><strong>{row.title}</strong>{row.sub && <small>{row.sub}</small>}</span>
-                  {row.value && <span className="ow-prog-value" data-big={row.big || undefined} data-pair={row.pair || undefined} data-off={row.off || undefined}>{row.value}</span>}
-                  {row.pending && <span className="ow-prog-pend"><span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span></span>}
-                </span>
-                <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
-              </Link>
-            </li>)}</ul>
-            {section.note && <p className="ow-prog-note">{section.note}</p>}
-          </div>)}
+        // One click handler for every row: the list comes back to the row it was left from.
+        <div className={styles.split} data-bare={!reward || undefined} onClick={event => { const href = (event.target as Element).closest("a")?.getAttribute("href"); if (href) writeReturn({ row: href, y: window.scrollY }); }}>
+          {reward && program.state === "ok" ? <>
+            <div className={styles.col}>
+              <div className={styles.look}><MixSection title="Aussehen" aside={<MixChip>Beispiel</MixChip>}><ProgramExample me={me} type={program.data.programType} reward={reward} rewards={program.data.rewards} place={place} /></MixSection></div>
+              {section("So sammeln Kunden")}
+              {section("Infos auf der Karte")}
+            </div>
+            <div className={styles.col}>
+              {section("Prämien")}
+              {section("Extras")}
+              {section("Für die Ergebnisse")}
+            </div>
+          </> : <>
+            {/* No reward yet: flat, „Prämie hinzufügen“ first, then the card group (Design, 18 Nov). */}
+            {section("Prämien")}
+            {section("So sammeln Kunden")}
+            {section("Infos auf der Karte")}
+            {section("Extras")}
+            {section("Für die Ergebnisse")}
+          </>}
         </div>
       )}
       <div className="ow-toast-region" role="status">{ready && toast && <span className="ow-toast"><Check size={20} aria-hidden="true" />{back?.toast ?? "Gespeichert"}</span>}</div>

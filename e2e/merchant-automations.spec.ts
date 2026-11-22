@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("owner configures bounded local automation rules through the merchant page", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
@@ -7,7 +8,7 @@ test("owner configures bounded local automation rules through the merchant page"
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
     const email = `automation-owner-${randomUUID()}@example.test`;
-    expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic automation owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+    expect((await signUp(owner, { data: { name: "Synthetic automation owner", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
     const onboard = await owner.post("/api/merchant/onboard", { data: {
       businessName: "Synthetic Automation Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
       programName: "Synthetic card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5,

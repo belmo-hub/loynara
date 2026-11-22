@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Request } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function account(baseURL: string, label: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `${label}-${randomUUID()}@example.test`;
-  expect((await context.post("/api/auth/sign-up/email", { data: { name: `Synthetic ${label}`, email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(context, { data: { name: `Synthetic ${label}`, email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   return { context, email };
 }
 
@@ -63,10 +64,10 @@ test("the counter finds a card by its random number, a mistake is corrected, and
     await counter.getByRole("button", { name: /Andere Karte/ }).click();
     await counter.getByLabel("Kartennummer oder Kartencode").fill("K-AAAAAA");
     await counter.getByRole("button", { name: "Prüfen" }).click();
-    await expect(counter.getByText("Keine aktive Karte mit dieser Nummer", { exact: false })).toBeVisible();
+    await expect(counter.getByText("Eine Karte von einem anderen Standort findest du nur dort.", { exact: false })).toBeVisible();
     await counter.getByLabel("Kartennummer oder Kartencode").fill("K-0O1ILA");
     await counter.getByRole("button", { name: "Prüfen" }).click();
-    await expect(counter.getByText("enthält weder 0, O, 1, I noch L", { exact: false })).toBeVisible();
+    await expect(counter.getByText("0, O, 1, I und L kommen darin nicht vor.", { exact: false })).toBeVisible();
 
     // ── Owner: correct the award (only the existing reversal endpoint is used) ──
     const ownerContext = await browser.newContext({ baseURL: url, storageState: await owner.context.storageState() });
@@ -182,7 +183,7 @@ test("correction and reissue dialogs fit short screens and keep their actions re
     })).toBe(true);
     await page.goto("/merchant/customers?activity=all");
     await page.getByRole("link", { name: new RegExp(card.cardLocator) }).click();
-    await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
     for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 800], [1440, 900]]) {
       await page.setViewportSize({ width, height });
       // Since ENG-122a both are screens in the card's own history: heading on top, no sideways scroll, Back to the card.
@@ -192,7 +193,7 @@ test("correction and reissue dialogs fit short screens and keep their actions re
         await page.screenshot({ path: testInfo.outputPath(`step-${width}-${action === "Korrigieren" ? "correction" : "reissue"}.png`) });
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
         await page.goBack();
-        await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
       }
     }
   } finally { await context.close(); await guest.dispose(); await owner.context.dispose(); }

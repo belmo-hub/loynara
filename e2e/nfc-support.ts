@@ -7,6 +7,7 @@ import pg from "pg";
 import QRCode from "qrcode";
 import { deriveVerificationKeys, parseMaster, type TapKeys } from "../src/lib/nfc-keys";
 import { sdmFor, tapUrl } from "../src/lib/nfc-test-support";
+import { signUp } from "./support/sign-up";
 
 /** Shared helpers for the NFC browser specs. Synthetic data only; every database call stays on the isolated test database. */
 
@@ -33,7 +34,7 @@ export async function sql<T extends pg.QueryResultRow = pg.QueryResultRow>(text:
 // Every request reaches the server through one peer bucket ("untrusted-peer" in local runs), so the tap and enrolment
 // limits are shared by all tests in a file. This is the same reset the per-file runner (.review/e2e-files.mjs) performs,
 // applied before each test so a long file does not exhaust the bucket on its own.
-const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer"];
+const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer", "merchant_onboard_peer", "merchant_export_peer", "staff_invite_peer", "program_read_peer"];
 
 export async function resetPeerLimits() {
   const secret = process.env.BETTER_AUTH_SECRET ?? dotenv.parse(readFileSync(path.resolve(process.cwd(), ".env"))).BETTER_AUTH_SECRET;
@@ -49,7 +50,7 @@ export async function merchantWithTag(baseURL: string, businessName = "NFC Café
   if (process.env.E2E_AUTH_SETUP_GAP_MS === "11000") await new Promise(resolve => setTimeout(resolve, 11_000));
   const origin = { Origin: new URL(baseURL).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "NFC owner", email: `nfc-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const onboard = await owner.post("/api/merchant/onboard", { data: { businessName, locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "NFC card", programType: "stamp", rulesText: "Ein Stempel je Besuch.", rewardTitle: "Kaffee", rewardCost: 5, ...program } });
   expect(onboard.status()).toBe(201);
   const me = await (await owner.get("/api/me")).json() as { programId: string; tenantId: string; locationId: string; programSlug: string };
@@ -58,7 +59,7 @@ export async function merchantWithTag(baseURL: string, businessName = "NFC Café
   // a cashier of this location
   const cashier = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   const email = `nfc-cashier-${randomUUID()}@example.test`;
-  expect((await cashier.post("/api/auth/sign-up/email", { data: { name: "NFC cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(cashier, { data: { name: "NFC cashier", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const invite = await (await owner.post("/api/staff/invite", { data: { locationId: me.locationId, email, role: "cashier" } })).json() as { token: string };
   expect((await cashier.post("/api/staff/accept", { data: { token: invite.token } })).status()).toBe(200);
 
@@ -129,7 +130,8 @@ export async function ledgerRowsFor(cardToken: string) {
 
 /** The cashier's open NFC list as the API returns it. */
 export async function pendingOf(api: APIRequestContext) {
-  const response = await api.get("/api/cashier/tap/pending");
+  // Playwright's shared keep-alive pool can hand out a socket the dev server has just dropped; a read is safe to resend once, and maxRetries resends only on ECONNRESET.
+  const response = await api.get("/api/cashier/tap/pending", { maxRetries: 1 });
   expect(response.status()).toBe(200);
   return await response.json() as Array<{ id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string }>;
 }

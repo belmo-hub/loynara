@@ -39,9 +39,10 @@ export const linkRequest = (marketing: boolean) => marketing ? { marketing: true
 /** Moves focus to the step's `[data-focus]` element whenever `step` changes, so it never falls back to the page. */
 function useStepFocus(step: unknown) {
   const ref = useRef<HTMLDivElement>(null);
-  const first = useRef(true);
+  const shown = useRef(step);
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (shown.current === step) return;
+    shown.current = step;
     ref.current?.querySelector<HTMLElement>("[data-focus]")?.focus();
   }, [step]);
   return ref;
@@ -150,7 +151,7 @@ export function EmailOffer({ token, shop, onSent, onClose, reload }: { token: st
   }
   return <div ref={ref}>{sent ? <section className={styles.offer} aria-label="Fast geschafft">
     <h2 className={styles.title} tabIndex={-1} data-focus>Fast geschafft</h2>
-    <div className={styles.sent}><Mail size={18} aria-hidden="true" /><div className={styles.form}>
+    <div className={styles.sent}><Mail size={20} aria-hidden="true" /><div className={styles.form}>
       <p className={styles.text}>Wir haben dir einen Link an <strong>{sent.address}</strong> geschickt.</p>
       {sentLines(sent.ticked, true)}
     </div></div>

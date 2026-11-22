@@ -1,7 +1,8 @@
 "use client";
 
 import { EXCLUDED_GOODS } from "@/lib/card-extras";
-import type { StaffRole } from "@/lib/award-limits";
+import { awardLimitText, type StaffRole } from "@/lib/award-limits";
+import { parseCardLocator } from "@/lib/card-locator";
 import { unitWord } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +17,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { CashierTapPanel } from "@/components/cashier-tap-panel";
 import { CashierNotifications } from "@/components/cashier-notifications";
 import { acknowledgeOfflineEvent, addOfflineEvent, getOfflineDeviceId, readOfflineEvents, resolveOfflineEvent, type OfflineQueuedEvent } from "@/lib/offline-queue";
+import { formatMinor } from "@/lib/spend-copy";
 
 type LookupPreview = { stage: "preview"; cardLocator: string; programName: string; issuedAt: string };
 type LookupResult = CashierLookup & { stage: "open" };
@@ -34,6 +36,12 @@ const NEXT_CUSTOMER_DELAY_MS = 4_000;
 const UNRESOLVED_TTL_MS = 10 * 60_000;
 /** The counter camera stays on between customers; this remembers that the cashier works with it. */
 const CAMERA_PREFERENCE_KEY = "loynara_cashier_camera";
+/**
+ * A typed card number that opens no card (Marketing, 10 Nov): the cause is the panel's title, and the body says what to
+ * check. A text that cannot be a card number names the characters no number has; one that could be is a wrong character
+ * or a card of another location.
+ */
+const NO_CARD = { title: "Karte nicht gefunden", malformed: "Prüfe die Nummer. 0, O, 1, I und L kommen darin nicht vor.", elsewhere: "Prüfe die Nummer. Eine Karte von einem anderen Standort findest du nur dort." };
 /** A camera that has read nothing for this long is put to sleep (battery, privacy); one tap wakes it. */
 const CAMERA_IDLE_MS = 3 * 60_000;
 /**
@@ -54,6 +62,8 @@ const UNDO_REASON = "Direkt nach der Buchung an der Kasse rückgängig gemacht";
 export default function CashierPage() {
   const router = useRouter();
   const [locationName, setLocationName] = useState("");
+  // The card's mark and colour on the counter (the colour reaches owners only; others get the house palette).
+  const [shop, setShop] = useState<{ name: string; color?: string }>({ name: "" });
   const [locale, setLocale] = useState<UiLocale>("de");
   const [showOverview, setShowOverview] = useState(true);
   const [role, setRole] = useState<StaffRole | undefined>(undefined);
@@ -67,9 +77,13 @@ export default function CashierPage() {
   const [camera, setCamera] = useState<"off" | "on" | "sleeping">("off");
   const [status, setStatus] = useState<"idle" | "success" | "pending" | "rejected" | "offline">("idle");
   const [message, setMessage] = useState("");
+  // A typed card number the server rejected as unknown or malformed; the field answers for it until it is edited.
+  const [codeRejected, setCodeRejected] = useState(false);
   const [actorUserId, setActorUserId] = useState("");
   const [offlineLease, setOfflineLease] = useState<OfflineLease | null>(null);
   const [offlineEvents, setOfflineEvents] = useState<OfflineQueuedEvent[]>([]);
+  // The queue's amounts carry no currency of their own; the last card booked here names it (one shop, one currency).
+  const [offlineCurrency, setOfflineCurrency] = useState<CashierCard["currency"]>();
   const [offlineError, setOfflineError] = useState("");
   const [offlineBusy, setOfflineBusy] = useState(false);
   // The NFC confirmation panel only means something where the programme uses staff-confirmed NFC taps; otherwise it is dead weight on the counter screen.
@@ -130,7 +144,9 @@ export default function CashierPage() {
     setStatus(statusTone); setMessage(statusMessage);
     setBooked(summary);
     setCompletedTransaction(value => value + 1);
-    resetTimer.current = setTimeout(() => { resetTimer.current = null; lastBooking.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
+    // A hold that runs out leaves no second „Gebucht“ receipt on the scan form: the dock said it (ENG-266). A pending
+    // result keeps its note, since it still waits.
+    resetTimer.current = setTimeout(() => { resetTimer.current = null; lastBooking.current = null; setBooked(null); if (statusTone === "success") { setStatus("idle"); setMessage(""); } }, NEXT_CUSTOMER_DELAY_MS);
   }, [cancelReset, forgetOpenCode]);
 
   const clearCounter = useCallback(() => {
@@ -148,7 +164,7 @@ export default function CashierPage() {
   useEffect(() => {
     void apiJson<MeResponse>("/api/me").then(me => {
       if (!me.tenantId || !me.locationId || !me.role) { setAccessState("blocked"); setAccessMessage("Dieses Konto hat keinen aktiven Standortzugang. Eine Inhaberin oder ein Inhaber kann den Teamzugang prüfen."); return; }
-      setLocationName(me.locationName); setLocationId(me.locationId); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
+      setLocationName(me.locationName); setShop({ name: me.businessName, color: me.brandColor }); setLocationId(me.locationId); setLocale(me.locale === "fr" ? "fr" : "de"); setShowOverview(me.role !== "cashier"); setRole(me.role); setActorUserId(me.userId); setStaffTapEnabled(me.tapMode === "staff_confirmed" && !(me.hiddenSurfaces ?? []).includes("nfc"));
       try { setOfflineEvents(readOfflineEvents(localStorage, me.userId)); }
       catch (error) { setOfflineStorageProblem(true); setOfflineError(error instanceof Error ? error.message : "Offline queue unavailable"); }
       try { if (localStorage.getItem(CAMERA_PREFERENCE_KEY) === "on") { cameraAutoStarted.current = true; lastCameraActivity.current = Date.now(); setCamera("on"); } } catch { /* no preference: the cashier opens the camera */ }
@@ -159,7 +175,8 @@ export default function CashierPage() {
     });
   }, [router]);
 
-  const lookup = useCallback(async (code: string, confirm = false) => {
+  const lookup = useCallback(async (code: string, confirm = false, typed = false) => {
+    setCodeRejected(false);
     lookupRunning.current = true;
     lastCameraActivity.current = Date.now();
     cancelReset(); setBooked(null); lastBooking.current = null;
@@ -187,7 +204,7 @@ export default function CashierPage() {
         if (recent && Date.now() - recent.at < RECENT_BOOKING_MS) {
           const seconds = Math.max(1, Math.round((Date.now() - recent.at) / 1000));
           setStatus("pending");
-          setMessage(locale === "fr" ? `Attention : cette carte a déjà été créditée il y a ${seconds} s (${recent.detail}). N’ajoutez à nouveau que pour un nouvel achat.` : `Achtung: Auf dieser Karte wurde vor ${seconds} s gebucht (${recent.detail}). Nur erneut vergeben, wenn es ein neuer Kauf ist.`);
+          setMessage(locale === "fr" ? `Attention : cette carte a déjà été créditée il y a ${seconds}\u00a0s (${recent.detail}). N’ajoutez à nouveau que pour un nouvel achat.` : `Achtung: Auf dieser Karte wurde vor ${seconds}\u00a0s gebucht (${recent.detail}). Nur erneut vergeben, wenn es ein neuer Kauf ist.`);
         }
       }
       // The offline lease is only a fallback; the card is usable at once, without waiting for it.
@@ -216,8 +233,11 @@ export default function CashierPage() {
       setCard(null); setPreview(null);
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
       setStatus(isNetworkFailure(cause) ? "offline" : "rejected");
+      const noCard = typed && cause instanceof ClientApiError && (cause.code === "NOT_FOUND" || cause.code === "INVALID_CODE");
+      setCodeRejected(noCard);
       const fr = locale === "fr";
-      setMessage(cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code ; les numéros ne contiennent ni 0/O ni 1/I/L." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code und achte auf 0/O und 1/I/L: Kartennummern enthalten diese Zeichen nicht."
+      setMessage(noCard && !fr ? parseCardLocator(code) ? NO_CARD.elsewhere : NO_CARD.malformed
+        : cause instanceof ClientApiError && cause.code === "NOT_FOUND" ? fr ? "Aucune carte active avec ce numéro ou ce code dans cet établissement. Vérifiez le numéro sous le QR code ; les numéros ne contiennent ni 0/O ni 1/I/L." : "Keine aktive Karte mit dieser Nummer oder diesem Code an diesem Standort. Prüfe die Nummer unter dem QR-Code und achte auf 0/O und 1/I/L: Kartennummern enthalten diese Zeichen nicht."
         : cause instanceof ClientApiError && cause.code === "INVALID_CODE" ? fr ? "Numéro de carte non reconnu. Il ressemble à K-7QX2MA et ne contient ni 0, O, 1, I ni L. Sinon, scannez le QR code avec la caméra." : "Kartennummer nicht erkannt. Sie sieht aus wie K-7QX2MA und enthält weder 0, O, 1, I noch L. Oder den QR-Code mit der Kamera scannen."
         : cause instanceof Error ? cause.message : fr ? "La carte n’a pas pu être vérifiée." : "Karte konnte nicht geprüft werden.");
     } finally { setBusy(false); lookupRunning.current = false; }
@@ -286,9 +306,10 @@ export default function CashierPage() {
       getOfflineDeviceId(localStorage);
       addOfflineEvent(localStorage, { eventId: newRequestId(), leaseId: offlineLease.leaseId, actorUserId, membershipId: selectedCard.id, cardLocator: selectedCard.cardLocator, eventAt: new Date().toISOString(), award, state: "pending" });
       setOfflineEvents(readOfflineEvents(localStorage, actorUserId));
+      setOfflineCurrency(selectedCard.currency);
       setOfflineError("");
       const fr = locale === "fr";
-      const what = "quantity" in award ? `${award.quantity} ${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}` : `Kauf über ${(award.purchaseAmountMinor / 100).toFixed(2).replace(".", ",")} ${selectedCard.currency}`;
+      const what = "quantity" in award ? `${award.quantity}\u00a0${unitLabel(selectedCard, award.quantity, fr)}` : fr ? `achat de ${(award.purchaseAmountMinor / 100).toFixed(2)}\u00a0${selectedCard.currency}` : `Kauf über ${formatMinor(award.purchaseAmountMinor, selectedCard.currency)}`;
       const detail = fr ? `${what} pour ${selectedCard.cardLocator} mis en attente hors ligne. Rien n’est encore enregistré ; le solde ne change qu’après la synchronisation.` : `${what} für ${selectedCard.cardLocator} offline vorgemerkt. Noch nichts gebucht; der Kontostand ändert sich erst nach der Synchronisierung.`;
       rememberBooking(selectedCard.id, fr ? `${what}, hors ligne` : `${what}, offline vorgemerkt`);
       finishBooking({ tone: "pending", title: fr ? "En attente, pas encore enregistré" : "Vorgemerkt, noch nicht gebucht", detail }, "pending", detail);
@@ -356,7 +377,7 @@ export default function CashierPage() {
     try { pending = operationFor(signature); }
     catch (cause) { setStatus("rejected"); setMessage(cause instanceof Error ? cause.message : "Buchung nicht möglich."); return; }
     const fr = locale === "fr";
-    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity} ${unitLabel(selectedCard, operation.award.quantity, fr)}` : `${(operation.award.purchaseAmountMinor / 100).toFixed(2)} ${selectedCard.currency}`;
+    const label = operation.kind === "redeem" ? `„${operation.reward.name}“` : "quantity" in operation.award ? `${operation.award.quantity}\u00a0${unitLabel(selectedCard, operation.award.quantity, fr)}` : fr ? `${(operation.award.purchaseAmountMinor / 100).toFixed(2)}\u00a0${selectedCard.currency}` : formatMinor(operation.award.purchaseAmountMinor, selectedCard.currency);
     const settle = (unclear: boolean) => {
       if (unclear) unresolvedRef.current.set(selectedCard.id, { pending, label, at: Date.now() });
       else if (unresolvedRef.current.get(selectedCard.id)?.pending.signature === signature) unresolvedRef.current.delete(selectedCard.id);
@@ -395,7 +416,7 @@ export default function CashierPage() {
       if (!unclear) pendingRef.current = null;
       setUncertain(unclear);
       setStatus(unclear ? "pending" : "rejected");
-      setMessage(unclear ? fr ? "Résultat incertain. Confirmez à nouveau la même action : elle conserve son identifiant et ne sera pas comptée deux fois." : "Ergebnis unklar. Bitte dieselbe Aktion erneut bestätigen; sie behält ihre Anfragekennung und wird nicht doppelt gebucht." : cause instanceof ClientApiError && cause.code === "LIMIT_EXCEEDED" ? fr ? "Le montant ou les points dépassent la limite de ce rôle. Demandez à la personne propriétaire de vérifier cet achat." : "Kaufbetrag oder Punkte überschreiten das Limit dieser Rolle. Bitte die Inhaberin oder den Inhaber zur Prüfung hinzuziehen." : cause instanceof ClientApiError && cause.code === "STALE_RULE" ? fr ? "La règle de points a changé. Rechargez la carte et confirmez le montant à nouveau." : "Die Punkteregel hat sich geändert. Karte neu laden und Kaufbetrag erneut bestätigen." : cause instanceof Error ? cause.message : fr ? "Opération refusée." : "Buchung abgelehnt.");
+      setMessage(unclear ? fr ? "Résultat incertain. Confirmez à nouveau la même action : elle conserve son identifiant et ne sera pas comptée deux fois." : "Ergebnis unklar. Bitte dieselbe Aktion erneut bestätigen; sie behält ihre Anfragekennung und wird nicht doppelt gebucht." : cause instanceof ClientApiError && cause.code === "LIMIT_EXCEEDED" && operation.kind === "award" ? awardLimitText(role, !("quantity" in operation.award), selectedCard.programType === "points" ? "points" : "stamp", selectedCard.currency, locale) : cause instanceof ClientApiError && cause.code === "STALE_RULE" ? fr ? "La règle de points a changé. Rechargez la carte et confirmez le montant à nouveau." : "Die Punkteregel hat sich geändert. Karte neu laden und Kaufbetrag erneut bestätigen." : cause instanceof Error ? cause.message : fr ? "Opération refusée." : "Buchung abgelehnt.");
     } finally { setBusy(false); }
   }
 
@@ -411,11 +432,12 @@ export default function CashierPage() {
       lastBooking.current = null;
       recentBookings.current.delete(last.card.id);
       unresolvedRef.current.delete(last.card.id);
-      const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(last.card, result.balance, fr)}`;
+      const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)}\u00a0${unitLabel(last.card, result.balance, fr)}`;
       const detail = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
-      setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator });
+      setBooked({ tone: "undone", title: fr ? "Opération annulée" : "Rückgängig gemacht", detail, meta: last.card.cardLocator, card: { ...last.card, balance: result.balance } });
       setStatus("success"); setMessage(detail);
-      resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); }, NEXT_CUSTOMER_DELAY_MS);
+      // As after „Gebucht“: the hold said it, so the scan form after it starts clean (Design, 19 Nov).
+      resetTimer.current = setTimeout(() => { resetTimer.current = null; setBooked(null); setStatus("idle"); setMessage(""); }, NEXT_CUSTOMER_DELAY_MS);
     } catch (cause) {
       if (cause instanceof ClientApiError && cause.status === 401) { setAccessState("blocked"); setAccessMessage("Deine Anmeldung ist nicht mehr aktiv. Bitte melde dich erneut an."); }
       if (isNetworkFailure(cause)) setNetworkTrouble(true);
@@ -434,13 +456,13 @@ export default function CashierPage() {
 
   if (accessState !== "ready") return <CashierAccessState state={accessState} message={accessMessage} logoutControl={<LogoutButton className={buttonClassName({ variant: "secondary", size: "lg", block: true })} />} />;
   const cameraNode = camera === "on"
-    ? <QrScanner locale={locale} paused={Boolean(card || preview)} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
+    ? <QrScanner locale={locale} paused={Boolean(card || preview)} reading={busy && !typedEntry && !booked} onDetected={onCameraRead} onClose={stopCamera} onFailure={onCameraFailure} />
     : camera === "sleeping"
       ? <SleepingCamera locale={locale} hidden={Boolean(card || preview)} onWake={startCamera} onClose={stopCamera} />
       : undefined;
   const showOfflineFallback = networkTrouble && Boolean(offlineLease && card && offlineLease.membershipId === card.id);
   const showOfflinePanel = networkTrouble || offlineStorageProblem || offlineEvents.length > 0;
-  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} onLookup={code => { setTypedEntry(true); void lookup(code); }} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} onLocaleChange={setLocale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
+  return <><CashierView resetToken={completedTransaction} onUndo={() => void undoBooking()} camera={cameraNode} nfcPanel={staffTapEnabled ? <><CashierTapPanel locale={locale} role={role} /><CashierNotifications locale={locale} /></> : undefined} locationName={locationName} businessName={shop.name} brandColor={shop.color} card={card} preview={preview} booked={booked} onConfirmPreview={() => { if (preview) void lookup(preview.code, true); }} onCancelPreview={() => setPreview(null)} busy={busy} status={status} message={message} rejectedTitle={message === NO_CARD.malformed || message === NO_CARD.elsewhere ? NO_CARD.title : undefined} onLookup={code => { setTypedEntry(true); void lookup(code, false, true); }} codeRejected={codeRejected} onCodeEdit={() => setCodeRejected(false)} focusCodeInput={typedEntry} onStartCamera={startCamera} onAward={(selected, award) => transact(selected, { kind: "award", award })} onRedeem={(selected, reward) => transact(selected, { kind: "redeem", reward })} onQueueOffline={uncertain ? undefined : queueOffline} offlineLeaseExpiresAt={showOfflineFallback ? offlineLease?.expiresAt : undefined} offlinePanel={showOfflinePanel ? <OfflineQueuePanel events={offlineEvents} currency={card?.currency ?? offlineCurrency} busy={offlineBusy} error={offlineError} onSync={() => void syncOffline()} onAcknowledge={acknowledgeOffline} locale={locale} /> : null} onClear={clearCounter} locale={locale} showOverview={showOverview} role={role} logoutControl={<LogoutButton className={buttonClassName({ variant: "quiet", size: "sm" })} />} /></>;
 }
 
 function unitLabel(card: CashierCard, amount: number, fr: boolean) {
@@ -449,7 +471,7 @@ function unitLabel(card: CashierCard, amount: number, fr: boolean) {
 
 /** What the cashier sees after a confirmed booking: what was booked, the new balance, the card number (never the scan code). */
 function bookingSummary(card: CashierCard, operation: { kind: "award"; award: CashierAward } | { kind: "redeem"; reward: CashierReward }, result: TransactionResult, fr: boolean): { booked: Booked; statusMessage: string } {
-  const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)} ${unitLabel(card, result.balance, fr)}`;
+  const balance = `${new Intl.NumberFormat(fr ? "fr-FR" : "de-DE").format(result.balance)}\u00a0${unitLabel(card, result.balance, fr)}`;
   const newBalance = fr ? `Nouveau solde : ${balance}.` : `Neuer Stand: ${balance}.`;
   let detail: string, headline: string | undefined, parts: string | undefined;
   if (result.duplicate) detail = fr ? `Cette opération pour ${card.cardLocator} était déjà enregistrée.` : `Dieser Vorgang für ${card.cardLocator} war bereits gebucht.`;
@@ -459,15 +481,15 @@ function bookingSummary(card: CashierCard, operation: { kind: "award"; award: Ca
   } else {
     const credited = result.creditedQuantity ?? ("quantity" in operation.award ? operation.award.quantity : undefined);
     const bonus = bonusTotal(result);
-    const extra = bonus ? fr ? ` Dont ${bonus} ${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus} ${unitLabel(card, bonus, fr)} extra.` : "";
-    detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited} ${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited} ${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
+    const extra = bonus ? fr ? ` Dont ${bonus}\u00a0${unitLabel(card, bonus, fr)} en plus.` : ` Inkl. ${bonus}\u00a0${unitLabel(card, bonus, fr)} extra.` : "";
+    detail = (credited === undefined ? fr ? `Tampons ou points ajoutés à ${card.cardLocator}.` : `Stempel oder Punkte für ${card.cardLocator} vergeben.` : fr ? `${credited}\u00a0${unitLabel(card, credited, fr)} ajouté(s) à ${card.cardLocator}.` : `${credited}\u00a0${unitLabel(card, credited, fr)} für ${card.cardLocator} vergeben.`) + extra;
     // The chip shows the real balance change; the line under it names what it is made of (ENG-133).
     if (credited !== undefined) ({ headline, parts } = bookedAward(card, credited, result, fr ? "fr" : "de"));
   }
   const rewardReady = operation.kind === "award" && card.rewards.some(reward => result.balance >= reward.cost);
   const ready = rewardReady ? fr ? "Récompense prête : rescannez pour l’utiliser." : "Prämie bereit: zum Einlösen neu scannen." : "";
-  const challenge = result.challengeBonus ? `+${result.challengeBonus} ${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
+  const challenge = result.challengeBonus ? `+${result.challengeBonus}\u00a0${unitLabel(card, result.challengeBonus, fr)} extra: ${fr ? "Défi du mois" : "Monats-Challenge"}. ${EXCLUDED_GOODS}` : "";
   const hint = [challenge, ready].filter(Boolean).join(" ") || undefined;
   // The screen shows the headline large; a duplicate keeps its sentence, since nothing new was booked.
-  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint }, statusMessage: `${detail} ${newBalance}` };
+  return { booked: { tone: "success", title: fr ? "Enregistré" : "Gebucht", headline, parts, detail: headline ? newBalance : `${detail} ${newBalance}`, meta: card.cardLocator, hint, card: { ...card, balance: result.balance } }, statusMessage: `${detail} ${newBalance}` };
 }

@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { activityDay, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
+import { activityDay, moveTokenFlags, savedLineDue, savedPanelShown, savedViewDue } from "./card-client";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ConsentLabel, consentLines, panelShown, SwitchedOff, SwitchedOn } from "./card-wallet-messages";
-import { markJoinAsked } from "./wallet-step";
+import { markJoinAsked, markWalletStep } from "./wallet-step";
 
 describe("consent panel lines (ENG-130, Legal 30 Oct)", () => {
   it("names the expiry notice on points programmes with an expiry rule", () => {
@@ -42,6 +42,46 @@ describe("the consent panel after switching off (ENG-162, Design P3)", () => {
     const offered = renderToStaticMarkup(h(SwitchedOff, { ...props, available: true }));
     expect(offered).toContain(off);
     expect(offered).toContain("Einschalten");
+  });
+});
+
+describe("the card's flags on this device stay off the private link (F-2)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const storage = (seed: Record<string, string> = {}) => {
+    const items = new Map(Object.entries(seed));
+    vi.stubGlobal("localStorage", {
+      get length() { return items.size; }, key: (index: number) => [...items.keys()][index] ?? null,
+      getItem: (key: string) => items.get(key) ?? null, setItem: (key: string, value: string) => void items.set(key, value), removeItem: (key: string) => void items.delete(key),
+    });
+    return items;
+  };
+  const token = "card_SyntheticPrivateLinkToken0123456789ab";
+  it("names each flag after the card number", () => {
+    const items = storage();
+    markWalletStep("K-7QX2MA", "shown");
+    markJoinAsked("K-7QX2MA");
+    expect(savedLineDue("K-7QX2MA", { appleSaved: true })).toBe(true);
+    expect([...items.keys()].sort()).toEqual(["loynara_wallet_join_asked:K-7QX2MA", "loynara_wallet_saved_line:K-7QX2MA", "loynara_wallet_step:K-7QX2MA"]);
+  });
+  it("moves an older version's entries from the link to the card number, keeping what is already there, and leaves the rest", () => {
+    const items = storage({ [`loynara_wallet_step:${token}`]: "saved", [`loynara_wallet_join_asked:${token}`]: "1", [`loynara_wallet_saved_line:${token}`]: "1", "loynara_wallet_step:K-7QX2MA": "shown", "loynara_seen:K-7QX2MA": "2026-11-10T10:00:00.000Z", "loynara_wallet_step:card_other": "shown" });
+    moveTokenFlags(token, "K-7QX2MA");
+    expect(Object.fromEntries(items)).toEqual({ "loynara_wallet_step:K-7QX2MA": "shown", "loynara_wallet_join_asked:K-7QX2MA": "1", "loynara_wallet_saved_line:K-7QX2MA": "1", "loynara_seen:K-7QX2MA": "2026-11-10T10:00:00.000Z", "loynara_wallet_step:card_other": "shown" });
+    // Nobody sees the step or the line again under the new name.
+    expect(savedViewDue("K-7QX2MA", { appleSaved: true })).toBe(false);
+    expect(savedLineDue("K-7QX2MA", { appleSaved: true })).toBe(false);
+  });
+  it("does nothing where storage is blocked", () => {
+    vi.stubGlobal("localStorage", { get length(): number { throw new Error("blocked"); } });
+    expect(() => moveTokenFlags(token, "K-7QX2MA")).not.toThrow();
+  });
+  it("the pages pass the card number, and the card page moves old entries once it knows it", () => {
+    const card = readFileSync("src/components/card-client.tsx", "utf8");
+    expect(card).toContain("useEffect(() => { if (cardLocator) moveTokenFlags(token, cardLocator); }, [token, cardLocator]);");
+    for (const file of ["card-client", "join-client", "tap-client"]) {
+      const source = readFileSync(`src/components/${file}.tsx`, "utf8");
+      expect(source).not.toMatch(/(readWalletStep|markWalletStep|markJoinAsked|joinAsked|savedViewDue|savedLineDue|savedPanelShown)\((token|recoveryCard|result\.cardToken)\b/);
+    }
   });
 });
 
@@ -115,14 +155,14 @@ describe("the return from Apple Wallet (ENG-130 08)", () => {
     expect(savedPanelShown("card_a", true, true)).toBe(true);
   });
   it("the card page leaves the mark from the panel's own render signal", () => {
-    expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("useEffect(() => { savedPanelShown(token, savedView, consentUp); }, [token, savedView, consentUp]);");
+    expect(readFileSync("src/components/card-client.tsx", "utf8")).toContain("useEffect(() => { if (cardLocator) savedPanelShown(cardLocator, savedView, consentUp); }, [cardLocator, savedView, consentUp]);");
   });
   it("moves the panel under the card with its heading, never beside the e-mail offer", () => {
     const source = readFileSync("src/components/card-client.tsx", "utf8");
     expect(source).toContain("{savedView && <CardWalletMessages token={token} expiry={expiry} onShown={setConsentUp} />}");
     expect(source).toContain("{french && !(savedView && consentUp) && <CardContact");
     // ENG-165: one offer under the card at a time; on the saved view the Wallet panel has the slot.
-    expect(source).toContain("{!french && offerShown && !savedView && <EmailOffer");
+    expect(source).toContain("<Reveal open={!french && offerShown && !savedView} gap=\"var(--space-4)\"><EmailOffer");
     expect(source).toContain("{!savedView && <CardWalletMessages token={token} expiry={expiry} />}");
     const panel = readFileSync("src/components/card-wallet-messages.tsx", "utf8");
     // The heading stands on every visit; only the placement under the card is once (Design, 30 Oct).

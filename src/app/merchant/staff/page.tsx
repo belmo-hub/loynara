@@ -93,7 +93,7 @@ export default function StaffPage() {
           <Rows title="Einladungen" note={invitations.some(item => item.status === "pending") ? "Offene Einladungen kannst du widerrufen." : undefined}>
             {invitations.length ? invitations.map(item => <Row key={item.id} icon={Mail} title={breakAfterAt(item.email)} sub={`${ROLE_LABEL[item.role]} · ${placeOf(item.locationId)} · ${INVITATION_LABEL[item.status]}`}
               {...(item.status === "pending" ? { onClick: () => open(`cancel:${item.id}`) } : {})} />)
-              : <EmptyState key="none" level={3} size="compact" title="Noch keine Einladungen.">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>}
+              : <EmptyState key="none" level={3} size="compact" title="Noch keine Einladungen">Lade Mitarbeitende mit ihrer E-Mail-Adresse ein. Jede Person bekommt ein eigenes Konto für die Kasse.</EmptyState>}
           </Rows>
         </>}
         {/* „Rollen“: copy-rest R16 FINAL. */}

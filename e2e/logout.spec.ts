@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 type Role = "owner" | "manager" | "cashier";
 
@@ -9,7 +10,7 @@ async function account(baseURL: string) {
   const api = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: url.origin } });
   const email = `logout-${randomUUID()}@example.test`;
   const password = `Local!${randomUUID()}Aa`;
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic logout user", email, password } })).status()).toBe(200);
+  expect((await signUp(api, { data: { name: "Synthetic logout user", email, password } })).status()).toBe(200);
   return { api, email, password };
 }
 
@@ -57,7 +58,7 @@ for (const role of ["owner", "manager", "cashier"] as const) {
       await page.setViewportSize({ width: 320, height: 800 });
       await page.goto(role === "cashier" ? "/cashier" : "/merchant");
       // On phones the owner area signs out on the „Mehr“ page (ENG-122c).
-      if (role === "cashier") await page.getByRole("button", { name: "Menü: Sprache und Abmelden" }).click();
+      if (role === "cashier") await page.getByRole("button", { name: "Menü", exact: true }).click();
       else await page.getByRole("navigation", { name: "Bereiche" }).getByRole("link", { name: "Mehr" }).click();
       await expect(page.getByRole("button", { name: "Abmelden", exact: true })).toBeVisible();
       await expect.poll(async () => (await page.getByRole("button", { name: "Abmelden", exact: true }).boundingBox())?.x ?? -1).toBeGreaterThanOrEqual(0);
@@ -69,7 +70,7 @@ for (const role of ["owner", "manager", "cashier"] as const) {
       await page.setViewportSize({ width: 1280, height: 800 });
       // Leave an earlier protected history entry; replace must not just hide the current page.
       await page.goto(role === "cashier" ? "/cashier?logout-test=1" : "/merchant/program");
-      if (role === "cashier") await page.getByRole("button", { name: "Menü: Sprache und Abmelden" }).click();
+      if (role === "cashier") await page.getByRole("button", { name: "Menü", exact: true }).click();
       await expect(page.getByRole("button", { name: "Abmelden", exact: true })).toBeVisible();
       const response = page.waitForResponse(r => r.url().endsWith("/api/auth/sign-out") && r.request().method() === "POST");
       await page.getByRole("button", { name: "Abmelden", exact: true }).focus();
@@ -121,7 +122,7 @@ for (const role of ["owner", "cashier"] as const) {
     try {
       const page = await context.newPage();
       await page.goto(role === "cashier" ? "/cashier" : "/merchant");
-      if (role === "cashier") await page.getByRole("button", { name: "Menü: Sprache und Abmelden" }).click();
+      if (role === "cashier") await page.getByRole("button", { name: "Menü", exact: true }).click();
       await expect(page.getByRole("button", { name: "Abmelden", exact: true })).toBeVisible();
       expect((await context.request.post("/api/auth/sign-out", { headers: { Origin: url }, data: {} })).status()).toBe(200);
       // Automation can disable native BFCache; exercise its actual persisted pageshow contract explicitly.

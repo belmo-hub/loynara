@@ -28,7 +28,7 @@ export default function LocationPage() {
     <div className="ow-page ow-qpage">
       <PageTitle back={BACK} title={location.name} lead={`${location.city} · ${location.country}`} />
       <div className="ow-q">
-        {active && <p><span className="ow-chip ow-chip--ok ow-chip--state"><OwnerIcon name="check" size={14} />Aktiver Standort</span></p>}
+        {active && <p><span className="ow-chip ow-chip--ok ow-chip--state"><OwnerIcon name="check" size={16} />Aktiver Standort</span></p>}
         <NumberCard label={programLine(location)} value={nf.format(location.cards)} unit="Karten" facts={[["Buchungen", nf.format(location.awards)], ["Einlösungen", nf.format(location.redemptions)], ["Aktive Teamzugänge", nf.format(location.activeStaff)]]} />
         {/* The shell shows nothing else of a failed switch below the desktop sidebar. */}
         {owner.switchError && <ErrorNotice message={owner.switchError} />}

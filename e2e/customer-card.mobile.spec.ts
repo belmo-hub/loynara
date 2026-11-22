@@ -8,13 +8,13 @@ const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) a
 test.describe("guest card on phones", () => {
   test("shows goal, balance and a scannable code on the first screen", async ({ page }) => {
     await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
-    await expect(page.locator(".customer-balance-line strong")).toBeVisible();
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toBeVisible();
     const qr = page.locator(".customer-qr img");
     await expect(qr).toBeVisible();
     const box = await qr.boundingBox();
     const viewport = page.viewportSize()!;
-    // 140 px from 360 up, 128 below (QR beside the number, Design 31 Oct): about 4.4 px a module for the counter camera.
-    expect(box!.width).toBeGreaterThanOrEqual(viewport.width < 360 ? 128 : 140);
+    // 120 px beside the number from 360 up (Design, 18 Nov: the ticket's line keeps two lines), 128 alone below 360.
+    expect(box!.width).toBeGreaterThanOrEqual(viewport.width < 360 ? 128 : 120);
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   });

@@ -6,6 +6,7 @@ import { demoStatus } from "@/lib/demo";
 import { demoEnvironment } from "@/lib/demo-environment";
 import { DomainError } from "@/lib/loyalty";
 import { operatorOverview } from "@/lib/operator";
+import { surfaceHidden } from "@/lib/pilot-surfaces";
 import "@/components/owner/owner.css";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,5 @@ export default async function OperatorPage() {
   if (!data) notFound();
   // Demo-Modus only in the demo environment (design v3); elsewhere the section does not exist.
   const demo = demoEnvironment() ? { running: await demoStatus() } : undefined;
-  return <div className="owner-app ly-theme-auto"><OperatorClient {...data} demo={demo} /></div>;
+  return <div className="owner-app ly-theme-auto"><OperatorClient {...data} demo={demo} placeSearch={!surfaceHidden("shopSearch")} /></div>;
 }

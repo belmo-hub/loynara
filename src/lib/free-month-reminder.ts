@@ -46,13 +46,15 @@ export async function deliverFreeMonthReminder(job: { id: string; tenantId: stri
   const mode = vatMode();
   if (mode === "none") return { status: "blocked" as const, reason: "No VAT mode set" };
   // Rechecked at send time: an owner who lost access, a shop that cancelled, or a changed free month gets nothing.
-  const [row] = (await pool.query<{ email: string; shop: string; current: boolean }>(`
-    SELECT u.email, t.name AS shop, (s.free_until = $3::timestamptz AND ${STILL_FREE}) AS current
+  const [row] = (await pool.query<{ email: string; confirmed: boolean; shop: string; current: boolean }>(`
+    SELECT u.email, u."emailVerified" AS confirmed, t.name AS shop, (s.free_until = $3::timestamptz AND ${STILL_FREE}) AS current
     FROM staff_roles o JOIN "user" u ON u.id = o.user_id JOIN tenants t ON t.id = o.tenant_id JOIN subscriptions s ON s.tenant_id = o.tenant_id
     WHERE o.tenant_id = $1 AND o.user_id = $2 AND o.role = 'owner' AND o.active
   `, [job.tenantId, parsed.data.recipientUserId, parsed.data.freeUntil])).rows;
   if (!row) return { status: "suppressed" as const, reason: "Recipient no longer has owner access" };
   if (!row.current) return { status: "suppressed" as const, reason: "Free month no longer ends then" };
+  // ENG-278: never to an unconfirmed address. Blocked, not suppressed, so the operator sees the reminder was not sent.
+  if (!row.confirmed) return { status: "blocked" as const, reason: "Owner email not confirmed" };
   // Each location's stored price, the one the invoice charges (applyPlan writes it); never a literal amount.
   const { rows: locations } = await pool.query<{ name: string; priceMinor: number }>(`
     SELECT l.name, p.price_minor AS "priceMinor" FROM subscriptions s ${FREE_LOCATIONS}

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "./owner-contract";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { pool } from "@/db";
 import { auth } from "./auth";
@@ -44,7 +45,7 @@ function request(path: string, body: unknown, cookie = "") {
 }
 async function identity(label: string) {
   const email = `${randomUUID()}@example.test`, password = "synthetic-cohort-local-password-only";
-  const result = await auth.api.signUpEmail({ body: { name: label, email, password } });
+  const result = await auth.api.signUpEmail({ body: { name: label, email, password } , headers: new Headers({ [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION }) });
   const response = await auth.handler(request("/api/auth/sign-in/email", { email, password }));
   expect(response.status).toBe(200);
   const cookie = response.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
@@ -82,7 +83,7 @@ it("keeps ten simultaneous merchants isolated through real sessions, checkout re
     await updateMerchantBrand(brand);
     expect(await getMerchantBrand({ actorUserId: f.owner.userId, programSlug: f.merchant.programSlug })).toMatchObject({ businessName: `Cohort verified ${index}`, locationName: `Counter ${index}`, brandColor: "#32634d" });
     await expect(updateMerchantBrand({ ...brand, actorUserId: foreign.owner.userId })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(getMerchantRewards({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(getMerchantRewards({ actorUserId: foreign.owner.userId, programSlug: f.merchant.programSlug })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const returning = await returningRoute(new Request(`${origin}/api/enroll/existing?slug=${f.merchant.programSlug}`, { headers: { cookie: f.cookie } }));
     expect(await returning.json()).toMatchObject({ existing: true });
     const duplicateJoin = await enrollRoute(request("/api/enroll", { slug: f.merchant.programSlug, acceptedTerms: true }, f.cookie));
@@ -146,16 +147,21 @@ it("keeps ten simultaneous merchants isolated through real sessions, checkout re
     expect(restored.membershipId).toBe(f.member.id);
     expect((await googleIssue(request("/api/wallet/google", { token: restored.cardToken }))).status).toBe(200);
     expect(await refreshWalletForMembership(f.member.id, { google: googleClient, expectedTenantId: f.merchant.tenantId })).toEqual({ status: "complete" });
-    expect(api.objects.get(originalPass[0].provider_object_id)?.loyaltyPoints).toMatchObject({ balance: index < 5 ? { string: "2 / 3" } : { int: 2 } });
-    expect((await pool.query("SELECT id,provider_object_id FROM wallet_passes WHERE membership_id=$1", [f.member.id])).rows).toEqual(originalPass);
-    expect(await getCard(restored.cardToken)).toMatchObject({ balance: 2, scanCode: f.member.scan_code });
+    // Recovery replaces the QR code and withdraws the saved pass; the pass added from the new link carries the balance.
+    const passes = (await pool.query("SELECT id,provider_object_id,revoke_reason FROM wallet_passes WHERE membership_id=$1 ORDER BY created_at", [f.member.id])).rows;
+    expect(passes).toMatchObject([{ ...originalPass[0], revoke_reason: "reissued" }, { revoke_reason: null }]);
+    expect(api.objects.get(originalPass[0].provider_object_id)).toMatchObject({ state: "INACTIVE" });
+    expect(api.objects.get(passes[1].provider_object_id)).toMatchObject({ state: "ACTIVE", loyaltyPoints: { balance: index < 5 ? { string: "2 / 3" } : { int: 2 } } });
+    const recovered = await getCard(restored.cardToken);
+    expect(recovered.balance).toBe(2);
+    expect(recovered.scanCode).not.toBe(f.member.scan_code);
     await expect(getCard(f.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await revokeStaff({ actorUserId: f.owner.userId, userId: f.cashier.userId });
     expect((await awardRoute(request("/api/cashier/award", { ...booking, idempotencyKey: randomUUID() }, f.cashier.cookie))).status).toBe(403);
     expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE tenant_id=$1", [f.merchant.tenantId])).rows[0].n).toBe(5);
   }
-  expect(api.objects.size).toBe(10);
-  expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(10);
+  expect(api.objects.size).toBe(20);
+  expect((await pool.query("SELECT count(*)::int AS n FROM wallet_passes")).rows[0].n).toBe(20);
   }); } finally { vi.unstubAllGlobals(); google.cleanup(); }
   expect((await pool.query("SELECT count(*)::int AS n FROM tenants")).rows[0].n).toBe(10);
   expect((await pool.query("SELECT count(*)::int AS n FROM memberships")).rows[0].n).toBe(20);

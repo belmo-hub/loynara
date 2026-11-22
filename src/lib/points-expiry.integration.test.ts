@@ -69,7 +69,7 @@ describe("points expiry setting", () => {
     await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, 'manager', $3)", [s.tenantId, manager, s.locationId]);
     await expect(setExpiry(s, 36, cashier)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(setExpiry(s, 36, manager)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(setExpiry(s, 36, other.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(setExpiry(s, 36, other.owner)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(updateProgramExtras({ actorUserId: s.owner, programId: s.programId, pointsExpiryMonths: 12 as 24 })).rejects.toThrow();
     const stamps = await shop("stamp", "Synthetic Barber");
     await expect(setExpiry(stamps, 36)).rejects.toMatchObject({ code: "INVALID_POINTS_EXPIRY" });

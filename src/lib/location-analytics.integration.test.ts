@@ -27,6 +27,41 @@ const stampAt = (t: { tenantId: string; locationId: string; actor: string }, mem
   db.insert(ledgerEntries).values({ tenantId: t.tenantId, locationId: t.locationId, membershipId, actorUserId: t.actor, requestId, idempotencyKey: randomUUID(), kind: "award", source: "staff_online", delta: 1, createdAt: at }).returning();
 
 describe("per-location Übersicht analytics (ENG-076)", () => {
+  it("adds the week's numbers only while OWNER_WEEKLY_LINE_ENABLED is exactly true: Monday to now, returning by an earlier booking", async () => {
+    const owner = await user();
+    const a = await shop(owner, "Synthetic Week A");
+    const other = await shop(await user(), "Synthetic Week Other");
+    // Thursday 12 Nov 2026, 15:00 in Berlin; the week began on Monday 9 Nov, 00:00 Berlin (23:00 UTC on Sunday).
+    const asOf = new Date("2026-11-12T14:00:00Z"), monday = new Date("2026-11-08T23:00:00Z");
+    const ta = { tenantId: a.tenantId, locationId: a.locationId, actor: owner };
+    const regular = await enroll({ slug: a.programSlug, acceptedTerms: true });
+    const fresh = await enroll({ slug: a.programSlug, acceptedTerms: true });
+    const corrected = await enroll({ slug: a.programSlug, acceptedTerms: true });
+    const stranger = await enroll({ slug: other.programSlug, acceptedTerms: true });
+    await db.update(memberships).set({ createdAt: new Date(monday.getTime() - 20 * day) }).where(eq(memberships.id, regular.id));
+    await db.update(memberships).set({ createdAt: new Date(monday.getTime() + day) }).where(eq(memberships.id, fresh.id));
+    await db.update(memberships).set({ createdAt: new Date(monday.getTime() - 3 * day) }).where(eq(memberships.id, corrected.id));
+    await stampAt(ta, regular.id, new Date(monday.getTime() - 10 * day)); // the earlier booking
+    await stampAt(ta, regular.id, new Date(monday.getTime() + 60_000)); // this week, returning
+    await stampAt(ta, regular.id, new Date(monday.getTime() - 60_000)); // Sunday night: last week
+    await stampAt(ta, fresh.id, new Date(monday.getTime() + day + 60_000)); // this week, first booking
+    await stampAt(ta, fresh.id, new Date(monday.getTime() + 2 * day)); // this week, returning (an earlier one this week)
+    // A bonus is not a booking, and a reversed earlier booking does not make a card returning.
+    await db.insert(ledgerEntries).values({ tenantId: a.tenantId, locationId: a.locationId, membershipId: fresh.id, actorUserId: owner, requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "award", source: "welcome_bonus", delta: 2, createdAt: new Date(monday.getTime() + day) });
+    const [undone] = await stampAt(ta, corrected.id, new Date(monday.getTime() - 2 * day));
+    await db.insert(ledgerEntries).values({ tenantId: a.tenantId, locationId: a.locationId, membershipId: corrected.id, actorUserId: owner, requestId: randomUUID(), idempotencyKey: randomUUID(), kind: "reversal", source: "staff_correction", delta: -1, reversalOfId: undone.id, reason: "Synthetic", createdAt: new Date(monday.getTime() - day) });
+    await stampAt(ta, corrected.id, new Date(monday.getTime() + 3 * day));
+    // Another business's bookings never reach this line.
+    await stampAt({ tenantId: other.tenantId, locationId: other.locationId, actor: owner }, stranger.id, new Date(monday.getTime() + day));
+
+    for (const off of [undefined, "false", "1"]) {
+      if (off !== undefined) vi.stubEnv("OWNER_WEEKLY_LINE_ENABLED", off);
+      expect(await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).not.toHaveProperty("week");
+    }
+    vi.stubEnv("OWNER_WEEKLY_LINE_ENABLED", "true");
+    expect((await getLocationAnalytics(owner, { locationId: a.locationId, asOf })).week).toEqual({ from: "2026-11-09", bookings: 4, returning: 2, newCards: 1 });
+  });
+
   it("counts new cards by programme location and checkouts by till, without corrected, bonus or out-of-window entries", async () => {
     const owner = await user();
     const a = await shop(owner, "Synthetic Location A");

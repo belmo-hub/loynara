@@ -35,7 +35,8 @@ export async function jsonBody(request: Request, maxBytes = 3_100_000) {
     if (done) break;
     size += value.byteLength;
     if (size > maxBytes) {
-      await reader.cancel();
+      // Not awaited: on a cloned request the cancel settles only once the original body is cancelled too.
+      void reader.cancel().catch(() => {});
       throw new DomainError("TOO_LARGE", "Request too large");
     }
     chunks.push(value);

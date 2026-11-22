@@ -1,7 +1,24 @@
-.row { display: flex; align-items: flex-start; gap: var(--space-3); min-height: var(--target); padding-block: var(--space-2); cursor: pointer; font-size: var(--text-16); line-height: 1.45; color: var(--color-ink); }
-.box { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--color-action); cursor: pointer; }
+.row { position: relative; display: flex; align-items: flex-start; gap: var(--space-3); min-height: var(--target); padding-block: var(--space-2); cursor: pointer; font-size: var(--text-16); line-height: 1.45; color: var(--color-ink); }
+/* Drawn by the page, so the tick can draw itself (Toggle): the same 22 px box, filled with the action colour when ticked. */
+.box {
+  flex: none; width: 22px; height: 22px; margin: 1px 0 0; -webkit-appearance: none; appearance: none; cursor: pointer;
+  border: 1.5px solid var(--color-line-strong); border-radius: calc(var(--radius-sm) / 2); background: var(--color-raised);
+  transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out);
+}
+.box:checked { border-color: var(--color-action); background: var(--color-action); }
+.box:disabled { border-color: var(--color-line); background: var(--color-fill); cursor: not-allowed; }
+.box:checked:disabled { background: var(--color-ink-faint); }
 .box:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.box[aria-invalid="true"] { outline: 2px solid var(--color-danger); outline-offset: 2px; }
+/* A border, not an outline, so the focus ring still shows on an invalid box. */
+.box[aria-invalid="true"] { border-color: var(--color-danger); }
+/* The tick lies over the box (same offsets as the box) and draws in --dur-ui; it leaves at once. Taps pass through
+   it to the real checkbox. */
+.check { position: absolute; left: 0; top: calc(var(--space-2) + 1px); width: 22px; height: 22px; color: var(--color-on-action); pointer-events: none; }
+.check path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 17; stroke-dashoffset: 17; }
+.box:checked + .check path { stroke-dashoffset: 0; transition: stroke-dashoffset var(--dur-ui) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .box:checked + .check path { transition: none; } }
+/* Forced colours repaint fills, so the browser's own checkbox is the readable one there. */
+@media (forced-colors: active) { .box { -webkit-appearance: auto; appearance: auto; } .check { display: none; } }
 .text { display: block; }
 .description { display: block; margin-top: 2px; font-size: var(--text-14); color: var(--color-ink-muted); }
 /* A link inside the label (the privacy notice) reads as a link, not as label text (WCAG 1.4.1). */

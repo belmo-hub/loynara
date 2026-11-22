@@ -114,7 +114,7 @@ function Levels({ me }: { me: MeResponse }) {
         <Control id="level-gold" label="Gold ab" hint="Gezählt werden Tage mit bestätigter Buchung in den letzten 90 Tagen." error={q.error("level-gold")}>
           <NumberStepper id="level-gold" value={draft.gold} onChange={gold => edit({ gold })} min={3} max={90} unit={day} invalid={Boolean(q.error("level-gold"))} describedBy="level-gold-hint" />
         </Control>
-        <button type="button" className="ow-qlink" aria-expanded={perksShown} aria-controls="level-perks" onClick={() => setOpen(!perksShown)}>Vorteile pro Level<ChevronDown size={18} aria-hidden="true" /></button>
+        <button type="button" className="ow-qlink" aria-expanded={perksShown} aria-controls="level-perks" onClick={() => setOpen(!perksShown)}>Vorteile pro Level<ChevronDown size={20} aria-hidden="true" /></button>
         {perksShown && <div id="level-perks" className="ow-qpanel ow-stack">
           <p className="ow-hint">Der Vorteil ist ein Text, den dein Team an der Kasse sieht und einlöst; gebucht wird nichts. Er muss echt sein und eingehalten werden, nie auf Tabak, Presse, Bücher, Lotto oder Handyguthaben.</p>
           {PERKS.map(([name, key]) => <div key={key} className="ow-field">

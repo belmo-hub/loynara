@@ -21,6 +21,8 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
+import { handTypedPoint, pickedPoint, pointRequest, ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
+import fieldStyles from "@/components/ui/field.module.css";
 import { DemoMode, type DemoRunning } from "./demo-mode";
 
 type Row = { bookingEnabled: boolean; latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
@@ -34,6 +36,7 @@ type Invitation = { tenant: string; email: string; link: string; qr: string; exp
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
 type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
+type Contract = { tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
@@ -41,6 +44,10 @@ const date = (value: Date | string | null) => value ? new Date(value).toLocaleDa
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };
+// Tabular figures for the points only; addresses and postcodes keep their own spacing.
+const FIGURES = { fontVariantNumeric: "tabular-nums" } as const;
+// One precision on the coordinates sheet: five decimals, about a metre, like the field and its placeholder.
+const point5 = (p: { latitude: number | null; longitude: number | null }) => `${p.latitude?.toFixed(5)}, ${p.longitude?.toFixed(5)}`;
 const mapsUrl = (p: { latitude: number | null; longitude: number | null }) => `https://www.google.com/maps?q=${p.latitude},${p.longitude}`;
 const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
@@ -52,7 +59,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; demo?: { running: DemoRunning | null } }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -69,6 +76,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
   const [pointRow, setPointRow] = useState<Row | null>(null);
   const [coordinates, setCoordinates] = useState("");
+  const [place, setPlace] = useState<ShopPlace | null>(null); // the shop search's pick (ENG-331); typing a point by hand drops it
   const [pointPreview, setPointPreview] = useState<{ latitude: number; longitude: number; changed: boolean } | null>(null);
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
@@ -114,12 +122,15 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function sendPoint(execute: boolean) {
     setBusy(true); setError("");
     try {
-      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, execute });
+      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", pointRequest(pointRow!, coordinates, place, execute));
       if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
-    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    } catch (cause) {
+      if (!execute) setPointPreview(null); // a failed check shows only its error; a failed Speichern keeps the preview for a retry
+      setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
+    }
     finally { setBusy(false); }
   }
-  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPointPreview(null); setError(""); };
+  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPlace(null); setPointPreview(null); setError(""); };
   const closePoint = () => { setPointRow(null); setPointPreview(null); setError(""); };
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
@@ -205,10 +216,9 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
       <form onSubmit={createShop} onInput={fields.onInput} noValidate style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
         <TextField id="op-1" error={fields.error("op-1")} label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
-        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
+        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie die Stadt." />
         <TextField id="op-3" error={fields.error("op-3")} label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
-        <Select label="Land" name="country" defaultValue="DE"><option value="DE">Deutschland</option><option value="MA">Marokko</option></Select>
-        <Select label="Zeitzone" name="timezone" defaultValue="Europe/Berlin"><option value="Europe/Berlin">Europe/Berlin</option><option value="Africa/Casablanca">Africa/Casablanca</option></Select>
+        <input type="hidden" name="country" value="DE" /><input type="hidden" name="timezone" value="Europe/Berlin" />
         <TextField id="op-4" error={fields.error("op-4")} label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />
         {shopError && !invitation ? <p role="alert">{shopError}</p> : null}
         <Button type="submit" block loading={busy}>Geschäft anlegen und einladen</Button>
@@ -271,6 +281,19 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       </ul>
     </Card>
 
+    <Card as="section" aria-labelledby="op-contracts">
+      <CardHeader id="op-contracts" title="Verträge" description="Jedes Geschäft, das den Vertrag online angenommen hat, für das Verzeichnis nach Art. 30 Abs. 2 DSGVO. Nur Lesen." />
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {contracts.map(c => <li key={c.tenantId} style={{ display: "grid", gap: 4, paddingTop: 8, borderTop: "1px solid var(--color-line, currentColor)" }}>
+          <strong>{c.tenant}</strong>
+          <span className="ow-muted" style={{ overflowWrap: "anywhere" }}>{c.ownerEmail ?? "keine E-Mail"}</span>
+          {c.addresses.map((a, i) => <span key={i} className="ow-muted">{a}</span>)}
+          <span className="ow-muted">Vertrag seit {new Date(c.acceptedAt).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" })} · {c.endDate ? `Vertrag bis ${germanDate(c.endDate)}` : <span style={{ whiteSpace: "nowrap" }}>kein Vertragsende</span>}</span>
+        </li>)}
+        {contracts.length === 0 ? <li className="ow-muted">Noch kein Geschäft hat den Vertrag online angenommen.</li> : null}
+      </ul>
+    </Card>
+
     {freeMonths.length ? <Card as="section" aria-labelledby="op-free-month">
       <CardHeader id="op-free-month" title="Kostenloser Monat endet bald" description="Die Erinnerung geht 7 Tage vorher per E-Mail raus. Steht hier „nicht gesendet“, bitte selbst von support@ schicken." />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
@@ -279,7 +302,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-plates">
-      <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={18} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
+      <CardHeader id="op-plates" title="Platten" action={<Button icon={<ScanLine size={20} />} onClick={() => setScanning(s => !s)}>Platte scannen</Button>} />
       {withoutCode.length ? <Button variant="secondary" block loading={busy} onClick={() => void sendCodes({ action: "issue", plateLabels: withoutCode })}>Aktivierungscodes für {withoutCode.length} freie {withoutCode.length === 1 ? "Platte" : "Platten"} erzeugen</Button> : null}
       {scanning ? <QrScanner onDetected={open} onClose={() => setScanning(false)} /> : null}
       <form noValidate onSubmit={event => { event.preventDefault(); open(typed); }} style={{ display: "flex", gap: 8, alignItems: "end" }}>
@@ -361,12 +384,19 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       </div> : null}
     </Sheet>
 
-    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten">
+    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten" keepHeight>
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
-        {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
-        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={18} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
-        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
+        {pointRow.latitude !== null ? <p>Jetzt: <strong style={FIGURES}>{point5(pointRow)}</strong></p> : null}
+        {placeSearch ? <div style={{ paddingBottom: 8 }}><ShopSearch label="Geschäft suchen" pickedLabel="Gewählter Ort" fallback="Gib die Koordinaten unten ein." inputClassName={fieldStyles.input} value={place} onChange={picked => { const next = pickedPoint(picked); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} /></div> : null}
+        {/* While a pick stands the point is Google's: shown as text, no input, and „Ändern“ above is the way out (Design, ENG-331). */}
+        {place ? <div className={fieldStyles.field}>
+          <span className={fieldStyles.label}>Koordinaten</span>
+          <p style={{ margin: 0, ...FIGURES }}>{coordinates}</p>
+          <p className={fieldStyles.hint}>Der Punkt kommt aus der Suche. Loynara frischt ihn regelmäßig bei Google auf.</p>
+          {error ? <p className={fieldStyles.error} aria-live="polite"><span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span></p> : null}
+        </div> : <TextField label="Koordinaten" hint="Nimm nur Werte, die das Geschäft nennt oder die du vor Ort misst. Kopier sie nie aus Google Maps." placeholder="z. B. 51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} style={FIGURES} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />}
+        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline", ...FIGURES }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{point5(pointPreview)} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
           : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}

@@ -80,7 +80,7 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       const cardPath = new URL(customer.page.url()).pathname, cardToken = cardPath.split("/").pop()!;
       await customer.page.reload(); // Same real membership cookie recognizes returning customer.
       expect(new URL(customer.page.url()).pathname).toBe(cardPath);
-      await expect(customer.page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
+      await expect(customer.page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^0 von \d+ Stempeln$/);
       const member = (await pool.query("SELECT id,scan_code FROM memberships WHERE card_token=$1", [cardToken])).rows[0] as { id: string; scan_code: string };
       await cashier.page.getByLabel("Kartennummer oder Kartencode").fill(member.scan_code);
       await cashier.page.getByRole("button", { name: "Prüfen", exact: true }).click();
@@ -128,7 +128,7 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
       }
     }
     await customer.page.goto(journey.cardPath);
-    await expect(customer.page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
+    await expect(customer.page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^0 von \d+ Stempeln$/);
     await expect(customer.page.locator(".customer-activity-list")).toContainText("+3 Stempel");
     await expect(customer.page.locator(".customer-activity-list")).toContainText("-3 Stempel");
     const ledger = (await pool.query("SELECT delta FROM ledger_entries WHERE membership_id=$1 ORDER BY created_at,id", [journey.membershipId])).rows;

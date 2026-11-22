@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Link2, Printer } from "lucide-react";
+import { ChevronRight, Link2, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
@@ -17,7 +17,11 @@ export async function downloadCounterSign(me: MeResponse) {
   if (!joinUrl) throw new Error("Die öffentliche Adresse ist noch nicht konfiguriert.");
   const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
   if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
-  const html = counterSignHtml({ businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
+  // The sign prints in Manrope when the font loads; without it, in Arial.
+  const fontDataUrl = await fetch("/fonts/manrope-latin.woff2").then(r => r.ok ? r.blob() : null).then(blob => blob && new Promise<string>((resolve, reject) => {
+    const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^data:[^;]*;/, "data:font/woff2;")); reader.onerror = reject; reader.readAsDataURL(blob);
+  })).catch(() => undefined) ?? undefined;
+  const html = counterSignHtml({ fontDataUrl, businessName: me.businessName, locationName: me.locationName, joinUrl, qrSvg: await response.text(), programType: me.programType, rewardTitle: me.rewardTitle, rewardCost: me.rewardCost });
   const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url; link.download = "anmeldeschild.html"; link.click();
@@ -29,22 +33,22 @@ export function InviteRows({ me }: { me: MeResponse }) {
   const { copied, copy } = useCopy();
   const [error, setError] = useState("");
   const joinUrl = joinUrlOf(me);
-  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
+  const row = (icon: ReactNode, title: string, sub: string | undefined, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
     <span className="ow-prog-icon">{icon}</span>
-    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong><small>{sub}</small></span></span>
-    <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />
+    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}</span></span>
+    <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
   </button></li>;
   return (
     <div>
       <h2>Kunden einladen</h2>
       {!joinUrl ? <p className="ow-prog-note">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p> : <ul>
-        {row(<Link2 size={22} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", joinUrl.replace(/^https?:\/\//, ""),
+        {row(<Link2 size={20} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", undefined,
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
-        {row(<Printer size={22} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
+        {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", "Mit QR-Code zum Ausdrucken",
           () => void downloadCounterSign(me).catch(cause => setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden.")))}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
-      {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={18} />{error}</p>}
+      {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
     </div>
   );
 }
@@ -73,10 +77,10 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
       <div className="ow-field"><label htmlFor="ow-join-url" className="ow-sr">Anmeldelink</label><input id="ow-join-url" className="ow-input" readOnly value={joinUrl} onFocus={event => event.currentTarget.select()} /></div>
       <div className="ow-row">
         <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void copy()}><CopyLabel copied={copied} label="Link kopieren" /></button>
-        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={18} />Tresenschild laden</button>
+        <button type="button" className="ow-btn ow-btn--secondary" onClick={() => void downloadSign()}><OwnerIcon name="phone" size={20} />Tresenschild laden</button>
       </div>
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
-      {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{error}</p>}
+      {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
       {exportUrl && <div className="ow-hint">
         <p>Lade deine Karten und Buchungen für Excel herunter. Karten und Buchungen enthalten keine Kontaktdaten; der Termin-Export enthält Name und Telefon, so wie Kundinnen und Kunden sie beim Buchen angegeben haben.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>

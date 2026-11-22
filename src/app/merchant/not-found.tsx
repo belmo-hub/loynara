@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Compass } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
 import { SystemState } from "@/components/ui/system-state";
 
 export default function MerchantNotFound() {
   return <div className="ow-page">
-    <SystemState icon={<Compass size={26} />} title="Diese Seite gibt es nicht."
-      actions={<Link href="/merchant" className={buttonClassName({ size: "lg" })}>Zur Übersicht</Link>}>
+    <SystemState title="Diese Seite gibt es nicht."
+      actions={<Link href="/merchant" className={buttonClassName({}, "ow-state-btn")}>Zur Übersicht</Link>}>
       Diesen Bereich gibt es in deinem Konto nicht. Über die Übersicht erreichst du alle Bereiche, die du nutzen kannst.
     </SystemState>
   </div>;

@@ -5,14 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { apiJson, ClientApiError, type CardResponse, type PublicProgram } from "./client-api";
 import { CardContact } from "./card-contact";
 import { Gift, TriangleAlert } from "lucide-react";
-import { CardFace, nearestReward } from "./customer/card-face";
+import { CardFace, cardGoal, nearestReward } from "./customer/card-face";
+import { markSeen, TAP_MARK_SLACK_MS } from "./customer/booking-moment";
 import { CustomerState, StateLink } from "./customer/customer-state";
 import { buttonClassName } from "./ui/button";
 import styles from "./customer/tap.module.css";
 import { walletPlatform } from "./wallet-preparation";
 import { markWalletStep, readWalletStep, tapAsksForWalletStep, tapWalletStep, WalletStep } from "./wallet-step";
 
-type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string };
+type Preview = { merchantName: string; locationName: string; programName: string; programSlug: string; programType?: "stamp" | "points"; brandColor: string; mode: "disabled" | "automatic_fixed" | "staff_confirmed"; hasMembership: boolean; cardLocator?: string; requiresSelection?: boolean; recoveryRequired?: boolean; cardPath?: string; /** Present only while STAMP_ANIMATION_ENABLED is on (ENG-206). */ stampMoment?: true };
 export type TapState = "awarded" | "already_processed" | "confirmed" | "cooldown" | "pending_staff" | "expired" | "cancelled" | "needs_enrollment" | "disabled";
 type Result = { state: TapState; balance?: number; expiresAt?: string; cardLocator?: string; requestId?: string; statusRef?: string; credited?: number };
 /** States in which the server also returns the card number, so the cashier can match the right request. */
@@ -72,9 +73,12 @@ export const currentBalance = (balance: number, points: boolean) => `Aktueller S
 const scrollToTop = () => window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
 /** The guest's card with the booked balance; during the stamp moment its new stamp lands. */
-export function TapCardFace({ card, balance, moment }: { card: CardResponse; balance: number; moment: boolean }) {
+export function TapCardFace({ card, balance, moment, credited }: { card: CardResponse; balance: number; moment: boolean; credited?: number }) {
   const rewards = card.rewards.map(({ id, title, cost }) => ({ id, title, cost }));
-  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)} landed={moment ? balance : undefined} />;
+  return <CardFace businessName={card.merchantName} locationName={card.locationName} programType={card.programType === "stamp" ? "stamps" : "points"} balance={balance} rewards={rewards} selected={nearestReward(rewards, balance)}
+    // The grid counts to the next reward not reached before this tap: the tap page is a one-shot result, so a tap that
+    // completes a reward keeps showing the card it completed („3 von 3“, Design #300 ruling).
+    goal={cardGoal(rewards, balance - (credited ?? 1))} landed={moment ? balance : undefined} landedCount={credited} />;
 }
 
 export function TapClient({ refId }: { refId: string }) {
@@ -160,17 +164,21 @@ export function TapClient({ refId }: { refId: string }) {
   const done = state === "confirmed" || state === "awarded" || state === "already_processed";
   // ENG-130: a card the join handed over to this tap gets the Wallet step after its stamp, asked of the location again.
   useEffect(() => {
-    if (!preview || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(recoveryCard) })) return;
+    const locator = preview?.cardLocator;
+    if (!preview || !locator || !recoveryCard || !tapAsksForWalletStep({ done, waiting, ios: walletPlatform() === "ios", mark: readWalletStep(locator) })) return;
     let active = true;
     void apiJson<PublicProgram>(`/api/program/${encodeURIComponent(preview.programSlug)}`).then(value => {
       if (!active) return;
       const step = tapWalletStep(value);
-      markWalletStep(recoveryCard, step.mark);
+      markWalletStep(locator, step.mark);
       if (step.show) setWalletProgram(value);
     }).catch(() => {});
     return () => { active = false; };
   }, [preview, recoveryCard, done, waiting]);
 
+  // The card page plays its own booking moment for bookings this device has not shown; this page just showed this one.
+  const cardLocator = preview?.stampMoment ? preview.cardLocator : undefined;
+  useEffect(() => { if (done && cardLocator) markSeen(cardLocator, new Date(Date.now() + TAP_MARK_SLACK_MS).toISOString()); }, [done, cardLocator]);
   const celebrate = moment && done;
   const cardRef = useRef<HTMLDivElement>(null);
   // Apple's sheet opened from the band (ENG-160): the band, not this page, then follows the stamp to the card.
@@ -190,27 +198,29 @@ export function TapClient({ refId }: { refId: string }) {
   const inactivePlate = error instanceof ClientApiError && error.status === 404 && error.code !== "PLATE_UNLINKED";
   const number = result?.cardLocator && STATES_WITH_CARD_NUMBER.includes(state as TapState) ? result.cardLocator : null;
   // Mock 27–29 (G-07): the tap states on the guest state screen; an error carries the danger tile.
-  return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live
+  return <CustomerState merchant={preview?.merchantName} brandColor={preview?.brandColor} title={title} tone={state === "error" ? "error" : "info"} live loading={state === "loading"}
     icon={state === "error" ? <TriangleAlert size={24} /> : undefined}
     message={<>{announcement && <span className={styles.srOnly}>{announcement} </span>}{detail}</>}>
     {/* A points visit's amount depends on what the cashier entered, so the booked state says what it brought (CTO, 31 Oct). */}
     {done && points && result?.credited ? <p className={styles.credited}><span>+{result.credited}</span> {result.credited === 1 ? "Punkt" : "Punkte"}</p> : null}
-    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} /></div>}
+    {done && card && typeof result?.balance === "number" && <div ref={cardRef} className={styles.card} data-moment={celebrate || undefined}><TapCardFace card={card} balance={result.balance} moment={celebrate} credited={result.credited} /></div>}
     {number && waiting && <div className={styles.number}>
       <p><span>Deine Kartennummer (das Team sieht sie an der Kasse):</span> <strong translate="no">{number}</strong></p>
       <p className={styles.note}>Die Seite aktualisiert sich automatisch, sobald das Team bestätigt hat.</p>
     </div>}
     {typeof result?.balance === "number" && state !== "needs_enrollment" && !(done && card) && <p className={styles.balance}>{currentBalance(result.balance, points)}</p>}
     {selectionRequired && preview?.cardPath && <div className={styles.actions}>
-      <button className={buttonClassName({ size: "lg", block: true })} onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button>
+      <button className={buttonClassName({ block: true })} onClick={() => { setSelectionRequired(false); setSelected(preview.cardLocator ?? null); setLoading(true); }}>Mit meiner gespeicherten Karte fortfahren</button>
       <a className={buttonClassName({ variant: "secondary", block: true })} href={preview.cardPath} onClick={() => sessionStorage.removeItem(TAP_RETURN_KEY)}>Gespeicherte Karte {preview.cardLocator} ansehen</a>
     </div>}
     {preview && state === "needs_enrollment" && <div className={styles.actions}>
-      <Link prefetch={false} className={buttonClassName({ size: "lg", block: true })} href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
+      <Link prefetch={false} className={buttonClassName({ block: true })} href={`/join/${encodeURIComponent(preview.programSlug)}`}>Karte erstellen</Link>
       <p className={styles.muted}><strong>Du hast schon eine Karte?</strong> Öffne deinen gespeicherten Kartenlink in diesem Browser-Tab. Danach geht es hier automatisch weiter. Eine Kartennummer allein reicht nicht als Nachweis.</p>
       <p className={styles.link}><Link href="/recover">Karte sicher wiederherstellen</Link></p>
     </div>}
-    {preview?.cardPath && state !== "needs_enrollment" && <StateLink href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
+    {/* Keyed by where it stands: under the waiting words, under the state's blocks, or as the green next step under
+        the booked card. In each place it arrives instead of jumping there. */}
+    {preview?.cardPath && state !== "needs_enrollment" && <StateLink key={done ? "booked" : state === "loading" ? "wait" : "open"} href={preview.cardPath} icon={<Gift size={22} />} primary={done}>Karte und Prämien ansehen</StateLink>}
     {(waiting || state === "expired" || state === "cancelled" || (state === "error" && !inactivePlate)) && <p className={styles.muted}>Du kannst jederzeit stattdessen den QR-Code an der Kasse zeigen.</p>}
     {walletProgram && recoveryCard && <WalletStep band stay={!done} onAdd={() => setWalletAdding(true)} token={recoveryCard} program={walletProgram} />}
     {recoveryCard && !selectionRequired && ["pending_staff", "confirmed", "awarded", "already_processed"].includes(state) && <CardContact key={recoveryCard} token={recoveryCard} locale={card?.locale === "fr" ? "fr" : "de"} recoveryOnly />}

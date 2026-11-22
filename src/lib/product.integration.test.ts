@@ -20,6 +20,13 @@ async function createUser() {
 }
 
 describe("merchant and customer journey", () => {
+  it("refuses an account that may not set up a shop before it decodes the logo", async () => {
+    const userId = await createUser();
+    const setup = { userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 10, logoData: "not-a-logo" } as const;
+    await expect(createMerchant(setup, { newShop: false })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // A shop owner's own setup still checks the logo.
+    await expect(createMerchant(setup)).rejects.toMatchObject({ code: "INVALID_LOGO" });
+  });
   it("persists a merchant, its first location, program, and owner assignment", async () => {
     const userId = await createUser();
     const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 });
@@ -34,6 +41,12 @@ describe("merchant and customer journey", () => {
     const userId = await createUser();
     await expect(createMerchant({ userId, businessName: "Synthetic Kiosk", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kioskkarte", programType: "stamp", rulesText: "Ein Stempel pro Einkauf.", rewardTitle: "E-Zigarette gratis", rewardCost: 8 }))
       .rejects.toMatchObject({ code: "MESSAGE_REFUSED", message: "Werbung für Tabak und E-Zigaretten ist nicht erlaubt." });
+    expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
+  });
+  it("sets up German shops only (ENG-328) and saves nothing for another country", async () => {
+    const userId = await createUser();
+    const moroccan = { userId, businessName: "Synthetic Riad", city: "Rabat", country: "MA", timezone: "Africa/Casablanca", locale: "de", currency: "MAD", programName: "Karte", programType: "stamp", rulesText: "Ein Stempel pro Einkauf.", rewardTitle: "Tee gratis", rewardCost: 8 };
+    await expect(createMerchant(moroccan as unknown as Parameters<typeof createMerchant>[0])).rejects.toThrow();
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
   });
 

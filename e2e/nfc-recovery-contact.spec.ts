@@ -27,6 +27,8 @@ async function deliveredLink(recipient: string, path: string) {
 test("real isolated email delivery verifies recovery contact and restores original cards on cleared and new devices", async ({ browser, baseURL }) => {
   test.setTimeout(180_000);
   const a = await merchantWithTag(baseURL!, "Recovery A"), b = await merchantWithTag(baseURL!, "Recovery B");
+  // ENG-285: guest contact mail goes out only for a shop whose owner confirmed an address.
+  await sql(`UPDATE "user" SET "emailVerified" = true WHERE id IN (SELECT user_id FROM staff_roles WHERE role = 'owner' AND tenant_id = ANY($1::uuid[]))`, [[a.me.tenantId, b.me.tenantId]]);
   const customer = await browser.newContext({ baseURL, viewport: { width: 375, height: 667 } });
   const verifier = await browser.newContext({ baseURL });
   const newDevice = await browser.newContext({ baseURL, viewport: { width: 375, height: 667 } });
@@ -56,14 +58,18 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const verificationPage = await verifier.newPage();
     await verificationPage.goto(verification);
     expect((await sql("SELECT email_verified FROM membership_contacts WHERE membership_id=$1", [original.id]))[0].email_verified).toBe(false);
+    // next dev serves the button before React hydrates it; the page scrubs #token only once its effect has run, so a click before that is lost.
+    await expect(verificationPage).toHaveURL(/\/verify-email$/);
+    const verified = verificationPage.waitForResponse(r => new URL(r.url()).pathname === "/api/contact/verify");
     await verificationPage.getByRole("button", { name: "E-Mail-Adresse bestätigen", exact: true }).click();
+    expect((await verified).status()).toBe(200);
     await expect(verificationPage.getByRole("heading", { name: "E-Mail bestätigt" })).toBeVisible();
     const verifyToken = new URLSearchParams(new URL(verification).hash.slice(1)).get("token");
     expect((await verifier.request.post("/api/contact/verify", { headers: origin, data: { token: verifyToken } })).status()).toBe(400);
     const pending = await pendingOf(a.cashier);
     expect(pending).toHaveLength(1);
     expect((await a.cashier.post(`/api/cashier/tap/${pending[0].id}/confirm`)).status()).toBe(200);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^1 von \d+ Stempeln$/);
     const before = await (await customer.request.get(`/api/card/${original.card_token}`)).json();
     const passId = randomUUID(), passObject = `passfast:synthetic_recovery_${passId}`;
     await sql("INSERT INTO wallet_passes (id,tenant_id,membership_id,provider,provider_object_id,status,credential_hash) VALUES ($1,$2,$3,'apple',$4,'active',$5)", [passId,a.me.tenantId,original.id,passObject,createHash("sha256").update(original.scan_code).digest("hex")]);
@@ -90,8 +96,13 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const restoredToken = new URL(page.url()).pathname.split("/").pop()!;
     const restored = await (await customer.request.get(`/api/card/${restoredToken}`)).json();
     expect(restored.balance).toBe(1); expect(restored.rewards).toEqual(before.rewards); expect(restored.activity).toEqual(before.activity);
-    expect((await sql("SELECT id,card_locator,scan_code FROM memberships WHERE program_id=$1", [a.me.programId]))).toEqual([{ id: original.id,card_locator:original.card_locator,scan_code:original.scan_code }]);
-    expect(await sql("SELECT id,provider_object_id,revoked_at FROM wallet_passes WHERE membership_id=$1", [original.id])).toEqual([{ id:passId,provider_object_id:passObject,revoked_at:null }]);
+    // Same card and number; the QR code is new and the pass saved from the old link is withdrawn.
+    const after = await sql<{ id: string; card_locator: string; scan_code: string }>("SELECT id,card_locator,scan_code FROM memberships WHERE program_id=$1", [a.me.programId]);
+    expect(after).toMatchObject([{ id: original.id, card_locator: original.card_locator }]);
+    expect(after[0].scan_code).not.toBe(original.scan_code);
+    const passes = await sql<{ id: string; provider_object_id: string; revoked_at: Date | null; revoke_reason: string | null }>("SELECT id,provider_object_id,revoked_at,revoke_reason FROM wallet_passes WHERE membership_id=$1", [original.id]);
+    expect(passes).toMatchObject([{ id: passId, provider_object_id: passObject, revoke_reason: "reissued" }]);
+    expect(passes[0].revoked_at).not.toBeNull();
     // The same verified inbox can recover separate merchant memberships only through explicit selection.
     const second = await customer.request.post("/api/enroll", { headers: origin, data: { slug:b.me.programSlug,acceptedTerms:true } });
     expect(second.status()).toBe(201);
@@ -104,6 +115,7 @@ test("real isolated email delivery verifies recovery contact and restores origin
     await secondSetup.getByRole("button", { name:"Bestätigungslink schicken" }).click();
     await expect(secondSetup.getByText("Wir haben dir einen Link geschickt.")).toBeVisible();
     await verificationPage.goto(await deliveredLink(email,"/verify-email"));
+    await expect(verificationPage).toHaveURL(/\/verify-email$/);
     await verificationPage.getByRole("button", { name:"E-Mail-Adresse bestätigen",exact:true }).click();
     await expect(verificationPage.getByRole("heading", { name:"E-Mail bestätigt" })).toBeVisible();
     const fresh = await newDevice.newPage();
@@ -129,9 +141,10 @@ test("real isolated email delivery verifies recovery contact and restores origin
     const returning=await pendingOf(a.cashier);
     const approvals=await Promise.all([a.cashier.post(`/api/cashier/tap/${returning[0].id}/confirm`),a.owner.post(`/api/cashier/tap/${returning[0].id}/confirm`)]);
     expect(approvals.every(r=>r.status()===200)).toBe(true);
-    await expect(fresh.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
+    await expect(fresh.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^2 von \d+ Stempeln$/);
     expect(await sql("SELECT delta FROM ledger_entries WHERE membership_id=$1 AND kind='award' ORDER BY created_at",[original.id])).toEqual([{delta:1},{delta:1}]);
-    expect(await sql("SELECT id,provider_object_id,revoked_at FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked_at:null}]);
+    // The second recovery leaves the withdrawn pass as it is: still one row, still revoked.
+    expect(await sql("SELECT id,provider_object_id,revoked_at IS NOT NULL AS revoked FROM wallet_passes WHERE membership_id=$1",[original.id])).toEqual([{id:passId,provider_object_id:passObject,revoked:true}]);
     expect((await sql("SELECT count(*)::int AS n FROM memberships WHERE program_id=ANY($1::uuid[])",[[a.me.programId,b.me.programId]]))[0].n).toBe(2);
     expect((await sql("SELECT count(*)::int AS n FROM consent_events WHERE membership_id=ANY($1::uuid[]) AND purpose='marketing' AND granted=true",[[original.id,(await sql("SELECT id FROM memberships WHERE program_id=$1",[b.me.programId]))[0].id]]))[0].n).toBe(0);
     const unknown=await newDevice.request.post("/api/recover",{headers:origin,data:{email:`unknown-${randomUUID()}@example.test`}});

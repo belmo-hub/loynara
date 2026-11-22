@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 for (const width of [375, 1280]) for (const reducedMotion of ["reduce", "no-preference"] as const) {
   test(`owner discard dialog respects ${reducedMotion} at ${width}px`, async ({ browser, baseURL }) => {
     const url = baseURL ?? "http://localhost:3000";
     const api = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
     try {
-      expect((await api.post("/api/auth/sign-up/email", { data: {
+      expect((await signUp(api, { data: {
         name: "Synthetic motion owner", email: `motion-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
       } })).status()).toBe(200);
       expect((await api.post("/api/merchant/onboard", { data: {
@@ -18,6 +19,8 @@ for (const width of [375, 1280]) for (const reducedMotion of ["reduce", "no-pref
       try {
         const page = await context.newPage();
         await page.goto("/merchant/program/card");
+        // next dev draws its indicator over the leftmost tab at 375 px and takes the click; a production build has none.
+        await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
         await page.getByLabel("Geschäftsname").fill("Synthetic Motion Neu");
         // Phones reach the areas through the bottom bar (no navigation drawer since ENG-122c).
         await page.getByRole("navigation", { name: width === 375 ? "Bereiche" : "Hauptnavigation" }).getByRole("link", { name: "Übersicht" }).click();

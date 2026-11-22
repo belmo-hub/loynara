@@ -11,10 +11,12 @@ const ALLOWED: Record<string, string> = {
   ".ow-band": "the band, the one next step",
   ".ow-band small": "the band's sub-line, mixed from the band green",
   ".ow-check input[role=\"switch\"]:checked": "switch on-track: a state, not a next step (Head of Design ruling, 30 Oct)",
-  ".ow-check input": "checkbox tick (accent-color)",
-  ".ow-radio-card input": "radio dot (accent-color)",
+  ".ow-check input[type=\"checkbox\"]:not([role=\"switch\"]):checked": "checkbox on: the green the native tick had, on the house box whose check draws (Toggle)",
+  ".ow-radio-card input::before": "radio dot: the green the native dot had, on the house dot that grows (Toggle)",
+  ".ow-radio-card input:checked": "radio ring while picked, as the native one",
   ".ow-prog-icon": "icon tiles, the approved Übersicht grammar (Head of Design ruling, 30 Oct)",
   ".ow-cardline-shop i": "fallback swatch for the shop's own colour in the card preview (exempt by ruling)",
+  ".ow-strip-bar[data-today]": "today's bar and the week still running: an outline for a count that is not final (Head of Design ruling, 10 Nov, ENG-203)",
 };
 
 const css = readFileSync(join(process.cwd(), "src/components/owner/owner.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");

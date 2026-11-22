@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmptyState } from "./empty-state";
 import { PageHeader } from "./page-header";
-import { PointsLadder } from "./points-ladder";
+import { hideTouchingPrices, PointsLadder, titleLayout } from "./points-ladder";
 import { ProgressRing } from "./progress-ring";
 import { Skeleton } from "./skeleton";
 import { StampGrid } from "./stamp-grid";
@@ -54,6 +54,12 @@ describe("PointsLadder", () => {
     expect(html(h(PointsLadder, { balance: 2, rewards, locale: "fr" }))).toContain('aria-label="2 points sur 150"');
     expect(html(h(PointsLadder, { balance: 1, rewards }))).toContain('aria-label="1 von 150 Punkten"');
   });
+  it("writes large numbers with the thousands separator, on the markers and in its name", () => {
+    const out = html(h(PointsLadder, { balance: 124800, rewards: [{ title: "Gratis-Getränk", cost: 500 }, { title: "Wochenende", cost: 250000 }] }));
+    expect(out).toContain(">250.000</small>");
+    expect(out).not.toContain(">250000<");
+    expect(out).toContain('aria-label="124.800 von 250.000 Punkten"');
+  });
   it("says a one-point reward in the singular, and French zero too (ENG-108)", () => {
     expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 1 }] }))).toContain('aria-label="0 von 1 Punkt"');
     expect(html(h(PointsLadder, { balance: 0, rewards: [{ title: "Kaffee", cost: 2 }] }))).toContain('aria-label="0 von 2 Punkten"');
@@ -65,6 +71,23 @@ describe("PointsLadder", () => {
   it("hides labels of markers that would collide", () => {
     const out = html(h(PointsLadder, { balance: 0, rewards: [{ title: "A", cost: 10 }, { title: "B", cost: 11 }, { title: "C", cost: 100 }] }));
     expect(out.match(/data-label-hidden="true"/g)).toHaveLength(1);
+  });
+  // ENG-292 (Design, 20 Nov): the mix card's crossed marks press 90 ms apart, in order, at the Kasse as on the guest card.
+  it("staggers the marks a booking crossed 90 ms apart", () => {
+    const out = html(h(PointsLadder, { balance: 162, landedFrom: 42, tone: "mix", rewards: [{ title: "Espresso", cost: 50 }, { title: "Pizza", cost: 150 }, { title: "Menü", cost: 300 }] }));
+    const marks = [...out.matchAll(/<span class="[^"]*mark[^"]*" style="([^"]*)"[^>]*data-new="true"/g)].map((m) => m[1]);
+    expect(marks).toHaveLength(2);
+    expect(marks[0]).not.toContain("--land-stagger");
+    expect(marks[1]).toContain("--land-stagger:90ms");
+  });
+  // ENG-292 (Design, 20 Nov): in the mix tone a name is never cut with an ellipsis; without its room it hides, cost and dot stay.
+  it("hides a name in the mix tone instead of cutting it", () => {
+    const marks = [{ at: 0.2, hideLabel: false }, { at: 0.5, hideLabel: false }, { at: 1, hideLabel: false }];
+    const needs = [60, 150, 60];
+    const house = titleLayout(marks, 300, needs);
+    expect(house.titles[1]?.width).toBeLessThan(150); // the house ladder cuts it
+    expect(titleLayout(marks, 300, needs, undefined, true).titles[1]).toBeNull();
+    expect(titleLayout(marks, 300, needs, undefined, true).titles[0]?.width).toBe(60);
   });
 });
 
@@ -82,7 +105,7 @@ describe("Stat", () => {
     const out = html(h(StatGroup, { label: "Kennzahlen" }, h(Stat, { label: "Aktive Karten", value: 10, note: "10 neu in 30 Tagen" })));
     expect(out).toMatch(/^<dl[^>]*aria-label="Kennzahlen"/);
     expect(out).toMatch(/<dt[^>]*>Aktive Karten<\/dt>/);
-    expect(out).toMatch(/<dd[^>]*>10<\/dd>/);
+    expect(out).toMatch(/<dd[^>]*><span[^>]*>10<\/span><\/dd>/);
   });
   it("summarises a trend in words for screen readers", () => {
     const out = html(h(Stat, { label: "Besuche", value: 36, trend: [{ label: "KW 38", value: 0 }, { label: "KW 41", value: 36 }] }));
@@ -106,5 +129,21 @@ describe("EmptyState, Skeleton, PageHeader", () => {
     const out = html(h(PageHeader, { title: "Übersicht", description: "Kassel Mitte, letzte 30 Tage", actions: h("button", null, "Kasse öffnen") }));
     expect(out.match(/<h1/g)).toHaveLength(1);
     expect(out).toContain("Kasse öffnen");
+  });
+});
+
+// Design, 12 Nov (ruling 49): a price with its thousands separator is wider than the 24 px the fixed gap assumed.
+describe("hideTouchingPrices", () => {
+  const marks = (...at: number[]) => at.map(a => ({ at: a, hideLabel: false }));
+  const hidden = (list: Array<{ hideLabel: boolean }>) => list.map(m => m.hideLabel);
+  it("hides a price that would touch the goal's, by the labels' own widths", () => {
+    expect(hidden(hideTouchingPrices(marks(0.83, 1), 300, [56, 72]))).toEqual([true, false]);
+  });
+  it("keeps a price that has room, and lets the earlier one win among the others", () => {
+    expect(hidden(hideTouchingPrices(marks(0.4, 1), 300, [56, 72]))).toEqual([false, false]);
+    expect(hidden(hideTouchingPrices(marks(0.4, 0.55, 1), 300, [56, 56, 72]))).toEqual([false, true, false]);
+  });
+  it("leaves three-digit prices as they were", () => {
+    expect(hidden(hideTouchingPrices(marks(0.4, 0.6, 1), 228, [24, 24, 24]))).toEqual([false, false, false]);
   });
 });

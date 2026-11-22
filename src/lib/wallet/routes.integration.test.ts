@@ -191,6 +191,25 @@ describe("Apple web-service routes", () => {
     } finally { apple.cleanup(); }
   });
 
+  it("stops reading an oversized registration body at the cap, before any pass check", async () => {
+    const apple = appleFixture();
+    try {
+      await withEnv({ ...apple.env, PUBLIC_BASE_URL: origin }, async () => {
+        // 1 MiB sent without a length header; only a few KiB of it may ever be read.
+        let pulled = 0;
+        const body = new ReadableStream<Uint8Array>({ pull(controller) {
+          if (pulled >= 1024 * 1024) return controller.close();
+          pulled += 1024;
+          controller.enqueue(new Uint8Array(1024).fill(32));
+        } });
+        const serial = randomUUID();
+        const response = await appleRegistration(new Request(`${origin}/api/apple/v1/devices/device-1/registrations/${apple.config.passTypeId}/${serial}`, { method: "POST", headers: { authorization: "ApplePass nope-nope-nope-nope", "content-type": "application/json" }, body, duplex: "half" } as RequestInit), params({ deviceId: "device-1", passTypeId: apple.config.passTypeId, serial }));
+        expect(response.status).toBe(413);
+        expect(pulled).toBeLessThan(16 * 1024);
+      });
+    } finally { apple.cleanup(); }
+  });
+
   it("refuse service while Apple Wallet is unavailable, and keep the log endpoint inert and limited", async () => {
     const serial = randomUUID();
     expect((await applePass(new Request(`${origin}/x`), params({ passTypeId: "pass.local.loop", serial }))).status).toBe(503);

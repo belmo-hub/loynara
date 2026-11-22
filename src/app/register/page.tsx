@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { AuthShell } from "@/components/ui/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -10,17 +10,25 @@ import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
+import { inviteReturnPath, withInviteReturn } from "@/lib/invite-return";
+import { OWNER_AVV, OWNER_TERMS, SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "@/lib/owner-contract";
+import { OWNER_PRIVACY_NOTICE } from "@/lib/owner-privacy";
 import styles from "@/components/auth/auth.module.css";
 import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const page = useRef<HTMLDivElement>(null);
+  // A staff member coming from an invitation goes back to it, not into the owner's shop setup.
+  const next = inviteReturnPath(useSearchParams().get("next"));
   // Until the page is interactive, a tap would submit the bare form natively and reload it, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
   const [mismatch, setMismatch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
   const fields = useFormCheck();
+  // The new state is announced: its title takes focus, as on „Passwort vergessen“.
+  useEffect(() => { const title = sent ? page.current?.querySelector("h1") : null; if (title) { title.tabIndex = -1; title.focus(); } }, [sent]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,16 +42,23 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       let result: Awaited<ReturnType<typeof authClient.signUp.email>>;
-      try { result = await authClient.signUp.email({ name, email, password }); }
+      try { result = await authClient.signUp.email({ name, email, password, ...(next ? {} : { fetchOptions: { headers: { [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION } } }) }); }
       catch { setError(CONNECTION_LOST); return; }
       if (result.error) { setError(signUpMessage(result.error, "register")); return; }
-      router.push("/merchant/program");
-      router.refresh();
+      setSent(true);
     } finally { setBusy(false); }
   }
 
+  // ENG-283: a new and an existing address get this same answer, so the page never tells whether an account exists.
+  if (sent) return <AuthShell>
+    <div key="sent" ref={page} className={styles.page}>
+      <PageHeader title="Schau in dein Postfach." description="Wir haben dir einen Link geschickt. Bestätige damit deine E-Mail-Adresse und melde dich dann an. Hast du schon ein Konto mit dieser Adresse, melde dich einfach an." />
+      <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href={withInviteReturn("/login", next)}>Zur Anmeldung</Link></p>
+    </div>
+  </AuthShell>;
+
   return <AuthShell>
-    <div className={styles.page}>
+    <div key="form" className={styles.page}>
       <PageHeader title="Leg los mit Loynara." description="Erstelle dein Konto. Danach richtest du dein erstes Treueprogramm ein." />
       <div className={styles.sheet}>
         <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
@@ -52,11 +67,13 @@ export default function RegisterPage() {
           <TextField id="rg-password" error={fields.error("rg-password")} label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
           <TextField id="rg-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
             error={fields.error("rg-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />
-          {error ? <p className={styles.alert} role="alert"><CircleAlert size={18} aria-hidden="true" />{error}</p> : null}
-          <Button type="submit" size="lg" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
-          <p className={styles.note}>Es wird keine Zahlung ausgelöst. Die öffentliche Registrierung bleibt bis zur Freigabe durch Loynara gesperrt.</p>
+          {error ? <p className={styles.alert} role="alert"><CircleAlert size={20} aria-hidden="true" />{error}</p> : null}
+          {/* ENG-277, Legal's sentence: the click makes the shop's contract. Staff from an invitation conclude nothing here. */}
+          {next ? null : <p className={styles.note}>Mit „Konto erstellen“ schließt du für dein Geschäft den Vertrag mit Loynara nach den <Link className={styles.link} href={OWNER_TERMS.href} target="_blank" rel="noopener">Vertragsbedingungen für Geschäfte</Link> und dem <Link className={styles.link} href={OWNER_AVV.href} target="_blank" rel="noopener">Vertrag zur Auftragsverarbeitung</Link>. Der erste Monat ist gratis; kündigst du in diesem Monat, kostet es nichts. Danach kostet Loynara 49 € pro Monat und Standort, bis du kündigst. Wie wir deine Daten verarbeiten, steht in den <Link className={styles.link} href={OWNER_PRIVACY_NOTICE.href} target="_blank" rel="noopener">Datenschutzhinweisen für Geschäfte</Link>.</p>}
+          <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Konto wird erstellt …" : "Konto erstellen"}</Button>
+          {next ? <p className={styles.note}>Es wird keine Zahlung ausgelöst.</p> : null}
         </form>
-        <p className={styles.note}>Du hast schon ein Konto? <Link className={styles.link} href="/login">Anmelden</Link></p>
+        <p className={styles.note}>Du hast schon ein Konto? <Link className={styles.link} href={withInviteReturn("/login", next)}>Anmelden</Link></p>
       </div>
     </div>
   </AuthShell>;

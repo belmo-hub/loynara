@@ -104,11 +104,11 @@ describe("Wallet step screen (ENG-130 03/04)", () => {
 describe("the pages wire the decisions (ENG-130 review N-3)", () => {
   it("the join passes the raw continuation and offers the step only where iphoneJoin holds", async () => {
     const source = (await import("node:fs")).readFileSync("src/components/join-client.tsx", "utf8");
-    expect(source).toContain("afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardToken) })");
-    expect(source).toContain("if (next.mark) markWalletStep(result.cardToken, next.mark);");
+    expect(source).toContain("afterJoin({ continuation, offer: program !== null && iphoneJoin(platform, program), mark: readWalletStep(result.cardLocator) })");
+    expect(source).toContain("if (next.mark) markWalletStep(result.cardLocator, next.mark);");
   });
   it("the tap page writes the decision's mark and shows the band only when the decision says so", async () => {
     const source = (await import("node:fs")).readFileSync("src/components/tap-client.tsx", "utf8");
-    expect(source).toContain("const step = tapWalletStep(value);\n      markWalletStep(recoveryCard, step.mark);\n      if (step.show) setWalletProgram(value);");
+    expect(source).toContain("const step = tapWalletStep(value);\n      markWalletStep(locator, step.mark);\n      if (step.show) setWalletProgram(value);");
   });
 });

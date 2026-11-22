@@ -8,6 +8,7 @@ import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeFo
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
+import { ownerTenant } from "./billing";
 import { programInForce } from "./rule-versions";
 import { enqueueTapPush } from "./staff-push";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
@@ -73,9 +74,10 @@ export async function setTapPolicy(input: { actorUserId: string; programId: stri
   if (input.mode === "automatic_fixed" && !automaticTapAllowed()) throw new DomainError("TAP_AUTOMATIC_NOT_ALLOWED", AUTOMATIC_TAP_REFUSAL);
   if (!["disabled", "automatic_fixed", "staff_confirmed"].includes(input.mode) || (input.mode !== "disabled" && (!Number.isInteger(input.cooldownSeconds) || input.cooldownSeconds === null || input.cooldownSeconds < 1 || input.cooldownSeconds > 86400))) throw new DomainError("INVALID_TAP_POLICY", "An approved cooldown is required");
   return db.transaction(async tx => {
-    const [program] = await tx.select().from(programs).where(eq(programs.id, input.programId)).for("update");
+    // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    await owner(tx, input.actorUserId, program.tenantId);
     // A stamp tap is always one fixed stamp. Points are always entered and confirmed by the team, so only a fixed stamp
     // can ever be booked by the tap itself.
     const fixedStamp = program.type === "stamp" && program.earningMode === "manual";

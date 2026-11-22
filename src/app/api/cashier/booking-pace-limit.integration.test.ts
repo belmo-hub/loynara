@@ -3,6 +3,7 @@ import { afterAll, beforeEach, expect, it } from "vitest";
 import { db, pool } from "@/db";
 import { staffRoles } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { prepareOfflineAward, syncOfflineAward } from "@/lib/offline-earning";
 import { createMerchant, enroll } from "@/lib/product";
 import { POST as award } from "@/app/api/cashier/award/route";
 import { POST as redeem } from "@/app/api/cashier/redeem/route";
@@ -46,6 +47,28 @@ it("books one card at most 20 times in 15 minutes, whoever stands at the counter
   // Other cards are served as usual.
   const next = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   expect((await stamp(cashier.cookie, next.id)).status).toBe(200);
+});
+
+async function offlineStamp(userId: string, locationId: string, membershipId: string) {
+  const deviceId = randomUUID();
+  const { leaseId } = await prepareOfflineAward({ userId, locationId, membershipId, deviceId });
+  return syncOfflineAward({ userId, leaseId, deviceId, eventId: randomUUID(), eventAt: new Date(), award: { quantity: 1 } });
+}
+
+it("counts offline bookings against the same per-card allowance", async () => {
+  const { cashier, merchant } = await shop();
+  const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  for (let i = 0; i < 20; i++) expect((await stamp(cashier.cookie, card.id)).status).toBe(200);
+  expect(await offlineStamp(cashier.id, merchant.locationId, card.id)).toMatchObject({ status: "rejected", reason: "CARD_PACE_LIMIT" });
+});
+
+it("books an offline event while the card is under its allowance", async () => {
+  const { cashier, merchant } = await shop();
+  const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
+  for (let i = 0; i < 19; i++) expect((await stamp(cashier.cookie, card.id)).status).toBe(200);
+  expect(await offlineStamp(cashier.id, merchant.locationId, card.id)).toMatchObject({ status: "accepted", balance: 20 });
+  // The offline booking used the last of the allowance, so the counter is refused next.
+  expect((await stamp(cashier.cookie, card.id)).status).toBe(429);
 });
 
 it("lets one account book at most 120 times in 15 minutes", async () => {

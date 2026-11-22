@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "./owner-contract";
 import { Pool } from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { pool } from "@/db";
@@ -28,7 +29,7 @@ function request(path: string, body: unknown, cookie = "") {
 }
 async function identity(label: string) {
   const email = `${randomUUID()}@example.test`, password = "synthetic-cohort-local-password-only";
-  const result = await auth.api.signUpEmail({ body: { name: label, email, password } });
+  const result = await auth.api.signUpEmail({ body: { name: label, email, password } , headers: new Headers({ [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION }) });
   const response = await auth.handler(request("/api/auth/sign-in/email", { email, password }));
   expect(response.status).toBe(200);
   const cookie = response.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");

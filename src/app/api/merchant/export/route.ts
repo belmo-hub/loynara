@@ -2,13 +2,17 @@ import { getMerchantCsv, getMerchantExport } from "@/lib/export";
 import { DomainError } from "@/lib/loyalty";
 import { respondError, sessionUser } from "@/lib/http";
 import { selectedLocationFromRequest } from "@/lib/locations";
+import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 
 const privateDownload = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 
 /** Owner export: the full JSON by default, or `?format=karten` / `buchungen` / `appointments` (selected location) as Excel-ready CSV (ENG-004). */
 export async function GET(request: Request) {
   try {
+    await enforcePeerLimit(request, "merchant_export_peer", 30, 15 * 60);
     const user = await sessionUser(request);
+    // Each export reads the whole shop.
+    await enforceRateLimit({ scope: "merchant_export_user", identity: user.id, max: 10, windowSeconds: 15 * 60 });
     const format = new URL(request.url).searchParams.get("format");
     if (format === "karten" || format === "buchungen" || format === "appointments") {
       const { filename, body } = await getMerchantCsv(user.id, format, selectedLocationFromRequest(request, user.id));

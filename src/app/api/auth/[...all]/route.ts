@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError, refundRateLimit } from "@/lib/rate-limit";
-import { respondError } from "@/lib/http";
+import { jsonBody, respondError } from "@/lib/http";
 import { queueSignInLockNotice } from "@/lib/sign-in-lock-notice";
 
 const handlers = toNextJsHandler(auth);
@@ -10,6 +10,15 @@ const handlers = toNextJsHandler(auth);
 // over many addresses. Every attempt reserves a slot atomically before the password is checked, so parallel guesses
 // cannot all slip through; the slot is given back unless the password was wrong.
 const accountFailures = { scope: "auth_signin_account_failure", max: 10, windowSeconds: 15 * 60 };
+// ENG-279, ENG-283: a reset writes a token only for an existing account, and a sign-up writes an account only for a new
+// address, so both answer no sooner than this, whatever the address; the time then tells nothing about it.
+const ANSWER_MS = 400;
+
+async function answerNoSooner(request: Request) {
+  const started = Date.now();
+  try { return await handlers.POST(request); }
+  finally { await new Promise(resolve => setTimeout(resolve, Math.max(0, ANSWER_MS - (Date.now() - started)))); }
+}
 
 function validateIngress(request: Request) {
   // All auth endpoints can reach Better Auth's own IP limits/session metadata.
@@ -20,17 +29,18 @@ function validateIngress(request: Request) {
 /** The account a sign-in targets. A body this cannot read is refused, so it can never slip past the account limit. */
 async function signInAccount(request: Request) {
   const invalid = new DomainError("INVALID_INPUT", "Die Anmeldung hat nicht geklappt. Bitte lade die Seite neu und versuche es noch einmal.");
-  if (!request.headers.get("content-type")?.startsWith("application/json")) throw invalid;
-  const text = await request.clone().text();
-  if (text.length > 4096) throw invalid;
   let body: unknown;
-  try { body = JSON.parse(text); } catch { throw invalid; }
+  // Read from a copy, with the cap applied while streaming: Better Auth still reads the original.
+  try { body = await jsonBody(request.clone(), 4096); } catch { throw invalid; }
   const email = (body as { email?: unknown } | null)?.email;
   if (typeof email !== "string" || !email.trim() || email.length > 320) throw invalid;
   return email.trim().toLowerCase();
 }
 
 export async function GET(request: Request) {
+  // ENG-286: Better Auth's own reset link redirects with the token in the query, into server and proxy logs. Our mail links
+  // to /reset-password#token=… instead, so this route is closed.
+  if (new URL(request.url).pathname.includes("/reset-password/")) return new Response(null, { status: 404 });
   try { validateIngress(request); return await handlers.GET(request); }
   catch (error) { return respondError(error); }
 }
@@ -39,7 +49,18 @@ export async function POST(request: Request) {
   try {
     validateIngress(request);
     const path = new URL(request.url).pathname;
-    if (path.endsWith("/sign-up/email")) await enforcePeerLimit(request, "auth_signup_peer", 15, 15 * 60);
+    if (path.endsWith("/sign-up/email")) {
+      await enforcePeerLimit(request, "auth_signup_peer", 15, 15 * 60);
+      // Better Auth answers an existing address with a made-up account; a fixed body leaves nothing to compare.
+      const response = await answerNoSooner(request);
+      return response.ok ? Response.json({ status: true }) : response;
+    }
+    if (path.endsWith("/send-verification-email")) await enforcePeerLimit(request, "auth_verify_peer", 5, 15 * 60);
+    if (path.endsWith("/request-password-reset")) {
+      await enforcePeerLimit(request, "auth_reset_peer", 5, 15 * 60);
+      return await answerNoSooner(request);
+    }
+    if (path.endsWith("/reset-password")) await enforcePeerLimit(request, "auth_reset_use_peer", 10, 15 * 60);
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };

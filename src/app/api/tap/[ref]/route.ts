@@ -9,6 +9,7 @@ import { previewSecureTap, processSecureTap, settleUnlinkedTap, tapCardToken, ta
 import { dispatchTapPushNow } from "@/lib/staff-push";
 import { demoPlateLive } from "@/lib/demo";
 import { demoEnvironment } from "@/lib/demo-environment";
+import { experienceFlag } from "@/lib/experience-flags";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 function fields(request: Request) {
@@ -21,8 +22,9 @@ function fields(request: Request) {
 }
 async function input(request: Request, ref: string) {
   await enforcePeerLimit(request, "tap_peer", 120, 15 * 60);
-  await enforceRateLimit({ scope: "tap_ref", identity: ref, max: 600, windowSeconds: 15 * 60 });
+  // The chip data's form is checked before the plate's shared limit, so malformed links cannot use it up.
   const dynamic = fields(request);
+  await enforceRateLimit({ scope: "tap_ref", identity: ref, max: 600, windowSeconds: 15 * 60 });
   // Demo environment: a plate opens only the active demo; otherwise nothing is verified, written or booked.
   if (demoEnvironment() && !(await demoPlateLive(ref))) throw new DomainError("NO_DEMO", "Gerade läuft keine Demo.");
   const programId = await tapProgramId(ref).catch(async error => {
@@ -40,7 +42,8 @@ export async function GET(request: Request, context: { params: Promise<{ ref: st
     const session = tapMemberSession(request, programId);
     const other = returningMemberSession(request, programId);
     const shared = session?.shared === true || (other?.token === session?.token && other?.shared === true);
-    return Response.json({ ...info, requiresSelection: shared, recoveryRequired: !info.hasMembership && cookieValue(request, tapCookieName(programId)) !== undefined }, { headers: responseHeaders });
+    // ENG-206: the tap page records its booking for the card page's moment only while the moment is switched on.
+    return Response.json({ ...info, ...(experienceFlag("STAMP_ANIMATION_ENABLED") ? { stampMoment: true } : {}), requiresSelection: shared, recoveryRequired: !info.hasMembership && cookieValue(request, tapCookieName(programId)) !== undefined }, { headers: responseHeaders });
   }
   catch (error) { return respondError(error); }
 }

@@ -37,9 +37,11 @@ export async function deliverSignInLockNotice(job: { id: string; tenantId: strin
   const parsed = payload.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked" as const, reason: "Invalid sign-in lock notice job" };
   const { userId, recipientUserId, lockedAt } = parsed.data;
-  const users = await pool.query<{ id: string; email: string }>('SELECT id, email FROM "user" WHERE id = ANY($1::text[])', [[userId, recipientUserId]]);
+  const users = await pool.query<{ id: string; email: string; confirmed: boolean }>('SELECT id, email, "emailVerified" AS confirmed FROM "user" WHERE id = ANY($1::text[])', [[userId, recipientUserId]]);
   const account = users.rows.find(row => row.id === userId), recipient = users.rows.find(row => row.id === recipientUserId);
   if (!account || !recipient) return { status: "suppressed" as const, reason: "Account no longer exists" };
+  // ENG-278: a sign-up with someone else's address must not get that person mailed.
+  if (!recipient.confirmed) return { status: "suppressed" as const, reason: "Recipient email not confirmed" };
   // Recheck at send time: someone who lost access in the meantime is not told about this merchant's accounts.
   const [role] = await db.select({ role: staffRoles.role }).from(staffRoles)
     .where(and(eq(staffRoles.tenantId, job.tenantId), eq(staffRoles.userId, recipientUserId), eq(staffRoles.active, true))).limit(1);

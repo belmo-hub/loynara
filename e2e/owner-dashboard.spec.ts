@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function ownerWithProgramme(baseURL: string, businessName: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
-  expect((await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic dashboard owner", email: `dash-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(context, { data: { name: "Synthetic dashboard owner", email: `dash-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const onboard = await context.post("/api/merchant/onboard", { data: {
     businessName, locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: "Dashboard card", programType: "stamp", rulesText: "Ein Stempel je bestätigtem synthetischem Kassenvorgang.", rewardTitle: "Kaffee", rewardCost: 5,
@@ -126,7 +127,7 @@ test("overview shows setup for a new merchant and metrics once a stamp was confi
       await expect(page.getByRole("heading", { name: /^Dein Treueprogramm einrichten:/, level: 1 })).toBeVisible();
       // Readiness is derived from saved state: only the programme exists, so the green band leads with the first card.
       await expect(page.getByText("Pflichtschritte erledigt")).toBeVisible();
-      await expect(page.locator(".ow-band b")).toHaveText("Melde die erste Karte selbst an.");
+      await expect(page.locator('[data-ow="next"] [data-hang] b')).toHaveText("Melde die erste Karte selbst an.");
       await expect(page.getByText("Zugang wiederherstellen")).toHaveCount(0); // operator password reset is not a start step
       await expect(page.getByText("Rechtstexte freigegeben")).toHaveCount(0); // the legal texts are final; no open step for them
       await expect(page.getByText("Karten", { exact: true })).toHaveCount(0); // no wall of zero metrics

@@ -1,5 +1,5 @@
 /* Join page: a preview of the card the guest is about to get, then one clear way to get it. */
-.hero { display: grid; gap: var(--space-2); padding: var(--space-5) var(--space-4) var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
+.hero { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-xl); color: var(--merchant-ink); background: linear-gradient(155deg, var(--merchant), var(--merchant-deep) 85%); box-shadow: var(--shadow-object); }
 .welcome { margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); }
 .business { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
 .location { margin: 0 0 var(--space-3); font-size: var(--text-14); overflow-wrap: anywhere; }
@@ -7,19 +7,20 @@
 .stamps { justify-content: start; grid-template-columns: repeat(var(--cols), minmax(0, 40px)); column-gap: var(--space-4); row-gap: var(--space-3); }
 .stamps li { width: 100%; }
 .reward { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-2) 0 0; padding-top: var(--space-3); border-top: 1px solid color-mix(in oklab, var(--merchant-ink), transparent 78%); font-size: var(--text-14); line-height: 1.4; }
-.reward svg { flex: none; margin-top: 2px; }
+.reward svg { flex: none; margin-top: 0; margin-top: calc((1lh - 20px) / 2); } /* the 20 px icon on the first line's centre */
 .reward small { display: block; font-size: var(--text-14); }
 .reward strong { font-size: var(--text-16); font-weight: var(--weight-heavy); }
 
-.panel { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
+.panel { display: grid; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
 .headline { margin: 0; font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; }
 .title { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 1.25; }
 .lead { margin: 0; color: var(--color-ink-muted); line-height: 1.5; text-wrap: pretty; }
+.headline + .lead { margin-top: calc(var(--space-1) - var(--space-4)); } /* a title's lead sits 4 under it */
 .muted { margin: 0; font-size: var(--text-14); line-height: 1.5; color: var(--color-ink-muted); text-wrap: pretty; }
 .note { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-action-soft); font-size: var(--text-14); line-height: 1.5; }
 .warning { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-warning), transparent 88%); font-size: var(--text-14); line-height: 1.5; }
-.error { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
-.error svg { flex: none; margin-top: 2px; }
+.error { composes: message from "./motion.module.css"; display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-danger); }
+.error svg { flex: none; margin-top: 0; margin-top: calc((1lh - 20px) / 2); }
 .cardNumber { display: grid; justify-items: center; gap: 2px; margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-raised); }
 .cardNumber span { font-size: var(--text-14); color: var(--color-ink-muted); }
 .cardNumber strong { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
@@ -35,17 +36,20 @@
 /* Each rule stands a blank line apart, as the lines inside the shop's own text do. */
 .rules p + p { margin-top: var(--space-4); }
 
-.form { display: grid; gap: var(--space-3); }
+.form { display: grid; gap: var(--space-4); }
+.form > button { margin-top: var(--space-2); }
+/* A sentence that names the button is its caption: 8 above it. */
+.form > .notice + button { margin-top: calc(var(--space-2) - var(--space-4)); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
 .link { margin: 0; }
 .link a { display: inline-flex; align-items: center; min-height: var(--target); font-size: var(--text-14); }
 .footer { margin: 0; text-align: center; }
 
 /* ENG-100: a change waiting for its date, after the text it changes (Design 63, 67); the stale join's ring (64). */
-.change { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: 650; }
-.change svg { flex: none; margin-top: 2px; color: var(--color-warning); }
+.change { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: var(--weight-label); }
+.change svg { flex: none; margin-top: 0; margin-top: calc((1lh - 20px) / 2); color: var(--color-warning); }
 .ruleToggle { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; cursor: pointer; }
-.newRule { white-space: pre-wrap; }
+.newRule { composes: message from "./motion.module.css"; white-space: pre-wrap; }
 .rules[data-stale] { padding: var(--space-3); border-radius: var(--radius-md); box-shadow: 0 0 0 2px var(--color-action); }
 
 /* ENG-130 (01): the two join steps on an iPhone where the location has Apple Wallet; neutral badges, one green element per screen. */
@@ -66,3 +70,13 @@
 .messages { display: grid; gap: var(--space-2); padding-block: var(--space-3); border-block: 1px solid var(--color-line); overflow-wrap: anywhere; }
 .messages h3 { margin: 0; font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.25; text-wrap: balance; }
 .notice { margin: 0; line-height: 1.5; }
+
+/* Arrive (first paint): the preview card as one block, then the panel 40 ms later. A panel that shows a card number
+   only fades: the number does not move. */
+.hero, .panel { animation: arrive var(--dur-ui) var(--ease-out) backwards; }
+.panel { animation-delay: 40ms; }
+.panel:has(.cardNumber) { --arrive-shift: 0px; }
+@keyframes arrive { from { opacity: 0; transform: translateY(var(--arrive-shift, 8px)); } }
+@media (prefers-reduced-motion: reduce) { .hero, .panel { animation: none; } }
+/* Forced colours take the card's fill: a line gives it its edge back. */
+@media (forced-colors: active) { .hero { border: 1px solid CanvasText; } }

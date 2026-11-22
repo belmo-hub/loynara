@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("owner edits merchant identity with a live preview and customer card sees the persisted result", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: {
+    expect((await signUp(owner, { data: {
       name: "Synthetic brand owner", email: `brand-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
     } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: {

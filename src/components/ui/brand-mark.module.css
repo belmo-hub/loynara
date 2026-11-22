@@ -1,3 +1,4 @@
-.lockup { display: inline-flex; align-items: center; gap: 10px; color: var(--color-ink); }
+.lockup { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--color-ink); }
 .symbol { width: 32px; height: 32px; flex: none; }
+/* The word mark is the logo's own shape: it keeps its tracking at any size (DESIGN.md, Tracking). */
 .word { font-size: var(--text-18); font-weight: var(--weight-heavy); letter-spacing: -.01em; }

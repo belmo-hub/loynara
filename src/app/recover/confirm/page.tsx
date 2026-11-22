@@ -58,9 +58,9 @@ export default function RecoverConfirmPage() {
   if (missing) return <CustomerState tone="error" icon={<CircleAlert size={24} />} title="Link unvollständig" message="Bitte fordere einen neuen Link an und öffne ihn direkt aus der E-Mail.">
     <Link className={buttonClassName({ variant: "secondary", block: true })} href="/recover">Neuen Link anfordern</Link>
   </CustomerState>;
-  return <CustomerState icon={<KeyRound size={22} />} title="Karte wiederherstellen" message="Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktioniert der bisherige Link nicht mehr.">
+  return <CustomerState icon={<KeyRound size={22} />} title="Karte wiederherstellen" message="Erst deine ausdrückliche Bestätigung erstellt einen neuen privaten Kartenlink. Danach funktionieren der bisherige Link und der bisherige QR-Code nicht mehr. Eine im Wallet gespeicherte Karte fügst du über den neuen Link erneut hinzu.">
     {cards === null ? <Button block loading={busy} onClick={() => void showCards()}>Meine Karten anzeigen</Button>
-      : <div className={`recovery-options ${styles.options}`}>{cards.map(card => <div key={card.membershipId}><div className={styles.optionText}><strong>{card.merchantName}</strong><span>{card.programmeName}</span></div><Button size="sm" disabled={busy} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</Button></div>)}</div>}
+      : <div className={`recovery-options ${styles.options}`}>{cards.map(card => <div key={card.membershipId}><div className={styles.optionText}><strong id={`recover-${card.membershipId}`}>{card.merchantName}</strong><span>{card.programmeName}</span></div><Button size="sm" disabled={busy} aria-describedby={`recover-${card.membershipId}`} onClick={() => void recover(card.membershipId)}>Diese Karte wiederherstellen</Button></div>)}</div>}
     {error && <p className={styles.error} role="alert">{error}</p>}
     <p className={styles.link}><Link href="/recover">Neuen Link anfordern</Link></p>
   </CustomerState>;

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEXT_VERSION } from "./owner-contract";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { pool } from "@/db";
 import { auth } from "./auth";
@@ -27,7 +28,7 @@ function request(path: string, cookie = "", body?: object) {
 }
 async function identity() {
   const email = randomUUID() + "@example.test", password = "Synthetic-Handoff-095-Only!";
-  const account = await auth.api.signUpEmail({ body: { name: "Synthetic handoff", email, password } });
+  const account = await auth.api.signUpEmail({ body: { name: "Synthetic handoff", email, password } , headers: new Headers({ [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION }) });
   const signed = await auth.handler(request("/api/auth/sign-in/email", "", { email, password }));
   expect(signed.status).toBe(200);
   const cookie = signed.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");

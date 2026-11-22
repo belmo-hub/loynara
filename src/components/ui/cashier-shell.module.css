@@ -1,31 +1,97 @@
-.shell { --toast-offset: 0px; --sight-ink: var(--color-action); flex: 1 0 auto; display: flex; flex-direction: column; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); font: var(--weight-body) var(--text-16)/var(--leading-body) var(--font-sans); -webkit-font-smoothing: antialiased; }
+/* The counter column (mix Kasse): 440 on a phone, 456 from 800 (the counter tablet, one centred column). */
+.shell { --k-col: 440px; --toast-offset: 0px; --sight-ink: var(--color-action); flex: 1 0 auto; display: flex; flex-direction: column; min-height: 100dvh; background: var(--color-bg); color: var(--color-ink); font: var(--weight-body) var(--text-16)/var(--leading-body) var(--font-sans); -webkit-font-smoothing: antialiased; }
 .shell[data-has-dock] { --toast-offset: 184px; }
-.bar, .status, .main, .dock { width: 100%; max-width: 560px; margin-inline: auto; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 60px; padding: env(safe-area-inset-top) var(--gutter) 0; }
-.location { flex: 1 1 8rem; min-width: 0; font-size: var(--text-18); font-weight: var(--weight-heavy); overflow-wrap: anywhere; }
+/* Every field in the Kasse is as high as its actions. */
+.shell input:not([type="checkbox"], [type="radio"]) { min-height: var(--target-cashier); }
+@media (min-width: 800px) { .shell { --k-col: calc(456px + 2 * var(--gutter)); } }
+.bar, .status, .main { width: 100%; max-width: var(--k-col); margin-inline: auto; }
+/* Head: the 40 px mark, the location at 22/28, the round menu key; 16 above and under it. */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: calc(56px + var(--space-4) + env(safe-area-inset-top)); padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--gutter) 0; }
+/* The brand mark (a drawn mark, not an icon) at 40. */
+.bar > :first-child > :first-child { width: 40px; height: 40px; }
+.location { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; flex: 1 1 8rem; min-width: 0; font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); overflow-wrap: anywhere; }
 .actions { display: flex; align-items: center; gap: var(--space-1); }
 /* The status line: one calm strip with the card number at its right edge. The dot carries the state (mint ready, amber
    open or working); only an error or a done booking colours the whole strip. */
 .status {
-  display: flex; align-items: center; gap: var(--space-3); margin-inline: var(--gutter); width: auto; max-width: calc(560px - 2 * var(--gutter));
-  min-height: 48px; padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action-soft); color: var(--color-ink);
+  display: flex; align-items: center; gap: var(--space-3); margin-inline: var(--gutter); width: auto; max-width: calc(var(--k-col) - 2 * var(--gutter));
+  min-height: 48px; margin-top: var(--space-3); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--color-action-soft); color: var(--color-ink);
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
 }
 /* Auto margins on a column flex item stop the stretch, so the strip takes the column width explicitly. */
-@media (min-width: 592px) { .status { margin-inline: auto; width: 100%; } }
+@media (min-width: 472px) { .status { margin-inline: auto; width: 100%; } }
 /* The dot keeps its place beside the label at 320 px; a long label or the card number wraps inside the text column. */
 .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--color-action); }
 .stateText { display: flex; flex: 1; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); min-width: 0; }
 .stateLabel { font-size: var(--text-16); font-weight: var(--weight-heavy); line-height: 1.3; }
 .detail { margin-left: auto; font-size: var(--text-16); font-weight: var(--weight-heavy); letter-spacing: .02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.status[data-state="open"] .dot, .status[data-state="busy"] .dot { background: var(--color-warning); }
+/* Warning is for what waits (pending, offline): an open card is the normal state and keeps the action dot. */
+.status[data-state="busy"] .dot { background: var(--color-warning); }
 .status[data-state="done"] { background: var(--color-success); color: var(--color-bg); }
 .status[data-state="done"] .dot, .status[data-state="error"] .dot { background: currentColor; }
 .status[data-state="error"] { background: var(--color-danger); color: var(--color-on-danger); }
-.main { flex: 1; display: grid; align-content: start; gap: var(--space-4); padding: var(--space-4) var(--gutter) var(--space-6); }
+.main { flex: 1; display: grid; align-content: start; gap: var(--space-4); padding: var(--space-4) var(--gutter); }
 /* The dock is sticky at the end of the column, so the page always ends above it, whatever its height (a two-line reward name). */
 .shell:has(.dock > :nth-child(3)) { --toast-offset: 248px; }
-.dock { position: sticky; bottom: 0; z-index: var(--z-sticky); display: grid; gap: var(--space-2); padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom)); background: var(--color-bg); }
-/* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock. */
-.dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .status { transition: none; } }
+/* The dock is a panel that runs off the bottom edge, edge to edge, and takes the height the page leaves; its content
+   keeps the column's edges. */
+.shell[data-has-dock] .main { flex: none; }
+/* Phones: the dock takes its content's height (at least its floor) and the spare goes to the column above it, so the
+   keys keep the open inset on a short card (a one-row goal, a tall phone) instead of floating far under the dock's
+   edge (Design, 18 Nov). */
+@media (max-width: 599px) { .shell[data-has-dock] .main { flex: 1 0 auto; } .shell[data-has-dock] .dock { flex: none; } }
+/* From 600 px wide the counter is tapped from the front, not by thumb (Design, 18 Nov): the content and the dock are
+   one group, the dock right under the content, and the group sits centred in the height under the head (auto margins:
+   never higher than directly under it), the dock a floating panel. Only a group that still fits with the booked stack
+   is centred (the dock's data-floating, Design 19 Nov); any other uses the phone's layout: it starts under the head,
+   the sticky dock stays flat at the bottom at its natural height, and the ground the booked stack will take is reserved
+   under the content (--dock-reserve, set by the dock), so the dock rises into it and never covers content. */
+@media (min-width: 600px) {
+  .shell[data-has-dock]:has(> .dock[data-floating]) > .bar + .main, .shell[data-has-dock]:has(> .dock[data-floating]) > .status { margin-top: auto; }
+  .shell[data-has-dock] > .status + .main { margin-top: 0; }
+  .shell[data-has-dock] .dock[data-floating] { flex: none; margin-bottom: auto; }
+  .shell[data-has-dock]:has(> .dock:not([data-floating])) .main { flex: 1 0 auto; padding-bottom: calc(var(--space-4) + var(--dock-reserve, 0px)); }
+  .shell[data-has-dock] .dock:not([data-floating]) { flex: none; }
+  /* A held group (a booking, Design 19 Nov): the panel stays where it starts and grows downward; past the bottom edge
+     the page scrolls rather than the sticky dock moving up. */
+  .shell[data-held] .dock { position: relative; }
+}
+.dock {
+  position: sticky; bottom: 0; z-index: var(--z-sticky); flex: 1; display: flex; flex-direction: column; justify-content: flex-end; width: 100%;
+  padding: var(--space-6) max(var(--gutter), calc(50% - var(--k-col) / 2 + var(--gutter))) calc(var(--space-6) + env(safe-area-inset-bottom));
+  background: var(--color-surface); border-top: 1px solid var(--color-line); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+/* The column and the dock never transition: under reduced motion globals.css gives every property a 0.01 ms transition,
+   which paints one frame of the old layout (the phone layout over a tablet, the dock at its old height). */
+.main, .dock { transition: none; }
+/* On a phone the open Kasse's dock is never shorter than the booked stack it will hold (Design, 18 Nov); an inline
+   minimum (the held height) still wins. */
+@media (max-width: 599px) { .dock { min-height: var(--dock-floor, auto); } }
+/* A dock that stops short of the bottom edge (a centred counter tablet) is a true panel (Design, 18 Nov): the card's
+   width with its sides on the card's edges, a full edge, four rounded corners and its own 20 px side insets. Only the
+   sides change, never the height, so the measure that sets data-floating cannot flip it back. */
+.dock[data-floating] {
+  width: calc(var(--k-col) - 2 * var(--gutter)); margin-inline: auto; padding-inline: calc(var(--space-5) - 1px);
+  padding-bottom: calc(var(--space-6) - 1px + env(safe-area-inset-bottom)); /* its bottom edge comes out of the foot: the same height as the flat dock */
+  border: 1px solid var(--color-line); border-radius: var(--radius-lg);
+}
+/* Solid behind the stepper, so nothing scrolled under it shows through; the fade sits above the dock's 1 px top edge
+   (the padding box starts under the border). A floating panel has nothing scrolling under it and no fade. */
+.dock[data-floating]::before { content: none; }
+.dock::before { content: ""; position: absolute; left: 0; right: 0; bottom: calc(100% + 1px); height: var(--space-4); background: linear-gradient(to top, var(--color-bg), transparent); pointer-events: none; }
+/* Kasse states: the strip fades in when it returns after a booking; the dock rises with the opened card. Both are
+   tappable from their first frame. */
+.status { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+.dock { animation: dock-in var(--dur-ui) var(--ease-out) backwards; }
+@keyframes appear { from { opacity: 0; } }
+@keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .status, .status .stateText { transition: none; animation: none; } .dock { animation: none; } }
+/* While the counter waits the strip is a still block in its own place; its words fade in when they come (DESIGN › Waiting). */
+.status[data-placeholder] { background: var(--color-raised); }
+.status[data-placeholder="empty"] { visibility: hidden; } /* keeps its slot; forced colours would redraw a border */
+.status[data-placeholder] > * { visibility: hidden; }
+.status:not([data-placeholder]) .stateText { animation: appear var(--dur-ui) var(--ease-out) backwards; }
+/* Forced colours drop fills: the status strip keeps an edge and its dot. */
+@media (forced-colors: active) { .status { border: 1px solid CanvasText; } .dot { forced-color-adjust: none; background: CanvasText; } }
+/* Forced colours redraw a hidden placeholder's edge: the strip stays unseen until its words are in, and they come in at once. */
+@media (forced-colors: active) { .status[data-placeholder] { visibility: hidden; } .status .stateText { animation: none; } }

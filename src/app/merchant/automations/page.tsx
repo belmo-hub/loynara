@@ -34,7 +34,7 @@ export default function AutomationsPage() {
   const head = <PageHead back={<BackToActions />} title="Automationen" lead="Nach der ersten bestätigten Buchung, wenn jemand eine Weile nicht da war, oder wenn eine Prämie bereitliegt. Vor jedem Versand prüft Loynara noch einmal Kontakt, Einwilligung und Versandgrenzen." />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur Inhaber:innen können Automationen verwalten.</Notice></div>;
   if (data.state === "error") return <div className="ow-page">{head}<ErrorNotice message={data.message} onRetry={reload} /></div>;
-  if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock /></div>;
+  if (data.state !== "ok") return <div className="ow-page">{head}<LoadingBlock wide /></div>;
   const d = data.data;
   return (
     <div className="ow-page">

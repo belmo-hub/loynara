@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 test("cashier browser confirms purchase points and selected reward before card reload", async ({ baseURL, browser }) => {
   const url = baseURL ?? "http://localhost:3000";
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   const guest = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
   try {
-    expect((await owner.post("/api/auth/sign-up/email", { data: {
+    expect((await signUp(owner, { data: {
       name: "Synthetic purchase owner", email: `purchase-browser-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa`,
     } })).status()).toBe(200);
     const setup = await owner.post("/api/merchant/onboard", { data: {
@@ -33,10 +34,12 @@ test("cashier browser confirms purchase points and selected reward before card r
       await cashier.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
       await expect(cashier.getByLabel("Kaufbetrag (EUR)")).toBeFocused();
       await cashier.getByLabel("Kaufbetrag (EUR)").fill("4,99");
-      // Amount → preview (points and new balance) → one „Buchen“; no second confirmation.
+      // Amount → preview (points and new balance) → „Buchen“ → the confirmation names points and amount (ENG-271).
       await expect(cashier.locator("#purchase-preview")).toContainText("+14 Punkte");
       await expect(cashier.locator("#purchase-preview")).toContainText("Neuer Stand: 14 Punkte");
       await cashier.getByRole("button", { name: "Buchen", exact: true }).click();
+      await expect(cashier.getByRole("dialog", { name: "Vergabe bestätigen?" })).toContainText("14 Punkte für einen Kauf über 4,99 € für Karte");
+      await cashier.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
       await expect(cashier.getByRole("dialog")).toHaveCount(0);
       await expect(cashier.locator(".cashier-booked")).toContainText("+14 Punkte");
       await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
@@ -55,6 +58,7 @@ test("cashier browser confirms purchase points and selected reward before card r
       await cashier.getByRole("button", { name: "Kaufbetrag eingeben" }).click();
       await cashier.getByLabel("Kaufbetrag (EUR)").fill("4,99");
       await cashier.getByRole("button", { name: "Buchen", exact: true }).click();
+      await cashier.getByRole("button", { name: "Ja, vergeben", exact: true }).click();
       await expect(cashier.locator(".cashier-booked")).toContainText("Neuer Stand: 14 Punkte");
       await reopen();
       await expect(cashier.locator(".balance-display strong")).toContainText("14 Punkte");
@@ -72,7 +76,7 @@ test("cashier browser confirms purchase points and selected reward before card r
 
       const card = await browserContext.newPage();
       await card.goto(`/card/${encodeURIComponent(cardToken)}`);
-      await expect(card.locator(".customer-balance-line strong")).toHaveText("0 Punkte");
+      await expect(card.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^0 von \d+ Punkten$/);
       await expect(card.locator(".customer-activity-list")).toContainText("+14 Punkte");
       await expect(card.locator(".customer-activity-list")).toContainText("-14 Punkte");
     } finally { await browserContext.close(); }

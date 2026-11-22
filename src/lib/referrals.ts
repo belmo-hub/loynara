@@ -6,6 +6,7 @@ import { ledgerEntries, membershipContacts, memberships, programs, referralCodes
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { DomainError } from "./loyalty";
+import { ownerTenant } from "./billing";
 import { enqueueWalletRefresh } from "./wallet/enqueue";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -86,6 +87,20 @@ export async function getCardReferralShare(cardToken: string) {
     return { shareUrl: url.toString(), referrerBonus: setting.referrerBonus, referredBonus: setting.referredBonus, programType: row.program.type,
       progress: { signedUp: progress?.signedUp ?? 0, qualified: progress?.qualified ?? 0 } };
   });
+}
+
+/**
+ * ENG-206: once the referral block is due, the card read carries the share, so the block stands in the card's first
+ * paint. Without the field (STAMP_ANIMATION_ENABLED off) or before the block is due: the read as it is, no query. The
+ * block is optional: with nothing to share (referrals off, programme paused) or a failed read, the card goes out without it.
+ */
+export async function withReferralShare<T extends { stampMoment?: { referralDue: boolean } }>(card: T, cardToken: string) {
+  if (!card.stampMoment?.referralDue) return card;
+  try { return { ...card, stampMoment: { ...card.stampMoment, referral: await getCardReferralShare(cardToken) } }; }
+  catch (error) {
+    if (!(error instanceof DomainError)) console.error("Card referral share failed", error instanceof Error ? error.name : "unknown");
+    return card;
+  }
 }
 
 /** Runs inside the card-enrollment transaction. An opened link never earns credit. */
@@ -245,11 +260,10 @@ const reviewInput = z.discriminatedUnion("action", [
 export async function reviewReferral(raw: z.input<typeof reviewInput>) {
   const input = reviewInput.parse(raw);
   return db.transaction(async tx => {
-    const [referral] = await tx.select().from(referrals).where(eq(referrals.id, input.referralId)).for("update");
+    // The owner first: another shop's referral is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [referral] = await tx.select().from(referrals).where(and(eq(referrals.id, input.referralId), eq(referrals.tenantId, tenantId))).for("update");
     if (!referral) throw new DomainError("NOT_FOUND", "Diese Empfehlung haben wir nicht gefunden. Bitte lade die Seite neu.");
-    const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles)
-      .where(and(eq(staffRoles.tenantId, referral.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (referral.status !== "review") throw new DomainError("INVALID_REFERRAL_STATE", "Referral is not in review");
     if (input.action === "reject") {
       if (referral.referrerBonusEntryId || referral.referredBonusEntryId) throw new DomainError("INVALID_REFERRAL_STATE", "Credited bonuses require reversal review");

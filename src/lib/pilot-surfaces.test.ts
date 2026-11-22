@@ -8,13 +8,15 @@ const digestOf = (fn: () => unknown) => { try { fn(); } catch (error) { return S
 
 describe("pilot surfaces follow the canonical production definition", () => {
   it("hides billing, campaigns, automations, audiences, the cancel card, wallet previews, the logo upload and the NFC card on real production", () => {
-    expect(hiddenSurfaces(PROD).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "cardLogo", "nfc", "walletMessages", "walletPreviews"]);
-    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(9);
+    expect(hiddenSurfaces(PROD).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "cardLogo", "nfc", "shopSearch", "walletMessages", "walletPreviews"]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "loynara-production" }).length).toBe(10);
     // device-test / preview (NODE_ENV=production without the marker) and development keep every surface that does not depend on NFC keys
-    expect(hiddenSurfaces({ NODE_ENV: "production" })).toEqual(["nfc"]);
-    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toEqual(["nfc"]);
-    expect(hiddenSurfaces({ NODE_ENV: "development" })).toEqual(["nfc"]);
-    expect(hiddenSurfaces({ NODE_ENV: "development", TAP_SYNTHETIC_KEY_FILE: "/x/keys.json" })).toEqual([]);
+    expect(hiddenSurfaces({ NODE_ENV: "production" })).toEqual(["nfc", "shopSearch"]);
+    expect(hiddenSurfaces({ NODE_ENV: "production", PRODUCTION_ENVIRONMENT: "device-test" })).toEqual(["nfc", "shopSearch"]);
+    expect(hiddenSurfaces({ NODE_ENV: "development" })).toEqual(["nfc", "shopSearch"]);
+    expect(hiddenSurfaces({ NODE_ENV: "development", TAP_SYNTHETIC_KEY_FILE: "/x/keys.json" })).toEqual(["shopSearch"]);
+    // The shop search in setup follows its key, everywhere (ENG-323).
+    expect(hiddenSurfaces({ ...PROD, GOOGLE_MAPS_API_KEY: "synthetic" })).not.toContain("shopSearch");
     expect(surfaceHidden("billing", PROD)).toBe(true);
     expect(surfaceHidden("billing", {})).toBe(false);
     // Live billing is the founder's switch on real production (the production gate requires the whole Stripe group with it).
@@ -40,7 +42,7 @@ describe("the NFC surface follows capability", () => {
   const MASTER = "7f3a9c1e5b2d48a06c9e1f3b5d7a8c2e4f6b1d3a5c7e9f0b2d4a6c8e0f1b3d5a";
   it("appears on real production exactly when NFC is enabled with the derived key provider, and then no other surface changes", () => {
     const configured = { ...PROD, NFC_ENABLED: "true", NFC_KEY_PROVIDER: "derived_v1", NFC_VERIFY_MASTER_KEY: MASTER };
-    expect(hiddenSurfaces(configured).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "cardLogo", "walletMessages", "walletPreviews"]);
+    expect(hiddenSurfaces(configured).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "cardLogo", "shopSearch", "walletMessages", "walletPreviews"]);
     expect(hiddenSurfaces({ ...configured, NFC_ENABLED: "false" })).toContain("nfc");
     expect(hiddenSurfaces({ ...configured, NFC_VERIFY_MASTER_KEY: "bad" })).toContain("nfc");
     expect(hiddenSurfaces({ ...PROD, NFC_ENABLED: "true", TAP_SYNTHETIC_KEY_FILE: "/x" })).toContain("nfc");
@@ -53,7 +55,7 @@ describe("Wallet surfaces follow capability", () => {
     const apple = appleFixture();
     try {
       expect(hiddenSurfaces({ ...PROD, APPLE_WALLET_ENABLED: "true" })).toEqual(expect.arrayContaining(["walletPreviews", "cardLogo"]));
-      expect(hiddenSurfaces({ ...PROD, ...apple.env }).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "nfc", "walletMessages"]);
+      expect(hiddenSurfaces({ ...PROD, ...apple.env }).sort()).toEqual(["audiences", "automations", "billing", "campaigns", "cancellation", "nfc", "shopSearch", "walletMessages"]);
     } finally { apple.cleanup(); }
   });
 });

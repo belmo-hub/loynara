@@ -121,7 +121,7 @@ describe("happy hour", () => {
   it("is owner-only and tenant-scoped", async () => {
     const owner = await user(); const m = await shop(owner);
     const otherOwner = await user(); await shop(otherOwner);
-    await expect(on(otherOwner, m)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(on(otherOwner, m)).rejects.toMatchObject({ code: "NOT_FOUND" });
     const cashier = await user();
     const [tenantRow] = await db.select({ tenantId: programs.tenantId }).from(programs).where(eq(programs.id, m.programId));
     await db.insert(staffRoles).values({ tenantId: tenantRow.tenantId, userId: cashier, role: "cashier", locationId: m.locationId });

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIResponse, type BrowserContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // The points ladder as it appears on screen, on the guest card and at the cashier, light and dark, for the default
 // shop green and the worst merchant colour (#757778, 3.009:1 in merchant-color.test.ts). The track row is read from a
@@ -13,7 +14,7 @@ test.beforeAll(async ({ playwright, baseURL }) => {
   const origin = new URL(baseURL!).origin, api = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const guest = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: origin } });
   const ok = async (response: APIResponse, status: number) => { expect(response.status(), response.url()).toBe(status); return response.json(); };
-  await ok(await api.post("/api/auth/sign-up/email", { data: { name: "Leiter Test", email: `ladder-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } }), 200);
+  await ok(await signUp(api, { data: { name: "Leiter Test", email: `ladder-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } }), 200);
   ({ programSlug } = await ok(await api.post("/api/merchant/onboard", { data: { businessName: "Punkte Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Punktekarte", programType: "points", rulesText: "Ein Punkt je Besuch", rewardTitle: "Espresso", rewardCost: 5 } }), 201));
   for (const [title, cost] of [["Cappuccino", 12], ["Frühstück", 20]] as const) await ok(await api.post("/api/merchant/program/rewards", { data: { action: "create", programSlug, title, cost } }), 201);
   ({ cardToken } = await ok(await guest.post("/api/enroll", { data: { slug: programSlug, acceptedTerms: true, marketingOptIn: false } }), 201));
@@ -30,7 +31,8 @@ const median = (pixels: number[][]) => [0, 1, 2].map(c => pixels.map(px => px[c]
 /** Lowest contrast between 8-px windows of the filled and of the empty part of the track row, markers left out. */
 async function ladderOnScreen(page: Page) {
   const ladder = page.locator('[role="img"][aria-label$="Punkten"]').locator("visible=true").first();
-  await expect(ladder).toHaveAttribute("aria-label", "9 von 20 Punkten");
+  // The Kasse's mix card joins the figures to their words with no-break spaces (ENG-292).
+  await expect(ladder).toHaveAttribute("aria-label", /^9\svon 20\sPunkten$/);
   await ladder.scrollIntoViewIfNeeded();
   const box = await ladder.evaluate(el => {
     const outer = el.getBoundingClientRect(), track = el.firstElementChild!.getBoundingClientRect();

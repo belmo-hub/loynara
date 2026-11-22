@@ -79,7 +79,7 @@ describe("challenge setting", () => {
     const other = await shop("stamp", "Other Synthetic Shop");
     await expect(challenge(s, 3, 1, await staff(s, "cashier"))).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(challenge(s, 3, 1, await staff(s, "manager"))).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(challenge(s, 3, 1, other.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(challenge(s, 3, 1, other.owner)).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(challenge(s, 1, 1)).rejects.toThrow();
     await expect(challenge(s, 11, 1)).rejects.toThrow();
     await expect(challenge(s, 3, 4)).rejects.toMatchObject({ code: "INVALID_CHALLENGE" });
@@ -303,7 +303,7 @@ describe("changes to a running challenge wait for the next month (ENG-065)", () 
     await challenge(s, 2, 1);
     await challenge(other, 2, 3);
     await challenge(s, 3, 2);
-    await expect(challenge(other, 4, 1, s.owner)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(challenge(other, 4, 1, s.owner)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await next(other)).toEqual({ from: null, visits: null, bonus: null });
   });
 

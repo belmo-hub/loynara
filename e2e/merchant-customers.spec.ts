@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function account(baseURL: string) {
   const context = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
   const email = `members-${randomUUID()}@example.test`;
-  expect((await context.post("/api/auth/sign-up/email", { data: { name: "Synthetic merchant tester", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(context, { data: { name: "Synthetic merchant tester", email, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   return { context, email };
 }
 
@@ -104,7 +105,7 @@ test("merchant customers are pseudonymous, scoped and reachable through their ti
       expect(member.cardLocator).toMatch(/^K-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
       await page.getByRole("link", { name: /Alle Karten/ }).click();
       await page.getByRole("link", { name: new RegExp(member.cardLocator) }).click();
-      await expect(page.getByRole("heading", { name: "Kartenverlauf" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Verlauf", exact: true })).toBeVisible();
       await expect(page.getByText("+3 Stempel")).toBeVisible();
       await page.goto("/merchant/customers");
       await page.getByRole("link", { name: "CSV-Vorschau" }).click();

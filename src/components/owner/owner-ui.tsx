@@ -1,5 +1,6 @@
 "use client";
 
+import { useLinkStatus } from "next/link";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { CalendarDays, Check, Eye, House, Info, Megaphone, Menu, Minus, Pencil, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, TriangleAlert, Users, X, type LucideIcon } from "lucide-react";
 import type { NavIconName } from "./nav";
@@ -55,12 +56,28 @@ const SAVE_LABEL: Record<SaveState, string> = { clean: "", dirty: "Ungespeichert
 /** Consistent save pattern: nothing material is saved silently, the state is always visible and announced. */
 export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, saveLabel = "Speichern", detail, asSubmit = false, alwaysDiscard = false, discardLabel = "Verwerfen", section }: { state: SaveState; /** Names the card while unsaved, where several cards share a page. */ section?: string; errorLabel?: string; onSave?: () => void; onDiscard?: () => void; canSave?: boolean; saveLabel?: string; detail?: string; asSubmit?: boolean; alwaysDiscard?: boolean; discardLabel?: string }) {
   const busy = state === "saving", shown = state !== "clean";
-  // On phones the bar pins over the page's foot with the first change: the field being edited moves above it (owner.css).
+  const bar = useRef<HTMLDivElement>(null);
+  // The bar covers the page's foot with the first change (pinned on phones, sticky on desktop): the field being edited
+  // moves above it (owner.css).
+  // The page's scrollport ends above the bar (ENG-245). CSS cannot read the bar's height, and the bar wraps with its
+  // text, so the bar reports it while it is up.
+  // shortcut: one shown bar per page; with two, the last to resize wins and the first to hide clears the other's
+  // height. Upgrade when a page pins two at once.
+  // This effect stays before the next one: the field is brought above the bar after the bar's height is known.
+  useEffect(() => {
+    const el = bar.current, root = document.documentElement;
+    if (!shown || !el) return;
+    const report = () => root.style.setProperty("--ow-savebar-h", `${el.offsetHeight}px`);
+    const observer = new ResizeObserver(report);
+    observer.observe(el); report();
+    return () => { observer.disconnect(); root.style.removeProperty("--ow-savebar-h"); };
+  }, [shown]);
   useEffect(() => { const field = document.activeElement; if (shown && field instanceof HTMLElement && field !== document.body) field.scrollIntoView({ block: "nearest" }); }, [shown]);
   return (
-    <div className="ow-savebar" data-idle={state === "clean" || undefined}>
+    <div ref={bar} className="ow-savebar" data-idle={state === "clean" || undefined}>
       <span className="ow-savestate" data-state={state} role="status" aria-live="polite">
-        {state !== "clean" && <><span className="ow-dot" aria-hidden="true" /><span className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
+        {/* Keyed by state, so each new line fades in (owner.css, Saved); „Gespeichert“ wears a check instead of the dot. */}
+        {state !== "clean" && <>{state === "saved" ? <OwnerIcon name="check" size={16} /> : <span className="ow-dot" aria-hidden="true" />}<span key={state} className="ow-savestate-label">{state === "error" && errorLabel ? errorLabel : state === "dirty" && section ? `${SAVE_LABEL.dirty}: ${section}` : SAVE_LABEL[state]}</span></>}
         {state === "clean" && <span className="ow-muted">Keine Änderungen</span>}
         {detail && state !== "clean" && <span className="ow-muted ow-savestate-detail" role={state === "error" ? "alert" : undefined}>{detail}</span>}
       </span>
@@ -74,12 +91,17 @@ export function SaveBar({ state, errorLabel, onSave, onDiscard, canSave = true, 
 
 export function Notice({ tone = "info", children, actions, role }: { tone?: "info" | "warn" | "danger" | "ok"; children: ReactNode; actions?: ReactNode; role?: "alert" | "status" }) {
   const icon = tone === "danger" || tone === "warn" ? "alert" : tone === "ok" ? "check" : "info";
-  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={18} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
+  return <div className={`ow-notice${tone === "info" ? "" : ` ow-notice--${tone}`}`} role={role ?? (tone === "danger" ? "alert" : undefined)}><span><OwnerIcon name={icon} size={20} /></span><div>{children}{actions && <div className="ow-notice-actions">{actions}</div>}</div></div>;
 }
 
 export function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) { return <div className="ow-skel" style={{ height, width }} aria-hidden="true" />; }
 
 export const nf = new Intl.NumberFormat("de-DE");
+
+/** Inside a plain `Link` row: marks the row from the tap until its screen shows, as `GuardedLink` does by itself (owner.css). */
+export function LinkPending() {
+  return useLinkStatus().pending ? <span data-pending="" hidden /> : null;
+}
 export { germanDate } from "@/lib/german-date";
 
 /** Secondary detail behind one tap, so the page leads with its action. Text inside stays word for word. */
@@ -97,11 +119,13 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
   return <Notice tone="danger" role="alert" actions={onRetry ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={onRetry}>Erneut laden</button> : undefined}>{message}</Notice>;
 }
 
-export function LoadingBlock({ rows = 2, height = 96 }: { rows?: number; height?: number }) {
-  return <div className="ow-stack" role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
+/** `wide`: the page loads into the full width (two columns or a wide card), not the 40rem column. */
+export function LoadingBlock({ rows = 2, height = 96, wide = false }: { rows?: number; height?: number; wide?: boolean }) {
+  return <div className={wide ? "ow-stack ow-loading ow-loading--wide" : "ow-stack ow-loading"} role="status" aria-label="Wird geladen">{Array.from({ length: rows }, (_, index) => <Skeleton key={index} height={height} />)}</div>;
 }
 
-export type NumberUnit = { one: string; many: string };
+/** step: the word in the buttons' „10 Punkte weniger“ where many is a dative („ab 150 Punkten“). */
+export type NumberUnit = { one: string; many: string; step?: string };
 type NumberShape = { min: number; max: number; unit: NumberUnit; bonus?: boolean; offAtZero?: boolean };
 
 /** What the stepper shows for a typed draft: „30 Tage“, „+1 Stempel“, „Aus“. Null while the draft is not a whole number. */
@@ -123,7 +147,7 @@ export function NumberStepper({ id, value, onChange, describedBy, invalid = fals
   const shown = numberText(value, shape);
   const n = shown ? Number(value) : null;
   const step = (direction: 1 | -1) => onChange(stepValue(value, direction * stepSize, shape));
-  const by = `${stepSize} ${stepSize === 1 ? unit.one : unit.many}`; // „1 Tag“, „10 Punkte“
+  const by = `${stepSize} ${stepSize === 1 ? unit.one : unit.step ?? unit.many}`; // „1 Tag“, „10 Punkte“
   // The field keeps showing „+2“ or „Aus“ while it is typed in; only its digits count, so typing over either works.
   const display = shown ? shown.value : value, unitShown = shown ? shown.unit : unit.many;
   return (

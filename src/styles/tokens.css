@@ -69,6 +69,11 @@
   --target: 44px;
   /* A row in a panel (Design decision 1). */
   --row-min: 56px;
+  /* The founder's mix (17 Nov): rows of one line, of two lines or with an icon tile, with the card thumbnail; the icon tile. */
+  --mix-row: 52px;
+  --mix-row-2: 64px;
+  --mix-row-card: 72px;
+  --mix-tile: 40px;
   --target-cashier: 56px;
 
   --radius-sm: 8px;
@@ -79,6 +84,7 @@
 
   --shadow-hairline: 0 1px 0 var(--color-line);
   --shadow-raised: 0 10px 28px -14px rgba(20, 40, 30, .32), 0 0 0 1px var(--color-line);
+  --shade-scroll: rgba(20, 40, 30, .14); /* the edge shade of a list that scrolls on */
   --shadow-object: 0 24px 40px -28px rgba(15, 45, 33, .6);
   --shadow-overlay: 0 28px 60px -24px rgba(10, 20, 15, .45);
 
@@ -128,6 +134,7 @@
   --color-board-mark: #9FD3B5;
   --color-board-line: color-mix(in oklab, #FFFFFF, transparent 86%);
   --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
+  --shade-scroll: rgba(0, 0, 0, .4); /* the edge shade of a list that scrolls on */
   --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
   --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);
 }
@@ -161,10 +168,15 @@
     --color-board-mark: #9FD3B5;
     --color-board-line: color-mix(in oklab, #FFFFFF, transparent 86%);
     --shadow-raised: 0 10px 28px -14px rgba(0, 0, 0, .7), 0 0 0 1px var(--color-line);
+    --shade-scroll: rgba(0, 0, 0, .4); /* the edge shade of a list that scrolls on */
     --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8);
     --shadow-overlay: 0 28px 60px -24px rgba(0, 0, 0, .8);
   }
 }
+
+/* A view transition's layers hang off the root, outside the themed box: they take the dark object shadow from there. */
+:root:has(.ly-theme-dark) { --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8); }
+@media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) { --shadow-object: 0 24px 40px -28px rgba(0, 0, 0, .8); } }
 
 .ly-theme-auto, .ly-theme-dark {
   color-scheme: light;

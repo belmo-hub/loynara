@@ -3,8 +3,9 @@ import { Client } from "pg";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { desc, eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { cardRecoveryChallenges, cardSecurityEvents, consentEvents, contactVerificationChallenges, ledgerEntries, memberships, outboxJobs } from "@/db/schema";
-import { createMerchant, enroll, getCard } from "./product";
+import { cardRecoveryChallenges, cardSecurityEvents, consentEvents, contactVerificationChallenges, ledgerEntries, memberships, outboxJobs, walletPasses } from "@/db/schema";
+import { createMerchant, enroll, getCard, lookupCard } from "./product";
+import { issueWalletPass } from "./wallet/issue";
 import { award } from "./loyalty";
 import { closeCard } from "./card-lifecycle";
 import { reissueCardByStaff } from "./card-reissue";
@@ -30,7 +31,7 @@ afterAll(async () => { await pool.end(); });
 async function fixture(email = "holder@example.test") {
   const userId = randomUUID();
   await pool.query('INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1,$2,$3,false)', [userId, "Synthetic owner", `${userId}@example.test`]);
-  const merchant = await createMerchant({ userId, businessName: `Synthetic Merchant ${userId.slice(0, 6)}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 8 });
+  const merchant = await createMerchant({ userId, businessName: `Synthetic Merchant ${userId.replace(/\d/g, "").slice(0, 6)}`, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Stamps", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 8 });
   const card = await enroll({ slug: merchant.programSlug, acceptedTerms: true });
   await requestContactVerification(card.cardToken, email);
   const [challenge] = await db.select().from(contactVerificationChallenges).where(eq(contactVerificationChallenges.membershipId, card.id));
@@ -61,7 +62,8 @@ describe("lost browser-card recovery", () => {
     expect(sent.to).toBe("holder@example.test");
     expect(sent.subject).toBe("Deine Loynara-Karte wurde wiederhergestellt");
     expect(sent.body).toMatch(/\d{2}\.\d{2}\.\d{4}.*\d{2}:\d{2} UTC wiederhergestellt/);
-    expect(sent.body).toMatch(/bisherige private Kartenlink.*nicht mehr gültig/);
+    expect(sent.body).toMatch(/bisherige private Kartenlink und der bisherige QR-Code sind nicht mehr gültig/);
+    expect(sent.body).toMatch(/Wallet gespeicherte Karte.*neuen Kartenlink erneut hinzu/);
     expect(sent.body).toMatch(/Falls du das nicht selbst veranlasst hast/);
     expect(`${sent.subject}\n${sent.body}`).not.toContain(f.card.cardToken);
     expect(`${sent.subject}\n${sent.body}`).not.toContain(restored.cardToken);
@@ -69,7 +71,7 @@ describe("lost browser-card recovery", () => {
     expect(`${sent.subject}\n${sent.body}`).not.toMatch(/https?:\/\/|Kontostand|Angebot|Rabatt/i);
     expect(await db.select().from(consentEvents)).toEqual(consentBefore);
     await expect(deliverRecoveryNotice({ id: notices[0].id, tenantId: notices[0].tenantId, payload: notices[0].payload }, async () => { throw new Error("synthetic provider failure"); })).rejects.toThrow("synthetic provider failure");
-    expect((await getCard(restored.cardToken)).scanCode).toBe(f.card.scanCode);
+    expect((await getCard(restored.cardToken)).scanCode).not.toBe(f.card.scanCode);
   });
 
   it("does not queue a security notice for a failed recovery", async () => {
@@ -78,7 +80,7 @@ describe("lost browser-card recovery", () => {
     await expect(completeCardRecovery(`${token}tampered`, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
     expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(0);
   });
-  it("keeps the same membership, ledger balance and scan identity while rotating the only browser bearer", async () => {
+  it("keeps the same membership and ledger balance while replacing the card link and its QR code", async () => {
     const f = await fixture();
     await award({ userId: f.userId, locationId: f.merchant.locationId, membershipId: f.card.id, quantity: 2, requestId: randomUUID(), idempotencyKey: randomUUID() });
     expect((await getCard(f.card.cardToken)).balance).toBe(2);
@@ -96,7 +98,7 @@ describe("lost browser-card recovery", () => {
     await expect(getCard(f.card.cardToken)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await getCard(restored.cardToken)).balance).toBe(2);
     const [stored] = await db.select().from(memberships).where(eq(memberships.id, f.card.id));
-    expect(stored.scanCode).toBe(f.card.scanCode);
+    expect(stored.scanCode).not.toBe(f.card.scanCode);
     expect(stored.cardToken).toBe(restored.cardToken);
     expect(await db.select().from(cardSecurityEvents)).toMatchObject([{ action: "card_credential_rotated" }]);
     await expect(completeCardRecovery(token, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
@@ -160,7 +162,7 @@ describe("lost browser-card recovery", () => {
     expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
     const [stored] = await db.select().from(memberships).where(eq(memberships.id, f.card.id));
     expect(stored.cardToken).not.toBe(f.card.cardToken);
-    expect((await getCard(stored.cardToken)).scanCode).toBe(f.card.scanCode);
+    expect((await getCard(stored.cardToken)).scanCode).not.toBe(f.card.scanCode);
   });
 
   it("uses POST only for scanner-safe list and explicit rotation; applies destination limits", async () => {
@@ -272,10 +274,24 @@ it("rolls back an authorized recovery if its final notice insert fails, preservi
   expect((await getCard(f.card.cardToken)).balance).toBe(2);
   const restored = await completeCardRecovery(token, f.card.id);
   expect(restored.membershipId).toBe(f.card.id); expect(restored.cardToken).not.toBe(f.card.cardToken);
-  expect((await getCard(restored.cardToken)).scanCode).toBe(f.card.scanCode);
+  expect((await getCard(restored.cardToken)).scanCode).not.toBe(f.card.scanCode);
   expect((await getCard(restored.cardToken)).balance).toBe(2);
   expect(await db.select().from(cardSecurityEvents).where(eq(cardSecurityEvents.membershipId, f.card.id))).toHaveLength(1);
   expect(await db.select().from(outboxJobs).where(eq(outboxJobs.kind, "email.recovery_notice"))).toHaveLength(1);
   await expect(completeCardRecovery(token, f.card.id)).rejects.toMatchObject({ code: "INVALID_RECOVERY" });
   expect(await snapshot(foreign.merchant.tenantId)).toEqual(foreignBefore);
+});
+
+it("replaces the QR code too and withdraws saved Wallet passes, so nothing taken from the old link still works at the counter", async () => {
+  const f = await fixture();
+  const before = await getCard(f.card.cardToken);
+  const oldPass = await issueWalletPass(f.card.cardToken, "apple", id => id);
+  const restored = await completeCardRecovery(await recovery(), f.card.id);
+  await expect(lookupCard({ userId: f.userId, locationId: f.merchant.locationId, scanCode: f.card.scanCode })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  const fresh = await getCard(restored.cardToken);
+  expect((await lookupCard({ userId: f.userId, locationId: f.merchant.locationId, scanCode: fresh.scanCode })).membershipId).toBe(f.card.id);
+  expect(await db.select().from(walletPasses).where(eq(walletPasses.id, oldPass.id))).toMatchObject([{ revokeReason: "reissued", revokedAt: expect.any(Date) }]);
+  // The card itself is unchanged: same number, and a new pass can be added from the new link.
+  expect(fresh.cardLocator).toBe(before.cardLocator);
+  expect((await issueWalletPass(restored.cardToken, "apple", id => id)).id).not.toBe(oldPass.id);
 });

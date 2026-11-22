@@ -1,13 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users } from "lucide-react";
 import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
 import { purchaseRuleSentence } from "@/lib/points";
 import { withUnit } from "@/lib/units";
-import { setupReviewValidation } from "./program-setup-validation";
+import { setupLocation, setupReviewValidation } from "./program-setup-validation";
 import { useDirtyGuard, useOwner } from "./owner-context";
+import { ShopSearch, type ShopPlace } from "./shop-search";
 import { CardLinePreview, Notice, NumberStepper } from "./owner-ui";
 import { quoteStart } from "./program-list";
 import { Choices, Control, FieldError } from "./question-form";
@@ -32,7 +34,8 @@ export function ProgramSetup() {
   const router = useRouter();
   const owner = useOwner();
   const logoHidden = owner.hiddenSurfaces.includes("cardLogo");
-  const walletsHidden = owner.hiddenSurfaces.includes("walletPreviews");
+  // The shop's point only serves Wallet hints, and the search needs its provider (ENG-323).
+  const placeOffered = !owner.hiddenSurfaces.includes("walletPreviews") && !owner.hiddenSurfaces.includes("shopSearch");
   const heading = useRef<HTMLHeadingElement>(null), fail = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
@@ -41,9 +44,9 @@ export function ProgramSetup() {
   // A shop the operator created arrives with its name and place filled in; the owner confirms or changes them.
   const draft = owner.setupDraft;
   const [f, setF] = useState({
-    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", country: (draft?.country === "MA" ? "MA" : "DE") as "DE" | "MA", locale: (draft?.locale === "fr" ? "fr" : "de") as "de" | "fr", contactEmail: "", preset: "",
+    businessName: draft?.businessName ?? "", locationName: draft && draft.locationName !== draft.businessName ? draft.locationName : "", city: draft?.city ?? "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
-    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
+    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), place: null as ShopPlace | null,
   });
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
@@ -51,10 +54,10 @@ export function ProgramSetup() {
   // A later pick wins over a slower earlier read.
   const logoPick = useRef(0);
   const pickLogo = (file: File | undefined, pick = ++logoPick.current) => file ? imageToDataUrl(file).then(logoData => pick === logoPick.current && set({ logoData, logoError: "" }), (cause: Error) => pick === logoPick.current && set({ logoData: undefined, logoError: cause.message })) : set({ logoData: undefined, logoError: "" });
-  const touched = f.businessName !== (draft?.businessName ?? "") || f.locationName !== (draft?.locationName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
+  const touched = f.businessName !== (draft?.businessName ?? "") || f.city !== (draft?.city ?? "") || Boolean(f.rewardName || f.cost);
   useDirtyGuard("program-setup", touched && !busy);
 
-  const currency = f.country === "DE" ? "EUR" : "MAD";
+  const currency = "EUR";
   const rate = Number(f.rate);
   const cost = parseWholeNumber(f.cost);
   const effectiveMode: EarningMode = f.type === "stamp" ? "manual" : f.mode;
@@ -62,11 +65,12 @@ export function ProgramSetup() {
   const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode);
   // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
   const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
+  const location = setupLocation(f, draft, placeOffered), { locationName } = location;
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
-  const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
+  const reviewValidation = setupReviewValidation({ programName, date: f.date });
 
   const problems: Array<Record<string, string>> = [
-    { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", locationName: f.locationName.trim().length < 2 ? "Bitte den Standort benennen." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "", contactEmail: f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail) ? "Bitte eine gültige E-Mail-Adresse eingeben." : "" },
+    { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "" },
     { rate: rateValid ? "" : `Gib eine ganze Zahl von 1 bis ${MAX_POINTS_PER_CURRENCY_UNIT} ein.`, rules: !extras && rulesText.trim().length < 10 ? SHORT_RULE : "" },
     { rewardName: !f.rewardName.trim() ? REWARD_NAME_MISSING : f.rewardName.trim().length < 2 ? SHORT_NAME : "", cost: cost === null ? WHOLE_NUMBER : "" },
     { brandColor: HEX.test(f.brandColor) ? "" : "Bitte einen Farbwert wie #1F4A3A eingeben.", logo: f.logoError, ...reviewValidation.problems },
@@ -122,12 +126,11 @@ export function ProgramSetup() {
     setBusy(true); setError("");
     try {
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
-        businessName: f.businessName.trim(), city: f.city.trim(), country: f.country, timezone: draft && draft.country === f.country ? draft.timezone : f.country === "DE" ? "Europe/Berlin" : "Africa/Casablanca", locale: f.locale, currency,
+        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: "de", currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
-        locationName: f.locationName.trim(), ...(f.contactEmail.trim() ? { contactEmail: f.contactEmail.trim() } : {}),
+        ...location,
         brandColor: f.brandColor, effectiveDate: f.date, logoData: f.logoData,
-        ...reviewValidation.coordinates,
       });
       if (!await owner.refresh()) throw new Error("Die Einrichtung konnte noch nicht geladen werden. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest.");
       router.replace("/merchant");
@@ -159,16 +162,8 @@ export function ProgramSetup() {
       <form className="ow-q" onSubmit={event => { event.preventDefault(); if (step < 3) next(); else void submit(); }} noValidate>
         {step === 0 && <>
           <Field panel id="su-businessName" label="Geschäftsname" error={err("businessName")}><input id="su-businessName" className="ow-input" value={f.businessName} maxLength={120} autoComplete="organization" onChange={event => set({ businessName: event.target.value })} {...invalid("businessName")} placeholder="z. B. Café am Platz" /></Field>
-          <Field panel id="su-locationName" label="Standortname" error={err("locationName")}><input id="su-locationName" className="ow-input" value={f.locationName} maxLength={120} onChange={event => set({ locationName: event.target.value })} {...invalid("locationName")} placeholder="z. B. Kassel Mitte" /></Field>
-          <Field panel id="su-city" label="Stadt" error={err("city")}><input id="su-city" className="ow-input" value={f.city} maxLength={120} autoComplete="address-level2" onChange={event => set({ city: event.target.value })} {...invalid("city")} /></Field>
-          <p className="ow-hint">Name und Standort stehen auf der Kundenkarte.</p>
-          <details className="ow-qpanel"><summary>Weitere Einstellungen</summary>
-            <div className="ow-stack">
-              <Field id="su-country" label="Land"><select id="su-country" className="ow-select" value={f.country} onChange={event => set({ country: event.target.value as "DE" | "MA" })}><option value="DE">Deutschland (EUR)</option><option value="MA">Marokko (MAD)</option></select></Field>
-              <Field id="su-locale" label="Sprache der Karte"><select id="su-locale" className="ow-select" value={f.locale} onChange={event => set({ locale: event.target.value as "de" | "fr" })}><option value="de">Deutsch</option><option value="fr">Französisch</option></select></Field>
-              <Field id="su-contactEmail" label="Kontakt-E-Mail (optional)" error={err("contactEmail")}><input id="su-contactEmail" className="ow-input" type="email" value={f.contactEmail} onChange={event => set({ contactEmail: event.target.value })} {...invalid("contactEmail")} /></Field>
-            </div>
-          </details>
+          <Field panel id="su-city" label="Stadt" error={err("city")}><input id="su-city" className="ow-input" value={f.city} maxLength={120} autoComplete="address-level2" onChange={event => set({ city: event.target.value })} {...invalid("city")} placeholder="z. B. Kassel" /></Field>
+          <p className="ow-hint">Name und Stadt stehen auf der Kundenkarte.</p>
         </>}
         {step === 1 && <>
           <Choices name="su-type" label="Sammelart" value={f.type} saved="" onChange={type => earn(type as ProgramKind, f.mode)} options={[
@@ -178,7 +173,7 @@ export function ProgramSetup() {
           {points && <>
             <h2 className="ow-qsub">So entstehen Punkte</h2>
             <Choices name="su-mode" label="So entstehen Punkte" value={f.mode} saved="" onChange={mode => earn("points", mode as EarningMode)} options={[
-              { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, das System rechnet und rundet ab.", icon: ReceiptText },
+              { value: "purchase", label: "Nach Einkaufswert", sub: "Das Team gibt den Betrag ein, Loynara rechnet und rundet ab.", icon: ReceiptText },
               { value: "manual", label: "Manuell", sub: "Das Team gibt die Punktmenge direkt ein.", icon: Users },
             ]} />
           </>}
@@ -189,7 +184,7 @@ export function ProgramSetup() {
           {example && <>
             <h2 className="ow-qsub">Beispiel durchspielen</h2>
             <Field panel id="su-amount" label={`Einkaufswert in ${currency === "EUR" ? "€" : currency}`}><input id="su-amount" className="ow-input" inputMode="decimal" placeholder="z. B. 12,90" value={amount} onChange={event => setAmount(event.target.value)} />
-              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{withUnit(example.points, "points")}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-hint">Rechnet mit der Formel des Servers.</p>}</div>
+              <div role="status" aria-live="polite">{example.ok ? <p><strong>{euro(example.amountMinor, currency)}</strong> ergeben <strong>{withUnit(example.points, "points")}</strong>.</p> : example.message ? <p className="ow-error">{example.message}</p> : <p className="ow-hint">Rechnet genau wie später die Kasse.</p>}</div>
             </Field>
           </>}
           <Field panel id="su-rules" label={extras ? EXTRA_RULES_LABEL : "Regeltext für Kunden"} error={err("rules")} hint={extras ? SETUP_EXTRA_RULES_HINT : "Vorschlag aus deiner Auswahl. Du kannst ihn frei ändern. Prämien stehen automatisch auf der Karte und bei der Anmeldung. Schreib sie hier nicht dazu, dann bleibt alles aktuell."}>
@@ -206,9 +201,9 @@ export function ProgramSetup() {
             <input id="su-rewardName" className="ow-input" value={f.rewardName} maxLength={180} onChange={event => set({ rewardName: event.target.value, preset: PRESETS.find(preset => preset.reward && preset.reward === event.target.value.trim())?.id ?? "other" })} {...invalid("rewardName")} placeholder="z. B. Kaffee aufs Haus" />
           </Field>
           <div className="ow-qpanel ow-qcontrol">
-            {/* Stamps step by one, so „10 Stempeln“ follows „Einlösbar ab“; points step by ten, whose label needs „10 Punkte“. */}
+            {/* „Einlösbar ab“ takes the dative („8 Stempeln“, „150 Punkten“); the buttons say „10 Punkte weniger“. */}
             <div><label htmlFor="su-cost">Einlösbar ab</label><NumberStepper id="su-cost" value={f.cost} onChange={value => set({ cost: value && String(Math.min(Number(value), COST_MAX)) })} min={1} max={COST_MAX} stepSize={points ? 10 : 1}
-              unit={{ one: unitName(f.type, 1), many: points ? unitName(f.type) : unitDative(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
+              unit={{ one: unitName(f.type, 1), many: unitDative(f.type), step: unitName(f.type) }} invalid={Boolean(err("cost"))} describedBy={err("cost") ? "su-cost-error" : sample ? "su-cost-hint" : undefined} /></div>
             {err("cost") ? <FieldError id="su-cost-error">{err("cost")}</FieldError> : sample && <p id="su-cost-hint" className="ow-hint">Beispielwert aus der Branchenauswahl. Bitte prüfe ihn für dein Geschäft.</p>}
             {(minSpend !== null || noMinSpendNote(f.type)) && <p className="ow-hint" role="status" aria-live="polite">{minSpend !== null ? <>Mindestumsatz: <strong>{euro(minSpend, currency)}</strong>. {MIN_SPEND_LABEL}</> : `${noMinSpendNote(f.type)}.`}</p>}
           </div>
@@ -218,7 +213,7 @@ export function ProgramSetup() {
             <CardLinePreview label="So sieht deine Karte aus" shop={f.businessName.trim()} brandColor={HEX.test(f.brandColor) ? f.brandColor : undefined} rules={shownRules}>{reward}</CardLinePreview>
           </div>
           <ul className="ow-rows">
-            {([[Store, "Geschäft", `${f.businessName.trim()} · ${f.locationName.trim()}`], [Gift, "Prämie", reward], [ScrollText, "Regel", quoteStart(shownRules)]] as const).map(([Icon, title, sub]) => (
+            {([[Store, "Geschäft", `${f.businessName.trim()} · ${locationName}`], [Gift, "Prämie", reward], [ScrollText, "Regel", quoteStart(shownRules)]] as const).map(([Icon, title, sub]) => (
               <li key={title}><div className="ow-prog-row"><span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span><span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong><small>{sub}</small></span></span></div></li>
             ))}
           </ul>
@@ -227,16 +222,18 @@ export function ProgramSetup() {
               <p className="ow-hint">{logoHidden ? "Die Farbe lässt sich später im Kartenstudio ändern." : "Farbe und Logo lassen sich später im Kartenstudio ändern."}</p>
               <div className="ow-field"><span className="ow-label" id="su-color-l">Markenfarbe</span>
                 <div className="ow-swatches" role="group" aria-labelledby="su-color-l">{SWATCHES.map(hex => <button key={hex} type="button" className="ow-swatch" style={{ backgroundColor: hex }} aria-label={`Farbe ${hex}`} aria-pressed={f.brandColor.toLowerCase() === hex.toLowerCase()} onClick={() => set({ brandColor: hex })} />)}</div>
-                <input id="su-brandColor" className="ow-input ow-field--narrow" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} {...invalid("brandColor")} aria-label="Farbwert (Hex)" />
-                <FieldError id="su-brandColor-error">{err("brandColor")}</FieldError>
+                <div className="ow-colorrow"><input type="color" aria-label="Farbe wählen" value={HEX.test(f.brandColor) ? f.brandColor : "#000000"} onChange={event => set({ brandColor: event.target.value })} /><div className="ow-field"><label htmlFor="su-brandColor" className="ow-hint">Farbwert (Hex)</label><input id="su-brandColor" className="ow-input" value={f.brandColor} maxLength={7} spellCheck={false} onChange={event => set({ brandColor: event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}` })} aria-invalid={!HEX.test(f.brandColor)} aria-describedby={HEX.test(f.brandColor) ? undefined : "su-brandColor-error"} /></div></div>
+                {/* Shown while typing, like the card studio: the well and preview already react to the value. */}
+                <FieldError id="su-brandColor-error">{HEX.test(f.brandColor) ? "" : problems[3].brandColor}</FieldError>
               </div>
-              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><input id="su-logo" className="ow-input" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></Field>}
+              {!logoHidden && <Field id="su-logo" label="Logo (optional)" hint="PNG, JPG oder WebP bis 2 MB." error={f.logoError}><div className="ow-logo-row">
+                {/* The picked logo itself, as in the card studio, and a German button instead of the browser's own file control. */}
+                {f.logoData && <Image unoptimized className="ow-logo-thumb" src={f.logoData} width={112} height={35} alt="Ausgewähltes Logo" style={{ backgroundColor: HEX.test(f.brandColor) ? f.brandColor : undefined }} />}
+                <label htmlFor="su-logo" className="ow-btn ow-btn--secondary ow-filebtn">{f.logoData ? "Anderes Logo wählen" : "Logo wählen"}<input id="su-logo" className="ow-sr" type="file" accept="image/png,image/jpeg,image/webp" aria-invalid={Boolean(f.logoError)} aria-describedby={f.logoError ? "su-logo-error" : undefined} onChange={event => void pickLogo(event.target.files?.[0])} /></label>
+              </div></Field>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input ow-field--narrow" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} /></Field>
-              {!walletsHidden && <>
-                <div className="ow-grid-2"><Field id="su-latitude" label="Breitengrad (optional)" error={err("latitude")}><input id="su-latitude" className="ow-input" inputMode="decimal" {...invalid("latitude")} value={f.latitude} onChange={event => set({ latitude: event.target.value })} /></Field><Field id="su-longitude" label="Längengrad (optional)" error={err("longitude")}><input id="su-longitude" className="ow-input" inputMode="decimal" {...invalid("longitude")} value={f.longitude} onChange={event => set({ longitude: event.target.value })} /></Field></div>
-                <span className="ow-hint">Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert.</span>
-              </>}
+              {placeOffered && <ShopSearch label="Dein Geschäft (optional)" pickedLabel="Dein Geschäft" value={f.place} onChange={place => set({ place })} purpose="Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert." />}
             </div>
           </details>
           <p className="ow-hint">Das Programm startet mit dem Speichern (gültig ab {f.date.split("-").reverse().join(".")}). Kunden können sich dann anmelden.</p>

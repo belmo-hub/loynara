@@ -71,27 +71,39 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       .from(billingLocationPlans).innerJoin(tenants, eq(tenants.id, billingLocationPlans.tenantId))
       .innerJoin(locations, and(eq(locations.id, billingLocationPlans.locationId), eq(locations.tenantId, billingLocationPlans.tenantId)))
       .where(isNotNull(billingLocationPlans.guaranteeOutcome)).orderBy(desc(billingLocationPlans.guaranteeDecidedAt));
+    // ENG-310 (Art. 30 (2) record): every shop whose owner accepted the online contract. Start = the first acceptance; end =
+    // the confirmed cancellation's last day, once no active programme runs without one (a cancellation covers the whole shop).
+    const { rows: contracts } = await tx.execute<{ tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] }>(sql`
+      SELECT t.id AS "tenantId", t.name AS tenant, u.email AS "ownerEmail", to_json(a.accepted_at) #>> '{}' AS "acceptedAt",
+        CASE WHEN NOT EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = t.id AND p.status = 'active' AND p.cancellation_confirmed_at IS NULL)
+          THEN (SELECT max(p.cancellation_end_date) FROM programs p WHERE p.tenant_id = t.id AND p.cancellation_confirmed_at IS NOT NULL)::text END AS "endDate",
+        coalesce((SELECT array_agg(concat_ws(', ', l.name, nullif(l.street, ''), concat_ws(' ', l.postal_code, l.city)) ORDER BY l.created_at, l.id)
+          FROM locations l WHERE l.tenant_id = t.id), '{}') AS addresses
+      FROM (SELECT DISTINCT ON (tenant_id) tenant_id, user_id, accepted_at FROM owner_acceptances WHERE tenant_id IS NOT NULL ORDER BY tenant_id, accepted_at) a
+      JOIN tenants t ON t.id = a.tenant_id LEFT JOIN "user" u ON u.id = a.user_id
+      -- An erased shop keeps its tenant row and acceptance (ERASURE_KEEP) but is no live contract.
+      WHERE NOT EXISTS (SELECT 1 FROM shop_erasures e WHERE e.erased_tenant_id = t.id)
+      ORDER BY t.name, t.id`);
     // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
     const freeMonths = await freeMonthsEndingSoon();
-    return { awaiting, billing, guarantees, freeMonths, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    return { awaiting, billing, guarantees, freeMonths, contracts, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
 
-/**
- * „51.31270, 9.47970“ as Google Maps copies it from a right-click, or a full Maps link holding the pin (!3d…!4d…). A link's
- * @… is where the map was centred, not the shop, so it does not count; a short link would need fetching, so neither does that.
- */
+/** „51.31270, 9.47970“, as the shop names it or as measured there. No map links: a point is never copied from Google Maps (Legal, ENG-331). */
 export function parseCoordinates(text: string) {
-  const [, lat, lng] = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) ?? text.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/) ?? [];
+  const [, lat, lng] = text.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/) ?? [];
   const latitude = Number(lat), longitude = Number(lng);
-  if (!lat || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new DomainError("INVALID_POINT", "Bitte füge die Koordinaten aus Google Maps ein, zum Beispiel 51.31270, 9.47970.");
+  if (!lat || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new DomainError("INVALID_POINT", "Bitte gib die Koordinaten so ein: 51.31270, 9.47970.");
   return { latitude, longitude };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Sets one location's point for the Wallet near-shop suggestion. Dry run unless `execute`; a change reaches every pass of the location. */
-export async function setLocationCoordinates(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; coordinates: string; execute: boolean }) {
+// A hand-set point carries no refresh clock, so it must never be copied from Google Maps: that would be Google content without the 30-day limit (Legal, ENG-323).
+/** Sets one location's point for the Wallet near-shop suggestion. Dry run unless `execute`; a change reaches every pass of the location.
+ *  With `googlePlaceId` the point is the shop search's pick (ENG-331): it gets the 30-day refresh clock, and no name or address is kept. */
+export async function setLocationCoordinates(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; coordinates: string; googlePlaceId?: string; execute: boolean }) {
   if (!UUID.test(input.tenantId) || !UUID.test(input.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
   const point = parseCoordinates(input.coordinates);
   return db.transaction(async tx => {
@@ -99,9 +111,10 @@ export async function setLocationCoordinates(input: { actorUserId: string; env: 
     const where = and(eq(locations.id, input.locationId), eq(locations.tenantId, input.tenantId));
     const [location] = await tx.select({ latitude: locations.latitude, longitude: locations.longitude }).from(locations).where(where).for("update");
     if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
-    const changed = location.latitude !== point.latitude || location.longitude !== point.longitude;
+    const changed = location.latitude !== point.latitude || location.longitude !== point.longitude || Boolean(input.googlePlaceId);
     if (changed && input.execute) {
-      await tx.update(locations).set(point).where(where);
+      // A hand-set point is the operator's own: no 30-day limit.
+      await tx.update(locations).set(input.googlePlaceId ? { ...point, googlePlaceId: input.googlePlaceId, placeLocationFetchedAt: new Date() } : { ...point, placeLocationFetchedAt: null }).where(where);
       const held = await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.tenantId, input.tenantId), eq(programs.locationId, input.locationId)));
       for (const program of held) await enqueueWalletProgramRefresh(tx, input.tenantId, program.id);
     }

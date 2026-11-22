@@ -6,9 +6,11 @@
   border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; transform: rotate(var(--r));
   box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--stamp-fill, var(--color-stamp)), var(--color-qr-ground) 22%);
 }
+/* Forced colours would take the disc and leave a bare tick beside dashed rings: an earned stamp stays a filled disc. */
+@media (forced-colors: active) { .slot[data-earned] { forced-color-adjust: none; background: CanvasText; color: Canvas; box-shadow: none; } }
 /* The goal slot: a solid ink ring and the reward icon; coral only once it is earned (Design, 28 Oct). */
 .slot[data-reward] { border: 2px solid var(--merchant-ink, var(--color-ink)); color: var(--merchant-ink, var(--color-ink)); }
-.slot[data-new] { animation: land var(--dur-reward) var(--ease-out) var(--land-delay, 0ms) both; }
+.slot[data-new] { animation: land var(--dur-reward) var(--ease-out) calc(var(--land-delay, 0ms) + var(--land-stagger, 0ms)) both; }
 @keyframes land {
   0% { transform: scale(1.3) rotate(var(--r)); opacity: 0; }
   60% { transform: scale(.94) rotate(var(--r)); opacity: 1; }
@@ -19,3 +21,8 @@
    every merchant colour (asserted in merchant-color.test.ts). */
 .track { height: 10px; border-radius: var(--radius-pill); overflow: hidden; background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
 .trackFill { display: block; height: 100%; background: var(--merchant-ink, var(--color-ink)); transform: scaleX(var(--progress)); transform-origin: left; transition: transform var(--dur-reward) var(--ease-in-out); }
+/* Bars grow: only where the page asks (the guest card's first paint) the fill grows from the start; a later change
+   moves from the old value to the new. */
+.track[data-grow] .trackFill { animation: grow var(--dur-reward) var(--ease-in-out) backwards; }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .track[data-grow] .trackFill { animation: none; } }

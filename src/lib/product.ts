@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
+import { placeId } from "./place-search";
 import type { PgInsertValue } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
+import { billingLocationPlans, consentEvents, ledgerEntries, locations, membershipContacts, memberships, ownerAcceptances, programRuleVersions, programs, purchaseAwards, rewardVersions, rewards, staffInvites, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { birthdayState, DomainError, welcomeBonusDue, winbackState } from "./loyalty";
+import { SHOP_NAME_REFUSAL, unsafeShopName } from "./sender-details";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator, isScanCodeInput, parseCardLocator } from "./card-locator";
 import { draftPriceMinor } from "./pricing";
@@ -26,7 +28,9 @@ import { cardExpiry } from "./points-expiry";
 import { expiryRuleText, POINTS_EXPIRY_MONTHS } from "./points-expiry-rules";
 import { withUnit } from "./units";
 import { checkedLogoUpload } from "./wallet/logo-process";
+import { ownerTenant } from "./billing";
 import { DEMO_CONSENT_TEXT_VERSION, demoConsentText, shopDemo } from "./demo-texts";
+import { experienceFlag } from "./experience-flags";
 
 const shortText = z.string().trim().min(2).max(180);
 export const merchantInput = z.object({
@@ -34,10 +38,11 @@ export const merchantInput = z.object({
   businessName: shortText,
   locationName: shortText.optional(),
   city: z.string().trim().min(2).max(120),
-  country: z.enum(["DE", "MA"]),
+  // New shops are German only (ENG-328, founder 21 Nov). Stored MAD/French data and its types stay.
+  country: z.enum(["DE"]),
   timezone: z.string().min(3).max(80),
-  locale: z.enum(["de", "fr"]),
-  currency: z.enum(["EUR", "MAD"]),
+  locale: z.enum(["de"]), // German only for now (founder 21 Nov); stored French shops keep working
+  currency: z.enum(["EUR"]),
   programName: shortText,
   programType: z.enum(["stamp", "points"]),
   earningMode: z.enum(["manual", "purchase"]).optional(),
@@ -49,24 +54,30 @@ export const merchantInput = z.object({
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  googlePlaceId: placeId.optional(), // the shop search's pick (ENG-323); never its name or address
   logoData: z.string().max(3_000_000).optional(),
   effectiveDate: z.iso.date().optional(),
 });
 
+const placeFields = ({ googlePlaceId }: { googlePlaceId?: string }) => googlePlaceId ? { googlePlaceId, placeLocationFetchedAt: new Date() } : {};
 function randomCode(bytes: number) { return randomBytes(bytes).toString("base64url"); }
+const ACCEPTANCE_MISSING = "Mit diesem Konto kannst du kein Geschäft einrichten, weil die Vertragsbedingungen nicht angenommen sind. Erstelle dein Konto über „Konto erstellen“.";
 const SETUP_INCOMPLETE = "Die Einrichtung deines Geschäfts ist unvollständig. Bitte wende dich an den Support. Starte keine neue Einrichtung.";
 const ACCESS_REVOKED = "Dein Zugang wurde entzogen. Bitte wende dich an die Inhaberin oder den Inhaber.";
 export function slugOf(name: string) { return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "lokal"; }
-/** `newShop: false` (the setup route while public registration is closed): an account without a role gets no shop of its own; only the owner of a shop the operator created finishes its setup. */
-export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true } = {}) {
+/** `newShop: false` (the setup route while public registration is closed): an account without a role gets no shop of its own; only the owner of a shop the operator created finishes its setup.
+ *  `requireAcceptance` (the setup route while it is open, ENG-277): a new shop only for an account that accepted the terms at /register.
+ *  Only an invited owner (operator-made shop, paper contract) skips it, through the existing-owner branch; staff never get a shop. */
+export async function createMerchant(raw: z.input<typeof merchantInput>, { newShop = true, requireAcceptance = false } = {}) {
   const input = merchantInput.parse(raw);
+  if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
   const earningMode = input.earningMode ?? "manual";
   if (input.programType === "stamp" && earningMode !== "manual") throw new DomainError("INVALID_EARNING_MODE", "Stamp programmes use manual earning");
   checkRulesText(input.programType, earningMode, input.rulesText);
   try { new Intl.DateTimeFormat("de", { timeZone: input.timezone }); } catch { throw new DomainError("INVALID_TIMEZONE", "Unknown timezone"); }
-  if ((input.country === "DE" && input.currency !== "EUR") || (input.country === "MA" && input.currency !== "MAD")) throw new DomainError("INVALID_CURRENCY", "Currency and country differ");
-  if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
-  const logoData = input.logoData ? await checkedLogoUpload(input.logoData) : null;
+  if ((input.latitude === undefined) !== (input.longitude === undefined) || (input.googlePlaceId && input.latitude === undefined)) throw new DomainError("INVALID_COORDINATES", "Latitude and longitude are required together");
+  // Decoding a large logo costs real memory, so it waits until the account may set up this shop.
+  const logo = async () => input.logoData ? checkedLogoUpload(input.logoData) : null;
   return db.transaction(async (tx) => {
     // Serialize retries for this authenticated identity, including the first
     // request before a staff row exists. No provisioning happens in auth hooks.
@@ -82,8 +93,9 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       if (!tenant || !location) throw new DomainError("SETUP_INCOMPLETE", SETUP_INCOMPLETE);
       if (await awaitsSetup(tx, tenant.id)) {
         // A shop the operator created (ENG-047): the owner's answers replace the operator's draft, then the programme starts.
+        const logoData = await logo();
         await tx.update(tenants).set({ name: input.businessName, currency: input.currency, locale: input.locale }).where(eq(tenants.id, tenant.id));
-        const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude })
+        const [updated] = await tx.update(locations).set({ name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude, ...placeFields(input) })
           .where(and(eq(locations.id, location.id), eq(locations.tenantId, tenant.id))).returning();
         return startProgramme(tx, tenant.id, updated, input, earningMode);
       }
@@ -97,10 +109,13 @@ export async function createMerchant(raw: z.input<typeof merchantInput>, { newSh
       return { tenantId: tenant.id, locationId: location.id, programId: program.id, programSlug: program.slug, city: location.city, programType: program.type };
     }
     if (!newShop) throw new DomainError("FORBIDDEN", "Mit diesem Konto kannst du kein Geschäft einrichten. Nimm zuerst deine Einladung an.");
-    const { tenant, location } = await insertShop(tx, input, logoData);
+    if (requireAcceptance && !(await tx.select({ id: ownerAcceptances.id }).from(ownerAcceptances).where(eq(ownerAcceptances.userId, input.userId)).limit(1)).length) throw new DomainError("FORBIDDEN", ACCEPTANCE_MISSING);
+    const { tenant, location } = await insertShop(tx, input, await logo());
     const assigned = await tx.insert(staffRoles).values({ tenantId: tenant.id, userId: input.userId, role: "owner" })
       .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
     if (!assigned.length) throw new DomainError("ALREADY_ONBOARDED", "Dein Konto wurde bereits einem Geschäft zugeordnet. Lade deinen Bereich neu.");
+    // ENG-277: the sign-up acceptance gets its business once the business exists.
+    await tx.update(ownerAcceptances).set({ tenantId: tenant.id }).where(and(eq(ownerAcceptances.userId, input.userId), isNull(ownerAcceptances.tenantId)));
     return startProgramme(tx, tenant.id, location, input, earningMode);
   });
 }
@@ -111,7 +126,7 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export async function insertShop(tx: Transaction, input: z.output<typeof merchantInput>, logoData: string | null, slug?: string) {
   const suffix = randomCode(5).toLowerCase().replace(/[^a-z0-9]/g, "");
   const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: slug ?? `${slugOf(input.businessName)}-${suffix}`, currency: input.currency, locale: input.locale }).returning();
-  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude }).returning();
+  const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone, contactEmail: input.contactEmail, brandColor: input.brandColor, logoData, latitude: input.latitude, longitude: input.longitude, ...placeFields(input) }).returning();
   return { tenant, location };
 }
 
@@ -157,6 +172,16 @@ export async function setupDraft(userId: string) {
   return { businessName: row.businessName, locationName: row.locationName, city: row.city, country: row.country, timezone: row.timezone, locale: row.locale };
 }
 
+/** ENG-323 F-1: whether this account may set up a shop now, by createMerchant's gate: the owner of a shop awaiting setup, or,
+ *  while sign-up is open, an account without a staff role that accepted the terms. Gates the Google shop search. */
+export async function maySetUpShop(userId: string, registrationOpen = process.env.PUBLIC_REGISTRATION_ENABLED === "true") {
+  if (await setupDraft(userId)) return true;
+  if (!registrationOpen) return false;
+  const [staff] = await db.select({ userId: staffRoles.userId }).from(staffRoles).where(eq(staffRoles.userId, userId)).limit(1);
+  const [accepted] = staff ? [] : await db.select({ id: ownerAcceptances.id }).from(ownerAcceptances).where(eq(ownerAcceptances.userId, userId)).limit(1);
+  return Boolean(accepted);
+}
+
 // Every field but the programme is optional: a Programm question posts only its own (ENG-099 N-3), the rest stays as stored.
 const updateProgramInput = z.object({
   actorUserId: z.string().min(1),
@@ -192,10 +217,10 @@ const EXPIRY_FINAL = () => new DomainError("CHANGE_PENDING", "Diese Änderung ka
 export async function updateProgram(raw: z.input<typeof updateProgramInput>) {
   const input = updateProgramInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.status, "active"))).for("update");
+    // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.slug, input.programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     const name = input.name ?? program.name, rulesText = input.rulesText ?? program.rulesText;
     const nextType = input.programType ?? program.type;
     const earningMode = input.earningMode ?? program.earningMode;
@@ -307,10 +332,9 @@ async function saveExpiry(tx: Transaction, program: typeof programs.$inferSelect
 export async function updateProgramExtras(raw: z.input<typeof programExtrasInput>, now = new Date()) {
   const input = programExtrasInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (input.welcomeBonus !== undefined && input.welcomeBonus > (program.type === "stamp" ? 3 : 50)) throw new DomainError("INVALID_WELCOME_BONUS", "Welcome bonus is 0 to 3 stamps or 0 to 50 points");
     const cardNews = input.cardNews?.trim();
     if (cardNews !== undefined && cardNewsProblem(cardNews)) throw new DomainError("INVALID_CARD_NEWS", "Card news is plain text, at most 140 characters, without links");
@@ -366,10 +390,9 @@ const happyHourInput = z.object({
 export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>) {
   const input = happyHourInput.parse(raw);
   return db.transaction(async (tx) => {
-    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.status, "active"))).for("update");
+    const tenantId = await ownerTenant(input.actorUserId, tx);
+    const [program] = await tx.select().from(programs).where(and(eq(programs.id, input.programId), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
     if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-    const [owner] = await tx.select().from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, input.actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-    if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
     if (happyHourProblem(input.happyHourWindows)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour: up to 3 weekly windows with weekdays, start and end time (HH:MM), each ending after it starts the same day (midnight-crossing windows are not supported)");
     if (input.happyHourEnabled && (program.type !== "points" || input.happyHourWindows.length === 0)) throw new DomainError("INVALID_HAPPY_HOUR", "Happy hour needs a points programme and at least one window");
     const [updated] = await tx.update(programs).set({ happyHourEnabled: input.happyHourEnabled, happyHourWindows: input.happyHourWindows as HappyHourWindow[] }).where(eq(programs.id, program.id)).returning();
@@ -377,7 +400,7 @@ export async function updateProgramHappyHour(raw: z.input<typeof happyHourInput>
   });
 }
 
-const enrollInput = z.object({
+export const enrollInput = z.object({
   slug: z.string().min(1).max(120),
   acceptedTerms: z.literal(true),
   referralCode: z.string().regex(/^ref_[A-Za-z0-9_-]{24}$/).optional(),
@@ -430,7 +453,7 @@ export async function enroll(raw: z.input<typeof enrollInput>) {
     if (input.email) await tx.insert(membershipContacts).values({ tenantId: program.tenantId, membershipId: member.id, email: input.email.toLowerCase() });
     if (input.marketingOptIn) await tx.insert(consentEvents).values({ tenantId: program.tenantId, membershipId: member.id, channel: "email", purpose: "marketing", granted: true, noticeVersion: "2026-09", source: "enrollment" });
     if (input.walletConsentVersion !== undefined) await tx.insert(walletMessageConsents).values({ tenantId: program.tenantId, membershipId: member.id, textVersion: input.walletConsentVersion });
-    return { id: member.id, programId: program.id, cardToken: member.cardToken, scanCode: member.scanCode };
+    return { id: member.id, programId: program.id, cardToken: member.cardToken, cardLocator: formatCardLocator(member.cardLocator), scanCode: member.scanCode };
   });
 }
 
@@ -471,10 +494,10 @@ const rewardFields = z.object({ title: shortText, cost: z.number().int().min(1).
 const rewardTarget = z.object({ actorUserId: z.string().min(1), programSlug: z.string().min(1).max(120), rewardId: z.uuid() });
 
 async function ownerProgram(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], actorUserId: string, programSlug: string) {
-  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.status, "active"))).for("update");
+  // The owner first: another shop's programme is never locked, and reads as not there (ENG-197).
+  const tenantId = await ownerTenant(actorUserId, tx);
+  const [program] = await tx.select().from(programs).where(and(eq(programs.slug, programSlug), eq(programs.tenantId, tenantId), eq(programs.status, "active"))).for("update");
   if (!program) throw new DomainError("NOT_FOUND", "Dieses Programm haben wir nicht gefunden.");
-  const [owner] = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, program.tenantId), eq(staffRoles.userId, actorUserId), eq(staffRoles.role, "owner"), eq(staffRoles.active, true)));
-  if (!owner) throw new DomainError("FORBIDDEN", "Das darf nur die Inhaberin oder der Inhaber.");
   return program;
 }
 
@@ -664,6 +687,9 @@ export function capLevelUntil<T extends { until?: string }>(level: T | undefined
   return iso > programmeEnd ? { ...level, until: germanDate(programmeEnd) } : level;
 }
 
+/** ENG-206: the card shows „Karte empfehlen“ from this many team-confirmed bookings on; the block opens once, with exactly this one. */
+const REFERRAL_AFTER_BOOKINGS = 2;
+
 export async function getCard(token: string, explicitNow?: Date) {
   const now = explicitNow ?? new Date();
   if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
@@ -684,14 +710,16 @@ export async function getCard(token: string, explicitNow?: Date) {
       .where(and(eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id)))
       .orderBy(desc(ledgerEntries.createdAt)).limit(10);
     // The review link is only a link: no reward, stamp, points or draw is ever tied to it.
-    const [visits] = row.program.reviewUrl ? await tx.select({ count: sql<number>`count(*)::int` }).from(ledgerEntries).where(and(
+    // ENG-206: while STAMP_ANIMATION_ENABLED is on the card page needs the same count for the referral block's timing; off, no extra read.
+    const stampMoment = experienceFlag("STAMP_ANIMATION_ENABLED");
+    const [visits] = row.program.reviewUrl || stampMoment ? await tx.select({ count: sql<number>`count(*)::int` }).from(ledgerEntries).where(and(
       eq(ledgerEntries.tenantId, row.member.tenantId), eq(ledgerEntries.membershipId, row.member.id), eq(ledgerEntries.kind, "award"),
       sql`${ledgerEntries.source} in ('staff_online','staff_offline')`,
       sql`not exists (select 1 from ledger_entries undo where undo.tenant_id = ${ledgerEntries.tenantId} and undo.reversal_of_id = ${ledgerEntries.id})`)) : [{ count: 0 }];
     // With a confirmed end date nothing dated after it shows: the end date, no later challenge month, level date or expiry batch.
     const programmeEnd = row.program.cancellationConfirmedAt ? row.program.cancellationEndDate ?? undefined : undefined;
     const demo = shopDemo(row.tenant, row.location.timezone);
-    return { ...(demo ? { demoNotice: demo.line } : {}), programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
+    return { ...(demo ? { demoNotice: demo.line } : {}), ...(stampMoment ? { stampMoment: { referralDue: visits.count >= REFERRAL_AFTER_BOOKINGS, referralNew: visits.count === REFERRAL_AFTER_BOOKINGS } } : {}), programId: row.program.id, scanCode: row.member.scanCode, cardLocator: formatCardLocator(row.member.cardLocator), balance: row.member.balance, merchantName: row.tenant.name, locationName: row.location.name, programName: program.name, programType: program.type, earningMode: program.earningMode, locale: row.tenant.locale, brandColor: row.location.brandColor, endsOn: programmeEnd, rulesText: shownRules(program, row.tenant), pending: program.pending, pendingExpiry: program.pendingExpiry, news: row.program.cardNews || undefined, happyHourUntil: program.earningMode === "purchase" && program.type === "points" && row.program.happyHourEnabled ? activeHappyHour(row.program.happyHourWindows, new Date(), row.location.timezone)?.end : undefined, reviewUrl: row.program.reviewUrl && visits.count >= REVIEW_AFTER_VISITS ? row.program.reviewUrl : undefined, pointsExpiry: await cardExpiry(tx, row.member.tenantId, row.member.id, program, row.location.timezone, now, programmeEnd), challenge: await cardChallenge(tx, row, programmeEnd, now), level: capLevelUntil(await cardLevel(tx, row.member, row.program), programmeEnd), winback: await cardWinback(tx, row.program, row.member.id, programmeEnd, now), rewards: await currentRewards(row.member.tenantId, row.program.id, tx), activity: activity.map(({ purchaseLedgerId, source, ...entry }) => ({ ...entry, isPurchase: purchaseLedgerId !== null, isWelcomeBonus: source === "welcome_bonus", isHappyHour: source === "happy_hour", isWinbackBonus: source === "winback_bonus", isBirthdayBonus: source === "birthday_bonus", isChallengeBonus: source === "challenge_bonus" })) };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 

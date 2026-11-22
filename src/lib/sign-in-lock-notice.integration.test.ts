@@ -45,6 +45,7 @@ async function lockOut(email: string) {
 async function identity() {
   const email = `${randomUUID()}@example.test`;
   const result = await auth.api.signUpEmail({ body: { name: "Synthetic lock identity", email, password } });
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [result.user.id]);
   return { userId: result.user.id, email };
 }
 async function merchant() {
@@ -63,6 +64,14 @@ async function deliverAll() {
   }
   return sent;
 }
+
+it("writes to no address that is not confirmed (ENG-278)", async () => {
+  const { owner } = await merchant();
+  await pool.query('UPDATE "user" SET "emailVerified" = false WHERE id = $1', [owner.userId]);
+  await lockOut(owner.email);
+  const [job] = await notices();
+  expect(await deliverSignInLockNotice(job, async () => { throw new Error("must not send"); })).toEqual({ status: "suppressed", reason: "Recipient email not confirmed" });
+});
 
 it("tells an owner whose own account was locked, without putting the address into the queued job", async () => {
   const { owner } = await merchant();

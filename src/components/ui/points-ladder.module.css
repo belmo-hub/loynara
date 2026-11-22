@@ -4,9 +4,26 @@
 /* The track runs from the start to the last marker's centre, with no overhang (G-04). */
 .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--merchant-ink, var(--color-ink)) 22%, transparent); }
 .fill { position: absolute; inset: 0; transform-origin: left; background: var(--merchant-ink, var(--color-ink)); transition: transform var(--dur-reward) var(--ease-in-out); }
+/* Forced colours drop both backgrounds: the track keeps an edge and the fill stays CanvasText (Design, #282). Scoped
+   under .ladder so the colour rules above stay the only ones merchant-color.test.ts reads for the card's contrast. */
+@media (forced-colors: active) {
+  .ladder .track { border: 1px solid CanvasText; background: Canvas; }
+  .ladder .fill { forced-color-adjust: none; background: CanvasText; }
+  /* A reached marker stays a disc on the fill, its check in Canvas, instead of a hole in the bar. */
+  .ladder .mark[data-reached] .dot { forced-color-adjust: none; background: CanvasText; color: Canvas; }
+}
 .mark { position: absolute; top: 0; left: calc(var(--at) * 100%); display: grid; justify-items: center; gap: 6px; transform: translateX(-50%); }
 .dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px dashed color-mix(in oklab, var(--merchant-ink, var(--color-ink)), transparent 45%); background: var(--merchant-deep, var(--color-surface)); }
 .mark[data-reached] .dot { border: 0; background: var(--stamp-fill, var(--color-stamp)); color: var(--stamp-ink, var(--color-on-stamp)); border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%; }
+/* The mix card (ENG-292): an open marker is a filled dim disc, as the card's open stamp (ruling 1: no dashed ring). It is
+   opaque at the tone 42 % ink gives over the card, so the track does not show through it (Design, 20 Nov). */
+.ladder[data-tone="mix"] { --open-disc: color-mix(in oklab, var(--merchant-ink) 42%, color-mix(in oklab, var(--merchant), var(--merchant-deep))); --open-ring: 0; }
+.ladder[data-tone="mix"] .mark:not([data-reached]) .dot { border: var(--open-ring); background: var(--open-disc); }
+/* Forced colours: the disc in Canvas over the track, with the open stamp's ring (after the rule above). */
+@media (forced-colors: active) {
+  .ladder[data-tone="mix"] { --open-disc: Canvas; --open-ring: 1px solid CanvasText; }
+  .ladder[data-tone="mix"] .mark:not([data-reached]) .dot { forced-color-adjust: none; }
+}
 .cost { font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .mark[data-label-hidden] .cost, .mark[data-label-hidden] .title, .title[data-title-hidden], .mark[data-price-hidden] .cost { visibility: hidden; }
 .ladder[data-titles] { height: 80px; }
@@ -15,8 +32,23 @@
 .title { max-width: var(--room); transform: translateX(var(--shift, 0px)); overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 /* Three classes, so owner.css „.owner-app :is(p, small …) { text-wrap: pretty }“ cannot wrap the name in the studio. */
 .ladder[data-titles] .title { text-wrap: nowrap; }
+/* In the mix card the cost reads first, as „von 8“ does: the name at the card's 78 %. */
+.ladder[data-tone="mix"] .title { color: var(--on-card); }
 /* The last marker sits at the track's end: its labels align to the right edge instead of hanging past it. */
 .mark[data-end] { justify-items: end; transform: translateX(calc(-100% + 14px)); }
 /* An early marker mirrors that at the track's start, so a cheap reward's long name stays inside the card. */
 .mark[data-start] { justify-items: start; transform: translateX(-14px); }
-@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+/* A mark the booking just crossed presses like a landing stamp, once the fill has started towards it. */
+/* On the guest card the crossed marks press 90 ms apart (--land-stagger, set by the page). */
+.mark[data-new] .dot { animation: land var(--dur-reward) var(--ease-out) calc(var(--dur-ui) + var(--land-stagger, 0ms)) both; }
+@keyframes land { from { transform: scale(1.3); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } }
+/* In the mix card a crossed marker stays the open disc until its own press, then pops into coral (Design, 20 Nov). */
+.ladder[data-tone="mix"] .mark[data-new] .dot { animation: open-until var(--press-at) linear, pop var(--dur-reward) var(--ease-out) var(--press-at); --press-at: calc(var(--dur-ui) + var(--land-stagger, 0ms)); }
+@keyframes open-until { from, to { border: var(--open-ring); background: var(--open-disc); color: transparent; border-radius: 50%; } }
+@keyframes pop { from { transform: scale(1.3); } 60% { transform: scale(.94); } }
+/* Bars grow: only where the page asks (the guest card's first paint, a card opened from its row) the fill grows from the
+   start, after --grow-after. Anywhere else, and on every later change, it moves from the old value to the new, never
+   from 0. */
+.ladder[data-grow] .fill { animation: grow var(--dur-reward) var(--ease-in-out) var(--grow-after, 0ms) backwards; }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .ladder[data-grow] .fill, .mark[data-new] .dot, .ladder[data-tone="mix"] .mark[data-new] .dot { animation: none; } }

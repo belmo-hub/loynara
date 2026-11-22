@@ -13,6 +13,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
+      // globals.css scrolls smoothly; Next.js 16 keeps that for its own navigation scroll unless told otherwise.
+      data-scroll-behavior="smooth"
       className={`${manrope.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

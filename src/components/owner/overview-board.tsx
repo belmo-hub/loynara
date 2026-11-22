@@ -2,18 +2,24 @@
 
 import { DEMO_DATA_NOTE } from "@/lib/demo-texts";
 import Link from "next/link";
-import { ArrowRight, CircleHelp, Flag, RefreshCw, type LucideIcon } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { ArrowRight, Award, CalendarDays, ChevronRight, CircleHelp, CirclePlus, Flag, type LucideIcon } from "lucide-react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { NumberRoll } from "@/components/ui/number-roll";
+import { cx } from "@/components/ui/cx";
+import { mixButton, mixStyles as mix, MixTile } from "@/components/ui/mix";
 import { Sheet } from "@/components/ui/sheet";
 import type { BroughtCustomers } from "@/lib/merchant-analytics";
 import { bookingsText, dayLabel, weekdayShort, type DayCount, type DiaryDay } from "@/lib/overview-day";
 import { BROUGHT_COPY, formatMinor } from "@/lib/spend-copy";
-import { nf } from "./owner-ui";
+import { LinkPending, nf } from "./owner-ui";
+import s from "./overview.module.css";
 
-/* ENG-085, direction D: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
+/* ENG-085, direction D, drawn in the founder's mix since ENG-260: the Übersicht's parts. overview.tsx decides what goes in them; these only draw. */
 
 const NBSP = "\u00a0";
+/** A formatted figure as the number its digits spell, for the ticker: it rolls when they change, never on arrival. */
+const digits = (text: string) => Number(text.replace(/\D/g, ""));
 
 /**
  * The overview card (Wegweiser A): white, since green marks only the one thing to do. No kicker (SF-5): the number leads
@@ -29,50 +35,83 @@ export const DemoDataChip = () => <span className="ow-chip ow-chip--info">{DEMO_
 /** „128,10 €“ with the cents set smaller, from the shared money formatter's output. */
 export function BigMoney({ text }: { text: string }) {
   const split = text.match(/^(.*?)(,\d{2}.*)$/);
-  return <p className="ow-board-big">{split ? <>{split[1]}<small>{split[2]}</small></> : text}</p>;
+  return <p className="ow-board-big"><NumberRoll value={digits(text)}>{split ? <>{split[1]}<small>{split[2]}</small></> : text}</NumberRoll></p>;
 }
 
-/** Calm placeholders while the board's numbers load (the pulse runs only without reduced motion). */
+/** Still placeholders while the board's numbers load. */
 export function BoardPlaceholder() {
   return <div className="ow-board-ph" aria-hidden="true"><span className="ow-ph" style={{ height: 64, width: "60%" }} /><span className="ow-ph" style={{ height: 14, width: "70%" }} /><span className="ow-ph" style={{ height: 112 }} /></div>;
 }
 
-/** The last 7 local days ending yesterday; only yesterday lights up, and only if it had bookings. */
-export function Strip({ days, caption }: { days: DayCount[]; caption: string }) {
-  const week = days.slice(-7);
+/**
+ * C's week chart (ENG-260): the last six complete local days and today. Yesterday's bar is dark if it had bookings, and
+ * then a key after the caption names it, „gestern“; today's bar is an outline while it has a count that is not final. `days` end yesterday and stay the headline's only source. Without `today` (numbers this device kept
+ * before today's count was stored) the chart is the seven complete days. With `week` (ENG-210, the weekly line above it):
+ * this week's complete days with bookings are dark, the other days muted, a hairline stands before Monday, and there is no
+ * „gestern“ key, since the dark bars are the week's. The spoken label leads with the week's sentence.
+ */
+export function Strip({ days, caption, today, week: thisWeek }: { days: DayCount[]; caption: string; today?: DayCount; week?: { from: string; line: string } }) {
+  const week = today ? [...days.slice(-6), today] : days.slice(-7);
+  const yesterday = days.at(-1);
   const max = Math.max(1, ...week.map(day => day.bookings));
-  const label = (index: number) => index === week.length - 1 ? "gestern" : weekdayShort(week[index].date);
+  const label = (day: DayCount) => day === today ? "heute" : day === yesterday ? "gestern" : weekdayShort(day.date);
+  const lit = (day: DayCount) => day.bookings > 0 && (thisWeek ? day.date >= thisWeek.from && day !== today : day === yesterday);
   return (
-    <>
-      <div className="ow-strip" role="img" aria-label={`${caption}: ${week.map((day, index) => `${label(index)} ${bookingsText(day.bookings)}`).join(", ")}`}>
-        {week.map((day, index) => {
-          const yesterday = index === week.length - 1;
-          return (
-            <div className="ow-strip-day" key={day.date} aria-hidden="true">
-              <span className="ow-strip-n">{day.bookings > 0 ? nf.format(day.bookings) : ""}</span>
-              <span className="ow-strip-bar" data-lit={yesterday && day.bookings > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(day.bookings / max * 72))}px` }} />
-              <span className="ow-strip-d" data-yesterday={yesterday ? "" : undefined}>{label(index)}</span>
-            </div>
-          );
-        })}
+    <div className={s.week}>
+      <p className={s.legend}><span><i aria-hidden="true" />{caption}</span>{!thisWeek && yesterday && lit(yesterday) && <span><i data-lit="" aria-hidden="true" />gestern</span>}</p>
+      <div>
+        <div className={s.chart} data-week={thisWeek ? "" : undefined} role="img" aria-label={`${thisWeek ? `${thisWeek.line} ` : ""}${caption}: ${week.map(day => `${label(day)} ${bookingsText(day.bookings)}`).join(", ")}`}>
+          {week.map((day, index) => {
+            // ISO dates compare as text. The hairline stands before Monday unless Monday is the chart's first column.
+            const inWeek = thisWeek !== undefined && day.date >= thisWeek.from;
+            return (
+              <div className={s.day} key={day.date} aria-hidden="true" data-in-week={inWeek ? "" : undefined} data-week-start={inWeek && index > 0 && week[index - 1].date < thisWeek.from ? "" : undefined}>
+                {day.bookings > 0 && <b>{nf.format(day.bookings)}</b>}
+                <i className={s.bar} data-lit={lit(day) ? "" : undefined} data-today={day === today ? "" : undefined} data-zero={day.bookings === 0 ? "" : undefined} style={day.bookings > 0 ? { "--v": +(day.bookings / max).toFixed(4) } as CSSProperties : undefined} />
+              </div>
+            );
+          })}
+        </div>
+        {/* „gestern“ and „heute“ do not fit side by side on a phone: beside today, yesterday shows its weekday. */}
+        {/* Beside „heute“ nothing is bold: a bold weekday next to it reads as today (Design, 10 Nov). */}
+        <div className={s.days} aria-hidden="true">{week.map(day => <span key={day.date} data-yesterday={day === yesterday && !today ? "" : undefined}>{today && day === yesterday ? weekdayShort(day.date) : label(day)}</span>)}</div>
       </div>
-      <p className="ow-strip-cap">{caption}</p>
-    </>
+    </div>
   );
 }
 
-/** The empty shop's preview: seven dashed bars for the days still to come. */
+/** The empty shop's preview: seven dashed bars for the days still to come, no scale and no key, then its sentence. */
 export function EmptyStrip({ today, caption }: { today: string; caption: string }) {
   const base = new Date(`${today}T12:00:00Z`).getTime();
   const dates = Array.from({ length: 7 }, (_, index) => new Date(base - (7 - index) * 86_400_000).toISOString().slice(0, 10));
-  return (
-    <>
-      <div className="ow-strip" aria-hidden="true">
-        {dates.map((date, index) => <div className="ow-strip-day" key={date}><span className="ow-strip-n" /><span className="ow-strip-bar" data-empty="" style={{ height: 36 }} /><span className="ow-strip-d" data-yesterday={index === 6 ? "" : undefined}>{index === 6 ? "gestern" : weekdayShort(date)}</span></div>)}
-      </div>
-      <p className="ow-strip-cap">{caption}</p>
-    </>
-  );
+  return <>
+    <div className={s.week} aria-hidden="true"><div>
+      <div className={s.chart} data-empty="">{dates.map(date => <div className={s.day} key={date}><i className={s.bar} data-empty="" /></div>)}</div>
+      <div className={s.days}>{dates.map((date, index) => <span key={date} data-yesterday={index === 6 ? "" : undefined}>{index === 6 ? "gestern" : weekdayShort(date)}</span>)}</div>
+    </div></div>
+    <p className={s.foot}>{caption}</p>
+  </>;
+}
+
+/** The board's placeholders while its reads load: still, flat, in the loaded board's shapes (DESIGN: the owner board's placeholder stands still). */
+export function BookPlaceholder({ caption }: { caption: string }) {
+  const week = Array.from({ length: 7 }, (_, index) => ({ date: `2026-01-0${index + 1}`, bookings: index === 6 ? 1 : 0 }));
+  return <>
+    <span className={cx("ow-ph", s.sk)} data-small="" style={{ width: 120 }} />
+    <div className={s.skFig}><span className={cx("ow-ph", s.sk)} data-fig="" /><span className={cx("ow-ph", s.sk)} data-small="" style={{ width: 248 }} /></div>
+    {/* The week keeps its own box (legend, chart and days, hidden), so nothing moves when the numbers come. */}
+    <div className={s.ghost}><Strip days={week} caption={caption} /></div>
+    <div className={s.foot} data-sk=""><span className={cx("ow-ph", s.sk)} data-line="" style={{ width: 240 }} /></div>
+  </>;
+}
+
+/** The figure rows' placeholders, each as wide as its loaded title and sub line. */
+export function FactsPlaceholder() {
+  return <div className={cx(mix.panel, s.facts)} aria-hidden="true">
+    {[[96, 136], [140, 220], [140, 80]].map(([title, sub]) => <div className={mix.row} data-sk="" key={title + sub}><div className={mix.body}>
+      <span className={mix.text}><span className={cx("ow-ph", s.sk)} data-line="" style={{ width: title }} /><span className={cx("ow-ph", s.sk)} data-small="" style={{ width: sub }} /></span><span className={cx("ow-ph", s.sk)} data-num="" />
+    </div></div>)}
+  </div>;
 }
 
 /** The Leitung's card stock: one segment per card up to 60 cards, then three proportional segments. */
@@ -92,20 +131,20 @@ export function CardStock({ recent, drifting, never }: { recent: number; driftin
   );
 }
 
-/** `count` + `seenKey`: the number counts up once from the last value this browser saw (delight beat 1). No `help`: not in the sheet. */
-export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string; count?: number; seenKey?: string };
+/** No `help`: not in the sheet. */
+export type Tile = { key: string; icon: LucideIcon; label: string; value: string; note?: ReactNode; help: string; href?: string };
 /**
  * Rows under a section head whose „?“ opens their help (Wegweiser A): value at the right edge, the note as sub-line, an
  * arrow only where the row links. The Übersicht's 30 days and Kunden's groups (ENG-122a).
  */
-export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
+export function Tiles({ title, note, tiles }: { title: string; /** Said once after the title, for all rows („zweite Woche“). */ note?: string; tiles: Tile[] }) {
   const [help, setHelp] = useState(false);
   const titleId = useId();
   const close = () => setHelp(false);
   return (
-    <section className="ow-stack ow-stack--tight" aria-labelledby={titleId}>
+    <section className="ow-rows-section" aria-labelledby={titleId}>
       <div className="ow-rows-head">
-        <h2 id={titleId} className="ow-tiles-title">{title}</h2>
+        <h2 id={titleId} className="ow-tiles-title">{title}{note && ` · ${note}`}</h2>
         <button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setHelp(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
       </div>
       <ul className="ow-rows">{tiles.map(tile => <li key={tile.key}><TileRow tile={tile} /></li>)}</ul>
@@ -117,45 +156,17 @@ export function Tiles({ title, tiles }: { title: string; tiles: Tile[] }) {
 }
 function TileRow({ tile }: { tile: Tile }) {
   const Icon = tile.icon;
-  const value = tile.count !== undefined && tile.seenKey ? <CountUp key={tile.seenKey} value={tile.count} seenKey={tile.seenKey} /> : tile.value;
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" focusable="false" /></span>
     {/* The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the right edge. */}
     <span className="ow-prog-main">
-      <span className="ow-prog-value" data-big="">{value}</span>
+      <span className="ow-prog-value" data-big=""><NumberRoll value={digits(tile.value)}>{tile.value}</NumberRoll></span>
       <span className="ow-prog-text"><strong>{tile.label}</strong>{tile.note && <small>{tile.note}</small>}</span>
     </span>
   </>;
   return tile.href
-    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /></Link>
+    ? <Link className="ow-prog-row" href={tile.href}>{body}<ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" /><LinkPending /></Link>
     : <div className="ow-prog-row">{body}</div>;
-}
-
-const readSeen = (key: string) => { try { const seen = window.localStorage.getItem(key); return seen === null ? null : Number(seen); } catch { return null; } };
-const motionOk = () => { try { return window.matchMedia("(prefers-reduced-motion: no-preference)").matches; } catch { return false; } };
-
-/**
- * Delight beat 1 (spec §6.1): a number that grew since this browser last showed it counts up once, about 480 ms, eased
- * out; none under reduced motion, without storage or on the first visit. The tiles render only on the client, after the read.
- */
-/** Where the count-up starts: the last shown number when it was lower and motion is welcome; else null (no animation). */
-export const countUpFrom = (seen: number | null, value: number, motion: boolean) => motion && seen !== null && Number.isInteger(seen) && seen >= 0 && seen < value ? seen : null;
-
-function CountUp({ value, seenKey }: { value: number; seenKey: string }) {
-  const [from] = useState(() => countUpFrom(readSeen(seenKey), value, motionOk()));
-  const [shown, setShown] = useState(from ?? value);
-  useEffect(() => {
-    try { window.localStorage.setItem(seenKey, String(value)); } catch { /* no storage: no count-up next time */ }
-    if (from === null) return;
-    const start = performance.now();
-    let frame = requestAnimationFrame(function step(now) {
-      const t = Math.min(1, (now - start) / 480);
-      setShown(Math.round(from + (value - from) * (1 - (1 - t) ** 3)));
-      if (t < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [from, seenKey, value]);
-  return <>{nf.format(shown)}</>;
 }
 
 /**
@@ -188,44 +199,83 @@ export function Brought({ brought, all, currency }: { brought: BroughtCustomers;
   );
 }
 
-/** ENG-095 §5: until the location has a brought customer, the block's place names the next step while the bonus is off, never a 0. */
+/** ENG-095 §5 as C's „Vorschlag“: until the location has a brought customer, the place names the next step while the bonus is off, never a 0. */
 export function BonusOffBand({ href }: { href: string }) {
   return (
-    <Link className="ow-brought-off" href={href}>
-      <span><RefreshCw size={22} aria-hidden="true" focusable="false" /></span>
+    <Link className={cx(mix.panel, mix.pad, s.sug)} href={href}>
+      <span className={s.kicker}><CirclePlus size={16} aria-hidden="true" focusable="false" />Vorschlag<ChevronRight size={16} aria-hidden="true" focusable="false" /></span>
       <span><b>{BROUGHT_COPY.bonusOff}</b><small>{BROUGHT_COPY.bonusOffText}</small></span>
-      <ArrowRight size={22} aria-hidden="true" focusable="false" />
+      <LinkPending />
     </Link>
   );
 }
 
-/** A milestone, shown once: a quiet white card above the board, no confetti, no sound (spec §4.3). */
-export function Milestone({ cards, action }: { cards: number; action: () => void }) {
+/**
+ * C's figure rows for the 30 days (ENG-260): label and note left, the figure on the inset; a linked row is the link.
+ * `note` („erste Woche“) heads the rows below 1024: in the section title it came with the reads and wrapped the title on
+ * a phone, pushing the board down. From 1024 the title has room and holds it again (Design, 18 Nov).
+ */
+export function Facts({ tiles, note }: { tiles: Tile[]; note?: string }) {
   return (
-    <section className="ow-card ow-row" style={{ justifyContent: "space-between", alignItems: "center" }} aria-label="Meilenstein">
-      <h2>Deine {nf.format(cards)}. Karte.</h2>
-      <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={action}>Tresenschild laden</button>
-    </section>
+    <div className={cx(mix.panel, s.facts)}>
+      {note && <div className={cx(mix.ph, s.factsNote)}><p className={s.kicker}>{note}</p></div>}
+      {tiles.map(tile => {
+        // The value comes first in the DOM, so a screen reader says „9 Buchungen vorher 10“; CSS puts it at the inset.
+        const body = <div className={mix.body}>
+          <span className={s.num} data-none={tile.value === "–" || undefined}><NumberRoll value={digits(tile.value)}>{tile.value}</NumberRoll></span>
+          <span className={mix.text}><b>{tile.label}</b>{tile.note && <small>{tile.note}</small>}</span>
+          {tile.href && <ChevronRight className={mix.chev} size={20} aria-hidden="true" />}
+        </div>;
+        return tile.href ? <Link key={tile.key} className={mix.row} href={tile.href} data-fact="">{body}<LinkPending /></Link> : <div key={tile.key} className={mix.row} data-fact="">{body}</div>;
+      })}
+    </div>
   );
 }
 
-export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
-/** „Als Nächstes“ as the green band in the page's flow: the whole band is the action; without one it is only text. */
-/** `children` render under the band, inside its section (the Tresenschild's error line, beside what was tapped). */
-export function NextBand({ title, text, action, children }: { title: string; text?: string; action?: NextAction; children?: ReactNode }) {
-  const body = <>
-    <span className="ow-band-icon"><Flag size={22} aria-hidden="true" focusable="false" /></span>
-    <span className="ow-band-text">
-      <b>{title}</b>{text && <small>{text}</small>}
-      {action && <span className="ow-band-go">{action.label}<ArrowRight size={20} aria-hidden="true" focusable="false" /></span>}
-    </span>
+/** The 30 days' „?“ on the section head: one sheet with the help of every figure on screen. */
+export function FactsHelp({ title, tiles }: { title: string; tiles: Tile[] }) {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+  return <>
+    <button type="button" className={s.help} aria-haspopup="dialog" onClick={() => setOpen(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">So zählen wir „{title}“</span></button>
+    <Sheet open={open} onClose={close} title={BROUGHT_COPY.howWeCountTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>
+      {tiles.filter(tile => tile.help).map(tile => <div className="ow-rows-help" key={tile.key}><h3>{tile.label}</h3><p>{tile.help}</p></div>)}
+    </Sheet>
   </>;
+}
+
+export type NextAction = { label: string; href: string; external?: boolean } | { label: string; onClick: () => void };
+/**
+ * The „Als Nächstes“ panel's slot while the reads it is chosen from load (ENG-203): a flat block of the panel's size, so
+ * the board stands where it will stay. The panel takes its place; without one it closes in place (owner.css, .ow-next-ph).
+ */
+// shortcut: sized for the panel with one next-step row; the milestone's second row still moves the board by 64, size the slot from the reads once they can say which rows come
+export function NextBandPlaceholder({ closing }: { closing: boolean }) {
+  return <div className="ow-next ow-next-ph" data-closing={closing || undefined} aria-hidden="true"><span><span className={cx("ow-ph", s.nextPh)} /></span></div>;
+}
+
+/**
+ * F's „Als Nächstes“ (ENG-260): the next step and the milestone as the rows of one panel. A ready reward leads with the
+ * card's thumbnail; the action stands under the sentence on a phone and at the row's end from 600.
+ */
+export function NextPanel({ next, lead, milestone, onSign }: { next: { title: string; text?: string; action?: NextAction } | null; /** The row's lead: the card thumbnail (`card`) or an icon tile. */ lead?: { kind: "card" | "tile"; node: ReactNode }; milestone: number | null; onSign: () => void }) {
+  const action = next?.action;
+  const go = action && <>{action.label}<ArrowRight size={20} aria-hidden="true" focusable="false" /></>;
   return (
-    <section className="ow-next" aria-label="Als Nächstes">
-      {!action ? <div className="ow-band">{body}</div>
-        : "href" in action ? <Link className="ow-band" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{body}</Link>
-          : <button type="button" className="ow-band" onClick={action.onClick}>{body}</button>}
-      {children}
+    <section className={cx(mix.panel, s.next)} data-ow="next" data-thumbs={lead?.kind === "card" ? "" : undefined} aria-label="Als Nächstes">
+      <div className={mix.ph}><h2 className={mix.h}><Flag size={20} aria-hidden="true" focusable="false" />Als Nächstes</h2></div>
+      {next && <div className={mix.row} data-hang="" data-lead={lead?.kind}>
+        {lead?.node}
+        <div className={mix.body}><span className={s.line}>
+          <span><b>{next.title}</b>{next.text && <small>{next.text}</small>}</span>
+          {!action ? null : "href" in action ? <Link className={mixButton()} data-go="" href={action.href} {...action.external && { target: "_blank", rel: "noopener noreferrer" }}>{go}<LinkPending /></Link>
+            : <button type="button" className={mixButton()} data-go="" onClick={action.onClick}>{go}</button>}
+        </span></div>
+      </div>}
+      {milestone !== null && <div className={mix.row} data-lead="tile">
+        <MixTile tone="mute"><Award size={20} aria-hidden="true" focusable="false" /></MixTile>
+        <div className={mix.body}><span className={s.line}><span><b>Deine {nf.format(milestone)}. Karte</b></span><button type="button" className={mix.link} data-link="" onClick={onSign}>Tresenschild laden</button></span></div>
+      </div>}
     </section>
   );
 }
@@ -236,28 +286,31 @@ const pillOf = (entry: DiaryDay["entries"][number], unit: string) => entry.kind 
     : entry.kind === "correction" ? { mark: "", text: "Einlösung rückgängig", label: `Einlösung rückgängig gemacht, ${nf.format(entry.amount)} ${entry.amount === 1 && unit === "Punkte" ? "Punkt" : unit} wieder auf der Karte` }
     : { mark: "", text: "Prämie eingelöst", label: "Prämie eingelöst" };
 
-/** „Die letzten Tage am Tresen“: one entry per local day, newest first, no timestamps; a quiet stretch shows as one grey gap. */
-export function Diary({ diary, today, unit, gap, children }: { diary: DiaryDay[]; today: string; unit: string; gap?: { from: string; to: string } | null; children?: ReactNode }) {
+/** A busy day's first entries; the rest is one „… weitere“ count, so thirty bookings are not a wall of thirty pills. */
+const DAY_ENTRIES = 8;
+/** What a busy day shows: redemptions and corrections first, then bookings, so the rarer moments never vanish into the count of the rest. */
+export const shownEntries = (day: DiaryDay) => [...day.entries.filter(entry => entry.kind !== "award"), ...day.entries.filter(entry => entry.kind === "award")].slice(0, DAY_ENTRIES);
+
+/**
+ * „Die letzten Tage am Tresen“ (C, ENG-260): one row per local day, newest first, the day's sum as its sub line, no
+ * timestamps; a quiet stretch is one row „keine Buchung“. Redemptions and corrections follow the sum in their live words,
+ * since the sum counts bookings only.
+ */
+export function Diary({ diary, today, unit, gap }: { diary: DiaryDay[]; today: string; unit: string; gap?: { from: string; to: string } | null }) {
   const yesterday = today ? new Date(new Date(`${today}T12:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10) : "";
   const title = (date: string) => date === today ? "Heute" : date === yesterday ? "Gestern" : dayLabel(date);
+  const rows = [
+    ...gap ? [{ key: "gap", title: gap.from === gap.to ? dayLabel(gap.from) : `${gap.from.slice(8, 10)}.${gap.from.slice(5, 7) === gap.to.slice(5, 7) ? "" : `${gap.from.slice(5, 7)}.`}–${gap.to.slice(8, 10)}.${gap.to.slice(5, 7)}.`, sub: "keine Buchung" }] : [],
+    ...diary.map(day => ({ key: day.date, title: title(day.date), sub: [
+      day.bookings > 0 ? `${bookingsText(day.bookings)}${day.units > 0 ? ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben` : ""}` : "",
+      ...shownEntries(day).filter(entry => entry.kind !== "award").map(entry => pillOf(entry, unit).text),
+    ].filter(Boolean).join(" · ") })),
+  ];
   return (
-    <section className="ow-diary" aria-labelledby="ow-diary-title">
-      <h2 id="ow-diary-title">Die letzten Tage am Tresen</h2>
-      {children}
-      {gap && <div className="ow-day" data-gap=""><div className="ow-day-rail" aria-hidden="true"><i /><span /></div><div><h3>{gap.from === gap.to ? dayLabel(gap.from) : `${gap.from.slice(8, 10)}.${gap.from.slice(5, 7) === gap.to.slice(5, 7) ? "" : `${gap.from.slice(5, 7)}.`}–${gap.to.slice(8, 10)}.${gap.to.slice(5, 7)}.`}</h3><p className="ow-day-sum">keine Buchung</p></div></div>}
-      {diary.map(day => (
-        <div className="ow-day" key={day.date}>
-          <div className="ow-day-rail" aria-hidden="true"><i /><span /></div>
-          <div>
-            <h3>{title(day.date)}</h3>
-            {day.bookings > 0 && <p className="ow-day-sum">{bookingsText(day.bookings)}{day.units > 0 && ` · ${nf.format(day.units)}${NBSP}${day.units === 1 && unit === "Punkte" ? "Punkt" : unit} vergeben`}</p>}
-            <ul className="ow-pills">
-              {day.entries.map((entry, index) => { const pill = pillOf(entry, unit); return <li className="ow-pill" data-kind={entry.kind} key={index} aria-label={pill.label}>{(pill.mark || entry.kind === "redemption") && <b aria-hidden="true">{pill.mark}</b>}<span aria-hidden="true">{pill.text}</span></li>; })}
-              {day.more > 0 && <li className="ow-pill" data-kind="more">{nf.format(day.more)}{NBSP}weitere</li>}
-            </ul>
-          </div>
-        </div>
-      ))}
+    <section className={cx(mix.panel, s.diary)} data-ow="diary" aria-labelledby="ow-diary-title">
+      <div className={mix.ph}><h3 id="ow-diary-title" className={s.kicker}><CalendarDays size={16} aria-hidden="true" focusable="false" />Die letzten Tage am Tresen</h3></div>
+      {rows.map(row => <div className={mix.row} data-day="" key={row.key}><div className={mix.body}><span className={mix.text}><b>{row.title}</b>{row.sub && <small>{row.sub}</small>}</span></div></div>)}
     </section>
   );
 }
+

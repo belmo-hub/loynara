@@ -50,7 +50,7 @@ export async function getMerchantExport(actorUserId: string) {
     const [[tenant], [subscription], locationRows, programRows, rewardRows, versionRows, membershipRows, ledgerRows, redemptionRows, consentRows, roleRows, auditRows, planRows, invoiceRows, securityRows, walletConsentRows, ruleVersionRows] = await Promise.all([
       tx.select().from(tenants).where(eq(tenants.id, tenantId)),
       tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)),
-      tx.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
+      tx.select({ id: locations.id, name: locations.name, city: locations.city, country: locations.country, timezone: locations.timezone, brandColor: locations.brandColor, latitude: locations.latitude, longitude: locations.longitude, googlePlaceId: locations.googlePlaceId, placeLocationFetchedAt: locations.placeLocationFetchedAt, createdAt: locations.createdAt }).from(locations).where(eq(locations.tenantId, tenantId)).limit(MAX_ROWS + 1),
       tx.select().from(programs).where(eq(programs.tenantId, tenantId)).limit(MAX_ROWS + 1),
       tx.select().from(rewards).where(eq(rewards.tenantId, tenantId)).limit(MAX_ROWS + 1),
       tx.select().from(rewardVersions).where(eq(rewardVersions.tenantId, tenantId)).limit(MAX_ROWS + 1),
@@ -77,7 +77,8 @@ export async function getMerchantExport(actorUserId: string) {
       scope: "owner-business-data-without-card-or-contact-credentials",
       tenant,
       subscription,
-      locations: checked(locationRows, "Locations"),
+      // A point from Google (a fetch time) is Google's content, kept 30 days at most: the export names its place id instead (Legal, ENG-323).
+      locations: checked(locationRows, "Locations").map(({ placeLocationFetchedAt, latitude, longitude, ...location }) => placeLocationFetchedAt ? location : { ...location, latitude, longitude }),
       programs: checked(programRows, "Programs"),
       programRuleVersions: checked(ruleVersionRows, "Program rule versions"),
       rewards: checked(rewardRows, "Rewards"),

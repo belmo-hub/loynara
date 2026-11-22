@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 /**
  * First-merchant launch hardening: the counter QR must not hand a returning guest a silent second card, the cashier must
@@ -9,7 +10,7 @@ import { expect, request as apiRequest, test, type APIRequestContext, type Page 
 
 async function merchant(url: string, name: string) {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic hardening owner", email: `hardening-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic hardening owner", email: `hardening-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: `${name} Karte`, programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Pizza gratis", rewardCost: 10,
@@ -191,10 +192,10 @@ test("after a booking the card closes, shows its number, and the counter returns
     await expect(page.getByRole("button", { name: "Menge erhöhen" })).toHaveCount(0);
     await expect(page.locator(".balance-display")).toHaveCount(0);
     await expect(booked).not.toContainText("sc_");
-    // The next card can be scanned at once; the confirmation hides on its own, keeping the last booking as a note.
+    // The next card can be scanned at once; the confirmation hides on its own and leaves no second receipt (ENG-266).
     await expect(page.getByRole("region", { name: "Bereit für die nächste Karte" })).toBeVisible();
     await expect(booked).toHaveCount(0, { timeout: 8_000 });
-    await expect(page.locator(".cashier-status")).toContainText(`für ${card.cardLocator} vergeben`);
+    await expect(page.locator(".cashier-status")).toHaveCount(0);
     expect(await balanceOf(url, card.cardToken)).toBe(1);
 
     // "Andere Karte" moves on immediately, without waiting.
@@ -337,7 +338,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     // The page loads the card through /api/enroll/card/ and re-reads it through /api/card/.
     page.on("request", request => { if (request.method() === "GET" && new RegExp(`^/api/(enroll/)?card/${card.cardToken}$`).test(new URL(request.url()).pathname)) reads.push(Date.now()); });
     await page.goto(`/card/${encodeURIComponent(card.cardToken)}`);
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^0 von \d+$/);
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^0 von \d+ Stempeln$/);
     await page.waitForTimeout(500);
     // Development mode runs the initial effect twice (React Strict Mode); count from the settled initial load.
     const initial = reads.length;
@@ -356,7 +357,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     const membershipId = await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await returnToPage();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^1 von \d+$/);
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^1 von \d+ Stempeln$/);
     await expect(page.locator(".customer-activity-list")).toContainText("+1 Stempel");
     expect(reads).toHaveLength(initial + 1);
 
@@ -369,7 +370,7 @@ test("the guest's open card catches up after a booking when they look at it agai
     await awardViaApi(shop.owner, card.scanCode);
     await page.waitForTimeout(5_200);
     await page.getByRole("button", { name: "Karte aktualisieren" }).click();
-    await expect(page.locator(".customer-balance-line strong")).toHaveText(/^2 von \d+$/);
+    await expect(page.locator(".customer-card [aria-label*=\" von \"]")).toHaveAttribute("aria-label", /^2 von \d+ Stempeln$/);
     expect(reads).toHaveLength(initial + 2);
 
     // A link that was reissued elsewhere stops showing the old card and says what to do.

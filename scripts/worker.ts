@@ -13,6 +13,7 @@ import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 import { boundedWorkerDatabase } from "./worker-database";
 import { startWorkerMonitor } from "./worker-monitor";
 import { superviseWalletJob, walletJobLifetimeMs, walletTimingLine } from "./worker-supervisor";
+import { RATE_LIMIT_PRUNE_INTERVAL_MS } from "../src/lib/rate-limit";
 
 type Job = OutboxJob;
 
@@ -30,9 +31,11 @@ let rebookCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
 let suppressionsPrunedAt = 0;
+let rateLimitsPrunedAt = 0;
 let googleClassesSyncedAt = 0;
 let erasureCheckedAt = 0;
 let demosEndedAt = 0;
+let placesRefreshedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -423,6 +426,30 @@ async function main() {
           const removed = await pruneEmailSuppressions();
           if (removed) console.log(`Email suppressions: ${removed} expired after 24 months`);
           suppressionsPrunedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - placesRefreshedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent (ENG-323): Google points are refreshed after 25 days and cleared from day 27 (Google's EEA terms).
+          const { refreshPlaceLocations } = await import("../src/lib/place-refresh");
+          const result = await refreshPlaceLocations();
+          if (result.refreshed || result.cleared) console.log(`Shop places: ${result.refreshed} refreshed, ${result.cleared} cleared`);
+          placesRefreshedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - rateLimitsPrunedAt >= RATE_LIMIT_PRUNE_INTERVAL_MS) {
+        try {
+          // Daily and idempotent (ENG-281): the owner privacy page promises counters go within 48 hours of their window.
+          const { pruneExpiredRateLimits } = await import("../src/lib/rate-limit");
+          const removed = await pruneExpiredRateLimits(housekeepingDatabase);
+          if (removed) console.log(`Rate limits: ${removed} expired counter(s) pruned`);
+          rateLimitsPrunedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;

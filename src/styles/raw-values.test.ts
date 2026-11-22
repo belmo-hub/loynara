@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyExceptions, cssFindings, sourceFindings, type Exception } from "./raw-values";
 
-// DESIGN.md: nothing outside src/styles/tokens.css defines a colour, font size, radius or layer. Before Phase 7 the
+// DESIGN.md: nothing outside src/styles/tokens.css defines a colour, font size, weight, radius or layer. Before Phase 7 the
 // dashboard had grown its own scale next to the tokens; this keeps any stylesheet, inline style or CSS string from doing
 // that again. Each exception names the file, the kind, the exact rule or value and why. Dev-only previews (src/app/dev)
 // and SVG artwork attributes (logos) are not checked.
@@ -19,30 +19,44 @@ const WALLET_MOCK = [".ow-pass", ".ow-pass--google", ".ow-pass--apple .ow-pass-r
 const QR_TICKET = "the QR ticket is white in both themes, so scanners always read dark on light; its text uses the light inks";
 const STANDALONE = "a standalone HTML document outside the app (no tokens load there); it carries its own styles";
 const OWNER_UI = /^src\/(?:components\/owner|app\/merchant)\//;
-// Spacing that a later ticket owns: the form controls, chips and toast (ENG-139).
-const CONTROLS = [".owner-app summary", ".ow-chip", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button", ".ow-toast"];
+// Spacing that a later ticket owns: the form controls (ENG-139). The chip and the toast are on the scale since ENG-231;
+// `summary` keeps its 10 px until the house fold replaces the native one (set D2, ENG-237): a flex summary loses its triangle.
+const CONTROLS = [".owner-app summary", ".ow-radio-card input", '.ow-colorrow input[type="color"]', ".ow-seg button"];
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },
   { file: "src/app/global-error.tsx", kind: "colour", selectors: [":root"], reason: "global-error renders without the app's CSS, so it inlines the token values" },
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
-  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".ticket", ".locator span", ".locator small"], reason: QR_TICKET },
+  { file: "src/app/global-error.tsx", kind: "weight", reason: "global-error renders without the app's CSS, so it writes its weights as numbers (set D2 moves them to the tokens' values)" },
+  { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: ["section.ticket", ".locator span", ".locator small"], reason: QR_TICKET },
   { file: "src/components/customer/customer-card.module.css", kind: "colour", selectors: [".walletButton"], reason: "Add to Wallet buttons follow Apple's and Google's button artwork (black with white)" },
+  { file: "src/components/owner/customers-view.module.css", kind: "radius", selectors: [".cards > :global(.ow-seg) button"], value: "10px", reason: "Kunden's switch segment sits 4 inside its radius-14 track (Design, 18 Nov, #283); not a house radius" },
+  { file: "src/components/owner/customers-view.module.css", kind: "radius", selectors: [".page :global(.ow-prog) ul > li:first-child > :global(.ow-prog-row)", ".page :global(.ow-prog) ul > li:last-child > :global(.ow-prog-row)"], value: "19px", reason: "every Kunden panel's end rows follow its radius-20 curve 1 px inside its line (Design, #283); not a house radius" },
+  { file: "src/components/customer/mix-card.module.css", kind: "radius", selectors: [".mark"], value: "10px", reason: "the mix card's shop mark is drawn from the founder's picture (mix NOTES, Deviations); not a house radius" },
+  { file: "src/components/owner/overview.module.css", kind: "radius", selectors: [".legend i", ".bar", ".bar[data-zero]"], reason: "the Übersicht's week chart is drawn from C's chart in the approved mix (4 px bar tops, 2 px key, 1 px stub); not house radii" },
+  { file: "src/components/owner/overview.module.css", kind: "spacing", selectors: [".day > b"], value: "2px", reason: "forced colours: the bar's value keeps 2 px of Canvas each side over the guide line (Design, #297)" },
+  { file: "src/components/owner/customers-view.module.css", kind: "spacing", selectors: [".page .groups ul a[aria-current]"], reason: "forced colours: the picked group's 2 px mark is taken back from its 20 px inset, so the row does not shift (Design, #297)" },
+  { file: "src/components/owner/overview.module.css", kind: "spacing", selectors: [".help", ".line.line > [data-go]"], reason: "the „?“ keeps its 44 target inside the 26 title line (8 + 1 off the scale on each side); the wrapped phone button takes 10 above and below so one line stays 44 and two lines get the air of „Ansehen“ (Design, 18 Nov)" },
   { file: "src/components/customer/wallet-step.module.css", kind: "colour", selectors: [".lock", ".alert", ".from small", ".example"], reason: "ENG-130 lock-screen picture: dark in both themes like a phone's lock screen, „Beispiel“ at fixed full contrast (Legal)" },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: [".ow-cardprev-ticket", ".ow-cardprev-number span"], reason: QR_TICKET },
   { file: "src/components/owner/owner.css", kind: "colour", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "weight", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "weight", selectors: [".ow-lock-time"], reason: "the lock-screen clock is drawn as the phone draws it, in a light 300" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
-  { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, chips and the toast, ENG-139 (SF-8, SF-9)" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, ENG-139 (SF-8, SF-9)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [".ow-days"], value: "calc(var(--space-1) - 1px)", reason: "seven 44 px day chips with 3 px gaps fill the panel's 326 px at 390 (Design decision 28)" },
+  { file: "src/components/owner/card-screen.module.css", kind: "spacing", reason: "the mix inset: 20 from a panel's outer edge is 19 inside its 1 px border (mix NOTES › --m-in), and D's hanging correction starts 11 under its line" },
   { file: "src/components/owner/card-actions.tsx", kind: "spacing", property: "margin", value: "1px", reason: "QRCode.toDataURL's quiet zone in modules, not a style" },
+  { file: "src/components/owner/owner.css", kind: "spacing", selectors: [".ow-gmaps"], value: "10px 10px 5px", reason: "Google's required clear space around the Google Maps logo, 10 px left, right and top and 5 px below (Legal P-2, ENG-323)" },
+  { file: "src/components/cashier/cashier-view.module.css", kind: "font size", selectors: [".stepper output"], value: "96px", reason: "the Kasse's amount reads across a counter: D's 96 px figure, the one size on that screen that is not a house size (mix NOTES)" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".video"], value: "#0B1410", reason: "camera viewport behind the live video, darker than any surface" },
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   { file: "src/components/ui/sheet.module.css", kind: "colour", selectors: [".sheet::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
-  ...(["colour", "font size"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
+  ...(["colour", "font size", "weight"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
   ...(["colour", "font size", "radius"] as const).map(kind => ({ file: "src/lib/wallet/http.ts", kind, reason: `wallet hand-off page: ${STANDALONE}` })),
 ];
 
@@ -66,7 +80,7 @@ function repositoryFindings() {
 describe("raw design values in the repository", () => {
   const { rest, unused } = applyExceptions(repositoryFindings(), EXCEPTIONS);
 
-  it("stylesheets, inline styles and CSS strings take colours, font sizes, radii and layers from the tokens, spacing from the scale", () => {
+  it("stylesheets, inline styles and CSS strings take colours, font sizes, weights, radii and layers from the tokens, spacing from the scale", () => {
     expect(rest.map(f => `${f.file} | ${f.selector} | ${f.property}: ${f.value} (${f.kind})`)).toEqual([]);
   });
 
@@ -81,11 +95,20 @@ describe("the checker", () => {
   const tsx = (text: string) => sourceFindings("x.tsx", text, tokens).map(f => `${f.kind}: ${f.property}`);
 
   it("reads shorthands, corner radii and custom-property indirection", () => {
-    expect(css(".a { font: 700 13px/1.5 sans-serif; }")).toEqual(["font size: font"]);
+    expect(css(".a { font: 700 13px/1.5 sans-serif; }")).toEqual(["font size: font", "weight: font"]);
     expect(css(".a { border-top-left-radius: 7px; }")).toEqual(["radius: border-top-left-radius"]);
     expect(css(".a { --local-layer: 999; z-index: var(--local-layer); }")).toEqual(["layer: z-index"]);
     expect(css(".a { --local-size: 13px; font-size: var(--local-size); }")).toEqual(["font size: font-size"]);
     expect(css(".a { border-radius: calc(4px + var(--radius-sm)); box-shadow: inset 0 0 0 1px #123456; }")).toEqual(["radius: border-radius", "colour: box-shadow"]);
+  });
+
+  it("takes a weight only from the four tokens, in font-weight, the font shorthand and inline styles", () => {
+    expect(css(".a { font-weight: 700; } .b { font-weight: bold; } .c { font-weight: var(--weight-mine); }")).toEqual(["weight: font-weight", "weight: font-weight", "weight: font-weight"]);
+    expect(css(".a { font: 300 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
+    expect(css(".a { font: italic 700 var(--text-16)/1 var(--font-sans); }")).toEqual(["weight: font"]);
+    expect(tsx("<p style={{ fontWeight: 600 }} />")).toEqual(["weight: font-weight"]);
+    expect(css(".a { font-weight: var(--weight-label); } .b { font-weight: inherit; } .c { font: inherit; } .d { font: var(--weight-heavy) var(--text-16)/1 var(--font-sans); }")).toEqual([]);
+    expect(tsx('<p style={{ fontWeight: "var(--weight-strong)" }} />')).toEqual([]);
   });
 
   it("accepts token values", () => {

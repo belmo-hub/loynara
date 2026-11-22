@@ -41,8 +41,8 @@ export async function deliverWeeklyOwnerReport(job: { id: string; tenantId: stri
   const parsed = payload.safeParse(job.payload);
   if (!parsed.success) return { status: "blocked" as const, reason: "Invalid weekly report job" };
   // Rechecked at send time: someone who lost owner access, or a shop that switched the report off, gets nothing.
-  const [row] = (await pool.query<{ email: string; shop: string; enabled: boolean; from: Date; to: Date }>(`
-    SELECT u.email, t.name AS shop, t.weekly_report_enabled AS enabled,
+  const [row] = (await pool.query<{ email: string; confirmed: boolean; shop: string; enabled: boolean; from: Date; to: Date }>(`
+    SELECT u.email, u."emailVerified" AS confirmed, t.name AS shop, t.weekly_report_enabled AS enabled,
       $3::date::timestamp AT TIME ZONE 'Europe/Berlin' AS "from",
       ($3::date + 7)::timestamp AT TIME ZONE 'Europe/Berlin' AS "to"
     FROM staff_roles s JOIN "user" u ON u.id = s.user_id JOIN tenants t ON t.id = s.tenant_id
@@ -50,6 +50,8 @@ export async function deliverWeeklyOwnerReport(job: { id: string; tenantId: stri
   `, [job.tenantId, parsed.data.recipientUserId, parsed.data.weekStart])).rows;
   if (!row) return { status: "suppressed" as const, reason: "Recipient no longer has owner access" };
   if (!row.enabled) return { status: "suppressed" as const, reason: "Weekly report switched off" };
+  // ENG-278: an address nobody has confirmed gets no owner mail, so a sign-up cannot make Loynara mail a stranger weekly.
+  if (!row.confirmed) return { status: "suppressed" as const, reason: "Owner email not confirmed" };
   const figures = await getTenantWindowAnalytics(job.tenantId, row.from, row.to);
   const message = { to: row.email, jobId: job.id, ...weeklyReportText(row.shop, row.from, row.to, {
     visits: figures.qualifyingCheckouts, newCards: figures.newCards, repeatCards: figures.repeatCards,

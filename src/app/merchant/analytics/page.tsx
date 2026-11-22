@@ -31,28 +31,35 @@ type Week = MerchantAnalytics["series"][number];
 export default function MerchantAnalyticsPage() {
   const { me, locations } = useOwner();
   const [windowDays, setWindowDays] = useState<AnalyticsWindowDays>(30);
+  // Bars grow on the screen's first paint only: after a period pick they stand at once (DESIGN.md, Bars grow).
+  const [switched, setSwitched] = useState(false);
   const [report, reload] = useLoad<MerchantAnalytics>(me?.role === "owner" ? `/api/merchant/analytics?window=${windowDays}` : null);
   const [retention, reloadRetention] = useLoad<RetentionSummary>(me?.role === "owner" ? "/api/merchant/retention?days=30" : null);
   if (!me) return null;
   const head = <PageHead back={<BackToActions />} title="Ergebnisse" lead={locations.length > 1 ? ALL_LOCATIONS_NOTE : undefined} actions={me?.hiddenSurfaces?.includes("revenue") ? <DemoDataChip /> : undefined} />;
   if (me.role !== "owner") return <div className="ow-page">{head}<Notice>Nur die Inhaberin oder der Inhaber kann die Ergebnisse sehen.</Notice></div>;
   const r = report.state === "ok" ? report.data : null;
-  // The read's bars are Monday weeks; the cut first and current week would read as a drop, so only full weeks show.
-  const weeks = r?.series.filter(week => Date.parse(week.to) - Date.parse(week.from) >= FULL_WEEK_MS) ?? [];
+  // The read's bars are Monday weeks. The cut first week would read as a drop, so it stays out; the week still running
+  // is shown as not final („bis heute“), so the bars hold today's bookings like the number above them.
+  const full = (week: Week) => Date.parse(week.to) - Date.parse(week.from) >= FULL_WEEK_MS;
+  const series = r?.series ?? [];
+  const weeks = series.filter(full);
+  const newest = series.at(-1);
+  const running = newest && series.length > 1 && !full(newest) ? newest : undefined;
   const last = weeks.at(-1);
   const lastWasBest = Boolean(last && last.checkouts > 0 && weeks.length > 1 && weeks.slice(0, -1).every(week => week.checkouts < last.checkouts));
   return (
-    <div className="ow-page ow-results">
+    <div className="ow-page ow-results ow-column">
       {head}
       <div className="ow-seg" role="group" aria-label="Zeitraum">
-        {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => setWindowDays(days)}>{days} Tage</button>)}
+        {([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={windowDays === days} onClick={() => { setWindowDays(days); setSwitched(true); }}>{days} Tage</button>)}
       </div>
       {report.state === "error" ? <ErrorNotice message={report.message} onRetry={reload} /> : (
         <Board label={`Bestätigte Buchungen, letzte ${windowDays} Tage`} busy={!r}>
           {!r ? <BoardPlaceholder /> : <>
             <p className="ow-board-big">{nf.format(r.qualifyingCheckouts)}{"\u00a0"}<small>{r.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"}</small></p>
             <p className="ow-board-sub">letzte {windowDays} Tage, Korrekturen abgezogen</p>
-            <Weeks weeks={weeks} />
+            <Weeks weeks={weeks} running={running} switched={switched} />
             {lastWasBest && <p className="ow-board-news">Die meisten Buchungen gab es letzte Woche.</p>}
           </>}
         </Board>
@@ -126,22 +133,24 @@ function Retention({ state, reload }: { state: Loadable<RetentionSummary>; reloa
 
 /**
  * The period's full weeks as the Übersicht strip's bars: the count above each bar, the week's first day under it, the
- * latest week lit. Ninety days give twelve narrow bars, so every third one from the latest carries its date; the others keep
- * an empty line, so every bar stands on the same baseline.
+ * latest full week lit; the week still running follows as an outline, „bis heute“. Ninety days give thirteen narrow bars,
+ * so every third one from the last carries its label; the others keep an empty line, so every bar stands on the same baseline.
+ * The dated label just before „bis heute“ stays empty: side by side the two read as one range.
  */
-function Weeks({ weeks }: { weeks: Week[] }) {
-  const max = Math.max(1, ...weeks.map(week => week.checkouts));
-  const many = weeks.length > 7;
+function Weeks({ weeks, running, switched }: { weeks: Week[]; running?: Week; switched: boolean }) {
+  const bars = running ? [...weeks, running] : weeks;
+  const max = Math.max(1, ...bars.map(week => week.checkouts));
+  const many = bars.length > 7;
   return (
-    <div className="ow-strip ow-weeks" data-many={many || undefined} style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
-      role="img" aria-label={`Bestätigte Buchungen je Woche: ${weeks.map(week => `${dayMonth(week.from)} bis ${dayMonth(week.to)} ${bookingsText(week.checkouts)}`).join(", ")}`}>
-      {weeks.map((week, index) => {
-        const latest = index === weeks.length - 1;
+    <div className="ow-strip ow-weeks" data-many={many || undefined} data-switched={switched || undefined} style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
+      role="img" aria-label={`Bestätigte Buchungen je Woche: ${bars.map(week => `${dayMonth(week.from)} bis ${week === running ? "heute" : dayMonth(week.to)} ${bookingsText(week.checkouts)}`).join(", ")}`}>
+      {bars.map((week, index) => {
+        const latest = week === weeks.at(-1);
         return (
           <div className="ow-strip-day" key={week.from} aria-hidden="true">
             <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
-            <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
-            <span className="ow-strip-d" data-yesterday={latest ? "" : undefined}>{!many || (weeks.length - 1 - index) % 3 === 0 ? dayMonth(week.from) : "\u00a0"}</span>
+            <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} data-today={week === running ? "" : undefined} data-zero={week.checkouts === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
+            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && ((bars.length - 1 - index) % 3 !== 0 || (running && bars.length - 1 - index === 3)) ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
           </div>
         );
       })}

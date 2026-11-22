@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test, type BrowserContext, type Page } from "@playwright/test";
 import QRCode from "qrcode";
+import { signUp } from "./support/sign-up";
 
 /**
  * The fast counter: the camera stays on between customers and one tap books a stamp. The camera is a synthetic canvas
@@ -9,7 +10,7 @@ import QRCode from "qrcode";
 
 async function merchant(url: string, name: string) {
   const owner = await apiRequest.newContext({ baseURL: url, extraHTTPHeaders: { Origin: new URL(url).origin } });
-  expect((await owner.post("/api/auth/sign-up/email", { data: { name: "Synthetic counter owner", email: `counter-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(owner, { data: { name: "Synthetic counter owner", email: `counter-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = await owner.post("/api/merchant/onboard", { data: {
     businessName: name, city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR",
     programName: `${name} Karte`, programType: "stamp", rulesText: "Ein Stempel pro bestätigtem Besuch.", rewardTitle: "Pizza gratis", rewardCost: 10,
@@ -173,5 +174,65 @@ test("the camera stays on between customers and one tap books a stamp", async ({
     await page.reload();
     await expect(page.getByRole("button", { name: "Kamera öffnen" })).toBeVisible();
     await expect(camera).toHaveCount(0);
+  } finally { await counter.close(); await shop.owner.dispose(); }
+});
+
+test("scan path: the booking that reaches the goal keeps the dock's edge and the badge 16 px under it (390 × 844)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const shop = await merchant(url, "Synthetic Ziel Pizzeria");
+  const card = await guestCard(url, shop.programSlug);
+  const counter = await browser.newContext({ baseURL: url, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 } });
+  await fakeCamera(counter);
+  try {
+    // Nine of ten: the next stamp reaches the reward, and the booked stack carries its hint.
+    const { membershipId } = await (await shop.owner.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+    expect((await shop.owner.post("/api/cashier/award", { data: { membershipId, quantity: 9, idempotencyKey: randomUUID(), requestId: randomUUID() } })).ok()).toBe(true);
+    const page = await counter.newPage();
+    await page.goto("/cashier");
+    await page.getByRole("button", { name: "Kamera öffnen" }).click();
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
+    await show(page, card.scanCode);
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
+    const before = await dockTop();
+    await show(page, null);
+    await page.locator(".cashier-award-now").click();
+    const booked = page.locator(".cashier-booked");
+    await expect(booked).toContainText("Prämie bereit");
+    // No code field on the scan path; the hint takes the ready line's place.
+    await expect(booked.locator("#cashier-code")).toHaveCount(0);
+    await expect(booked).not.toContainText("Bereit für die nächste Karte");
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(1);
+    const badge = await page.evaluate(() => Math.round(document.querySelector(".cashier-booked [aria-hidden='true'] svg")!.closest("span")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    expect(badge).toBeGreaterThanOrEqual(16);
+  } finally { await counter.close(); await shop.owner.dispose(); }
+});
+
+test("scan path, two rewards and none ready: the open dock holds the booked stack, so the keys keep their inset, the badge sits 16 under the edge and the dock keeps one top (390 × 844)", async ({ baseURL, browser }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  const shop = await merchant(url, "Synthetic Zwei Ziele Pizzeria");
+  expect((await shop.owner.post("/api/merchant/program/rewards", { data: { action: "create", programSlug: shop.programSlug, title: "Großes Frühstück", cost: 20, termsText: "Ein großes Frühstück." } })).status()).toBe(201);
+  const card = await guestCard(url, shop.programSlug);
+  const counter = await browser.newContext({ baseURL: url, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 } });
+  await fakeCamera(counter);
+  try {
+    const { membershipId } = await (await shop.owner.get(`/api/cashier/lookup?code=${encodeURIComponent(card.scanCode)}`)).json() as { membershipId: string };
+    expect((await shop.owner.post("/api/cashier/award", { data: { membershipId, quantity: 5, idempotencyKey: randomUUID(), requestId: randomUUID() } })).ok()).toBe(true);
+    const page = await counter.newPage();
+    await page.goto("/cashier");
+    await page.getByRole("button", { name: "Kamera öffnen" }).click();
+    await expect(page.getByRole("region", { name: "Kassenkamera" })).toContainText("Kamera bereit.");
+    await show(page, card.scanCode);
+    await expect(page.locator(".cashier-award-now")).toBeVisible();
+    await expect(page.locator(".reward-action-list button")).toHaveCount(2);
+    const dockTop = () => page.evaluate(() => document.querySelector("[data-dock]")!.getBoundingClientRect().top);
+    expect(await page.evaluate(() => Math.round(document.querySelector(".quantity-row button")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top))).toBeGreaterThanOrEqual(24);
+    const before = await dockTop();
+    await show(page, null);
+    await page.locator(".cashier-award-now").click();
+    await expect(page.locator(".cashier-booked")).toContainText("Neuer Stand:");
+    expect(Math.abs(await dockTop() - before)).toBeLessThanOrEqual(1);
+    const badge = await page.evaluate(() => Math.round(document.querySelector(".cashier-booked [aria-hidden='true'] svg")!.closest("span")!.getBoundingClientRect().top - document.querySelector("[data-dock]")!.getBoundingClientRect().top));
+    expect(badge).toBeGreaterThanOrEqual(16);
   } finally { await counter.close(); await shop.owner.dispose(); }
 });

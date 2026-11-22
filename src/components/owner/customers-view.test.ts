@@ -1,11 +1,20 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Gift } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StampGrid } from "@/components/ui/stamp-grid";
 import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
-import { progressLine } from "./card-screen";
-import { groupTiles, searchHref } from "./customers-view";
+import { progressLine } from "@/components/customer/mix-card";
+import { dayLabel } from "./card-screen";
+import { cardLead, CustomersView, groupCount, groupTiles, searchHref } from "./customers-view";
+
+let address = new URLSearchParams();
+vi.mock("next/navigation", () => ({ useSearchParams: () => address, useRouter: () => ({ push: () => {}, replace: () => {} }) }));
+vi.mock("./owner-context", () => ({ useOwner: () => ({ me: { role: "owner", programType: "stamp", programSlug: "cafe", locationId: "loc-1", locationName: "Laden", publicBaseUrl: "https://example.test" }, locations: [] }) }));
+vi.mock("./use-load", () => ({ useLoad: (url: string | null) => [
+  !url ? { state: "idle" } : url.startsWith("/api/merchant/retention") ? { state: "ok", data: summary(), at: 0 }
+    : url.startsWith("/api/merchant/customers") ? { state: "ok", data: { members: [], nextCursor: null }, at: 0 } : { state: "ok", data: { rewards: [] }, at: 0 },
+  () => {}] }));
 
 const summary = (patch: Partial<RetentionSummary> = {}): RetentionSummary => ({ asOf: "", inactiveDays: 30, locationId: "loc-1", openCards: 20, recent: 12, drifting: 5, never: 2, neverAfterWeek: 1,
   nearReward: 3, rewardReady: 1, driftingWeekAgo: 4, nearRewardMaxRemaining: 3, nearRewardId: null, programCount: 1, rules: RETENTION_RULES, ...patch });
@@ -52,5 +61,60 @@ describe("card search (ENG-179, fault 18)", () => {
     expect(searchHref(" K-39BVGN ", "owner")).toBe("/merchant/customers?q=K-39BVGN&scope=all");
     expect(searchHref("K-39BVGN", "manager")).toBe("/merchant/customers?q=K-39BVGN");
     expect(searchHref("  ", "owner")).toBe("/merchant/customers");
+  });
+});
+
+describe("Kunden rows in the mix (ENG-257)", () => {
+  const render = (node: ReturnType<typeof cardLead>) => renderToStaticMarkup(createElement("div", null, node));
+  const coffee = { id: "r", title: "Gratiskaffee", cost: 8 };
+  it("leads a stamp card with the mix thumbnail", () => {
+    expect(render(cardLead({ programType: "stamp", balance: 5 }, coffee))).toContain('role="img"');
+    expect(render(cardLead({ programType: "stamp", balance: 5 }))).toContain('aria-hidden="true"'); // the shop's colour, no dots
+  });
+  it.each([[0, 0, false], [21, 3, false], [150, 18, false], [300, 36, true], [420, 36, true]])("leads a points card at %i with a %i px fill to the dearest reward (ENG-292 §4)", (balance, px, reached) => {
+    const html = render(cardLead({ programType: "points", balance }, { id: "r", title: "Pizza", cost: 60 }, 300));
+    expect(html).toContain(`aria-label="${balance} Punkte"`);
+    expect(html).toContain(`style="width:${px ? `${px}px` : 0}"`);
+    expect(html.includes("data-on")).toBe(reached);
+    expect(render(cardLead({ programType: "points", balance }))).toContain('aria-hidden="true"'); // no target here: the shop's colour alone
+  });
+});
+
+describe("the number beside a group's title (Design, #283)", () => {
+  it("is the read's total, not the 25 rows a list with a next page has loaded; with closed cards in the list there is none", () => {
+    const big = summary({ openCards: 60, recent: 40, never: 30, neverAfterWeek: 12 }); // every group longer than one page of 25
+    expect(groupCount(big, { activity: "all", status: "active", minAgeDays: 0 })).toBe("60");
+    expect(groupCount(big, { activity: "recent", status: "all", minAgeDays: 0 })).toBe("40");
+    expect(groupCount(big, { activity: "never", status: "all", minAgeDays: 7 })).toBe("12");
+    expect(groupCount(big, { activity: "all", status: "all", minAgeDays: 0 })).toBeUndefined();
+    expect(groupCount(big, { activity: "all", status: "closed", minAgeDays: 0 })).toBeUndefined();
+  });
+});
+
+describe("Kunden 03: the statement's day (ENG-258)", () => {
+  it("names today and yesterday, otherwise the weekday and date", () => {
+    const now = new Date(2026, 10, 14, 18, 0);
+    expect(dayLabel(new Date(2026, 10, 14, 8, 41).toISOString(), now)).toBe("Heute");
+    expect(dayLabel(new Date(2026, 10, 13, 23, 59).toISOString(), now)).toBe("Gestern");
+    expect(dayLabel(new Date(2026, 10, 12, 8, 41).toISOString(), now)).toBe("Donnerstag, 12.11.");
+  });
+});
+
+describe("Kunden's group counts and order (Design, #283 SHIP follow-up 4)", () => {
+  const page = (query: string) => { address = new URLSearchParams(query); return renderToStaticMarkup(createElement(CustomersView)); };
+  const groups = (html: string) => html.slice(html.indexOf('aria-labelledby="cu-groups"'), html.indexOf('aria-labelledby="cu-h"'));
+  it("shows no counts in the group rows or the picker with „Alle“ or „Geschlossen“, and the read's counts with „Aktiv“", () => {
+    for (const query of ["activity=all", "activity=all&status=closed"]) {
+      expect(groups(page(query))).not.toContain("ow-prog-value");
+      expect(groups(page(query))).toContain("<option value=\"recent\">Kürzlich aktiv</option>");
+    }
+    const active = groups(page("activity=all&status=active"));
+    expect(active.match(/class="ow-prog-value"/g)).toHaveLength(6);
+    expect(active).toContain("<option value=\"recent\">Kürzlich aktiv 12</option>");
+  });
+  it("puts the invite after the cards in the DOM (the grid places it under the groups from 1200)", () => {
+    const html = page("activity=all&status=active");
+    expect(html.indexOf("Kunden einladen")).toBeGreaterThan(html.indexOf('aria-labelledby="cu-h"'));
+    expect(html.indexOf('aria-labelledby="cu-h"')).toBeGreaterThan(html.indexOf('aria-labelledby="cu-groups"'));
   });
 });

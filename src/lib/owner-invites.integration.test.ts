@@ -45,7 +45,7 @@ const env = () => process.env;
 const create = (ownerEmail?: string) => createShopWithOwnerInvite({ actorUserId: operator.userId, env: env(), shop: shopBody(ownerEmail) });
 const tokenOf = (link: string) => new URL(link).pathname.split("/").pop()!;
 const code = async (fn: () => Promise<unknown>) => { try { await fn(); } catch (error) { return (error as { code?: string }).code ?? "OTHER"; } return "NONE"; };
-const wizard = (userId: string) => createMerchant({ userId, businessName: "Barbier Nord", locationName: "Nordstadt", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Haarschnittkarte", programType: "stamp", rulesText: "Ein Stempel pro Haarschnitt.", rewardTitle: "Haarschnitt gratis", rewardCost: 10 });
+const wizard = (userId: string, options?: Parameters<typeof createMerchant>[1]) => createMerchant({ userId, businessName: "Barbier Nord", locationName: "Nordstadt", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Haarschnittkarte", programType: "stamp", rulesText: "Ein Stempel pro Haarschnitt.", rewardTitle: "Haarschnitt gratis", rewardCost: 10 }, options);
 /** An owner who set a shop up alone, the way every shop was made before. */
 async function shopOwner() {
   process.env.PUBLIC_REGISTRATION_ENABLED = "true";
@@ -65,6 +65,8 @@ it("answers an empty 404 to anonymous visitors, shop owners and cross-origin cal
   expect((await post({ ...shopBody(), ownerEmail: "not-an-address" }, operator.cookie)).status).toBe(400);
   expect(await code(() => createShopWithOwnerInvite({ actorUserId: owner.user, env: env(), shop: shopBody() }))).toBe("FORBIDDEN");
   expect(await code(() => createShopWithOwnerInvite({ actorUserId: operator.userId, env: {}, shop: shopBody() }))).toBe("FORBIDDEN");
+  // ENG-285: no link or phone number in a shop name, from the operator either.
+  expect(await code(() => createShopWithOwnerInvite({ actorUserId: operator.userId, env: env(), shop: { ...shopBody(), businessName: "Barbier 0561 123456" } }))).toBe("INVALID_SHOP_NAME");
   expect(await db.select().from(tenants)).toHaveLength(1); // only the owner's own shop
   expect(await db.select().from(staffInvites)).toHaveLength(0);
 });
@@ -96,7 +98,8 @@ it("creates the shop and an owner invitation that the owner turns into an accoun
   expect(await setupDraft(owner.userId)).toEqual({ businessName: "Synthetic Barbier", locationName: "Nordstadt", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de" });
   expect((await operatorOverview(operator.userId)).awaiting).toMatchObject([{ status: "accepted" }]);
 
-  const done = await wizard(owner.userId);
+  // ENG-277: the invited owner has no sign-up acceptance (the contract is on paper) and still finishes the setup.
+  const done = await wizard(owner.userId, { requireAcceptance: true });
   expect(done.tenantId).toBe(created.tenantId);
   expect(await db.select().from(tenants)).toMatchObject([{ id: created.tenantId, name: "Barbier Nord" }]);
   expect(await db.select().from(programs)).toMatchObject([{ tenantId: created.tenantId, locationId: done.locationId }]);
@@ -104,6 +107,12 @@ it("creates the shop and an owner invitation that the owner turns into an accoun
   expect(await setupDraft(owner.userId)).toBeNull();
   expect(await wizard(owner.userId)).toMatchObject({ programId: done.programId }); // a retry returns the same shop
   expect((await operatorOverview(operator.userId)).awaiting).toEqual([]);
+});
+
+it("names a shop's location after its city when the operator leaves it empty (ENG-336)", async () => {
+  const { tenantId } = await create("ohne-standort@example.test");
+  const [row] = (await pool.query("SELECT name, city FROM locations WHERE tenant_id = $1", [tenantId])).rows;
+  expect(row).toEqual({ name: "Kassel", city: "Kassel" });
 });
 
 it("is single use, expires after 7 days, can be revoked, and a new one is issued only while the shop has no owner", async () => {

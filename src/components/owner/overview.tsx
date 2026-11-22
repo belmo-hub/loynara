@@ -1,10 +1,17 @@
 "use client";
 
+import { weekLine } from "./week-line";
 import Link from "next/link";
-import { Check, CircleCheck, CircleHelp, CreditCard, Gift, Undo2 } from "lucide-react";
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
+import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
-import { boardCacheKey, readBoardCache, seenCardsKey, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
+import { MixCard } from "@/components/customer/mix-card";
+import { PointsThumb } from "@/components/customer/points-thumb";
+import { cx } from "@/components/ui/cx";
+import { MixChip, mixButton, mixStyles as mix, MixTile } from "@/components/ui/mix";
+import { merchantPalette } from "@/components/ui/merchant-color";
+import { NumberRoll } from "@/components/ui/number-roll";
+import { boardCacheKey, readBoardCache, standLabel, writeBoardCache, type BoardData } from "@/lib/board-cache";
 import type { LocationAnalytics, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
 import { daysBetween, greeting, headline, localNow, quietDays } from "@/lib/overview-day";
 import type { LaunchReadiness } from "@/lib/readiness";
@@ -13,16 +20,17 @@ import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
 import { downloadCounterSign, joinUrlOf } from "./join-card";
-import { BigMoney, Board, BoardPlaceholder, BonusOffBand, Brought, CardStock, Diary, EmptyStrip, Milestone, NextBand, Strip, Tiles, type NextAction, type Tile } from "./overview-board";
+import { BigMoney, BoardPlaceholder, BonusOffBand, BookPlaceholder, FactsPlaceholder, Brought, CardStock, DemoDataChip, Diary, EmptyStrip, Facts, FactsHelp, NextBandPlaceholder, NextPanel, Strip, type NextAction, type Tile } from "./overview-board";
+import s from "./overview.module.css";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
 
 /*
- * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct) laid out as Wegweiser
- * start screen A (ENG-121): the greeting, the next step as the green band, the overview card, four rows for the last 30 days
- * at the active location, the diary. Everything is about the active location.
+ * The Übersicht, direction D (ENG-085, founder 24 Oct; Design's spec v2, Marketing's copy of 24 Oct), drawn in the founder's
+ * mix (ENG-260, approved 17 Nov): the greeting, F's „Als Nächstes“ with the next step and the milestone, then C's page: the
+ * board with the week chart, the figure rows for the last 30 days, „Vorschlag“, the diary. Everything is about the active location.
  */
 
 const unitOf = (me: MeResponse) => me.programType === "points" ? "Punkte" : "Stempel";
@@ -38,11 +46,19 @@ const MILESTONE_KEY = "loynara:milestones-seen";
 // Steps Loynara cannot check (NFC acceptance) or that do not apply are never ticked, only named (readiness.ts).
 const STEP_STATUS: Record<LaunchReadiness["steps"][number]["status"], string> = { done: "erledigt", todo: "offen", external: "außerhalb von Loynara", not_applicable: "nicht nötig" };
 
-/** The signed-in person's first name, if the account has one (never the shop's name). */
-function useFirstName(): string {
+// The last answer, so a return to the Übersicht greets at once; per user, so the next person never gets this name.
+let greeted: { userId: string; name: string } | null = null;
+/**
+ * The signed-in person's first name, if the account has one (never the shop's name); null until the account read has
+ * answered, so the greeting is written once and never rewritten with the name.
+ */
+function useFirstName(userId: string): string | null {
   const [session] = useLoad<{ user?: { name?: string | null } } | null>("/api/auth/get-session");
+  const answered = session.state !== "loading";
   const name = session.state === "ok" ? session.data?.user?.name?.trim() ?? "" : "";
-  return name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  const first = name.includes("@") ? "" : name.split(/\s+/)[0] ?? "";
+  useEffect(() => { if (answered) greeted = { userId, name: first }; }, [answered, userId, first]);
+  return answered ? first : greeted?.userId === userId ? greeted.name : null;
 }
 
 const onStorage = (notify: () => void) => { window.addEventListener("storage", notify); return () => window.removeEventListener("storage", notify); };
@@ -85,13 +101,22 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [retention, reloadRetention] = useLoad<RetentionSummary>(`/api/merchant/retention?days=30&locationId=${encodeURIComponent(me.locationId)}`);
   const [referrals] = useLoad<{ referrals: ReferralRow[] }>(isOwner ? `/api/merchant/referrals?programSlug=${encodeURIComponent(me.programSlug)}` : null);
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const firstName = useFirstName();
+  const firstName = useFirstName(me.userId);
   const [signError, setSignError] = useState("");
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
-  const a = analytics.state === "ok" ? analytics.data : null;
-  const r = retention.state === "ok" ? retention.data : null;
+  // The cold load: the board and the rows wait for their own three reads; the band waits for every read it is chosen
+  // from. Its place is kept by a band-shaped placeholder meanwhile, so a band that comes later pushes nothing down.
+  const ready = [analytics, spend, retention].every(state => state.state !== "loading");
+  const answered = ready && [referrals, readiness].every(state => state.state !== "loading");
+  const a = ready && analytics.state === "ok" ? analytics.data : null;
+  const r = ready && retention.state === "ok" ? retention.data : null;
+  // The band's slot: there from a cold load's first paint, taken away 250 ms after the reads answered without a band
+  // (it closes in place meanwhile). A screen that opens with its reads already answered never shows it.
+  const [slot, setSlot] = useState(!answered && !failed);
+  const slotCloses = answered || failed;
+  useEffect(() => { if (!slot || !slotCloses) return; const timer = setTimeout(() => setSlot(false), 250); return () => clearTimeout(timer); }, [slot, slotCloses]);
   const live = a && (spendShown ? spend.state === "ok" : r) ? boardOf(a, spendShown && spend.state === "ok" ? spend.data : null, r, me.locationId) : null;
   const cacheKey = boardCacheKey(me.userId, me.locationId);
   const liveJson = live ? JSON.stringify(live) : null;
@@ -113,12 +138,12 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   // A failed read shows the last numbers this device loaded, with their „Stand …“; the error card only without them.
   const board = failed ? cached?.board ?? null : live;
   const timezone = board?.timezone ?? locations.find(location => location.id === me.locationId)?.timezone ?? "Europe/Berlin";
-  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}.`;
+  const hello = `${greeting(localNow(new Date(), timezone).hour)}${firstName ? `, ${firstName}` : ""}`;
   const quiet = a ? quietOf(a) : null;
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
   const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
-  const next = failed ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
+  const next = failed || !answered ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
   // included; before that the bonus band while the bonus is off, else nothing. A failed read shows neither. The all-card
@@ -128,44 +153,58 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const here = a ? owned?.locations.find(row => row.locationId === me.locationId) : undefined;
   const brought = !owned || !here || !a ? null
     : here.brought ? <Brought brought={here.brought} currency={owned.currency} all={here.brought.revenue && here.recent.realMinor > 0 && here.recent.estimatedMinor === 0 ? formatMinor(here.recent.realMinor, owned.currency) : SPEND_COPY.bookings(a.current.qualifyingCheckouts)} />
-      : a.winbackSetting?.enabled === false ? <BonusOffBand href={WINBACK_HREF} /> : null;
+      // The suggestion stands once (Design): when „Als Nächstes“ already offers the bonus, „Vorschlag“ is left out.
+      : a.winbackSetting?.enabled === false && !offersBonus(next?.action) ? <BonusOffBand href={WINBACK_HREF} /> : null;
 
-  const signFailed = signError && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={18} />{signError}</p>;
+  const signFailed = signError && <p className={cx("ow-error ow-qerror", s.signError)} role="alert"><OwnerIcon name="alert" size={20} />{signError}</p>;
+  // „Als Nächstes“ shows once the reads it is chosen from answered (its slot holds the place until then).
+  const panel = (next !== null || milestone !== null) && (answered || failed) && !(failed && !board);
+  // A ready reward leads with the card's thumbnail, full, in the shop's colour: a points card drawn at the reward's cost.
+  const thumb = next?.kind === "reward-ready"
+    ? <span className={s.thumb} style={merchantPalette(me.brandColor ?? "", "light").cssVars as CSSProperties}>{me.programType === "points" ? <PointsThumb balance={me.rewardCost} cost={me.rewardCost} />
+      : <MixCard size="thumb" businessName={me.businessName} locationName={me.locationName} programType="stamps" balance={me.rewardCost} reward={{ id: "", title: me.rewardTitle, cost: me.rewardCost }} />}</span> : undefined;
+  // The board leads with bookings when the shop has no till amounts: then the Buchungen row would repeat its figure.
+  const bookingsBoard = !!board?.spend && !boardEuros(board.spend.figures);
+  // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
+  const tiles = a ? tilesOf(a, { owner: isOwner, stats: me.stats, bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought) : [];
 
   return (
-    <div className="ow-page ow-dash">
-      <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} />{milestone !== null && <Milestone cards={milestone} action={sign} />}</div>
+    <div className={cx("ow-page", s.page)}>
+      <div className="ow-dash-notice ow-stack"><CancellationNotice me={me} /></div>
       {/* The greeting is the page's h1 (Design, 30 Oct); the hidden page name leads what a screen reader hears. */}
-      <h1 className="ow-hello"><span className="ow-sr">Übersicht: </span>{hello}</h1>
-      {/* The Tresenschild's error sits under the band (or the greeting) that started the download, not below the rows. */}
-      {next ? <NextBand {...next}>{signFailed}</NextBand> : signFailed}
-      <div className="ow-dash-lead ow-stack">
-        {failed && !board ? <ErrorCard reload={reload} />
-          : <Board label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} busy={!board} demo={me.hiddenSurfaces?.includes("revenue")}>
-            {!board ? <BoardPlaceholder /> : <>
-              {board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
-                <p className="ow-board-big">{nf.format(board.stock.recent)}{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
-                <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
-                <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
-              </>}
-              <Strip days={board.days} caption={STRIP_CAPTION} />
-              {news && <p className="ow-board-news">{news}</p>}
-              {failed && cached && <p className="ow-strip-cap" role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
-            </>}
-          </Board>}
-        {brought}
-      </div>
-      <div className="ow-dash-side">
+      {/* Until the name is known the greeting's line is kept free, so the heading is written once. */}
+      {firstName === null ? <div className={cx("ow-hello", s.hello)} aria-hidden="true">{NBSP}</div> : <h1 className={cx("ow-hello", s.hello)}><span className="ow-sr">Übersicht: </span>{hello}</h1>}
+      <div className={mix.stack}>
+        {panel ? <NextPanel next={next} lead={thumb ? { kind: "card", node: thumb } : next ? { kind: "tile", node: <MixTile tone="mute">{stepIcon(next.kind)}</MixTile> } : undefined} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
+        {/* The Tresenschild's error sits under the panel that started the download. */}
+        {signFailed}
         <TodayAppointments />
-        {failed ? <p className="ow-muted">{OFFLINE_LINE}</p>
-          // While the ENG-095 block shows, its win-back line replaces „Wiedergekommen“: one screen, one win-back number (Design).
-          : a && <Tiles title="Letzte 30 Tage an diesem Standort" tiles={tilesOf(a, { owner: isOwner, stats: me.stats, seenKey: seenCardsKey(me.userId, me.locationId), bookingsHref: r ? retentionCustomerHref(r, "recent") : null, bonusHref: WINBACK_HREF }).filter(tile => tile.key !== "back" || !here?.brought)} />}
+        <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={board && !brought ? "" : undefined}>
+          <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
+          {failed && !board ? <ErrorCard reload={reload} />
+            : <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label={!spendShown ? "Karten an deinem Standort, letzte 30 Tage" : !board?.spend || boardEuros(board.spend.figures) ? "Umsatz deiner Loynara-Kunden, letzte 30 Tage" : "Buchungen, letzte 30 Tage"} aria-busy={!board}>
+              {me.hiddenSurfaces?.includes("revenue") && <p><DemoDataChip /></p>}
+              {board && bookingsBoard && <h3 className={s.kicker}><ChartColumn size={16} aria-hidden="true" focusable="false" />Buchungen</h3>}
+              {!board ? <BookPlaceholder caption={STRIP_CAPTION} /> : <>
+                <div>{board.spend ? <OwnerNumber spend={board.spend} bookings={board.bookings} /> : board.stock && <>
+                  <p className="ow-board-big"><NumberRoll value={board.stock.recent}>{nf.format(board.stock.recent)}</NumberRoll>{NBSP}<small>von {nf.format(board.stock.openCards)}</small></p>
+                  <p className="ow-board-sub">Karten mit Buchung, letzte 30 Tage</p>
+                  <CardStock recent={board.stock.recent} drifting={board.stock.drifting} never={board.stock.never} />
+                </>}</div>
+                {/* ENG-210: the week in words, as the chart's heading (Design, 10 Nov). The chart marks the same days. */}
+                {!failed && a?.week && <p className="ow-week-line">{weekLine(a.week)}</p>}
+                <Strip days={board.days} caption={STRIP_CAPTION} today={failed || board.todayBookings === undefined ? undefined : { date: board.today, bookings: board.todayBookings }} week={!failed && a?.week ? { from: a.week.from, line: weekLine(a.week) } : undefined} />
+                {news && <p className={s.foot}>{news}</p>}
+                {failed && cached && <p className={s.offline} role="status">{standLabel(cached.at, new Date(), timezone)}</p>}
+              </>}
+            </section>}
+          {failed ? <p className={cx(s.offline, s.off)}>{OFFLINE_LINE}</p> : !a ? <FactsPlaceholder /> : <Facts note={firstWeeks(a)} tiles={tiles.filter(tile => tile.key !== "bookings" || !bookingsBoard)} />}
+          {brought}
+          {/* The diary comes with its data: a heading over „Lädt …“ stood a screen higher than the diary lands. */}
+          {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
+          {!failed && a && (a.diary.length > 0 || gap) && <Diary diary={a.diary} today={a.today} unit={unitOf(me)} gap={gap} />}
+        </section>
       </div>
-      {/* A failed read says „Lädt, sobald …“ once, beside the board; the diary waits for the next load. */}
-      {/* Nothing in the read's days and no gap row (over 90 days quiet): no heading over nothing. */}
-      {!failed && (!a || a.diary.length > 0 || gap) && <Diary diary={a?.diary ?? []} today={a?.today ?? ""} unit={unitOf(me)} gap={gap}>
-        {!a && <p className="ow-muted" aria-busy="true">Lädt …</p>}
-      </Diary>}
     </div>
   );
 }
@@ -173,11 +212,19 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
 /** The board's numbers, the only part of the page kept on this device (board-cache.ts). */
 export function boardOf(a: LocationAnalytics, spend: MerchantSpend | null, r: RetentionSummary | null, locationId: string): BoardData {
   return {
-    timezone: a.timezone, today: a.today, days: a.days, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
+    // Today's count comes from the diary of the same read (it reaches to now); the day series ends yesterday by rule.
+    timezone: a.timezone, today: a.today, days: a.days, todayBookings: a.diary.find(day => day.date === a.today)?.bookings ?? 0, lastBookingOn: a.lastBookingOn, fullTwoWeeks: a.fullTwoWeeks, over90: quietOf(a) === "over90", bookings: a.current.qualifyingCheckouts,
     spend: spend ? { currency: spend.currency, figures: locationSpend(spend, locationId) } : undefined,
     stock: !spend && r ? { recent: r.recent, openCards: r.openCards, drifting: r.drifting, never: r.never } : undefined,
   };
 }
+
+/** The muted tile's icon for a next step, so every „Als Nächstes“ row has a lead (Design, 18 Nov): cards away and other
+ * observations the users, a quiet week the calendar, an open set-up step the list. */
+const stepIcon = (kind: string) => kind === "quiet" ? <CalendarDays size={20} aria-hidden="true" /> : kind.startsWith("setup:") ? <ListChecks size={20} aria-hidden="true" /> : <Users size={20} aria-hidden="true" />;
+
+/** Whether a next step's action is the win-back bonus switch, so the page offers it once. */
+const offersBonus = (action: NextAction | undefined) => !!action && "href" in action && action.href === WINBACK_HREF;
 
 const shiftDay = (date: string, by: number) => new Date(new Date(`${date}T12:00:00Z`).getTime() + by * 86_400_000).toISOString().slice(0, 10);
 
@@ -203,8 +250,9 @@ function OwnerNumber({ spend, bookings }: { spend: NonNullable<BoardData["spend"
     </>;
   }
   return <>
-    <p className="ow-board-big">{nf.format(bookings)}{NBSP}<small>{bookings === 1 ? "Buchung" : "Buchungen"}</small></p>
-    <p className="ow-board-sub">letzte 30 Tage, Korrekturen abgezogen</p>
+    {/* The kicker „Buchungen“ names the figure (C). */}
+    <p className={s.fig}><NumberRoll value={bookings}>{nf.format(bookings)}</NumberRoll></p>
+    <p className={mix.sub}>letzte 30 Tage, Korrekturen abgezogen</p>
     {ESTIMATES_ON_BOARD && f.averagePerVisitMinor === null && !askHidden && <div className="ow-board-ask">
       <p>Für den Umsatz deiner Loynara-Kunden fehlt nur dein Durchschnittsbon.</p>
       <div className="ow-board-actions"><Link className="ow-btn ow-btn--secondary ow-btn--sm" href={AVERAGE_HREF}>Durchschnittsbon eintragen</Link><button type="button" className="ow-board-textbtn" onClick={hideAsk}>Nicht jetzt</button></div>
@@ -238,30 +286,38 @@ export function milestoneToShow(cards: number, seen: string, locationId: string)
 function useMilestone(locationId: string, cards: number): number | null {
   const seen = useSyncExternalStore(onStorage, readMilestones, () => "-");
   const show = milestoneToShow(cards, seen, locationId);
+  // Marking it as shown makes the next render read „seen“; the card that is on screen stays until the page is left.
+  const [kept, setKept] = useState<number | null>(null);
+  if (show !== null && kept === null) setKept(show);
   useEffect(() => {
     if (show === null) return;
     try { window.localStorage.setItem(MILESTONE_KEY, [...seen.split(",").filter(Boolean), `${locationId}:${show}`].join(",")); } catch { /* shown this once anyway */ }
   }, [show, seen, locationId]);
-  return show;
+  return kept ?? show;
 }
 
 /**
  * The four tiles (spec §1.3, copy T0–T6, Q1–Q4). A tile whose event never happened at this location shows „–“ and when it
  * will appear (lifetime counts from /api/me); a real 0 after earlier activity stays 0. The page only shows after the first
- * booking, so the Buchungen tile always has a number. Notes: „erste/zweite Woche“ in the programme's first 14 days,
- * „vorher N“ once there is a full previous period (O7), else what was counted. Only the Buchungen tile links to a Kunden
+ * booking, so the Buchungen tile always has a number. Notes: „vorher N“ once there is a full previous period (O7), else
+ * what was counted; in the programme's first 14 days always what was counted, and the section head says which week. Only the Buchungen tile links to a Kunden
  * filter that exists today; the others come with ENG-086.
  */
-export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; seenKey?: string; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
-  const sinceStart = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
-  const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) =>
-    sinceStart !== null && sinceStart < 7 ? "erste Woche" : sinceStart !== null && sinceStart < 14 ? "zweite Woche" : a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
+/** „erste Woche“ or „zweite Woche“ in the programme's first 14 days: said once, in the head over the four rows. */
+export function firstWeeks(a: Pick<LocationAnalytics, "programStartedOn" | "today">): string | undefined {
+  const since = a.programStartedOn ? daysBetween(a.programStartedOn, a.today) : null;
+  return since === null || since >= 14 ? undefined : since < 7 ? "erste Woche" : "zweite Woche";
+}
+
+export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?: MeResponse["stats"]; bookingsHref: string | null; bonusHref: string | null }): Tile[] {
+  const young = firstWeeks(a) !== undefined;
+  const note = (key: "qualifyingCheckouts" | "newCards" | "winbacks" | "redemptions", plain: string) => !young && a.previous ? `vorher ${nf.format(a.previous[key])}` : plain;
   const bonusOn = a.winbackSetting?.enabled ?? false;
-  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}>Willkommen-zurück-Bonus ist aus</Link> : "Willkommen-zurück-Bonus ist aus";
+  const bonusOff = options.owner && options.bonusHref ? <Link className="ow-link ow-link--block" href={options.bonusHref}><span>Willkommen-zurück-Bonus ist aus</span></Link> : "Willkommen-zurück-Bonus ist aus";
   const noCards = options.stats?.members === 0, noRewards = options.stats?.redemptions === 0;
   return [
     { key: "bookings", icon: CircleCheck, label: "Buchungen", value: nf.format(a.current.qualifyingCheckouts), note: note("qualifyingCheckouts", "an der Kasse bestätigt"), help: "Jede bestätigte Buchung an der Kasse, Korrekturen abgezogen.", href: options.bookingsHref ?? undefined },
-    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), ...(noCards ? {} : { count: a.current.newCards, seenKey: options.seenKey }), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
+    { key: "cards", icon: CreditCard, label: "Neue Karten", value: noCards ? "–" : nf.format(a.current.newCards), note: noCards ? "erscheint mit der ersten Anmeldung" : note("newCards", "erstmals angemeldet"), help: "Karten, die sich in diesem Zeitraum zum ersten Mal angemeldet haben." },
     { key: "back", icon: Undo2, label: "Wieder\u00adgekommen", value: bonusOn ? nf.format(a.current.winbacks) : "–", note: bonusOn ? note("winbacks", "mit Willkommen-zurück-Bonus") : bonusOff,
       help: `Karten, die nach über ${a.winbackSetting?.days ?? 30} Tagen wiederkamen und den Willkommen-zurück-Bonus bekamen.` },
     { key: "rewards", icon: Gift, label: "Prämien eingelöst", value: noRewards ? "–" : nf.format(a.current.redemptions), note: noRewards ? "erscheint nach der ersten Einlösung" : note("redemptions", "an der Kasse"), help: "Prämien, die dein Team an der Kasse eingelöst hat." },
@@ -271,7 +327,7 @@ export function tilesOf(a: LocationAnalytics, options: { owner: boolean; stats?:
 const cardsText = (n: number, one: string, many: string) => n === 1 ? `1${NBSP}Karte ${one}` : `${nf.format(n)}${NBSP}Karten ${many}`;
 
 /**
- * „Als Nächstes“: one line, one verb (copy N1–N3), status by exception. A quiet week (7+ days without a booking) first,
+ * „Als Nächstes“: one line, one verb (copy N1–N3), no final period on the one-line title, status by exception. A quiet week (7+ days without a booking) first,
  * then an open required set-up step, then the most urgent observation. Nothing urgent: no bar. While the programme is
  * ending, the end-date card leads instead.
  */
@@ -288,19 +344,18 @@ export function nextStep(input: { me: MeResponse; retention: Loadable<RetentionS
   const s = retention.data;
   if (insight?.id === "drifting") {
     const last = insight.actions.at(-1)!;
-    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen.", "fehlen seit über 30 Tagen."), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
+    return { kind: insight.id, title: cardsText(s.drifting, "fehlt seit über 30 Tagen", "fehlen seit über 30 Tagen"), text: insight.next, action: last.href === WINBACK_HREF ? last : { label: "Ansehen", href: last.href } };
   }
-  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen.", "können jetzt eine Prämie einlösen."), action: { label: "Ansehen", href: insight.actions[0].href } };
-  if (insight) return { kind: insight.id, title: `${insight.title}.`, text: insight.next, action: insight.actions.at(-1) };
+  if (insight?.id === "reward-ready") return { kind: insight.id, title: cardsText(s.rewardReady, "kann jetzt eine Prämie einlösen", "können jetzt eine Prämie einlösen"), action: { label: "Ansehen", href: insight.actions[0].href } };
+  if (insight) return { kind: insight.id, title: insight.title, text: insight.next, action: insight.actions.at(-1) };
   return null;
 }
 
 function ErrorCard({ reload }: { reload: () => void }) {
   return (
-    <section className="ow-card ow-stack ow-dash-error" role="alert">
-      <h2>Die Zahlen sind gerade nicht da.</h2>
-      <p>Die Verbindung zu Loynara hat nicht geklappt.</p>
-      <div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reload}>Erneut laden</button></div>
+    <section className={cx(mix.panel, mix.pad)} role="alert">
+      <div><h3 className={mix.h}>Die Zahlen sind gerade nicht da.</h3><p className={mix.sub}>Die Verbindung zu Loynara hat nicht geklappt.</p></div>
+      <div><button type="button" className={cx(mixButton({ variant: "quiet" }), s.sm)} onClick={reload}>Erneut laden</button></div>
     </section>
   );
 }
@@ -326,35 +381,42 @@ function EmptyShop({ me }: { me: MeResponse }) {
       : current.id === "first_award" ? { title: me.programType === "points" ? "Buch die ersten Punkte an der Kasse." : "Buch den ersten Stempel an der Kasse.", text: "Auf deine eigene Karte: Kasse öffnen, Karte zeigen, buchen.", action: { label: "Kasse öffnen", href: "/cashier" } }
         : { title: current.evidence, action: current.action ? { label: current.action.label, href: current.action.href } : undefined };
   return (
-    <div className="ow-page ow-dash ow-dash--single">
+    <div className={cx("ow-page", s.page)}>
       <div className="ow-dash-notice"><CancellationNotice me={me} /></div>
-      <h1 className="ow-hello"><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
-      {lead && <NextBand {...lead} />}
-      <Board label="Startklar" busy={readiness.state !== "ok" && readiness.state !== "error"}>
-        {readiness.state === "ok" && <>
-          <p className="ow-board-big">{nf.format(readiness.data.requiredDone)}{NBSP}<small>von {nf.format(readiness.data.requiredTotal)}</small></p>
-          <p className="ow-board-sub">Pflichtschritte erledigt</p>
-        </>}
-        {readiness.state === "error" ? <div className="ow-board-ask"><p>Die Zahlen sind gerade nicht da.</p><div><button type="button" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={reloadReadiness}>Erneut laden</button></div></div>
-          : readiness.state !== "ok" && <BoardPlaceholder />}
-        <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
-      </Board>
-      <TodayAppointments />
-      <section className="ow-diary" aria-labelledby="ow-steps-title">
-        <h2 id="ow-steps-title">Deine ersten Schritte</h2>
-        {steps.map(step => {
-          const copy = FIRST_STEPS[step.id](me);
-          return (
-            <div className="ow-day" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
-              <div className="ow-day-rail" aria-hidden="true"><i>{step.status === "done" && <Check size={11} strokeWidth={3.5} />}</i><span /></div>
-              <div>
-                <h3>{copy.title}{step.required && step.status !== "done" && <span className="ow-chip">Pflicht</span>}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></h3>
-                <p className="ow-day-sum">{step.status === "done" || !copy.text ? step.evidence : copy.text}</p>
-              </div>
-            </div>
-          );
-        })}
-      </section>
+      <h1 className={cx("ow-hello", s.hello)}><span className="ow-sr">Dein Treueprogramm einrichten: </span>Willkommen bei Loynara, {me.businessName}.</h1>
+      <div className={mix.stack}>
+        {lead && <NextPanel next={lead} lead={current?.id === "enrolment" ? { kind: "tile", node: <MixTile tone="mute"><UserPlus size={20} aria-hidden="true" focusable="false" /></MixTile> } : undefined} milestone={null} onSign={() => {}} />}
+        <div className={cx(mix.stack, s.sec)}>
+          <section className={cx(mix.panel, mix.pad, s.book)} data-ow="board" aria-label="Startklar" aria-busy={readiness.state !== "ok" && readiness.state !== "error"}>
+            <h3 className={s.kicker}><ChartColumn size={16} aria-hidden="true" focusable="false" />Startklar</h3>
+            {readiness.state === "ok" && <div>
+              <p className={s.fig}>{nf.format(readiness.data.requiredDone)}<small>von {nf.format(readiness.data.requiredTotal)}</small></p>
+              <p className={mix.sub}>Pflichtschritte erledigt</p>
+            </div>}
+            {readiness.state === "error" ? <div><p>Die Zahlen sind gerade nicht da.</p><button type="button" className={cx(mixButton({ variant: "quiet" }), s.sm)} onClick={reloadReadiness}>Erneut laden</button></div>
+              : readiness.state !== "ok" && <BoardPlaceholder />}
+            <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
+          </section>
+          <TodayAppointments />
+          <section className={cx(mix.panel, s.steps)} data-ow="diary" aria-labelledby="ow-steps-title">
+            <div className={mix.ph}><h2 id="ow-steps-title" className={mix.h}>Deine ersten Schritte</h2></div>
+            {steps.map(step => {
+              const copy = FIRST_STEPS[step.id](me);
+              return (
+                <div className={mix.row} data-lead="tile" data-day="" key={step.id} data-state={step.status === "done" ? "done" : step === current ? "current" : "open"}>
+                  {/* Done: the green check; open: an empty ring, never a grey fill, which reads as loading (Design). */}
+                  {step.status === "done" ? <MixTile><Check size={20} /></MixTile> : <span className={s.ring} aria-hidden="true" />}
+                  <div className={mix.body}><span className={mix.text}>
+                    <b>{copy.title}<span className="ow-sr"> ({STEP_STATUS[step.status]})</span></b>
+                    {step.required && step.status !== "done" && <MixChip>Pflicht</MixChip>}
+                    <small>{step.status === "done" || !copy.text ? step.evidence : copy.text}</small>
+                  </span></div>
+                </div>
+              );
+            })}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

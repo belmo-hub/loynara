@@ -54,7 +54,7 @@ export default function MerchantAudiencesPage() {
     <div className="ow-page">
       <PageHead title="Segmente prüfen" lead="Sieh, wie viele Karten ohne Namen zu einer Regel passen. Das ist noch keine Liste versendbarer Kontakte." />
       {program.state === "error" && <ErrorNotice message={program.message} onRetry={reloadProgram} />}
-      {program.state === "loading" && <LoadingBlock />}
+      {program.state === "loading" && <LoadingBlock wide />}
       {program.state === "ok" && (
         <div className="ow-two" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
           <form className="ow-card ow-stack" onSubmit={showPreview} onInput={fields.onInput} noValidate>

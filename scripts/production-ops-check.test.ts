@@ -59,7 +59,7 @@ describe("operations CLI heartbeat outcome", () => {
         PRODUCTION_APPROVED_ORIGIN: "https://app.getloynara.com",
         DATABASE_URL: "postgresql://merchant:unique-value@db.railway.internal/loynara",
         BETTER_AUTH_URL: "https://app.getloynara.com", PUBLIC_BASE_URL: "https://app.getloynara.com",
-        BETTER_AUTH_SECRET: "a".repeat(64), PUBLIC_REGISTRATION_ENABLED: outcome === "config" ? "true" : "false",
+        BETTER_AUTH_SECRET: "a".repeat(64), PUBLIC_REGISTRATION_ENABLED: outcome === "config" ? "yes" : "false",
         SMTP_HOST: "disabled", BILLING_FIXTURE_MODE: "false", PROMOTIONAL_EXTERNAL_EMAIL_ENABLED: "false",
         EXTERNAL_EMAIL_ENABLED: "false", TRANSACTIONAL_EXTERNAL_EMAIL_ENABLED: "false",
         PG_POOL_MAX: "5", TRUSTED_INGRESS: "cloudflare_tunnel",
@@ -112,7 +112,7 @@ describe("operations CLI heartbeat outcome", () => {
     const result = run("config");
     expect(result.status).toBe(1);
     expect(result.output).toContain("Production operations check refused");
-    expect(result.output).toContain("Public registration is not approved for production");
+    expect(result.output).toContain("PUBLIC_REGISTRATION_ENABLED must be exactly true or false");
     expect(result.output).not.toContain("check PASS");
   });
   it("retains nonsecret outbox counts and operator-review failure before monitor work", () => {

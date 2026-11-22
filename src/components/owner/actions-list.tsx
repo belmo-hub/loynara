@@ -47,7 +47,7 @@ export function reopenDay(history: Array<{ createdAt: string; status: string; se
 /** R12 FINAL: the confirm box, with what is left after this message (`remaining` is before it). */
 export const sendNote = (reach: number, remaining: number, reopen: string | null) =>
   `Die Nachricht geht sofort an ${reach} Kunden mit Apple Wallet, die Nachrichten erlaubt haben. ${remaining > 1
-    ? `Danach ist noch ${remaining - 1} ${remaining - 1 === 1 ? "Nachricht" : "Nachrichten"} frei, höchstens ${SHOP_WEEKLY_CAP} in ${CAP_WINDOW_DAYS} Tagen.`
+    ? `Danach ${remaining - 1 === 1 ? "ist noch 1 Nachricht" : `sind noch ${remaining - 1} Nachrichten`} frei, höchstens ${SHOP_WEEKLY_CAP} in ${CAP_WINDOW_DAYS} Tagen.`
     : reopen ? `Danach ist bis ${reopen} keine Nachricht mehr frei.` : ""}`.trim();
 
 /** Aktionen (screen 08, ENG-087's gate left open): what the owner can do for regulars, then the reports. Withheld surfaces leave no row. */
@@ -91,7 +91,7 @@ export function ActionsList() {
   useEffect(() => { if (me && !owner) router.replace("/merchant"); }, [me, owner, router]);
   if (!me || !owner) return null;
   return (
-    <div className="ow-page ow-results">
+    <div className="ow-page ow-actions">
       <PageHead title="Aktionen" />
       {actionSections({ me, hidden: hiddenSurfaces, room: wallet.state === "ok" ? wallet.data : null }).map(section =>
         <RowSection key={section.title} title={section.title}><Rows rows={section.rows} /></RowSection>)}

@@ -54,8 +54,8 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
     <div className={styles.live} aria-live="polite" aria-atomic="true">{toasts.findLast((t) => !t.leaving)?.message}</div>
     <div className={styles.region} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }} onFocus={() => { paused.current = true; }} onBlur={() => { paused.current = false; }}>
       {toasts.map((t) => { const Icon = icons[t.tone]; return <div key={t.id} className={cx(styles.toast, styles[t.tone], t.leaving && styles.leaving)}>
-        <Icon size={18} aria-hidden="true" className={styles.icon} /><span className={styles.message} aria-hidden="true">{t.message}</span>
-        <button type="button" className={styles.close} onClick={() => dismiss(t.id)} aria-label={closeLabel}><X size={18} aria-hidden="true" /></button>
+        <Icon size={20} aria-hidden="true" className={styles.icon} /><span className={styles.message} aria-hidden="true">{t.message}</span>
+        <button type="button" className={styles.close} onClick={() => dismiss(t.id)} aria-label={closeLabel}><X size={20} aria-hidden="true" /></button>
       </div>; })}
     </div>
   </ToastContext.Provider>;

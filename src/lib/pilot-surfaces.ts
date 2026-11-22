@@ -29,12 +29,13 @@ import { anyWalletAvailable } from "./wallet/capability";
  *
  * - walletMessages stays open in the demo environment (founder, 9 Nov: the pitch shows a message landing on the owner's
  *   card). The send path takes it only from the active demo (lib/wallet-messages); the automatic reminders stay off there.
+ * - shopSearch: the shop search in setup (ENG-323), offered wherever GOOGLE_MAPS_API_KEY is set (lib/place-search).
  * - revenue: the owner board's „Umsatz deiner Loynara-Kunden“, withheld in the demo environment (design v3): its sample data
  *   carries no amounts, and a demo must not show an owner invented money.
  *
  * "Real production" is the same canonical definition the other pilot guards use (PRODUCTION_ENVIRONMENT).
  */
-export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages" | "revenue";
+export type PilotSurface = "billing" | "campaigns" | "automations" | "audiences" | "walletPreviews" | "cardLogo" | "nfc" | "cancellation" | "walletMessages" | "revenue" | "shopSearch";
 export const PILOT_HIDDEN_SURFACES: readonly PilotSurface[] = ["billing", "campaigns", "automations", "audiences", "cancellation", "walletMessages"];
 
 type SurfaceEnv = { PRODUCTION_ENVIRONMENT?: string; [name: string]: string | undefined };
@@ -47,6 +48,7 @@ export function hiddenSurfaces(env: SurfaceEnv = process.env): PilotSurface[] {
   if (production && !anyWalletAvailable(env)) hidden.push("walletPreviews", "cardLogo");
   if (!nfcCapability(env).available) hidden.push("nfc");
   if (demoEnvironment(env)) hidden.push("revenue");
+  if (!env.GOOGLE_MAPS_API_KEY) hidden.push("shopSearch");
   return hidden;
 }
 

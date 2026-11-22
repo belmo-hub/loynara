@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 async function owner(baseURL: string) {
   const api = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL).origin } });
-  expect((await api.post("/api/auth/sign-up/email", { data: { name: "Synthetic review owner", email: `review-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  expect((await signUp(api, { data: { name: "Synthetic review owner", email: `review-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
   const setup = { businessName: "Synthetic Review Café", locationName: "Erster Standort", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Testkarte", programType: "stamp", rulesText: "Ein Stempel je bestätigtem synthetischem Besuch.", rewardTitle: "Kaffee", rewardCost: 8 };
   const response = await api.post("/api/merchant/onboard", { data: setup });
   expect(response.status()).toBe(201);
@@ -77,8 +78,8 @@ test("customer search stays applied when switching between location and tenant s
     const context = await browser.newContext({ baseURL: url, storageState: await f.api.storageState() });
     try {
       const page = await context.newPage();
-      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards under the field.
-      const rows = page.locator("section.ow-prog a.ow-prog-row");
+      // Kunden rows since ENG-122a: „Alle Karten“ lists every card, a search lists its cards (the groups beside them are rows too).
+      const rows = page.locator('section[aria-labelledby="cu-h"] a.ow-prog-row');
       await page.goto("/merchant/customers?activity=all");
       await expect(rows).toHaveCount(2);
       await page.goto("/merchant/customers");

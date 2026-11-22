@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, locations, membershipContacts, outboxJobs, plateLinkEvents, secureTags, walletPasses } from "@/db/schema";
+import { ledgerEntries, locations, membershipContacts, outboxJobs, plateLinkEvents, programs, secureTags, shopErasures, walletPasses } from "@/db/schema";
 import { auth } from "./auth";
 import { nfcFixture } from "./nfc-test-db";
 import { operatorOverview, parseCoordinates } from "./operator";
@@ -173,13 +173,14 @@ it("refuses an end date before tomorrow (Berlin) with a pointer to the console a
 it.each([
   ["51.31270, 9.47970", 51.3127, 9.4797],
   [" -33.8688,151.2093 ", -33.8688, 151.2093],
-  ["https://www.google.com/maps/place/Laden/@51.3,9.4,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d51.3127!4d9.4797!16s", 51.3127, 9.4797],
 ])("reads the pin from %s", (text, latitude, longitude) => {
   expect(parseCoordinates(text)).toEqual({ latitude, longitude });
 });
 
-it.each(["", "Kassel", "51, 9", "51,3127 9,4797", "91.0, 9.4", "51.3, 181.0", "51.3, 9.4, 17z", "https://maps.app.goo.gl/abc", "https://www.google.com/maps/@51.3,9.4,17z"])("refuses %j", text => {
-  expect(() => parseCoordinates(text)).toThrow("Google Maps");
+it.each(["", "Kassel", "51, 9", "51,3127 9,4797", "91.0, 9.4", "51.3, 181.0", "51.3, 9.4, 17z", "https://maps.app.goo.gl/abc", "https://www.google.com/maps/@51.3,9.4,17z",
+  // ENG-331: a Maps link is no longer read; the console takes a point from the shop search or as the shop names it.
+  "https://www.google.com/maps/place/Laden/@51.3,9.4,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d51.3127!4d9.4797!16s"])("refuses %j", text => {
+  expect(() => parseCoordinates(text)).toThrow("Bitte gib die Koordinaten so ein: 51.31270, 9.47970.");
 });
 
 describe("location coordinates on /operator", () => {
@@ -196,15 +197,37 @@ describe("location coordinates on /operator", () => {
     expect(await (await post(body(f, false), operator.cookie)).json()).toEqual({ latitude: 51.3127, longitude: 9.4797, changed: true });
     expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
     expect(await refreshes()).toHaveLength(0);
+    // ENG-323: a shop-search point the operator replaces becomes the operator's own, out of the 30-day refresh.
+    await db.update(locations).set({ googlePlaceId: "ChIJ_synthetic-1", placeLocationFetchedAt: new Date() }).where(eq(locations.id, f.location.id));
 
     expect((await post(body(f, true), operator.cookie)).status).toBe(200);
     expect(await point(f.location.id)).toEqual({ latitude: 51.3127, longitude: 9.4797 });
+    expect((await db.select({ at: locations.placeLocationFetchedAt }).from(locations).where(eq(locations.id, f.location.id)))[0].at).toBeNull();
     expect((await refreshes()).map(job => job.payload.membershipId)).toEqual([f.member.id]);
     expect((await operatorOverview(operator.userId)).rows[0]).toMatchObject({ latitude: 51.3127, longitude: 9.4797 });
 
     await pool.query("DELETE FROM outbox_jobs");
     expect(await (await post(body(f, true), operator.cookie)).json()).toMatchObject({ changed: false });
     expect(await refreshes()).toHaveLength(0);
+  });
+
+  // ENG-331, Legal P-4: a pick keeps the place id, the point and the refresh clock; never Google's name or address.
+  it("stores a shop-search pick with its place id and clock, and a later hand-set point drops the clock", async () => {
+    const operator = await identity(), f = await nfcFixture();
+    process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+    const place = async () => (await db.select({ name: locations.name, city: locations.city, street: locations.street, placeId: locations.googlePlaceId, at: locations.placeLocationFetchedAt }).from(locations).where(eq(locations.id, f.location.id)))[0];
+    const before = await place(), sent = Date.now();
+    expect((await post({ ...body(f, true), coordinates: "51.3127000, 9.4797000", googlePlaceId: "ChIJ_synthetic-1" }, operator.cookie)).status).toBe(200);
+    const picked = await place();
+    expect(picked).toMatchObject({ name: before.name, city: before.city, street: before.street, placeId: "ChIJ_synthetic-1" });
+    expect(picked.at!.getTime()).toBeGreaterThanOrEqual(sent - 1000);
+    expect((await post({ ...body(f, true), coordinates: "51.40000, 9.50000" }, operator.cookie)).status).toBe(200);
+    expect(await place()).toMatchObject({ placeId: "ChIJ_synthetic-1", at: null });
+    // A re-pick whose point matches the stored one to the digit still saves the id and the clock (Legal's re-pick ruling).
+    expect(await (await post({ ...body(f, false), coordinates: "51.4000000, 9.5000000", googlePlaceId: "ChIJ_synthetic-2" }, operator.cookie)).json()).toMatchObject({ changed: true });
+    expect((await post({ ...body(f, true), coordinates: "51.4000000, 9.5000000", googlePlaceId: "ChIJ_synthetic-2" }, operator.cookie)).status).toBe(200);
+    expect(await place()).toMatchObject({ placeId: "ChIJ_synthetic-2", at: expect.any(Date) });
+    expect((await post({ ...body(f, true), googlePlaceId: "../x" }, operator.cookie)).status).toBe(400);
   });
 
   it("answers 400 to the operator for bad input and writes nothing", async () => {
@@ -221,5 +244,34 @@ describe("location coordinates on /operator", () => {
     for (const cookie of ["", owner.cookie]) { const res = await post(body(f, true), cookie); expect(res.status).toBe(404); expect(await res.text()).toBe(""); }
     expect((await post({ ...body(f, true), tenantId: other.tenant.id }, operator.cookie)).status).toBe(404);
     expect(await point(f.location.id)).toEqual({ latitude: null, longitude: null });
+  });
+});
+
+describe("contract shops on /operator (ENG-310)", () => {
+  const accept = (userId: string, tenantId: string | null) => pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 't', 'a', 'p', 'x')", [userId, tenantId]);
+
+  it("lists only shops with an acceptance, each with its own locations, owner email, start and confirmed end", async () => {
+    const operator = await identity(), a = await nfcFixture(), b = await nfcFixture(), c = await nfcFixture(), erased = await nfcFixture();
+    await db.update(locations).set({ name: "Altstadt", street: "Markt 1", postalCode: "34117" }).where(eq(locations.id, a.location.id));
+    const [north] = await db.insert(locations).values({ tenantId: a.tenant.id, name: "Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin" }).returning();
+    // An ended programme with a confirmed date is no contract end while another programme of the shop still runs.
+    await db.insert(programs).values({ tenantId: a.tenant.id, locationId: north.id, slug: `ended-${a.userId}`, name: "Alt", type: "stamp", rulesText: "x", status: "ended", cancellationEndDate: "2026-01-31", cancellationConfirmedAt: new Date() });
+    await accept(erased.userId, erased.tenant.id);
+    await db.insert(shopErasures).values({ erasedTenantId: erased.tenant.id, legalName: "Erased", endDate: "2026-01-31", exportUntil: "2026-03-02", actorUserId: operator.userId, contract: {}, rowCounts: {}, external: {}, confirmationSendableAt: new Date() });
+    await accept(a.userId, a.tenant.id); await accept(c.userId, c.tenant.id); await accept(b.userId, null); // b registered, shop not yet tied
+    await pool.query("UPDATE programs SET cancellation_end_date = '2026-12-31', cancellation_requested_at = now() WHERE tenant_id = $1", [c.tenant.id]);
+    const env = { PLATE_OPERATOR_USER_IDS: operator.userId };
+    await expect(operatorOverview(a.userId, env)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const { contracts } = await operatorOverview(operator.userId, env);
+    expect(contracts.map(row => row.tenantId).sort()).toEqual([a.tenant.id, c.tenant.id].sort());
+    const shop = contracts.find(row => row.tenantId === a.tenant.id)!;
+    expect(shop).toMatchObject({ tenant: "Tap Test Café", ownerEmail: `${a.userId}@example.test`, endDate: null, addresses: ["Altstadt, Markt 1, 34117 Kassel", "Nord, Kassel"] });
+    expect(new Date(shop.acceptedAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    // Only the requested (unconfirmed) end so far: no contract end. Confirmed, it shows.
+    expect(contracts.find(row => row.tenantId === c.tenant.id)).toMatchObject({ ownerEmail: `${c.userId}@example.test`, endDate: null, addresses: ["Kassel, Kassel"] });
+    await pool.query("UPDATE programs SET cancellation_confirmed_at = now() WHERE tenant_id = $1", [c.tenant.id]);
+    expect((await operatorOverview(operator.userId, env)).contracts.find(row => row.tenantId === c.tenant.id)?.endDate).toBe("2026-12-31");
+    const text = JSON.stringify(contracts);
+    for (const other of [b.userId, b.tenant.id, erased.tenant.id]) expect(text).not.toContain(other);
   });
 });

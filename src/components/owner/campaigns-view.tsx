@@ -204,7 +204,7 @@ export function CampaignsView() {
 
   if (!builder) {
     return (
-      <div className="ow-page">
+      <div className="ow-page ow-page--wide">
         {head}{notices}
         <Notice tone={mode === "disabled" ? "warn" : "info"}>{mode === "mailpit" ? "Lokaler Mailpit-Testkanal: nur synthetische .test-Adressen, keine externe Zustellung." : mode === "mailgun_eu" ? "Freigeschalteter EU-Versandkanal. Vor jeder Zustellung werden Einwilligung, Adresse, Zielgruppe und Versandgrenzen erneut geprüft." : <><strong>E-Mail-Versand ist noch nicht freigeschaltet.</strong> Du kannst Zielgruppen prüfen und Entwürfe vollständig vorbereiten. Gesendet wird nichts, bis der Versand freigegeben ist und du selbst planst.</>}</Notice>
         <section aria-labelledby="goal-h"><h2 id="goal-h" className="ow-section-head">Womit möchtest du starten?</h2>
@@ -212,7 +212,7 @@ export function CampaignsView() {
         </section>
         <section className="ow-card" aria-labelledby="camp-h">
           <div className="ow-card-head"><div><h2 id="camp-h">Deine Kampagnen</h2><p>Für {me.locationName}</p></div></div>
-          {list.state === "loading" && <div className="ow-stack"><Skeleton height={64} /><Skeleton height={64} /></div>}
+          {list.state === "loading" && <div className="ow-stack ow-loading"><Skeleton height={64} /><Skeleton height={64} /></div>}
           {list.state === "error" && <Notice tone="danger" role="alert" actions={<button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={reloadList}>Erneut laden</button>}>{list.message}</Notice>}
           {list.state === "ok" && list.data.campaigns.length === 0 && <EmptyState level={3} icon={<OwnerIcon name="megaphone" size={24} />} title="Noch keine Kampagne.">Wähle oben ein Ziel. Daraus entsteht ein Entwurf, den du in Ruhe anpasst.</EmptyState>}
           {list.state === "ok" && list.data.campaigns.length > 0 && (
@@ -248,7 +248,7 @@ export function CampaignsView() {
       {head}{notices}
       <SenderMissingBox returnTo="/merchant/campaigns" />
       {builder.goal && GOALS[builder.goal] && <p className="ow-muted" style={{ fontSize: "var(--text-14)" }}>Ziel: <strong>{GOALS[builder.goal].label}</strong></p>}
-      <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol>
+      <ol className="ow-stepper" aria-label="Fortschritt">{STEPS.map((label, index) => <li key={label} aria-current={index === builder.step ? "step" : undefined} data-done={index < builder.step}><span className="ow-stepper-n">{index < builder.step ? <OwnerIcon name="check" size={16} /> : index + 1}</span>{label}</li>)}</ol>
       <section className="ow-card ow-stack ow-stack--wide" aria-labelledby="bs-h">
         {!okStep0 && <Notice tone="danger" role="alert">Prüfe die Zielgruppe: Tage müssen ganze Zahlen von 1 bis 3650 sein, Buchungen von 1 bis 10000 und fehlende Stempel oder Punkte von 1 bis 100000.</Notice>}
         {builder.step === 0 && <>

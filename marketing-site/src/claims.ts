@@ -69,7 +69,9 @@ const RECOVERY = {
   rc: {
     correctionAnswer: 'Als Inhaber oder Leitung korrigierst du eine falsche Buchung mit Begründung. Die ursprüngliche Buchung und die Korrektur bleiben im Verlauf nachvollziehbar.',
     counterAnswer: 'Dein Team sieht die Anfrage oder scannt die Karte und bestätigt den Besuch. Klappt der Scan nicht, findet dein Team die Karte über ihre kurze Kartennummer im Format K-XXXXXX. Erst dann gibt es einen Stempel, genau einmal. Bezahlt wird wie bisher; Loynara ist keine Kassenanbindung und kein Bezahlsystem.',
-    lostAnswer: 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat, kommt jederzeit wieder zu seiner Karte. Ist er verloren, stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft. Der alte Link und der alte QR-Code der Karte funktionieren danach nicht mehr.',
+    // Both ways back now replace the private link, the QR code and a saved Apple Wallet pass (PR #242;
+    // src/lib/card-recovery.ts, card-reissue.ts), so one closing sentence covers both.
+    lostAnswer: 'Die Karte gehört zu einem privaten Link. Wer ihn gespeichert hat, kommt jederzeit wieder zu seiner Karte. Ist er verloren, holt sich dein Kunde die Karte mit bestätigter E-Mail-Adresse über „Karte wiederfinden“ selbst zurück. Sonst stellst du oder deine Leitung die Karte neu aus: gleicher Stand, gleicher Verlauf, gleiche Kartennummer und gleiche Mitgliedschaft. In beiden Fällen funktionieren der alte Link, der alte QR-Code und eine auf Wunsch gespeicherte Apple-Wallet-Karte danach nicht mehr.',
   },
 };
 
