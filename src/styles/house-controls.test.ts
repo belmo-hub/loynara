@@ -14,7 +14,7 @@ describe("no native controls on the card (45a)", () => {
     expect(panel).toMatch(/<Select id="birthday-day" label="Tag"/);
     expect(panel).toMatch(/<Select id="birthday-month" label="Monat"/);
     expect(panel).not.toMatch(/<select|style=\{\{/);
-    expect(read("src/components/customer/panels.module.css")).toContain(".dayMonth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; gap: var(--space-3); }");
+    expect(read("src/components/customer/panels.module.css")).toContain(".dayMonth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-3); }");
   });
 });
 

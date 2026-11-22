@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { Select } from "./ui/select";
-import { useFormCheck } from "./ui/form-check";
 import styles from "./customer/panels.module.css";
 
 type Birthday = { available: boolean; day: number | null; month: number | null; text: string };
@@ -20,9 +19,12 @@ export function CardBirthday({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(""); const [error, setError] = useState("");
   const url = `/api/card/${encodeURIComponent(token)}/birthday`;
-  // Finding 17 (Design, 22 Nov): „Speichern“ is always pressable; an empty select says what is missing on submit.
-  const PICK = "Bitte wähle Tag und Monat.";
-  const fields = useFormCheck({ "birthday-day": PICK, "birthday-month": PICK });
+  // Finding 17 (Design, 22 and 23 Nov): „Speichern“ is always pressable. After a press with a select left empty, one line
+  // under the row names what is still missing, both empty selects point at it, and it goes once both are picked.
+  const [tried, setTried] = useState(false);
+  const missing = !day && !month ? "Bitte wähle Tag und Monat." : !day ? "Bitte wähle den Tag." : !month ? "Bitte wähle den Monat." : "";
+  const pickError = tried ? missing : "";
+  const invalid = (empty: boolean) => pickError && empty ? { "aria-invalid": true, "aria-describedby": "birthday-pick-error" } as const : {};
 
   useEffect(() => {
     let active = true;
@@ -42,11 +44,17 @@ export function CardBirthday({ token }: { token: string }) {
   if (!state?.available) return null;
   return <section className={styles.panel} aria-labelledby="birthday-title">
     <h2 id="birthday-title">Geburtstag (freiwillig)</h2>
-    <form noValidate onInput={fields.onInput} onChange={fields.onInput} onSubmit={event => { event.preventDefault(); if (!busy && fields.check(event.currentTarget)) void save(); }}>
+    <form className={styles.birthdayForm} noValidate onSubmit={event => {
+      event.preventDefault();
+      if (busy) return;
+      if (missing) { setTried(true); document.getElementById(day ? "birthday-month" : "birthday-day")?.focus(); return; }
+      void save();
+    }}>
     <div className={styles.dayMonth}>
-      <Select id="birthday-day" label="Tag" required error={fields.error("birthday-day")} value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
-      <Select id="birthday-month" label="Monat" required error={fields.error("birthday-month")} value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
+      <Select id="birthday-day" label="Tag" {...invalid(!day)} value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
+      <Select id="birthday-month" label="Monat" {...invalid(!month)} value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
     </div>
+    {pickError && <p id="birthday-pick-error" key={pickError} className={styles.error} role="alert">{pickError}</p>}
     <p className={styles.muted}>{state.text}</p>
     <div className={styles.actions}>
       <Button type="submit" size="sm" loading={busy}>Speichern</Button>

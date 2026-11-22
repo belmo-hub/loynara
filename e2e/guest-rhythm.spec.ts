@@ -95,26 +95,37 @@ test("the card's birthday panel uses the house selects", async ({ page }) => {
   })).toEqual({ fields: 2, heights: [48, 48], sameRow: true, gap: 12, monthTwiceAsWide: true, labels: ["Tag", "Monat"] });
 });
 
-// Finding 17 (Design, 22 Nov): „Speichern“ is always pressable; on submit only the empty select says what is missing and
-// takes the focus, and its error goes once it is picked.
-test("the birthday's „Speichern“ marks an empty select instead of waiting disabled", async ({ page }) => {
+// Finding 17 (Design, 22 and 23 Nov): „Speichern“ is always pressable. A press with a select left empty shows one line under
+// the row naming what is missing; it follows what is still missing and goes once both are picked. The panel keeps its
+// 12 rhythm with and without the line.
+test("the birthday's „Speichern“ names what is missing in one line, and the panel keeps its 12 rhythm", async ({ page }) => {
   const posted: unknown[] = [];
   await page.route("**/api/card/*/birthday", route => {
     if (route.request().method() !== "GET") { posted.push(route.request().postDataJSON()); return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: null, month: null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) });
   });
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  const panel = page.locator("section[aria-labelledby=birthday-title]");
   const day = page.locator("#birthday-day"), month = page.locator("#birthday-month"), save = page.getByRole("button", { name: "Speichern", exact: true });
+  const line = page.locator("#birthday-pick-error");
+  // Gaps between the blocks of the form: row, (error line), text, buttons.
+  const gaps = () => panel.evaluate(el => { const form = el.querySelector("form")!; const boxes = [...form.children].map(child => child.getBoundingClientRect()); return boxes.slice(1).map((box, i) => Math.round(box.top - boxes[i].bottom)); });
   await expect(save).toBeEnabled();
+  await expect.poll(gaps).toEqual([12, 12]);
   await save.click();
   await expect(day).toBeFocused();
-  for (const select of [day, month]) await expect(select).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator("#birthday-day-error")).toHaveText("Bitte wähle Tag und Monat.");
+  await expect(line).toHaveText("Bitte wähle Tag und Monat.");
+  await expect(page.locator("[id$='-error']", { hasText: "Bitte wähle" })).toHaveCount(1);
+  for (const select of [day, month]) { await expect(select).toHaveAttribute("aria-invalid", "true"); await expect(select).toHaveAttribute("aria-describedby", /birthday-pick-error/); }
+  await expect.poll(gaps).toEqual([12, 12, 12]);
   await day.selectOption("12");
+  await expect(line).toHaveText("Bitte wähle den Monat.");
   await expect(day).not.toHaveAttribute("aria-invalid", "true");
   await expect(month).toHaveAttribute("aria-invalid", "true");
   expect(posted).toEqual([]);
   await month.selectOption("5");
+  await expect(line).toHaveCount(0);
+  await expect.poll(gaps).toEqual([12, 12]);
   await save.click();
   await expect.poll(() => posted).toEqual([{ day: 12, month: 5 }]);
 });
