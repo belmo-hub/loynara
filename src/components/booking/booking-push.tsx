@@ -5,6 +5,7 @@ import { base64UrlToUint8Array } from "@/lib/cashier-push-client";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import card from "../customer/customer-card.module.css";
+import styles from "./customer-flow.module.css";
 import type { PushView } from "./booking-format";
 import { REBOOK_CONSENT } from "@/lib/booking/rebook-consent-text";
 
@@ -74,7 +75,7 @@ export function BookingPush({ base, scope, push, reload }: { base: string; scope
   return <div data-slot="booking-push">
     <p><strong>Erinnerungen: {here ? "aktiv" : on ? "aktiv auf einem anderen Gerät" : "aus"}</strong></p>
     <p className={card.muted}>{here ? "Du bekommst eine Mitteilung einen Tag und zwei Stunden vor dem Termin." : on ? "Auf diesem Gerät noch nicht. Aktivier sie hier, dann kommt die Mitteilung auch hierhin." : "Erinnerung nur mit Mitteilungen: einen Tag und zwei Stunden vor dem Termin."}</p>
-    {here ? <Button variant="quiet" size="sm" loading={busy} onClick={() => void disable()}>Erinnerungen ausschalten</Button>
+    {here ? <Button variant="quiet" size="sm" className={styles.edge} loading={busy} onClick={() => void disable()}>Erinnerungen ausschalten</Button>
       : <Button variant="secondary" size="sm" loading={busy} onClick={() => void enable()}>{on ? "Auch hier aktivieren" : "Erinnerungen aktivieren"}</Button>}
     {consent}
     {failed}

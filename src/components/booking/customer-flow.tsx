@@ -223,7 +223,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const staffForService = service ? view.staff.filter(s => !s.serviceIds.length || s.serviceIds.includes(service.id)) : [];
   // A move keeps the booked staff member even when no longer linked to the service; then "Egal wer" must be on offer.
   const showStaff = staffForService.length > 1 || Boolean(staffId && !staffForService.some(s => s.id === staffId));
-  const moreDays = range && !range.end ? <Button variant="quiet" size="sm" loading={moreBusy} onClick={() => void loadMore()}>Weitere Tage</Button> : null;
+  const moreDays = range && !range.end ? <Button variant="quiet" size="sm" className={styles.edge} loading={moreBusy} onClick={() => void loadMore()}>Weitere Tage</Button> : null;
   const staffName = (id: string) => view.staff.find(s => s.id === id)?.name;
   const total = moving ? 3 : 4;
   const index = { service: 1, day: moving ? 1 : 2, time: moving ? 2 : 3, confirm: moving ? 3 : 4, done: total }[step];
@@ -252,7 +252,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       <p className={card.muted}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
       <BookingPush base={base} scope={swScope} push={view.push} reload={reload} />
       <Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ block: true })}>Zur Karte</Link>
-      {view.upcoming.length >= view.shop.maxOpenPerCard ? null : <Button variant="quiet" size="sm" onClick={reset}>Noch einen Termin buchen</Button>}
+      {view.upcoming.length >= view.shop.maxOpenPerCard ? null : <Button variant="quiet" size="sm" className={styles.edge} onClick={reset}>Noch einen Termin buchen</Button>}
     </section> : <section key={step} className={`booking-flow ${styles.panel} ${styles.arrive}`} aria-labelledby="booking-step-title">
       <div className={styles.head}>
         <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={styles.panelTitle}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
@@ -281,7 +281,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
           </>
           : <>
             <div className={styles.chips}>{shown.map(d => <button key={d.date} type="button" className={styles.chip} aria-pressed={day?.date === d.date} onClick={() => { setDay(d); go("time"); }}>{formatDay(d.date)}</button>)}</div>
-            {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" onClick={() => setAllDays(true)}>Weitere Tage</Button>
+            {!allDays && days.length > 7 ? <Button variant="quiet" size="sm" className={styles.edge} onClick={() => setAllDays(true)}>Weitere Tage</Button>
               : range?.end ? <p className={card.muted}>{range.span > view.shop.maxDaysAhead ? `Online geht es bis ${view.shop.maxDaysAhead} Tage im Voraus.` : `In den ${WINDOW} Tagen danach ist online nichts frei.`}</p> : moreDays}
           </>}
       </> : null}
@@ -296,7 +296,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         {moving ? null : <>
           <TextField id="booking-name" required label="Dein Name" hint="Damit das Geschäft weiß, wer kommt." autoComplete="name" maxLength={60} value={contact.name} error={nameError} onChange={event => setContact({ ...contact, name: event.target.value })} />
           {showPhone ? <TextField label="Telefon (freiwillig)" type="tel" autoComplete="tel" maxLength={30} value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} />
-            : <Button variant="quiet" size="sm" onClick={() => setShowPhone(true)}>Telefon angeben</Button>}
+            : <Button variant="quiet" size="sm" className={styles.edge} onClick={() => setShowPhone(true)}>Telefon angeben</Button>}
         </>}
         {submitBlocked ? null : <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>}
         {/* D3: the deadline stays in view; the shop's other rules fold into one disclosure under the button. */}
@@ -318,7 +318,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         {problem.pick || problem.nextFree ? <Button variant="secondary" size="sm" onClick={pickAgain}>Andere Zeit wählen</Button> : null}
       </div> : null}
 
-      {step !== "service" ? <Button variant="quiet" size="sm" icon={<ChevronLeft size={16} />} onClick={back}>{step === "day" && moving ? "Nicht verschieben" : "Zurück"}</Button> : null}
+      {step !== "service" ? <Button variant="quiet" size="sm" className={styles.edge} icon={<ChevronLeft size={16} />} onClick={back}>{step === "day" && moving ? "Nicht verschieben" : "Zurück"}</Button> : null}
     </section>}
 
     {/* D3 (Design, 22 Nov): while a booking runs, the step comes first and „Meine Termine“ folds to one line under it. */}
@@ -345,7 +345,7 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
     finally { setBusy(false); }
   }
 
-  if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
+  if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
   return <section className={`booking-mine ${styles.panel}`} aria-labelledby="booking-mine-title">
     <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={styles.panelTitle}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
@@ -364,7 +364,7 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
           {a.canReschedule && onMove && view.reschedulesLeft === 0 ? <p className={card.muted}>Diesen Monat hast du schon {view.shop.maxReschedulesPerMonth}-mal verschoben. Sag ab und buch neu.</p> : null}
           <div className={styles.actions}>
             {a.canReschedule && onMove && view.reschedulesLeft > 0 ? <Button variant="secondary" size="sm" onClick={() => onMove(a)}>Verschieben</Button> : null}
-            {a.canCancel ? <Button variant="quiet" size="sm" onClick={() => { setError(""); setConfirming({ id: a.id, late: Date.now() >= Date.parse(a.cancelDeadline) }); }}>Absagen</Button> : null}
+            {a.canCancel ? <Button variant="quiet" size="sm" className={a.canReschedule && onMove && view.reschedulesLeft > 0 ? undefined : styles.edge} onClick={() => { setError(""); setConfirming({ id: a.id, late: Date.now() >= Date.parse(a.cancelDeadline) }); }}>Absagen</Button> : null}
           </div>
         </>}
       </li>;

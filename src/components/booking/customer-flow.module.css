@@ -44,3 +44,6 @@
 .chip, .rewardRow { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .chip:active:not(:disabled), .rewardRow:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) { .arrive { animation: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }
+
+/* Quiet buttons in a left-aligned flow (Design, 22 Nov): the label sits on the content edge, the 44 px hit area stays. */
+.edge { justify-self: start; align-self: flex-start; margin-inline-start: calc(-1 * var(--space-4)); }
