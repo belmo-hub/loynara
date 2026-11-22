@@ -4,7 +4,9 @@ import { Ban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { formatDay } from "@/components/booking/booking-format";
+import { instantToWall } from "@/lib/booking/time";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
@@ -85,7 +87,7 @@ export function BookingDay() {
       {day.state === "error" ? <ErrorNotice message={day.status === 403 ? "Nur die Inhaberin oder der Inhaber und die Leitung sehen die Termine." : "Die Termine konnten nicht geladen werden."} onRetry={reload} />
         : setup.state === "error" ? <ErrorNotice message="Die Einrichtung konnte nicht geladen werden." onRetry={reloadSetup} />
         : !shown || setup.state !== "ok" ? <LoadingBlock rows={3} height={56} />
-        : ready && <DayList day={shown} label={dayName(date, today)} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}
+        : ready && <DayList day={shown} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}
 
       {open && shown && <AppointmentSheet appointment={open} day={shown} programType={me?.programType ?? "stamp"} purchase={me?.earningMode === "purchase"} noShowBlockAfter={setup.state === "ok" ? setup.data.settings?.noShowBlockAfter ?? 0 : 0} onClose={() => setOpen(null)} onDone={done}
         onAward={(text, row) => { done(text, "ok", row); window.setTimeout(() => setFlash(current => current?.text === text ? null : current), 2000); }} />}
@@ -100,7 +102,7 @@ export function BookingDay() {
 /** A block from midnight to the next midnight in the shop's zone reads „Ganzer Tag“, never „00:00–00:00“. */
 const wholeDay = (block: DayBlock, zone: string) => wallTime(block.start, zone) === "00:00" && wallTime(block.end, zone) === "00:00" && Date.parse(block.end) > Date.parse(block.start);
 
-function DayList({ day, label, onOpen, onBlock }: { day: DayResponse; label: string; onOpen: (appointment: OwnerAppointment) => void; onBlock: (block: DayBlock) => void }) {
+function DayList({ day, onOpen, onBlock }: { day: DayResponse; onOpen: (appointment: OwnerAppointment) => void; onBlock: (block: DayBlock) => void }) {
   const rows = dayRows(day);
   const staffName = (id: string | null) => id ? day.staff.find(s => s.id === id)?.name ?? "Mitarbeiter" : "Ganzes Geschäft";
   if (!rows.length) return <section className="ow-card"><EmptyState level={2} icon={<OwnerIcon name="calendar" size={24} />} title="Keine Termine">Kunden buchen über ihre Karte.</EmptyState></section>;
@@ -123,7 +125,10 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const [error, setError] = useState("");
   const [amount, setAmount] = useState(euroInput(appointment.priceMinor));
   const [reason, setReason] = useState("");
-  const [moveDate, setMoveDate] = useState(day.date);
+  const zoneNow = todayIn(day.timezone), appointmentDay = instantToWall(new Date(appointment.start), day.timezone).date;
+  // D4: from the later of today and the appointment's day, never a day before today's min.
+  const moveFrom = appointmentDay > zoneNow ? appointmentDay : zoneNow;
+  const [moveDate, setMoveDate] = useState(moveFrom);
   const [moveStaff, setMoveStaff] = useState(appointment.staff.id);
   const [slots, setSlots] = useState<{ staff: Array<{ id: string; name: string }>; slots: Slot[] } | null>(null);
   const [slotError, setSlotError] = useState(false);
@@ -141,6 +146,24 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const free = slots?.slots.filter(slot => slot.staffId === moveStaff && !(slot.start === appointment.start && slot.staffId === appointment.staff.id)) ?? null;
   const staffName = (id: string) => slots?.staff.find(s => s.id === id)?.name ?? day.staff.find(s => s.id === id)?.name ?? "";
 
+  /** The first day from `from` on with a free time for `staffId`, looked up one day at a time (four weeks at most). */
+  async function firstFree(from: string, staffId: string) {
+    for (let offset = 0; offset < 28; offset++) {
+      const date = shiftDate(from, offset);
+      const found = await apiJson<{ slots: Slot[] }>(`/api/merchant/booking/appointments/${appointment.id}/slots?date=${date}`).catch(() => null);
+      if (found?.slots.some(slot => slot.staffId === staffId && !(slot.start === appointment.start && slot.staffId === appointment.staff.id))) return date;
+    }
+    return null;
+  }
+  // D4: on opening „Verschieben“ the dialog lands on the first day with a free time.
+  useEffect(() => {
+    if (mode !== "move") return;
+    let live = true;
+    void firstFree(moveFrom, appointment.staff.id).then(date => { if (live && date) setMoveDate(date); });
+    return () => { live = false; };
+    // Only when the mode opens: later day picks are the owner's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
   useEffect(() => {
     if (mode !== "move") return;
     let live = true;
@@ -181,48 +204,40 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const close = <button type="button" className="ow-btn ow-btn--ghost" onClick={mode === "main" ? onClose : () => { setMode("main"); setError(""); }} disabled={busy} data-autofocus={mode === "main" && !primary ? true : undefined}>{mode === "main" ? "Schließen" : "Zurück"}</button>;
   const title = `${time} · ${appointment.service.name}`;
 
-  if (mode === "cancel") return (
-    <OwnerDialog key="cancel" title={appointment.status === "requested" ? "Anfrage ablehnen?" : "Termin absagen?"} tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button></>}>
+  // One dialog for every mode (Design, 22 Nov): title, body and actions swap in place, so the scrim never blinks and closing
+  // gives focus back to the row that opened it.
+  const view: { title: string; tone?: "danger"; actions: ReactNode; body: ReactNode } =
+    mode === "cancel" ? { title: appointment.status === "requested" ? "Anfrage ablehnen?" : "Termin absagen?", tone: "danger", actions: <>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancel()} disabled={busy} aria-busy={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button></>, body: <>
       <p>{title} · {appointment.customerName}. Der Kunde bekommt eine Mitteilung, wenn er Erinnerungen an hat; sonst sieht er es auf seiner Karte.</p>
       <div className="ow-field"><label htmlFor="bd-reason">Grund (optional)</label><input id="bd-reason" className="ow-input" maxLength={80} value={reason} onChange={event => setReason(event.target.value)} placeholder="z. B. Krankheit" data-autofocus /></div>
       {error && <p className="ow-error" role="alert">{error}</p>}
-    </OwnerDialog>
-  );
-
-  if (mode === "no_show") return (
-    <OwnerDialog key="no_show" title="Nicht erschienen?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void noShow()} disabled={busy} aria-busy={busy}>Nicht erschienen</button></>}>
+    </> } :
+    mode === "no_show" ? { title: "Nicht erschienen?", tone: "danger", actions: <>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void noShow()} disabled={busy} aria-busy={busy}>Nicht erschienen</button></>, body: <>
       <p>{title} · {appointment.customerName}. Zählt als verpasster Termin.{noShowBlockAfter > 0 && ` Nach ${missedPhrase(noShowBlockAfter)} in 12 Monaten kann der Kunde nicht mehr online buchen.`}</p>
       {error && <p className="ow-error" role="alert">{error}</p>}
-    </OwnerDialog>
-  );
-
-  if (mode === "block") return (
-    <OwnerDialog key="block" title="Kunde sperren?" tone="danger" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void toggleBlock()} disabled={busy} aria-busy={busy}>Sperren</button></>}>
+    </> } :
+    mode === "block" ? { title: "Kunde sperren?", tone: "danger", actions: <>{close}<button type="button" className="ow-btn ow-btn--danger" onClick={() => void toggleBlock()} disabled={busy} aria-busy={busy}>Sperren</button></>, body: <>
       <p>{appointment.customerName} kann danach nicht mehr online buchen, nur noch anrufen. Gebuchte Termine bleiben. Du hebst das unter „Gesperrt“ mit einem Tipp auf.</p>
       {error && <p className="ow-error" role="alert">{error}</p>}
-    </OwnerDialog>
-  );
-
-  if (mode === "move") return (
-    <OwnerDialog key="move" title="Termin verschieben" onClose={onClose} actions={<>{close}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void move()} disabled={busy || !picked} aria-busy={busy}>{picked ? `Auf ${wallTime(picked.start, zone)} Uhr verschieben` : "Verschieben"}</button></>}>
+    </> } :
+    mode === "move" ? { title: "Termin verschieben", actions: <>{close}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void move()} disabled={busy || !picked} aria-busy={busy}>{picked ? `Auf ${wallTime(picked.start, zone)} Uhr verschieben` : "Verschieben"}</button></>, body: <>
       <p>{title} · bei {appointment.staff.name}</p>
-      <div className="ow-field"><label htmlFor="bd-move-date">Tag</label><input id="bd-move-date" type="date" className="ow-input" value={moveDate} min={todayIn(zone)} onChange={event => { if (event.target.value) setMoveDate(event.target.value); }} /></div>
+      <div className="ow-field"><label htmlFor="bd-move-date">Tag</label><input id="bd-move-date" type="date" className="ow-input" value={moveDate} min={zoneNow} onChange={event => { if (event.target.value) setMoveDate(event.target.value); }} /></div>
       {slots && slots.staff.length > 1 && <div className="ow-field"><span className="ow-label" id="bd-staff">Bei</span>
         <div className="ow-seg" role="group" aria-labelledby="bd-staff">{slots.staff.map(member => <button key={member.id} type="button" aria-pressed={moveStaff === member.id} onClick={() => { setMoveStaff(member.id); setPicked(null); }}>{member.name}</button>)}</div></div>}
-      <span className="ow-label" id="bd-slots">Freie Zeiten</span>
+      {/* First focus on the slots, not the date field (Design, 22 Nov). */}
+      <span className="ow-label" id="bd-slots" tabIndex={-1} data-autofocus>Freie Zeiten</span>
       {slotError ? <p className="ow-error" role="alert">Freie Zeiten nicht geladen. Wähle den Tag neu.</p>
         : free === null ? <LoadingBlock rows={1} height={44} />
-        : free.length === 0 ? <p className="ow-muted">{slots && slots.staff.length > 1 ? `Bei ${staffName(moveStaff)} ist an diesem Tag nichts frei.` : "An diesem Tag ist nichts frei."}</p>
+        : free.length === 0 ? <><p className="ow-muted">{slots && slots.staff.length > 1 ? `Bei ${staffName(moveStaff)} ist an diesem Tag nichts frei.` : "An diesem Tag ist nichts frei."}</p>
+          <NextFreeDay key={`${moveDate}:${moveStaff}`} find={() => firstFree(shiftDate(moveDate, 1), moveStaff)} onPick={date => setMoveDate(date)} /></>
         : <div className="ow-row" role="group" aria-labelledby="bd-slots" style={{ gap: "var(--space-2)" }}>{free.map(slot => <button key={slot.start} type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-num" aria-pressed={picked?.start === slot.start} style={picked?.start === slot.start ? { borderColor: "var(--color-action)", background: "var(--color-action-soft)" } : undefined} onClick={() => setPicked(slot)}>{wallTime(slot.start, zone)}</button>)}</div>}
       {error && <p className="ow-error" role="alert">{error}</p>}
-    </OwnerDialog>
-  );
-
-  return (
-    <OwnerDialog key="main" title={title} onClose={onClose} actions={<>{close}
+    </> } :
+    { title, actions: <>{close}
       {primary === "confirm" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void confirm()} disabled={busy} aria-busy={busy} data-autofocus>Bestätigen</button>}
       {primary === "done" && <button type="button" className="ow-btn ow-btn--primary" onClick={() => void finish()} disabled={busy || amountInvalid} aria-busy={busy} data-autofocus>Fertig</button>}
-    </>}>
+    </>, body: <>
       <p>{appointment.customerName} · <span translate="no">{appointment.cardLocator}</span> · bei {appointment.staff.name}</p>
       <div className="ow-row"><span className={STATUS_CHIP[appointment.status]}>{statusWord(appointment)}</span>{appointment.customerPhone && <a className="ow-link ow-link--block" href={`tel:${appointment.customerPhone}`}>{appointment.customerPhone}</a>}</div>
       {actions.includes("done") && (pointsAmount
@@ -240,8 +255,18 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
         <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen." : `${appointment.noShowCount}× nicht erschienen, 12 Monate.`}{blocked && " Online-Buchung gesperrt."}</span>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setError(""); if (blocked) void toggleBlock(); else setMode("block"); }} disabled={busy}>{blocked ? "Kunde entsperren" : "Kunde sperren"}</button>
       </div>
-    </OwnerDialog>
-  );
+    </> };
+  return <OwnerDialog title={view.title} tone={view.tone} view={mode} scroll={mode === "move"} onClose={onClose} actions={view.actions}>{view.body}</OwnerDialog>;
+}
+
+/** D4: one tap to the next day with a free time when the picked one is full; it looks the day up once on mount. */
+function NextFreeDay({ find, onPick }: { find: () => Promise<string | null>; onPick: (date: string) => void }) {
+  const [date, setDate] = useState<string | null | undefined>(undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { let live = true; void find().then(found => { if (live) setDate(found); }); return () => { live = false; }; }, []);
+  if (date === undefined) return <LoadingBlock rows={1} height={44} />;
+  if (date === null) return <p className="ow-muted">In den nächsten vier Wochen ist nichts frei.</p>;
+  return <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => onPick(date)} data-autofocus>Nächster freier Tag: {formatDay(date)}</button></div>;
 }
 
 /** "HH:MM" now in the shop's zone, rounded up to the next quarter hour (at most 23:45). */

@@ -21,7 +21,12 @@ export function OwnerIcon({ name, size = 20 }: { name: IconName; size?: number }
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Modal dialog: focus moves in, Tab stays inside, Escape closes, focus returns to the trigger. */
-export function OwnerDialog({ title, children, actions, onClose, tone = "default" }: { title: string; children: ReactNode; actions: ReactNode; onClose: () => void; tone?: "default" | "danger" }) {
+/**
+ * `view`: a dialog with several steps (a sheet's modes) swaps its body in place on a new view and moves focus into it, without
+ * remounting, so the scrim stays and focus still returns to what opened it. `scroll`: the body scrolls and the actions stay
+ * pinned at the bottom (a long slot list at 390).
+ */
+export function OwnerDialog({ title, children, actions, onClose, tone = "default", view, scroll = false }: { title: string; children: ReactNode; actions: ReactNode; onClose: () => void; tone?: "default" | "danger"; view?: string; scroll?: boolean }) {
   const titleId = useId();
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -30,6 +35,13 @@ export function OwnerDialog({ title, children, actions, onClose, tone = "default
     (first ?? box.current)?.focus({ preventScroll: true });
     return () => { if (previous && document.contains(previous)) previous.focus(); };
   }, []);
+  const shownView = useRef(view);
+  useEffect(() => {
+    if (shownView.current === view) return;
+    shownView.current = view;
+    const first = box.current?.querySelector<HTMLElement>("[data-autofocus]") ?? box.current?.querySelector<HTMLElement>(FOCUSABLE);
+    (first ?? box.current)?.focus({ preventScroll: true });
+  }, [view]);
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Escape") { event.stopPropagation(); onClose(); return; }
     if (event.key !== "Tab" || !box.current) return;
@@ -41,9 +53,9 @@ export function OwnerDialog({ title, children, actions, onClose, tone = "default
   }
   return (
     <div className="ow-dialog-scrim" onKeyDown={onKeyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={box} className="ow-dialog" role={tone === "danger" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div ref={box} className={scroll ? "ow-dialog ow-dialog--scroll" : "ow-dialog"} role={tone === "danger" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
-        <div className="ow-stack ow-stack--tight">{children}</div>
+        <div key={view} className={view === undefined ? "ow-stack ow-stack--tight" : "ow-stack ow-stack--tight ow-dialog-view"}>{children}</div>
         <div className="ow-dialog-actions">{actions}</div>
       </div>
     </div>
