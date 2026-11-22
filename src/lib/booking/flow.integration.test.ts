@@ -80,8 +80,12 @@ it("closing the card forgets its devices, cancels open appointments by the shop 
   const shop = await bookingShop();
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia Muster", customerPhone: "+49 170 0000000", idempotencyKey: randomUUID() }, now);
   // One under way right now (15 minutes ago, on the grid): the shop finishes it, without a credit.
+  // A slot never crosses the shop's midnight: near it, the 30-minute appointment starts at midnight or ends there instead.
   const quarter = Math.floor(Date.now() / 900_000) * 900_000;
-  const running = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date(quarter - 900_000), customerName: "Mia Muster", idempotencyKey: randomUUID() }, new Date(quarter - 86_400_000))).appointment;
+  const berlinMinutes = (instant: number) => { const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(instant).split(":").map(Number); return h * 60 + m; };
+  let runningStart = quarter - 900_000;
+  if (berlinMinutes(runningStart) + 30 > 24 * 60) runningStart = berlinMinutes(quarter) < 30 ? quarter - berlinMinutes(quarter) * 60_000 : runningStart - (berlinMinutes(runningStart) + 30 - 24 * 60) * 60_000;
+  const running = (await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start: new Date(runningStart), customerName: "Mia Muster", idempotencyKey: randomUUID() }, new Date(runningStart - 86_400_000))).appointment;
   await pool.query("INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth) VALUES ($1, $2, 'https://push.example.test/device', 'synthetic-p256dh', 'synthetic-auth')", [shop.scope.tenantId, shop.card.id]);
   await closeCard(shop.card.cardToken);
   expect((await pool.query("SELECT status, cancel_reason, customer_name, customer_phone FROM booking_appointments WHERE id = $1", [appointment.id])).rows[0])
