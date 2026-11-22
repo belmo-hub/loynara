@@ -324,7 +324,7 @@ it("GET …/booking reports the push state; the push and consent routes store a 
   expect((await consentRoute(request(`/api/card/${token}/booking/consent`, { body: { rebook: true } }), params)).status).toBe(204);
   expect(await read()).toEqual({ publicKey: env.VAPID_PUBLIC_KEY, subscribed: true, rebookConsent: true });
   expect((await pool.query("SELECT channel, purpose, granted, notice_version, source FROM consent_events WHERE membership_id = $1", [shop.card.id])).rows)
-    .toEqual([{ channel: "push", purpose: "booking_rebook", granted: true, notice_version: "booking-rebook-v1", source: "card" }]);
+    .toEqual([{ channel: "push", purpose: "booking_rebook", granted: true, notice_version: "booking-rebook-v2", source: "card" }]);
   // Another card may claim the same browser only with that browser's keys; the URL alone is refused.
   const second = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
   const other = { params: Promise.resolve({ token: second.cardToken }) };

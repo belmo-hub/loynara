@@ -13,6 +13,7 @@ import { CAP_WINDOW_DAYS, CUSTOMER_WEEKLY_CAP, WALLET_QUIET_HOURS } from "@/lib/
 import { lock, rebookPushesWithin } from "@/lib/wallet-messages";
 import { cardScope, type Reader, type Tx } from "./appointments";
 import { addDays, instantToWall, wallToInstant } from "./time";
+import { REBOOK_CONSENT } from "./rebook-consent-text";
 
 // Customer Web Push for bookings: reminders and shop changes (service messages, quiet hours hold) and the rebook push
 // (marketing: own opt-in, shared cap with Wallet messages). Same VAPID keys and failure handling as staff-push.ts.
@@ -346,5 +347,5 @@ export async function deleteCustomerPushSubscription(token: string, endpoint: un
 
 export async function setRebookConsent(token: string, granted: boolean) {
   const card = await cardScope(db, token);
-  await db.insert(consentEvents).values({ tenantId: card.tenantId, membershipId: card.membershipId, channel: "push", purpose: "booking_rebook", granted, noticeVersion: "booking-rebook-v1", source: "card" });
+  await db.insert(consentEvents).values({ tenantId: card.tenantId, membershipId: card.membershipId, channel: "push", purpose: "booking_rebook", granted, noticeVersion: REBOOK_CONSENT.version, source: "card" });
 }

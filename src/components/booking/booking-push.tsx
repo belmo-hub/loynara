@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import card from "../customer/customer-card.module.css";
 import type { PushView } from "./booking-format";
+import { REBOOK_CONSENT } from "@/lib/booking/rebook-consent-text";
 
 const SW_URL = "/card-sw.js";
 
@@ -39,7 +40,7 @@ export function BookingPush({ base, scope, push, reload }: { base: string; scope
   }
 
   const consent = <Checkbox checked={push.rebookConsent} disabled={busy} onChange={event => { const rebook = event.target.checked; void run(() => send(`${base}/consent`, "POST", { rebook })); }}
-    description="Freiwillig. Du kannst es hier jederzeit wieder abschalten.">Erinnere mich, wenn der nächste Termin fällig ist</Checkbox>;
+    description={REBOOK_CONSENT.description}>{REBOOK_CONSENT.label}</Checkbox>;
   const failed = error ? <p className={card.alert} role="alert">{error}</p> : null;
 
   // A yes given in the home-screen app must stay withdrawable from any browser, with or without push here.
