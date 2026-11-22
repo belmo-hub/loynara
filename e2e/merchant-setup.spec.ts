@@ -136,6 +136,7 @@ test("review submits the picked place's point and programme fields", async ({ pa
   await search.press("Enter");
   await expect(page.getByText("Königsplatz 1, Kassel")).toBeVisible();
   await expect(page.locator("#su-place-picked")).toBeFocused(); // focus lands on the pick, not the page
+  await expect(page.locator("#su-place-picked")).toHaveAttribute("data-kbd", "true"); // a keyboard pick shows the ring
   await expect(page.locator("#su-place-picked").getByRole("img", { name: "Google Maps" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
   expect(asked.at(-1)).toMatchObject({ text: "Café am", sessionToken: expect.any(String) });
@@ -185,6 +186,21 @@ test("a late answer never lands once the text is cut below two characters", asyn
   await page.getByRole("button", { name: "Programm starten", exact: true }).click();
   await expect.poll(() => payload).toBeTruthy();
   expect(payload).not.toHaveProperty("googlePlaceId");
+});
+
+test("a new answer opens the list at its first row", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.route("**/api/merchant/place-search", route => route.fulfill({ json: { suggestions: [1, 2, 3, 4, 5].map(n => ({ id: `place_${n}`, main: `Café am Platz ${n}`, secondary: `Wilhelmshöher Allee ${n}, 34117 Kassel` })) } }));
+  await stubbed(page, route => route.abort());
+  const search = await toSearch(page);
+  await search.fill("Café am");
+  await expect(page.getByRole("option")).toHaveCount(5);
+  await search.press("ArrowUp"); // the last row, scrolled into view
+  await expect.poll(() => page.locator("#su-place-list").evaluate(list => list.scrollTop)).toBeGreaterThan(0);
+  await search.pressSequentially(" P");
+  await expect.poll(() => page.locator("#su-place-list").evaluate(list => list.scrollTop)).toBe(0);
+  // Row 1, the best match, sits inside the list's visible part.
+  expect(await page.locator("#su-place-list").evaluate(list => { const row = list.querySelector("[role=option]")!.getBoundingClientRect(), box = list.getBoundingClientRect(); return row.top >= box.top && row.bottom <= box.bottom; })).toBe(true);
 });
 
 test("a failed shop search says so and setup still starts without a location", async ({ page }) => {
