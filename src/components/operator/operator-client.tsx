@@ -167,10 +167,15 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
+  const [bookingError, setBookingError] = useState<{ locationId: string; text: string } | null>(null);
   async function setBooking(row: Row, enabled: boolean) {
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setBookingError(null);
     try { await postJson("/api/operator/booking", { tenantId: row.tenantId, locationId: row.locationId, enabled }); router.refresh(); }
-    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    catch (cause) {
+      // Design r2: the AVV refusal belongs on this shop's row, in words, not as „lade die Seite neu“ at the page top.
+      if (cause instanceof ClientApiError && cause.code === "AVV_NOT_ACCEPTED") setBookingError({ locationId: row.locationId, text: "Dieses Geschäft hat die Auftragsverarbeitung mit Terminbuchung noch nicht angenommen. Online-Termine bleiben aus." });
+      else setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
+    }
     finally { setBusy(false); }
   }
 
@@ -337,6 +342,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
           <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue (Online-Buchung für {r.location})</Checkbox>
+          {bookingError?.locationId === r.locationId && <p role="alert">{bookingError.text}</p>}
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
           {/* Rows are per programme, the point per location: only its first row carries it. */}
           {rows.findIndex(other => other.locationId === r.locationId) === index ? <div>
