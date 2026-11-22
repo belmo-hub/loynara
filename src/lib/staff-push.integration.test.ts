@@ -384,24 +384,29 @@ push.sendNotification=async(subscription,payload,options)=>{
 
 // ENG-338 (Legal): the worker's daily clean-up; a device's push address does not outlive its login or its access.
 describe("daily push clean-up", () => {
-  it("removes devices whose login expired or whose role ended, keeps live ones and other businesses, and is idempotent", async () => {
+  it("removes devices whose login expired, whose role ended or moved location, keeps live ones and other businesses, and is idempotent", async () => {
     const f = await nfcFixture();
     const other = await nfcFixture();
     const expired = await addStaff(f.tenant.id, f.location.id, "cashier");
     const revoked = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const moved = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const { rows: [second] } = await pool.query<{ id: string }>("INSERT INTO locations (tenant_id, name, city, country, timezone) VALUES ($1, 'Kassel Süd', 'Kassel', 'DE', 'Europe/Berlin') RETURNING id", [f.tenant.id]);
     const subscribe = async (userId: string, tenantId: string, locationId: string, name: string) =>
       saveStaffPushSubscription({ userId, sessionId: await session(userId), tenantId, locationId, subscription: { endpoint: endpoint(name), keys } });
     await subscribe(f.userId, f.tenant.id, f.location.id, "live");
+    await subscribe(f.userId, f.tenant.id, second.id, "owner-second");
+    await subscribe(moved, f.tenant.id, f.location.id, "moved");
     await subscribe(expired, f.tenant.id, f.location.id, "expired");
     await subscribe(revoked, f.tenant.id, f.location.id, "revoked");
     await subscribe(other.userId, other.tenant.id, other.location.id, "other");
     await pool.query(`UPDATE "session" SET "expiresAt" = now() - interval '1 second' WHERE "userId" = $1`, [expired]);
     await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [revoked]);
+    await pool.query("UPDATE staff_roles SET location_id = $2 WHERE user_id = $1", [moved, second.id]);
     const endpoints = async () => (await pool.query<{ endpoint: string }>("SELECT endpoint FROM staff_push_subscriptions ORDER BY endpoint")).rows.map(row => row.endpoint);
 
-    expect(await pruneStaffPushSubscriptions()).toBe(2);
-    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other")].sort());
+    expect(await pruneStaffPushSubscriptions()).toBe(3);
+    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other"), endpoint("owner-second")].sort());
     expect(await pruneStaffPushSubscriptions()).toBe(0);
-    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other")].sort());
+    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other"), endpoint("owner-second")].sort());
   });
 });
