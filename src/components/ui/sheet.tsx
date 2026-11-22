@@ -1,20 +1,29 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useId, useRef, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type PointerEvent, type ReactNode } from "react";
 import { cx } from "./cx";
 import { useBackdropClose, useModal } from "./use-modal";
 import styles from "./sheet.module.css";
 
-type Props = { open: boolean; onClose: () => void; title: ReactNode; children?: ReactNode; footer?: ReactNode; side?: "bottom" | "end" | "auto"; closeLabel?: string; className?: string };
+type Props = { open: boolean; onClose: () => void; title: ReactNode; children?: ReactNode; footer?: ReactNode; side?: "bottom" | "end" | "auto"; closeLabel?: string; className?: string; keepHeight?: boolean };
 
 /** Modal panel: from the bottom on phones ("Mehr", details), from the side on desktop (row details). */
-export function Sheet({ open, onClose, title, children, footer, side = "auto", closeLabel = "Schließen", className }: Props) {
+export function Sheet({ open, onClose, title, children, footer, side = "auto", closeLabel = "Schließen", className, keepHeight = false }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const drag = useRef<{ y: number; t: number } | null>(null);
   const titleId = useId();
   useModal(ref, open);
   const backdrop = useBackdropClose(onClose);
+  // `keepHeight`: once grown, the sheet keeps that height while open, so a list closing on blur cannot pull the close
+  // button out from under the pointer (ENG-331). It starts over when it opens again.
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!keepHeight || !open || !dialog) return;
+    const observer = new ResizeObserver(() => { if (dialog.offsetHeight > (parseFloat(dialog.style.minHeight) || 0)) dialog.style.minHeight = `${dialog.offsetHeight}px`; });
+    observer.observe(dialog);
+    return () => { observer.disconnect(); dialog.style.minHeight = ""; };
+  }, [keepHeight, open]);
 
   // Drag down on the handle to dismiss; a quick flick is enough (velocity), slow drags need 120 px.
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
