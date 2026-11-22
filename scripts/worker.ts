@@ -35,6 +35,7 @@ let googleClassesSyncedAt = 0;
 let erasureCheckedAt = 0;
 let demosEndedAt = 0;
 let placesRefreshedAt = 0;
+let staffPushPrunedAt = 0;
 const shutdown = new AbortController();
 const stop = () => { stopping = true; shutdown.abort(); };
 process.on("SIGINT", stop);
@@ -409,6 +410,19 @@ async function main() {
           const result = await refreshPlaceLocations();
           if (result.refreshed || result.cleared) console.log(`Shop places: ${result.refreshed} refreshed, ${result.cleared} cleared`);
           placesRefreshedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - staffPushPrunedAt >= 24 * 60 * 60_000) {
+        try {
+          // Daily and idempotent (ENG-338): the owner privacy page promises a device's push address goes at the latest a day
+          // after its login expired or its access ended.
+          const { pruneStaffPushSubscriptions } = await import("../src/lib/staff-push");
+          const removed = await pruneStaffPushSubscriptions(housekeepingDatabase);
+          if (removed) console.log(`Staff push: ${removed} device(s) without a valid login or access removed`);
+          staffPushPrunedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;

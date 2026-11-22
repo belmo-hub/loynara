@@ -9,7 +9,7 @@ import { pool } from "@/db";
 import { addStaff, nfcFixture } from "./nfc-test-db";
 import { activateSecureTag, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag, type TapKeyProvider } from "./secure-tap";
 import { claimOutboxJob } from "./outbox";
-import { deleteStaffPushSubscription, deliverTapPush, dispatchTapPushNow, pushCapability, saveStaffPushSubscription, validPushEndpoint } from "./staff-push";
+import { deleteStaffPushSubscription, deliverTapPush, dispatchTapPushNow, pruneStaffPushSubscriptions, pushCapability, saveStaffPushSubscription, validPushEndpoint } from "./staff-push";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 
@@ -381,3 +381,27 @@ push.sendNotification=async(subscription,payload,options)=>{
     expect((await pool.query("SELECT count(*)::int AS n FROM ledger_entries WHERE membership_id=$1", [f.member.id])).rows[0].n).toBe(0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }, 45000);
+
+// ENG-338 (Legal): the worker's daily clean-up; a device's push address does not outlive its login or its access.
+describe("daily push clean-up", () => {
+  it("removes devices whose login expired or whose role ended, keeps live ones and other businesses, and is idempotent", async () => {
+    const f = await nfcFixture();
+    const other = await nfcFixture();
+    const expired = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const revoked = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const subscribe = async (userId: string, tenantId: string, locationId: string, name: string) =>
+      saveStaffPushSubscription({ userId, sessionId: await session(userId), tenantId, locationId, subscription: { endpoint: endpoint(name), keys } });
+    await subscribe(f.userId, f.tenant.id, f.location.id, "live");
+    await subscribe(expired, f.tenant.id, f.location.id, "expired");
+    await subscribe(revoked, f.tenant.id, f.location.id, "revoked");
+    await subscribe(other.userId, other.tenant.id, other.location.id, "other");
+    await pool.query(`UPDATE "session" SET "expiresAt" = now() - interval '1 second' WHERE "userId" = $1`, [expired]);
+    await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [revoked]);
+    const endpoints = async () => (await pool.query<{ endpoint: string }>("SELECT endpoint FROM staff_push_subscriptions ORDER BY endpoint")).rows.map(row => row.endpoint);
+
+    expect(await pruneStaffPushSubscriptions()).toBe(2);
+    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other")].sort());
+    expect(await pruneStaffPushSubscriptions()).toBe(0);
+    expect(await endpoints()).toEqual([endpoint("live"), endpoint("other")].sort());
+  });
+});

@@ -106,6 +106,18 @@ export async function deleteStaffPushSubscription(input: { userId: string; endpo
   return { subscribed: false as const };
 }
 
+/**
+ * Daily (ENG-338, Legal): a device's push address does not outlive its login or its access. Removes subscriptions whose
+ * login session has expired or is gone, or whose staff role in that business is no longer active.
+ */
+export async function pruneStaffPushSubscriptions(queries: Pick<typeof pool, "query"> = pool): Promise<number> {
+  const result = await queries.query(`
+    DELETE FROM staff_push_subscriptions s
+    WHERE NOT EXISTS (SELECT 1 FROM "session" se WHERE se.id = s.session_id AND se."userId" = s.user_id AND se."expiresAt" > now())
+       OR NOT EXISTS (SELECT 1 FROM staff_roles r WHERE r.user_id = s.user_id AND r.tenant_id = s.tenant_id AND r.active)`);
+  return result.rowCount ?? 0;
+}
+
 async function assertLocationStaff(userId: string, tenantId: string, locationId: string) {
   const { rows } = await pool.query<{ role: string; location_id: string | null }>(
     "SELECT role, location_id FROM staff_roles WHERE user_id = $1 AND tenant_id = $2 AND active", [userId, tenantId]);
