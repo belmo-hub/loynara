@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { setupLocation, setupReviewValidation } from "./program-setup-validation";
+import { setupLocation, setupReviewValidation, shopToday } from "./program-setup-validation";
 const valid = { programName: "Treuekarte", date: "2026-10-10" };
 describe("merchant setup review fields", () => {
+  // Audit 22 Nov, finding 5: at 00:30 in Berlin the UTC day is still yesterday.
+  it("defaults the start date to the shop's day, not the UTC day", () => {
+    expect(shopToday("Europe/Berlin", new Date("2026-11-22T23:30:00Z"))).toBe("2026-11-23");
+    expect(shopToday("Europe/Berlin", new Date("2026-07-01T22:30:00Z"))).toBe("2026-07-02");
+    expect(shopToday("Europe/Berlin", new Date("2026-11-22T12:00:00Z"))).toBe("2026-11-22");
+  });
   it("accepts valid fields", () => {
     expect(setupReviewValidation(valid)).toEqual({ problems: { programName: "", date: "" } });
   });
