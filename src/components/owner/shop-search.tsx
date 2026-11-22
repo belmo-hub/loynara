@@ -15,6 +15,13 @@ export function placeCoordinates(body: unknown): { latitude: number; longitude: 
   return typeof latitude === "number" && typeof longitude === "number" && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null;
 }
 
+/** The console's point fields (ENG-331): a pick fills in its point at the sheet's precision, and „Ändern“ (pick null) clears
+ *  both. While a pick stands the field is read-only, so Google's digits never go out without the place id. */
+export const pickedPoint = (place: ShopPlace | null) => ({ place, coordinates: place ? `${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}` : "" });
+export const handTypedPoint = (coordinates: string) => ({ place: null, coordinates });
+export const pointRequest = (shop: { tenantId: string; locationId: string }, coordinates: string, place: ShopPlace | null, execute: boolean) =>
+  ({ tenantId: shop.tenantId, locationId: shop.locationId, coordinates, ...(place ? { googlePlaceId: place.id } : {}), execute });
+
 type Status = "idle" | "searching" | "shown" | "failed" | "picking" | "pickFailed";
 export type SearchState = { text: string; options: Suggestion[]; active: number; open: boolean; status: Status; picking: Suggestion | null };
 type SearchEvent = { type: "type"; text: string } | { type: "results"; options: Suggestion[] } | { type: "failed" | "blur" | "focus" | "escape" | "pickFailed" | "picked" }
