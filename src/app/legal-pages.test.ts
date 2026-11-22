@@ -92,7 +92,7 @@ describe("owner privacy notice", () => {
   it("is Legal's text with its Stand, the customer page and the Impressum linked", () => {
     expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
     expect(GeschaefteMetadata.title).toBe("Datenschutzhinweise für Geschäfte – Loynara");
-    expect(html).toContain("Stand: 21. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
+    expect(html).toContain("Stand: 22. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
     expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");
@@ -168,7 +168,7 @@ describe("owner sign-up acceptance", () => {
     const html = open(VertragsbedingungenPage, "true");
     expect(TermsMetadata.title).toBe("Vertragsbedingungen für Geschäfte – Loynara");
     expect(html).toContain("<h1>Vertragsbedingungen für Geschäfte</h1>");
-    expect(html).toContain("Stand: 21. November 2026. Fassung 2026-11-21.");
+    expect(html).toContain("Stand: 22. November 2026. Fassung 2026-11-22.");
     // ENG-323, Legal's T-2 as § 1 (5), right after (4).
     expect(html).toContain(`Wesentliche Änderungen kündigt der Anbieter mindestens zwei Wochen vorher in Textform an.</p><p>(5) Die Lage eines Standorts bestimmt der Betrieb über eine Suche, die Google Maps nutzt. Für diese Suche gelten die <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener">Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth</a> und die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Google</a>.</p>`);
     expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
