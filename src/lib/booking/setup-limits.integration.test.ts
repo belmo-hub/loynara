@@ -29,3 +29,15 @@ it("open bookings per card are capped at 2: the set-up refuses more, and so does
   expect((await save(shop.ownerCookie, await body(shop, { maxOpenPerCard: 2 }))).status).toBe(200);
   await expect(pool.query("UPDATE booking_settings SET max_open_per_card = 3 WHERE location_id = $1", [shop.scope.locationId])).rejects.toThrow(/booking_settings_valid/);
 });
+
+it("first-time set-up: a row from the operator's switch is not „set up“; the first save sets setup_done_at, later saves keep it", async () => {
+  const shop = await bookingShop(), setup = await getSetup(shop.scope);
+  await pool.query("UPDATE booking_settings SET setup_done_at = NULL WHERE location_id = $1", [shop.scope.locationId]);
+  expect((await getSetup(shop.scope)).settings).toBeNull();
+  expect((await save(shop.ownerCookie, await body(shop, setup.settings as never))).status).toBe(200);
+  const first = (await pool.query("SELECT setup_done_at FROM booking_settings WHERE location_id = $1", [shop.scope.locationId])).rows[0].setup_done_at as Date;
+  expect(first).toBeInstanceOf(Date);
+  expect((await getSetup(shop.scope)).settings).not.toBeNull();
+  expect((await save(shop.ownerCookie, await body(shop))).status).toBe(200);
+  expect((await pool.query("SELECT setup_done_at FROM booking_settings WHERE location_id = $1", [shop.scope.locationId])).rows[0].setup_done_at).toEqual(first);
+});

@@ -82,7 +82,7 @@ export function BookingDay() {
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
         {requestsLine(shown.pendingRequests, shown.nextRequestDate, today)}</Notice>}
 
-      {day.state === "error" ? <ErrorNotice message={day.status === 403 ? "Nur Inhaber und Leitung sehen die Termine." : "Die Termine konnten nicht geladen werden."} onRetry={reload} />
+      {day.state === "error" ? <ErrorNotice message={day.status === 403 ? "Nur die Inhaberin oder der Inhaber und die Leitung sehen die Termine." : "Die Termine konnten nicht geladen werden."} onRetry={reload} />
         : setup.state === "error" ? <ErrorNotice message="Die Einrichtung konnte nicht geladen werden." onRetry={reloadSetup} />
         : !shown || setup.state !== "ok" ? <LoadingBlock rows={3} height={56} />
         : ready && <DayList day={shown} label={dayName(date, today)} onOpen={appointment => { setFlash(null); setOpen(appointment); }} onBlock={block => { setFlash(null); setBlockOpen(block); }} />}

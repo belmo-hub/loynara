@@ -76,7 +76,7 @@ export function actionError(cause: { code?: string; status?: number; message?: s
     case "SLOT_TAKEN": return "Die Zeit ist gerade weg. Wähle eine andere.";
     case "BLOCKED": return "Diese Zeit ist geblockt. Wähle eine andere.";
     case "NOT_FOUND": return "Nicht mehr da. Liste aktualisiert.";
-    case "FORBIDDEN": return "Nur Inhaber und Leitung können Termine ändern.";
+    case "FORBIDDEN": return "Nur die Inhaberin oder der Inhaber und die Leitung können Termine ändern.";
   }
   // Connection and rate-limit messages from apiJson are already German.
   if ((cause.status === 0 || cause.status === 429) && cause.message) return cause.message;

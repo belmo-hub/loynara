@@ -101,7 +101,7 @@ function problems(form: Form): Record<string, string>[] {
 function saveMessage(cause: unknown) {
   if (!(cause instanceof ClientApiError) || cause.status === 0 || cause.status >= 500) return "Nicht bestätigt, ob gespeichert wurde. Lade die Seite neu und prüfe den Stand.";
   if (cause.status === 401) return "Deine Anmeldung ist abgelaufen. Melde dich erneut an.";
-  if (cause.code === "FORBIDDEN") return "Nur Inhaber:innen können die Buchung einrichten.";
+  if (cause.code === "FORBIDDEN") return "Nur die Inhaberin oder der Inhaber kann die Online-Termine einrichten.";
   if (cause.code === "NOT_FOUND" || cause.code === "INVALID_SERVICE") return "Die Einrichtung wurde inzwischen woanders geändert. Lade die Seite neu.";
   if (cause.status === 429) return "Zu viele Anfragen. Warte kurz und versuche es erneut.";
   return "Nicht gespeichert. Prüfe die Angaben und versuche es erneut.";
@@ -205,7 +205,6 @@ function Wizard({ initial }: { initial: Setup }) {
   return (
     <div className="ow-page">
       <PageHead title="Online-Buchung einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
-      {data.settings && !data.settings.enabled && <Notice role="status">Online-Buchung wird mit dem Plan Termin + Treue freigeschaltet. Alles hier bleibt gespeichert.</Notice>}
       <ol className="ow-stepper" aria-label="Fortschritt">
         {STEPS.map((label, index) => (
           <li key={label} aria-current={index === step ? "step" : undefined} data-done={index < step || (returning && index !== step)} style={{ padding: 0 }}>

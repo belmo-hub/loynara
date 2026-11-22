@@ -60,7 +60,8 @@ export async function getSetup(scope: Scope, reader: Reader = db) {
     .where(and(eq(bookingStaff.tenantId, scope.tenantId), eq(bookingStaff.locationId, scope.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort), asc(bookingStaff.createdAt));
   const links = staff.length ? await reader.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), inArray(bookingStaffServices.staffId, staff.map(s => s.id)))) : [];
   return {
-    settings: settings ?? null,
+    // Set up means saved once (setup_done_at), not that a row exists: the operator's switch creates one with defaults.
+    settings: settings?.setupDoneAt ? settings : null,
     services,
     staff: staff.map(s => ({ ...s, serviceIds: links.filter(l => l.staffId === s.id).map(l => l.serviceId) })),
     presets: PRESETS,
@@ -74,7 +75,8 @@ export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
     await lockLocation(tx, scope.locationId);
     const now = new Date();
     await tx.insert(bookingSettings).values({ ...scope, ...input.settings, setupDoneAt: now })
-      .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { ...input.settings, updatedAt: now } });
+      // The first save completes the set-up, also over a row the operator's switch created (Design, 22 Nov).
+      .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { ...input.settings, setupDoneAt: sql`coalesce(${bookingSettings.setupDoneAt}, ${now})`, updatedAt: now } });
 
     const open = and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId),
       inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`);
