@@ -18,7 +18,7 @@ test("merchant opens a printable sign with its own identity and join QR", async 
   const opened = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Tresenschild laden" }).click();
   const sign = await opened;
-  await expect(page.getByRole("button", { name: /Tresenschild laden/ })).toContainText("Schild geöffnet");
+  await expect(page.getByRole("button", { name: /Tresenschild laden/ })).toContainText("Tresenschild geöffnet");
   await expect(sign.getByRole("button", { name: "Drucken", exact: true })).toBeVisible();
   const html = await sign.content();
   expect(html).toContain(`<h1>${merchant.businessName}</h1>`);

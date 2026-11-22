@@ -3,7 +3,7 @@
 import { ChevronRight, Link2, Printer } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
-import { counterSignHtml, SIGN_FONT } from "@/lib/counter-sign";
+import { COUNTER_SIGN_PLACEHOLDER, counterSignHtml, SIGN_FONT } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
 import { CopyLabel, useCopy } from "@/components/copy-text";
 
@@ -19,6 +19,7 @@ export async function openCounterSign(me: MeResponse): Promise<"opened" | "downl
   if (!joinUrl) throw new Error("Die öffentliche Adresse ist noch nicht konfiguriert.");
   // Before the first await: a phone opens a tab only straight from the tap. Empty until the sign is ready.
   const tab = window.open("", "_blank");
+  if (tab) { tab.document.open(); tab.document.write(COUNTER_SIGN_PLACEHOLDER); tab.document.close(); }
   try {
     const response = await fetch(`/api/qr?value=${encodeURIComponent(joinUrl)}`, { credentials: "same-origin" });
     if (!response.ok) throw new Error("Der QR-Code konnte nicht geladen werden.");
@@ -41,7 +42,8 @@ export async function openCounterSign(me: MeResponse): Promise<"opened" | "downl
 }
 
 /** What the Tresenschild row says after a tap (ENG-343): the tab may open behind this one, so the row confirms it. */
-export const SIGN_NOTE = { idle: "Mit QR-Code zum Ausdrucken", busy: "Wird erstellt …", opened: "Schild geöffnet", downloaded: "Schild heruntergeladen" } as const;
+export const SIGN_NOTE = { idle: "Mit QR-Code zum Ausdrucken", busy: "Wird erstellt …", opened: "Tresenschild geöffnet", downloaded: "Tresenschild heruntergeladen" } as const;
+export const SIGN_FAILED = "Das Tresenschild konnte nicht erstellt werden.";
 
 /** „Kunden einladen“ on Kunden (ENG-122a, R3) as two rows: copy the sign-up link, download the Tresenschild. */
 export function InviteRows({ me }: { me: MeResponse }) {
@@ -51,7 +53,8 @@ export function InviteRows({ me }: { me: MeResponse }) {
   const joinUrl = joinUrlOf(me);
   const row = (icon: ReactNode, title: string, sub: string | undefined, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
     <span className="ow-prog-icon">{icon}</span>
-    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}</span></span>
+    {/* Keyed by its text, the second line fades in when it changes (ENG-343). */}
+    <span className="ow-prog-main"><span className="ow-prog-text"><strong>{title}</strong>{sub && <small key={sub} className="ow-prog-sub">{sub}</small>}</span></span>
     <ChevronRight className="ow-prog-arrow" size={20} aria-hidden="true" />
   </button></li>;
   return (
@@ -61,7 +64,13 @@ export function InviteRows({ me }: { me: MeResponse }) {
         {row(<Link2 size={20} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", undefined,
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
         {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", SIGN_NOTE[sign],
-          () => { setSign("busy"); openCounterSign(me).then(setSign, cause => { setSign("idle"); setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }); })}
+          () => {
+            // A second tap while the sign is made would open a second tab.
+            if (sign === "busy") return;
+            setSign("busy");
+            openCounterSign(me).then(result => { setSign(result); window.setTimeout(() => setSign("idle"), 2000); },
+              cause => { setSign("idle"); setError(cause instanceof Error ? cause.message : SIGN_FAILED); });
+          })}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied ? "Link kopiert." : sign === "idle" ? null : SIGN_NOTE[sign]}</div>
       {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
@@ -81,7 +90,7 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
   }
   async function downloadSign() {
     setError("");
-    try { await openCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : "Das Anmeldeschild konnte nicht erstellt werden."); }
+    try { await openCounterSign(me); } catch (cause) { setError(cause instanceof Error ? cause.message : SIGN_FAILED); }
   }
 
   if (!joinUrl) return <div className="ow-card"><h2>Kunden einladen</h2><p className="ow-muted ow-mt-2">Die öffentliche Adresse ist noch nicht konfiguriert. Der Anmeldelink ist deshalb nicht verfügbar.</p></div>;
