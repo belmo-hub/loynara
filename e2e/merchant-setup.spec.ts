@@ -13,6 +13,21 @@ async function named(page: Page) {
   await weiter(page);
 }
 
+test("an operator draft whose location repeats the shop name is named after the city (ENG-336)", async ({ page }) => {
+  let payload: Record<string, unknown> | undefined;
+  await page.route("**/api/me", route => route.fulfill({ json: { userId: "synthetic-owner", tenantId: null, publicBaseUrl: "http://localhost:3000",
+    setupDraft: { businessName: "Café Nord", locationName: "Café Nord", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de" } } }));
+  await page.route("**/api/merchant/onboard", route => { payload = route.request().postDataJSON(); return route.fulfill({ json: { programSlug: "synthetic-cafe" } }); });
+  await page.goto("/merchant/program");
+  await expect(page.getByLabel("Geschäftsname")).toHaveValue("Café Nord");
+  await weiter(page); await weiter(page);
+  await page.getByText("Kaffee aufs Haus", { exact: true }).click();
+  await weiter(page);
+  await expect(page.getByText("Café Nord · Kassel", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Programm starten", exact: true }).click();
+  await expect.poll(() => payload).toMatchObject({ businessName: "Café Nord", locationName: "Kassel", city: "Kassel" });
+});
+
 test("guided setup walks four questions, validates inline and previews the card before anything is saved", async ({ page }) => {
   let onboardCalls = 0;
   await stubbed(page, route => { onboardCalls++; return route.abort(); });
