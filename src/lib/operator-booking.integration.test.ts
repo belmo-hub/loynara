@@ -4,7 +4,8 @@ import { POST as bookingRoute } from "@/app/api/operator/booking/route";
 import { GET as cardBookingRoute } from "@/app/api/card/[token]/booking/route";
 import { getBillingOverview } from "./billing";
 import { bookingShop, identity, request, withBookingDatabase } from "./booking/test-fixture";
-import { operatorOverview } from "./operator";
+import { BOOKING_AVV_MISSING, operatorOverview } from "./operator";
+import { BOOKING_AVV_VERSION } from "./owner-contract";
 import { createMerchant } from "./product";
 
 withBookingDatabase();
@@ -13,6 +14,9 @@ afterAll(() => { if (saved === undefined) delete process.env.PLATE_OPERATOR_USER
 
 const toggle = (body: unknown, cookie: string) => bookingRoute(request("/api/operator/booking", { body, cookie }));
 const cardView = async (token: string) => (await cardBookingRoute(request(`/api/card/${token}/booking`), { params: Promise.resolve({ token }) })).json();
+/** The shop's acceptance at sign-up of the given AVV Fassung (owner_acceptances is append-only; the row is written whole). */
+const accept = (userId: string, tenantId: string, avvVersion = BOOKING_AVV_VERSION) => pool.query(
+  "INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 'synthetic', $3, 'synthetic', 'synthetic')", [userId, tenantId, avvVersion]);
 const settings = async (locationId: string) => (await pool.query("SELECT enabled, auto_confirm, setup_done_at FROM booking_settings WHERE location_id = $1", [locationId])).rows[0];
 
 it("turns online booking on and off per location, leaving the owner's settings alone, and the card follows", async () => {
@@ -21,6 +25,7 @@ it("turns online booking on and off per location, leaving the owner's settings a
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   const token = shop.card.cardToken;
   expect(await cardView(token)).toEqual({ enabled: false });
+  await accept(shop.owner.userId, shop.scope.tenantId);
 
   const on = await toggle({ ...shop.scope, enabled: true }, operator.cookie);
   expect(on.status).toBe(200);
@@ -41,8 +46,28 @@ it("creates the settings row with defaults for a location that never ran the wiz
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   const merchant = await createMerchant({ userId: owner.userId, businessName: "Synthetic Studio", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic programme", programType: "stamp", rulesText: "Synthetic booking rules text", rewardTitle: "Reward", rewardCost: 10 });
   expect((await operatorOverview(operator.userId)).rows).toMatchObject([{ bookingEnabled: false }]);
+  await accept(owner.userId, merchant.tenantId);
   expect((await toggle({ tenantId: merchant.tenantId, locationId: merchant.locationId, enabled: true }, operator.cookie)).status).toBe(200);
   expect(await settings(merchant.locationId)).toMatchObject({ enabled: true, auto_confirm: true, setup_done_at: null });
+});
+
+it("refuses to turn booking on until the shop accepted the AVV Fassung with Terminbuchung; turning it off needs none", async () => {
+  const operator = await identity(), shop = await bookingShop();
+  process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+  await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
+  const refused = async () => { const res = await toggle({ ...shop.scope, enabled: true }, operator.cookie); expect(res.status).toBe(409); expect(await res.json()).toMatchObject({ error: BOOKING_AVV_MISSING, code: "AVV_NOT_ACCEPTED" }); };
+  await refused();
+  // An acceptance of the older Fassung, or of the right one by another shop, does not count.
+  await accept(shop.owner.userId, shop.scope.tenantId, "2026-11-20");
+  const other = await bookingShop();
+  await accept(other.owner.userId, other.scope.tenantId);
+  await refused();
+  expect(await settings(shop.scope.locationId)).toMatchObject({ enabled: false });
+  await pool.query("UPDATE booking_settings SET enabled = true WHERE location_id = $1", [shop.scope.locationId]);
+  expect((await toggle({ ...shop.scope, enabled: false }, operator.cookie)).status).toBe(200);
+  await accept(shop.owner.userId, shop.scope.tenantId);
+  expect((await toggle({ ...shop.scope, enabled: true }, operator.cookie)).status).toBe(200);
+  expect(await settings(shop.scope.locationId)).toMatchObject({ enabled: true });
 });
 
 it("refuses non-operators with an empty 404, and a location named under another tenant", async () => {
