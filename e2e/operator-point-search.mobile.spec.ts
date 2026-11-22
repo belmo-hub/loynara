@@ -99,3 +99,18 @@ test("a macOS Ctrl+click with the list open leaves no held height, and „Schlie
   expect((await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
 });
 
+test("a middle-click with the list open takes no hold, and „Schließen“ stays on screen after rotating", async ({ page }) => {
+  const { dialog, search } = await sheet(page);
+  await search.fill("Café am");
+  await expect(dialog.getByRole("option")).toHaveCount(5);
+  // A middle press: pointerdown with button 1, then auxclick; no click and no contextmenu ever release a hold.
+  await dialog.locator("#su-place-legal").evaluate(text => {
+    text.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 1, buttons: 4, pointerType: "mouse" }));
+    text.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+  });
+  await page.waitForTimeout(50);
+  expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect((await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
+});
+
