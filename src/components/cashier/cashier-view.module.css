@@ -20,6 +20,12 @@
 /* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
 .menu:popover-open > * { width: 100%; }
 .menu:popover-open :is(a, button) { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: var(--target-cashier); font-size: var(--text-18); }
+/* Where anchor positioning exists the menu hangs 8 under its button wherever the header puts it (larger text wraps
+   the header); the fixed inset above stays the fallback, so inset and margin are only reset inside the check. */
+@supports (position-area: bottom) {
+  .menuButton { anchor-name: --kasse-menu; }
+  .menu { position-anchor: --kasse-menu; inset: auto; margin: var(--space-2) 0 0; position-area: bottom span-left; position-try-fallbacks: flip-inline; }
+}
 /* Browsers without the popover attribute show the controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; opacity: 1; transform: none; } }
 
