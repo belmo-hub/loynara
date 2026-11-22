@@ -62,7 +62,10 @@ export const auth = betterAuth({
       throw new APIError(outcome === "limited" ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", { message: "Verification email not sent" });
     },
   },
-  session: { expiresIn: 60 * 60 * 24 * 7 },
+  // freshAge: adding a passkey needs a sign-in from the last 10 minutes (CTO, 22 Nov), so a stolen session cookie cannot
+  // plant a lasting way in. Better Auth checks it only for passkey registration here; the other routes that use it
+  // (/list-sessions, /unlink-account) are not used by the app.
+  session: { expiresIn: 60 * 60 * 24 * 7, freshAge: 10 * 60 },
   // Optional passkeys next to the password (web audit finding 10): added by a signed-in person in Einstellungen, used
   // from the sign-in form's autofill. The relying party is the app's own host; nothing here changes password sign-in.
   plugins: [passkey({ rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname, rpName: "Loynara" })],

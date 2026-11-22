@@ -29,6 +29,8 @@ export function PasskeyRows() {
     // A closed system prompt is the person's choice, not a fault: the browser's WebAuthn errors carry a code.
     const cancelled = result?.error && "code" in result.error && /CANCELLED|ABORTED|NOT_ALLOWED/.test(result.error.code);
     if (cancelled) return;
+    // Adding one needs a sign-in from the last 10 minutes (auth.ts); an older one says so instead of failing vaguely.
+    if (result?.error?.status === 403) return setMessage({ text: "Melde dich bitte neu an, dann kannst du einen Passkey hinzufügen.", error: true });
     if (!result || result.error) return setMessage({ text: "Der Passkey wurde nicht gespeichert. Versuche es noch einmal.", error: true });
     setMessage({ text: "Passkey gespeichert. Du kannst dich jetzt damit anmelden.", error: false });
     void load();
