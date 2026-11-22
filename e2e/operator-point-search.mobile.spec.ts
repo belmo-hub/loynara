@@ -35,6 +35,8 @@ test("a pick shows its point as text with no input, and sends it only with its p
   await search.fill("Café am");
   await dialog.getByRole("option").first().click();
   await expect(dialog.getByText("Gewählter Ort")).toBeVisible();
+  // The press held the sheet's height; after it the sheet settles to its content (Design round 4).
+  await expect.poll(() => dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("0px");
   await expect(dialog.getByRole("textbox", { name: "Koordinaten" })).toHaveCount(0);
   await expect(dialog.getByText("51.31270, 9.47970", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Der Punkt kommt aus der Suche. Loynara frischt ihn regelmäßig bei Google auf.")).toBeVisible();

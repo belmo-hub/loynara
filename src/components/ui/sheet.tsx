@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type PointerEvent, type ReactNode } from "react";
+import { useId, useRef, type PointerEvent, type ReactNode } from "react";
 import { cx } from "./cx";
 import { useBackdropClose, useModal } from "./use-modal";
 import styles from "./sheet.module.css";
@@ -15,15 +15,13 @@ export function Sheet({ open, onClose, title, children, footer, side = "auto", c
   const titleId = useId();
   useModal(ref, open);
   const backdrop = useBackdropClose(onClose);
-  // `keepHeight`: once grown, the sheet keeps that height while open, so a list closing on blur cannot pull the close
-  // button out from under the pointer (ENG-331). It starts over when it opens again.
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!keepHeight || !open || !dialog) return;
-    const observer = new ResizeObserver(() => { if (dialog.offsetHeight > (parseFloat(dialog.style.minHeight) || 0)) dialog.style.minHeight = `${dialog.offsetHeight}px`; });
-    observer.observe(dialog);
-    return () => { observer.disconnect(); dialog.style.minHeight = ""; };
-  }, [keepHeight, open]);
+  // `keepHeight` (ENG-331): the sheet holds its height for the length of a press, so a list closing on blur cannot pull
+  // „Schließen“ or a row out from under the finger; after the press it settles to its content.
+  const hold = keepHeight ? {
+    onPointerDownCapture: () => { if (ref.current) ref.current.style.minHeight = `${ref.current.offsetHeight}px`; },
+    onClickCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }),
+    onPointerCancelCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }),
+  } : {};
 
   // Drag down on the handle to dismiss; a quick flick is enough (velocity), slow drags need 120 px.
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -48,7 +46,7 @@ export function Sheet({ open, onClose, title, children, footer, side = "auto", c
 
   return <dialog ref={ref} className={cx(styles.sheet, className)} data-side={side} aria-labelledby={titleId}
     onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={() => { if (open) onClose(); }}
-    {...backdrop}>
+    {...backdrop} {...hold}>
     <div className={styles.handle} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} aria-hidden="true"><span /></div>
     <header className={styles.header}>
       <h2 id={titleId} className={styles.title}>{title}</h2>

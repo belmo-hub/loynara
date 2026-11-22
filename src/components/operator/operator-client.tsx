@@ -372,14 +372,14 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Sheet>
 
     <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten" keepHeight>
-      {pointRow ? <div style={{ display: "grid", gap: 12 }}>
+      {pointRow ? <div style={{ display: "grid", gap: 12, fontVariantNumeric: "tabular-nums" }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
         {pointRow.latitude !== null ? <p>Jetzt: <strong>{point5(pointRow)}</strong></p> : null}
         {placeSearch ? <div style={{ paddingBottom: 8 }}><ShopSearch label="Geschäft suchen" pickedLabel="Gewählter Ort" fallback="Gib die Koordinaten unten ein." inputClassName={fieldStyles.input} value={place} onChange={picked => { const next = pickedPoint(picked); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} /></div> : null}
         {/* While a pick stands the point is Google's: shown as text, no input, and „Ändern“ above is the way out (Design, ENG-331). */}
         {place ? <div className={fieldStyles.field}>
           <span className={fieldStyles.label}>Koordinaten</span>
-          <p style={{ margin: 0, fontVariantNumeric: "tabular-nums" }}>{coordinates}</p>
+          <p style={{ margin: 0 }}>{coordinates}</p>
           <p className={fieldStyles.hint}>Der Punkt kommt aus der Suche. Loynara frischt ihn regelmäßig bei Google auf.</p>
           {error ? <p className={fieldStyles.error} aria-live="polite"><span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span></p> : null}
         </div> : <TextField label="Koordinaten" hint="Nimm nur Werte, die das Geschäft nennt oder die du vor Ort misst. Kopier sie nie aus Google Maps." placeholder="z. B. 51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />}

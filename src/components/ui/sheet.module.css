@@ -2,7 +2,7 @@
   position: fixed; inset: auto 0 0 0; display: flex; flex-direction: column; width: 100%; max-width: 100%; max-height: min(88dvh, 720px);
   margin: 0; padding: 0; border: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--color-raised); color: var(--color-ink);
   box-shadow: var(--shadow-overlay); transform: translateY(0);
-  transition: transform 260ms var(--ease-drawer), overlay 260ms allow-discrete, display 260ms allow-discrete;
+  transition: transform 260ms var(--ease-drawer), overlay 260ms allow-discrete, display 260ms allow-discrete, min-height var(--dur-ui) var(--ease-out);
 }
 /* Exits are shorter than entrances: 160 ms, --ease-out. */
 .sheet:not([open]) { display: none; transform: translateY(100%); transition-duration: 160ms; transition-timing-function: var(--ease-out); }
