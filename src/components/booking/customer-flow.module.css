@@ -28,3 +28,7 @@
 .rewardText { display: grid; min-width: 0; }
 .rewardText strong { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .rewardText small { font-size: var(--text-14); color: var(--color-ink-muted); }
+
+/* The page head beside the shop's mono tile: the name, then „Termine“ as the h1 in the card head's muted subline. */
+.headText { display: grid; min-width: 0; }
+.headTitle { margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-body); color: var(--color-ink-muted); }

@@ -15,6 +15,7 @@ import notice from "../customer/customer-notice.module.css";
 import legal from "../customer/customer-state.module.css";
 import { LegalLinks } from "../ui/legal-links";
 import styles from "./customer-flow.module.css";
+import mix from "../ui/mix.module.css";
 import { defaultTerms, durationLabel, missedPhrase } from "../owner/booking-setup-helpers";
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
@@ -85,7 +86,7 @@ export function CustomerFlow({ token }: { token: string }) {
   useEffect(() => { void load(); }, [load]);
 
   if (loadError && !view) return <CustomerState title="Termine nicht erreichbar." message={loadError} tone="error"><Button onClick={() => void load()}>Noch mal laden</Button></CustomerState>;
-  if (!view) return <CustomerShell footer={<LegalLinks newTab />}><div className={legal.loading} aria-busy="true" aria-label="Termine werden geladen.">
+  if (!view) return <CustomerShell footer={<LegalLinks newTab />}><div className={mix.stack} aria-busy="true" aria-label="Termine werden geladen.">
     <Skeleton height={48} width="60%" radius={14} /><Skeleton height={140} radius={20} /><Skeleton height={280} radius={20} />
   </div></CustomerShell>;
   if (!view.enabled) return <CustomerState title="Hier gibt es keine Online-Termine." message="Frag im Geschäft nach einem Termin."><Link href={`/card/${encodeURIComponent(token)}`} className={buttonClassName({ variant: "secondary" })}>Zur Karte</Link></CustomerState>;
@@ -205,9 +206,10 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const total = moving ? 3 : 4;
   const index = { service: 1, day: moving ? 1 : 2, time: moving ? 2 : 3, confirm: moving ? 3 : 4, done: total }[step];
   const shown = days ? (allDays ? days : days.slice(0, 7)) : [];
-  const header = <div className={card.merchant}>
-    <span className={card.mono} aria-hidden="true">{Array.from(view.shop.name)[0]}</span>
-    <div className={card.merchantText}><h1 className={card.merchantName}>{view.shop.name}</h1><span>Termine</span></div>
+  // The card's merchant head (customer-state's mono tile and name), with „Termine“ as the page's h1 (Design, 22 Nov).
+  const header = <div className={legal.merchant}>
+    <span className={legal.mono} aria-hidden="true">{Array.from(view.shop.name)[0]}</span>
+    <div className={styles.headText}><strong>{view.shop.name}</strong><h1 className={styles.headTitle}>Termine</h1></div>
   </div>;
 
   return <CustomerShell brandColor={view.shop.brandColor} header={header} footer={<LegalLinks newTab />}>
@@ -332,7 +334,7 @@ function Mine({ view, base, scope, reload, onMove, offerPush }: { view: Enabled;
     {error ? <p className={card.alert} role="alert">{error}</p> : null}
     {offerPush && (view.upcoming.length || view.push.subscribed || view.push.rebookConsent) ? <BookingPush base={base} scope={scope} push={view.push} reload={reload} /> : null}
     {view.past.length ? <>
-      <h3 className={card.sectionHead}>Zuletzt</h3>
+      <h3 className={mix.h}>Zuletzt</h3>
       <ul className={styles.list}>{view.past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>
     </> : null}
   </section>;
