@@ -23,6 +23,15 @@
 /* Sign-in (ENG-122h, screen 34): the question one step larger on phones too. */
 .signin h1 { font-size: var(--display-36); line-height: 1.1; }
 
+/* ENG-342: the address a link went to; a long one breaks inside rather than overflowing. */
+.address { color: var(--color-ink); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.resend { display: grid; gap: var(--space-2); justify-items: start; }
+.resendStatus { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.5; text-wrap: pretty; }
+.resendStatus:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; } /* the live region waits, taking no grid track */
+.resendStatus[data-tone="danger"] { color: var(--color-danger); }
+.resendStatus > span { animation: alert-fade var(--dur-ui) var(--ease-out); }
+/* After a mail went out the button rests: the secondary disabled look, no hover or press; it keeps focus. */
+.resend button.resting, .resend button.resting:hover, .resend button.resting:active { color: var(--color-ink-muted); border-color: var(--color-line); transform: none; cursor: default; }
 .note { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.5; text-wrap: pretty; }
 .link { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius-sm); }
 .page h1[tabindex="-1"]:focus { outline: none; } /* a title focused to announce a new state is not a control */
@@ -50,4 +59,4 @@
 @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
 @keyframes alert-in { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes alert-fade { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .page > * { animation: none; } .alert { animation-name: alert-fade; } }
+@media (prefers-reduced-motion: reduce) { .page > * { animation: none; } .alert { animation-name: alert-fade; } .resendStatus > span { animation: none; } }

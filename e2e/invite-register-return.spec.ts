@@ -68,4 +68,12 @@ test("a foreign next is ignored: the inbox answer still leads to the plain sign-
   await page.getByLabel("Passwort wiederholen", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Konto erstellen", exact: true }).click();
   await expect(page.getByRole("link", { name: "Zur Anmeldung", exact: true })).toHaveAttribute("href", "/login");
+  // ENG-342: the answer names the address, so a typo shows, and offers the spam hint, support and the resend.
+  await expect(page.locator("h1 + p strong")).toHaveText(email);
+  await expect(page.getByRole("link", { name: "support@getloynara.com", exact: true })).toHaveAttribute("href", "mailto:support@getloynara.com");
+  // The live region is in the tree before it speaks (Design, 22 Nov), so the outcome is announced.
+  await expect(page.getByRole("status")).toBeAttached();
+  await expect(page.getByRole("status")).toHaveText("");
+  await page.getByRole("button", { name: "E-Mail erneut senden", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Wir haben dir eine neue E\u2011Mail geschickt. Schau auch im Spam\u2011Ordner nach.");
 });
