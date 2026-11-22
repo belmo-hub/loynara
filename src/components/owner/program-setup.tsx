@@ -7,7 +7,7 @@ import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users 
 import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
 import { purchaseRuleSentence } from "@/lib/points";
 import { withUnit } from "@/lib/units";
-import { setupLocation, setupReviewValidation } from "./program-setup-validation";
+import { setupLocation, setupReviewValidation, shopToday } from "./program-setup-validation";
 import { useDirtyGuard, useOwner } from "./owner-context";
 import { ShopSearch, type ShopPlace } from "./shop-search";
 import { CardLinePreview, Notice, NumberStepper } from "./owner-ui";
@@ -28,6 +28,7 @@ const SWATCHES = ["#1F4A3A", "#2F6B58", "#A8492C", "#2B4A66", "#6B3A6F", "#23282
 // Screens 19–22 (ENG-122f): one question per step, the bar under them carries the step (R19 FINAL).
 const TITLES = ["Wie heißt dein Geschäft?", "Wie sammeln deine Kunden?", "Was gibt es als erste Prämie?", "Passt das so?"];
 const HEX = /^#[0-9a-fA-F]{6}$/;
+const TIME_ZONE = "Europe/Berlin"; // every new shop is set up in Germany
 const COST_MAX = 100_000; // the server's limit for a reward's threshold
 
 export function ProgramSetup() {
@@ -46,7 +47,7 @@ export function ProgramSetup() {
   const [f, setF] = useState({
     businessName: draft?.businessName ?? "", locationName: draft && draft.locationName !== draft.businessName ? draft.locationName : "", city: draft?.city ?? "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
-    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), place: null as ShopPlace | null,
+    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: shopToday(TIME_ZONE), place: null as ShopPlace | null,
   });
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
@@ -126,7 +127,7 @@ export function ProgramSetup() {
     setBusy(true); setError("");
     try {
       await postJson<{ programSlug: string }>("/api/merchant/onboard", {
-        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: "de", currency,
+        businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: TIME_ZONE, locale: "de", currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
         ...location,
