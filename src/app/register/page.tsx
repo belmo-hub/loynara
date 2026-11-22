@@ -69,11 +69,12 @@ export default function RegisterPage() {
   if (sent) return <AuthShell>
     <div key="sent" ref={page} className={styles.page}>
       <PageHeader title="Schau in dein Postfach." description={<>Wir haben dir einen Link an <strong className={styles.address}>{sent}</strong> geschickt. Bestätige damit deine E-Mail-Adresse und melde dich dann an. Hast du schon ein Konto mit dieser Adresse, melde dich einfach an.</>} />
-      <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam-Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
       <div className={styles.resend}>
         {/* aria-disabled, not disabled: focus stays on the button while it rests after a mail went out. */}
-        <Button variant="secondary" onClick={again} loading={resend === "busy"} aria-disabled={resend === "busy" || resend === "sent" || undefined}>{resend === "busy" ? "Wird gesendet …" : "E-Mail erneut senden"}</Button>
-        <p role="status" className={styles.note}>{resend === "sent" ? "Wir haben dir den Link noch einmal geschickt." : resend === "limited" || resend === "failed" ? OUTCOME[resend] : null}</p>
+        <Button variant="secondary" className={resend === "sent" ? styles.resting : undefined} onClick={again} loading={resend === "busy"} aria-disabled={resend === "busy" || resend === "sent" || undefined}>E-Mail erneut senden</Button>
+        {/* Always mounted, so a screen reader hears the outcome; the inner line fades in per outcome. */}
+        <p role="status" className={styles.resendStatus} data-tone={resend === "limited" || resend === "failed" ? "danger" : undefined}>{resend === "sent" || resend === "limited" || resend === "failed" ? <span key={resend}>{OUTCOME[resend]}</span> : null}</p>
+        <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam‑Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
       </div>
       <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href={withInviteReturn("/login", next)}>Zur Anmeldung</Link></p>
     </div>
