@@ -74,7 +74,8 @@ export default function RegisterPage() {
         <Button variant="secondary" className={resend === "sent" ? styles.resting : undefined} onClick={again} loading={resend === "busy"} aria-disabled={resend === "busy" || resend === "sent" || undefined}>E-Mail erneut senden</Button>
         {/* Always mounted, so a screen reader hears the outcome; the inner line fades in per outcome. */}
         <p role="status" className={styles.resendStatus} data-tone={resend === "limited" || resend === "failed" ? "danger" : undefined}>{resend === "sent" || resend === "limited" || resend === "failed" ? <span key={resend}>{OUTCOME[resend]}</span> : null}</p>
-        <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam‑Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
+        {/* Once the sent line names the spam folder, the note keeps only the way to support (Design, 22 Nov). */}
+        <p className={styles.note}>{resend === "sent" ? "Nichts angekommen? Schreibe uns an " : "Nichts angekommen? Prüfe deinen Spam‑Ordner oder schreibe uns an "}<a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
       </div>
       <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href={withInviteReturn("/login", next)}>Zur Anmeldung</Link></p>
     </div>
