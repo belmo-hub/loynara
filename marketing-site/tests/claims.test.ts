@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RELEASED_GATES, GATES, COPY_VARIANTS } from '../src/claims.js';
 
@@ -86,4 +87,15 @@ test('booking gate on: the Termin + Treue plan without a price or a money-back p
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
   assert.match(t, /Termin \+ Treue: alles aus dem 49-€-Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.match(t, /Keine Provision, nie/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Weniger Nichterscheinen/);
+});
+
+test('booking gate on: the home Termin plan uses the home page\'s own plan classes, which home.css styles', () => {
+  const r = render('nfcAccepted,rcDeployed,bookingLive');
+  const plan = r.home.slice(r.home.indexOf('<p class="per">Termin + Treue</p>') - 200);
+  assert.match(plan, /<div class="pcard"><p class="per">Termin \+ Treue<\/p>/);
+  assert.match(plan, /<a class="btn btn-pri" href="#rq" data-want="demo">Demo anfragen<\/a>/);
+  assert.match(plan, /<ul class="incl" aria-label="In Termin \+ Treue enthalten">/);
+  assert.ok(!r.home.includes('price-pair') && !r.home.includes('class="price-card"'));
+  const css = readFileSync(resolve(here, '../design/home.css'), 'utf8');
+  assert.match(css, /\.pcard,\.incl\{[^}]*background:var\(--surface\)/); assert.match(css, /\.btn-pri\{background:var\(--action\)/);
 });

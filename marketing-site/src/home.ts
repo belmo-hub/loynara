@@ -1,7 +1,6 @@
 /** Home page body (website set, 10 Nov 2026): static HTML, German only. Every drawing is HTML and CSS (design/home.css);
  *  the starting state works without script, src/home-browser.ts adds the tap, the scroll scene, the calculator and the request draft. */
-import { GATES, RECOVERY_COPY } from './claims.js';
-import { terminCard } from './pages.js';
+import { GATES, RECOVERY_COPY, TERMIN_COPY } from './claims.js';
 import { SITE, industries, industryKeys } from './site.js';
 
 const price = `${SITE.price.amount} €`;
@@ -176,7 +175,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
         <div class="acts"><a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="Im Preis enthalten">
         <li>Stempel- oder Punktekarte mit deinen Prämien</li><li>NFC-Antippen und QR-Einstieg am Tresen</li><li>Bestätigung durch dein Team, mit Rollen</li><li>Apple Wallet auf Wunsch. Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert</li><li>Empfehlungen und Willkommen-zurück-Bonus</li><li>Happy Hour bei Punkten nach Einkaufswert, Geburtstags-Bonus mit Apple Wallet</li><li>Überblick, wie viele wiederkommen</li><li>Kunden, Karten und dein Team kosten nichts extra</li>
-      </ul>${GATES.bookingLive ? `<div class="price-pair">${terminCard()}</div>` : ''}
+      </ul>${GATES.bookingLive ? terminPlan() : ''}
     </div>
   </div>
 </section>
@@ -223,3 +222,13 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
 <footer><div class="wrap"><div class="rule"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a>${GATES.bookingLive ? '<a href="/fuer-salons/">Für Salons</a>' : ''}<a href="/empfehlungen/">Kunden werben Kunden</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><span class="c">© Loynara</span></div></div></footer>
 
 <nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="#rq" data-want="start">1. Monat gratis</a></nav>`;
+
+/** The Termin + Treue plan in the home page's own plan grammar (Design, 22 Nov): a pcard beside its incl list, no price until
+ *  the founder sets one, and the house primary with data-want like the other home buttons. Only with bookingLive. */
+function terminPlan() {
+  const T = TERMIN_COPY;
+  return `<div class="pcard"><p class="per">Termin + Treue</p>
+        <div class="free"><div><b>${T.planNote}</b><span>${T.fine}</span></div></div>
+        <div class="acts"><a class="btn btn-pri" href="#rq" data-want="demo">Demo anfragen</a></div></div>
+      <ul class="incl" aria-label="In Termin + Treue enthalten">${T.included.map(x => `<li>${x}</li>`).join('')}</ul>`;
+}
