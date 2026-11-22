@@ -132,7 +132,7 @@ function Wizard({ initial }: { initial: Setup }) {
   const dirty = JSON.stringify(payload(form)) !== baseline;
   useDirtyGuard("booking-setup", dirty && !saving);
   // The heading takes focus when the step changes, not when the page opens.
-  useEffect(() => { if (focusedStep.current === step) return; focusedStep.current = step; heading.current?.focus({ preventScroll: true }); }, [step]);
+  useEffect(() => { if (focusedStep.current === step) return; focusedStep.current = step; heading.current?.focus({ preventScroll: true }); heading.current?.scrollIntoView({ block: "start" }); }, [step]);
 
   const all = problems(form);
   const err = (id: string) => tried ? all[step][id] ?? "" : "";
@@ -214,7 +214,8 @@ function Wizard({ initial }: { initial: Setup }) {
           </li>
         ))}
       </ol>
-      <form className="ow-card ow-stack ow-prog" style={{ gap: "var(--space-5)" }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
+      {/* D8 (Design, 22 Nov): each step arrives in place (Arrive, an 8 px rise over --dur-ui), cut under reduced motion. */}
+      <form key={step} className="ow-card ow-stack ow-prog ow-arrive" style={{ gap: "var(--space-5)" }} noValidate onSubmit={event => { event.preventDefault(); if (last) void save(); else go(step + 1); }}>
         {step === 0 && <>
           <div><h2 ref={heading} tabIndex={-1}>Was für ein Betrieb bist du?</h2><p className="ow-hint">{returning ? "Ändert nur die Art. Deine Leistungen und Zeiten bleiben." : "Füllt Leistungen und Zeiten mit Beispielen vor. Alles bleibt änderbar."}</p></div>
           <div className="ow-radio-cards" role="radiogroup" aria-label="Betriebsart" aria-describedby={err("bs-type-nagelstudio") ? "bs-type-error" : undefined}>
