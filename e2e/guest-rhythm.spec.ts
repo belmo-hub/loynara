@@ -94,3 +94,27 @@ test("the card's birthday panel uses the house selects", async ({ page }) => {
     return { fields: el.querySelectorAll("select").length, heights: [Math.round(day.height), Math.round(month.height)], sameRow: Math.round(day.top) === Math.round(month.top), gap: Math.round(month.left - day.right), monthTwiceAsWide: Math.abs(month.width - 2 * day.width) <= 1, labels: [...el.querySelectorAll("label")].map(label => label.textContent) };
   })).toEqual({ fields: 2, heights: [48, 48], sameRow: true, gap: 12, monthTwiceAsWide: true, labels: ["Tag", "Monat"] });
 });
+
+// Finding 17 (Design, 22 Nov): „Speichern“ is always pressable; on submit only the empty select says what is missing and
+// takes the focus, and its error goes once it is picked.
+test("the birthday's „Speichern“ marks an empty select instead of waiting disabled", async ({ page }) => {
+  const posted: unknown[] = [];
+  await page.route("**/api/card/*/birthday", route => {
+    if (route.request().method() !== "GET") { posted.push(route.request().postDataJSON()); return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: null, month: null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) });
+  });
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  const day = page.locator("#birthday-day"), month = page.locator("#birthday-month"), save = page.getByRole("button", { name: "Speichern", exact: true });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(day).toBeFocused();
+  for (const select of [day, month]) await expect(select).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#birthday-day-error")).toHaveText("Bitte wähle Tag und Monat.");
+  await day.selectOption("12");
+  await expect(day).not.toHaveAttribute("aria-invalid", "true");
+  await expect(month).toHaveAttribute("aria-invalid", "true");
+  expect(posted).toEqual([]);
+  await month.selectOption("5");
+  await save.click();
+  await expect.poll(() => posted).toEqual([{ day: 12, month: 5 }]);
+});

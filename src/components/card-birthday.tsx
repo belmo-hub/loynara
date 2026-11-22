@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiJson, postJson } from "./client-api";
 import { Button } from "./ui/button";
 import { Select } from "./ui/select";
+import { useFormCheck } from "./ui/form-check";
 import styles from "./customer/panels.module.css";
 
 type Birthday = { available: boolean; day: number | null; month: number | null; text: string };
@@ -19,6 +20,9 @@ export function CardBirthday({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(""); const [error, setError] = useState("");
   const url = `/api/card/${encodeURIComponent(token)}/birthday`;
+  // Finding 17 (Design, 22 Nov): „Speichern“ is always pressable; an empty select says what is missing on submit.
+  const PICK = "Bitte wähle Tag und Monat.";
+  const fields = useFormCheck({ "birthday-day": PICK, "birthday-month": PICK });
 
   useEffect(() => {
     let active = true;
@@ -38,15 +42,17 @@ export function CardBirthday({ token }: { token: string }) {
   if (!state?.available) return null;
   return <section className={styles.panel} aria-labelledby="birthday-title">
     <h2 id="birthday-title">Geburtstag (freiwillig)</h2>
+    <form noValidate onInput={fields.onInput} onChange={fields.onInput} onSubmit={event => { event.preventDefault(); if (!busy && fields.check(event.currentTarget)) void save(); }}>
     <div className={styles.dayMonth}>
-      <Select label="Tag" value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
-      <Select label="Monat" value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
+      <Select id="birthday-day" label="Tag" required error={fields.error("birthday-day")} value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
+      <Select id="birthday-month" label="Monat" required error={fields.error("birthday-month")} value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
     </div>
     <p className={styles.muted}>{state.text}</p>
     <div className={styles.actions}>
-      <Button size="sm" loading={busy} disabled={!day || !month} onClick={() => void save()}>Speichern</Button>
-      {state.day !== null && <Button size="sm" variant="secondary" disabled={busy} onClick={() => void remove()}>Löschen</Button>}
+      <Button type="submit" size="sm" loading={busy}>Speichern</Button>
+      {state.day !== null && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void remove()}>Löschen</Button>}
     </div>
+    </form>
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
   </section>;
