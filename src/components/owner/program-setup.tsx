@@ -7,8 +7,9 @@ import { ChevronLeft, Coins, Gift, ReceiptText, ScrollText, Stamp, Store, Users 
 import { ClientApiError, imageToDataUrl, postJson } from "@/components/client-api";
 import { purchaseRuleSentence } from "@/lib/points";
 import { withUnit } from "@/lib/units";
-import { setupReviewValidation } from "./program-setup-validation";
+import { setupLocation, setupReviewValidation } from "./program-setup-validation";
 import { useDirtyGuard, useOwner } from "./owner-context";
+import { ShopSearch, type ShopPlace } from "./shop-search";
 import { CardLinePreview, Notice, NumberStepper } from "./owner-ui";
 import { quoteStart } from "./program-list";
 import { Choices, Control, FieldError } from "./question-form";
@@ -33,7 +34,8 @@ export function ProgramSetup() {
   const router = useRouter();
   const owner = useOwner();
   const logoHidden = owner.hiddenSurfaces.includes("cardLogo");
-  const walletsHidden = owner.hiddenSurfaces.includes("walletPreviews");
+  // The shop's point only serves Wallet hints, and the search needs its provider (ENG-323).
+  const placeOffered = !owner.hiddenSurfaces.includes("walletPreviews") && !owner.hiddenSurfaces.includes("shopSearch");
   const heading = useRef<HTMLHeadingElement>(null), fail = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
@@ -44,7 +46,7 @@ export function ProgramSetup() {
   const [f, setF] = useState({
     businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
-    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), latitude: "", longitude: "",
+    programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), place: null as ShopPlace | null,
   });
   const [amount, setAmount] = useState("");
   const set = (patch: Partial<typeof f>) => setF(current => ({ ...current, ...patch }));
@@ -63,10 +65,9 @@ export function ProgramSetup() {
   const rulesText = f.rulesEdited ? f.rules : draftRules(f.type, effectiveMode);
   // By purchase amount the card states the earning itself, so the field holds optional extra rules (W51).
   const kind = ruleKind(f.type, effectiveMode), extras = kind === "purchase";
-  // One shop names its location after the city; a second location is named where it is added (ENG-322).
-  const locationName = (f.city.trim() === (draft?.city ?? "").trim() && f.locationName.trim()) || f.city.trim();
+  const location = setupLocation(f, draft, placeOffered), { locationName } = location;
   const programName = f.programName || (f.businessName.trim() ? `${f.businessName.trim()} Treuekarte` : "Treueprogramm");
-  const reviewValidation = setupReviewValidation({ programName, date: f.date, latitude: f.latitude, longitude: f.longitude });
+  const reviewValidation = setupReviewValidation({ programName, date: f.date });
 
   const problems: Array<Record<string, string>> = [
     { businessName: f.businessName.trim().length < 2 ? "Bitte den Geschäftsnamen eingeben." : "", city: f.city.trim().length < 2 ? "Bitte die Stadt eingeben." : "" },
@@ -128,9 +129,8 @@ export function ProgramSetup() {
         businessName: f.businessName.trim(), city: f.city.trim(), country: "DE", timezone: "Europe/Berlin", locale: "de", currency,
         programName: programName.trim(), programType: f.type, earningMode: effectiveMode, pointsPerCurrencyUnit: f.type === "points" && effectiveMode === "purchase" ? rate : 1,
         rulesText: rulesText.trim(), rewardTitle: f.rewardName.trim(), rewardCost: cost,
-        locationName,
+        ...location,
         brandColor: f.brandColor, effectiveDate: f.date, logoData: f.logoData,
-        ...reviewValidation.coordinates,
       });
       if (!await owner.refresh()) throw new Error("Die Einrichtung konnte noch nicht geladen werden. Sie kann bereits gespeichert sein. Bitte prüfe den gespeicherten Stand, bevor du erneut startest.");
       router.replace("/merchant");
@@ -233,10 +233,7 @@ export function ProgramSetup() {
               </div></Field>}
               <Field id="su-programName" label="Programmname" error={err("programName")}><input id="su-programName" className="ow-input" value={f.programName || programName} maxLength={120} {...invalid("programName")} onChange={event => set({ programName: event.target.value })} /></Field>
               <Field id="su-date" label="Gültig ab" error={err("date")}><input id="su-date" className="ow-input ow-field--narrow" type="date" required {...invalid("date")} value={f.date} onChange={event => set({ date: event.target.value })} /></Field>
-              {!walletsHidden && <>
-                <div className="ow-grid-2"><Field id="su-latitude" label="Breitengrad (optional)" error={err("latitude")}><input id="su-latitude" className="ow-input" inputMode="decimal" {...invalid("latitude")} value={f.latitude} onChange={event => set({ latitude: event.target.value })} /></Field><Field id="su-longitude" label="Längengrad (optional)" error={err("longitude")}><input id="su-longitude" className="ow-input" inputMode="decimal" {...invalid("longitude")} value={f.longitude} onChange={event => set({ longitude: event.target.value })} /></Field></div>
-                <span className="ow-hint">Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert.</span>
-              </>}
+              {placeOffered && <ShopSearch label="Dein Geschäft (optional)" pickedLabel="Dein Geschäft" value={f.place} onChange={place => set({ place })} purpose="Nur die Position deines Geschäfts für Wallet-Hinweise. Es wird kein Kundenstandort gespeichert." />}
             </div>
           </details>
           <p className="ow-hint">Das Programm startet mit dem Speichern (gültig ab {f.date.split("-").reverse().join(".")}). Kunden können sich dann anmelden.</p>
