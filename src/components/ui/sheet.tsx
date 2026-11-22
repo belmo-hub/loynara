@@ -17,7 +17,7 @@ export function Sheet({ open, onClose, title, children, footer, side = "auto", c
   const backdrop = useBackdropClose(onClose);
   // `keepHeight` (ENG-331): the sheet holds its height for the length of a press, so a list closing on blur cannot pull
   // „Schließen“ or a row out from under the finger; after the press it settles to its content. No transition: the hold
-  // must be there at once. Released on click or cancel, not pointerup (on touch the blur comes after pointerup); a press
+  // must be there at once. Released on click, cancel or context menu, not pointerup (on touch the blur comes after pointerup); a press
   // on a disabled control gets no click, so it takes no hold, and opening or closing clears any.
   useEffect(() => { if (ref.current) ref.current.style.minHeight = ""; }, [open]);
   const hold = keepHeight ? {
@@ -27,6 +27,7 @@ export function Sheet({ open, onClose, title, children, footer, side = "auto", c
     },
     onClickCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }),
     onPointerCancelCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }),
+    onContextMenuCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }), // a macOS Ctrl+click: pointerdown, then this, never a click
   } : {};
 
   // Drag down on the handle to dismiss; a quick flick is enough (velocity), slow drags need 120 px.

@@ -80,7 +80,21 @@ test("a right-click with the list open leaves no held height, and „Schließen�
   await expect(dialog.getByRole("option")).toHaveCount(5);
   const title = (await dialog.getByRole("heading", { name: "Koordinaten" }).boundingBox())!;
   await page.mouse.click(title.x + 4, title.y + 4, { button: "right" }); // a press with no click to release it
-  expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+  await expect.poll(() => dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toMatch(/^(0px)?$/);
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect((await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
+});
+
+test("a macOS Ctrl+click with the list open leaves no held height, and „Schließen“ stays on screen after rotating", async ({ page }) => {
+  const { dialog, search } = await sheet(page);
+  await search.fill("Café am");
+  await expect(dialog.getByRole("option")).toHaveCount(5);
+  // What Safari and Chrome on a Mac send for Ctrl+click on text: pointerdown with button 0 and ctrlKey, then contextmenu, no click.
+  await dialog.locator("#su-place-legal").evaluate(text => {
+    text.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: true, pointerType: "mouse" }));
+    text.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, button: 0, ctrlKey: true }));
+  });
+  await expect.poll(() => dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toMatch(/^(0px)?$/);
   await page.setViewportSize({ width: 844, height: 390 });
   expect((await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
 });
