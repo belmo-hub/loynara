@@ -15,6 +15,10 @@ import { OWNER_AVV, OWNER_TERMS, SIGNUP_ACCEPTANCE_HEADER, SIGNUP_ACCEPTANCE_TEX
 import { OWNER_PRIVACY_NOTICE } from "@/lib/owner-privacy";
 import styles from "@/components/auth/auth.module.css";
 import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN, signUpMessage } from "@/components/auth/auth-errors";
+import { OUTCOME } from "@/components/owner/verify-email-notice";
+
+// Marketing, 19 Nov (the password page's line): when no mail arrives, the spam folder and then support are the way on.
+const SUPPORT = "mailto:support@getloynara.com";
 
 export default function RegisterPage() {
   const page = useRef<HTMLDivElement>(null);
@@ -25,7 +29,8 @@ export default function RegisterPage() {
   const [mismatch, setMismatch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
+  const [resend, setResend] = useState<"idle" | "busy" | "sent" | "limited" | "failed">("idle");
   const fields = useFormCheck();
   // The new state is announced: its title takes focus, as on „Passwort vergessen“.
   useEffect(() => { const title = sent ? page.current?.querySelector("h1") : null; if (title) { title.tabIndex = -1; title.focus(); } }, [sent]);
@@ -45,14 +50,31 @@ export default function RegisterPage() {
       try { result = await authClient.signUp.email({ name, email, password, ...(next ? {} : { fetchOptions: { headers: { [SIGNUP_ACCEPTANCE_HEADER]: SIGNUP_ACCEPTANCE_TEXT_VERSION } } }) }); }
       catch { setError(CONNECTION_LOST); return; }
       if (result.error) { setError(signUpMessage(result.error, "register")); return; }
-      setSent(true);
+      setSent(email);
     } finally { setBusy(false); }
+  }
+
+  // ENG-342: the same anonymous, per-address and per-peer limited resend as the owner's notice. Signed out, it answers
+  // every address alike (auth.ts), so „sent“ here says nothing about whether an account exists.
+  async function again() {
+    if (!sent || resend === "busy" || resend === "sent") return;
+    setResend("busy");
+    try {
+      const { error: failed } = await authClient.sendVerificationEmail({ email: sent, callbackURL: "/merchant" });
+      setResend(!failed ? "sent" : failed.status === 429 ? "limited" : "failed");
+    } catch { setResend("failed"); }
   }
 
   // ENG-283: a new and an existing address get this same answer, so the page never tells whether an account exists.
   if (sent) return <AuthShell>
     <div key="sent" ref={page} className={styles.page}>
-      <PageHeader title="Schau in dein Postfach." description="Wir haben dir einen Link geschickt. Bestätige damit deine E-Mail-Adresse und melde dich dann an. Hast du schon ein Konto mit dieser Adresse, melde dich einfach an." />
+      <PageHeader title="Schau in dein Postfach." description={<>Wir haben dir einen Link an <strong className={styles.address}>{sent}</strong> geschickt. Bestätige damit deine E-Mail-Adresse und melde dich dann an. Hast du schon ein Konto mit dieser Adresse, melde dich einfach an.</>} />
+      <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam-Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
+      <div className={styles.resend}>
+        {/* aria-disabled, not disabled: focus stays on the button while it rests after a mail went out. */}
+        <Button variant="secondary" onClick={again} loading={resend === "busy"} aria-disabled={resend === "busy" || resend === "sent" || undefined}>{resend === "busy" ? "Wird gesendet …" : "E-Mail erneut senden"}</Button>
+        <p role="status" className={styles.note}>{resend === "sent" ? "Wir haben dir den Link noch einmal geschickt." : resend === "limited" || resend === "failed" ? OUTCOME[resend] : null}</p>
+      </div>
       <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href={withInviteReturn("/login", next)}>Zur Anmeldung</Link></p>
     </div>
   </AuthShell>;

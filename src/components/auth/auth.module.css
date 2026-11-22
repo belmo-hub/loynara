@@ -20,6 +20,10 @@
 /* Sign-in (ENG-122h, screen 34): the question one step larger on phones too. */
 .signin h1 { font-size: var(--display-36); line-height: 1.1; }
 
+/* ENG-342: the address a link went to, whole on its own line if it must break. */
+.address { color: var(--color-ink); font-weight: var(--weight-label); overflow-wrap: anywhere; }
+.resend { display: grid; gap: var(--space-2); justify-items: start; }
+.resend > p:empty { display: none; }
 .note { margin: 0; color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.5; text-wrap: pretty; }
 .link { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius-sm); }
 .page h1[tabindex="-1"]:focus { outline: none; } /* a title focused to announce a new state is not a control */
