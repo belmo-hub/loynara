@@ -83,7 +83,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
   const query = state.text.trim();
 
   useEffect(() => {
-    if (query.length < 2) return;
+    if (query.length < 2) { latest.current.cancel(); return; } // cut below two: no late search or pick may land
     const live = latest.current.next(); // a later keystroke or pick wins over a slower earlier answer
     const timer = setTimeout(() => {
       token.current ||= crypto.randomUUID();
@@ -144,7 +144,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
       <div className="ow-options-by"><GoogleMapsLogo /></div>
     </div>
     {/* One polite region, always there, so each new line is announced; the count is for screen readers only. */}
-    <p className="ow-hint ow-place-status" role="status" aria-live="polite">{status && <span key={status} className={state.status === "shown" && state.open ? "ow-sr" : undefined} data-alert={state.status === "failed" || state.status === "pickFailed" || undefined}>{status}</span>}</p>
+    <p className="ow-hint ow-place-status" role="status" aria-live="polite">{status && <span key={status} className={state.open && (state.status === "shown" || state.status === "searching") ? "ow-sr" : undefined} data-alert={state.status === "failed" || state.status === "pickFailed" || undefined}>{status}</span>}</p>
     {purpose && <p id="su-place-purpose" className="ow-hint">{purpose}</p>}
     <p id="su-place-legal" className="ow-hint">Die Suche nutzt Google Maps. Es gelten die <a className="ow-link" href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer">Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth</a> und die <a className="ow-link" href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Datenschutzerklärung von Google</a>.</p>
   </div>;
