@@ -9,14 +9,14 @@ import { pool } from "@/db";
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test") || !["localhost", "127.0.0.1"].includes(new URL(process.env.DATABASE_URL).hostname)) throw new Error("Dedicated local synthetic database required");
 
 const realEnv = { nodeEnv: process.env.NODE_ENV, test: process.env.TEST, ingress: process.env.TRUSTED_INGRESS, registration: process.env.PUBLIC_REGISTRATION_ENABLED };
-process.env.NODE_ENV = "development"; delete process.env.TEST; process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
+(process.env as Record<string, string | undefined>).NODE_ENV = "development"; delete process.env.TEST; process.env.TRUSTED_INGRESS = "cloudflare_tunnel";
 const { GET, POST } = await import("@/app/api/auth/[...all]/route");
 const { isoBase64URL, isoCBOR } = await import("@simplewebauthn/server/helpers");
 const origin = "http://localhost:3000", rpId = "localhost";
 let peer = 0;
 beforeEach(async () => { await pool.query('TRUNCATE tenants, "user", rate_limits CASCADE'); await pool.query("DELETE FROM verification"); });
 afterAll(async () => {
-  process.env.NODE_ENV = realEnv.nodeEnv; if (realEnv.test !== undefined) process.env.TEST = realEnv.test;
+  (process.env as Record<string, string | undefined>).NODE_ENV = realEnv.nodeEnv; if (realEnv.test !== undefined) process.env.TEST = realEnv.test;
   for (const [key, value] of Object.entries({ TRUSTED_INGRESS: realEnv.ingress, PUBLIC_REGISTRATION_ENABLED: realEnv.registration })) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
@@ -24,7 +24,7 @@ afterAll(async () => {
 });
 
 const sha = (data: Uint8Array | string) => new Uint8Array(createHash("sha256").update(data).digest());
-const b64 = (bytes: Uint8Array) => isoBase64URL.fromBuffer(bytes);
+const b64 = (bytes: Uint8Array) => isoBase64URL.fromBuffer(new Uint8Array(bytes));
 const u32 = (n: number) => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
 const cat = (...parts: Uint8Array[]) => { const all = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let i = 0; for (const p of parts) { all.set(p, i); i += p.length; } return all; };
 const jar = (...responses: Response[]) => responses.flatMap(r => r.headers.getSetCookie()).map(c => c.split(";")[0]).filter(c => !/=$/.test(c)).join("; ");
@@ -44,7 +44,7 @@ function authenticator() {
     id: b64(credentialId),
     register(challenge: string, flags = 0x45) {
       const authData = cat(sha(rpId), new Uint8Array([flags]), u32(counter), new Uint8Array(16), new Uint8Array([0, credentialId.length]), credentialId, cose);
-      const attestationObject = isoCBOR.encode(new Map<string, unknown>([["fmt", "none"], ["attStmt", new Map()], ["authData", authData]]));
+      const attestationObject = isoCBOR.encode(new Map<string, unknown>([["fmt", "none"], ["attStmt", new Map()], ["authData", authData]]) as unknown as Parameters<typeof isoCBOR.encode>[0]);
       return { id: b64(credentialId), rawId: b64(credentialId), type: "public-key", clientExtensionResults: {}, authenticatorAttachment: "platform",
         response: { clientDataJSON: b64(clientData("webauthn.create", challenge)), attestationObject: b64(attestationObject), transports: ["internal"] } };
     },
