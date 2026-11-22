@@ -24,3 +24,16 @@ it("ten bookings an hour per peer and shop, then a German refusal with Retry-Aft
   const other = await bookingShop();
   expect((await post(other.card.cardToken, other.serviceId, 0)).status).toBe(201);
 });
+
+it("a replay and a refused attempt do not count: only created bookings use up the hour", async () => {
+  await pool.query("DELETE FROM rate_limits");
+  const shop = await bookingShop();
+  const cards = [shop.card.cardToken, ...await Promise.all(Array.from({ length: 5 }, async () => (await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true })).cardToken))];
+  const body = { serviceId: shop.serviceId, start: slot(0).toISOString(), customerName: "Mia", idempotencyKey: randomUUID() };
+  const send = (token: string, data: object) => bookRoute(request(`/api/card/${token}/booking/appointments`, { body: data }), { params: Promise.resolve({ token }) });
+  expect((await send(cards[0], body)).status).toBe(201);
+  for (let n = 0; n < 12; n++) expect((await send(cards[0], body)).status).toBe(200); // the same booking again: a replay
+  for (let n = 0; n < 12; n++) expect((await send(cards[1], { ...body, idempotencyKey: randomUUID() })).status).toBe(409); // the slot is taken
+  for (let n = 1; n < 10; n++) expect((await post(cards[Math.floor(n / 2)], shop.serviceId, n)).status).toBe(201);
+  expect((await post(cards[5], shop.serviceId, 10)).status).toBe(429);
+});

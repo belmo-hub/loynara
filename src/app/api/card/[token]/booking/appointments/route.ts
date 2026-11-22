@@ -12,8 +12,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const { token } = await context.params;
     await cardBookingLimits(request, token, true);
     const input = body.parse(await jsonBody(request, 2000));
-    await bookingCreateLimit(request, token);
-    const { appointment, duplicate } = await book({ ...input, token, start: new Date(input.start), customerPhone: input.customerPhone || undefined });
+    const refund = await bookingCreateLimit(request, token);
+    const { appointment, duplicate } = await book({ ...input, token, start: new Date(input.start), customerPhone: input.customerPhone || undefined })
+      .catch(async (error: unknown) => { await refund(); throw error; });
+    if (duplicate) await refund();
     return Response.json(appointment, { status: duplicate ? 200 : 201, headers: NO_STORE });
   } catch (error) { return respondError(error); }
 }
