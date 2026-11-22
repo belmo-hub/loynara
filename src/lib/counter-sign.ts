@@ -20,7 +20,7 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, character => ({
 export const SIGN_FONT = "/fonts/manrope-latin.woff2";
 
 /** What the new tab shows until the sign is ready (ENG-343): the sign's paper, not a white flash. */
-export const COUNTER_SIGN_PLACEHOLDER = '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tresenschild</title><style>:root{color-scheme:light}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f1e9;color:#193b2d;font-family:Arial,Helvetica,sans-serif;font-size:16px}</style></head><body><p>Tresenschild wird erstellt …</p></body></html>';
+export const COUNTER_SIGN_PLACEHOLDER = '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tresenschild</title><style>:root{color-scheme:light}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f1e9;color:#193b2d;font-family:Manrope,Arial,Helvetica,sans-serif;font-size:16px}</style></head><body><p>Tresenschild wird erstellt …</p></body></html>';
 
 export function counterSignHtml(input: CounterSignInput): string {
   if (!/^<svg\b[^>]*>[\s\S]*<\/svg>\s*$/.test(input.qrSvg)) throw new Error("QR-Code ist nicht verfügbar.");
@@ -47,7 +47,7 @@ export function counterSignHtml(input: CounterSignInput): string {
 <style>${font}
   :root{color-scheme:light;--forest:#193b2d;--green:#2f6b58;--paper:#f4f1e9}
   *{box-sizing:border-box}body{margin:0;background:#e6ebe4;color:var(--forest);font-family:Manrope,Arial,Helvetica,sans-serif}
-  .sheet{width:min(148mm,100%);min-height:210mm;margin:18px auto;padding:12mm 13mm 9mm;background:var(--paper);box-shadow:0 14px 40px #193b2d22;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .sheet{width:min(148mm,100%);min-height:210mm;margin:16px auto;padding:12mm 13mm 9mm;background:var(--paper);box-shadow:0 14px 40px #193b2d22;display:flex;flex-direction:column;align-items:center;text-align:center}
   .eyebrow{margin:7mm 0 3mm;color:var(--green);font-size:10px;font-weight:800;letter-spacing:.18em}h1{margin:0;font-size:31px;line-height:1.06;letter-spacing:-.02em;overflow-wrap:anywhere}
   .location{margin:2mm 0 0;font-size:14px;font-weight:700;overflow-wrap:anywhere}.sub{margin:3mm 0 7mm;font-size:14px}
   .qr{width:83mm;max-width:100%;height:auto;aspect-ratio:1;padding:7.5mm;border:2px solid var(--green);border-radius:8mm;background:#fff}.qr svg{display:block;width:100%;height:auto}

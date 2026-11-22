@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Link2, Printer } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { COUNTER_SIGN_PLACEHOLDER, counterSignHtml, SIGN_FONT } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
@@ -45,11 +45,27 @@ export async function openCounterSign(me: MeResponse): Promise<"opened" | "downl
 export const SIGN_NOTE = { idle: "Mit QR-Code zum Ausdrucken", busy: "Wird erstellt …", opened: "Tresenschild geöffnet", downloaded: "Tresenschild heruntergeladen" } as const;
 export const SIGN_FAILED = "Das Tresenschild konnte nicht erstellt werden.";
 
+/** The Kunden row's opener, shaped like useCopy: the result line reverts after 2 s; the timer is cleared before a new tap
+ *  and on unmount, so an old one never drops the busy guard (a second tap while busy would open a second tab). */
+function useCounterSign(me: MeResponse, onError: (message: string) => void) {
+  const [sign, setSign] = useState<"idle" | "busy" | "opened" | "downloaded">("idle");
+  const revert = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(revert.current), []);
+  function openSign() {
+    if (sign === "busy") return;
+    clearTimeout(revert.current);
+    setSign("busy");
+    openCounterSign(me).then(result => { setSign(result); revert.current = setTimeout(() => setSign("idle"), 2000); },
+      cause => { setSign("idle"); onError(cause instanceof Error ? cause.message : SIGN_FAILED); });
+  }
+  return { sign, openSign };
+}
+
 /** „Kunden einladen“ on Kunden (ENG-122a, R3) as two rows: copy the sign-up link, download the Tresenschild. */
 export function InviteRows({ me }: { me: MeResponse }) {
   const { copied, copy } = useCopy();
   const [error, setError] = useState("");
-  const [sign, setSign] = useState<"idle" | "busy" | "opened" | "downloaded">("idle");
+  const { sign, openSign } = useCounterSign(me, setError);
   const joinUrl = joinUrlOf(me);
   const row = (icon: ReactNode, title: string, sub: string | undefined, onClick: () => void) => <li><button type="button" className="ow-prog-row" onClick={() => { setError(""); onClick(); }}>
     <span className="ow-prog-icon">{icon}</span>
@@ -64,13 +80,7 @@ export function InviteRows({ me }: { me: MeResponse }) {
         {row(<Link2 size={20} aria-hidden="true" />, copied ? "Kopiert" : "Anmeldelink kopieren", undefined,
           () => void copy(joinUrl).then(ok => { if (!ok) setError("Kopieren nicht möglich. Markiere den Link und kopiere ihn manuell."); }))}
         {row(<Printer size={20} aria-hidden="true" />, "Tresenschild laden", SIGN_NOTE[sign],
-          () => {
-            // A second tap while the sign is made would open a second tab.
-            if (sign === "busy") return;
-            setSign("busy");
-            openCounterSign(me).then(result => { setSign(result); window.setTimeout(() => setSign("idle"), 2000); },
-              cause => { setSign("idle"); setError(cause instanceof Error ? cause.message : SIGN_FAILED); });
-          })}
+          openSign)}
       </ul>}
       <div role="status" aria-live="polite" className="ow-sr">{copied ? "Link kopiert." : sign === "idle" ? null : SIGN_NOTE[sign]}</div>
       {error && <p className="ow-error ow-qerror ow-prog-note" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}

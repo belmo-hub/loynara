@@ -175,7 +175,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {panel ? <NextPanel next={next} lead={thumb ? { kind: "card", node: thumb } : next ? { kind: "tile", node: <MixTile tone="mute">{stepIcon(next.kind)}</MixTile> } : undefined} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
-        <p className="ow-sr" role="status">{signed === "opened" || signed === "downloaded" ? SIGN_NOTE[signed] : null}</p>
+        <p className={cx("ow-muted", s.signError)} role="status">{signed === "opened" || signed === "downloaded" ? SIGN_NOTE[signed] : null}</p>
         <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={board && !brought ? "" : undefined}>
           <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
