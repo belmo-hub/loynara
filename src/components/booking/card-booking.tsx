@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiJson } from "../client-api";
 import { buttonClassName } from "../ui/button";
-import styles from "./customer-flow.module.css";
 import mix from "../ui/mix.module.css";
 import { formatWhen, type BookingView } from "./booking-format";
 import { Reveal } from "../customer/reveal";
