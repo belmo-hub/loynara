@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: "Loynara – digitale Treuekarten für deinen Tresen",
   description: "Ein digitales Stempel- oder Punkteprogramm für lokale Geschäfte. Browserkarte mit bewusst bestätigten Kassenbuchungen.",
   robots: { index: false, follow: false },
+  // Android Chrome then scales 1rem with the phone's text size setting; type is in rem and no root size is set.
+  other: { "text-scale": "scale" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
