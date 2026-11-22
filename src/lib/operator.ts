@@ -88,22 +88,20 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
   });
 }
 
-/**
- * „51.31270, 9.47970“ as Google Maps copies it from a right-click, or a full Maps link holding the pin (!3d…!4d…). A link's
- * @… is where the map was centred, not the shop, so it does not count; a short link would need fetching, so neither does that.
- */
+/** „51.31270, 9.47970“, as the shop names it or as measured there. No map links: a point is never copied from Google Maps (Legal, ENG-331). */
 export function parseCoordinates(text: string) {
-  const [, lat, lng] = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) ?? text.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/) ?? [];
+  const [, lat, lng] = text.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/) ?? [];
   const latitude = Number(lat), longitude = Number(lng);
-  if (!lat || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new DomainError("INVALID_POINT", "Bitte füge die Koordinaten aus Google Maps ein, zum Beispiel 51.31270, 9.47970.");
+  if (!lat || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new DomainError("INVALID_POINT", "Bitte gib die Koordinaten so ein: 51.31270, 9.47970.");
   return { latitude, longitude };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // A hand-set point carries no refresh clock, so it must never be copied from Google Maps: that would be Google content without the 30-day limit (Legal, ENG-323).
-/** Sets one location's point for the Wallet near-shop suggestion. Dry run unless `execute`; a change reaches every pass of the location. */
-export async function setLocationCoordinates(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; coordinates: string; execute: boolean }) {
+/** Sets one location's point for the Wallet near-shop suggestion. Dry run unless `execute`; a change reaches every pass of the location.
+ *  With `googlePlaceId` the point is the shop search's pick (ENG-331): it gets the 30-day refresh clock, and no name or address is kept. */
+export async function setLocationCoordinates(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; coordinates: string; googlePlaceId?: string; execute: boolean }) {
   if (!UUID.test(input.tenantId) || !UUID.test(input.locationId)) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
   const point = parseCoordinates(input.coordinates);
   return db.transaction(async tx => {
@@ -111,9 +109,10 @@ export async function setLocationCoordinates(input: { actorUserId: string; env: 
     const where = and(eq(locations.id, input.locationId), eq(locations.tenantId, input.tenantId));
     const [location] = await tx.select({ latitude: locations.latitude, longitude: locations.longitude }).from(locations).where(where).for("update");
     if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
-    const changed = location.latitude !== point.latitude || location.longitude !== point.longitude;
+    const changed = location.latitude !== point.latitude || location.longitude !== point.longitude || Boolean(input.googlePlaceId);
     if (changed && input.execute) {
-      await tx.update(locations).set({ ...point, placeLocationFetchedAt: null }).where(where); // the operator's own point: no 30-day limit
+      // A hand-set point is the operator's own: no 30-day limit.
+      await tx.update(locations).set(input.googlePlaceId ? { ...point, googlePlaceId: input.googlePlaceId, placeLocationFetchedAt: new Date() } : { ...point, placeLocationFetchedAt: null }).where(where);
       const held = await tx.select({ id: programs.id }).from(programs).where(and(eq(programs.tenantId, input.tenantId), eq(programs.locationId, input.locationId)));
       for (const program of held) await enqueueWalletProgramRefresh(tx, input.tenantId, program.id);
     }

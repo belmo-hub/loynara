@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sessionUser, enforcePeerLimit, enforceRateLimit, maySetUpShop } = vi.hoisted(() => ({ sessionUser: vi.fn(), enforcePeerLimit: vi.fn(), enforceRateLimit: vi.fn(), maySetUpShop: vi.fn() }));
+const { sessionUser, enforcePeerLimit, enforceRateLimit, maySetUpShop, assertPlateOperator } = vi.hoisted(() => ({ sessionUser: vi.fn(), enforcePeerLimit: vi.fn(), enforceRateLimit: vi.fn(), maySetUpShop: vi.fn(), assertPlateOperator: vi.fn() }));
 vi.mock("@/lib/http", () => ({
   sessionUser,
   requireSameOrigin: (request: Request) => { if (request.headers.get("origin") !== new URL(request.url).origin) throw Object.assign(new Error("origin"), { code: "INVALID_ORIGIN" }); },
@@ -8,6 +8,8 @@ vi.mock("@/lib/http", () => ({
   respondError: (cause: { code?: string }) => Response.json({ code: cause.code }, { status: cause.code === "UNAUTHENTICATED" ? 401 : cause.code === "INVALID_ORIGIN" || cause.code === "FORBIDDEN" ? 403 : cause.code === "RATE_LIMIT" ? 429 : 400 }),
 }));
 vi.mock("@/lib/product", () => ({ maySetUpShop }));
+vi.mock("@/lib/plates", () => ({ assertPlateOperator }));
+vi.mock("@/db", () => ({ db: {} }));
 vi.mock("@/lib/rate-limit", () => ({ enforcePeerLimit, enforceRateLimit }));
 
 import { POST as search } from "./route";
@@ -22,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   sessionUser.mockResolvedValue({ id: "synthetic-owner", email: "owner@example.test" });
   maySetUpShop.mockResolvedValue(true);
+  assertPlateOperator.mockRejectedValue(Object.assign(new Error("not the operator"), { code: "FORBIDDEN" }));
   vi.stubEnv("GOOGLE_MAPS_API_KEY", "synthetic-test-key");
   vi.stubGlobal("fetch", google);
 });
@@ -60,6 +63,12 @@ describe("place search route", () => {
     expect((await call(locate, "place-location", { placeId: "place_1", sessionToken: TOKEN })).status).toBe(403);
     expect(maySetUpShop).toHaveBeenCalledWith("synthetic-owner");
     expect(google).not.toHaveBeenCalled();
+    // The operator sets a shop's point in the console through the same routes (ENG-331).
+    assertPlateOperator.mockResolvedValue(undefined);
+    google.mockResolvedValueOnce(Response.json({ suggestions: [] })).mockResolvedValueOnce(Response.json({ location: { latitude: 51.3, longitude: 9.4 } }));
+    expect((await call(search, "place-search", { text: "Café", sessionToken: TOKEN })).status).toBe(200);
+    expect((await call(locate, "place-location", { placeId: "place_1", sessionToken: TOKEN })).status).toBe(200);
+    expect(assertPlateOperator).toHaveBeenCalledWith({}, "synthetic-owner", process.env);
   });
 
   it("is not offered without the key, and a Google failure is a calm 502", async () => {

@@ -20,6 +20,8 @@ import { germanDate } from "@/lib/programme-end-date";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
+import { handTypedPoint, pickedPoint, pointRequest, ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
+import fieldStyles from "@/components/ui/field.module.css";
 import { DemoMode, type DemoRunning } from "./demo-mode";
 
 type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
@@ -41,6 +43,10 @@ const date = (value: Date | string | null) => value ? new Date(value).toLocaleDa
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };
+// Tabular figures for the points only; addresses and postcodes keep their own spacing.
+const FIGURES = { fontVariantNumeric: "tabular-nums" } as const;
+// One precision on the coordinates sheet: five decimals, about a metre, like the field and its placeholder.
+const point5 = (p: { latitude: number | null; longitude: number | null }) => `${p.latitude?.toFixed(5)}, ${p.longitude?.toFixed(5)}`;
 const mapsUrl = (p: { latitude: number | null; longitude: number | null }) => `https://www.google.com/maps?q=${p.latitude},${p.longitude}`;
 const templateText = (t: Row["walletTemplate"]) => t ? `${t.templateId} (${t.source === "table" ? "Datenbank" : "Umgebungsvariable"})` : "keine";
 const STATUS: Record<string, string> = { unlinked: "frei", active: "verknüpft", revoked: "gesperrt", replaced: "ersetzt" };
@@ -52,7 +58,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
 const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo }: { rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
+export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -69,6 +75,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   const [tplPreview, setTplPreview] = useState<TemplatePreview | null>(null);
   const [pointRow, setPointRow] = useState<Row | null>(null);
   const [coordinates, setCoordinates] = useState("");
+  const [place, setPlace] = useState<ShopPlace | null>(null); // the shop search's pick (ENG-331); typing a point by hand drops it
   const [pointPreview, setPointPreview] = useState<{ latitude: number; longitude: number; changed: boolean } | null>(null);
   const [shopError, setShopError] = useState("");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
@@ -114,12 +121,15 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   async function sendPoint(execute: boolean) {
     setBusy(true); setError("");
     try {
-      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", { tenantId: pointRow!.tenantId, locationId: pointRow!.locationId, coordinates, execute });
+      const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", pointRequest(pointRow!, coordinates, place, execute));
       if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
-    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    } catch (cause) {
+      if (!execute) setPointPreview(null); // a failed check shows only its error; a failed Speichern keeps the preview for a retry
+      setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
+    }
     finally { setBusy(false); }
   }
-  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPointPreview(null); setError(""); };
+  const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPlace(null); setPointPreview(null); setError(""); };
   const closePoint = () => { setPointRow(null); setPointPreview(null); setError(""); };
   const openTemplate = (row: Row) => { setTplRow(row); setTemplateId(""); setTplPreview(null); setError(""); };
   const closeTemplate = () => { setTplRow(null); setTplPreview(null); setError(""); };
@@ -366,12 +376,19 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       </div> : null}
     </Sheet>
 
-    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten">
+    <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten" keepHeight>
       {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
-        {pointRow.latitude !== null ? <p>Jetzt: <strong>{pointRow.latitude}, {pointRow.longitude}</strong></p> : null}
-        <TextField label="Koordinaten aus Google Maps" hint="In Google Maps rechts auf den Eingang klicken und die Zahlen kopieren." placeholder="51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { setCoordinates(event.target.value); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />
-        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{pointPreview.latitude}, {pointPreview.longitude} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
+        {pointRow.latitude !== null ? <p>Jetzt: <strong style={FIGURES}>{point5(pointRow)}</strong></p> : null}
+        {placeSearch ? <div style={{ paddingBottom: 8 }}><ShopSearch label="Geschäft suchen" pickedLabel="Gewählter Ort" fallback="Gib die Koordinaten unten ein." inputClassName={fieldStyles.input} value={place} onChange={picked => { const next = pickedPoint(picked); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} /></div> : null}
+        {/* While a pick stands the point is Google's: shown as text, no input, and „Ändern“ above is the way out (Design, ENG-331). */}
+        {place ? <div className={fieldStyles.field}>
+          <span className={fieldStyles.label}>Koordinaten</span>
+          <p style={{ margin: 0, ...FIGURES }}>{coordinates}</p>
+          <p className={fieldStyles.hint}>Der Punkt kommt aus der Suche. Loynara frischt ihn regelmäßig bei Google auf.</p>
+          {error ? <p className={fieldStyles.error} aria-live="polite"><span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span></p> : null}
+        </div> : <TextField label="Koordinaten" hint="Nimm nur Werte, die das Geschäft nennt oder die du vor Ort misst. Kopier sie nie aus Google Maps." placeholder="z. B. 51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} style={FIGURES} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />}
+        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline", ...FIGURES }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{point5(pointPreview)} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
           : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}

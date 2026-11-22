@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IDLE, latestOnly, placeCoordinates, searchReducer, searchStatus, type SearchState } from "./shop-search";
+import { handTypedPoint, IDLE, latestOnly, pickedPoint, placeCoordinates, pointRequest, searchReducer, searchStatus, type SearchState } from "./shop-search";
 
 describe("shop search client parsing", () => {
   it("keeps a valid point exactly as the onboarding payload takes it", () => {
@@ -83,4 +83,23 @@ describe("shop search states", () => {
     const search = latest.next(), newer = latest.next();
     expect([search(), newer()]).toEqual([false, true]);
   });
+});
+
+// ENG-331 (review): a pick fills the console's point; any hand edit drops it, so a typed point never gets Google's clock.
+it("fills the console's point from a pick and drops the pick on a hand edit", () => {
+  const place = { id: "place_1", name: "Café", address: "Kassel", latitude: 51.3127, longitude: 9 };
+  expect(pickedPoint(place)).toEqual({ place, coordinates: "51.31270, 9.00000" }); // the sheet's one precision, about 1 m
+  expect(pickedPoint(null)).toEqual({ place: null, coordinates: "" });
+  expect(handTypedPoint("51.31270, 9.00001")).toEqual({ place: null, coordinates: "51.31270, 9.00001" });
+});
+
+// Design's ruling for the console: Google's digits are never sent without their place id.
+it("sends a pick's point only together with its place id, and „Ändern“ leaves nothing of it", () => {
+  const shop = { tenantId: "t1", locationId: "l1" }, place = { id: "place_1", name: "Café", address: "Kassel", latitude: 51.3127, longitude: 9.4797 };
+  const picked = pickedPoint(place);
+  expect(pointRequest(shop, picked.coordinates, picked.place, false)).toEqual({ tenantId: "t1", locationId: "l1", coordinates: "51.31270, 9.47970", googlePlaceId: "place_1", execute: false });
+  const changed = pickedPoint(null);
+  expect(pointRequest(shop, changed.coordinates, changed.place, true)).toEqual({ tenantId: "t1", locationId: "l1", coordinates: "", execute: true });
+  const typed = handTypedPoint("51.31000, 9.47000");
+  expect(pointRequest(shop, typed.coordinates, typed.place, true)).not.toHaveProperty("googlePlaceId");
 });
