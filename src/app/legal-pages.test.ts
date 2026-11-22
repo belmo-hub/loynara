@@ -8,7 +8,8 @@ import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./dat
 import { InviteClient } from "@/components/invite-client";
 import VertragsbedingungenPage, { metadata as TermsMetadata } from "./vertragsbedingungen/page";
 import AvvPage, { metadata as AvvMetadata } from "./avv/page";
-import { AVV_FILL_INS, hasOpenMarks } from "@/lib/owner-contract";
+import { AVV_FILL_INS, BOOKING_AVV_VERSION, hasOpenMarks, OWNER_AVV } from "@/lib/owner-contract";
+import { REBOOK_CONSENT } from "@/lib/booking/rebook-consent-text";
 
 const search = vi.hoisted(() => ({ value: "" }));
 // Lets a test show the pages with an open AVV fill-in; otherwise the real check.
@@ -206,5 +207,45 @@ describe("owner sign-up acceptance", () => {
     expect(html).not.toMatch(/bereits angewendet|öffentlichen Port|Cloudflare-Tunnel|Wiederherstellungsperson|Release-Protokoll|Alle Verbindungen|zuletzt am|Mobiltelefone/);
     expect(html).toContain("<strong>Mailgun</strong>, Mailgun Technologies, Inc., 112 E Pecan Street #1135, San Antonio, TX 78205, USA.");
     expect(Object.values(AVV_FILL_INS).filter(text => text.includes("[[")).map(text => text.slice(2, 7))).toEqual([]);
+  });
+});
+
+// ENG-201: Legal's Loynara Termin texts, verbatim (legal-ops/2026-11-22-eng-201-termin-booking.md, B-1 to B-4).
+describe("Loynara Termin legal texts", () => {
+  it("the privacy notice's Terminbuchung section is Legal's five paragraphs, in order, and nothing of the old one", () => {
+    const html = renderToStaticMarkup(createElement(DatenschutzPage)).replaceAll("<!-- -->", "");
+    const section = html.slice(html.indexOf('<h2 id="terminbuchung">'), html.indexOf('<h2 id="geburtstag">'));
+    expect(section).toBe(['<h2 id="terminbuchung">Terminbuchung</h2>',
+      "<p><strong>Terminbuchung.</strong> Bietet das Geschäft Online-Termine an, kannst du über deine Karte einen Termin buchen. Dafür speichern wir deinen Namen, freiwillig deine Telefonnummer, die gebuchte Leistung mit Mitarbeiterin oder Mitarbeiter, Datum und Uhrzeit sowie den Verlauf des Termins (angefragt, bestätigt, verschoben, abgesagt, erledigt oder nicht erschienen). Das Geschäft sieht Name und Telefonnummer bei seinen Terminen und kann sie exportieren. Rechtsgrundlage ist die Durchführung des Termins (Art. 6 Abs. 1 Buchst. b DSGVO).</p>",
+      "<p><strong>Erinnerungen.</strong> Schaltest du auf deiner Karte Erinnerungen ein, speichern wir die Push-Adresse deines Browsers. Du bekommst dann einen Tag und zwei Stunden vor dem Termin eine Mitteilung, außerdem eine, wenn das Geschäft deinen Termin bestätigt, verschiebt oder absagt. Zwischen 21 und 8 Uhr schicken wir keine Mitteilungen. Sie gehen verschlüsselt über den Push-Dienst deines Browsers (zum Beispiel von Apple, Google oder Mozilla). Schaltest du die Erinnerungen aus, löschen wir die Push-Adresse. Rechtsgrundlage ist die Durchführung des Termins (Art. 6 Abs. 1 Buchst. b DSGVO).</p>",
+      "<p><strong>Zeit für den nächsten Termin.</strong> Eine Mitteilung, wenn es Zeit für den nächsten Termin wäre, bekommst du nur mit deiner ausdrücklichen Einwilligung: höchstens einmal nach jedem Termin, zwischen 8 und 20 Uhr, und sie zählt zu den höchstens zwei Nachrichten pro Woche. Die Einwilligung wird mit Zeitpunkt und Textversion protokolliert, und du kannst sie jederzeit auf deiner Karte widerrufen. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO).</p>",
+      "<p><strong>Nicht erschienen.</strong> Das Geschäft sieht, wie oft du in den letzten zwölf Monaten nicht zu einem gebuchten Termin gekommen bist. Hat das Geschäft eine Grenze eingestellt (zum Beispiel drei Mal), pausiert die Online-Buchung für deine Karte danach automatisch; das Geschäft kann sie auch selbst pausieren und wieder freigeben. Anrufen kannst du das Geschäft weiterhin, und Stempel oder Punkte bleiben unberührt. Rechtsgrundlage ist das berechtigte Interesse des Geschäfts, frei gehaltene Termine nicht zu verlieren (Art. 6 Abs. 1 Buchst. f DSGVO).</p>",
+      "<p><strong>Speicherdauer.</strong> Name und Telefonnummer bleiben beim Termin, bis du die Karte schließt oder das Geschäft seinen Vertrag mit Loynara beendet. Schließt du die Karte, löschen wir Name, Telefonnummer und Push-Adresse und sagen offene Termine ab; der Verlauf bleibt ohne Namen bei den Buchungen deiner Karte.</p>",
+    ].join(""));
+  });
+
+  it("the participation terms carry the Online-Termine paragraph in Teilnahme", () => {
+    const html = renderToStaticMarkup(createElement(TeilnahmebedingungenPage));
+    const teilnahme = html.slice(html.indexOf('<h2 id="teilnahme">'), html.indexOf('<h2 id="stempel-punkte-und-praemien">'));
+    expect(teilnahme).toContain("<p><strong>Online-Termine.</strong> Bietet das Geschäft Online-Termine an, vereinbarst du den Termin direkt mit dem Geschäft. Vor dem Buchen siehst du seine Regeln: bis wann du absagen kannst, wie oft du verschieben kannst und was gilt, wenn du nicht erscheinst. Kommst du mehrmals nicht zu gebuchten Terminen, kann das Geschäft die Online-Buchung für deine Karte pausieren; Stempel und Punkte bleiben erhalten.</p>");
+  });
+
+  it("the AVV Fassung with Terminbuchung: Anlage 1 and 3 additions, and the booking switch needs this Fassung", () => {
+    const html = renderToStaticMarkup(createElement(AvvPage)).replaceAll("<!-- -->", "");
+    for (const part of [
+      "<p><strong>Betroffene Personen:</strong> (a) Kundinnen und Kunden des Betriebs, die eine Karte anlegen, einschließlich Personen, die über eine Empfehlung kommen. (b) Beschäftigte und andere Personen, denen der Betrieb Zugang gibt (Leitung, Kasse), sowie Beschäftigte, die der Betrieb für Termine einträgt, auch ohne eigenen Zugang.</p>",
+      "; Terminbuchung: Name, freiwillig Telefonnummer, Leistung, Mitarbeiterin oder Mitarbeiter, Datum und Uhrzeit, Verlauf des Termins, Zahl nicht wahrgenommener Termine in zwölf Monaten, Pause der Online-Buchung mit Grund; Push-Adresse des Browsers für Erinnerungen; Einwilligung in die Mitteilung zum nächsten Termin mit Zeitpunkt und Textversion; Art und Zeitpunkt versendeter Mitteilungen.</p>",
+      "<p><strong>Nicht erhoben:</strong> Anschrift, Geburtsdatum und Zahlungsdaten der Kundschaft; Name und Telefonnummer nur bei einer Terminbuchung.",
+      "; für Termine: Name, Arbeitszeiten und Leistungen, auch für Beschäftigte ohne Zugang.</p>",
+      "Benachrichtigung auf dem Kassengerät, Online-Terminbuchung mit Erinnerungen und Umgang mit nicht wahrgenommenen Terminen.</p>",
+      "Push-Dienste der Kassengeräte (Apple, Google, Mozilla) erhalten nur eine verschlüsselte Benachrichtigung ohne Kundendaten. Mitteilungen zu Terminen gehen verschlüsselt über den Push-Dienst des Browsers der Kundin oder des Kunden; diesen Dienst wählt der Browser, nicht der Anbieter.",
+    ]) expect(html).toContain(part);
+    expect(html).not.toContain("Nicht erhoben:</strong> Name, Telefonnummer");
+    expect(OWNER_AVV.version >= BOOKING_AVV_VERSION).toBe(true);
+    expect(html).toContain(OWNER_AVV.stand);
+  });
+
+  it("the rebook consent box is Legal's v2 text", () => {
+    expect(REBOOK_CONSENT).toEqual({ version: "booking-rebook-v2", label: "Das Geschäft darf mir eine Mitteilung schicken, wenn es Zeit für den nächsten Termin wäre.", description: "Höchstens einmal nach jedem Termin, nie nachts. Freiwillig, jederzeit hier abschaltbar." });
   });
 });
