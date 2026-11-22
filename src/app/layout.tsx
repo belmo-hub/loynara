@@ -23,7 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${manrope.variable} h-full antialiased`}
     >
-      {/* Parsed and run before any Next.js code (lib/trusted-types-policy.ts). */}
+      {/* In <head>, parsed before the async chunks can run (lib/trusted-types-policy.ts). */}
       <head><script dangerouslySetInnerHTML={{ __html: TRUSTED_TYPES_POLICY }} /></head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

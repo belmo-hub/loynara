@@ -21,6 +21,8 @@ describe("Trusted Types default policy", () => {
   it("passes only zod's empty eval probe as a script string", () => {
     const rules = policy();
     expect(rules.createScript("(function anonymous(\n) {\n\n})")).toBe("(function anonymous(\n) {\n\n})");
+    // WebKit hands the same probe over without the outer parentheses (Design, 23 Nov: no false Safari reports).
+    expect(rules.createScript("function anonymous(\n) {\n\n}")).toBe("function anonymous(\n) {\n\n}");
     expect(rules.createScript("alert(1)")).toBeNull();
   });
 });
