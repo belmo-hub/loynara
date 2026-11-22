@@ -337,7 +337,7 @@ function Wizard({ initial }: { initial: Setup }) {
           {!last && <button type="submit" className="ow-btn ow-btn--primary">Weiter</button>}
         </div>
       </form>
-      {outside && <OutsideHoursDialog appointments={outside} onClose={() => setOutside(null)} />}
+      {outside && <OutsideHoursDialog appointments={outside} onClose={() => { setOutside(null); requestAnimationFrame(() => heading.current?.focus()); }} />}
       {showSave && <SaveBar state={saveState} onSave={() => void save()} canSave={!saving} errorLabel={busy || serviceBusy ? "Nicht gespeichert" : undefined} detail={saveState === "dirty" && !returning ? "Erst mit Speichern ist alles übernommen." : undefined} />}
     </div>
   );

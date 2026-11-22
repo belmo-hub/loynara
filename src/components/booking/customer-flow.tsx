@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson } from "../client-api";
@@ -241,12 +241,19 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   // A refusal that a retry cannot fix (a taken slot, a limit) takes the main button's place: one primary at a time.
   const submitBlocked = Boolean(problem && !problem.retry);
 
+  // A refusal the guest answers with another time stands where the main button was (Design r2).
+  const problemBlock = problem ? <div className={`${notice.notice} ${styles.arrive}`} role="alert">
+        <p>{problem.text}</p>
+        {problem.nextFree ? <Button size="sm" loading={busy} onClick={() => takeNextFree(problem.nextFree!)}>{formatTime(problem.nextFree, tz)} nehmen</Button> : null}
+        {problem.retry && slot ? <Button variant="secondary" size="sm" loading={busy} onClick={() => void submit(slot.start, key)}>Noch mal versuchen</Button> : null}
+        {problem.pick || problem.nextFree ? <Button variant="secondary" size="sm" onClick={pickAgain}>Andere Zeit wählen</Button> : null}
+      </div> : null;
   return <CustomerShell brandColor={view.shop.brandColor} header={header} footer={<LegalLinks newTab />}>
     {view.blocked ? <p className={notice.notice} role="status">{PAUSED}</p> : null}
 
     {inProgress ? null : mine}
 
-    {view.blocked ? null : step === "done" && result ? <section className={`${mix.panel} ${mix.pad}`} aria-labelledby="booking-step-title">
+    {view.blocked ? null : step === "done" && result ? <section className={`${mix.panel} ${mix.pad} ${styles.arrive}`} aria-labelledby="booking-step-title">
       <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>{result.status === "requested" ? (moving ? "Verschoben und angefragt" : "Angefragt") : moving ? "Verschoben" : "Dein Termin ist fix"}: {result.service.name}, {formatWhen(result.start, tz)} bei {result.staff.name}</h2>
       {result.status === "requested" ? <p className={card.muted}>Das Geschäft bestätigt dir {moving ? "die neue Zeit" : "den Termin"}. Ohne Bestätigung verfällt die Anfrage nach dem Termin.</p> : null}
       <p className={card.muted}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : passed(Date.parse(result.cancelDeadline)) ? "Absagen geht bis zum Termin, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(result.cancelDeadline, tz)}.`}</p>
@@ -259,7 +266,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         <p className={styles.step}>{index} von {total}</p>
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
-      {service && step !== "service" && !moving ? <p className={card.muted}>{service.name}, {durationLabel(service.durationMin)}, {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
+      {service && step !== "service" && step !== "confirm" && !moving ? <p className={card.muted}>{service.name}, {durationLabel(service.durationMin)}, {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
 
       {step === "service" && atLimit ? <p className={card.muted}>{`Du hast schon ${view.upcoming.length === 1 ? "einen offenen Termin" : `${view.upcoming.length} offene Termine`}. Mehr gehen hier nicht gleichzeitig. Sag oben einen ab, dann geht ein neuer.`}</p>
         : step === "service" ? view.services.length ? <div className={styles.rewardList}>
@@ -292,17 +299,20 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       </> : null}
 
       {step === "confirm" && slot ? <>
-        <p className={styles.when}>{problem?.nextFree ? <s>{formatWhen(slot.start, tz)}</s> : <strong>{formatWhen(slot.start, tz)}</strong>}{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
-        {moving ? null : <>
+        {/* Design r2: facts 4 apart, then 24; name and phone, then 24; the button; fine print 8 under it; „Zurück“ 12 below. */}
+        <div className={styles.facts}>
+          {service && !moving ? <p className={card.muted}>{service.name}, {durationLabel(service.durationMin)}, {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}
+          <p className={styles.when}>{problem?.nextFree ? <s>{formatWhen(slot.start, tz)}</s> : <strong>{formatWhen(slot.start, tz)}</strong>}{staffName(slot.staffId) ? ` bei ${staffName(slot.staffId)}` : ""}</p>
+        </div>
+        {moving ? null : <div className={styles.group}>
           <TextField id="booking-name" required label="Dein Name" hint="Damit das Geschäft weiß, wer kommt." autoComplete="name" maxLength={60} value={contact.name} error={nameError} onChange={event => setContact({ ...contact, name: event.target.value })} />
-          {showPhone ? <TextField label="Telefon (freiwillig)" type="tel" autoComplete="tel" maxLength={30} value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} />
+          {showPhone ? <div className={styles.arrive}><TextField label="Telefon (freiwillig)" type="tel" autoComplete="tel" maxLength={30} value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} /></div>
             : <Button variant="quiet" size="sm" className={styles.edge} onClick={() => setShowPhone(true)}>Telefon angeben</Button>}
-        </>}
-        {submitBlocked ? null : <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>}
-        {/* D3: the deadline stays in view; the shop's other rules fold into one disclosure under the button. */}
-        <div className={styles.terms}>
-          <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>
-          <details className={styles.rules}><summary>Regeln des Geschäfts</summary>
+        </div>}
+        <div className={styles.after}>{submitBlocked ? problemBlock : <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>}</div>
+        <div className={styles.fine}>
+          {problem?.nextFree ? null : <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>}
+          <details className={styles.rules}><summary>Regeln des Geschäfts<ChevronDown size={20} aria-hidden="true" /></summary>
             {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
             <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
             {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
@@ -311,12 +321,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         </div>
       </> : null}
 
-      {problem ? <div className={`${notice.notice} ${styles.arrive}`} role="alert">
-        <p>{problem.text}</p>
-        {problem.nextFree ? <Button size="sm" loading={busy} onClick={() => takeNextFree(problem.nextFree!)}>{formatTime(problem.nextFree, tz)} nehmen</Button> : null}
-        {problem.retry && slot ? <Button variant="secondary" size="sm" loading={busy} onClick={() => void submit(slot.start, key)}>Noch mal versuchen</Button> : null}
-        {problem.pick || problem.nextFree ? <Button variant="secondary" size="sm" onClick={pickAgain}>Andere Zeit wählen</Button> : null}
-      </div> : null}
+      {problem && !(step === "confirm" && submitBlocked) ? problemBlock : null}
 
       {step !== "service" ? <Button variant="quiet" size="sm" className={styles.edge} icon={<ChevronLeft size={16} />} onClick={back}>{step === "day" && moving ? "Nicht verschieben" : "Zurück"}</Button> : null}
     </section>}
@@ -330,6 +335,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 /** Upcoming appointments with move and cancel, then the last past ones. One line when there are none. */
 function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean; collapsed?: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [cancelled, setCancelled] = useState("");
   const tz = view.shop.timezone;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -340,20 +346,22 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
 
   async function cancel(id: string) {
     setBusy(true); setError("");
-    try { await post(`${base}/appointments/${id}/cancel`, {}); closeConfirm(); await reload(); }
+    try { const gone = view.upcoming.find(a => a.id === id); await post(`${base}/appointments/${id}/cancel`, {}); closeConfirm(); await reload(); if (gone) setCancelled(`Abgesagt: ${formatWhen(gone.start, tz)}`); }
     catch (cause) { setError(problemFor(cause, view).text); if (["STALE", "TOO_LATE"].includes((cause as Failure).code ?? "")) void reload(); }
     finally { setBusy(false); }
   }
 
   if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
-  return <section className={`booking-mine ${mix.panel} ${mix.pad}`} aria-labelledby="booking-mine-title">
+  return <section className={`booking-mine ${mix.panel} ${mix.pad}${collapsed ? ` ${styles.arrive}` : ""}`} aria-labelledby="booking-mine-title">
+    {cancelled ? <p className={`${card.muted} ${styles.arrive}`} role="status">{cancelled}</p> : null}
     <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>Meine Termine</h2>
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
     {view.upcoming.length ? <ul className={styles.list}>{view.upcoming.map(a => {
       return <li key={a.id}>
         <p className={styles.when}><strong>{formatWhen(a.start, tz)}</strong> {a.status === "requested" ? <Badge tone="warning">angefragt</Badge> : null}</p>
         <p className={card.muted}>{a.service.name} bei {a.staff.name}</p>
-        {confirming?.id === a.id ? <div className={card.closeConfirm}>
+        {confirming?.id === a.id ? <div className={`${card.closeConfirm} ${styles.arrive}`}>
+          <p><strong>{`Termin am ${formatWhen(a.start, tz)} absagen?`}</strong></p>
           <p>{confirming.late ? "Die kostenlose Absagefrist ist vorbei. Absagen geht trotzdem, das Geschäft sieht es als kurzfristige Absage." : `Kostenlos, die Frist läuft bis ${formatWhen(a.cancelDeadline, tz)}.`}</p>
           <div className={styles.actions}>
             <Button variant="danger" size="sm" loading={busy} onClick={() => void cancel(a.id)}>Ja, absagen</Button>

@@ -311,7 +311,7 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
   }
 
   if (created) return (
-    <OwnerDialog title={created.affected.length === 1 ? "1 Termin liegt in der Zeit" : `${created.affected.length} Termine liegen in der Zeit`} tone="danger" onClose={() => onDone(`${span} geblockt. Termine bleiben.`)}
+    <OwnerDialog view="affected" title={created.affected.length === 1 ? "1 Termin liegt in der Zeit" : `${created.affected.length} Termine liegen in der Zeit`} tone="danger" onClose={() => onDone(`${span} geblockt. Termine bleiben.`)}
       actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={() => onDone(`${span} geblockt. Termine bleiben.`)} disabled={busy} data-autofocus>Termine behalten</button><button type="button" className="ow-btn ow-btn--danger" onClick={() => void cancelAll()} disabled={busy} aria-busy={busy}>Alle absagen</button></>}>
       <p>Die Zeit ist geblockt. Diese Kunden haben noch einen Termin:</p>
       <ul className="ow-feed">{created.affected.map(a => <li key={a.id}><span><strong className="ow-num">{wallTime(a.start, day.timezone)}</strong> · {a.service.name} · {a.customerName}</span></li>)}</ul>
@@ -320,7 +320,7 @@ function BlockDialog({ day, onClose, onDone }: { day: DayResponse; onClose: () =
   );
 
   return (
-    <OwnerDialog title="Zeit blocken" onClose={onClose} actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={busy}>Abbrechen</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !valid} aria-busy={busy}>Zeit blocken</button></>}>
+    <OwnerDialog view="form" title="Zeit blocken" onClose={onClose} actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={onClose} disabled={busy}>Abbrechen</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !valid} aria-busy={busy}>Zeit blocken</button></>}>
       <p>{longDate(day.date)}. In der Zeit kann niemand buchen.</p>
       <div className="ow-field"><label htmlFor="bd-who">Für wen</label><select id="bd-who" className="ow-select" value={staffId} onChange={event => setStaffId(event.target.value)} data-autofocus><option value="">Ganzes Geschäft</option>{day.staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
       <div className="ow-grid-2 ow-grid-2--end" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>

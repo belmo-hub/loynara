@@ -31,7 +31,11 @@
 .headTitle { margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-body); color: var(--color-ink-muted); }
 
 /* D3: the shop's rules under the button as one disclosure; the folded „Meine Termine“ line sits on the content edge. */
-.rules summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: var(--weight-strong); }
+.rules summary { min-height: 44px; display: flex; align-items: center; gap: var(--space-1); cursor: pointer; font-weight: var(--weight-strong); list-style: none; }
+.rules summary::-webkit-details-marker { display: none; }
+.rules summary svg { transition: transform var(--dur-press) var(--ease-out); }
+.rules[open] summary svg { transform: rotate(180deg); }
+.rules[open] > :not(summary) { animation: booking-arrive var(--dur-ui) var(--ease-out) both; }
 .rules[open] summary { margin-bottom: var(--space-2); }
 .mineLine { margin: 0; }
 
@@ -40,7 +44,15 @@
 @keyframes booking-arrive { from { opacity: 0; transform: translateY(8px); } }
 .chip, .rewardRow { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .chip:active:not(:disabled), .rewardRow:active { transform: scale(.97); }
-@media (prefers-reduced-motion: reduce) { .arrive { animation: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .arrive, .rules[open] > :not(summary) { animation: none; } .rules summary svg { transition: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }
 
 /* Quiet buttons in a left-aligned flow (Design, 22 Nov): the label sits on the content edge, the 44 px hit area stays. */
 .edge { justify-self: start; align-self: flex-start; margin-inline-start: calc(-1 * var(--space-4)); }
+
+/* Design r2, the confirm step's groups inside the panel's 12 gap: facts 4 apart, then 24, inputs, then 24, the button,
+   fine print 8 under it, and „Zurück“ the panel's 12 below. */
+.facts { display: grid; gap: var(--space-1); }
+.group { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
+.after { display: grid; margin-top: var(--space-3); }
+.fine { display: grid; gap: var(--space-2); margin-top: calc(var(--space-2) - var(--space-3)); }
+.fine p, .facts p { margin: 0; }
