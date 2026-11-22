@@ -28,6 +28,9 @@ export const auth = betterAuth({
       // The password is already changed and every device signed out; a failure here leaves the address unconfirmed only.
       await authPool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [user.id])
         .catch(error => console.error(`Address not confirmed after reset (${error instanceof Error ? error.name : "error"})`));
+      // A reset takes the account back (ENG-286), so passkeys added before it go too: someone who held the account must
+      // not keep a way in. Not caught: the reset must not look done while an old passkey still works.
+      await authPool.query('DELETE FROM "passkey" WHERE "userId" = $1', [user.id]);
     },
     sendResetPassword: async ({ user, token }) => {
       const { sendPasswordReset } = await import("./account-verification");
