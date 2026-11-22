@@ -22,6 +22,7 @@ describe("login after the confirmation link", () => {
   it("says the address is confirmed, as a status, only when the link worked", async () => {
     expect(await render({ verified: "1" })).toMatch(new RegExp(`role="status"><svg[^]*?</svg>${CONFIRMED}</p>`));
     expect(await render({})).not.toContain(CONFIRMED);
+    for (const verified of ["yes", "true", "0", ""]) expect(await render({ verified })).not.toContain(CONFIRMED);
     expect(await render({ verified: "1", error: "TOKEN_EXPIRED" })).not.toContain(CONFIRMED);
   });
 
