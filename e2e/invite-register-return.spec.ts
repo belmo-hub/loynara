@@ -62,6 +62,9 @@ test("a foreign next is ignored: the inbox answer still leads to the plain sign-
   const email = `owner-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
   await page.goto(`/register?next=${encodeURIComponent("//evil.example/invite/abc")}`);
   await expect(page.getByRole("link", { name: "Anmelden", exact: true })).toHaveAttribute("href", "/login");
+  // A password manager saves the new login against the address only when the field says it is the username.
+  await expect(page.getByLabel("E-Mail-Adresse", { exact: true })).toHaveAttribute("autocomplete", "username");
+  await expect(page.getByLabel("Passwort", { exact: true })).toHaveAttribute("autocomplete", "new-password");
   await page.getByLabel("Dein Name", { exact: true }).fill("Synthetic owner");
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(email);
   await page.getByLabel("Passwort", { exact: true }).fill(password);
