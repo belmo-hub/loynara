@@ -13,9 +13,13 @@
   min-width: 220px; height: fit-content; align-content: start; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
   /* Menu: fades and scales out of the button's corner, and leaves faster than it came. */
   opacity: 0; transform: scale(.96); transform-origin: top right;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), overlay 160ms allow-discrete, display 160ms allow-discrete;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
-.menu:popover-open { display: grid; gap: var(--space-2); opacity: 1; transform: none; transition-duration: var(--dur-ui); }
+/* The fade-out keeps the menu in the top layer only where the engine can (overlay); elsewhere it closes at once, so a
+   closed menu never stays over the card head taking taps (WebKit 26: „Abmelden“ invisible but live, Design 23 Nov). */
+@supports (overlay: auto) { .menu { transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), overlay 160ms allow-discrete, display 160ms allow-discrete, visibility 0s linear 160ms; } }
+.menu:not(:popover-open) { visibility: hidden; }
+.menu:popover-open { display: grid; gap: var(--space-2); opacity: 1; transform: none; visibility: visible; transition-duration: var(--dur-ui); transition-delay: 0s; }
 @starting-style { .menu:popover-open { opacity: 0; transform: scale(.96); } }
 /* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
 .menu:popover-open > * { width: 100%; }
@@ -24,7 +28,7 @@
    the header); the fixed inset above stays the fallback, so inset and margin are only reset inside the check. */
 @supports (position-area: bottom) {
   .menuButton { anchor-name: --kasse-menu; }
-  .menu { position-anchor: --kasse-menu; inset: auto; margin: var(--space-2) 0 0; position-area: bottom span-left; position-try-fallbacks: flip-inline; }
+  .menu { position-anchor: --kasse-menu; inset: auto; margin: var(--space-2) 0 0; position-area: bottom span-left; position-try-fallbacks: flip-inline; transform-origin: top; }
 }
 /* Browsers without the popover attribute show the controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; opacity: 1; transform: none; } }
