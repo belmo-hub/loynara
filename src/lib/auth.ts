@@ -1,3 +1,4 @@
+import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
@@ -59,6 +60,9 @@ export const auth = betterAuth({
     },
   },
   session: { expiresIn: 60 * 60 * 24 * 7 },
+  // Optional passkeys next to the password (web audit finding 10): added by a signed-in person in Einstellungen, used
+  // from the sign-in form's autofill. The relying party is the app's own host; nothing here changes password sign-in.
+  plugins: [passkey({ rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname, rpName: "Loynara" })],
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {
     before: createAuthMiddleware(async (context) => {

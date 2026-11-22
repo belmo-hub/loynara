@@ -6,6 +6,7 @@ import { billingStatus, type BillingOverview } from "@/components/owner/billing-
 import { useOwner } from "@/components/owner/owner-context";
 import { MoreLabel, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { nf } from "@/components/owner/owner-ui";
+import { PasskeyRows } from "@/components/owner/passkey-rows";
 import { useLoad } from "@/components/owner/use-load";
 import { senderOffered } from "@/components/owner/sender";
 
@@ -39,6 +40,7 @@ export default function MorePage() {
           <Row key="json" href={EXPORT} download icon={FileJson} title="Vollständiger Export (JSON)" />
         </Rows>}
         <Rows title="Konto">
+          <PasskeyRows key="passkeys" />
           <LogoutButton key="logout" className="ow-prog-row" onSignedOut={owner.resetAfterSignOut}>{label => <>
             <span className="ow-prog-icon"><LogOut size={22} aria-hidden="true" /></span>
             <span className="ow-prog-main"><span className="ow-prog-text"><strong>{label}</strong></span></span>

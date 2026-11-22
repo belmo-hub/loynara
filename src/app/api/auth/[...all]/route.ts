@@ -41,7 +41,12 @@ export async function GET(request: Request) {
   // ENG-286: Better Auth's own reset link redirects with the token in the query, into server and proxy logs. Our mail links
   // to /reset-password#token=… instead, so this route is closed.
   if (new URL(request.url).pathname.includes("/reset-password/")) return new Response(null, { status: 404 });
-  try { validateIngress(request); return await handlers.GET(request); }
+  try {
+    validateIngress(request);
+    // Each passkey challenge is a stored row: a page load asks for one, a script must not ask for thousands.
+    if (new URL(request.url).pathname.endsWith("/passkey/generate-authenticate-options")) await enforcePeerLimit(request, "auth_passkey_peer", 60, 15 * 60);
+    return await handlers.GET(request);
+  }
   catch (error) { return respondError(error); }
 }
 
@@ -61,6 +66,7 @@ export async function POST(request: Request) {
       return await answerNoSooner(request);
     }
     if (path.endsWith("/reset-password")) await enforcePeerLimit(request, "auth_reset_use_peer", 10, 15 * 60);
+    if (path.endsWith("/passkey/generate-authenticate-options") || path.endsWith("/passkey/verify-authentication")) await enforcePeerLimit(request, "auth_passkey_peer", 60, 15 * 60);
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };
