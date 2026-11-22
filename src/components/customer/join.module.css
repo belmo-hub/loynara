@@ -37,9 +37,7 @@
 .rules p + p { margin-top: var(--space-4); }
 
 .form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); overflow-wrap: break-word; }
-/* Under large text the button's label takes a second line instead of widening the panel past the screen. */
-.form > button { white-space: normal; text-wrap: balance; }
-.form > button { margin-top: var(--space-2); }
+.form > button { margin-top: var(--space-2); white-space: normal; text-wrap: balance; } /* large text: the label takes a second line, not more width (Design R1) */
 /* A sentence that names the button is its caption: 8 above it. */
 .form > .notice + button { margin-top: calc(var(--space-2) - var(--space-4)); }
 .form a, .link a { color: var(--color-action); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
