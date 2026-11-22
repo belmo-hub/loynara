@@ -3,7 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 // ENG-331, Design's round 3: the operator's coordinates sheet with the shop search, at 390 on Chrome and WebKit. Needs an
 // operator account on a server that lists it (as operator.mobile.spec) and a synthetic GOOGLE_MAPS_API_KEY; every place
 // route and the coordinates route are answered here, so nothing reaches Google or the database.
-test.use({ viewport: { width: 390, height: 844 } });
+// Motion on, like most phones: a transition on the held height once let the sheet drop under the finger (Design round 5).
+test.use({ viewport: { width: 390, height: 844 }, contextOptions: { reducedMotion: "no-preference" } });
 
 async function sheet(page: Page) {
   const email = process.env.OPERATOR_E2E_EMAIL, password = process.env.OPERATOR_E2E_PASSWORD;
@@ -22,9 +23,17 @@ async function sheet(page: Page) {
 
 test("„Schließen“ closes the sheet while the list is open", async ({ page }) => {
   const { dialog, search } = await sheet(page);
+  // Tapped into first, as a person does: that press already ran the sheet's hold once, which is how a transition on the
+  // held height used to start from 0 and let the sheet drop on the next press.
+  await search.click();
   await search.fill("Café am");
   await expect(dialog.getByRole("option")).toHaveCount(5);
-  await dialog.getByRole("button", { name: "Schließen" }).click();
+  // A real tap rests about 60 ms: long enough for the list to close under the finger, so the sheet must not move then.
+  const close = (await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!;
+  await page.mouse.move(close.x + close.width / 2, close.y + close.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(60);
+  await page.mouse.up();
   await expect(dialog).toBeHidden();
 });
 
@@ -45,3 +54,19 @@ test("a pick shows its point as text with no input, and sends it only with its p
   await dialog.getByRole("button", { name: "Ändern" }).click();
   await expect(dialog.getByRole("textbox", { name: "Koordinaten" })).toHaveValue("");
 });
+
+test("a press on the disabled „Prüfen“ leaves no held height behind", async ({ page }) => {
+  const { dialog } = await sheet(page);
+  const check = dialog.getByRole("button", { name: "Prüfen" });
+  await expect(check).toBeDisabled();
+  await check.evaluate(element => element.scrollIntoView({ block: "center" }));
+  const box = (await check.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // disabled: a press, no click
+  expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+  await dialog.getByRole("button", { name: "Schließen" }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: /^Koordinaten (setzen|ändern)$/ }).first().click();
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+});
+

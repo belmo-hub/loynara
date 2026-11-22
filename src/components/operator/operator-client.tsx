@@ -43,6 +43,8 @@ const date = (value: Date | string | null) => value ? new Date(value).toLocaleDa
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };
+// Tabular figures for the points only; addresses and postcodes keep their own spacing.
+const FIGURES = { fontVariantNumeric: "tabular-nums" } as const;
 // One precision on the coordinates sheet: five decimals, about a metre, like the field and its placeholder.
 const point5 = (p: { latitude: number | null; longitude: number | null }) => `${p.latitude?.toFixed(5)}, ${p.longitude?.toFixed(5)}`;
 const mapsUrl = (p: { latitude: number | null; longitude: number | null }) => `https://www.google.com/maps?q=${p.latitude},${p.longitude}`;
@@ -118,6 +120,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   }
   async function sendPoint(execute: boolean) {
     setBusy(true); setError("");
+    if (!execute) setPointPreview(null); // a new check starts clean; after a failed Speichern the preview stays for a retry
     try {
       const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", pointRequest(pointRow!, coordinates, place, execute));
       if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
@@ -372,18 +375,18 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Sheet>
 
     <Sheet open={!!pointRow} onClose={closePoint} title="Koordinaten" keepHeight>
-      {pointRow ? <div style={{ display: "grid", gap: 12, fontVariantNumeric: "tabular-nums" }}>
+      {pointRow ? <div style={{ display: "grid", gap: 12 }}>
         <p><strong>{pointRow.tenant}</strong> · {pointRow.location} ({pointRow.city})</p>
-        {pointRow.latitude !== null ? <p>Jetzt: <strong>{point5(pointRow)}</strong></p> : null}
+        {pointRow.latitude !== null ? <p>Jetzt: <strong style={FIGURES}>{point5(pointRow)}</strong></p> : null}
         {placeSearch ? <div style={{ paddingBottom: 8 }}><ShopSearch label="Geschäft suchen" pickedLabel="Gewählter Ort" fallback="Gib die Koordinaten unten ein." inputClassName={fieldStyles.input} value={place} onChange={picked => { const next = pickedPoint(picked); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} /></div> : null}
         {/* While a pick stands the point is Google's: shown as text, no input, and „Ändern“ above is the way out (Design, ENG-331). */}
         {place ? <div className={fieldStyles.field}>
           <span className={fieldStyles.label}>Koordinaten</span>
-          <p style={{ margin: 0 }}>{coordinates}</p>
+          <p style={{ margin: 0, ...FIGURES }}>{coordinates}</p>
           <p className={fieldStyles.hint}>Der Punkt kommt aus der Suche. Loynara frischt ihn regelmäßig bei Google auf.</p>
           {error ? <p className={fieldStyles.error} aria-live="polite"><span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span></p> : null}
-        </div> : <TextField label="Koordinaten" hint="Nimm nur Werte, die das Geschäft nennt oder die du vor Ort misst. Kopier sie nie aus Google Maps." placeholder="z. B. 51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />}
-        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline" }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{point5(pointPreview)} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
+        </div> : <TextField label="Koordinaten" hint="Nimm nur Werte, die das Geschäft nennt oder die du vor Ort misst. Kopier sie nie aus Google Maps." placeholder="z. B. 51.31270, 9.47970" error={error ? <span className="ow-qerror"><OwnerIcon name="alert" size={20} />{error}</span> : undefined} readOnly={busy} style={FIGURES} value={coordinates} onChange={event => { const next = handTypedPoint(event.target.value); setPlace(next.place); setCoordinates(next.coordinates); setPointPreview(null); setError(""); }} autoComplete="off" spellCheck={false} />}
+        {pointPreview ? <p role="status"><a style={{ textDecoration: "underline", ...FIGURES }} href={mapsUrl(pointPreview)} target="_blank" rel="noopener noreferrer">{point5(pointPreview)} in Google Maps prüfen</a>{pointPreview.changed ? "" : " (keine Änderung)"}</p> : null}
         {pointPreview?.changed
           ? <Button loading={busy} onClick={() => sendPoint(true)}>Speichern</Button>
           : <Button loading={busy} disabled={!coordinates.trim()} onClick={() => sendPoint(false)}>Prüfen</Button>}
