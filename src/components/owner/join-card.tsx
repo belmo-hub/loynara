@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { counterSignHtml } from "@/lib/counter-sign";
 import { OwnerIcon } from "./owner-ui";
-import { useLoad } from "./use-load";
 import { CopyLabel, useCopy } from "@/components/copy-text";
 
 /** The public programme address customers join at, not a private card link; "" while it is not configured. */
@@ -58,8 +57,6 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
   const { copied, copy: copyLink } = useCopy();
   const [error, setError] = useState("");
   const joinUrl = joinUrlOf(me);
-  // Only where the export links show: a location with booking settings has appointments worth exporting.
-  const [booking] = useLoad<{ settings: object | null }>(exportUrl ? "/api/merchant/booking/setup" : null);
 
   async function copy() {
     setError("");
@@ -82,10 +79,10 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
       {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
       {exportUrl && <div className="ow-hint">
-        <p>Lade deine Karten und Buchungen für Excel herunter. Karten und Buchungen enthalten keine Kontaktdaten; der Termin-Export enthält Name und Telefon, so wie Kundinnen und Kunden sie beim Buchen angegeben haben.</p>
+        <p>{me.bookingEnabled ? "Lade deine Karten und Buchungen für Excel herunter. Karten und Buchungen enthalten keine Kontaktdaten; der Termin-Export enthält Name und Telefon, so wie Kundinnen und Kunden sie beim Buchen angegeben haben." : "Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten."}</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=buchungen`} download>Buchungen für Excel</a>: Jeder Stempel, jede Einlösung und jede Korrektur mit Datum und Standort.</p>
-        {booking.state === "ok" && booking.data.settings && <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=appointments`} download>Termine für Excel</a>: Jeder Termin von {me.locationName} mit Kunde, Telefon und Status.</p>}
+        {me.bookingEnabled && <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=appointments`} download>Termine für Excel</a>: Jeder Termin von {me.locationName} mit Kunde, Telefon und Status.</p>}
         <p><a className="ow-link ow-link--block" href={exportUrl} download>Vollständiger Export (JSON)</a></p>
       </div>}
     </section>

@@ -82,8 +82,9 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 
 /** One line on today's appointments, only where online booking is set up (the day read says so); links to the day view. */
 function TodayAppointments() {
-  const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>("/api/merchant/booking/day");
-  if (day.state !== "ok" || day.data.bookingEnabled === null) return null;
+  const booking = useOwner().me?.bookingEnabled === true;
+  const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>(booking ? "/api/merchant/booking/day" : null);
+  if (!booking || day.state !== "ok" || day.data.bookingEnabled === null) return null;
   const n = day.data.appointments.filter(a => !a.status.startsWith("cancelled")).length, m = day.data.pendingRequests;
   return <p style={{ margin: 0 }}><Link className="ow-link ow-link--block" href="/merchant/termine">Heute {n === 1 ? "1 Termin" : `${n} Termine`} · {m === 1 ? "1 offene Anfrage" : `${m} offene Anfragen`} insgesamt</Link></p>;
 }

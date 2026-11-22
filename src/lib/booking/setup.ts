@@ -46,6 +46,12 @@ export const setupInput = z.object({
 
 type Scope = { tenantId: string; locationId: string };
 
+/** Whether the operator switched online booking on at this location (Design, 22 Nov): shops without it see none of it. */
+export async function bookingEnabledAt(scope: Scope, reader: Reader = db) {
+  const [row] = await reader.select({ enabled: bookingSettings.enabled }).from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  return row?.enabled ?? false;
+}
+
 export async function getSetup(scope: Scope, reader: Reader = db) {
   const [settings] = await reader.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
   const services = await reader.select().from(bookingServices)

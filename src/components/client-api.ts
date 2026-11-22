@@ -108,6 +108,8 @@ export type MeResponse = {
   publicBaseUrl: string;
   locale?: "de" | "fr";
   programSlug: string;
+  /** Online booking switched on at this location by the operator (ENG-201); every booking surface hides without it. */
+  bookingEnabled?: boolean;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";
