@@ -6,7 +6,7 @@
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
-body{margin:0;background:var(--canvas);color:var(--ink);font:400 17px/1.6 Manrope,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{font-size-adjust:.54;margin:0;background:var(--canvas);color:var(--ink);font:400 17px/1.6 Manrope,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
 img,svg{display:block;max-width:100%}
 h1,h2,h3,p,figure,ol,ul,dl,dd,blockquote{margin:0;padding:0}
 ol,ul{list-style:none}
