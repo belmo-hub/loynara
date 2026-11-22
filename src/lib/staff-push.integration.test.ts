@@ -402,9 +402,16 @@ describe("daily push clean-up", () => {
     await pool.query(`UPDATE "session" SET "expiresAt" = now() - interval '1 second' WHERE "userId" = $1`, [expired]);
     await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [revoked]);
     await pool.query("UPDATE staff_roles SET location_id = $2 WHERE user_id = $1", [moved, second.id]);
+    // Rows the save path never writes, inserted directly: a device naming a business the user has no role in (the role
+    // is in another tenant), and a device whose session belongs to someone else.
+    const foreignCashier = await addStaff(other.tenant.id, other.location.id, "cashier");
+    const borrower = await addStaff(f.tenant.id, f.location.id, "cashier");
+    const insert = "INSERT INTO staff_push_subscriptions (tenant_id, location_id, user_id, session_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4, $5, $6, $7)";
+    await pool.query(insert, [f.tenant.id, f.location.id, foreignCashier, await session(foreignCashier), endpoint("foreign-tenant"), keys.p256dh, keys.auth]);
+    await pool.query(insert, [f.tenant.id, f.location.id, borrower, await session(f.userId), endpoint("foreign-session"), keys.p256dh, keys.auth]);
     const endpoints = async () => (await pool.query<{ endpoint: string }>("SELECT endpoint FROM staff_push_subscriptions ORDER BY endpoint")).rows.map(row => row.endpoint);
 
-    expect(await pruneStaffPushSubscriptions()).toBe(3);
+    expect(await pruneStaffPushSubscriptions()).toBe(5);
     expect(await endpoints()).toEqual([endpoint("live"), endpoint("other"), endpoint("owner-second")].sort());
     expect(await pruneStaffPushSubscriptions()).toBe(0);
     expect(await endpoints()).toEqual([endpoint("live"), endpoint("other"), endpoint("owner-second")].sort());

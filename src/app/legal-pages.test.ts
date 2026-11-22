@@ -107,7 +107,7 @@ describe("owner privacy notice", () => {
   });
 
   it("promises the push address goes a day after login or access ends only because the worker prunes daily (ENG-338)", () => {
-    expect(readFileSync("scripts/worker.ts", "utf8")).toMatch(/staffPushPrunedAt >= 24 \* 60 \* 60_000[\s\S]{0,400}pruneStaffPushSubscriptions\(housekeepingDatabase\)/);
+    expect(readFileSync("scripts/worker.ts", "utf8")).toMatch(/staffPushPrunedAt >= 24 \* 60 \* 60_000[\s\S]{0,400}pruneStaffPushSubscriptions\(housekeepingDatabase\)[\s\S]{0,300}staffPushPrunedAt = Date\.now\(\)/);
   });
 
   it("promises the 48-hour counter deletion only because the worker runs the prune daily (ENG-281)", () => {
