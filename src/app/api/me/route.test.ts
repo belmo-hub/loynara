@@ -8,7 +8,7 @@ vi.mock("@/lib/product", () => ({
   getMerchantContext: async () => ({ userId: "synthetic-owner", tenantId: "synthetic-tenant", programSlug: "demo-program", role: "owner" }),
 }));
 // The booking switch is read from the database; this route test only covers the origin.
-vi.mock("@/lib/booking/setup", () => ({ bookingEnabledAt: async () => false }));
+vi.mock("@/lib/booking/setup", () => ({ bookingStateAt: async () => ({ bookingEnabled: false, bookingShown: false }) }));
 
 import { GET } from "./route";
 

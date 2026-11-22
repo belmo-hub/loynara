@@ -83,7 +83,7 @@ export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programSta
 /** One line on today's appointments, only where online booking is set up (the day read says so); links to the day view. */
 /** D5 (Design, 22 Nov): today's appointments as one row in a panel, the daily way into Termine; gone at 0 and 0. */
 function TodayAppointments() {
-  const booking = useOwner().me?.bookingEnabled === true;
+  const booking = useOwner().me?.bookingShown === true;
   const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>(booking ? "/api/merchant/booking/day" : null);
   if (!booking || day.state !== "ok" || day.data.bookingEnabled === null) return null;
   const n = day.data.appointments.filter(a => !a.status.startsWith("cancelled")).length, m = day.data.pendingRequests;

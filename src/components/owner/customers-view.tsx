@@ -274,7 +274,7 @@ function ListScreen({ fresh }: { fresh: Record<string, MerchantMember> }) {
         </div>
         <div className={cx("ow-prog", styles.invite)}>
           <InviteRows me={me} />
-          <p className="ow-prog-note">Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. {me.bookingEnabled ? "Namen und Kontaktdaten zeigt Loynara hier nicht; für Termine stehen sie in der Tagesansicht." : "Namen und Kontaktdaten zeigt Loynara nicht."}</p>
+          <p className="ow-prog-note">Karten ohne Namen: Du siehst Kartennummer, Stand und jede bestätigte Buchung. {me.bookingShown ? "Namen und Kontaktdaten zeigt Loynara hier nicht; für Termine stehen sie in der Tagesansicht." : "Namen und Kontaktdaten zeigt Loynara nicht."}</p>
         </div>
       </div>
     </div>

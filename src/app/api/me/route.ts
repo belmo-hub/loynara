@@ -3,7 +3,7 @@ import { endedAccount } from "@/lib/programme-end";
 import { getMerchantContext, setupDraft } from "@/lib/product";
 import { respondError, sessionUser } from "@/lib/http";
 import { selectedLocationFromRequest } from "@/lib/locations";
-import { bookingEnabledAt } from "@/lib/booking/setup";
+import { bookingStateAt } from "@/lib/booking/setup";
 
 export async function GET(request: Request) {
   try {
@@ -20,6 +20,6 @@ export async function GET(request: Request) {
       return Response.json({ userId: user.id, tenantId, programEnded, publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
     }
     // No context: an identity-only account, or the owner of a shop the operator created, whose draft prefills the assistant.
-    return Response.json({ ...(context ? { ...context, bookingEnabled: await bookingEnabledAt(context) } : { userId: user.id, tenantId: null, setupDraft: await setupDraft(user.id) }), publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ...(context ? { ...context, ...await bookingStateAt(context) } : { userId: user.id, tenantId: null, setupDraft: await setupDraft(user.id) }), publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

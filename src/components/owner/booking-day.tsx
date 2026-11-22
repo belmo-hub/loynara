@@ -23,7 +23,8 @@ type Done = (text: string, tone?: "ok" | "danger" | "info", row?: OwnerAppointme
 const failure = (cause: unknown) => cause instanceof ClientApiError ? { code: cause.code, status: cause.status, message: cause.message } : {};
 const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-export function BookingDay() {
+/** `readOnly`: booking switched off while appointments are still ahead (Design r2) — no new blocks, no set-up, a notice. */
+export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { me } = useOwner();
   const router = useRouter();
   const asked = useSearchParams().get("date");
@@ -58,7 +59,7 @@ export function BookingDay() {
     <div className="ow-page">
       <header className="ow-pagehead ow-prog">
         <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-        {ready && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
+        {ready && !readOnly && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
@@ -76,7 +77,7 @@ export function BookingDay() {
         <Notice tone="info" actions={<Link className="ow-btn ow-btn--sm ow-btn--primary" href="/merchant/termine/einrichten">Jetzt einrichten</Link>}>Richte zuerst Leistungen und Zeiten ein.</Notice>
       )}
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
-        <Notice tone="warn" actions={<Link className="ow-btn ow-btn--sm ow-btn--secondary" href="/merchant/termine/einrichten">Zur Einrichtung</Link>}>Online-Buchung ist aus. Kunden können gerade nicht buchen.</Notice>
+        <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
       )}
       {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
       {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}

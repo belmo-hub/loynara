@@ -261,7 +261,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
   const me = owner.me;
   const role = me?.role ?? owner.role;
   const hidden = me?.hiddenSurfaces ?? owner.hiddenSurfaces;
-  const booking = me?.bookingEnabled === true;
+  const booking = me?.bookingShown === true;
   const group = activeGroup(pathname, role, hidden, booking);
   const subItems = group ? visibleItems(group, role, hidden) : [];
   // The Kasse slides up over the app as a sheet (ENG-256): the navigation carries its transition type, and the Kasse's

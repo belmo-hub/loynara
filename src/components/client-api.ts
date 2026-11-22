@@ -110,6 +110,8 @@ export type MeResponse = {
   programSlug: string;
   /** Online booking switched on at this location by the operator (ENG-201); every booking surface hides without it. */
   bookingEnabled?: boolean;
+  /** Booking on, or off with open appointments still ahead: the day view and its export stay (read-only when off). */
+  bookingShown?: boolean;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";

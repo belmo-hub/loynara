@@ -13,6 +13,6 @@ export default function MerchantBookingDayPage() {
   useEffect(() => { if (unprovisioned) router.replace("/merchant/program"); }, [unprovisioned, router]);
   if (!me || unprovisioned) return null;
   // Design, 22 Nov: without the operator's switch there is no day view and no wizard to reach.
-  if (!me.bookingEnabled) return <div className="ow-page"><PageHead title="Termine" /><Notice>Online-Termine sind für diesen Standort nicht eingeschaltet.</Notice></div>;
-  return <BookingDay />;
+  if (!me.bookingShown) return <div className="ow-page"><PageHead title="Termine" /><Notice>Online-Termine sind für diesen Standort nicht eingeschaltet.</Notice></div>;
+  return <BookingDay readOnly={!me.bookingEnabled} />;
 }

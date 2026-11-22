@@ -53,6 +53,15 @@ export async function bookingEnabledAt(scope: Scope, reader: Reader = db) {
   return row?.enabled ?? false;
 }
 
+/** Design r2: switched off with appointments still ahead, the owner keeps the day view (read-only) until they are past. */
+export async function bookingStateAt(scope: Scope, reader: Reader = db) {
+  const enabled = await bookingEnabledAt(scope, reader);
+  if (enabled) return { bookingEnabled: true, bookingShown: true };
+  const [ahead] = await reader.select({ id: bookingAppointments.id }).from(bookingAppointments)
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`)).limit(1);
+  return { bookingEnabled: false, bookingShown: Boolean(ahead) };
+}
+
 type OpeningDay = z.infer<typeof workingDay>;
 
 /** Whether an appointment from `start` for `minutes` lies outside the shop's opening hours on its day; no hours stored: never. */
