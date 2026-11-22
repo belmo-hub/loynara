@@ -275,7 +275,11 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         : card || preview ? "open" : "ready";
   const stateLabel = booked ? booked.title
     : status === "rejected" ? t.rejected : status === "offline" ? t.offline : status === "pending" ? t.pending : busy ? t.working
-      : card ? (card.appointment && !card.appointment.done ? `${t.cardOpen} · Termin ${card.appointment.startLabel}` : t.cardOpen) : preview ? t.cardCheck : t.ready;
+      : card ? t.cardOpen : preview ? t.cardCheck : t.ready;
+  // Design r2: the booked appointment sits in the card head for every way of opening a card (scan or typed number), never in the foot.
+  // A visit the owner already finished says so in that same line (Design r2: one line, at most six words, nothing pushed
+  // under the dock); „Trotzdem vergeben?“ still guards the stamp.
+  const verifiedLine = card?.appointment?.done ? "Achtung: Termin schon gutgeschrieben" : card?.appointment ? `${t.verified} · Termin ${card.appointment.startLabel}` : t.verified;
   const stateDetail = booked || status === "rejected" || status === "offline" ? undefined : card?.cardLocator ?? preview?.cardLocator;
   // Status and "Kamera öffnen" come first; overview and sign-out wait behind one menu button.
   const headerActions = <div className={styles.headerActions}>
@@ -380,11 +384,6 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <span className={styles.outcomeIcon} aria-hidden="true"><Clock size={22} /></span>
         <span className={styles.outcomeText}><strong>{t.pending}</strong><span>{keptNotice.message}</span></span>
       </div>}
-      {/* The owner already finished this card's booked visit: the till's warning, at the top, before anything is booked. */}
-      {appointmentDone && card?.appointment && !booked && status === "idle" && <div className={cx("cashier-appointment-done", styles.outcome)} data-tone="pending" role="status">
-        <span className={styles.outcomeIcon} aria-hidden="true"><Clock size={22} /></span>
-        <span className={styles.outcomeText}><strong>{t.pending}</strong><span>Achtung: Termin {card.appointment.startLabel} ist schon erledigt und gutgeschrieben.</span></span>
-      </div>}
       {status !== "idle" && !booked && <div className={cx(`cashier-status cashier-status--${status}`, awarding || redeeming ? styles.srOnly : styles.outcome)} data-tone={status} role="status" aria-live="polite">
         <span className={styles.outcomeIcon} aria-hidden="true">{status === "success" ? <Check size={22} /> : status === "offline" ? <WifiOff size={22} /> : status === "pending" ? <Clock size={22} /> : <ShieldAlert size={22} />}</span>
         <span className={styles.outcomeText}><strong>{status === "success" ? t.success : status === "pending" ? t.pending : status === "offline" ? t.offline : rejectedTitle ?? t.rejected}</strong>{message && <span id="cashier-outcome-text">{message}</span>}</span>
@@ -396,7 +395,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {card && <h2 className={styles.srOnly}>{card.cardLocator}</h2>}
       <MixCard size="kasse" businessName={businessName || locationName} locationName={locationName} programType={shown.programType} balance={shown.balance}
         reward={{ id: goal.id, title: goal.name, cost: goal.cost }} rewards={shown.rewards.map(reward => ({ id: reward.id, title: reward.name, cost: reward.cost }))}
-        title={shown.cardLocator} sub={t.verified} label={t.balance} locale={locale} landedFrom={booked?.card && booked.card.id === opened?.id ? opened.balance : undefined}
+        title={shown.cardLocator} sub={verifiedLine} label={t.balance} locale={locale} landedFrom={booked?.card && booked.card.id === opened?.id ? opened.balance : undefined}
         foot={<>{shown ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
           {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
           {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
@@ -405,7 +404,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     </div>}
     {shown && !goal && <section className={styles.card} aria-labelledby="cashier-card-title">
       <div className={cx("card-result-head", styles.cardHead)}>
-        <div><span className={styles.eyebrow}>{card?.appointment && !card.appointment.done ? `${t.verified} · Termin ${card.appointment.startLabel}` : t.verified}</span><h2 id="cashier-card-title" className={styles.locator}>{shown.cardLocator}</h2></div>
+        <div><span className={styles.eyebrow}>{verifiedLine}</span><h2 id="cashier-card-title" className={styles.locator}>{shown.cardLocator}</h2></div>
         {card || !camera ? <Button variant="quiet" size="sm" icon={<X size={16} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button> : null}
       </div>
       <div className={cx(card && "balance-display", styles.balance)}>

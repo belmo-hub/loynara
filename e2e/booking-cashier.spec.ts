@@ -34,40 +34,42 @@ async function shopWithAppointment(baseURL: string, done: boolean) {
   // „Fertig“ opens 10 minutes before the start: the booked quarter hour is moved to have started 5 minutes ago.
   if (done) await pool.query("UPDATE booking_appointments SET during = tstzrange(date_trunc('minute', now()) - interval '5 minutes', date_trunc('minute', now()) + interval '25 minutes') WHERE id = $1", [appointment.id]);
   if (done) expect((await owner.post(`/api/merchant/booking/appointments/${appointment.id}/transition`, { data: { to: "done", expected: "confirmed" } })).status()).toBe(200);
-  const { scanCode } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
-  return { owner, scanCode, close: async () => { await owner.dispose(); await guest.dispose(); } };
+  const { scanCode, cardLocator } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string; cardLocator: string };
+  return { owner, scanCode, cardLocator, close: async () => { await owner.dispose(); await guest.dispose(); } };
 }
 
-async function openAtTill(page: Page, scanCode: string) {
+/** Opens the card at the till: by its scan code, or by its typed number („Karte öffnen“ after the check), as Design repro'd it. */
+async function openAtTill(page: Page, code: string, typed = false) {
   await page.goto("/cashier");
-  await page.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
+  await page.getByLabel("Kartennummer oder Kartencode").fill(code);
   await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+  if (typed) await page.getByRole("button", { name: "Karte öffnen" }).click();
 }
-/** What a finger at the element's centre touches, at the current scroll position (no scrolling first). */
-const hitAtCentre = (page: Page, selector: string) => page.locator(selector).first().evaluate(element => {
-  const box = element.getBoundingClientRect();
-  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-  return { inView: box.top >= 0 && box.bottom <= innerHeight, hit: Boolean(hit && element.contains(hit)) };
-});
+const SIZES = [{ width: 390, height: 664 }, { width: 390, height: 844 }, { width: 1280, height: 800 }];
 
-test("an open appointment shows in the card's state pill, in view and not under the dock", async ({ browser, baseURL }) => {
-  const shop = await shopWithAppointment(baseURL!, false);
-  const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 }, hasTouch: true });
-  const page = await context.newPage();
-  await openAtTill(page, shop.scanCode);
-  await expect(page.getByText(/^Karte offen · Termin \d{2}:\d{2}$/)).toBeVisible();
-  expect(await hitAtCentre(page, `text=/^Karte offen · Termin/`)).toEqual({ inView: true, hit: true });
-  await context.close(); await shop.close();
-});
+for (const size of SIZES) for (const typed of [false, true]) {
+  test(`${size.width}x${size.height}, ${typed ? "typed number" : "scanned"}: the appointment is in the card head, and the foot stays clear of the dock`, async ({ browser, baseURL }) => {
+    const shop = await shopWithAppointment(baseURL!, false);
+    const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
+    const page = await context.newPage();
+    await openAtTill(page, typed ? shop.cardLocator : shop.scanCode, typed);
+    const head = page.getByText(/^Geprüfte Karte · Termin \d{2}:\d{2}$/).first();
+    await expect(head).toBeVisible();
+    expect(await head.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.top >= 0 && box.bottom <= innerHeight && Boolean(hit && element.contains(hit)); })).toBe(true);
+    await context.close(); await shop.close();
+  });
+}
 
-test("a visit the owner already finished warns at the top, and one stamp asks „Trotzdem vergeben?“ first", async ({ browser, baseURL }) => {
+for (const size of SIZES.slice(1)) test(`${size.width}x${size.height}: a finished visit warns in one line, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
   const shop = await shopWithAppointment(baseURL!, true);
-  const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: { width: 390, height: 844 }, hasTouch: true });
+  const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
   const page = await context.newPage();
   await openAtTill(page, shop.scanCode);
-  const warning = page.locator(".cashier-appointment-done");
-  await expect(warning).toContainText(/Achtung: Termin \d{2}:\d{2} ist schon erledigt und gutgeschrieben\./);
-  expect(await hitAtCentre(page, ".cashier-appointment-done")).toEqual({ inView: true, hit: true });
+  const warning = page.getByText("Achtung: Termin schon gutgeschrieben", { exact: true }).first();
+  await expect(warning).toBeVisible();
+  expect(await warning.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.top >= 0 && box.bottom <= innerHeight && Boolean(hit && element.contains(hit)); })).toBe(true);
+  const other = page.getByRole("button", { name: "Andere Karte" }).first();
+  expect(await other.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
   await page.locator(".cashier-award-now").click();
   await expect(page.getByRole("dialog", { name: "Trotzdem vergeben?" })).toBeVisible();
   await context.close(); await shop.close();
