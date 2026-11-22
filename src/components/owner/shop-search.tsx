@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useReducer, useRef, type KeyboardEvent } from "react";
+import { useEffect, useReducer, useRef, useState, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
 import { postJson } from "@/components/client-api";
 
@@ -80,6 +80,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
   const [state, dispatch] = useReducer(searchReducer, IDLE);
   const token = useRef("");
   const latest = useRef(latestOnly());
+  const [keyboardPick, setKeyboardPick] = useState(false); // the picked block's ring is for keyboard picks only
   const query = state.text.trim();
 
   useEffect(() => {
@@ -94,9 +95,10 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
     return () => clearTimeout(timer);
   }, [query]);
   useEffect(() => { const searches = latest.current; return () => searches.cancel(); }, []); // nothing lands after unmount
+  useEffect(() => { document.getElementById("su-place-list")?.scrollTo(0, 0); }, [state.options]); // a new answer opens at its best match
   useEffect(() => { if (state.active >= 0) document.getElementById(`su-place-${state.active}`)?.scrollIntoView({ block: "nearest" }); }, [state.active]);
 
-  async function choose(option: Suggestion) {
+  async function choose(option: Suggestion, keyboard = false) {
     const live = latest.current.next();
     dispatch({ type: "pick", option });
     const point = await postJson("/api/merchant/place-location", { placeId: option.id, sessionToken: token.current }).then(placeCoordinates, () => null);
@@ -104,7 +106,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
     if (!point) { dispatch({ type: "pickFailed" }); return; } // the same session may try again
     token.current = ""; // the details call ends Google's session
     // Committed now, so the picked block exists to take focus (WebKit ran a frame callback before the commit).
-    flushSync(() => { dispatch({ type: "picked" }); onChange({ id: option.id, name: option.main, address: option.secondary, ...point }); });
+    flushSync(() => { dispatch({ type: "picked" }); setKeyboardPick(keyboard); onChange({ id: option.id, name: option.main, address: option.secondary, ...point }); });
     document.getElementById("su-place-picked")?.focus();
   }
 
@@ -114,7 +116,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
       dispatch({ type: "move", down: event.key === "ArrowDown" });
     } else if (event.key === "Enter") {
       event.preventDefault(); // Enter here picks a place, it never starts the programme
-      if (state.open && state.active >= 0) void choose(state.options[state.active]);
+      if (state.open && state.active >= 0) void choose(state.options[state.active], true);
     } else if (event.key === "Escape" && state.open) {
       event.preventDefault();
       dispatch({ type: "escape" });
@@ -123,7 +125,7 @@ export function ShopSearch({ value, onChange, label, pickedLabel = label, purpos
 
   if (value) return <div className="ow-field">
     <span className="ow-label">{pickedLabel}</span>
-    <div id="su-place-picked" tabIndex={-1} className="ow-place-picked"><strong>{value.name}</strong>{value.address && <small>{value.address}</small>}<GoogleMapsLogo /></div>
+    <div id="su-place-picked" tabIndex={-1} className="ow-place-picked" data-kbd={keyboardPick || undefined}><strong>{value.name}</strong>{value.address && <small>{value.address}</small>}<GoogleMapsLogo /></div>
     {purpose && <p className="ow-hint">{purpose}</p>}
     <button type="button" className="ow-btn ow-btn--secondary ow-place-change" onClick={() => { onChange(null); requestAnimationFrame(() => document.getElementById("su-place")?.focus()); }}>Ändern</button>
   </div>;
