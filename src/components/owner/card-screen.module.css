@@ -11,15 +11,15 @@
 /* From 1200, in the rail: the three figures, a figure over its label, spread from inset to inset. */
 .facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
 .facts > div { display: grid; gap: var(--space-1); }
-.figure { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
-.label { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.figure { font-size: var(--text-22); line-height: 1.75rem; font-weight: var(--weight-heavy); white-space: nowrap; }
+.label { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 
 /* „Verlauf“: the day, then its lines. */
 /* A headed panel ends 8 under its last line when no „Ältere Vorgänge laden“ closes it. */
 .feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
-.day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); }
+.day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); }
 .empty.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); animation: none; }
-.empty.empty p { max-width: none; font-size: var(--text-14); line-height: 20px; }
+.empty.empty p { max-width: none; font-size: var(--text-14); line-height: 1.25rem; }
 .olderError { padding: var(--space-2) calc(var(--space-5) - 1px); }
 .more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
 .more:disabled { color: var(--color-ink-muted); cursor: default; }
@@ -31,17 +31,17 @@
 /* A statement line: title and sub lines left, the amount right with „Korrigieren“ on the line's last line. */
 .stmtBody.stmtBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-content: center; align-items: start; }
 .title { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); font-weight: var(--weight-strong); }
-.sub { grid-column: 1; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.sub { grid-column: 1; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .stmt[data-hang] { align-items: flex-start; }
 .stmt[data-hang] > :first-child { margin-top: var(--space-3); }
 .stmt[data-hang] > .stmtBody { padding-top: 11px; padding-bottom: var(--space-3); }
 .stmt[data-hang] .sub { grid-column: 1 / -1; }
 .end { grid-area: 1 / 2 / span 2; align-self: stretch; display: grid; justify-items: end; align-content: space-between; }
-.amount { font-size: var(--text-18); line-height: 24px; font-weight: var(--weight-heavy); white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; }
+.amount { font-size: var(--text-18); line-height: 1.5rem; font-weight: var(--weight-heavy); white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; }
 .amount[data-tone="plus"] { color: var(--color-success); }
 .amount[data-tone="off"] { color: var(--color-ink-muted); text-decoration: line-through; }
 /* 44 tall without pushing the line apart. */
-.correct { margin: calc(-1 * var(--space-3)); padding: var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.correct { margin: calc(-1 * var(--space-3)); padding: var(--space-3); border: 0; background: none; font: inherit; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 /* „Details“: a label and its value. */
 .key { flex: none; color: var(--color-ink-muted); }
@@ -85,11 +85,11 @@
   .facts > div { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
   .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
   .facts .label { order: -1; font-weight: var(--weight-strong); }
-  .facts .figure { flex: none; font-size: var(--text-28); line-height: 32px; letter-spacing: -.015em; } /* the label gives way, never the figure */
+  .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)
    all three figures step down to 22/28 together (Head of Design, 20 Nov). */
-@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .facts .figure.figure { font-size: var(--text-22); line-height: 28px; letter-spacing: normal; } }
+@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .facts .figure.figure { font-size: var(--text-22); line-height: 1.75rem; letter-spacing: normal; } }
 @media (min-width: 600px) and (max-width: 1199px) {
   .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
   /* Beside the card the figures' rows share the card's height. */

@@ -8,13 +8,13 @@
 .top { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
 .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); font-weight: var(--weight-heavy); }
 .id { display: grid; min-width: 0; }
-.id b { font-weight: var(--weight-strong); line-height: 22px; }
-.id span { font-size: var(--text-14); line-height: 20px; color: var(--on-card); }
+.id b { font-weight: var(--weight-strong); line-height: 1.375rem; }
+.id span { font-size: var(--text-14); line-height: 1.25rem; color: var(--on-card); }
 .n { display: grid; flex: none; margin-left: auto; text-align: right; }
-.n b { font-size: var(--text-28); line-height: 30px; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.n b { font-size: var(--text-28); line-height: 1.875rem; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* A real space before „von 8“ so it is read as „5 von 8“; the margin takes the space's width (Manrope: .2em) back. */
-.n b small { margin-left: calc(var(--space-2) - .2em); font-size: var(--text-16); line-height: 16px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--on-card); }
-.n > span { font-size: var(--text-14); line-height: 18px; font-weight: var(--weight-label); color: var(--on-card); }
+.n b small { margin-left: calc(var(--space-2) - .2em); font-size: var(--text-16); line-height: 1rem; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--on-card); }
+.n > span { font-size: var(--text-14); line-height: 1.125rem; font-weight: var(--weight-label); color: var(--on-card); }
 .stamps { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 14px var(--space-2); }
 /* A share of the slot, rounded to a whole pixel (47 in a 358 card); the plain width is for browsers without round(). */
 .stamp { --st: 64%; width: var(--st); width: round(var(--st), 1px); justify-self: center; aspect-ratio: 1; min-height: 0; /* the check never stretches a small disc taller than wide */ display: grid; place-items: center; border-radius: 50%; background: color-mix(in oklab, var(--merchant-ink) 14%, transparent); }
@@ -24,12 +24,12 @@
 @media (forced-colors: active) { .stamp[data-on] { forced-color-adjust: none; background: CanvasText; color: Canvas; } }
 .foot { padding-top: var(--space-4); border-top: 1px solid color-mix(in oklab, var(--merchant-ink) 18%, transparent); }
 .line { margin: 0; color: var(--on-card); font-weight: var(--weight-label); }
-.reward { margin: 0; font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; overflow-wrap: anywhere; }
+.reward { margin: 0; font-size: var(--text-28); line-height: 2.125rem; font-weight: var(--weight-heavy); letter-spacing: -.025em; overflow-wrap: anywhere; }
 /* Programm: two fields, a small label over its value. */
 .fields { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); }
 .fields span { display: grid; align-content: start; min-width: 0; } /* a long reward name does not push „8 Stempeln“ down (#282) */
 .fields span + span { text-align: right; }
-.fields small { font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); color: var(--on-card); }
+.fields small { font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); color: var(--on-card); }
 .fields strong { font-weight: var(--weight-strong); }
 
 /* The Kasse: the card number is the card's name, the balance the house figure, the stamps larger (56 in 358). */
@@ -41,8 +41,8 @@
 /* A ceiling, not a floor (Design, 18 Nov): a one-row goal (3, 4, 5) keeps its own height. */
 .kasse .stamps:not([data-rows="1"]) { min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
 .kasse .stamp { --st: 76%; }
-.kasse .id b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
-.kasse .n b { font-size: var(--display-tile); line-height: 44px; }
+.kasse .id b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
+.kasse .n b { font-size: var(--display-tile); line-height: 2.75rem; }
 .kasse .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 
 /* The thumbnail for list rows: the shop's colour and the stamps as dots, 64 x 44, no type. */

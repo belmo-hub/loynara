@@ -9,5 +9,7 @@
 .contents ol { margin: 0; padding: 0; list-style: none; }
 .contents li + li { border-top: 1px solid var(--color-line); }
 .contents a { display: flex; align-items: center; min-height: var(--target); padding-block: var(--space-2); color: var(--color-action); line-height: 1.35; text-decoration: none; transition: color var(--dur-press) var(--ease-out); }
+/* A long title word hyphenates under large text instead of widening the page (Design R1, 23 Nov). */
+.contents a { overflow-wrap: anywhere; hyphens: auto; }
 .contents a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 @media (hover: hover) and (pointer: fine) { .legal a:hover { color: var(--color-ink); } .contents a:hover { color: var(--color-action-hover); } }

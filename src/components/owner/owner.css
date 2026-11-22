@@ -24,7 +24,7 @@
 .owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
-.owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
+.owner-app summary { min-height: 44px; padding-block: 10px; line-height: 1.5rem; cursor: pointer; }
 
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
@@ -200,9 +200,10 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"], .ow-tab[data-pending] { color: var(--color-ink); font-weight: var(--weight-heavy); }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] .ow-tab-icon, .ow-tab[data-pending] .ow-tab-icon { background: var(--color-fill); }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] svg, .ow-tab[data-pending] svg { stroke-width: 2.5; }
-  /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
-  /* 1.34 (the 12/16 token) leaves room for descenders: WebKit clips the „g“ of „Programm“ at 1.1 under overflow: hidden. */
-  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.34; }
+  /* Under large text a label wraps to a second line (hyphenated, never into its neighbour) instead of ending in „…“
+     (Design R1, 23 Nov); at the default size every label stays on one line. 1.34 (the 12/16 token) leaves room for
+     descenders: WebKit clips the „g“ of „Programm“ at 1.1. */
+  .ow-tab-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; hyphens: auto; line-height: 1.34; }
   /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
   .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
@@ -591,6 +592,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 
 /* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+/* Under large text a choice hyphenates inside its third instead of running past the screen (Design R1). */
+.ow-seg button { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
 @media (max-width: 640px) {
