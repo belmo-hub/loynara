@@ -74,7 +74,8 @@ export default function RegisterPage() {
         <Button variant="secondary" className={resend === "sent" ? styles.resting : undefined} onClick={again} loading={resend === "busy"} aria-disabled={resend === "busy" || resend === "sent" || undefined}>E-Mail erneut senden</Button>
         {/* Always mounted, so a screen reader hears the outcome; the inner line fades in per outcome. */}
         <p role="status" className={styles.resendStatus} data-tone={resend === "limited" || resend === "failed" ? "danger" : undefined}>{resend === "sent" || resend === "limited" || resend === "failed" ? <span key={resend}>{OUTCOME[resend]}</span> : null}</p>
-        <p className={styles.note}>Nichts angekommen? Prüfe deinen Spam‑Ordner oder schreibe uns an <a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
+        {/* Once the sent line names the spam folder, the note keeps only the way to support (Design, 22 Nov). */}
+        <p className={styles.note}>{resend === "sent" ? "Nichts angekommen? Schreibe uns an " : "Nichts angekommen? Prüfe deinen Spam‑Ordner oder schreibe uns an "}<a className={styles.link} href={SUPPORT}>support@getloynara.com</a>.</p>
       </div>
       <p className={styles.note}><Link className={`${styles.link} ${styles.lone}`} href={withInviteReturn("/login", next)}>Zur Anmeldung</Link></p>
     </div>
@@ -86,7 +87,7 @@ export default function RegisterPage() {
       <div className={styles.sheet}>
         <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
           <TextField id="rg-name" error={fields.error("rg-name")} label="Dein Name" name="name" autoComplete="name" autoCapitalize="words" enterKeyHint="next" required maxLength={120} placeholder="Vor- und Nachname" />
-          <TextField id="rg-email" error={fields.error("rg-email")} label="E-Mail-Adresse" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" name="email" required maxLength={254} placeholder="du@geschaeft.de" />
+          <TextField id="rg-email" error={fields.error("rg-email")} label="E-Mail-Adresse" type="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" name="email" required maxLength={254} placeholder="du@geschaeft.de" />
           <TextField id="rg-password" error={fields.error("rg-password")} label="Passwort" type="password" name="password" autoComplete="new-password" enterKeyHint="next" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} hint={`Mindestens ${PASSWORD_MIN}, höchstens ${PASSWORD_MAX} Zeichen.`} />
           <TextField id="rg-confirmation" label="Passwort wiederholen" type="password" name="confirmation" autoComplete="new-password" enterKeyHint="go" onChange={() => setMismatch(false)} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
             error={fields.error("rg-confirmation") ?? (mismatch ? "Die Passwörter stimmen nicht überein." : undefined)} />

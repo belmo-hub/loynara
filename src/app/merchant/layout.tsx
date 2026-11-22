@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
+import type { Viewport } from "next";
 import type { ReactNode } from "react";
 import type { OwnerRole } from "@/components/owner/nav";
 import { OwnerProvider } from "@/components/owner/owner-context";
@@ -13,6 +14,12 @@ import "@/components/owner/owner.css";
 
 // Read per request: which surfaces exist follows the live deployment (see lib/pilot-surfaces), not the build.
 export const dynamic = "force-dynamic";
+
+// The owner's phone top bar is --color-raised, so the browser bar continues it (Design 36c).
+export const viewport: Viewport = {
+  themeColor: [{ media: "(prefers-color-scheme: light)", color: "#FFFFFF" }, { media: "(prefers-color-scheme: dark)", color: "#1D2923" }],
+  colorScheme: "light dark",
+};
 
 // Display only, for the first paint before /api/me answers (ENG-184): every API route still checks the role itself.
 // The unconfirmed address is display only too: owner mail checks the account itself when it is sent (ENG-278).
