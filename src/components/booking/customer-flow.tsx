@@ -129,6 +129,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
   const slotsRequest = useRef(0);
+  const pushed = useRef(0);
 
   // The rebook push links here with ?service=&staff=&rebook=: the day step opens with both pre-selected.
   useEffect(() => { if (arrival) void loadSlots(arrival.service, arrival.staffId); }, [arrival]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,13 +144,15 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
     moved.current = true; setProblem(null); setStep(next);
     const url = new URL(window.location.href), param = STEP_PARAM[next];
     if (param) url.searchParams.set("schritt", param); else url.searchParams.delete("schritt");
-    if (next === "done") window.history.replaceState({ booking: next }, "", url); else window.history.pushState({ booking: next }, "", url);
+    if (next === "done") window.history.replaceState({ booking: next }, "", url); else { pushed.current += 1; window.history.pushState({ booking: next, depth: pushed.current }, "", url); }
   }
   useEffect(() => {
     // A reload starts over at the first step: drop a stale ?schritt from the address.
     if (new URL(window.location.href).searchParams.has("schritt")) { const url = new URL(window.location.href); url.searchParams.delete("schritt"); window.history.replaceState(null, "", url); }
     const onPop = (event: PopStateEvent) => {
-      const target = (event.state as { booking?: Step } | null)?.booking ?? "service";
+      const state = event.state as { booking?: Step; depth?: number } | null;
+      const target = state?.booking ?? "service";
+      pushed.current = state?.depth ?? 0;
       moved.current = true; setProblem(null);
       setStep(current => target === "done" || (target !== "service" && current === "done") ? "service" : target);
     };
@@ -196,7 +199,10 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 
   function reset() { moved.current = true; setMoving(null); setService(null); setSlot(null); setDay(null); setResult(null); setProblem(null); setStep("service"); }
 
+  // Design r2: the page's „Zurück“ is the browser's Back while the step came from this visit's history, so the two never
+  // walk in opposite directions.
   function back() {
+    if (pushed.current > 0 && step !== "done") { window.history.back(); return; }
     if (step === "confirm") go("time");
     else if (step === "time") go("day");
     else reset();
@@ -262,8 +268,8 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
       {view.upcoming.length >= view.shop.maxOpenPerCard ? null : <Button variant="quiet" size="sm" className={styles.edge} onClick={reset}>Noch einen Termin buchen</Button>}
     </section> : <section key={step} className={`booking-flow ${mix.panel} ${mix.pad} ${styles.arrive}`} aria-labelledby="booking-step-title">
       <div className={styles.head}>
-        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>{moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
-        <p className={styles.step}>{index} von {total}</p>
+        <h2 id="booking-step-title" ref={heading} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>{step === "service" && atLimit ? "Mehr Termine gehen gerade nicht" : moving && step === "day" ? "Neuen Tag wählen" : { service: "Leistung wählen", day: "Tag wählen", time: "Uhrzeit wählen", confirm: moving ? "Verschieben prüfen" : "Termin prüfen", done: "" }[step]}</h2>
+        {step === "service" && atLimit ? null : <p className={styles.step}>{index} von {total}</p>}
       </div>
       {moving ? <p className={card.muted}>Bisher: {formatWhen(moving.start, tz)}, {moving.service.name}</p> : null}
       {service && step !== "service" && step !== "confirm" && !moving ? <p className={card.muted}>{service.name}, {durationLabel(service.durationMin)}, {formatPrice(service.priceMinor, service.priceFrom)}</p> : null}

@@ -112,7 +112,7 @@ function DayList({ day, onOpen, onBlock }: { day: DayResponse; onOpen: (appointm
       ? <Row key={row.block.id} icon={Ban} title={`${wholeDay(row.block, day.timezone) ? "Ganzer Tag" : `${wallTime(row.block.start, day.timezone)}–${wallTime(row.block.end, day.timezone)}`} · Geblockt`} sub={[row.block.reason, staffName(row.block.staffId)].filter(Boolean).join(" · ") || undefined} onClick={() => onBlock(row.block)} />
       : <Row key={row.appointment.id} icon={CalendarDays} title={`${wallTime(row.appointment.start, day.timezone)} · ${row.appointment.service.name}`}
           sub={`${row.appointment.customerName} bei ${row.appointment.staff.name}`}
-          chip={row.inBlock && row.appointment.status === "confirmed" ? { label: "in geblockter Zeit", tone: "warn" } : row.appointment.outsideHours ? { label: "außerhalb der Öffnungszeiten", tone: "warn" } : row.appointment.status === "confirmed" ? undefined : { label: statusWord(row.appointment), tone: chipTone(row.appointment.status) }} onClick={() => onOpen(row.appointment)} />)}
+          chip={row.inBlock && row.appointment.status === "confirmed" ? { label: "in geblockter Zeit", tone: "warn" } : row.appointment.outsideHours ? { label: row.appointment.status === "requested" ? "angefragt, außerhalb der Öffnungszeiten" : "außerhalb der Öffnungszeiten", tone: "warn" } : row.appointment.status === "confirmed" ? undefined : { label: statusWord(row.appointment), tone: chipTone(row.appointment.status) }} onClick={() => onOpen(row.appointment)} />)}
     </Rows></div>
   );
 }
@@ -254,7 +254,7 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
         <button type="button" className="ow-btn ow-btn--ghost" onClick={() => { setError(""); setMode("cancel"); }} disabled={busy}>{appointment.status === "requested" ? "Ablehnen" : "Absagen"}</button>
       </div>}
       <div className="ow-row" style={{ justifyContent: "space-between" }}>
-        <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen" : `In 12 Monaten ${appointment.noShowCount}× nicht erschienen`}{blocked && " Online-Buchung gesperrt."}</span>
+        <span className="ow-hint">{appointment.noShowCount === 0 ? "Bisher immer erschienen" : `In 12 Monaten ${appointment.noShowCount}× nicht erschienen`}{blocked && ", online gesperrt"}</span>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setError(""); if (blocked) void toggleBlock(); else setMode("block"); }} disabled={busy}>{blocked ? "Kunde entsperren" : "Kunde sperren"}</button>
       </div>
     </> };

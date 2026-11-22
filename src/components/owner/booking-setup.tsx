@@ -210,7 +210,7 @@ function Wizard({ initial }: { initial: Setup }) {
 
   return (
     <div className="ow-page">
-      <PageHead title="Online-Buchung einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
+      <PageHead title="Online-Termine einrichten" lead={returning ? "Ändere, was nicht mehr stimmt, und speichere. Gebuchte Termine bleiben, wie sie sind." : "Fünf kurze Schritte. Gespeichert wird erst am Ende."} />
       <ol className="ow-stepper" aria-label="Fortschritt">
         {STEPS.map((label, index) => (
           <li key={label} aria-current={index === step ? "step" : undefined} data-done={index < step || (returning && index !== step)} style={{ padding: 0 }}>
@@ -324,7 +324,7 @@ function Wizard({ initial }: { initial: Setup }) {
           </div>
           <Choice id="bs-open" label="Offene Termine pro Kunde" hint="So viele Termine kann ein Kunde gleichzeitig gebucht haben." value={r.maxOpenPerCard} options={withValue(OPEN_PER_CARD, r.maxOpenPerCard, n => `${n} Termine`)} onChange={maxOpenPerCard => setRules({ maxOpenPerCard })} />
           <Choice id="bs-noshow" label="Kunden sperren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${missedPhrase(n)}`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
-            hint={r.noShowBlockAfter ? `Wer ${r.noShowBlockAfter}-mal in 12 Monaten ohne Absage fehlt, kann nur noch anrufen. Du hebst das mit einem Tipp auf.` : "Niemand wird pausiert, auch nach vielen verpassten Terminen nicht."} />
+            hint={r.noShowBlockAfter ? `Wer ${r.noShowBlockAfter}-mal in 12 Monaten ohne Absage fehlt, kann nur noch anrufen. Du hebst das mit einem Tipp auf.` : "Niemand wird gesperrt, auch nach vielen verpassten Terminen nicht."} />
           <Field id="bs-terms" label="Text für deine Kunden" hint={form.termsEdited ? "Dein eigener Text. Prüfe ihn, wenn du die Regeln änderst." : "Folgt deinen Regeln. Du kannst ihn frei ändern."}>
             <textarea id="bs-terms" className="ow-textarea" rows={5} maxLength={600} value={form.termsEdited ? form.termsText : defaultTerms(r)} onChange={event => set({ termsText: event.target.value, termsEdited: true })} />
           </Field>

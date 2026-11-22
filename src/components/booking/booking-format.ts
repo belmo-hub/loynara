@@ -64,4 +64,4 @@ export type BookingView = { enabled: false } | {
 export type PushView = { publicKey?: string; subscribed: boolean; rebookConsent: boolean };
 
 /** F-4: the answer when one peer has made too many bookings at this shop in the last hour (shared by the route and the page). */
-export const TOO_MANY_BOOKINGS = "Von hier kamen gerade sehr viele Buchungen. Versuch es in einer Stunde noch mal oder ruf kurz im Geschäft an.";
+export const TOO_MANY_BOOKINGS = "Von hier kamen gerade sehr viele Terminanfragen. Versuch es in einer Stunde noch mal oder ruf kurz im Geschäft an.";
