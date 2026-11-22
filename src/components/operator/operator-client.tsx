@@ -120,11 +120,13 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
   }
   async function sendPoint(execute: boolean) {
     setBusy(true); setError("");
-    if (!execute) setPointPreview(null); // a new check starts clean; after a failed Speichern the preview stays for a retry
     try {
       const result = await postJson<NonNullable<typeof pointPreview>>("/api/operator/location-coordinates", pointRequest(pointRow!, coordinates, place, execute));
       if (execute) { closePoint(); router.refresh(); } else setPointPreview(result);
-    } catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    } catch (cause) {
+      if (!execute) setPointPreview(null); // a failed check shows only its error; a failed Speichern keeps the preview for a retry
+      setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
+    }
     finally { setBusy(false); }
   }
   const openPoint = (row: Row) => { setPointRow(row); setCoordinates(""); setPlace(null); setPointPreview(null); setError(""); };

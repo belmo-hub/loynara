@@ -22,6 +22,7 @@ export function Sheet({ open, onClose, title, children, footer, side = "auto", c
   useEffect(() => { if (ref.current) ref.current.style.minHeight = ""; }, [open]);
   const hold = keepHeight ? {
     onPointerDownCapture: (event: PointerEvent<HTMLDialogElement>) => {
+      if (event.button !== 0) return; // a right or middle press gets no click to release it; touch and pen report 0
       if (ref.current && !(event.target as Element).closest(":disabled")) ref.current.style.minHeight = `${ref.current.offsetHeight}px`;
     },
     onClickCapture: () => setTimeout(() => { if (ref.current) ref.current.style.minHeight = "0px"; }),

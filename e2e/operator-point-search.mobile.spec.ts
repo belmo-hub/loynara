@@ -6,11 +6,15 @@ import { expect, test, type Page } from "@playwright/test";
 // Motion on, like most phones: a transition on the held height once let the sheet drop under the finger (Design round 5).
 test.use({ viewport: { width: 390, height: 844 }, contextOptions: { reducedMotion: "no-preference" } });
 
+// OPERATOR_E2E_STATE (a saved operator session) runs it against a review stack without signing in.
+const state = process.env.OPERATOR_E2E_STATE;
+if (state) test.use({ storageState: state });
+
 async function sheet(page: Page) {
   const email = process.env.OPERATOR_E2E_EMAIL, password = process.env.OPERATOR_E2E_PASSWORD;
-  test.skip(!email || !password, "needs an operator account on a server that lists it");
+  test.skip(!state && (!email || !password), "needs an operator account on a server that lists it");
   const origin = new URL(test.info().project.use.baseURL!).origin;
-  expect((await page.request.post("/api/auth/sign-in/email", { data: { email, password }, headers: { Origin: origin } })).ok()).toBe(true);
+  if (!state) expect((await page.request.post("/api/auth/sign-in/email", { data: { email, password }, headers: { Origin: origin } })).ok()).toBe(true);
   await page.route("**/api/merchant/place-search", route => route.fulfill({ json: { suggestions: [1, 2, 3, 4, 5].map(n => ({ id: `place_${n}`, main: `Café am Platz ${n}`, secondary: "Kassel" })) } }));
   await page.route("**/api/merchant/place-location", route => route.fulfill({ json: { latitude: 51.3127, longitude: 9.4797 } }));
   await page.goto("/operator");
@@ -68,5 +72,16 @@ test("a press on the disabled „Prüfen“ leaves no held height behind", async
   await page.getByRole("button", { name: /^Koordinaten (setzen|ändern)$/ }).first().click();
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+});
+
+test("a right-click with the list open leaves no held height, and „Schließen“ stays on screen after rotating", async ({ page }) => {
+  const { dialog, search } = await sheet(page);
+  await search.fill("Café am");
+  await expect(dialog.getByRole("option")).toHaveCount(5);
+  const title = (await dialog.getByRole("heading", { name: "Koordinaten" }).boundingBox())!;
+  await page.mouse.click(title.x + 4, title.y + 4, { button: "right" }); // a press with no click to release it
+  expect(await dialog.evaluate(element => (element as HTMLElement).style.minHeight)).toBe("");
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect((await dialog.getByRole("button", { name: "Schließen" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
 });
 
