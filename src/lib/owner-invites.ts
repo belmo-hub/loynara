@@ -50,7 +50,7 @@ export async function createShopWithOwnerInvite({ actorUserId, env, shop }: { ac
     if (unsafeShopName(input.businessName)) throw new DomainError("INVALID_SHOP_NAME", SHOP_NAME_REFUSAL);
     const suffix = randomBytes(5).toString("base64url").toLowerCase().replace(/[^a-z0-9]/g, "");
     const [tenant] = await tx.insert(tenants).values({ name: input.businessName, slug: `${slugOf(input.businessName)}-${suffix}`, currency: input.country === "DE" ? "EUR" : "MAD", locale: input.country === "DE" ? "de" : "fr" }).returning({ id: tenants.id });
-    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.businessName, city: input.city, country: input.country, timezone: input.timezone }).returning({ id: locations.id });
+    const [location] = await tx.insert(locations).values({ tenantId: tenant.id, name: input.locationName ?? input.city, city: input.city, country: input.country, timezone: input.timezone }).returning({ id: locations.id });
     return { tenantId: tenant.id, locationId: location.id, ...await issue(tx, tenant.id, location.id, input.ownerEmail.toLowerCase(), actorUserId) };
   });
 }

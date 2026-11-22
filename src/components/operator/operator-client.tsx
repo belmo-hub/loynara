@@ -209,7 +209,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
       <CardHeader id="op-new" title="Neues Geschäft" description="Legt Geschäft und Standort an und erstellt eine Einladung für die Inhaberin oder den Inhaber. Sie gilt 7 Tage und nur einmal. Das Passwort wählt die Person selbst." />
       <form onSubmit={createShop} onInput={fields.onInput} noValidate style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
         <TextField id="op-1" error={fields.error("op-1")} label="Geschäftsname" name="businessName" required minLength={2} maxLength={180} autoComplete="off" />
-        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie der Geschäftsname." />
+        <TextField id="op-2" error={fields.error("op-2")} label="Standort (optional)" name="locationName" minLength={2} maxLength={180} autoComplete="off" hint="Leer lassen: wie die Stadt." />
         <TextField id="op-3" error={fields.error("op-3")} label="Stadt" name="city" required minLength={2} maxLength={120} autoComplete="off" />
         <input type="hidden" name="country" value="DE" /><input type="hidden" name="timezone" value="Europe/Berlin" />
         <TextField id="op-4" error={fields.error("op-4")} label="E-Mail der Inhaberin oder des Inhabers" name="ownerEmail" type="email" required maxLength={320} autoComplete="off" hint="Die Einladung gilt nur für diese Adresse." />

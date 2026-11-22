@@ -109,6 +109,12 @@ it("creates the shop and an owner invitation that the owner turns into an accoun
   expect((await operatorOverview(operator.userId)).awaiting).toEqual([]);
 });
 
+it("names a shop's location after its city when the operator leaves it empty (ENG-336)", async () => {
+  const { tenantId } = await create("ohne-standort@example.test");
+  const [row] = (await pool.query("SELECT name, city FROM locations WHERE tenant_id = $1", [tenantId])).rows;
+  expect(row).toEqual({ name: "Kassel", city: "Kassel" });
+});
+
 it("is single use, expires after 7 days, can be revoked, and a new one is issued only while the shop has no owner", async () => {
   const first = await create();
   const token = first.token;

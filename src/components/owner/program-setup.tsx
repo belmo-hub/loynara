@@ -44,7 +44,7 @@ export function ProgramSetup() {
   // A shop the operator created arrives with its name and place filled in; the owner confirms or changes them.
   const draft = owner.setupDraft;
   const [f, setF] = useState({
-    businessName: draft?.businessName ?? "", locationName: draft?.locationName ?? "", city: draft?.city ?? "", preset: "",
+    businessName: draft?.businessName ?? "", locationName: draft && draft.locationName !== draft.businessName ? draft.locationName : "", city: draft?.city ?? "", preset: "",
     type: "stamp" as ProgramKind, mode: "manual" as EarningMode, rate: "1", rewardName: "", cost: "", rules: "", rulesEdited: false,
     programName: "", brandColor: "#1F4A3A", logoData: undefined as string | undefined, logoError: "", date: new Date().toISOString().slice(0, 10), place: null as ShopPlace | null,
   });
