@@ -37,13 +37,24 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
     el.showPopover();
     return () => { if (el.matches(":popover-open")) el.hidePopover(); };
   }, [host]);
-  // Back to the page when the modal closes.
+  // Back to the page when the modal closes, or when it is unmounted while open (no close event then, Design r2).
   useEffect(() => {
     if (!host) return;
     const back = () => setHost(null);
+    const gone = new MutationObserver(() => { if (!host.isConnected) back(); });
     host.addEventListener("close", back);
-    return () => host.removeEventListener("close", back);
+    gone.observe(document.body, { childList: true, subtree: true });
+    return () => { host.removeEventListener("close", back); gone.disconnect(); };
   }, [host]);
+  // The live text arrives a frame after the region (re)mounts, so a region that has just moved into a modal is already in
+  // the accessibility tree when the first toast speaks (Design r2).
+  const latest = toasts.findLast((t) => !t.leaving)?.message;
+  const [live, setLive] = useState<ReactNode>(null);
+  useEffect(() => {
+    let next = 0;
+    const first = requestAnimationFrame(() => { setLive(null); next = requestAnimationFrame(() => setLive(latest)); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(next); };
+  }, [latest, host]);
 
   const dismiss = useCallback((id: number) => {
     setToasts((all) => all.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
@@ -71,6 +82,12 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
     return () => window.clearInterval(tick);
   }, [oldest, dismiss]);
 
+  // After „×“ inside a modal the focus goes back to the modal's own first control, not to the page (Design r2).
+  const returnFocus = () => {
+    if (!host) return;
+    const controls = host.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    [...controls].find(control => !region.current?.contains(control) && !control.hasAttribute("disabled"))?.focus();
+  };
   const api = useMemo(() => ({ show }), [show]);
   return <ToastContext.Provider value={api}>
     {children}
@@ -78,9 +95,9 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
     {portal(host, <div key={host ? "modal" : "page"} ref={region} popover="manual" className={styles.region} style={host ? { "--toast-offset": "0px" } as CSSProperties : undefined} onPointerEnter={() => { paused.current = true; }} onPointerLeave={() => { paused.current = false; }} onFocus={() => { paused.current = true; }} onBlur={() => { paused.current = false; }}>
       {toasts.map((t) => { const Icon = icons[t.tone]; return <div key={t.id} className={cx(styles.toast, styles[t.tone], t.leaving && styles.leaving)}>
         <Icon size={20} aria-hidden="true" className={styles.icon} /><span className={styles.message} aria-hidden="true">{t.message}</span>
-        <button type="button" className={styles.close} onClick={() => dismiss(t.id)} aria-label={closeLabel}><X size={20} aria-hidden="true" /></button>
+        <button type="button" className={styles.close} onClick={() => { dismiss(t.id); returnFocus(); }} aria-label={closeLabel}><X size={20} aria-hidden="true" /></button>
       </div>; })}
-      <div className={styles.live} aria-live="polite" aria-atomic="true">{toasts.findLast((t) => !t.leaving)?.message}</div>
+      <div className={styles.live} aria-live="polite" aria-atomic="true">{live}</div>
     </div>)}
   </ToastContext.Provider>;
 }
