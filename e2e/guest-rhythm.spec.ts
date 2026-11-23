@@ -94,3 +94,47 @@ test("the card's birthday panel uses the house selects", async ({ page }) => {
     return { fields: el.querySelectorAll("select").length, heights: [Math.round(day.height), Math.round(month.height)], sameRow: Math.round(day.top) === Math.round(month.top), gap: Math.round(month.left - day.right), monthTwiceAsWide: Math.abs(month.width - 2 * day.width) <= 1, labels: [...el.querySelectorAll("label")].map(label => label.textContent) };
   })).toEqual({ fields: 2, heights: [48, 48], sameRow: true, gap: 12, monthTwiceAsWide: true, labels: ["Tag", "Monat"] });
 });
+
+// Finding 17 (Design, 22 and 23 Nov): „Speichern“ is always pressable. A press with a select left empty shows one line under
+// the row naming what is missing; it follows what is still missing and goes once both are picked. The panel keeps its
+// 12 rhythm with and without the line.
+test("the birthday's „Speichern“ names what is missing in one line, and the panel keeps its 12 rhythm", async ({ page }) => {
+  const posted: unknown[] = [];
+  await page.route("**/api/card/*/birthday", route => {
+    if (route.request().method() !== "GET") { posted.push(route.request().postDataJSON()); return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: null, month: null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) });
+  });
+  await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
+  const panel = page.locator("section[aria-labelledby=birthday-title]");
+  const day = page.locator("#birthday-day"), month = page.locator("#birthday-month"), save = page.getByRole("button", { name: "Speichern", exact: true });
+  const line = page.locator("#birthday-pick-error");
+  // Gaps between the blocks of the form: row, (error line), text, buttons.
+  const gaps = () => panel.evaluate(el => { const form = el.querySelector("form")!; const boxes = [...form.children].map(child => child.getBoundingClientRect()); return boxes.slice(1).map((box, i) => Math.round(box.top - boxes[i].bottom)); });
+  await expect(save).toBeEnabled();
+  await expect.poll(gaps).toEqual([12, 12]);
+  await save.click();
+  await expect(day).toBeFocused();
+  await expect(line).toHaveText("Bitte wähle Tag und Monat.");
+  await expect(page.locator("[id$='-error']", { hasText: "Bitte wähle" })).toHaveCount(1);
+  for (const select of [day, month]) { await expect(select).toHaveAttribute("aria-invalid", "true"); await expect(select).toHaveAttribute("aria-describedby", /birthday-pick-error/); }
+  await expect.poll(gaps).toEqual([12, 12, 12]);
+  await day.selectOption("12");
+  await expect(line).toHaveText("Bitte wähle den Monat.");
+  await expect(day).not.toHaveAttribute("aria-invalid", "true");
+  await expect(month).toHaveAttribute("aria-invalid", "true");
+  expect(posted).toEqual([]);
+  await month.selectOption("5");
+  await expect(line).toHaveCount(0);
+  await expect.poll(gaps).toEqual([12, 12]);
+  await save.click();
+  await expect.poll(() => posted).toEqual([{ day: 12, month: 5 }]);
+  // Design r2: once saved, deleting it again brings back neither the line nor the marks of the earlier empty press.
+  await page.route("**/api/card/*/birthday", route => route.request().method() === "GET"
+    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: 12, month: 5, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) })
+    : route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
+  await expect(page.getByRole("button", { name: "Löschen", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await expect(page.getByText("Gelöscht.")).toBeVisible();
+  await expect(line).toHaveCount(0);
+  for (const select of [day, month]) await expect(select).not.toHaveAttribute("aria-invalid", "true");
+});
