@@ -4,7 +4,7 @@ The operator explicitly authorized this prelaunch lead-generation publication an
 
 - Static marketing site only: Cloudflare Pages delivery, local interactive demo, and mailto contact; no backend form, tracking, analytics, payments or contract acceptance.
 - No incorporated entity, commercial register, VAT registration or chamber membership is asserted.
-- The €39 per month/location offer remains provisional, with details discussed personally.
+- The price is €49 per month and location for every shop (founder, 23 Nov 2026: no founding price).
 - Application terms are not linked. Application/customer legal readiness remains a separate unresolved gate.
 - The privacy notice is factual interim marketing-site information, not approval of the application's legal documentation.
 - Public build and verification require `MARKETING_PUBLIC=true`; both fragments must exist and public output must contain no placeholder/draft terms.
