@@ -6,15 +6,17 @@
 
 export type GermanDateForm = "short" | "long" | "feed";
 
-const BERLIN = "Europe/Berlin";
+// Design's time-zone rule (22 Nov): every shop date, time and day boundary is read in the shop's zone; this is the
+// fallback when a screen doesn't know it (every shop is in Germany today). Relative times („vor 3 Min.“) need no zone.
+export const BERLIN = "Europe/Berlin";
 const PLAIN_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 export function germanDate(value: string | Date, form: GermanDateForm = "short", { timeZone, now = new Date() }: { timeZone?: string; now?: Date } = {}) {
   const plain = typeof value === "string" && PLAIN_DAY.test(value);
   const date = plain ? new Date(`${value}T00:00:00Z`) : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  // The feed keeps its live behaviour: the viewer's clock unless a zone is given.
-  if (form === "feed") return new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", timeZone }).format(date);
+  // The shop's clock, never the viewer's (time-zone rule, 22 Nov).
+  if (form === "feed") return new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", timeZone: timeZone ?? BERLIN }).format(date);
   const zone = plain ? "UTC" : timeZone ?? BERLIN;
   if (form === "short") return new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "numeric", year: "numeric", timeZone: zone }).format(date);
   const year = (at: Date, zoneName: string) => new Intl.DateTimeFormat("en-CA", { year: "numeric", timeZone: zoneName }).format(at);
@@ -26,3 +28,11 @@ export function germanDate(value: string | Date, form: GermanDateForm = "short",
 /** A number keeps its unit on a line break (Design decision 29): „10\u00a0Punkte“, „15.\u00a0November“, „23\u00a0Uhr“. For text
  *  shown to the owner only; what customers receive is sent as written. */
 export const keepUnits = (text: string) => text.replace(/(\d\.?) (?=\S)/g, "$1\u00a0");
+
+/** The calendar day of a moment in a zone, as YYYY-MM-DD: the key for „Heute“, „Gestern“ and a date field's today. */
+export const zoneDay = (at: string | Date, timeZone = BERLIN) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(at));
+/** Whole calendar days from one YYYY-MM-DD to another. */
+export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+/** The zone of the location an owner is viewing, Berlin while it isn't known (time-zone rule, 22 Nov). */
+export const shopZone = (owner: { me?: { locationId?: string | null } | null; locations?: ReadonlyArray<{ id: string; timezone?: string }> }) =>
+  owner.locations?.find(location => location.id === owner.me?.locationId)?.timezone ?? BERLIN;

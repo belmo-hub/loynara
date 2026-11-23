@@ -23,7 +23,9 @@
 @media (max-width:1023px){html{scroll-padding-bottom:calc(var(--bar) + 16px)}}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-body{font-family:Manrope,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:17px;line-height:1.55}
+/* Until Manrope arrives the fallback takes its x-height (0.54, measured), so the swap barely moves the text.
+   A number, not from-font: from-font reads the fallback's own value while the font is still loading. */
+body{font-size-adjust:.54;font-family:Manrope,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:17px;line-height:1.55}
 ::selection{background:var(--selection);color:var(--ink)}
 a{color:inherit;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
