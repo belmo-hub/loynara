@@ -5,8 +5,9 @@ import { RETENTION_RULES, type RetentionSummary } from "@/lib/retention";
 
 describe("germanDate raw timestamp fallback", () => {
   it.each([
-    ["2026-10-01T18:14:46", "1.10., 18:14"],
-    ["2026-10-13T18:14:46", "13.10., 18:14"],
+    // Instants, read on the shop's clock (Berlin, summer time), whatever the machine's zone (time-zone rule, 22 Nov).
+    ["2026-10-01T16:14:46Z", "1.10., 18:14"],
+    ["2026-10-13T16:14:46Z", "13.10., 18:14"],
   ])("formats %s", (timestamp, expected) => {
     expect(germanDate(timestamp, "feed")).toBe(expected);
   });
