@@ -60,6 +60,7 @@ export default function WalletMessagesPage() {
   const [text, setText] = useState(() => { try { return localStorage.getItem(DRAFT) ?? ""; } catch { return ""; } });
   const review = useReview<"confirm">();
   const [agreed, setAgreed] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -98,9 +99,12 @@ export default function WalletMessagesPage() {
   );
 
   const checked = checkMessageText(text);
-  const inlineError = text.trim() && !checked.ok ? checked.error : "";
+  // Finding 17 (Design, 22 Nov): „Weiter“ stays pressable for a text that is not ready; the press shows why.
+  const inlineError = (text.trim() || pressed) && !checked.ok ? checked.error : "";
   const capped = d.remaining === 0, empty = d.reach === 0;
   const canContinue = checked.ok && !capped && !empty && !d.quietNow;
+  // Capped, quiet hours and no reach are states their notice explains: those keep the button disabled.
+  const blocked = capped || empty || d.quietNow;
 
   async function send() {
     if (busy) return;
@@ -158,7 +162,7 @@ export default function WalletMessagesPage() {
         <LockScreen shop={d.shopName} text={text} />
         <p className="ow-hint">Nachrichten gehen vorerst nur an Karten in Apple Wallet. Du siehst nur Zahlen, nie Namen.</p>
         <SentMessages rows={d.history} timeZone={d.timezone} onStop={id => void stop(id)} />
-        <div className="ow-qsave"><button type="button" className="ow-btn ow-btn--primary" disabled={!canContinue} onClick={() => review.open("confirm")}>Weiter</button></div>
+        <div className="ow-qsave"><button type="button" className="ow-btn ow-btn--primary" disabled={blocked} onClick={() => { if (canContinue) review.open("confirm"); else { setPressed(true); document.getElementById("wm-text")?.focus(); } }}>Weiter</button></div>
       </div>
     </Frame>
     {toast}
