@@ -59,14 +59,27 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
   await expect(rows()).toHaveCount(1);
   await expect(page.locator(".ow-prog-row strong", { hasText: /^(Mac|Windows-PC|Passkey)$/ })).toHaveCount(1);
-  // Under large text „Entfernen“ goes under the words instead of squeezing them into broken syllables (Design r4).
+  // Under large text no passkey row cuts a word of its name or date: „Entfernen“ goes under the words instead (Design r4,
+  // r5: every row, a short name like „Mac“ included).
   const wide = page.viewportSize()!;
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.addStyleTag({ content: "html { font-size: 200% !important }" });
-  await expect.poll(() => page.locator(".ow-prog-row[data-ends=button]").first().evaluate(row => {
-    const text = row.querySelector(".ow-prog-text")!.getBoundingClientRect(), button = row.querySelector("button")!.getBoundingClientRect();
-    return button.top >= text.bottom - 1;
-  })).toBe(true);
+  for (const [width, percent] of [[320, 160], [320, 200], [390, 160], [390, 200]] as const) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(next => {
+      const style = document.getElementById("test-text-size") ?? document.head.appendChild(Object.assign(document.createElement("style"), { id: "test-text-size" }));
+      style.textContent = `html { font-size: ${next}% !important }`;
+    }, percent);
+    await expect.poll(() => page.locator(".ow-prog-row[data-ends=button]").evaluateAll(list => list.flatMap(row => [...row.querySelectorAll(".ow-prog-text strong, .ow-prog-text small")].flatMap(element => {
+      const node = element.firstChild;
+      if (!(node instanceof Text)) return [];
+      // Each word (split at spaces and hyphens, where a line may break) sits on one line.
+      const cut: string[] = []; let at = 0;
+      for (const word of node.data.split(/(?<=[ -])/)) {
+        const range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + word.trimEnd().length); at += word.length;
+        if (new Set([...range.getClientRects()].filter(line => line.width > 1).map(line => Math.round(line.top))).size > 1) cut.push(word.trim());
+      }
+      return cut;
+    }))), { message: `no word cut at ${width}, ${percent} %` }).toEqual([]);
+  }
   await page.setViewportSize(wide);
   await page.reload();
 

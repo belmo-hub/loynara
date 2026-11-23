@@ -1134,6 +1134,8 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog-text { flex: 1 1 min-content; min-width: 0; }
 .ow-prog-text strong { overflow-wrap: break-word; }
 .ow-prog-text small { overflow-wrap: anywhere; }
+/* A passkey row's date keeps whole words, so the house value rule can put „Entfernen“ under it (Design r5). */
+.ow-prog-row[data-ends=button] .ow-prog-text small { overflow-wrap: break-word; }
 /* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
 .owner-app .ow-rows-head > h2 { margin: 0; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
