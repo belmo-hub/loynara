@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { TRUSTED_TYPES_POLICY } from "@/lib/trusted-types-policy";
 import { manrope } from "./fonts";
 import "../styles/tokens.css";
 import "./globals.css";
@@ -22,6 +23,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${manrope.variable} h-full antialiased`}
     >
+      {/* In <head>, parsed before the async chunks can run (lib/trusted-types-policy.ts). */}
+      <head><script dangerouslySetInnerHTML={{ __html: TRUSTED_TYPES_POLICY }} /></head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
