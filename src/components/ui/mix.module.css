@@ -42,6 +42,9 @@
 .row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
 .text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
+/* A title word wider than its row („Programmregeln“ at 320/200) breaks inside it, not under the chevron. wrapEnd panels
+   (Programm) have their own large-text rule and keep their 100 % layout. */
+.panel:not([data-wrap-end]) .text > b { overflow-wrap: anywhere; hyphens: auto; hyphenate-limit-chars: 12 5 5; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; } /* only long words hyphenate („Programm- / regeln“) */
 .text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
 /* `wrapEnd` panels, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): a row's
