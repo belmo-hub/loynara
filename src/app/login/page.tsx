@@ -16,5 +16,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const fromLink = query.verified === "1";
   const error = typeof query.error === "string" ? query.error : null;
   if (fromLink && await auth.api.getSession({ headers: await headers() })) redirect(error ? `/merchant?error=${encodeURIComponent(error)}` : "/merchant");
-  return <LoginForm registrationOpen={process.env.PUBLIC_REGISTRATION_ENABLED === "true"} next={inviteReturnPath(query.next)} verified={fromLink && !error} />;
+  return <LoginForm registrationOpen={process.env.PUBLIC_REGISTRATION_ENABLED === "true"} next={inviteReturnPath(query.next) ?? (query.next === "/merchant/more" ? "/merchant/more" : null)} verified={fromLink && !error} />;
 }

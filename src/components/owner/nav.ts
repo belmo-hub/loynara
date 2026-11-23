@@ -33,8 +33,9 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "Aktionen", href: "/merchant/actions", roles: OWNER },
   ] },
   // Geschäft, Standorte, Team and Abrechnung are rows of the „Mehr“ page (ENG-122c), so the area has no sub-tabs either.
-  { id: "settings", label: "Einstellungen", icon: "gear", roles: OWNER, prefixes: [MORE_HREF, "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"], items: [
-    { label: "Einstellungen", href: MORE_HREF, roles: OWNER },
+  // Managers get it too, for Konto on a computer (CTO, 23 Nov); the page shows them only Konto.
+  { id: "settings", label: "Einstellungen", icon: "gear", roles: BOTH, prefixes: [MORE_HREF, "/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing"], items: [
+    { label: "Einstellungen", href: MORE_HREF, roles: BOTH },
   ] },
 ];
 

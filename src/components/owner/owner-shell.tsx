@@ -217,6 +217,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
               };
               from();
               swap.setAttribute("data-swap", "");
+              // Only the messages of the first paint come in with the swap; a message that appears later drops in as
+              // specified (Field error and notices), even though the screen keeps its mark (Design, #349 round 2).
+              for (const message of swap.querySelectorAll(".ow-error")) message.setAttribute("data-first-paint", "");
               requestAnimationFrame(from);
             }
           }
@@ -325,7 +328,8 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
         <nav ref={watchTabbar} className="ow-tabs" aria-label="Bereiche">
-          {visibleGroups(role, hidden).filter(item => !item.desktopOnly).slice(0, 4).map(item => (
+          {/* „Einstellungen“ is the desktop's name for „Mehr“: on the phone the Mehr tab stands for it, never twice. Desktop-only areas live in Mehr. */}
+          {visibleGroups(role, hidden).filter(item => !item.desktopOnly && item.id !== "settings").slice(0, 4).map(item => (
             <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
           <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" || group?.desktopOnly ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>

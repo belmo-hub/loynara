@@ -141,7 +141,7 @@ export function CardScreen({ id, seed: given, back, onMember }: { id: string; se
           {nextCursor && <button type="button" className={cx(mixStyles.more, s.more)} onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
         </section>
         <MixPanel className={s.details} head={<h2 className={mixStyles.h}>Details</h2>}>
-          {details.map(([label, value]) => <div key={label} className={mixStyles.row}><div className={mixStyles.body}><span className={s.key}>{label}</span><span className={s.value}>{value}</span></div></div>)}
+          {details.map(([label, value]) => <div key={label} className={mixStyles.row}><div className={`${mixStyles.body} ${s.pair}`}><span className={s.key}>{label}</span><span className={s.value}>{value}</span></div></div>)}
         </MixPanel>
         {!member.closedAt && (canAct
           ? <MixPanel className={s.action}><button type="button" className={cx(mixStyles.row, s.rowButton)} data-lead="tile" onClick={() => openStep("reissue")}>

@@ -159,7 +159,7 @@ export function CustomerCard(props: CustomerCardProps) {
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
   const activityRow = (item: CardActivity) => <ActivityRow key={item.id} late={!arriving}>
     <MixTile tone={item.change < 0 ? "mute" : undefined}>{item.change < 0 ? <Minus size={20} /> : <Check size={20} />}</MixTile>
-    <span className={mix.body}><span className={mix.text}><b>{item.label}</b><small className={styles.activityDay}>{item.date}</small></span>
+    <span className={`${mix.body} ${styles.activityBody}`}><span className={mix.text}><b>{item.label}</b><small className={styles.activityDay}>{item.date}</small></span>
       <span className={styles.amount} data-sign={item.change < 0 ? "minus" : undefined}><b>{item.change > 0 ? "+" : ""}{item.change}</b> <small>{t.unit(item.change, programType)}</small></span></span>
   </ActivityRow>;
 

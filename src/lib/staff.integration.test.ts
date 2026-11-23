@@ -167,4 +167,25 @@ describe("staff invitations and revocation", () => {
     await db.update(staffRoles).set({ active: false }).where(eq(staffRoles.userId, a.ownerId));
     await expect(listStaffAudit(a.ownerId)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  // CTO, 23 Nov (#349): passkeys are for owners and managers. When a person's role ends or becomes Kasse, their passkeys go
+  // in the same transaction; nobody else's are touched. (A person holds one role: staff_roles is unique per user.)
+  it("deletes a person's passkeys when their manager access ends or comes back as Kasse, and keeps everyone else's", async () => {
+    const f = await fixture();
+    const passkey = (userId: string) => pool.query(`INSERT INTO passkey (id, "publicKey", "userId", "credentialID", counter, "deviceType", "backedUp") VALUES ($1, 'synthetic', $2, $1, 0, 'singleDevice', false)`, [randomUUID(), userId]);
+    const count = async (userId: string) => (await pool.query('SELECT count(*)::int AS n FROM passkey WHERE "userId" = $1', [userId])).rows[0].n;
+    const manager = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "manager" });
+    await acceptStaffInvite({ userId: f.staffId, token: manager.token });
+    await passkey(f.staffId); await passkey(f.staffId); await passkey(f.ownerId);
+    await revokeStaff({ actorUserId: f.ownerId, userId: f.staffId });
+    expect(await count(f.staffId)).toBe(0);
+    expect(await count(f.ownerId)).toBe(1);
+    // Invited back as Kasse: a passkey left from any earlier time goes as the role becomes Kasse.
+    await passkey(f.staffId);
+    const kasse = await createStaffInvite({ actorUserId: f.ownerId, locationId: f.location.id, email: f.staffEmail, role: "cashier" });
+    await acceptStaffInvite({ userId: f.staffId, token: kasse.token });
+    expect(await count(f.staffId)).toBe(0);
+    expect(await count(f.ownerId)).toBe(1);
+  });
 });
+

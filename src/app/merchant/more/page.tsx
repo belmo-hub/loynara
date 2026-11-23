@@ -6,6 +6,7 @@ import { billingStatus, type BillingOverview } from "@/components/owner/billing-
 import { useOwner } from "@/components/owner/owner-context";
 import { MoreLabel, PageTitle, Row, Rows } from "@/components/owner/owner-rows";
 import { nf } from "@/components/owner/owner-ui";
+import { usePasskeyRows } from "@/components/owner/passkey-rows";
 import { useLoad } from "@/components/owner/use-load";
 import { senderOffered } from "@/components/owner/sender";
 
@@ -19,7 +20,10 @@ export default function MorePage() {
   const billing = isOwner && !owner.hiddenSurfaces.includes("billing");
   const [staff] = useLoad<{ staff: Array<{ active: boolean }> }>(isOwner ? "/api/staff" : null);
   const [plan] = useLoad<BillingOverview>(billing ? "/api/merchant/billing" : null);
+  const passkeys = usePasskeyRows();
   if (!me) return null;
+  // Removing a passkey asks first, on its own screen, as Team does for a revoked access.
+  if (passkeys.confirm) return passkeys.confirm;
   const team = staff.state === "ok" ? staff.data.staff.filter(person => person.active).length : null;
   return (
     <div className="ow-page">
@@ -41,7 +45,8 @@ export default function MorePage() {
           {me.bookingShown && <Row key="appointments" href={`${EXPORT}?format=appointments`} download icon={FileText} title="Termine für Excel" sub="Jeder Termin mit Kunde, Telefon und Status. Die Telefonnummern stehen nur hier." />}
           <Row key="json" href={EXPORT} download icon={FileJson} title="Vollständiger Export (JSON)" />
         </Rows>}
-        <Rows title="Konto">
+        <Rows title="Konto" note={passkeys.note?.text} noteTone={passkeys.note?.tone}>
+          {passkeys.rows}
           <LogoutButton key="logout" className="ow-prog-row" onSignedOut={owner.resetAfterSignOut}>{label => <>
             <span className="ow-prog-icon"><LogOut size={22} aria-hidden="true" /></span>
             <span className="ow-prog-main"><span className="ow-prog-text"><strong>{label}</strong></span></span>

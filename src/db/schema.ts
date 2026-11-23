@@ -1381,3 +1381,23 @@ export const ownerAcceptances = pgTable("owner_acceptances", {
   index("owner_acceptances_user_idx").on(t.userId),
   check("owner_acceptances_path_valid", sql`${t.path} = 'register'`),
 ]);
+
+/**
+ * Finding 10 of the 22 Nov web audit: an owner's or staff member's passkeys, Better Auth's passkey plugin table, so its
+ * names are the plugin's own (camelCase, quoted). Optional next to the password. Deleting the user (account removal,
+ * shop erasure) removes them through the foreign key added by hand in the migration (the auth tables live in
+ * drizzle/auth.sql, outside this schema).
+ */
+export const passkeys = pgTable("passkey", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  publicKey: text("publicKey").notNull(),
+  userId: text("userId").notNull(),
+  credentialID: text("credentialID").notNull().unique(),
+  counter: integer("counter").notNull(),
+  deviceType: text("deviceType").notNull(),
+  backedUp: boolean("backedUp").notNull(),
+  transports: text("transports"),
+  createdAt: timestamp("createdAt", { withTimezone: true }),
+  aaguid: text("aaguid"),
+}, (t) => [index("passkey_userId_idx").on(t.userId)]);
