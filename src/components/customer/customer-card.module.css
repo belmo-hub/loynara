@@ -3,15 +3,15 @@
    One centred column at every width (the shell's 440). */
 
 /* „Deine Treuekarte“: the page's own line, 16 above the card (the founder's first picture). */
-.eyebrow { margin: 0; padding-top: var(--space-1); font-size: var(--text-16); line-height: 24px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.eyebrow { margin: 0; padding-top: var(--space-1); font-size: var(--text-16); line-height: 1.5rem; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 /* ENG-130 (08): a muted line above the card, once, after the pass is saved in Apple Wallet. */
 .saved { composes: message from "./motion.module.css"; display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); font-weight: var(--weight-label); color: var(--color-ink-muted); }
 
 /* The goal in the card's foot: the line, then the reward alone on its own line (the mix card's own sizes). */
 .goalLine { margin: 0; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); font-weight: var(--weight-label); }
 .goalNum { font-variant-numeric: tabular-nums; }
-.rewardName { display: block; color: var(--merchant-ink); font-size: var(--text-28); line-height: 34px; font-weight: var(--weight-heavy); letter-spacing: -.025em; hyphens: manual; overflow-wrap: anywhere; }
-.goalSub { margin: var(--space-1) 0 0; font-size: var(--text-14); line-height: 20px; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); text-wrap: pretty; }
+.rewardName { display: block; color: var(--merchant-ink); font-size: var(--text-28); line-height: 2.125rem; font-weight: var(--weight-heavy); letter-spacing: -.025em; hyphens: manual; overflow-wrap: anywhere; }
+.goalSub { margin: var(--space-1) 0 0; font-size: var(--text-14); line-height: 1.25rem; color: color-mix(in oklab, var(--merchant-ink) 78%, transparent); text-wrap: pretty; }
 /* A programme without a reward: no foot, no hairline. */
 .object section > div:last-child:empty { display: none; }
 
@@ -30,9 +30,9 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .missingQr { margin: 0; font-size: var(--text-14); }
 .locator { display: grid; gap: 2px; min-width: 0; margin: 0; container-type: inline-size; }
-.locator span, .locator small { font-size: var(--text-14); line-height: 20px; color: #58645C; text-wrap: pretty; }
+.locator span, .locator small { font-size: var(--text-14); line-height: 1.25rem; color: #58645C; text-wrap: pretty; }
 /* Read aloud at the counter, so it stays on one line (G-05); a step smaller on narrow phones. */
-.locator strong { font-size: clamp(var(--text-16), 18cqi, var(--text-28)); line-height: 34px; font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.locator strong { font-size: clamp(var(--text-16), 18cqi, var(--text-28)); line-height: 2.125rem; font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Below 360 the number goes under the code: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
 @media (max-width: 359px) { section.ticket { grid-template-columns: minmax(0, 1fr); } .qr { width: 128px; } }
 
@@ -83,15 +83,15 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .noteText { overflow-wrap: anywhere; }
 .noteText > :is(strong, small, span) { display: block; }
 .noteText > strong { font-weight: var(--weight-strong); }
-.noteText > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.noteText > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .ink { color: var(--color-ink); font-weight: var(--weight-strong); }
 .newsText { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
 /* „Letzte Aktivität“: the check tile, the label over the day, the amount right (green for a booking). */
 .activityDay { font-variant-numeric: tabular-nums; }
 .amount { flex: none; white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; color: var(--color-success); }
-.amount b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
-.amount small { font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.amount b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
+.amount small { font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .amount[data-sign="minus"] { color: var(--color-ink); }
 /* The later rows open in place under the first three (Disclosure); their first row draws its hairline. */
 .activityMore { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-ui) var(--ease-out); }
