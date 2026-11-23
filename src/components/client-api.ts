@@ -112,6 +112,8 @@ export type MeResponse = {
   bookingEnabled?: boolean;
   /** Booking on, or off with open appointments still ahead: the day view and its export stay (read-only when off). */
   bookingShown?: boolean;
+  /** ENG-339, owners only: when the business accepted the terms and AVV Fassung with „Termin + Treue“, or null. */
+  bookingContractsAcceptedAt?: string | null;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";

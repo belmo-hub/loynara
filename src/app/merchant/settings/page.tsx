@@ -41,7 +41,7 @@ export default function MerchantSettingsPage() {
         </Rows>
         {sender}
         <Rows title="E-Mail"><WeeklyReport key="weekly" /></Rows>
-        <BookingAvvRows />
+        <BookingAvvRows acceptedAt={me.bookingContractsAcceptedAt ?? null} />
       </div>
       {preview && <aside className="ow-split-aside">{preview}</aside>}
       </div>

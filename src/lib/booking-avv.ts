@@ -20,27 +20,27 @@ async function ownerTenant(userId: string, reader: Pick<typeof db, "select"> = d
 /** Both Fassungen with „Termin + Treue“ (or later ones) in one acceptance: the terms and the AVV (Legal § 5). The operator's switch asks the same. */
 export const bookingAccepted = (tenantId: string) => and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, BOOKING_AVV_VERSION), gte(ownerAcceptances.termsVersion, BOOKING_TERMS_VERSION));
 
-/** When the business accepted them, or null. */
-export async function bookingAvvStatus(userId: string) {
-  const tenantId = await ownerTenant(userId);
+/** When the business accepted them, or null; /api/me carries it for the owner, so the settings page never grows after it scrolls. */
+export async function bookingAcceptedAt(tenantId: string) {
   const [row] = await db.select({ acceptedAt: ownerAcceptances.acceptedAt }).from(ownerAcceptances)
     .where(bookingAccepted(tenantId))
     .orderBy(desc(ownerAcceptances.acceptedAt)).limit(1);
-  return { terms: { version: OWNER_TERMS.version, stand: OWNER_TERMS.stand }, avv: { version: OWNER_AVV.version, stand: OWNER_AVV.stand }, acceptedAt: row?.acceptedAt.toISOString() ?? null };
+  return row?.acceptedAt.toISOString() ?? null;
 }
 
 /** ENG-339: the owner accepts the current terms and AVV Fassung in the app: one append-only row with both versions; a repeat adds nothing. */
 export async function acceptBookingAvv(userId: string) {
-  await db.transaction(async tx => {
+  const tenantId = await db.transaction(async tx => {
     const tenantId = await ownerTenant(userId, tx);
     // One acceptance per business is enough; the lock keeps two taps from writing two rows.
     await tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, tenantId)).for("update");
     const [done] = await tx.select({ id: ownerAcceptances.id }).from(ownerAcceptances)
       .where(and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, OWNER_AVV.version), gte(ownerAcceptances.termsVersion, OWNER_TERMS.version))).limit(1);
-    if (done) return;
+    if (done) return tenantId;
     // The time is the database's (insert trigger), the versions the server's, never the caller's.
     await tx.insert(ownerAcceptances).values({ userId, tenantId, path: "booking", termsVersion: OWNER_TERMS.version, avvVersion: OWNER_AVV.version,
       privacyVersion: OWNER_PRIVACY_NOTICE.version, textVersion: BOOKING_AVV_ACCEPTANCE_TEXT_VERSION });
+    return tenantId;
   });
-  return bookingAvvStatus(userId);
+  return { acceptedAt: await bookingAcceptedAt(tenantId) };
 }

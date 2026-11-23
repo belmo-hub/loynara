@@ -1,6 +1,7 @@
 import { afterAll, expect, it } from "vitest";
 import { pool } from "@/db";
-import { GET as statusRoute, POST as acceptRoute } from "@/app/api/merchant/booking/avv/route";
+import { POST as acceptRoute } from "@/app/api/merchant/booking/avv/route";
+import { GET as meRoute } from "@/app/api/me/route";
 import { POST as toggleRoute } from "@/app/api/operator/booking/route";
 import { BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, BOOKING_AVV_OWNER_ONLY } from "./booking-avv";
 import { bookingShop, identity, origin, request, withBookingDatabase } from "./booking/test-fixture";
@@ -12,7 +13,7 @@ withBookingDatabase();
 const saved = process.env.PLATE_OPERATOR_USER_IDS;
 afterAll(() => { if (saved === undefined) delete process.env.PLATE_OPERATOR_USER_IDS; else process.env.PLATE_OPERATOR_USER_IDS = saved; });
 
-const status = async (cookie: string) => (await statusRoute(request("/api/merchant/booking/avv", { cookie }))).json();
+const acceptedAt = async (cookie: string) => ((await (await meRoute(request("/api/me", { cookie }))).json()) as { bookingContractsAcceptedAt?: string | null }).bookingContractsAcceptedAt;
 const accept = (cookie: string) => acceptRoute(request("/api/merchant/booking/avv", { method: "POST", body: {}, cookie }));
 const rows = async (tenantId: string) => (await pool.query("SELECT user_id, tenant_id, path, terms_version, avv_version, privacy_version, text_version, accepted_at FROM owner_acceptances WHERE tenant_id = $1 ORDER BY accepted_at", [tenantId])).rows;
 /** bookingShop switches booking on directly; these tests start from a shop the operator has not switched on yet. */
@@ -26,13 +27,15 @@ it("the owner accepts once: one append-only row with both Fassungen (terms and A
   const operator = await identity(), shop = await shopWithoutBooking();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   const toggle = () => toggleRoute(request("/api/operator/booking", { body: { ...shop.scope, enabled: true }, cookie: operator.cookie }));
-  const fassungen = { terms: { version: OWNER_TERMS.version, stand: OWNER_TERMS.stand }, avv: { version: OWNER_AVV.version, stand: OWNER_AVV.stand } };
-  expect(await status(shop.ownerCookie)).toEqual({ ...fassungen, acceptedAt: null });
+  // bookingShop's owner has no acceptance row at all, so /api/me says not yet.
+  expect(await acceptedAt(shop.ownerCookie)).toBeNull();
   expect((await toggle()).status).toBe(409);
 
   const res = await accept(shop.ownerCookie);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ ...fassungen, acceptedAt: expect.any(String) });
+  const answer = await res.json() as { acceptedAt: string };
+  expect(answer).toEqual({ acceptedAt: expect.any(String) });
+  expect(await acceptedAt(shop.ownerCookie)).toBe(answer.acceptedAt);
   expect(await rows(shop.scope.tenantId)).toEqual([{ user_id: shop.owner.userId, tenant_id: shop.scope.tenantId, path: "booking", terms_version: OWNER_TERMS.version,
     avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, accepted_at: expect.any(Date) }]);
   expect((await toggle()).status).toBe(200);
@@ -49,6 +52,8 @@ it("only the Inhaberkonto can accept: a manager and a cashier are refused and no
     await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, $3, $4)", [shop.scope.tenantId, staff.userId, role, shop.scope.locationId]);
     const res = await accept(staff.cookie);
     expect(res.status).toBe(403);
+    // Staff never see the contract state: /api/me carries it for the owner only.
+    expect(await acceptedAt(staff.cookie)).toBeUndefined();
     expect(await res.json()).toMatchObject({ error: BOOKING_AVV_OWNER_ONLY });
   }
   const stranger = await identity();
