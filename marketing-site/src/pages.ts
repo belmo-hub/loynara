@@ -112,7 +112,7 @@ export const salons: SubPage = {
   ],
   faq: [
     ['Brauchen meine Kunden eine App?', E.pageAppAnswer],
-    ['Was, wenn jemand nicht kommt?', 'Du markierst den Termin als nicht erschienen. Wer wiederholt nicht kommt, kannst du für Online-Termine sperren.'],
+    ['Was, wenn jemand nicht kommt?', 'Du markierst den Termin als nicht erschienen. Wer wiederholt nicht kommt, den kannst du für Online-Termine sperren.'],
     ['Kommt die Erinnerung bei jedem an?', 'Push-Erinnerungen gibt es, wenn dein Kunde Mitteilungen erlaubt. Auf dem iPhone braucht der Browser dafür die Karte auf dem Home-Bildschirm. Ohne Freigabe funktioniert die Buchung trotzdem, die Termine stehen auf der Karte.'],
     ['Nehmt ihr Geld für Buchungen?', 'Nein. Keine Provision und keine Gebühr pro Buchung, nie. Du zahlst einen festen Monatsbeitrag pro Standort.'],
     ['Gehören die Kundendaten mir?', 'Ja. Deine Kundenliste kannst du als CSV exportieren.'],
