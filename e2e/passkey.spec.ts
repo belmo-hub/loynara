@@ -59,6 +59,16 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
   await expect(rows()).toHaveCount(1);
   await expect(page.locator(".ow-prog-row strong", { hasText: /^(Mac|Windows-PC|Passkey)$/ })).toHaveCount(1);
+  // Under large text „Entfernen“ goes under the words instead of squeezing them into broken syllables (Design r4).
+  const wide = page.viewportSize()!;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addStyleTag({ content: "html { font-size: 200% !important }" });
+  await expect.poll(() => page.locator(".ow-prog-row[data-ends=button]").first().evaluate(row => {
+    const text = row.querySelector(".ow-prog-text")!.getBoundingClientRect(), button = row.querySelector("button")!.getBoundingClientRect();
+    return button.top >= text.bottom - 1;
+  })).toBe(true);
+  await page.setViewportSize(wide);
+  await page.reload();
 
   // Signed out, the sign-in page offers the passkey in the address field's autofill; the virtual authenticator accepts it.
   await page.context().clearCookies();

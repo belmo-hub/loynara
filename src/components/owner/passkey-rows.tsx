@@ -120,8 +120,9 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
   const rows = keys.map(key => <div key={key.id} className="ow-rowfold" data-added={known?.has(key.id) ? undefined : ""} data-closing={closing === key.id || undefined}>
     <div><div className="ow-prog-row" data-ends="button">
       <span className="ow-prog-icon"><KeyRound size={22} aria-hidden="true" /></span>
-      <span className="ow-prog-main"><span className="ow-prog-text"><strong>{key.name || "Passkey"}</strong>{key.createdAt && <small>Hinzugefügt am {germanDate(key.createdAt, "long", { timeZone: zone })}</small>}</span></span>
-      <button type="button" id={`passkey-remove-${key.id}`} className="ow-btn ow-btn--secondary ow-btn--sm" aria-label={`Passkey „${key.name || "Passkey"}“ entfernen`} disabled={busy} onClick={() => { setNote(null); setKnown(new Set(keys.map(item => item.id))); setRemoving(key); }}>Entfernen</button>
+      <span className="ow-prog-main"><span className="ow-prog-text"><strong>{key.name || "Passkey"}</strong>{key.createdAt && <small>Hinzugefügt am {germanDate(key.createdAt, "long", { timeZone: zone })}</small>}</span>
+      {/* In the main column, as a row's value: beside the words while they fit unbroken, else under them (Design r4). */}
+      <button type="button" id={`passkey-remove-${key.id}`} className="ow-btn ow-btn--secondary ow-btn--sm" aria-label={`Passkey „${key.name || "Passkey"}“ entfernen`} disabled={busy} onClick={() => { setNote(null); setKnown(new Set(keys.map(item => item.id))); setRemoving(key); }}>Entfernen</button></span>
     </div></div>
   </div>);
   return { rows: [...rows, addRow(false)], note, confirm };
