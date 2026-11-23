@@ -99,10 +99,16 @@ test("the card's birthday panel uses the house selects", async ({ page }) => {
 // the row naming what is missing; it follows what is still missing and goes once both are picked. The panel keeps its
 // 12 rhythm with and without the line.
 test("the birthday's „Speichern“ names what is missing in one line, and the panel keeps its 12 rhythm", async ({ page }) => {
+  // One answer for the whole test, as the server gives it: a read returns what was last saved or deleted. The panel reads
+  // again right after each save, so a mock swapped only after the save raced that read (ENG-366).
   const posted: unknown[] = [];
+  let saved: { day: number; month: number } | null = null;
   await page.route("**/api/card/*/birthday", route => {
-    if (route.request().method() !== "GET") { posted.push(route.request().postDataJSON()); return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: null, month: null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) });
+    const method = route.request().method();
+    if (method === "POST") { saved = route.request().postDataJSON(); posted.push(saved); }
+    if (method === "DELETE") saved = null;
+    if (method !== "GET") return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: saved?.day ?? null, month: saved?.month ?? null, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) });
   });
   await page.goto(`/card/${encodeURIComponent(demo.cardToken)}`);
   const panel = page.locator("section[aria-labelledby=birthday-title]");
@@ -129,9 +135,6 @@ test("the birthday's „Speichern“ names what is missing in one line, and the 
   await save.click();
   await expect.poll(() => posted).toEqual([{ day: 12, month: 5 }]);
   // Design r2: once saved, deleting it again brings back neither the line nor the marks of the earlier empty press.
-  await page.route("**/api/card/*/birthday", route => route.request().method() === "GET"
-    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: 12, month: 5, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) })
-    : route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
   await expect(page.getByRole("button", { name: "Löschen", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await expect(page.getByText("Gelöscht.")).toBeVisible();
