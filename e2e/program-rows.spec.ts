@@ -19,13 +19,14 @@ async function size(page: Page, width: number, percent: number) {
     style.textContent = next === 100 ? "" : `html { font-size: ${next}% !important }`;
   }, percent);
   await page.waitForFunction(expected => getComputedStyle(document.documentElement).fontSize === expected, `${16 * percent / 100}px`);
-  // Until the layout reads the same 100 ms apart: a container query can start a transition a frame late.
+  // Until the whole layout holds for 400 ms: WebKit keeps an in-between layout for over 100 ms after a resize.
   await page.evaluate(async () => {
-    let last = "";
-    for (const started = performance.now(); performance.now() - started < 3_000;) {
+    let last = "", same = 0;
+    for (const started = performance.now(); performance.now() - started < 4_000;) {
       await new Promise(done => setTimeout(done, 100));
-      const now = [...document.querySelectorAll("main *")].slice(0, 600).map(element => { const box = element.getBoundingClientRect(); return `${box.x | 0},${box.y | 0},${box.width | 0}`; }).join(" ");
-      if (now === last) return;
+      const now = [...document.querySelectorAll("main *")].map(element => { const box = element.getBoundingClientRect(); return `${box.x | 0},${box.y | 0},${box.width | 0}`; }).join(" ");
+      same = now === last ? same + 1 : 0;
+      if (same >= 4) return;
       last = now;
     }
   });
@@ -64,20 +65,30 @@ test("Programm keeps each value beside its words at 100 % and never puts words u
     const found = await rows(page);
     expect(found.filter(row => row.under).map(row => row.name), `no words under a value at ${width}, ${percent} %`).toEqual([]);
     expect(found.filter(row => !row.together).map(row => row.name), `chevrons with their values at ${width}, ${percent} %`).toEqual([]);
-    // A title that fits beside its value and chevron, or on its own line, stays whole: the value moves, the word is not
-    // cut into syllables (Design r4).
-    expect(await page.evaluate(() => [...document.querySelectorAll("main [class*=mix-module][class*=__text] > b")].filter(title => {
-      const text = title.firstChild;
-      if (!(text instanceof Text) || /[\s-]/.test(text.data.trim())) return false; // one word only
-      const probe = document.createElement("span"); probe.textContent = text.data; probe.style.whiteSpace = "nowrap";
-      title.append(probe); const width = probe.getBoundingClientRect().width; probe.remove(); // the word unbroken
-      const range = document.createRange(); range.selectNodeContents(text);
-      // Room for the word: the row, less its value and chevron when they still sit beside the words.
-      const body = title.closest("[class*=__body]")!, end = body.querySelector("[class*=__end]");
-      const style = getComputedStyle(body), inner = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-      const room = inner - (end && end.getBoundingClientRect().top < title.getBoundingClientRect().bottom ? end.getBoundingClientRect().width + parseFloat(style.columnGap) : 0);
-      return width < room && new Set([...range.getClientRects()].map(line => Math.round(line.top))).size > 1;
-    }).map(title => title.textContent)), `whole titles at ${width}, ${percent} %`).toEqual([]);
+    // A word that fits stays whole, in titles and sub lines: the value moves, the word is not cut into syllables (Design
+    // r4, r5). Only a word wider than the room it has may break.
+    expect(await page.evaluate(() => [...document.querySelectorAll("main [class*=mix-module][class*=__text] > :is(b, small)")].flatMap(line => {
+      const node = [...line.childNodes].find((child): child is Text => child instanceof Text && child.data.trim() !== "");
+      if (!node) return [];
+      const body = line.closest("[class*=__body]")!, style = getComputedStyle(body), end = body.querySelector("[class*=__end]");
+      const inner = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const room = inner - (end && end.getBoundingClientRect().top < line.getBoundingClientRect().bottom ? end.getBoundingClientRect().width + parseFloat(style.columnGap) : 0);
+      const cut: string[] = []; let at = 0;
+      for (const piece of node.data.split(/(?<=[ -])/)) {
+        const word = piece.trimEnd(); const start = at; at += piece.length;
+        if (!word) continue;
+        const probe = document.createElement("span"); probe.textContent = word; probe.style.whiteSpace = "nowrap";
+        line.append(probe); const width = probe.getBoundingClientRect().width; probe.remove(); // the word unbroken
+        const range = document.createRange(); range.setStart(node, start); range.setEnd(node, start + word.length);
+        if (width < room && new Set([...range.getClientRects()].filter(box => box.width > 1).map(box => Math.round(box.top))).size > 1) cut.push(word);
+      }
+      return cut;
+    })), `whole words at ${width}, ${percent} %`).toEqual([]);
+    // A row with no value keeps its chevron beside the words, never alone on a line under them (Design r5).
+    expect(await page.evaluate(() => [...document.querySelectorAll("main [class*=mix-module][class*=__body]")].filter(body => !body.querySelector("[class*=__val]")).flatMap(body => {
+      const chevron = body.querySelector("svg"), text = body.querySelector("[class*=__text]");
+      return chevron && text && chevron.getBoundingClientRect().top >= text.getBoundingClientRect().bottom - 1 ? [text.querySelector("b")?.textContent ?? ""] : [];
+    })), `chevrons beside their words at ${width}, ${percent} %`).toEqual([]);
     expect(await sideways(page)).toBe(0);
   }
 });
