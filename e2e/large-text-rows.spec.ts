@@ -29,7 +29,20 @@ const settled = (page: Page) => page.evaluate(async () => {
     if (now === last && !document.getAnimations().some(animation => animation.playState === "running")) return;
     last = now;
   }
-});const scale = async (page: Page, percent: number) => { await page.addStyleTag({ content: `html { font-size: ${percent}% !important }` }); await settled(page); };
+});
+/**
+ * Sets the width and the text size on the page already loaded. Each test loads its page once: the owner job's specs share
+ * the demo owner and the demo card, whose reads have per-owner and per-card budgets.
+ */
+async function size(page: Page, width: number, percent = 100) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(next => {
+    const style = document.getElementById("test-text-size") ?? document.head.appendChild(Object.assign(document.createElement("style"), { id: "test-text-size" }));
+    style.textContent = next === 100 ? "" : `html { font-size: ${next}% !important }`;
+  }, percent);
+  await page.waitForFunction(expected => getComputedStyle(document.documentElement).fontSize === expected, `${16 * percent / 100}px`);
+  await settled(page);
+}
 /** True when b starts on a line a still covers: the two sit side by side, not one under the other. */
 async function beside(a: Locator, b: Locator) {
   const [x, y] = [await a.boundingBox(), await b.boundingBox()];
@@ -73,17 +86,16 @@ const kasse = (page: Page) => ({ id: page.locator("[class*=__kasse] [class*=__id
 
 test("the Kasse card keeps the balance beside the number and the note beside the button at 100 %, and keeps them apart at 200 %", async ({ page }) => {
   await signIn(page, demo.cashierEmail, demo.cashierPassword);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await openKasseCard(page);
   for (const width of [320, 360, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await openKasseCard(page);
+    await size(page, width);
     const card = kasse(page);
     expect(await beside(card.id, card.n), `balance beside the number at ${width}`).toBe(true);
     if (await card.note.count()) expect(await beside(card.button, card.note), `note beside the button at ${width}`).toBe(true);
   }
   for (const width of [320, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await openKasseCard(page);
-    await scale(page, 200);
+    await size(page, width, 200);
     const card = kasse(page);
     expect(await overlap(card.id, card.n), `number and balance apart at ${width}`).toBe(false);
     if (await card.note.count()) expect(await overlap(card.button, card.note), `button and note apart at ${width}`).toBe(false);
@@ -97,23 +109,18 @@ test("the card's activity row keeps the longest bonus label beside its amount at
   const amount = () => row().locator("[class*=__amount]");
   // The longest real labels, with a 3-digit amount (Design r4).
   const labels = ["Geburtstags-Bonus", "Monats-Challenge", "Prämie eingelöst", "Willkommen-zurück-Bonus"];
+  await page.goto(`/card/${demo.cardToken}`);
+  await expect(row()).toBeVisible();
+  await text(amount().locator("b"), "+120");
   for (const width of [320, 340, 360, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.goto(`/card/${demo.cardToken}`);
-    await expect(row()).toBeVisible();
-    await settled(page);
-    await text(amount().locator("b"), "+120");
+    await size(page, width);
     for (const name of labels) {
       await text(label(), name);
       expect(await beside(label(), amount()), `„${name}“ beside +120 at ${width}`).toBe(true);
     }
   }
   for (const width of [320, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.goto(`/card/${demo.cardToken}`);
-    await expect(row()).toBeVisible();
-    await scale(page, 200);
-    await text(amount().locator("b"), "+120");
+    await size(page, width, 200);
     for (const name of labels) {
       await text(label(), name);
       expect(await overlap(row().locator("> :first-child"), amount()), `„${name}“ and +120 apart at ${width}, 200 %`).toBe(false);
@@ -127,12 +134,8 @@ test("the card's activity row keeps the longest bonus label beside its amount at
 test("the Kunden card keeps the longest details and dates beside their labels at 100 %, and keeps them apart at 200 %", async ({ page }) => {
   await signIn(page, demo.ownerEmail, demo.ownerPassword);
   const members = await (await page.request.get(`/api/merchant/customers?programSlug=${demo.programSlug}`)).json() as { members: Array<{ id: string }> };
-  const open = async (width: number) => {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto(`/merchant/customers?card=${members.members[0].id}`);
-    await expect(page.locator("[class*=__value]").first()).toBeVisible();
-    await settled(page);
-  };
+  await page.goto(`/merchant/customers?card=${members.members[0].id}`);
+  await expect(page.locator("[class*=__value]").first()).toBeVisible();
   const pairs = async (key: string, value: string) => {
     const rows = page.locator(`div:has(> [class*=${key}]):has(> [class*=${value}])`);
     const out: Array<[Locator, Locator]> = [];
@@ -140,22 +143,21 @@ test("the Kunden card keeps the longest details and dates beside their labels at
     return out;
   };
   for (const width of [320, 360, 390]) {
-    await open(width);
+    await size(page, width);
     for (const [key, value] of await pairs("__key", "__value")) {
       await text(value, "Noch kein bestätigter Vorgang");
       expect(await beside(key, value), `value beside „${await key.textContent()}“ at ${width}`).toBe(true);
     }
   }
   for (const width of [320, 360, 600, 650]) {
-    await open(width);
+    await size(page, width);
     for (const [label, figure] of await pairs("__label", "__figure")) {
       await text(figure, "27. Sept. 2026");
       expect(await beside(label, figure), `figure beside „${await label.textContent()}“ at ${width}`).toBe(true);
     }
   }
   for (const width of [320, 390]) {
-    await open(width);
-    await scale(page, 200);
+    await size(page, width, 200);
     for (const [key, value] of await pairs("__key", "__value")) {
       await text(value, "Noch kein bestätigter Vorgang");
       expect(await overlap(key, value), `„${await key.textContent()}“ and its value apart at ${width}`).toBe(false);
