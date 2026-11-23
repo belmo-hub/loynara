@@ -16,7 +16,7 @@ import { parseCardLocator } from "@/lib/card-locator";
 import type { MerchantMember, MerchantMemberList } from "@/lib/merchant-members";
 import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
-import { germanDate } from "@/lib/german-date";
+import { germanDate, shopZone } from "@/lib/german-date";
 import { unitWord } from "@/lib/units";
 import { bookingsText } from "@/lib/overview-day";
 import { BROUGHT_COPY } from "@/lib/spend-copy";
@@ -294,6 +294,7 @@ export function cardLead(member: Pick<MerchantMember, "programType" | "balance">
 /** The cards of a group or a search, 25 at a time. A row opens its card over the list; `fresh` holds what a card screen read since. */
 function CardList({ filters, fresh, title, count, lead, controls }: { filters: Filters; fresh: Record<string, MerchantMember>; title?: string; count?: string; lead?: string; controls?: ReactNode }) {
   const owner = useOwner();
+  const zone = shopZone(useOwner());
   const me = owner.me!;
   const params = useSearchParams();
   const allLocations = me.role === "owner" && params.get("scope") === "all";
@@ -375,7 +376,7 @@ function CardList({ filters, fresh, title, count, lead, controls }: { filters: F
             <span className="ow-prog-main">
               <span className="ow-prog-text"><strong>{member.cardLocator}{member.closedAt ? <MixChip>Geschlossen</MixChip>
                 : ours && member.balance >= cheapest && <MixChip warm><Gift size={16} aria-hidden="true" />Prämie verdient</MixChip>}</strong>
-                <small>{member.lastQualifyingAt ? `Letzte Buchung ${germanDate(member.lastQualifyingAt, "feed")}` : "Noch nie an der Kasse"}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
+                <small>{member.lastQualifyingAt ? `Letzte Buchung ${germanDate(member.lastQualifyingAt, "feed", { timeZone: zone })}` : "Noch nie an der Kasse"}{multi && allLocations ? ` · ${member.locationName}` : ""}</small></span>
               {member.programType === "points" ? <span className="ow-prog-value" data-pair="">{member.balance}<small> {unitWord(member.balance, "points")}</small></span>
                 : member.qualifyingCheckouts > 0 && <span className={cx("ow-prog-value", styles.bookings)} data-off="">{bookingsText(member.qualifyingCheckouts)}</span>}
             </span>

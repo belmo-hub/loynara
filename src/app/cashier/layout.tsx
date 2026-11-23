@@ -8,11 +8,13 @@ export const metadata: Metadata = {
   title: "Loynara Kasse",
   manifest: "/cashier.webmanifest",
   icons: { apple: "/cashier-icon-192.png" },
-  appleWebApp: { capable: true, title: "Loynara Kasse", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Loynara Kasse", statusBarStyle: "black" },
 };
 
+// The Kasse is always dark: the bars, the splash and the first paint take the dark --color-bg (Design 36c).
 export const viewport: Viewport = {
-  themeColor: "#214739",
+  themeColor: "#0F1713",
+  colorScheme: "dark",
 };
 
 export default function CashierLayout({ children }: LayoutProps<"/cashier">) {

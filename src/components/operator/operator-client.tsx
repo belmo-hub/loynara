@@ -40,7 +40,8 @@ type Contract = { tenantId: string; tenant: string; ownerEmail: string | null; a
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
-const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE") : "noch keine";
+// Each shop's rows on its clock (time-zone rule, 22 Nov); the console's rows carry no zone and every shop is German, so Berlin.
+const date = (value: Date | string | null) => value ? new Date(value).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" }) : "noch keine";
 const STEP: Record<string, string> = { request: "Kündigung angefragt", withdraw: "zurückgezogen", schedule: "Datum gesetzt", confirm: "bestätigt", end: "beendet" };
 const when = (value: Date | string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" });
 const GOOGLE_CLASS: Record<string, string> = { pending: "wird angelegt", under_review: "wird von Google geprüft", approved: "freigegeben", rejected: "von Google abgelehnt" };

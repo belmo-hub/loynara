@@ -14,10 +14,10 @@ import type { AnalyticsWindowDays, MerchantAnalytics } from "@/lib/merchant-anal
 import { bookingsText } from "@/lib/overview-day";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import type { RetentionSummary } from "@/lib/retention";
-import { germanDate as date } from "@/lib/german-date";
+import { germanDate as date, shopZone } from "@/lib/german-date";
 import { SPEND_COPY } from "@/lib/spend-copy";
 
-const dayMonth = (value: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" });
+const dayMonth = (value: string, timeZone: string) => new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", timeZone });
 // A Berlin week is an hour short across the spring clock change; a cut week is at least a day short.
 const FULL_WEEK_MS = 7 * 86_400_000 - 3_600_000;
 const PERIOD_SUB = "Bestätigte Buchungen im Zeitraum";
@@ -138,19 +138,20 @@ function Retention({ state, reload }: { state: Loadable<RetentionSummary>; reloa
  * The dated label just before „bis heute“ stays empty: side by side the two read as one range.
  */
 function Weeks({ weeks, running, switched }: { weeks: Week[]; running?: Week; switched: boolean }) {
+  const zone = shopZone(useOwner());
   const bars = running ? [...weeks, running] : weeks;
   const max = Math.max(1, ...bars.map(week => week.checkouts));
   const many = bars.length > 7;
   return (
     <div className="ow-strip ow-weeks" data-many={many || undefined} data-switched={switched || undefined} style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
-      role="img" aria-label={`Bestätigte Buchungen je Woche: ${bars.map(week => `${dayMonth(week.from)} bis ${week === running ? "heute" : dayMonth(week.to)} ${bookingsText(week.checkouts)}`).join(", ")}`}>
+      role="img" aria-label={`Bestätigte Buchungen je Woche: ${bars.map(week => `${dayMonth(week.from, zone)} bis ${week === running ? "heute" : dayMonth(week.to, zone)} ${bookingsText(week.checkouts)}`).join(", ")}`}>
       {bars.map((week, index) => {
         const latest = week === weeks.at(-1);
         return (
           <div className="ow-strip-day" key={week.from} aria-hidden="true">
             <span className="ow-strip-n">{week.checkouts > 0 ? nf.format(week.checkouts) : ""}</span>
             <span className="ow-strip-bar" data-lit={latest && week.checkouts > 0 ? "" : undefined} data-today={week === running ? "" : undefined} data-zero={week.checkouts === 0 ? "" : undefined} style={{ height: `${Math.max(6, Math.round(week.checkouts / max * 72))}px` }} />
-            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && ((bars.length - 1 - index) % 3 !== 0 || (running && bars.length - 1 - index === 3)) ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from)}</span>
+            <span className="ow-strip-d" data-yesterday={latest && !running ? "" : undefined} data-running={week === running ? "" : undefined}>{many && ((bars.length - 1 - index) % 3 !== 0 || (running && bars.length - 1 - index === 3)) ? "\u00a0" : week === running ? "bis heute" : dayMonth(week.from, zone)}</span>
           </div>
         );
       })}

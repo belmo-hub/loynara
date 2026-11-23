@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { MeResponse, PublicProgram } from "@/components/client-api";
-import { germanDate, keepUnits } from "@/lib/german-date";
+import { germanDate, keepUnits, shopZone } from "@/lib/german-date";
+import { useOwner } from "./owner-context";
 import { CardLinePreview, MoreInfo, NumberStepper } from "./owner-ui";
 import { copyFor } from "@/components/customer/customer-card-copy";
 import { Control, QuestionForm, rangeError, SwitchRow, useQuestion, wholeIn } from "./question-form";
@@ -32,7 +33,8 @@ export function WinbackQuestion({ me, program, initial, reminders }: { me: MeRes
     setLast(prev => ({ days: daysOk(next.days) ? Number(next.days) : prev.days, bonus: bonusOk(next.bonus) ? Number(next.bonus) : prev.bonus }));
   };
   // A real example instead of a placeholder (Head of Design): the last day for a card that comes back today.
-  const [exampleDay] = useState(() => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(Date.now() + 14 * 86_400_000)));
+  const zone = shopZone(useOwner());
+  const [exampleDay] = useState(() => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", timeZone: zone }).format(new Date(Date.now() + 14 * 86_400_000)));
   const rules = last.bonus > 0 ? winbackRule(initial.type, last.days, last.bonus, reminders) : undefined;
   const preview = { shop: program.businessName, brandColor: program.brandColor };
   return (
@@ -86,7 +88,8 @@ export function BirthdayQuestion({ me, program, initial }: { me: MeResponse; pro
   const valid = wholeIn(draft.bonus, 0, birthday.bonusMax);
   const q = useQuestion("birthday", JSON.stringify(draft) !== JSON.stringify(saved), draft.enabled && !valid ? { "birthday-bonus": rangeError(0, birthday.bonusMax) } : {});
   // A real example instead of a placeholder: the end of a birthday week that starts today.
-  const [day] = useState(() => germanDate(new Date(Date.now() + 6 * 86_400_000), "long"));
+  const zone = shopZone(useOwner());
+  const [day] = useState(() => germanDate(new Date(Date.now() + 6 * 86_400_000), "long", { timeZone: zone }));
   const bonus = valid ? Number(draft.bonus) : birthday.bonus;
   return (
     <QuestionForm title="Geburtstags-Bonus" busy={q.busy} failed={q.failed}
