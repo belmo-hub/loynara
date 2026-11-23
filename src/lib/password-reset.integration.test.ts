@@ -108,11 +108,17 @@ it("gives a squatted, never-confirmed address back to the inbox's owner: the lin
   const token = /#token=([\w-]+)/.exec(resetMails()[0].body)![1];
   const verified = async () => (await pool.query('SELECT "emailVerified" AS v FROM "user" WHERE email = $1', [email])).rows[0].v;
   expect(await verified()).toBe(false);
+  // Web audit finding 10: a passkey the squatter added must not outlive the reset; another account's stays.
+  const passkeys = async (address: string) => (await pool.query('SELECT count(*)::int AS n FROM passkey p JOIN "user" u ON u.id = p."userId" WHERE u.email = $1', [address])).rows[0].n;
+  for (const address of [email, other]) await pool.query(`INSERT INTO passkey (id, "publicKey", "userId", "credentialID", counter, "deviceType", "backedUp") SELECT $2, 'synthetic', id, $2, 0, 'singleDevice', false FROM "user" WHERE email = $1`, [address, randomUUID()]);
   // A refused attempt confirms nothing.
   expect((await post("/reset-password", { token: "not-the-token", newPassword: "synthetic-reset-new-password" })).status).toBe(400);
   expect(await verified()).toBe(false);
+  expect(await passkeys(email)).toBe(1);
   expect((await post("/reset-password", { token, newPassword: "synthetic-reset-new-password" })).status).toBe(200);
   expect(await verified()).toBe(true);
+  expect(await passkeys(email)).toBe(0);
+  expect(await passkeys(other)).toBe(1);
   // Only the account the link was for.
   expect((await pool.query('SELECT "emailVerified" AS v FROM "user" WHERE email = $1', [other])).rows[0].v).toBe(false);
   expect((await pool.query('SELECT count(*)::int AS n FROM session s JOIN "user" u ON u.id = s."userId" WHERE u.email = $1', [email])).rows[0].n).toBe(0);

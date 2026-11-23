@@ -54,4 +54,15 @@ describe("„Mehr“ (ENG-122c)", () => {
     expect(page).toContain("Abmelden");
     expect(state.urls).toEqual([]);
   });
+
+  // CTO, 23 Nov (#349): managers reach this page on a computer too; they see Konto, never the owner's sections.
+  it("manager: Konto only, none of the owner's rows or exports", () => {
+    state.role = "manager";
+    const page = html();
+    expect(page).toContain(">Konto</h2>");
+    expect(page).toContain("Abmelden");
+    for (const owners of ["/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/api/merchant/export", ">Geschäft</h2>", ">Daten</h2>"]) expect(page).not.toContain(owners);
+    expect(state.urls).not.toContain("/api/staff");
+  });
 });
+

@@ -51,6 +51,7 @@
     "nfc:tag-prepare": "tsx scripts/nfc-tag-prepare.ts"
   },
   "dependencies": {
+    "@better-auth/passkey": "^1.7.19",
     "better-auth": "^1.7.19",
     "drizzle-orm": "^0.45.3",
     "jsqr": "^1.4.0",
