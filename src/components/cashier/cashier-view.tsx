@@ -280,7 +280,9 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // Design r2: the booked appointment sits in the card head for every way of opening a card (scan or typed number), never in the foot.
   // A visit the owner already finished says so in that same line (Design r2: one line, at most six words, nothing pushed
   // under the dock); „Trotzdem vergeben?“ still guards the stamp.
-  const verifiedLine = card?.appointment?.done ? <span className={styles.doneLine} role="status"><Clock size={16} aria-hidden="true" />Termin schon gutgeschrieben</span> : card?.appointment ? `${t.verified} · Termin ${card.appointment.startLabel}` : t.verified;
+  const verifiedLine = card?.appointment && !card.appointment.done ? `${t.verified} · Termin ${card.appointment.startLabel}` : t.verified;
+  // Design r4: a finished visit is its own full-width warning line under the head row, above the stamps, never in the title column.
+  const doneNote = appointmentDone ? <p className={styles.doneLine} role="status"><Clock size={16} aria-hidden="true" />Termin schon gutgeschrieben</p> : null;
   const stateDetail = booked || status === "rejected" || status === "offline" ? undefined : card?.cardLocator ?? preview?.cardLocator;
   // Status and "Kamera öffnen" come first; overview and sign-out wait behind one menu button.
   const headerActions = <div className={styles.headerActions}>
@@ -396,7 +398,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
       {card && <h2 className={styles.srOnly}>{card.cardLocator}</h2>}
       <MixCard size="kasse" businessName={businessName || locationName} locationName={locationName} programType={shown.programType} balance={shown.balance}
         reward={{ id: goal.id, title: goal.name, cost: goal.cost }} rewards={shown.rewards.map(reward => ({ id: reward.id, title: reward.name, cost: reward.cost }))}
-        title={shown.cardLocator} sub={verifiedLine} label={t.balance} locale={locale} landedFrom={booked?.card && booked.card.id === opened?.id ? opened.balance : undefined}
+        title={shown.cardLocator} sub={verifiedLine} note={card ? doneNote : null} label={t.balance} locale={locale} landedFrom={booked?.card && booked.card.id === opened?.id ? opened.balance : undefined}
         foot={<>{shown ? <button type="button" className={styles.pill} onClick={() => { setConfirm(null); onClear(); }}><X size={20} aria-hidden="true" />{t.other}</button> : <span className={styles.pillSpace} aria-hidden="true" />}
           {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
           {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
@@ -408,6 +410,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
         <div><span className={styles.eyebrow}>{verifiedLine}</span><h2 id="cashier-card-title" className={styles.locator}>{shown.cardLocator}</h2></div>
         {card || !camera ? <Button variant="quiet" size="sm" icon={<X size={16} />} onClick={() => { setConfirm(null); onClear(); }}>{t.other}</Button> : null}
       </div>
+      {doneNote}
       <div className={cx(card && "balance-display", styles.balance)}>
         <span className={styles.srOnly}>{t.balance}</span>
         <strong><NumberRoll value={shown.balance}>{number.format(shown.balance)}</NumberRoll>{"\u00a0"}<em>{unitWord(shown.balance, shown.programType, locale)}</em></strong>

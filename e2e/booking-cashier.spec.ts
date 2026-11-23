@@ -63,7 +63,7 @@ for (const size of SIZES) for (const typed of [false, true]) {
   });
 }
 
-for (const size of SIZES.slice(1)) test(`${size.width}x${size.height}: a finished visit warns in one line, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
+for (const size of SIZES) test(`${size.width}x${size.height}: a finished visit warns in one line, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
   const shop = await shopWithAppointment(baseURL!, true);
   const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
   const page = await context.newPage();
@@ -72,7 +72,19 @@ for (const size of SIZES.slice(1)) test(`${size.width}x${size.height}: a finishe
   await expect(page.getByText("Schon gutgeschrieben", { exact: true }).first()).toBeVisible();
   await expect(warning).toBeVisible();
   expect(await warning.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.top >= 0 && box.bottom <= innerHeight && Boolean(hit && element.contains(hit)); })).toBe(true);
+  // Design r4: a real warning — the warning colour, one line, the clock at full size, clear of the balance and its label.
+  expect(await warning.evaluate(element => {
+    // The till card redefines the tokens for its dark surface, so the probe resolves the token where the line sits.
+    const probe = document.createElement("span"); probe.style.color = "var(--color-warning)"; element.parentElement!.append(probe);
+    const want = getComputedStyle(probe).color; probe.remove();
+    const icon = element.querySelector("svg")!.getBoundingClientRect(), box = element.getBoundingClientRect();
+    const balance = [...document.querySelectorAll("span")].find(node => node.textContent === "Aktueller Kontostand")!.getBoundingClientRect();
+    const overlaps = !(box.right <= balance.left || box.left >= balance.right || box.bottom <= balance.top || box.top >= balance.bottom);
+    return { colour: getComputedStyle(element).color === want, iconColour: getComputedStyle(element.querySelector("svg")!).color === want, icon: icon.width >= 16 && icon.height >= 16, oneLine: box.height < 2.2 * parseFloat(getComputedStyle(element).fontSize), overlaps };
+  })).toEqual({ colour: true, iconColour: true, icon: true, oneLine: true, overlaps: false });
   const other = page.getByRole("button", { name: "Andere Karte" }).first();
+  // At 390x664 the full-width warning line puts the foot under the dock until one scroll (Design r4, open ruling); taller screens show it at once.
+  if (size.height < 700) await page.evaluate(() => scrollTo(0, document.scrollingElement!.scrollHeight));
   expect(await other.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
   await page.locator(".cashier-award-now").click();
   await expect(page.getByRole("dialog", { name: "Trotzdem vergeben?" })).toBeVisible();

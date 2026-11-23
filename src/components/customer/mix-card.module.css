@@ -34,8 +34,6 @@
 
 /* The Kasse: the card number is the card's name, the balance the house figure, the stamps larger (56 in 358). */
 .kasse { padding-bottom: var(--space-5); }
-/* Design r3: a two-line head at the till (a warning under the number) aligns to its top. */
-.kasse .top { align-items: start; }
 /* The Kasse card always has the 8-stamp card's height: the stamp area holds two rows of the 8-stamp card's stamps
    (76 % of a quarter of the width, on whole pixels), so a longer goal's smaller stamps sit centred in it. */
 .kasse { container-type: inline-size; }
