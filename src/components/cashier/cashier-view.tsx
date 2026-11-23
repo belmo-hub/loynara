@@ -12,6 +12,7 @@ import { ArrowRight, Check, Clock, Gift, Menu, Minus, Plus, ScanLine, ShieldAler
 import type { ProgramType, UiLocale } from "@/components/loyalty-ui";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { CashierShell, type CashierState } from "@/components/ui/cashier-shell";
+import { swallowClosingTap } from "@/components/ui/closing-tap";
 import { cx } from "@/components/ui/cx";
 import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
@@ -279,7 +280,8 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
   // Status and "Kamera öffnen" come first; overview and sign-out wait behind one menu button.
   const headerActions = <div className={styles.headerActions}>
     <button type="button" className={styles.menuButton} popoverTarget="cashier-menu" aria-label={t.menu}><Menu size={22} aria-hidden="true" /></button>
-    <div id="cashier-menu" popover="auto" className={styles.menu}>
+    {/* The tap that closes the menu never presses the till under it (ENG-374). */}
+    <div id="cashier-menu" ref={swallowClosingTap} popover="auto" className={styles.menu}>
     {showOverview && <Link href="/merchant" className={buttonClassName({ variant: "quiet", size: "sm" })}>{t.overview}</Link>}
     {logoutControl}
     </div>
