@@ -9,10 +9,10 @@ export const BOOKING_AVV_VERSION = "2026-11-29";
 /** The first terms Fassung with „Termin + Treue“; the booking acceptance and the operator's switch need it too (Legal § 5). */
 export const BOOKING_TERMS_VERSION = "2026-11-29";
 /**
- * Termin + Treue per location and month (founder Q-115; Legal § 7). The founding price is 59 € until the founder decides:
- * if it becomes 69 €, change `founding` only; § 3 (1) then reads „ebenfalls 69 €“ and the dialog „69 € statt 39 €“.
+ * Termin + Treue per location and month (founder Q-115; Legal § 7). Founder, 24 Nov: 69 € for every shop, the founding one too, so
+ * § 3 (1) reads „ebenfalls 69 €“ and a founding shop's dialog „69 € statt 39 €“.
  */
-export const TERMIN_PRICE: Record<"list" | "founding", { base: number; termin: number }> = { list: { base: 49, termin: 69 }, founding: { base: 39, termin: 59 } };
+export const TERMIN_PRICE: Record<"list" | "founding", { base: number; termin: number }> = { list: { base: 49, termin: 69 }, founding: { base: 39, termin: 69 } };
 /** § 3 (1)'s founding sentence, from the constant above. */
 export const foundingTerminPrice = () => TERMIN_PRICE.founding.termin === TERMIN_PRICE.list.termin ? `ebenfalls ${TERMIN_PRICE.list.termin} €` : `${TERMIN_PRICE.founding.termin} €`;
 export const SIGNUP_ACCEPTANCE_TEXT_VERSION = "2026-11-20";
