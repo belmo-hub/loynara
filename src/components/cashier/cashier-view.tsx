@@ -1,5 +1,6 @@
 "use client";
 
+import { BERLIN } from "@/lib/german-date";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { MixCard } from "@/components/customer/mix-card";
@@ -478,7 +479,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
             : <span className={amountProblem ? styles.previewProblem : undefined}>{amountProblem || (locale === "fr" ? `${card.pointsPerCurrencyUnit}\u00a0point(s) par 1\u00a0${card.currency}` : `${card.pointsPerCurrencyUnit}\u00a0${card.pointsPerCurrencyUnit === 1 ? "Punkt" : "Punkte"} pro 1\u00a0${card.currency}`)}</span>}</div>
         </div>
       </Sheet>}
-      {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit" })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
+      {card && offlineLeaseExpiresAt && <p className={styles.footnote} role="status">{locale === "fr" ? "Tampon hors ligne préparé jusqu’à" : "Offline-Puffer bereit bis"} {new Date(offlineLeaseExpiresAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "de-DE", { hour: "2-digit", minute: "2-digit", timeZone: BERLIN })}. {locale === "fr" ? "En attente ne change pas le solde." : "Vorgemerktes ändert den Kontostand nicht."}</p>}
       {offlinePanel}
     {confirm && card && <Dialog open onClose={cancelConfirm} title={confirm.kind === "award" ? t.confirmAward : t.confirmRedeem}
       description={<>{confirm.kind === "award" ? <>{"quantity" in confirm.award ? withUnit(confirm.award.quantity, card.programType, locale) : <><strong className={styles.figure}>{number.format(purchasePoints(confirm.award.purchaseAmountMinor, card.pointsPerCurrencyUnit))}{"\u00a0"}{unit}</strong> {locale === "fr" ? "pour un achat de" : "für einen Kauf über"} <strong className={styles.figure}>{formatMinor(confirm.award.purchaseAmountMinor, card.currency)}</strong></>} {t.bookFor}</> : `${confirm.reward.name} (${withUnit(confirm.reward.cost, card.programType, locale)}) ${t.redeemFor}`} <span className={styles.nowrap}>{card.cardLocator}</span>.</>}

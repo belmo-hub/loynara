@@ -1,5 +1,6 @@
 "use client";
 
+import { BERLIN } from "@/lib/german-date";
 import { DEMO_PRIVACY_LINK, demoConsentStatus } from "@/lib/demo-texts";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -26,10 +27,10 @@ export const panelShown = (available: boolean, switchedOff: boolean) => availabl
 export const ConsentLabel = ({ lead, demo = false }: { lead: string; demo?: boolean }) =>
   demo ? <>{lead} <Link href="/datenschutz">{DEMO_PRIVACY_LINK}</Link></> : <>{lead}<Link href="/datenschutz">{LINK}</Link></>;
 
-export function SwitchedOn({ shop, givenAt, busy, onSwitchOff, demo = false }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void; demo?: boolean }) {
+export function SwitchedOn({ shop, givenAt, busy, onSwitchOff, demo = false, timeZone = BERLIN }: { shop: string; givenAt: string | null; busy: boolean; onSwitchOff: () => void; timeZone?: string; demo?: boolean }) {
   return <>
     <p>{demo ? demoConsentStatus(shop, true) : `Von ${shop} · Höchstens 2 pro Woche · an`}</p>
-    {givenAt && <p className={styles.muted}>Erlaubt am {new Date(givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+    {givenAt && <p className={styles.muted}>Erlaubt am {new Date(givenAt).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone })}</p>}
     <Button variant="secondary" size="sm" loading={busy} onClick={onSwitchOff}>Abschalten</Button>
   </>;
 }
@@ -50,7 +51,7 @@ export function SwitchedOff({ shop, available, off, onSwitchOn, demo = false }: 
  * ENG-130: the unticked box has a heading; re-read when the page comes back into view (the return from Apple's sheet).
  * `onShown` tells the page whether it renders (the page places it under the card once, after the pass is saved).
  */
-export function CardWalletMessages({ token, expiry = false, onShown }: { token: string; expiry?: boolean; onShown?: (shown: boolean) => void }) {
+export function CardWalletMessages({ token, expiry = false, timeZone, onShown }: { token: string; expiry?: boolean; /** The shop's zone. */ timeZone?: string; onShown?: (shown: boolean) => void }) {
   const [state, setState] = useState<Consent | null>(null);
   const [busy, setBusy] = useState(false);
   const [switchedOff, setSwitchedOff] = useState(false);
@@ -86,7 +87,7 @@ export function CardWalletMessages({ token, expiry = false, onShown }: { token: 
   const lines = consentLines(expiry);
   return <section className={styles.panel} aria-label="Nachrichten auf deiner Wallet-Karte">
     {(state.granted || switchedOff) && <h2 className={styles.title}>Nachrichten auf deiner Wallet-Karte</h2>}
-    {state.granted ? <SwitchedOn demo={state.demo} shop={state.shop} givenAt={state.givenAt} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff demo={state.demo} shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
+    {state.granted ? <SwitchedOn demo={state.demo} shop={state.shop} givenAt={state.givenAt} timeZone={timeZone} busy={busy} onSwitchOff={() => void change(false)} /> : switchedOff ? <SwitchedOff demo={state.demo} shop={state.shop} available={state.available} off={lines.off} onSwitchOn={() => setSwitchedOff(false)} /> : <>
       {!state.demo && <h2 className={styles.title}>{`Darf dir ${state.shop} Nachrichten auf deine Karte schicken?`}</h2>}
       <Checkbox checked={busy} disabled={busy} onChange={() => void change(true)}><ConsentLabel lead={lead} demo={state.demo} /></Checkbox>
       <p className={styles.muted}>{lines.under}</p>
