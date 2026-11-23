@@ -23,6 +23,7 @@ import { joinUrlOf, openCounterSign, SIGN_FAILED, SIGN_NOTE } from "./join-card"
 import { BigMoney, BoardPlaceholder, BonusOffBand, BookPlaceholder, FactsPlaceholder, Brought, CardStock, DemoDataChip, Diary, EmptyStrip, Facts, FactsHelp, NextBandPlaceholder, NextPanel, Strip, type NextAction, type Tile } from "./overview-board";
 import s from "./overview.module.css";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
+import { shopZone } from "@/lib/german-date";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
@@ -369,7 +370,7 @@ const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: st
 
 function EmptyShop({ me }: { me: MeResponse }) {
   const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const today = localNow(new Date(), "Europe/Berlin").date;
+  const today = localNow(new Date(), shopZone(useOwner())).date;
   const steps = readiness.state === "ok" ? readiness.data.steps.filter(step => step.id in FIRST_STEPS) : [];
   const current = steps.find(step => step.required && step.status === "todo");
   const joinUrl = joinUrlOf(me);

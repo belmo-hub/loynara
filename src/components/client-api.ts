@@ -200,6 +200,8 @@ export type CardResponse = {
   stampMoment?: { referralDue: boolean; referralNew: boolean; referral?: ReferralShare };
   /** Demo environment only (Legal, 9 Nov): „Demo von Loynara für …“ at the top of the card. */
   demoNotice?: string;
+  /** The shop's IANA zone: the card's days and times are the shop's (time-zone rule, 22 Nov). */
+  timeZone?: string;
   scanCode: string;
   cardLocator: string;
   balance: number;

@@ -1,5 +1,6 @@
 "use client";
 
+import { BERLIN } from "@/lib/german-date";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Check, Mail } from "lucide-react";
@@ -20,14 +21,14 @@ export type EmailStatus = {
   available: boolean; marketingAvailable: boolean; contactPresent: boolean; emailVerified: boolean; marketingEmail: boolean;
   maskedEmail: string | null; pending: "recovery" | "marketing" | null; linkExpired: boolean; marketingSince: string | null; recoverUrl: string; offer: boolean;
 };
-type Shop = { shop: string; location: string };
+type Shop = { shop: string; location: string; /** The shop's zone (time-zone rule, 22 Nov). */ timeZone?: string };
 
 const INVALID = "Bitte gib eine gültige E-Mail-Adresse ein.";
 const SEND_FAILED = "Konnte nicht gesendet werden. Versuch es gleich noch einmal.";
 const SENT = "Wir haben dir einen Link geschickt.";
 const HINT = "Mit dieser Adresse finde ich meine Karte wieder, falls ich den Link verliere. Sie wird nur dafür genutzt, nicht für Werbung.";
 const consentLead = ({ shop, location }: Shop) => emailConsentText(shop, location);
-const since = (iso: string) => new Date(iso).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const since = (iso: string, timeZone = BERLIN) => new Date(iso).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone });
 // The server's own German text (rate limit, e-mail off, changed consent text); anything else is a failed send.
 const sendError = (cause: unknown) => cause instanceof ClientApiError && (cause.status === 429 || (cause.code !== undefined && GERMAN_SERVER_TEXT.has(cause.code))) ? cause.message : SEND_FAILED;
 /** What a confirmation link asks for: with the consent it carries the box text's version, or the resend would turn it into a recovery-only link. */
@@ -249,7 +250,7 @@ export function EmailSheet({ token, shop, status, reload, open, onClose }: { tok
         <strong>Nachrichten von {shop.shop}</strong>
         <p className={styles.muted}>Angebote, Neuigkeiten, Erinnerungen</p>
         {status.marketingEmail ? <>
-          <p className={styles.on}><Check size={16} aria-hidden="true" /> An{status.marketingSince ? ` · seit ${since(status.marketingSince)}` : ""}</p>
+          <p className={styles.on}><Check size={16} aria-hidden="true" /> An{status.marketingSince ? ` · seit ${since(status.marketingSince, shop.timeZone)}` : ""}</p>
           <Button variant="secondary" size="sm" loading={busy} onClick={() => void run(() => postJson(`${url}/marketing`, { granted: false }), "Abbestellt. Deine Adresse zum Wiederfinden der Karte bleibt.")}>Abbestellen</Button>
         </> : linkOpen ? <>
           <p className={styles.text}>Noch nicht bestätigt. Erst wenn du den Link in der E-Mail anklickst, bekommst du Nachrichten.</p>
