@@ -62,13 +62,17 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   // Under large text no passkey row cuts a word of its name or date: „Entfernen“ goes under the words instead (Design r4,
   // r5: every row, a short name like „Mac“ included).
   const wide = page.viewportSize()!;
+  // The shortest real name: here Chrome names the passkey „Windows-PC“, whose length already moves the button down.
+  await page.locator(".ow-prog-row[data-ends=button] .ow-prog-text strong").evaluateAll(names => { for (const name of names) name.textContent = "Mac"; });
   for (const [width, percent] of [[320, 160], [320, 200], [390, 160], [390, 200]] as const) {
     await page.setViewportSize({ width, height: 844 });
     await page.evaluate(next => {
       const style = document.getElementById("test-text-size") ?? document.head.appendChild(Object.assign(document.createElement("style"), { id: "test-text-size" }));
       style.textContent = `html { font-size: ${next}% !important }`;
     }, percent);
-    await expect.poll(() => page.locator(".ow-prog-row[data-ends=button]").evaluateAll(list => list.flatMap(row => [...row.querySelectorAll(".ow-prog-text strong, .ow-prog-text small")].flatMap(element => {
+    await page.waitForFunction(size => getComputedStyle(document.documentElement).fontSize === size, `${16 * percent / 100}px`);
+    await page.waitForTimeout(300); // the row fold settles
+    expect(await page.locator(".ow-prog-row[data-ends=button]").evaluateAll(list => list.flatMap(row => [...row.querySelectorAll(".ow-prog-text strong, .ow-prog-text small")].flatMap(element => {
       const node = element.firstChild;
       if (!(node instanceof Text)) return [];
       // Each word (split at spaces and hyphens, where a line may break) sits on one line.
@@ -78,7 +82,7 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
         if (new Set([...range.getClientRects()].filter(line => line.width > 1).map(line => Math.round(line.top))).size > 1) cut.push(word.trim());
       }
       return cut;
-    }))), { message: `no word cut at ${width}, ${percent} %` }).toEqual([]);
+    }))), `no word cut at ${width}, ${percent} %`).toEqual([]);
   }
   await page.setViewportSize(wide);
   await page.reload();
