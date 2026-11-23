@@ -32,6 +32,8 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
   // The open modal the region lives in, or null for the page.
   const [host, setHost] = useState<HTMLDialogElement | null>(null);
   useEffect(() => {
+    // A region that moves is a new element: hover or focus on the old one ended with it, so the timers run again (Design r3).
+    paused.current = false;
     const el = region.current;
     if (!el || typeof el.showPopover !== "function") return; // no popover support: the fixed region as before
     el.showPopover();
@@ -50,9 +52,15 @@ export function ToastProvider({ children, closeLabel = "Hinweis schließen" }: {
   // the accessibility tree when the first toast speaks (Design r2).
   const latest = toasts.findLast((t) => !t.leaving)?.message;
   const [live, setLive] = useState<ReactNode>(null);
+  // Only a new message, or a modal becoming the host, is said again; back on the page the region mounts holding the text,
+  // and setting it once more would read it twice (Design r3).
+  const said = useRef<{ latest: ReactNode; host: HTMLDialogElement | null }>({ latest: undefined, host: null });
   useEffect(() => {
+    const before = said.current;
+    if (latest === before.latest && !(host && host !== before.host)) { said.current = { latest, host }; return; }
     let next = 0;
-    const first = requestAnimationFrame(() => { setLive(null); next = requestAnimationFrame(() => setLive(latest)); });
+    // Noted as said only once set: an effect cancelled before then (development runs effects twice) says it again.
+    const first = requestAnimationFrame(() => { setLive(null); next = requestAnimationFrame(() => { said.current = { latest, host }; setLive(latest); }); });
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(next); };
   }, [latest, host]);
 
