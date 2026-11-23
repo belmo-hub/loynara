@@ -63,7 +63,7 @@ for (const size of SIZES) for (const typed of [false, true]) {
   });
 }
 
-for (const size of [{ width: 320, height: 640 }, ...SIZES]) test(`${size.width}x${size.height}: a finished visit warns in one line from 390, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
+for (const size of [{ width: 320, height: 640 }, { width: 360, height: 740 }, ...SIZES]) test(`${size.width}x${size.height}: a finished visit warns in one line from 360, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
   const shop = await shopWithAppointment(baseURL!, true);
   const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
   const page = await context.newPage();
@@ -84,8 +84,8 @@ for (const size of [{ width: 320, height: 640 }, ...SIZES]) test(`${size.width}x
     const overlaps = !(box.right <= balance.left || box.left >= balance.right || box.bottom <= balance.top || box.top >= balance.bottom);
     return { colour: getComputedStyle(element).color === want, iconColour: getComputedStyle(element.querySelector("svg")!).color === want, icon: icon.width >= 16 && icon.height >= 16, oneLine: box.height < 2.2 * parseFloat(getComputedStyle(element).fontSize), overlaps };
   });
-  // One line from 390; at 320 it may wrap (Design r5).
-  expect({ ...shape, oneLine: size.width < 390 || shape.oneLine }).toEqual({ colour: true, iconColour: true, icon: true, oneLine: true, overlaps: false });
+  // One line from 360; at 320 it may wrap (Design r6).
+  expect({ ...shape, oneLine: size.width < 360 || shape.oneLine }).toEqual({ colour: true, iconColour: true, icon: true, oneLine: true, overlaps: false });
   // Nothing widens the page: no sideways scroll at any width (Design r5, 320 and 360).
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
   const other = page.getByRole("button", { name: "Andere Karte" }).first();
