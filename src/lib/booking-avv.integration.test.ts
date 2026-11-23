@@ -61,7 +61,9 @@ it("two acceptances that reach the check at the same moment write one row: the b
     await holder.query("BEGIN");
     await holder.query("LOCK TABLE owner_acceptances IN ACCESS EXCLUSIVE MODE");
     const both = Promise.all([accept(shop.ownerCookie), accept(shop.ownerCookie)]);
-    await expect.poll(async () => (await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> $1", [(holder as unknown as { processID: number }).processID])).rows[0].n, { timeout: 10_000 }).toBe(2);
+    // Only this test's two requests count (Reviewer): each waits either at the owner_acceptances read or, with the lock, at the business row.
+    const waiting = "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> $1 AND (query ILIKE '%owner_acceptances%' OR query ILIKE '%from \"tenants\"%for update%')";
+    await expect.poll(async () => (await pool.query(waiting, [(holder as unknown as { processID: number }).processID])).rows[0].n, { timeout: 10_000 }).toBe(2);
     await holder.query("COMMIT");
     expect((await both).map(res => res.status)).toEqual([200, 200]);
   } finally { holder.release(); }

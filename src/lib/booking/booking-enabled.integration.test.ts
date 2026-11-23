@@ -4,6 +4,7 @@ import { GET as meRoute } from "@/app/api/me/route";
 import { GET as exportRoute } from "@/app/api/merchant/export/route";
 import { randomUUID } from "node:crypto";
 import { book } from "./appointments";
+import { bookingStateAt } from "./setup";
 import { bookingShop, request, withBookingDatabase } from "./test-fixture";
 
 // Design blocker 3 (22 Nov): every booking surface hides unless the operator switched booking on at the location.
@@ -32,4 +33,8 @@ it("switched off, a location that had appointments keeps the day view and „Ter
   const csv = await exportRoute(request("/api/merchant/export?format=appointments", { cookie: shop.ownerCookie }));
   expect(csv.status).toBe(200);
   expect(await csv.text()).toContain("Name gelöscht");
+  // Reviewer D6: per location. A second location of the same shop that never had booking stays without it.
+  const second = (await pool.query("INSERT INTO locations (tenant_id, name, city, country, timezone) VALUES ($1, 'Nord', 'Kassel', 'DE', 'Europe/Berlin') RETURNING id", [shop.scope.tenantId])).rows[0].id as string;
+  expect(await bookingStateAt({ tenantId: shop.scope.tenantId, locationId: second })).toEqual({ bookingEnabled: false, bookingShown: false });
+  expect(await bookingStateAt(shop.scope)).toEqual({ bookingEnabled: false, bookingShown: true });
 });
