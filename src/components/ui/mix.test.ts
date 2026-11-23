@@ -62,7 +62,7 @@ describe("mix tokens and patterns (ENG-254)", () => {
   it("keeps a mix title's 26 px line and a kicker's weight and colour inside the owner app, whose heading rule would win", () => {
     const owner = readFileSync(join(__dirname, "../owner/owner.css"), "utf8");
     expect(owner).toContain(".owner-app :is(h1, h2, h3) { font-family: inherit; font-weight: var(--weight-heavy); letter-spacing: 0; line-height: 1.2;");
-    expect(css).toContain(":global(.owner-app) .h { line-height: 26px; }");
+    expect(css).toContain(":global(.owner-app) .h { line-height: 1.625rem; }");
     expect(css).toContain(":global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }");
   });
 

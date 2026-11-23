@@ -25,6 +25,18 @@ const useTapped = () => useSyncExternalStore(watcher => { tapWatchers.add(watche
  * until the next screen is shown: the screen in view stays that long, so the tapped tab or row takes its selected look
  * at once (owner.css).
  */
+/** The page keeps the room the phone's bottom bar really takes (it grows when its labels wrap under large text): its
+ *  height goes to --ow-tabbar while it shows; owner.css's 65 + inset stays the value before it is measured (Design r2). */
+function watchTabbar(bar: HTMLElement | null) {
+  const app = bar?.closest<HTMLElement>(".owner-app");
+  if (!bar || !app || typeof ResizeObserver === "undefined") return;
+  const fit = () => { const height = bar.getBoundingClientRect().height; if (height > 0) app.style.setProperty("--ow-tabbar", `${height}px`); else app.style.removeProperty("--ow-tabbar"); };
+  const watch = new ResizeObserver(fit);
+  watch.observe(bar);
+  fit();
+  return () => { watch.disconnect(); app.style.removeProperty("--ow-tabbar"); };
+}
+
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
   const { guard } = useOwner();
@@ -311,7 +323,7 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
             : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{/* One element that stays for the whole screen: a page that swaps its own root (loading frame, then form) would end the transition early. */}<ViewTransition key={pathname} enter="ow-screen" exit={{ "kasse-sheet": "none", default: "ow-screen" }} default="none"><div className="ow-screen">{children}</div></ViewTransition></div>}
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
-        <nav className="ow-tabs" aria-label="Bereiche">
+        <nav ref={watchTabbar} className="ow-tabs" aria-label="Bereiche">
           {visibleGroups(role, hidden).slice(0, 4).map(item => (
             <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}

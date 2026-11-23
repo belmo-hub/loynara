@@ -11,8 +11,8 @@ const CLAMP = "display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-
 describe("no native controls on the card (45a)", () => {
   it("the birthday's day and month are house selects in two columns, with no inline style", () => {
     const panel = read("src/components/card-birthday.tsx");
-    expect(panel).toContain('<Select label="Tag"');
-    expect(panel).toContain('<Select label="Monat"');
+    expect(panel).toMatch(/<Select id="birthday-day" label="Tag"/);
+    expect(panel).toMatch(/<Select id="birthday-month" label="Monat"/);
     expect(panel).not.toMatch(/<select|style=\{\{/);
     expect(read("src/components/customer/panels.module.css")).toContain(".dayMonth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-3); }");
   });

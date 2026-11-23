@@ -6,21 +6,21 @@
 .stack > .sec:not(:first-child) { margin-top: calc(var(--space-8) - var(--space-4)); }
 .sec > .h, .sec > .secHead { margin-bottom: calc(var(--space-3) - var(--space-4)); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 /* A note under a full-width panel keeps a reading measure from 600 (two lines of about 70 characters). */
 @media (min-width: 600px) { .note { max-width: 640px; } }
 
 /* Type roles. */
-.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); text-wrap: balance; }
+.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); text-wrap: balance; }
 /* A title in a padded panel fills its first line, so a hyphenated compound stays whole. */
 .pad .h { text-wrap: wrap; }
 .h > svg { color: var(--color-action); }
-.kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+.kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.sub { margin: 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .h + .sub { margin-top: var(--space-1); }
 /* Inside the owner app, `.owner-app :is(h1, h2, h3)` (one class and a tag) sets every heading's line height, weight and
    colour; a mix title or kicker that is a heading keeps its own. Non-mix owner headings are untouched. */
-:global(.owner-app) .h { line-height: 26px; }
+:global(.owner-app) .h { line-height: 1.625rem; }
 :global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* The panel (ruling 2): white, 1 px line, radius 20, no shadow. Rows bring their own inset; .pad is for free content.
@@ -42,7 +42,7 @@
 .row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
 .text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
-.text > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+.text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
 .chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
@@ -57,7 +57,7 @@
 @media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .tile[data-tone="mute"] { background: var(--color-raised); } }
 
 /* Chips. */
-.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 calc(var(--space-2) - 1px); border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
+.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); min-height: 24px; padding: 0 calc(var(--space-2) - 1px); border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); white-space: nowrap; }
 .warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }
 
 /* Buttons: 44 high (.lg 52), the primary filled green, the quiet one outlined. */
@@ -68,7 +68,7 @@
 .lg { height: var(--mix-row); padding: 0 var(--space-6); }
 .block { display: flex; width: 100%; }
 /* The underlined ink link beside a title or in a row; 44 tall without pushing the row apart. */
-.link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 
 /* Feedback (DESIGN.md › Motion, press): buttons press to .97, rows and the closing row to .985; hover fills only with a
    fine pointer. The panel's overflow would clip the house ring, so a row's ring is drawn inside it. */

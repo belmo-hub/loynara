@@ -8,9 +8,9 @@
 @media (min-width: 1024px) { :global(.ow-page).page { padding-inline: var(--space-10); } }
 
 .head { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-6); }
-.title { align-items: center; flex-wrap: nowrap; }
-.title h1 { line-height: 34px; }
-@media (min-width: 1024px) { .title h1 { line-height: 40px; } }
+.title { align-items: center; flex-wrap: wrap; } /* one row at the default size; under large text the link goes below (Design R1) */
+.title h1 { line-height: 2.125rem; }
+@media (min-width: 1024px) { .title h1 { line-height: 2.5rem; } }
 .search { max-width: none; }
 .search > svg { left: var(--space-5); }
 .search :global(.ow-input) { padding-left: 52px; background: var(--color-surface); }
@@ -23,11 +23,11 @@
 
 /* Section titles and panels. */
 .page :global(.ow-prog) { max-width: none; }
-.page :global(.ow-prog) h2 { margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); color: var(--color-ink); } /* mixStyles.h, over the house label rule */
+.page :global(.ow-prog) h2 { margin: 0; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); color: var(--color-ink); } /* mixStyles.h, over the house label rule */
 .named { display: flex; align-items: baseline; gap: var(--space-2); }
-.named > span { font-size: var(--text-16); line-height: 24px; font-weight: var(--weight-label); color: var(--color-ink-muted); }
+.named > span { font-size: var(--text-16); line-height: 1.5rem; font-weight: var(--weight-label); color: var(--color-ink-muted); }
 .page :global(.ow-prog) ul { margin-top: var(--space-3); border-radius: var(--radius-lg); outline: 1px solid var(--color-line); outline-offset: -1px; }
-.page :global(.ow-prog) :global(.ow-prog-note) { margin-top: var(--space-3); line-height: 20px; }
+.page :global(.ow-prog) :global(.ow-prog-note) { margin-top: var(--space-3); line-height: 1.25rem; }
 @media (min-width: 600px) { .page :global(.ow-prog) :global(.ow-prog-note) { max-width: 640px; } }
 .page :global(.ow-prog) ul > li { position: relative; } /* every row's ring paints over the panel's line, the first one too */
 .page :global(.ow-prog) ul > li + li { border-top: 0; }
@@ -42,8 +42,8 @@
 /* The panel's first and last rows follow its 20 px curve, so their inset ring and press fill keep the corners (Design, #283). */
 .page :global(.ow-prog) ul > li:first-child > :global(.ow-prog-row) { border-start-start-radius: 19px; border-start-end-radius: 19px; }
 .page :global(.ow-prog) ul > li:last-child > :global(.ow-prog-row) { border-end-start-radius: 19px; border-end-end-radius: 19px; }
-.page :global(.ow-prog-text) strong { line-height: 24px; }
-.page :global(.ow-prog-text) small { margin-top: 0; line-height: 20px; }
+.page :global(.ow-prog-text) strong { line-height: 1.5rem; }
+.page :global(.ow-prog-text) small { margin-top: 0; line-height: 1.25rem; }
 .page :global(.ow-prog-arrow) { margin: 0 -6px; color: var(--color-ink-faint); }
 .groups :global(.ow-prog-value) { font-size: var(--text-16); color: var(--color-ink); }
 .groups ul a[aria-current] { background-color: var(--color-fill); }
