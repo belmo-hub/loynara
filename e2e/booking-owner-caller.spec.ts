@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
-import { pool } from "../src/db";
+import { Pool } from "pg";
 import { formatCardLocator } from "../src/lib/card-locator";
+
+// Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 import { signUp } from "./support/sign-up";
 
 // ENG-372 (founder Q-116 c): the owner enters a caller's appointment from the day view, only for a card found by number.
