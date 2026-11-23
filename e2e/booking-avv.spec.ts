@@ -27,9 +27,6 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   await pool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [id]);
   await pool.query("INSERT INTO owner_acceptances (user_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, '2026-11-20', '2026-11-20', '2026-11-20', '2026-11-20')", [id]);
   expect((await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Salon", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", rulesText: "Synthetic rules.", rewardTitle: "Schnitt", programName: "Synthetic", programType: "stamp", rewardCost: 10 } })).status()).toBe(201);
-  // Legal § 7: the price line follows the plan. At 1280 the shop is on the operator's founding price.
-  const founding = viewport.width === 1280;
-  if (founding) await pool.query("UPDATE subscriptions SET plan_code = 'founding' WHERE tenant_id = (SELECT tenant_id FROM owner_acceptances WHERE user_id = $1 AND path = 'register')", [id]);
 
   const context = await browser.newContext({ baseURL, storageState: await owner.storageState(), viewport, hasTouch: viewport.width < 768 });
   const page = await context.newPage();
@@ -41,8 +38,8 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   await row.click();
   const dialog = page.getByRole("dialog", { name: /^Verträge für Termin\s\+\sTreue annehmen\?$/ });
   // Legal § 5: the price before the button, both documents linked.
-  await expect(dialog.getByText(founding ? "69 € statt 39 € je Standort und Monat, nur für Standorte mit Termin + Treue." : "69 € statt 49 € je Standort und Monat, nur für Standorte mit Termin + Treue.", { exact: true })).toBeVisible();
-  await expect(dialog).toContainText(`Annehmen kostet nichts.${founding ? "69 € statt 39 €" : "69 € statt 49 €"} je Standort und Monat, nur für Standorte mit Termin + Treue.Loynara schaltet Termin + Treue nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}, und der Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.`);
+  await expect(dialog.getByText("69 € statt 49 € je Standort und Monat, nur für Standorte mit Termin + Treue.", { exact: true })).toBeVisible();
+  await expect(dialog).toContainText(`Annehmen kostet nichts.69 € statt 49 € je Standort und Monat, nur für Standorte mit Termin + Treue.Loynara schaltet Termin + Treue nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}, und der Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.`);
   await expect(dialog.getByRole("link", { name: `Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}` })).toHaveAttribute("href", "/vertragsbedingungen");
   await expect(dialog.getByRole("link", { name: `Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}` })).toHaveAttribute("href", "/avv");
   // Design r2: at 200 % text the links and their commas stay inside the dialog.

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { AuthShell } from "@/components/ui/auth-shell";
 import styles from "@/components/ui/legal-text.module.css";
-import { foundingTerminPrice, hasOpenMarks, OWNER_AVV, OWNER_TERMS, TERMIN_PRICE } from "@/lib/owner-contract";
+import { hasOpenMarks, OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 
 export const metadata = { title: "Vertragsbedingungen für Geschäfte – Loynara" };
 
@@ -36,11 +36,11 @@ export default function VertragsbedingungenPage() {
     <p>(3) Danach läuft der Vertrag auf unbestimmte Zeit. Jede Seite kann mit einer Frist von 14 Tagen zum Ende eines Abrechnungsmonats kündigen. Kündigt der Betrieb im ersten Abrechnungsmonat, endet der Vertrag mit dessen Ablauf, frühestens aber 14 Tage nach Zugang der Kündigung, damit die Kundschaft das Ende rechtzeitig auf ihren Karten sieht; für die Zeit nach dem ersten Abrechnungsmonat fällt kein Entgelt an. Textform genügt, zum Beispiel eine E-Mail oder „Programm beenden“ im Inhaberbereich. Nutzt der Betrieb den Dienst nach Vertragsende weiter, verlängert sich der Vertrag dadurch nicht (§ 545 BGB gilt nicht). Die Kündigung aus wichtigem Grund bleibt unberührt.</p>
 
     <h2>§ 3 Preis und Zahlung</h2>
-    <p>(1) Das Entgelt beträgt {TERMIN_PRICE.list.base} € je Standort und Monat, für Standorte mit „Termin + Treue“ (§ 1 Abs. 6) {TERMIN_PRICE.list.termin} €. Gilt für den Betrieb der Gründungspreis von {TERMIN_PRICE.founding.base} € je Standort, beträgt das Entgelt für Standorte mit „Termin + Treue“ {foundingTerminPrice()}. Der erste Abrechnungsmonat ist kostenlos (§ 2 Abs. 2), auch mit „Termin + Treue“; für Standorte, die der Betrieb später hinzunimmt, zahlt er ab ihrem Starttag, im laufenden Abrechnungsmonat anteilig nach Tagen. Eine Einrichtungsgebühr fällt nicht an.</p>
+    <p>(1) Das Entgelt beträgt 49 € je Standort und Monat, für Standorte mit „Termin + Treue“ (§ 1 Abs. 6) 69 €. Der erste Abrechnungsmonat ist kostenlos (§ 2 Abs. 2), auch mit „Termin + Treue“; für Standorte, die der Betrieb später hinzunimmt, zahlt er ab ihrem Starttag, im laufenden Abrechnungsmonat anteilig nach Tagen. Eine Einrichtungsgebühr fällt nicht an.</p>
     <p>(2) Alle Preise sind Nettopreise. Schuldet der Anbieter Umsatzsteuer, kommt sie in der gesetzlichen Höhe hinzu und wird in der Rechnung ausgewiesen. Ändert sich das während der Laufzeit, kündigt der Anbieter es mindestens vier Wochen vorher in Textform an.</p>
     <p>(3) Ab dem zweiten Abrechnungsmonat ist das Entgelt jeweils zu Beginn des Abrechnungsmonats fällig. Die Rechnung erhält der Betrieb per E-Mail. Er überweist den Betrag innerhalb von 14 Tagen nach Rechnungsdatum auf das in der Rechnung genannte Konto oder zahlt per SEPA-Lastschrift oder Karte über den Zahlungsdienstleister Stripe; dafür erteilt er im Inhaberbereich ein SEPA-Lastschriftmandat oder hinterlegt eine Karte. Den Einzug kündigt der Anbieter abweichend von der üblichen Frist mindestens zwei Tage vorher an.</p>
     <p>(4) Ist der Betrieb mit mehr als einem Monatsentgelt im Rückstand, darf der Anbieter nach einer Ankündigung in Textform mit 14 Tagen Frist neue Buchungen sperren. Karten, Daten und Export bleiben erhalten.</p>
-    <p>(5) „Termin + Treue“ gilt ab dem Tag, an dem der Anbieter es für den Standort einschaltet; für den Rest des laufenden Abrechnungsmonats berechnet er den Unterschied anteilig nach Tagen mit der nächsten Rechnung. Der Betrieb kann in Textform zum Ende des laufenden Abrechnungsmonats zurück zum Entgelt ohne „Termin + Treue“ wechseln. Ab dann können für den Standort keine neuen Termine gebucht oder eingetragen werden; bereits gebuchte Termine bleiben im Inhaberbereich sichtbar und exportierbar.</p>
+    <p>(5) „Termin + Treue“ gilt ab dem Tag, an dem der Anbieter es für den Standort einschaltet; für den Rest des laufenden Abrechnungsmonats berechnet er den Unterschied anteilig nach Tagen mit der nächsten Rechnung. Der Betrieb kann in Textform zum Ende des laufenden Abrechnungsmonats zurück zum Entgelt von 49 € wechseln. Ab dann können für den Standort keine neuen Termine gebucht oder eingetragen werden; bereits gebuchte Termine bleiben im Inhaberbereich sichtbar und exportierbar.</p>
 
     <h2>§ 4 Pflichten des Betriebs</h2>
     <p>(1) Der Betrieb bietet das Kundenkartenprogramm seiner Kundschaft selbst an. Er legt Regeln und Prämien fest und löst erreichte Prämien danach ein. Für sein Programm verwendet er die Teilnahmebedingungen und Datenschutzhinweise unter app.getloynara.com/teilnahmebedingungen und app.getloynara.com/datenschutz.</p>

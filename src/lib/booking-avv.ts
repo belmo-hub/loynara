@@ -1,6 +1,6 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
-import { ownerAcceptances, staffRoles, subscriptions, tenants } from "@/db/schema";
+import { ownerAcceptances, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { BOOKING_AVV_VERSION, BOOKING_TERMS_VERSION, OWNER_AVV, OWNER_TERMS } from "./owner-contract";
 import { OWNER_PRIVACY_NOTICE } from "./owner-privacy";
@@ -10,12 +10,6 @@ export const BOOKING_AVV_ACCEPTANCE_TEXT_VERSION = "2026-11-25";
 export const BOOKING_AVV_OWNER_ONLY = "Nur das Inhaberkonto kann die Auftragsverarbeitung annehmen.";
 /** Legal § 6 (23 Nov): a shop on a signed paper contract gets Termin + Treue as a written addendum, never by a click. */
 export const BOOKING_PAPER_CONTRACT = "Termin + Treue ergänzen wir in deinem unterschriebenen Vertrag. Schreib uns an support@getloynara.com.";
-
-/** Legal § 7: the dialog's price line follows the shop's plan; the operator's founding price (39 €) has its own Termin price. */
-export async function foundingPlan(tenantId: string) {
-  const [sub] = await db.select({ planCode: subscriptions.planCode }).from(subscriptions).where(eq(subscriptions.tenantId, tenantId)).limit(1);
-  return sub?.planCode === "founding";
-}
 
 /** Only a business that signed up online (a 'register' acceptance) can accept a later Fassung in the app; operator-created shops cannot. */
 export async function signedUpOnline(tenantId: string, reader: Pick<typeof db, "select"> = db) {

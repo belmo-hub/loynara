@@ -152,16 +152,6 @@ it("an online shop's contract start stays its sign-up: the booking row comes lat
   expect((await operatorOverview(operator.userId)).contracts).toEqual([expect.objectContaining({ tenantId: shop.scope.tenantId, acceptedAt: signedUp })]);
 });
 
-it("/api/me says whether the shop is on the founding price, so the dialog names its own Termin price (Legal § 7)", async () => {
-  const shop = await shopOnOlderFassung();
-  const founding = async () => ((await (await meRoute(request("/api/me", { cookie: shop.ownerCookie }))).json()) as { bookingFoundingPlan?: boolean }).bookingFoundingPlan;
-  expect(await founding()).toBe(false);
-  await pool.query("UPDATE subscriptions SET plan_code = 'list' WHERE tenant_id = $1", [shop.scope.tenantId]);
-  expect(await founding()).toBe(false);
-  await pool.query("UPDATE subscriptions SET plan_code = 'founding' WHERE tenant_id = $1", [shop.scope.tenantId]);
-  expect(await founding()).toBe(true);
-});
-
 it("the row names the Fassungen the stored acceptance holds, not today's constants (Design r2)", async () => {
   const shop = await shopOnOlderFassung();
   const fassung = async () => ((await (await meRoute(request("/api/me", { cookie: shop.ownerCookie }))).json()) as { bookingContractsFassung?: { terms: string; avv: string } | null }).bookingContractsFassung;
