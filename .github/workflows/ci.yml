@@ -261,7 +261,7 @@ jobs:
       - *start-app
       # Desktop project only, as above; the owner *.mobile.spec.ts files need WebKit.
       - name: Run the owner specs
-        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm e2e/guest-rhythm e2e/invite-register-return e2e/merchant-setup.spec.ts
+        run: npx playwright test --config=playwright.returning.config.ts --project=desktop-chrome e2e/owner-arrival e2e/owner-motion e2e/owner-screen-change e2e/owner-navigation-focus e2e/owner-rhythm e2e/guest-rhythm e2e/invite-register-return e2e/merchant-setup.spec.ts e2e/kasse-toast.spec.ts
       # The shop search's phone pins on the runner's Chrome (Pixel 7). Playwright has no WebKit for this runner image, so
       # the iPhone engine stays a local check.
       - name: Run the shop search phone spec
