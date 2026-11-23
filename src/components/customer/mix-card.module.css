@@ -51,7 +51,7 @@
 /* A ceiling, not a floor (Design, 18 Nov): a one-row goal (3, 4, 5) keeps its own height. */
 .kasse .stamps:not([data-rows="1"]) { min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
 .kasse .stamp { --st: 76%; }
-.kasse .id b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); hyphens: manual; } /* a card number never hyphenates */
+.kasse .id b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); hyphens: manual; overflow-wrap: break-word; } /* a card number never hyphenates, nor breaks inside while it fits a line */
 .kasse .n b { font-size: var(--display-tile); line-height: 2.75rem; }
 .kasse .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 /* Under large text only (the card is narrower than 15 of its own em; at 100 % even a 320 phone is wider): the balance goes

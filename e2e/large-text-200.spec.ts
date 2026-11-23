@@ -82,6 +82,17 @@ const apart = (page: Page, a: string, b: string) => page.evaluate(([one, two]) =
   if (!x.length || !y.length) throw new Error(`not rendered: ${!x.length ? one : two}`);
   return !x.some(p => y.some(q => p.left < q.right - 1 && q.left < p.right - 1 && p.top < q.bottom - 1 && q.top < p.bottom - 1));
 }, [a, b]);
+/** The words (split at spaces and hyphens, where a line may break) that the matched text cuts across two lines. */
+const cut = (page: Page, selector: string) => page.locator(selector).first().evaluate(element => {
+  const node = [...element.childNodes].find((child): child is Text => child instanceof Text && child.data.trim() !== "");
+  if (!node) throw new Error("no text");
+  const words: string[] = []; let at = 0;
+  for (const piece of node.data.split(/(?<=[ -])/)) {
+    const word = piece.trimEnd(), range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + word.length); at += piece.length;
+    if (word && new Set([...range.getClientRects()].filter(box => box.width > 1).map(box => Math.round(box.top))).size > 1) words.push(word);
+  }
+  return words;
+});
 /** True when every element ends inside the box of its nearest match of `within`. */
 const inside = (page: Page, selector: string, within: string) => page.evaluate(([one, two]) => [...document.querySelectorAll(one)].every(element => element.getBoundingClientRect().right <= element.closest(two)!.getBoundingClientRect().right + 1), [selector, within]);
 
@@ -94,6 +105,14 @@ test("the till: the display title breaks instead of pushing the Kasse sideways",
     expect(await sideways(page), `no sideways scroll at ${width}/200`).toBe(0);
     expect(await page.getByRole("button", { name: "Prüfen", exact: true }).evaluate(button => button.getBoundingClientRect().right <= innerWidth), `„Prüfen“ within the screen's width at ${width}/200`).toBe(true);
   }
+  // At 100 % a card number never breaks inside („6P94V / F“, Design #359): a code is read out at the counter.
+  const card = await (await page.request.get(`/api/card/${demo.cardToken}`, { headers: { "sec-fetch-site": "same-origin" } })).json() as { cardLocator: string };
+  await size(page, 320, 100);
+  await page.locator("#cashier-code").fill(card.cardLocator);
+  await page.getByRole("button", { name: "Prüfen", exact: true }).click();
+  await page.getByRole("button", { name: "Karte öffnen", exact: true }).click();
+  await expect(page.locator("[class*=__kasse] [class*=__id] b")).toBeVisible();
+  expect(await cut(page, "[class*=__kasse] [class*=__id] b"), "the card number whole at 320/100").toEqual([]);
 });
 
 test("the owner header, sub-pages, tabs and overview hold at 200 % and look as before at 100 %", async ({ page }) => {
@@ -120,6 +139,10 @@ test("the owner header, sub-pages, tabs and overview hold at 200 % and look as b
   }
   await page.goto("/merchant");
   await expect(page.locator(".ow-content h1")).toBeVisible();
+  // At 100 % the greeting keeps its words whole; it only breaks under large text (Design #359: „Syntheti- / sche“).
+  await size(page, 320, 100);
+  await page.locator(".ow-content .ow-hello").evaluate(hello => { hello.textContent = "Willkommen bei Loynara, Synthetische Pizzeria."; });
+  expect(await cut(page, ".ow-content .ow-hello"), "the greeting unhyphenated at 320/100").toEqual([]);
   await size(page, 320, 200);
   expect(await sideways(page), "no sideways scroll on the overview at 320/200").toBe(0);
   if (await page.locator("button[data-link]").count()) {
@@ -162,7 +185,15 @@ test("Programm: the card preview's fields stack and the sub lines stay in their 
 test("guest pages: „Karte aktualisieren“ wraps, and the register link and the join card break instead of running off the screen", async ({ page }) => {
   await page.goto(`/card/${demo.cardToken}`);
   await expect(page.getByRole("button", { name: /Karte aktualisieren/ })).toBeVisible();
-  for (const width of [320, 360]) { await size(page, width, 200); expect(await sideways(page), `no sideways scroll on the card at ${width}/200`).toBe(0); }
+  for (const width of [320, 360]) {
+    await size(page, width, 200);
+    expect(await sideways(page), `no sideways scroll on the card at ${width}/200`).toBe(0);
+    // The card number keeps the panel's inset: it goes under the code instead of running to the edge beside it.
+    expect(await page.locator(".customer-card-number").evaluate(number => {
+      const panel = number.closest(".customer-qr-panel")!, edge = panel.getBoundingClientRect().right - parseFloat(getComputedStyle(panel).paddingRight);
+      return [...number.querySelectorAll("*")].every(part => part.getBoundingClientRect().right <= edge + 1);
+    }), `the card number inside the panel's inset at ${width}/200`).toBe(true);
+  }
   await page.goto("/register");
   await expect(page.locator("main h1")).toBeVisible();
   await size(page, 320, 200);

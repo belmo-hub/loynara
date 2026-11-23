@@ -125,7 +125,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 @media (max-width: 1023px) { .ow-shell { container: ow-shell / inline-size; } }
 @container ow-shell (max-width: 19.5em) {
   .ow-topbar { position: static; }
-  .ow-topbar-loc strong, .ow-topbar-loc span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  .ow-topbar-loc strong, .ow-topbar-loc span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; hyphens: auto; }
+  .owner-app .ow-hello { overflow-wrap: anywhere; hyphens: auto; } /* the greeting breaks only here; at 100 % „Synthetische Pizzeria“ stays whole */
   .ow-topbar-kasse { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .ow-subnav { top: 0; }
   .ow-subnav-inner { flex-wrap: wrap; overflow-x: visible; }
@@ -813,7 +814,7 @@ fieldset.ow-group > .ow-hint { margin-top: var(--space-2); }
 @media (min-width: 1024px) { .ow-dash:not(.ow-dash--single):not(:has(> .ow-next)) { grid-template-areas: "notice notice" "hello hello" "board side" "diary diary"; } }
 .ow-dash-notice:empty { display: none; }
 /* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
-.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
+.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
 /* The greeting reads as the Übersicht's title: the same 36 as every page title on desktop (I-07). */
 @media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
