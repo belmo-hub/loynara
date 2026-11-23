@@ -14,7 +14,10 @@ const hours = [1, 2, 3, 4, 5, 6, 7].map(weekday => ({ weekday, start: "06:00", e
 test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary in view after a pick", async ({ browser, baseURL }) => {
   const origin = { Origin: new URL(baseURL!).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin }), guest = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
-  expect((await signUp(owner, { data: { name: "Synthetic salon owner", email: `move-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  const ownerEmail = `move-owner-${randomUUID()}@example.test`;
+  expect((await signUp(owner, { data: { name: "Synthetic salon owner", email: ownerEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  // railway-rc asks a new owner to confirm the address before the owner screens open.
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE email = $1', [ownerEmail]);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Salon", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", rulesText: "Synthetic rules.", rewardTitle: "Kaffee", programName: "Synthetic", programType: "stamp", rewardCost: 10 } });
   const { programSlug } = await setup.json() as { programSlug: string };
   await pool.query("INSERT INTO booking_settings (tenant_id, location_id, enabled) SELECT tenant_id, location_id, true FROM programs WHERE slug = $1", [programSlug]);
