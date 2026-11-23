@@ -77,11 +77,11 @@ p{text-wrap:pretty}
   .nav,.login{display:none}.menu{display:block}.top .wrap{height:68px;gap:12px}.long{display:none}.short{display:inline}
   /* A popover in the top layer: it hangs under the header (anchor where supported, the header's 68 otherwise). */
   .top{anchor-name:--site-top}
-  .sheet{position:fixed;inset:68px 0 auto 0;width:auto;max-width:none;margin:0;border:0;color:inherit;background:var(--bg);box-shadow:0 1px 0 var(--line),0 30px 40px -20px rgba(23,41,31,.35);padding:8px var(--gutter) 24px;transform:translateY(-8px);opacity:0;transition:opacity var(--t-ui),transform var(--t-ui) var(--ease)}
-  /* The fade-out keeps the sheet in the top layer only where the engine can (overlay); elsewhere it closes at once,
-     so a closed sheet never stays displayed over the page taking taps (WebKit 26, Design 23 Nov). */
-  @supports (overlay:auto){.sheet{transition:opacity var(--t-ui),transform var(--t-ui) var(--ease),overlay var(--t-ui) allow-discrete,display var(--t-ui) allow-discrete,visibility 0s linear var(--t-ui)}}
-  @supports (top:anchor(bottom)){.sheet{top:max(0px,anchor(--site-top bottom))}}
+  .sheet{position:fixed;inset:68px 0 auto 0;width:auto;max-width:none;margin:0;border:0;color:inherit;background:var(--bg);box-shadow:0 1px 0 var(--line),0 30px 40px -20px rgba(23,41,31,.35);padding:8px var(--gutter) 24px;transform:translateY(-8px);opacity:0;transition:opacity var(--t-ui),transform var(--t-ui) var(--ease),overlay var(--t-ui) allow-discrete,display var(--t-ui) allow-discrete,visibility 0s linear var(--t-ui)}
+  /* After its fade-out a closed sheet is hidden too, so it never takes taps where an engine keeps it displayed (WebKit
+     26, Design 23 Nov). It hangs under the header by anchor only where the engine also has overlay; elsewhere the
+     header's 68 holds (WebKit 26 has anchors but no overlay). */
+  @supports (top:anchor(bottom)) and (overlay:auto){.sheet{top:max(0px,anchor(--site-top bottom))}}
   .sheet:not(:popover-open){visibility:hidden}
   .sheet:popover-open{display:block;opacity:1;transform:none;visibility:visible;transition-delay:0s}
   @starting-style{.sheet:popover-open{opacity:0;transform:translateY(-8px)}}
