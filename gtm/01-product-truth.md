@@ -85,7 +85,7 @@ Only ever say „zeigen wir als Ausblick, ist nicht Teil des Pilotangebots“.
 
 ## Commercial truth: project gates vs legal requirements
 
-- **Price (D-016):** **49 € pro Monat und Standort** (`SITE.price`), the same for every shop, in writing and in person (founder, 24 Nov 2026: no founding, fallback or lower price). This is the only price used anywhere in `gtm/`.
+- **Price (D-016):** **49 € pro Monat und Standort** (`SITE.price`), the same for every shop, in writing and in person (founder, 23 Nov 2026: no founding, fallback or lower price). This is the only price used anywhere in `gtm/`.
 
 **Project commercial / launch gates.** These are owner decisions recorded in the Launch Ledger (`docs/launch-ledger/` on branch `docs/launch-ledger-checkpoint-001`):
 

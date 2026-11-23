@@ -16,7 +16,7 @@ Claude's worktrees, application RC branches, application source, Railway, DNS an
 - `src/pages.ts`: expose the same live lookup, correction and recovery details through native FAQ disclosures on `/fuer-barber/` and `/fuer-pizzerien/`. `/empfehlungen/` remains truthful and unchanged.
 - Regenerate the committed public HTML/browser bundle. Update claim guards and release-state documentation.
 - QR remains primary. NFC is prepared outlook; TAG-01 preview acceptance does not imply production availability. Wallet and promotional sending/automations remain unsent, labelled previews.
-- The price is 49 €/month/location for every shop (founder, 24 Nov 2026: no pilot or founding price). Demo mail drafts remain the acquisition path; no public registration, payment, discount, urgency, proof or ROI guarantee was added. Commercial onboarding remains a personal discussion.
+- The price is 49 €/month/location for every shop (founder, 23 Nov 2026: no pilot or founding price). Demo mail drafts remain the acquisition path; no public registration, payment, discount, urgency, proof or ROI guarantee was added. Commercial onboarding remains a personal discussion.
 
 ## Verification
 
