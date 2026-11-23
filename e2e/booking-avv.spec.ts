@@ -6,7 +6,8 @@ import { signUp } from "./support/sign-up";
 
 // ENG-339: a shop on the older Fassungen accepts the terms and the AVV with „Termin + Treue“ under Einstellungen › Geschäft.
 test.afterAll(async () => { await pool.end(); });
-test.use({ baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000" });
+// The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
+if (process.env.E2E_BASE_URL) test.use({ baseURL: process.env.E2E_BASE_URL });
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) test(`${viewport.width}: the owner opens „Termin + Treue“, accepts terms and AVV at the shown price, and the row says when`, async ({ browser, baseURL }) => {
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL!).origin } });
