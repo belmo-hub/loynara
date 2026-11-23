@@ -3,6 +3,7 @@ import { expect, request as apiRequest, test } from "@playwright/test";
 import { Pool } from "pg";
 import { formatCardLocator } from "../src/lib/card-locator";
 
+import { resetPeerLimits } from "./nfc-support";
 import { signUp } from "./support/sign-up";
 
 // Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
@@ -13,7 +14,9 @@ const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Local disposable database required");
 // The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
 if (process.env.E2E_BASE_URL) test.use({ baseURL: process.env.E2E_BASE_URL });
-test.afterAll(async () => { await pool.end(); });
+// CI runs every owner spec through one peer: these sign-ups must not use up the 15 the later files need (as the NFC specs do).
+test.beforeEach(resetPeerLimits);
+test.afterAll(async () => { await resetPeerLimits(); await pool.end(); });
 const hours = [1, 2, 3, 4, 5, 6, 7].map(weekday => ({ weekday, start: "06:00", end: "22:00", breaks: [] }));
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) test(`${viewport.width}: „Termin eintragen“ finds the card by its number, offers free times and books the caller`, async ({ browser, baseURL }) => {
