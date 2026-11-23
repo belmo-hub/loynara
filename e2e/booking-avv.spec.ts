@@ -3,13 +3,16 @@ import { expect, request as apiRequest, test } from "@playwright/test";
 import { Pool } from "pg";
 import { OWNER_AVV, OWNER_TERMS, SIGNUP_ACCEPTANCE_HEADER } from "../src/lib/owner-contract";
 
+import { resetPeerLimits } from "./nfc-support";
 import { signUp } from "./support/sign-up";
 
 // Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ENG-339: a shop on the older Fassungen accepts the terms and the AVV with „Termin + Treue“ under Einstellungen › Geschäft.
-test.afterAll(async () => { await pool.end(); });
+// CI runs every owner spec through one peer: these sign-ups must not use up the 15 the later files need (as the NFC specs do).
+test.beforeEach(resetPeerLimits);
+test.afterAll(async () => { await resetPeerLimits(); await pool.end(); });
 // The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
 if (process.env.E2E_BASE_URL) test.use({ baseURL: process.env.E2E_BASE_URL });
 
