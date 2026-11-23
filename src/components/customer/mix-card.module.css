@@ -45,9 +45,11 @@
 .kasse .n b { font-size: var(--display-tile); line-height: 2.75rem; }
 .kasse .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 /* Under large text only (the card is narrower than 15 of its own em; at 100 % even a 320 phone is wider): the balance goes
-   under the number and the note under „Andere Karte“, both starting at the left, instead of over them or out of the card. */
+   under the number, still on the right, and may shrink to the card; the note goes under „Andere Karte“, starting at the
+   left. Neither sits over the other or runs out of the card. */
 @container (max-width: 15em) {
   .kasse .top, .kasse .foot { flex-wrap: wrap; }
+  .kasse .n { flex-shrink: 1; min-width: 0; }
   .kasse .foot > p { flex: 1 1 8rem; text-align: start; }
 }
 

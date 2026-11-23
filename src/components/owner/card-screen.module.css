@@ -48,7 +48,10 @@
 .pair { flex-wrap: wrap; }
 .value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
 /* Under large text only: the value goes under its label instead of out of the panel. */
-@container (max-width: 17em) { .value { flex: 1 1 auto; } }
+@container (max-width: 17em) {
+  .key { flex: 0 1 auto; min-width: 0; }
+  .value { flex: 1 1 auto; text-align: start; } /* a wrapped value starts on the left, as the facts and the Kasse note do */
+}
 
 /* „Karte neu ausstellen“ as one tappable row. */
 .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
@@ -93,7 +96,7 @@
      not 17: beside the card at 600 the panel is 272 px wide at 100 %. */
   @container (max-width: 15em) {
     .facts > div { flex-wrap: wrap; }
-    .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; }
+    .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; text-align: end; } /* a figure on two lines ends on the inset */
   }
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)

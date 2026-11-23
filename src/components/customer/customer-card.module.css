@@ -88,10 +88,14 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .newsText { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
 /* „Letzte Aktivität“: the check tile, the label over the day, the amount right (green for a booking). */
-/* Under large text the amount goes under the label instead of over it. */
-.activityBody { flex-wrap: wrap; }
-.activityBody > :first-child { flex: 1 1 0%; min-width: min-content; grid-template-columns: minmax(min-content, 1fr); } /* wraps only when a word no longer fits */
-.activityBody > .amount { margin-left: auto; }
+/* Under large text only (the row is narrower than 15 of its own em; at 100 % even a 320 phone is wider): the amount goes
+   under the label once a word of it no longer fits beside the amount, instead of over it. At 100 % the row is as before. */
+.activityRows > li { container: activity-row / inline-size; }
+@container activity-row (max-width: 15em) {
+  .activityBody { flex-wrap: wrap; }
+  .activityBody > :first-child { flex: 1 1 0%; min-width: min-content; grid-template-columns: minmax(min-content, 1fr); }
+  .activityBody > .amount { margin-left: auto; }
+}
 .activityDay { font-variant-numeric: tabular-nums; }
 .amount { flex: none; white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; color: var(--color-success); }
 .amount b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }

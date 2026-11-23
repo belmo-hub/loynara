@@ -80,31 +80,48 @@ test("the Kasse card keeps the balance beside the number and the note beside the
     expect(await beside(card.id, card.n), `balance beside the number at ${width}`).toBe(true);
     if (await card.note.count()) expect(await beside(card.button, card.note), `note beside the button at ${width}`).toBe(true);
   }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openKasseCard(page);
-  await scale(page, 200);
-  const card = kasse(page);
-  expect(await overlap(card.id, card.n)).toBe(false);
-  if (await card.note.count()) expect(await overlap(card.button, card.note)).toBe(false);
-  expect(await sideways(page)).toBe(0);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await openKasseCard(page);
+    await scale(page, 200);
+    const card = kasse(page);
+    expect(await overlap(card.id, card.n), `number and balance apart at ${width}`).toBe(false);
+    if (await card.note.count()) expect(await overlap(card.button, card.note), `button and note apart at ${width}`).toBe(false);
+    expect(await sideways(page), `no sideways scroll at ${width}`).toBe(0);
+  }
 });
 
 test("the card's activity row keeps the longest bonus label beside its amount at 100 %, and keeps it apart at 200 %", async ({ page }) => {
   const row = () => page.locator("[class*=__activityBody]").first();
   const label = () => row().locator("b").first();
   const amount = () => row().locator("[class*=__amount]");
-  for (const width of [320, 360, 390]) {
+  // The longest real labels, with a 3-digit amount (Design r4).
+  const labels = ["Geburtstags-Bonus", "Monats-Challenge", "Prämie eingelöst", "Willkommen-zurück-Bonus"];
+  for (const width of [320, 340, 360, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/card/${demo.cardToken}`);
     await expect(row()).toBeVisible();
     await settled(page);
-    await text(label(), "Willkommen-zurück-Bonus");
-    expect(await beside(label(), amount()), `amount beside the label at ${width}`).toBe(true);
+    await text(amount().locator("b"), "+120");
+    for (const name of labels) {
+      await text(label(), name);
+      expect(await beside(label(), amount()), `„${name}“ beside +120 at ${width}`).toBe(true);
+    }
   }
-  await scale(page, 200);
-  await text(label(), "Gesammelt");
-  expect(await overlap(row().locator("> :first-child"), amount())).toBe(false);
-  expect(await sideways(page)).toBe(0);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(`/card/${demo.cardToken}`);
+    await expect(row()).toBeVisible();
+    await scale(page, 200);
+    await text(amount().locator("b"), "+120");
+    for (const name of labels) {
+      await text(label(), name);
+      expect(await overlap(row().locator("> :first-child"), amount()), `„${name}“ and +120 apart at ${width}, 200 %`).toBe(false);
+      // The row's parts stay inside the row. (The page itself still scrolls at 320/200 %: „Karte aktualisieren“ is a
+      // nowrap house button, left to #348's 320/200 pass.)
+      expect(await row().evaluate(body => { const edge = body.getBoundingClientRect().right; return [...body.children].every(part => part.getBoundingClientRect().right <= edge + 1); }), `„${name}“ inside its row at ${width}`).toBe(true);
+    }
+  }
 });
 
 test("the Kunden card keeps the longest details and dates beside their labels at 100 %, and keeps them apart at 200 %", async ({ page }) => {
@@ -136,16 +153,19 @@ test("the Kunden card keeps the longest details and dates beside their labels at
       expect(await beside(label, figure), `figure beside „${await label.textContent()}“ at ${width}`).toBe(true);
     }
   }
-  await open(390);
-  await scale(page, 200);
-  const [[key, value]] = await pairs("__key", "__value");
-  await text(value, "Noch kein bestätigter Vorgang");
-  expect(await overlap(key, value)).toBe(false);
-  // Every value ends inside its panel, none runs out of it.
-  const outside = await page.evaluate(() => [...document.querySelectorAll("[class*=__value], [class*=__figure]")].filter(element => {
-    const panel = element.closest("[class*=__details], [class*=__facts]")!.getBoundingClientRect(), box = element.getBoundingClientRect();
-    return box.right > panel.right + 1;
-  }).map(element => element.textContent));
-  expect(outside).toEqual([]);
-  expect(await sideways(page)).toBe(0);
+  for (const width of [320, 390]) {
+    await open(width);
+    await scale(page, 200);
+    for (const [key, value] of await pairs("__key", "__value")) {
+      await text(value, "Noch kein bestätigter Vorgang");
+      expect(await overlap(key, value), `„${await key.textContent()}“ and its value apart at ${width}`).toBe(false);
+    }
+    // Every key, value and figure ends inside its panel, none runs out of it or is clipped by it.
+    const outside = await page.evaluate(() => [...document.querySelectorAll("[class*=__key], [class*=__value], [class*=__figure]")].filter(element => {
+      const panel = element.closest("[class*=__details], [class*=__facts]")!.getBoundingClientRect(), box = element.getBoundingClientRect();
+      return box.right > panel.right + 1 || element.scrollWidth > element.clientWidth + 1;
+    }).map(element => element.textContent));
+    expect(outside, `inside the panels at ${width}`).toEqual([]);
+    expect(await sideways(page)).toBe(0);
+  }
 });
