@@ -63,17 +63,19 @@ for (const size of SIZES) for (const typed of [false, true]) {
   });
 }
 
-for (const size of SIZES) test(`${size.width}x${size.height}: a finished visit warns in one line, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
+for (const size of [{ width: 320, height: 640 }, ...SIZES]) test(`${size.width}x${size.height}: a finished visit warns in one line from 390, keeps „Andere Karte“ clear of the dock, and asks „Trotzdem vergeben?“`, async ({ browser, baseURL }) => {
   const shop = await shopWithAppointment(baseURL!, true);
   const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
   const page = await context.newPage();
   await openAtTill(page, shop.scanCode);
   const warning = page.getByRole("status").filter({ hasText: /^Termin schon gutgeschrieben$/ }).first();
-  await expect(page.getByText("Schon gutgeschrieben", { exact: true }).first()).toBeVisible();
+  // Design r5: the pill keeps its open state; the warning line is the one signal.
+  await expect(page.getByText("Karte offen", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Schon gutgeschrieben", { exact: true })).toHaveCount(0);
   await expect(warning).toBeVisible();
   expect(await warning.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.top >= 0 && box.bottom <= innerHeight && Boolean(hit && element.contains(hit)); })).toBe(true);
   // Design r4: a real warning — the warning colour, one line, the clock at full size, clear of the balance and its label.
-  expect(await warning.evaluate(element => {
+  const shape = await warning.evaluate(element => {
     // The till card redefines the tokens for its dark surface, so the probe resolves the token where the line sits.
     const probe = document.createElement("span"); probe.style.color = "var(--color-warning)"; element.parentElement!.append(probe);
     const want = getComputedStyle(probe).color; probe.remove();
@@ -81,9 +83,13 @@ for (const size of SIZES) test(`${size.width}x${size.height}: a finished visit w
     const balance = [...document.querySelectorAll("span")].find(node => node.textContent === "Aktueller Kontostand")!.getBoundingClientRect();
     const overlaps = !(box.right <= balance.left || box.left >= balance.right || box.bottom <= balance.top || box.top >= balance.bottom);
     return { colour: getComputedStyle(element).color === want, iconColour: getComputedStyle(element.querySelector("svg")!).color === want, icon: icon.width >= 16 && icon.height >= 16, oneLine: box.height < 2.2 * parseFloat(getComputedStyle(element).fontSize), overlaps };
-  })).toEqual({ colour: true, iconColour: true, icon: true, oneLine: true, overlaps: false });
+  });
+  // One line from 390; at 320 it may wrap (Design r5).
+  expect({ ...shape, oneLine: size.width < 390 || shape.oneLine }).toEqual({ colour: true, iconColour: true, icon: true, oneLine: true, overlaps: false });
+  // Nothing widens the page: no sideways scroll at any width (Design r5, 320 and 360).
+  expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
   const other = page.getByRole("button", { name: "Andere Karte" }).first();
-  // At 390x664 the full-width warning line puts the foot under the dock until one scroll (Design r4, open ruling); taller screens show it at once.
+  // Design r5: accepted; the foot under the dock below 700 px is the till's existing layout, see ticket.
   if (size.height < 700) await page.evaluate(() => scrollTo(0, document.scrollingElement!.scrollHeight));
   expect(await other.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
   await page.locator(".cashier-award-now").click();

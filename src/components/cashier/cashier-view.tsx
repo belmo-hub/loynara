@@ -403,7 +403,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
           {/* While „Gebucht“ holds the dock the foot keeps its state, so the pill is not left alone (Design, 18 Nov). */}
           {/* Safety first: a card opened by its typed number says so in the foot, in view before anything is booked. */}
           {shown.matchedBy === "locator" ? <p className={cx("cashier-locator-note", styles.footNote)} role="note">{t.locatorNote}</p>
-            : <span className={styles.state} data-state={appointmentDone ? "busy" : card ? shellState : "open"}><i aria-hidden="true" />{appointmentDone ? "Schon gutgeschrieben" : card ? stateLabel : t.cardOpen}</span>}</>} />
+            : <span className={styles.state} data-state={card ? shellState : "open"}><i aria-hidden="true" />{card ? stateLabel : t.cardOpen}</span>}</>} />
     </div>}
     {shown && !goal && <section className={styles.card} aria-labelledby="cashier-card-title">
       <div className={cx("card-result-head", styles.cardHead)}>
