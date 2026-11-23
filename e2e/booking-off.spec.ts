@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
-import { pool } from "../src/db";
+import { Pool } from "pg";
+
+// Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 import { signUp } from "./support/sign-up";
 
 // Design blocker 3 (22 Nov): a shop without online booking sees its owner screens as before #330.
