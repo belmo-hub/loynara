@@ -7,17 +7,10 @@ const $$ = <T extends HTMLElement = HTMLElement>(selector: string) => [...docume
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const STAMPS = 8;
 
-// Menu sheet on phones.
-const menuBtn = $('#menuBtn'), sheet = $('#sheet');
-function setMenu(open: boolean) {
-  sheet.classList.toggle('open', open);
-  menuBtn.setAttribute('aria-expanded', String(open));
-  menuBtn.setAttribute('aria-label', open ? 'Menü schließen' : 'Menü öffnen');
-  if (!open) menuBtn.focus({ preventScroll: true });
-}
-menuBtn.addEventListener('click', () => setMenu(!sheet.classList.contains('open')));
-sheet.addEventListener('click', event => { if ((event.target as Element).closest('a')) setMenu(false); });
-addEventListener('keydown', event => { if (event.key === 'Escape' && sheet.classList.contains('open')) setMenu(false); });
+// Menu sheet on phones: a popover, so the button, Esc, a tap outside and the expanded state need no script.
+// A jump link stays on the page, so it closes the menu itself.
+const sheet = $('#sheet');
+sheet.addEventListener('click', event => { if ((event.target as Element).closest('a') && sheet.matches(':popover-open')) sheet.hidePopover(); });
 
 // Hero: the visitor's tap books a stamp on the example card. The same card carries into the scene below.
 const tap = $('#tap'), heroStamps = $$('#heroStamps .st'), banner = $('#heroBanner');
