@@ -33,23 +33,25 @@ test.beforeAll(async ({ browser }) => {
     const mark = (node: Element, observed = false) => {
       // Seen by the observer, after the shell marked it: its first value is taken in the next frame, after the shell's own
       // callback for that frame, as it is painted.
-      if (observed && !series.has(node)) requestAnimationFrame(() => { series.get(node)!.ready = true; note(node); });
-      if (!series.has(node)) series.set(node, { ready: !observed, inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], times: [], marked: performance.now(), name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
+      if (observed && !series.has(node)) requestAnimationFrame(time => { series.get(node)!.ready = true; note(node, time); });
+      if (!series.has(node)) series.set(node, { ready: !observed, inner: !node.matches(".ow-screen"), from: Number(getComputedStyle(node).getPropertyValue("--swap-from")) || 0.4, values: [], times: [], marked: document.timeline.currentTime as number, name: `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 50)} in ${node.parentElement?.closest("[data-swap]")?.className.slice(0, 40) ?? "-"} @${location.pathname}${location.search.slice(0, 20)}` });
     };
-    const note = (node: Element) => {
+    // Times are the frame's own (the rAF timestamp, the document timeline the fade runs on), not when the callback ran: on a
+    // slow runner a callback can run late in a long frame, and the next one early, so wall-clock gaps hid dropped frames.
+    const note = (node: Element, time: number) => {
       mark(node);
       const entry = series.get(node)!;
       if (!entry.ready || entry.done || entry.values.length >= 40) return;
       // Hidden (a card opened over the list while it still faded in): no longer on screen, nothing more to sample.
       if (!node.checkVisibility()) { entry.done = true; return; }
       entry.values.push(shownOf(node));
-      entry.times.push(performance.now());
+      entry.times.push(time);
       // Its own fade over: what happens to it later (a swap above it) is that swap's.
       if (entry.values.length > 1 && !node.getAnimations().some(animation => (animation as CSSAnimation).animationName === "ow-swap" && animation.playState === "running")) entry.done = true;
     };
     addEventListener("DOMContentLoaded", () => new MutationObserver(records => { for (const record of records) if (record.target instanceof Element && record.target.matches(".ow-content [data-swap]")) mark(record.target, true); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-swap"] }));
-    const look = () => {
-      for (const node of document.querySelectorAll(".ow-content [data-swap]")) note(node);
+    const look = (time: number) => {
+      for (const node of document.querySelectorAll(".ow-content [data-swap]")) note(node, time);
       requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
