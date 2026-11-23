@@ -5,8 +5,6 @@ import { GET as meRoute } from "@/app/api/me/route";
 import { POST as toggleRoute } from "@/app/api/operator/booking/route";
 import { BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, BOOKING_AVV_OWNER_ONLY } from "./booking-avv";
 
-// The dialog's wording of Legal § 6 is version 2026-11-24; a new wording takes a new date here and in booking-avv.ts.
-it("the acceptance text version is the one for Legal § 6's wording", () => expect(BOOKING_AVV_ACCEPTANCE_TEXT_VERSION).toBe("2026-11-24"));
 import { bookingShop, identity, origin, request, withBookingDatabase } from "./booking/test-fixture";
 import { OWNER_AVV, OWNER_TERMS } from "./owner-contract";
 import { OWNER_PRIVACY_NOTICE } from "./owner-privacy";
@@ -25,6 +23,56 @@ async function shopWithoutBooking() {
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   return shop;
 }
+/** As every shop from before 29 Nov: its sign-up row, business attached at setup, on the older Fassungen (Reviewer N-1). */
+async function shopOnOlderFassung() {
+  const shop = await shopWithoutBooking();
+  await pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, '2026-11-22', '2026-11-20', '2026-11-20', '2026-11-20')", [shop.owner.userId, shop.scope.tenantId]);
+  return shop;
+}
+const bookingRows = async (tenantId: string) => (await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE tenant_id = $1 AND path = 'booking'", [tenantId])).rows[0].n;
+
+// The dialog's wording of Legal § 6 is version 2026-11-24; a new wording takes a new date here and in booking-avv.ts.
+it("the acceptance text version is the one for Legal § 6's wording", () => expect(BOOKING_AVV_ACCEPTANCE_TEXT_VERSION).toBe("2026-11-24"));
+
+it("a shop on the older Fassungen (the real case) can accept: one booking row, and /api/me then says when (Reviewer W1)", async () => {
+  const shop = await shopOnOlderFassung();
+  expect(await acceptedAt(shop.ownerCookie)).toBeNull();
+  const res = await accept(shop.ownerCookie);
+  expect(res.status).toBe(200);
+  expect((await res.json() as { acceptedAt: string | null }).acceptedAt).toEqual(expect.any(String));
+  expect(await bookingRows(shop.scope.tenantId)).toBe(1);
+});
+
+it("an owner whose role was switched off is refused and nothing is written (Reviewer W3)", async () => {
+  const shop = await shopOnOlderFassung();
+  await pool.query("UPDATE staff_roles SET active = false WHERE user_id = $1", [shop.owner.userId]);
+  expect((await accept(shop.ownerCookie)).status).toBe(403);
+  expect(await bookingRows(shop.scope.tenantId)).toBe(0);
+});
+
+it("two acceptances that reach the check at the same moment write one row: the business row lock orders them", async () => {
+  const shop = await shopOnOlderFassung();
+  // Hold every reader of owner_acceptances back, so both requests arrive at the repeat check together. Without the lock on
+  // the business row both then see no booking row and both write one; with it the second waits and sees the first's.
+  const holder = await pool.connect();
+  try {
+    await holder.query("BEGIN");
+    await holder.query("LOCK TABLE owner_acceptances IN ACCESS EXCLUSIVE MODE");
+    const both = Promise.all([accept(shop.ownerCookie), accept(shop.ownerCookie)]);
+    await expect.poll(async () => (await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> $1", [(holder as unknown as { processID: number }).processID])).rows[0].n, { timeout: 10_000 }).toBe(2);
+    await holder.query("COMMIT");
+    expect((await both).map(res => res.status)).toEqual([200, 200]);
+  } finally { holder.release(); }
+  expect(await bookingRows(shop.scope.tenantId)).toBe(1);
+});
+
+it("one owner may try at most 10 times in 15 minutes", async () => {
+  const shop = await shopOnOlderFassung();
+  for (let attempt = 0; attempt < 10; attempt += 1) expect((await accept(shop.ownerCookie)).status).toBe(200);
+  const refused = await accept(shop.ownerCookie);
+  expect(refused.status).toBe(429);
+  expect(await bookingRows(shop.scope.tenantId)).toBe(1);
+});
 
 it("the owner accepts once: one append-only row with both Fassungen (terms and AVV), and the operator's switch then works", async () => {
   const operator = await identity(), shop = await shopWithoutBooking();
