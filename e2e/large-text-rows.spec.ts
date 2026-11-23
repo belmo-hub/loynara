@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { expect, request as apiRequest, test, type Locator, type Page } from "@playwright/test";
 
 // ENG-363 (Design round 3): rows whose second part goes under the first only under large text. At 100 % the longest
-// real labels and values keep every part on its own line, as before, from 320 to 390 (facts also at 650, beside the card);
+// real labels and values keep every part on its own line, as before, from 320 to 390 (facts also at 600 and 650, beside the card);
 // at 200 % no part sits on another and nothing scrolls sideways.
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string; cashierEmail: string; cashierPassword: string; programSlug: string; cardToken: string };
 test.describe.configure({ mode: "serial" });
@@ -129,7 +129,7 @@ test("the Kunden card keeps the longest details and dates beside their labels at
       expect(await beside(key, value), `value beside „${await key.textContent()}“ at ${width}`).toBe(true);
     }
   }
-  for (const width of [320, 360, 650]) {
+  for (const width of [320, 360, 600, 650]) {
     await open(width);
     for (const [label, figure] of await pairs("__label", "__figure")) {
       await text(figure, "27. Sept. 2026");

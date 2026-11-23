@@ -89,8 +89,9 @@
   .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
   .facts .label { order: -1; font-weight: var(--weight-strong); }
   .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
-  /* Under large text only: the figure goes under its label, and breaks only when it is wider than the whole row. */
-  @container (max-width: 17em) {
+  /* Under large text only: the figure goes under its label, and breaks only when it is wider than the whole row. 15em,
+     not 17: beside the card at 600 the panel is 272 px wide at 100 %. */
+  @container (max-width: 15em) {
     .facts > div { flex-wrap: wrap; }
     .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; }
   }
