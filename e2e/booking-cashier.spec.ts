@@ -89,8 +89,8 @@ for (const size of [{ width: 320, height: 640 }, { width: 360, height: 740 }, ..
   // Nothing widens the page: no sideways scroll at any width (Design r5, 320 and 360).
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
   const other = page.getByRole("button", { name: "Andere Karte" }).first();
-  // Design r5: accepted; the foot under the dock below 700 px is the till's existing layout, see ticket.
-  if (size.height < 700) await page.evaluate(() => scrollTo(0, document.scrollingElement!.scrollHeight));
+  // Design r8: below 800 px the till foot sits under the dock until one scroll on every card (ENG-365).
+  if (size.height < 800) await page.evaluate(() => scrollTo(0, document.scrollingElement!.scrollHeight));
   expect(await other.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
   await page.locator(".cashier-award-now").click();
   await expect(page.getByRole("dialog", { name: "Trotzdem vergeben?" })).toBeVisible();
