@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, ChevronLeft, CircleHelp, type LucideIcon } from "lucide-react";
-import { Children, isValidElement, useId, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { GuardedLink } from "./owner-shell";
@@ -56,9 +56,22 @@ export function Band({ icon: Icon, title, sub, href, onClick }: { icon: LucideIc
 }
 
 /** A confirmation as a screen of its own (Programm 28/30): the question, what happens, the action filled and „Abbrechen“ under it. */
+/** Opens with the focus on its heading, as the other owner steps do, and Esc goes back like „Abbrechen“. */
 export function Confirm({ title, back, action, busyAction, busy, danger = true, disabled = false, onConfirm, onCancel, children }: { title: string; back: ReactNode; action: string; busyAction?: string; busy: boolean; danger?: boolean; disabled?: boolean; onConfirm: () => void; onCancel: () => void; children: ReactNode }) {
+  const page = useRef<HTMLDivElement>(null);
+  const cancel = useRef(onCancel), working = useRef(busy);
+  useEffect(() => { cancel.current = onCancel; working.current = busy; });
+  useEffect(() => {
+    const heading = page.current?.querySelector<HTMLElement>("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus({ preventScroll: true });
+    // Not while a dialog or sheet is open over it: that one takes its own Esc.
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && !event.defaultPrevented && !working.current && !document.querySelector("dialog[open]")) cancel.current(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, []);
   return (
-    <div className="ow-page ow-qpage">
+    <div ref={page} className="ow-page ow-qpage">
       <PageTitle back={{ label: back, onClick: onCancel }} title={title} />
       <div className="ow-q">
         {children}
