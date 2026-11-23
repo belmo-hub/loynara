@@ -105,7 +105,7 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   // everywhere else (G-22: green is the one next step). Copy is live (R22).
   return <AuthShell mark footer={null}>
     <div className={styles.page}>
-      <PageHeader className={styles.signin} title="Gut, dass du da bist." description={next === "/merchant/more" ? "Danach kannst du deinen Passkey hinzufügen." : "Melde dich an, um dein Treueprogramm und die Kasse zu öffnen."} />
+      <PageHeader className={styles.signin} title="Gut, dass du da bist." description={next === "/merchant/more" ? "Melde dich mit deinem Passwort an. Danach kannst du deinen Passkey hinzufügen." : "Melde dich an, um dein Treueprogramm und die Kasse zu öffnen."} />
       <div className={styles.sheet}>
         <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
           {verified ? <p className={styles.alert} data-tone="ok" role="status"><CircleCheck size={20} aria-hidden="true" />Deine E-Mail-Adresse ist bestätigt.</p> : null}

@@ -50,7 +50,7 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   };
 
   const uv = { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } as const;
-  const rows = () => page.getByRole("button", { name: / entfernen$/ }); // each row's button is named „<Name> entfernen“
+  const rows = () => page.getByRole("button", { name: /^Passkey „.+“ entfernen$/ }); // each row's button: Passkey „<Name>“ entfernen
 
   await signInWithPassword();
   await page.goto("/merchant/more");
@@ -187,7 +187,7 @@ test("adding a passkey with an older sign-in offers to sign in again and comes b
   await expect(page.locator(".ow-prog-note.ow-error")).toHaveCount(0);
   await page.getByRole("button", { name: "Neu anmelden", exact: true }).click();
   await expect(page).toHaveURL(/\/login\?next=%2Fmerchant%2Fmore$/);
-  await expect(page.getByText("Danach kannst du deinen Passkey hinzufügen.")).toBeVisible();
+  await expect(page.getByText("Melde dich mit deinem Passwort an. Danach kannst du deinen Passkey hinzufügen.", { exact: true })).toBeVisible();
   await page.unrouteAll({ behavior: "ignoreErrors" });
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(email);
   await page.getByLabel("Passwort", { exact: true }).fill(password);
