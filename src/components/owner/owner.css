@@ -613,7 +613,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* Under large text a choice hyphenates inside its third instead of running past the screen (Design R1). */
-.ow-seg button { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+.ow-seg button { min-width: 0; overflow-wrap: anywhere; hyphens: auto; } /* anywhere: where the browser has no German hyphenation, „Geschlossen“ still breaks inside its button */
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
 @media (max-width: 640px) {

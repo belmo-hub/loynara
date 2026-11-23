@@ -16,12 +16,13 @@ async function signIn(page: Page, email: string, password: string) {
   await page.context().addCookies((await api.storageState()).cookies);
   await api.dispose();
 }
-/** Width and text size on the loaded page, then until the layout holds for 300 ms. */
+/** Width and text size on the loaded page (large text without hyphenation), then until the layout holds for 300 ms. */
 async function size(page: Page, width: number, percent: number) {
   await page.setViewportSize({ width, height: 844 });
   await page.evaluate(next => {
     const style = document.getElementById("test-text-size") ?? document.head.appendChild(Object.assign(document.createElement("style"), { id: "test-text-size" }));
-    style.textContent = next === 100 ? "" : `html { font-size: ${next}% !important }`;
+    // Without hyphenation, as CI's Linux Chrome renders German: a fit that relies on a hyphen fails here too, not only in CI.
+    style.textContent = next === 100 ? "" : `html { font-size: ${next}% !important } * { hyphens: manual !important; -webkit-hyphens: manual !important; }`;
   }, percent);
   await page.waitForFunction(expected => getComputedStyle(document.documentElement).fontSize === expected, `${16 * percent / 100}px`);
   await page.evaluate(async () => {
@@ -120,7 +121,7 @@ test("Programm: the card preview's fields stack and the sub lines stay in their 
   expect(await sideways(page)).toBe(0);
 });
 
-test("guest pages: „Karte aktualisieren“ wraps and the register link breaks instead of running off the screen", async ({ page }) => {
+test("guest pages: „Karte aktualisieren“ wraps, and the register link and the join card break instead of running off the screen", async ({ page }) => {
   await page.goto(`/card/${demo.cardToken}`);
   await expect(page.getByRole("button", { name: /Karte aktualisieren/ })).toBeVisible();
   for (const width of [320, 360]) { await size(page, width, 200); expect(await sideways(page), `no sideways scroll on the card at ${width}/200`).toBe(0); }
@@ -128,4 +129,7 @@ test("guest pages: „Karte aktualisieren“ wraps and the register link breaks 
   await expect(page.locator("main h1")).toBeVisible();
   await size(page, 320, 200);
   expect(await sideways(page), "no sideways scroll on Register at 320/200").toBe(0);
+  await page.goto(`/join/${demo.programSlug}`);
+  await expect(page.getByRole("button", { name: "Meine Karte erstellen" })).toBeVisible();
+  for (const width of [320, 390]) { await size(page, width, 200); expect(await sideways(page), `no sideways scroll on join at ${width}/200`).toBe(0); }
 });
