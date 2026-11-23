@@ -184,6 +184,9 @@ describe("owner sign-up acceptance", () => {
     // ENG-323, Legal's T-2 as § 1 (5), right after (4).
     expect(html).toContain(`Wesentliche Änderungen kündigt der Anbieter mindestens zwei Wochen vorher in Textform an.</p><p>(5) Die Lage eines Standorts bestimmt der Betrieb über eine Suche, die Google Maps nutzt, sobald der Anbieter sie anbietet. Für diese Suche gelten die <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener">Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth</a> und die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Google</a>.</p>`);
     expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
+    // Legal § 7: the in-app cancellation is still hidden, so § 2 (3) names only the email.
+    expect(html).toContain("Textform genügt, zum Beispiel eine E-Mail.");
+    expect(html).not.toContain("„Programm beenden“ im Inhaberbereich");
     expect(html).toContain('Der <a href="/avv">Vertrag zur Auftragsverarbeitung</a> (AVV) ist Teil dieses Vertrags');
     expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern. Frühere Fassungen schickt der Anbieter auf Anfrage.");
     expect(html).not.toMatch(/\{[^}]*\}|Entwurf/);
