@@ -1,9 +1,9 @@
 /* Long-form legal text inside <AuthShell width="reading">: one readable column with a clear heading hierarchy. */
 /* 38rem holds about 72 characters of Manrope 16: 68ch measured the wide zero and ran to 90 (G-25). */
 .legal { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); max-width: 38rem; min-width: 0; overflow-wrap: break-word; font-size: var(--text-16); line-height: 1.7; }
-.legal h1 { overflow-wrap: break-word; hyphens: auto; margin: 0 0 var(--space-2); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
+.legal h1 { hyphens: auto; margin: 0 0 var(--space-2); font-family: var(--font-display); font-weight: var(--weight-heavy); font-size: var(--text-28); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: auto; }
 /* Section heads are the scan points (G-26): a step up from the body, room above, close to their text. */
-.legal h2 { overflow-wrap: break-word; hyphens: auto; margin: var(--space-8) 0 calc(var(--space-2) - var(--space-3)); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.3; text-wrap: balance; scroll-margin-top: var(--space-6); }
+.legal h2 { hyphens: auto; margin: var(--space-8) 0 calc(var(--space-2) - var(--space-3)); font-size: var(--text-22); font-weight: var(--weight-heavy); line-height: 1.3; text-wrap: balance; scroll-margin-top: var(--space-6); }
 .legal p { margin: 0; overflow-wrap: anywhere; text-wrap: pretty; }
 .legal a { color: var(--color-action); text-decoration: underline; text-underline-offset: 3px; }
 .legal strong { font-weight: var(--weight-strong); }

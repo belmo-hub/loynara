@@ -189,8 +189,11 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
     padding: var(--space-1) 0 calc(var(--space-1) + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
   }
   .ow-tab {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
-    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.1;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
+    /* Top-aligned so the icons stay in one row when a label wraps under large text; at the default size the top
+       padding is exactly what centring gave (56 − icon 32 − gap − label line, halved). */
+    padding-top: max(0px, calc((56px - 32px - var(--space-1) - 1.34em) / 2));
+    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: min(var(--text-14), 20px); font-weight: var(--weight-label); line-height: 1.1;
     text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   }
@@ -208,7 +211,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
   /* „Programm“ at 800 needs a cell of about 84 px at 14 px; below 420 a fifth of the screen is narrower (Design ruling 1). */
-  @media (max-width: 419px) { .ow-tab { font-size: var(--text-12); } }
+  /* The label's size is capped, so „Programm“ never ends in a lone „m“ under large text (Design r2). */
+  @media (max-width: 419px) { .ow-tab { font-size: min(var(--text-12), 20px); } }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }
@@ -593,7 +597,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* Under large text a choice hyphenates inside its third instead of running past the screen (Design R1). */
-.ow-seg button { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.ow-seg button { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
 @media (max-width: 640px) {
