@@ -98,7 +98,7 @@ export const salons: SubPage = {
   eyebrow: 'Für Nagelstudios, Barber und Beauty-Salons',
   // Design r2: lead with what it does, never an outcome the product cannot show.
   h1: ['Termine auf der Kundenkarte.', 'Erinnert per Push.'],
-  // The Termin price is not set: the hero names no amount, the page sells two plans.
+  // The hero names no amount; the page sells two plans, each card with its own price.
   noPriceFact: true,
   lead: 'Deine Kunden buchen auf ihrer Kundenkarte und werden erinnert. Keine Provision. Deine Kunden bleiben deine.',
   hero: card(salonBrand, 'Nagelstudio Mira', 'eine Handpflege als Extra', 7),

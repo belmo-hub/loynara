@@ -170,7 +170,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
   <div class="wrap">
     <div class="head"><h2 id="h-price">${GATES.bookingLive ? 'Zwei Pakete pro Standort.' : 'Ein Preis pro Standort.'}</h2></div>
     <div class="price">
-      <div class="pcard"><p class="amt">${price}</p><p class="per">pro Monat und Standort</p>
+      <div class="pcard"><p class="amt">${price}</p><p class="per">${GATES.bookingLive ? 'Treue, pro Monat und Standort' : 'pro Monat und Standort'}</p>
         <div class="free"><i class="ck" aria-hidden="true"></i><div><b>Der erste Monat ist gratis.</b><span>Zahlungsdaten erst ab dem zweiten Monat. Monatlich kündbar, keine Einrichtungsgebühr.</span></div></div>
         <div class="acts"><a class="btn btn-pri" href="${SITE.registerUrl}">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="Im Preis enthalten">

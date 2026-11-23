@@ -8,6 +8,8 @@
  *              verification passed (card locator, owner/manager reissue keeping membership/balance/history/locator, corrections).
  * bookingLive: flip to true only after Loynara Termin (online booking, reminders, no-show handling) is deployed to production.
  *              While false, the Termin + Treue plan, the "Für Salons" link and the /fuer-salons/ page do not exist in the build.
+ *              Also only once the Vertragsbedingungen Fassung with Termin + Treue (§ 1 (6), § 3 (1) at 69 €, ENG-339) is live:
+ *              /vertragsbedingungen and /register must name 69 € before the site sells it (Design and Legal, 24 Nov).
  */
 export interface Gates { nfcAccepted: boolean; rcDeployed: boolean; bookingLive: boolean }
 export const RELEASED_GATES: Gates = { nfcAccepted: true, rcDeployed: true, bookingLive: false };

@@ -342,7 +342,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
-          <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue, 69 € (Online-Buchung für {r.location})</Checkbox>
+          <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue (Online-Buchung für {r.location})</Checkbox>
           {bookingError?.locationId === r.locationId && <p role="alert">{bookingError.text}</p>}
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
           {/* Rows are per programme, the point per location: only its first row carries it. */}

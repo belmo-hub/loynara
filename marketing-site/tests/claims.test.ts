@@ -80,13 +80,14 @@ test('public home and industry FAQs explain live lookup, correction and secure m
 
 test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', () => {
   const r = render('nfcAccepted,rcDeployed'), t = visible(r.home);
+  assert.match(r.home, /<p class="amt">49 €<\/p><p class="per">pro Monat und Standort<\/p>/);
   assert.doesNotMatch(t, /Termin \+ Treue|69 €|Für Salons|Keine Provision, nie/); assert.ok(!r.home.includes('price-pair') && !r.home.includes('/fuer-salons/'));
   assert.equal(r.pages.length, 3); assert.ok(r.pages.every(p => !p.includes('/fuer-salons/')));
 });
 
 test('booking gate on: the Termin + Treue plan at 69 € without a money-back promise, the Salons link and the salon page', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
-  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.match(r.home, /<p class="amt">69 €<\/p><p class="per">Termin \+ Treue, pro Monat und Standort<\/p>/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
+  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.match(r.home, /<p class="amt">69 €<\/p><p class="per">Termin \+ Treue, pro Monat und Standort<\/p>/); assert.match(r.home, /<p class="amt">49 €<\/p><p class="per">Treue, pro Monat und Standort<\/p>/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Termine auf der Kundenkarte\. Erinnert per Push\./);
   // Design r2: no outcome promise and no founding price; founder Q-115: the card shows 69 € and names its plan.
   assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><b>69 €<\/b><span>pro Monat und Standort<\/span><\/p><p class="price-note">Termin \+ Treue: Alles aus dem 49‑€‑Paket, dazu Online-Termine\.<\/p>/);
