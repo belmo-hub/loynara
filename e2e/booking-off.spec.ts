@@ -50,7 +50,8 @@ test("booking switched off with every appointment past: the read-only day view a
   const booked = await guest.post(`/api/card/${cardToken}/booking/appointments`, { data: { serviceId, start: start.toISOString(), customerName: "Mia", idempotencyKey: randomUUID() } });
   const { id } = await booked.json() as { id: string };
   await pool.query("UPDATE booking_settings SET enabled = false FROM programs WHERE programs.slug = $1 AND booking_settings.location_id = programs.location_id", [programSlug]);
-  await pool.query("UPDATE booking_appointments SET during = tstzrange(now() - interval '1 year', now() - interval '1 year' + interval '30 minutes'), status = 'done' WHERE id = $1", [id]);
+  // Only past appointments, the name already cleared after 12 months (ENG-371): the row still counts (Legal § 6).
+  await pool.query("UPDATE booking_appointments SET during = tstzrange(now() - interval '13 months', now() - interval '13 months' + interval '30 minutes'), status = 'done', customer_name = 'Name gelöscht' WHERE id = $1", [id]);
 
   const context = await browser.newContext({ baseURL, storageState: await owner.storageState(), viewport: { width: 390, height: 844 }, hasTouch: true });
   const page = await context.newPage();
@@ -59,7 +60,7 @@ test("booking switched off with every appointment past: the read-only day view a
   await expect(link).toBeVisible();
   const download = await owner.get((await link.getAttribute("href"))!);
   expect(download.status()).toBe(200);
-  expect(await download.text()).toContain("Mia");
+  expect(await download.text()).toContain("Name gelöscht");
   await page.goto("/merchant/termine");
   await expect(page.getByText("Online-Termine sind aus. Gebuchte Termine bleiben hier und im Export „Termine für Excel“.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Zeit blocken" })).toHaveCount(0);

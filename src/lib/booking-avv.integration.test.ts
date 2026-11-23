@@ -4,6 +4,9 @@ import { POST as acceptRoute } from "@/app/api/merchant/booking/avv/route";
 import { GET as meRoute } from "@/app/api/me/route";
 import { POST as toggleRoute } from "@/app/api/operator/booking/route";
 import { BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, BOOKING_AVV_OWNER_ONLY } from "./booking-avv";
+
+// The dialog's wording of Legal § 6 is version 2026-11-24; a new wording takes a new date here and in booking-avv.ts.
+it("the acceptance text version is the one for Legal § 6's wording", () => expect(BOOKING_AVV_ACCEPTANCE_TEXT_VERSION).toBe("2026-11-24"));
 import { bookingShop, identity, origin, request, withBookingDatabase } from "./booking/test-fixture";
 import { OWNER_AVV, OWNER_TERMS } from "./owner-contract";
 import { OWNER_PRIVACY_NOTICE } from "./owner-privacy";
@@ -37,7 +40,7 @@ it("the owner accepts once: one append-only row with both Fassungen (terms and A
   expect(answer).toEqual({ acceptedAt: expect.any(String) });
   expect(await acceptedAt(shop.ownerCookie)).toBe(answer.acceptedAt);
   expect(await rows(shop.scope.tenantId)).toEqual([{ user_id: shop.owner.userId, tenant_id: shop.scope.tenantId, path: "booking", terms_version: OWNER_TERMS.version,
-    avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, accepted_at: expect.any(Date) }]);
+    avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: "2026-11-24", accepted_at: expect.any(Date) }]);
   expect((await toggle()).status).toBe(200);
 
   // A second tap, or two at once, adds nothing.

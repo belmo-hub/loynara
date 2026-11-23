@@ -24,12 +24,14 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   const page = await context.newPage();
   await page.goto("/merchant/settings");
   const row = page.getByRole("button", { name: /^Termin \+ Treue/ });
-  await expect(row).toContainText("Vertragsbedingungen und Auftragsverarbeitung für Online-Termine.");
-  await expect(row).toContainText("Offen");
+  // Legal § 6: optional for every owner, no warning chip.
+  await expect(row).toContainText("Optional: Vertragsbedingungen und Auftragsverarbeitung für Online-Termine. Annehmen kostet nichts.");
+  await expect(row).not.toContainText("Offen");
   await row.click();
   const dialog = page.getByRole("dialog", { name: "Termin + Treue annehmen?" });
   // Legal § 5: the price before the button, both documents linked.
-  await expect(dialog.getByText("69 € statt 49 € je Standort und Monat.")).toBeVisible();
+  await expect(dialog.getByText("69 € statt 49 € je Standort und Monat, nur für Standorte mit Termin + Treue.", { exact: true })).toBeVisible();
+  await expect(dialog).toContainText(`Annehmen kostet nichts. Loynara schaltet Termin + Treue nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}, und der Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.`);
   await expect(dialog.getByRole("link", { name: `Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}` })).toHaveAttribute("href", "/vertragsbedingungen");
   await expect(dialog.getByRole("link", { name: `Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}` })).toHaveAttribute("href", "/avv");
   // Abbrechen writes nothing.
@@ -39,7 +41,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
 
   await row.click();
   await page.getByRole("dialog").getByRole("button", { name: "Annehmen" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Angenommen. Loynara kann Termin + Treue jetzt für dein Geschäft einschalten." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Angenommen. Loynara schaltet Termin + Treue ein, sobald du es für einen Standort möchtest." })).toBeVisible();
   await expect(page.getByText(/Vertragsbedingungen und Auftragsverarbeitung · angenommen am /)).toBeVisible();
   expect((await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE user_id = $1 AND path = 'booking' AND avv_version = $2 AND terms_version = $3", [id, OWNER_AVV.version, OWNER_TERMS.version])).rows[0].n).toBe(1);
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);

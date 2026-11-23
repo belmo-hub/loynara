@@ -26,10 +26,10 @@ it("switched off, a location that had appointments keeps the day view and „Ter
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: true, bookingShown: true });
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false, bookingShown: true });
-  // Every appointment past (here: a year ago, finished): still shown, read-only, and the export answers with it.
-  await pool.query("UPDATE booking_appointments SET during = tstzrange(now() - interval '1 year', now() - interval '1 year' + interval '30 minutes'), status = 'done' WHERE id = $1", [appointment.id]);
+  // Only past appointments (here: over a year ago, finished, the name cleared after 12 months): still shown, read-only, and the export answers with the row.
+  await pool.query("UPDATE booking_appointments SET during = tstzrange(now() - interval '13 months', now() - interval '13 months' + interval '30 minutes'), status = 'done', customer_name = 'Name gelöscht', customer_phone = NULL WHERE id = $1", [appointment.id]);
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false, bookingShown: true });
   const csv = await exportRoute(request("/api/merchant/export?format=appointments", { cookie: shop.ownerCookie }));
   expect(csv.status).toBe(200);
-  expect(await csv.text()).toContain("Mia");
+  expect(await csv.text()).toContain("Name gelöscht");
 });

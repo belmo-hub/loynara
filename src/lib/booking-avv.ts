@@ -6,7 +6,7 @@ import { BOOKING_AVV_VERSION, BOOKING_TERMS_VERSION, OWNER_AVV, OWNER_TERMS } fr
 import { OWNER_PRIVACY_NOTICE } from "./owner-privacy";
 
 /** The button's sentence in the app (ENG-339); a new wording gets a new version, like SIGNUP_ACCEPTANCE_TEXT_VERSION. */
-export const BOOKING_AVV_ACCEPTANCE_TEXT_VERSION = "2026-11-23";
+export const BOOKING_AVV_ACCEPTANCE_TEXT_VERSION = "2026-11-24";
 export const BOOKING_AVV_OWNER_ONLY = "Nur das Inhaberkonto kann die Auftragsverarbeitung annehmen.";
 
 /** Only the Inhaberkonto is weisungsberechtigt (AVV header), so only an active owner role counts (Legal, 22 Nov). */

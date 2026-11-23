@@ -185,7 +185,7 @@ describe("owner sign-up acceptance", () => {
     expect(html).toContain(`Wesentliche Änderungen kündigt der Anbieter mindestens zwei Wochen vorher in Textform an.</p><p>(5) Die Lage eines Standorts bestimmt der Betrieb über eine Suche, die Google Maps nutzt, sobald der Anbieter sie anbietet. Für diese Suche gelten die <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener">Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth</a> und die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Google</a>.</p>`);
     expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
     expect(html).toContain('Der <a href="/avv">Vertrag zur Auftragsverarbeitung</a> (AVV) ist Teil dieses Vertrags');
-    expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern.");
+    expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern. Frühere Fassungen schickt der Anbieter auf Anfrage.");
     expect(html).not.toMatch(/\{[^}]*\}|Entwurf/);
   });
 
