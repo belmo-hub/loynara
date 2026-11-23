@@ -8,14 +8,17 @@ import { expect, request as apiRequest, test, type Page } from "@playwright/test
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string };
 test.beforeEach(({ page }) => page.emulateMedia({ reducedMotion: "reduce" }));
 
-async function open(page: Page, width: number, percent: number) {
+/**
+ * Sets the width and the text size on the one loaded page. The page is loaded once: the owner job's specs share the demo
+ * owner, and Programm's reads (winback, referrals) allow 60 per owner in 15 minutes.
+ */
+async function size(page: Page, width: number, percent: number) {
   await page.setViewportSize({ width, height: 844 });
-  await page.goto("/merchant/program");
-  await expect(page.getByRole("heading", { name: "Extras" })).toBeVisible(); // always there, whatever the programme type
-  if (percent !== 100) {
-    await page.addStyleTag({ content: `html { font-size: ${percent}% !important }` });
-    await page.waitForFunction(size => getComputedStyle(document.documentElement).fontSize === size, `${16 * percent / 100}px`);
-  }
+  await page.evaluate(next => {
+    const style = document.getElementById("test-text-size") ?? document.head.appendChild(Object.assign(document.createElement("style"), { id: "test-text-size" }));
+    style.textContent = next === 100 ? "" : `html { font-size: ${next}% !important }`;
+  }, percent);
+  await page.waitForFunction(expected => getComputedStyle(document.documentElement).fontSize === expected, `${16 * percent / 100}px`);
   // Until the layout reads the same 100 ms apart: a container query can start a transition a frame late.
   await page.evaluate(async () => {
     let last = "";
@@ -47,15 +50,17 @@ test("Programm keeps each value beside its words at 100 % and never puts words u
   expect((await api.post("/api/auth/sign-in/email", { data: { email: demo.ownerEmail, password: demo.ownerPassword }, headers: { Origin: baseURL! } })).ok()).toBe(true);
   await page.context().addCookies((await api.storageState()).cookies);
   await api.dispose();
+  await page.goto("/merchant/program");
+  await expect(page.getByRole("heading", { name: "Extras" })).toBeVisible(); // always there, whatever the programme type
   for (const width of [320, 360, 390]) {
-    await open(page, width, 100);
+    await size(page, width, 100);
     const found = await rows(page);
     expect(found.length).toBeGreaterThan(3);
     expect(found.filter(row => !row.beside).map(row => row.name), `values beside their words at ${width}`).toEqual([]);
     expect(found.filter(row => row.under).map(row => row.name), `no words under a value at ${width}`).toEqual([]);
   }
   for (const percent of [160, 200]) for (const width of [320, 360, 390]) {
-    await open(page, width, percent);
+    await size(page, width, percent);
     const found = await rows(page);
     expect(found.filter(row => row.under).map(row => row.name), `no words under a value at ${width}, ${percent} %`).toEqual([]);
     expect(found.filter(row => !row.together).map(row => row.name), `chevrons with their values at ${width}, ${percent} %`).toEqual([]);
