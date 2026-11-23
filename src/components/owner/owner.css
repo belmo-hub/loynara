@@ -94,8 +94,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-topbar-loc strong { font-size: var(--text-16); font-weight: var(--weight-heavy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-topbar-loc span { font-size: var(--text-14); font-weight: var(--weight-body); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
-  html:has(.ow-topbar) { scroll-padding-top: 56px; }
-  html:has(.ow-subnav) { scroll-padding-top: 105px; }
+  /* --ow-topbar is the bar's height while it sticks, 0 while it scrolls with the page (owner-shell watches it). */
+  html:has(.ow-topbar) { scroll-padding-top: var(--ow-topbar, 56px); }
+  html:has(.ow-subnav) { scroll-padding-top: calc(var(--ow-topbar, 56px) + 49px); }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -118,6 +119,19 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* The bars stay: each is captured on its own layer above the screens and shows its new state at once, without the
    browser's own crossfade. */
 .ow-topbar { view-transition-name: ow-topbar; }
+/* Under large text only (the shell narrower than 19.5 of its own em; at 100 % no phone is): the top bar scrolls with the
+   page, the shop and place wrap instead of ending in „…“, „Kasse“ keeps its icon and a hidden name, and the sub-pages
+   wrap instead of scrolling sideways (Design, #348). */
+@media (max-width: 1023px) { .ow-shell { container: ow-shell / inline-size; } }
+@container ow-shell (max-width: 19.5em) {
+  .ow-topbar { position: static; }
+  .ow-topbar-loc strong, .ow-topbar-loc span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; hyphens: auto; }
+  .owner-app .ow-hello { overflow-wrap: anywhere; hyphens: auto; } /* the greeting breaks only here; at 100 % „Synthetische Pizzeria“ stays whole */
+  .ow-topbar-kasse { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .ow-subnav { top: 0; }
+  .ow-subnav-inner { flex-wrap: wrap; overflow-x: visible; }
+  .ow-subnav .ow-subnav-inner, .ow-subnav .ow-subnav-inner[data-start][data-end] { mask-image: none; } /* nothing scrolls, so no edge fades */
+}
 .ow-subnav { view-transition-name: ow-subnav; }
 .ow-tabs { view-transition-name: ow-tabs; }
 ::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
@@ -207,6 +221,8 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
      (Design R1, 23 Nov); at the default size every label stays on one line. 1.34 (the 12/16 token) leaves room for
      descenders: WebKit clips the „g“ of „Programm“ at 1.1. */
   .ow-tab-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; hyphens: auto; line-height: 1.34; }
+  /* Tab labels stop growing at the 150 % size, as tab bars do: „Pro- / gramm“, never three lines (Design, #348). */
+  .ow-tab-label { font-size: min(1em, 18px); }
   /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
   .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
@@ -221,6 +237,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-page { max-width: 1120px; margin-inline: auto; padding: var(--space-8) var(--space-6) 0; display: flex; flex-direction: column; gap: var(--space-4); }
 @media (max-width: 640px) { .ow-page { padding: var(--space-6) var(--space-4) 0; } }
 .ow-pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.ow-pagehead > h1 { min-width: 0; } /* the title may break instead of widening the page under large text */
 /* Page head to the first block is 24 on every page (SF-7): the page's 16 gap plus 8 under the head. */
 .ow-page > .ow-pagehead { margin-bottom: var(--space-2); }
 .ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: manual; overflow-wrap: break-word; }
@@ -597,7 +614,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* Under large text a choice hyphenates inside its third instead of running past the screen (Design R1). */
-.ow-seg button { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+.ow-seg button { min-width: 0; overflow-wrap: anywhere; hyphens: auto; } /* anywhere: where the browser has no German hyphenation, „Geschlossen“ still breaks inside its button */
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
 @media (max-width: 640px) {

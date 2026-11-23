@@ -35,6 +35,10 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .locator strong { font-size: clamp(var(--text-16), 18cqi, var(--text-28)); line-height: 2.125rem; font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Below 360 the number goes under the code: beside it, a worst-case number („K-WWWWWW“) would drop under 14 px. */
 @media (max-width: 359px) { section.ticket { grid-template-columns: minmax(0, 1fr); } .qr { width: 128px; } }
+/* Under large text only (the ticket narrower than 15 of its own em; at 100 % even a 320 phone is wider): the number
+   goes under the code with the panel's inset instead of running to its edge beside it (Design, #359). */
+section.ticket { container: ticket / inline-size; }
+@container ticket (max-width: 15em) { section.ticket > * { grid-column: 1 / -1; } }
 
 /* Add to Wallet: the provider's official badge on its own, centred, 48 high in its own aspect ratio (Apple: never inside another
    control or restyled; Design, 18 Nov). A locale without artwork gets the house black button with the wording. */
