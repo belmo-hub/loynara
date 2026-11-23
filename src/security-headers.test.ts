@@ -36,6 +36,16 @@ describe("production security headers", () => {
     expect(header).not.toMatch(/https?:|\*|ws:|wss:/);
   });
 
+  it("reports, never blocks, strings written into script sinks (Trusted Types report-only), to its own endpoint", async () => {
+    const rules = await rulesFor("production");
+    const headers = global(rules);
+    expect(headers["Content-Security-Policy-Report-Only"]).toBe("require-trusted-types-for 'script'; report-to csp; report-uri /api/csp-report");
+    expect(headers["Reporting-Endpoints"]).toBe('csp="/api/csp-report"');
+    expect(headers["Content-Security-Policy"]).not.toContain("trusted-types");
+    // The wallet download page keeps only its own policy.
+    expect(rules.find(rule => rule.headers.some(h => h.key === "Content-Security-Policy-Report-Only"))!.source).toContain("(?!api/wallet/apple/download/)");
+  });
+
   it("adds eval and websocket sources only for next dev", async () => {
     const policy = directives(global(await rulesFor("development"))["Content-Security-Policy"]);
     expect(policy["script-src"]).toContain("'unsafe-eval'");

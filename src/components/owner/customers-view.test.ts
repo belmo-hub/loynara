@@ -93,10 +93,11 @@ describe("the number beside a group's title (Design, #283)", () => {
 
 describe("Kunden 03: the statement's day (ENG-258)", () => {
   it("names today and yesterday, otherwise the weekday and date", () => {
-    const now = new Date(2026, 10, 14, 18, 0);
-    expect(dayLabel(new Date(2026, 10, 14, 8, 41).toISOString(), now)).toBe("Heute");
-    expect(dayLabel(new Date(2026, 10, 13, 23, 59).toISOString(), now)).toBe("Gestern");
-    expect(dayLabel(new Date(2026, 10, 12, 8, 41).toISOString(), now)).toBe("Donnerstag, 12.11.");
+    // Berlin times (UTC+1 in November), whatever the machine's zone: the day is the shop's (time-zone rule, 22 Nov).
+    const now = new Date("2026-11-14T17:00:00Z");
+    expect(dayLabel("2026-11-14T07:41:00Z", now)).toBe("Heute");
+    expect(dayLabel("2026-11-13T22:59:00Z", now)).toBe("Gestern");
+    expect(dayLabel("2026-11-12T07:41:00Z", now)).toBe("Donnerstag, 12.11.");
   });
 });
 
