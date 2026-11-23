@@ -326,7 +326,7 @@ function Wizard({ initial }: { initial: Setup }) {
           <Choice id="bs-noshow" label="Kunden sperren" value={r.noShowBlockAfter} options={withValue(NO_SHOW, r.noShowBlockAfter, n => `nach ${missedPhrase(n)}`)} onChange={noShowBlockAfter => setRules({ noShowBlockAfter })}
             hint={r.noShowBlockAfter ? `Wer ${r.noShowBlockAfter}-mal in 12 Monaten ohne Absage fehlt, kann nur noch anrufen. Du hebst das mit einem Tipp auf.` : "Niemand wird gesperrt, auch nach vielen verpassten Terminen nicht."} />
           <Field id="bs-terms" label="Text für deine Kunden" hint={form.termsEdited ? "Dein eigener Text. Prüfe ihn, wenn du die Regeln änderst." : "Folgt deinen Regeln. Du kannst ihn frei ändern."}>
-            <textarea id="bs-terms" className="ow-textarea" rows={5} maxLength={600} value={form.termsEdited ? form.termsText : defaultTerms(r)} onChange={event => set({ termsText: event.target.value, termsEdited: true })} />
+            <textarea id="bs-terms" className="ow-textarea" rows={termsRows(form.termsEdited ? form.termsText : defaultTerms(r))} maxLength={600} value={form.termsEdited ? form.termsText : defaultTerms(r)} onChange={event => set({ termsText: event.target.value, termsEdited: true })} />
           </Field>
           {form.termsEdited && <div><button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => set({ termsEdited: false })}>Vorschlag wiederherstellen</button></div>}
         </>}
@@ -408,3 +408,6 @@ function OutsideHoursDialog({ appointments, onClose }: { appointments: OutsideAp
     {error && <p className="ow-error" role="alert">{error}</p>}
   </OwnerDialog>;
 }
+
+/** Design r3: the rules field shows its whole text (it clipped at 5 rows): about 40 characters a line at 390, 5 rows at least. */
+const termsRows = (text: string) => Math.max(5, text.split("\n").reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / 40)), 0) + 1);
