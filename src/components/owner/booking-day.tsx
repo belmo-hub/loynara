@@ -1,17 +1,16 @@
 "use client";
 
-import { Ban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Ban, CalendarDays, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { formatDay } from "@/components/booking/booking-format";
 import { instantToWall } from "@/lib/booking/time";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { actionError, actionsFor, awardLine, dayName, chipTone, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
-import { NewAppointmentDialog } from "./booking-new";
+import { NewAppointmentDialog, NextFreeDay } from "./booking-new";
 import { missedPhrase } from "./booking-setup-helpers";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
@@ -57,11 +56,22 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
     reload(); reloadBlocked();
   };
 
+  // Design (24 Nov): a booking for another day opens that day, so it doesn't seem to vanish; the flash names day, time and person.
+  const booked = (text: string, row: OwnerAppointment, target: string) => {
+    done(text, "ok", row);
+    if (target === date) return;
+    setFlash({ date: target, tone: "ok", text });
+    setZone(timezone);
+    router.push(`/merchant/termine?date=${target}`, { scroll: false });
+  };
+
   return (
     <div className="ow-page">
       <header className="ow-pagehead ow-prog">
-        <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-        {ready && !readOnly && <div className="ow-row">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
+        {/* Design (24 Nov): „Einrichtung“ is a quiet gear link across from the day, so the two actions keep one line at 390. */}
+        <div className="ow-row" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "nowrap" }}><div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
+          {ready && !readOnly && me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten"><Settings size={20} aria-hidden="true" />Einrichtung</Link>}</div>
+        {ready && !readOnly && <div className="ow-row">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
@@ -97,7 +107,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
       {blockOpen && shown && (blockOpen === "new"
         ? <BlockDialog day={shown} onClose={() => setBlockOpen(null)} onDone={done} />
         : <ReleaseDialog block={blockOpen} onClose={() => setBlockOpen(null)} onDone={done} />)}
-      {newOpen && shown && setup.state === "ok" && <NewAppointmentDialog day={shown} services={setup.data.services} onClose={() => setNewOpen(false)} onDone={done} />}
+      {newOpen && shown && setup.state === "ok" && <NewAppointmentDialog day={shown} services={setup.data.services} onClose={() => setNewOpen(false)} onBooked={booked} />}
       {blockedOpen && blocked.state === "ok" && <BlockedDialog customers={blocked.data.customers} onClose={() => setBlockedOpen(false)} onDone={done} />}
     </div>
   );
@@ -264,15 +274,6 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   return <OwnerDialog title={view.title} tone={view.tone} view={mode} scroll={mode === "move"} onClose={onClose} actions={view.actions}>{view.body}</OwnerDialog>;
 }
 
-/** D4: one tap to the next day with a free time when the picked one is full; it looks the day up once on mount. */
-function NextFreeDay({ find, onPick }: { find: () => Promise<string | null>; onPick: (date: string) => void }) {
-  const [date, setDate] = useState<string | null | undefined>(undefined);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { let live = true; void find().then(found => { if (live) setDate(found); }); return () => { live = false; }; }, []);
-  if (date === undefined) return <LoadingBlock rows={1} height={44} />;
-  if (date === null) return <p className="ow-muted">In den nächsten vier Wochen ist nichts frei.</p>;
-  return <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => onPick(date)} data-autofocus>Nächster freier Tag: {formatDay(date)}</button></div>;
-}
 
 /** "HH:MM" now in the shop's zone, rounded up to the next quarter hour (at most 23:45). */
 function nextQuarter(zone: string) {
