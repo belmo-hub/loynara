@@ -11,12 +11,13 @@ import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/cl
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { actionError, actionsFor, awardLine, dayName, chipTone, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { NewAppointmentDialog } from "./booking-new";
 import { missedPhrase } from "./booking-setup-helpers";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
 import { useLoad } from "./use-load";
 
-type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null };
+type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null; services: Array<{ id: string; name: string }> };
 type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string } | null;
 type Blocked = { membershipId: string; name: string; cardLocator: string; blockedAt: string; reason: string };
 type Done = (text: string, tone?: "ok" | "danger" | "info", row?: OwnerAppointment) => void;
@@ -40,6 +41,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const [open, setOpen] = useState<OwnerAppointment | null>(null);
   const [blockOpen, setBlockOpen] = useState<DayBlock | "new" | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
   const [flash, setFlash] = useState<Flash>(null);
   const shown = day.state === "ok" ? (patch?.at === day.at ? patchDay(day.data, patch.rows) : day.data) : null;
   const timezone = shown?.timezone ?? zone ?? BROWSER_ZONE;
@@ -50,7 +52,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const blockedCount = blocked.state === "ok" ? blocked.data.customers.length : 0;
 
   const done: Done = (text, tone = "ok", row) => {
-    setOpen(null); setBlockOpen(null); setBlockedOpen(false); setFlash({ date, tone, text });
+    setOpen(null); setBlockOpen(null); setBlockedOpen(false); setNewOpen(false); setFlash({ date, tone, text });
     if (row && day.state === "ok") { const at = day.at; setPatch(current => ({ at, rows: { ...(current?.at === at ? current.rows : {}), [row.id]: row } })); }
     reload(); reloadBlocked();
   };
@@ -59,7 +61,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
     <div className="ow-page">
       <header className="ow-pagehead ow-prog">
         <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-        {ready && !readOnly && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
+        {ready && !readOnly && <div className="ow-row">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
@@ -95,6 +97,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
       {blockOpen && shown && (blockOpen === "new"
         ? <BlockDialog day={shown} onClose={() => setBlockOpen(null)} onDone={done} />
         : <ReleaseDialog block={blockOpen} onClose={() => setBlockOpen(null)} onDone={done} />)}
+      {newOpen && shown && setup.state === "ok" && <NewAppointmentDialog day={shown} services={setup.data.services} onClose={() => setNewOpen(false)} onDone={done} />}
       {blockedOpen && blocked.state === "ok" && <BlockedDialog customers={blocked.data.customers} onClose={() => setBlockedOpen(false)} onDone={done} />}
     </div>
   );
