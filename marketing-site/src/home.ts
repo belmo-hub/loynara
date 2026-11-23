@@ -223,11 +223,11 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
 
 <nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="${SITE.registerUrl}">1. Monat gratis</a></nav>`;
 
-/** The Termin + Treue plan in the home page's own plan grammar (Design, 22 Nov): a pcard beside its incl list, no price until
- *  the founder sets one, and the house primary with data-want like the other home buttons. Only with bookingLive. */
+/** The Termin + Treue plan in the home page's own plan grammar (Design, 22 Nov): a pcard beside its incl list, its price like the
+ *  loyalty pcard (founder Q-115), and the house primary with data-want like the other home buttons. Only with bookingLive. */
 function terminPlan() {
   const T = TERMIN_COPY;
-  return `<div class="pcard"><p class="per">Termin + Treue</p>
+  return `<div class="pcard"><p class="amt">${T.amount} €</p><p class="per">Termin + Treue, pro Monat und Standort</p>
         <div class="free"><div><b>${T.planNote}</b><span>${T.fine}</span></div></div>
         <div class="acts"><a class="btn btn-pri" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="In Termin + Treue enthalten">${T.included.map(x => `<li>${x}</li>`).join('')}</ul>`;

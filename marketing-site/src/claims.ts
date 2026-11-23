@@ -81,7 +81,8 @@ export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
 
 /** Termin + Treue claims (docs/booking-design.md). Only what the booking slice does; out-of-scope items are listed as not included. */
 export const TERMIN_COPY = {
-  // No amount: the Termin + Treue price is the founder's decision and stays out of the repository until then (CTO, 22 Nov).
+  // Founder Q-115 (23 Nov): 69 € per month and location; loyalty alone stays 49 €.
+  amount: 69,
   planNote: 'Alles aus dem 49‑€‑Paket, dazu Online-Termine.',
   included: ['Online-Termine direkt von der Kundenkarte', 'Erinnerung einen Tag und zwei Stunden vorher', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Deine Kundenliste gehört dir: CSV-Export'],
   fine: 'Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.',
