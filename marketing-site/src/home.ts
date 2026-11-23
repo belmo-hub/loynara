@@ -168,7 +168,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
 
 <section class="block" id="preis" aria-labelledby="h-price">
   <div class="wrap">
-    <div class="head"><h2 id="h-price">Ein Preis pro Standort.</h2></div>
+    <div class="head"><h2 id="h-price">${GATES.bookingLive ? 'Zwei Pakete pro Standort.' : 'Ein Preis pro Standort.'}</h2></div>
     <div class="price">
       <div class="pcard"><p class="amt">${price}</p><p class="per">pro Monat und Standort</p>
         <div class="free"><i class="ck" aria-hidden="true"></i><div><b>Der erste Monat ist gratis.</b><span>Zahlungsdaten erst ab dem zweiten Monat. Monatlich kündbar, keine Einrichtungsgebühr.</span></div></div>

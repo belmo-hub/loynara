@@ -89,7 +89,9 @@ test('booking gate on: the Termin + Treue plan without a price or a money-back p
   assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Termine auf der Kundenkarte\. Erinnert per Push\./);
   // Design r2: no outcome promise, no founding price, no amount next to the unpriced plan, and the card names its plan.
-  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><b>Termin \+ Treue<\/b><\/p>/);
+  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><span>Termin \+ Treue<\/span><\/p>/);
+  assert.match(r.pages[1], /<title>Online-Termine ohne Provision für Salons – Loynara<\/title>/); assert.match(r.pages[1], /<meta name="description" content="Termine auf der Kundenkarte, erinnert per Push: keine Provision, kein WhatsApp-Chaos, deine Kunden bleiben deine\.">/);
+  assert.match(visible(r.home), /Zwei Pakete pro Standort\./); assert.doesNotMatch(visible(r.pages[1]), /pausiert/);
 });
 
 test('booking gate on: the home Termin plan uses the home page\'s own plan classes, which home.css styles', () => {
