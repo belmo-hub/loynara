@@ -19,6 +19,12 @@ export function CardBirthday({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(""); const [error, setError] = useState("");
   const url = `/api/card/${encodeURIComponent(token)}/birthday`;
+  // Finding 17 (Design, 22 and 23 Nov): „Speichern“ is always pressable. After a press with a select left empty, one line
+  // under the row names what is still missing, both empty selects point at it, and it goes once both are picked.
+  const [tried, setTried] = useState(false);
+  const missing = !day && !month ? "Bitte wähle Tag und Monat." : !day ? "Bitte wähle den Tag." : !month ? "Bitte wähle den Monat." : "";
+  const pickError = tried ? missing : "";
+  const invalid = (empty: boolean) => pickError && empty ? { "aria-invalid": true, "aria-describedby": "birthday-pick-error" } as const : {};
 
   useEffect(() => {
     let active = true;
@@ -28,7 +34,8 @@ export function CardBirthday({ token }: { token: string }) {
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true); setError(""); setNotice("");
-    try { await action(); setState(await apiJson<Birthday>(url)); setNotice(done); }
+    // A saved or deleted birthday ends the earlier attempt: the „Bitte wähle …“ line must not come back (Design r2).
+    try { await action(); setTried(false); setState(await apiJson<Birthday>(url)); setNotice(done); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt. Versuche es noch einmal."); }
     finally { setBusy(false); }
   }
@@ -38,15 +45,23 @@ export function CardBirthday({ token }: { token: string }) {
   if (!state?.available) return null;
   return <section className={styles.panel} aria-labelledby="birthday-title">
     <h2 id="birthday-title">Geburtstag (freiwillig)</h2>
+    <form className={styles.birthdayForm} noValidate onSubmit={event => {
+      event.preventDefault();
+      if (busy) return;
+      if (missing) { setTried(true); document.getElementById(day ? "birthday-month" : "birthday-day")?.focus(); return; }
+      void save();
+    }}>
     <div className={styles.dayMonth}>
-      <Select label="Tag" value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
-      <Select label="Monat" value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
+      <Select id="birthday-day" label="Tag" {...invalid(!day)} value={day} disabled={busy} onChange={event => setDay(event.target.value)}><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</Select>
+      <Select id="birthday-month" label="Monat" {...invalid(!month)} value={month} disabled={busy} onChange={event => setMonth(event.target.value)}><option value="">–</option>{MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}</Select>
     </div>
+    {pickError && <p id="birthday-pick-error" key={pickError} className={styles.error} role="alert">{pickError}</p>}
     <p className={styles.muted}>{state.text}</p>
     <div className={styles.actions}>
-      <Button size="sm" loading={busy} disabled={!day || !month} onClick={() => void save()}>Speichern</Button>
-      {state.day !== null && <Button size="sm" variant="secondary" disabled={busy} onClick={() => void remove()}>Löschen</Button>}
+      <Button type="submit" size="sm" loading={busy}>Speichern</Button>
+      {state.day !== null && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void remove()}>Löschen</Button>}
     </div>
+    </form>
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
   </section>;

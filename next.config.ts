@@ -30,6 +30,11 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// Web audit finding 9: Trusted Types in report-only mode first. Nothing is blocked; the browser reports each string
+// written into a script sink (innerHTML and the like) to /api/csp-report, so the sinks can be found before enforcing.
+// report-uri is the fallback for browsers without the Reporting API endpoint (it is ignored where report-to works).
+const trustedTypesReportOnly = "require-trusted-types-for 'script'; report-to csp; report-uri /api/csp-report";
+
 const nextConfig: NextConfig = {
   ...(deviceTestDistDir ? { distDir: deviceTestDistDir } : {}),
   // Production answered with "X-Powered-By: Next.js"; naming the framework only helps someone matching known advisories.
@@ -42,7 +47,11 @@ const nextConfig: NextConfig = {
     return [
       // The Apple wallet download route renders its own failure page with a stricter, nonce-based CSP. A config header
       // would replace it, so that one path is left out here and keeps the policy it sets itself.
-      { source: `/((?!${walletDownloadPath}/).*)`, headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }] },
+      { source: `/((?!${walletDownloadPath}/).*)`, headers: [
+        { key: "Content-Security-Policy", value: contentSecurityPolicy },
+        { key: "Content-Security-Policy-Report-Only", value: trustedTypesReportOnly },
+        { key: "Reporting-Endpoints", value: 'csp="/api/csp-report"' },
+      ] },
       {
         source: "/:path*",
         headers: [

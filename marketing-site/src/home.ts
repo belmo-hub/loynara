@@ -19,10 +19,10 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
     <div class="acts">
       <a class="login" href="${SITE.loginUrl}">Anmelden</a>
       <a class="btn btn-pri btn-sm" href="${SITE.registerUrl}"><span class="long">Ersten Monat gratis starten</span><span class="short">1. Monat gratis</span></a>
-      <button class="menu" id="menuBtn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="sheet"><span></span><span></span><span></span></button>
+      <button class="menu" id="menuBtn" type="button" aria-label="Menü" popovertarget="sheet"><span></span><span></span><span></span></button>
     </div>
   </div>
-  <nav class="sheet" id="sheet" aria-label="Menü"><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a><a class="login-row" href="${SITE.loginUrl}">Anmelden</a></nav>
+  <nav class="sheet" id="sheet" aria-label="Menü" popover><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a><a class="login-row" href="${SITE.loginUrl}">Anmelden</a></nav>
 </header>
 
 <main id="inhalt">

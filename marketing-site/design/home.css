@@ -23,7 +23,9 @@
 @media (max-width:1023px){html{scroll-padding-bottom:calc(var(--bar) + 16px)}}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-body{font-family:Manrope,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:17px;line-height:1.55}
+/* Until Manrope arrives the fallback takes its x-height (0.54, measured), so the swap barely moves the text.
+   A number, not from-font: from-font reads the fallback's own value while the font is still loading. */
+body{font-size-adjust:.54;font-family:Manrope,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:17px;line-height:1.55}
 ::selection{background:var(--selection);color:var(--ink)}
 a{color:inherit;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
@@ -64,17 +66,27 @@ p{text-wrap:pretty}
 .menu{display:none;flex:none;width:44px;height:44px;border-radius:50%;border:0;background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line-strong);cursor:pointer;position:relative}
 .menu span{position:absolute;left:13px;right:13px;height:2px;background:var(--ink);border-radius:2px;transition:transform var(--t-ui) var(--ease),opacity var(--t-ui)}
 .menu span:nth-child(1){top:16px}.menu span:nth-child(2){top:21px}.menu span:nth-child(3){top:26px}
-.menu[aria-expanded="true"] span:nth-child(1){transform:translateY(5px) rotate(45deg)}
-.menu[aria-expanded="true"] span:nth-child(2){opacity:0}
-.menu[aria-expanded="true"] span:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
+.top:has(.sheet:popover-open) .menu span:nth-child(1){transform:translateY(5px) rotate(45deg)}
+.top:has(.sheet:popover-open) .menu span:nth-child(2){opacity:0}
+.top:has(.sheet:popover-open) .menu span:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
 .sheet{display:none}
 .long{display:inline}.short{display:none}
 @media (min-width:1024px) and (max-width:1119px){.long{display:none}.short{display:inline}}
 @media (max-width:1023px){
   .top{position:relative}
   .nav,.login{display:none}.menu{display:block}.top .wrap{height:68px;gap:12px}.long{display:none}.short{display:inline}
-  .sheet{display:block;position:fixed;inset:68px 0 auto 0;z-index:40;background:var(--bg);box-shadow:0 1px 0 var(--line),0 30px 40px -20px rgba(23,41,31,.35);padding:8px var(--gutter) 24px;transform:translateY(-8px);opacity:0;visibility:hidden;transition:opacity var(--t-ui),transform var(--t-ui) var(--ease),visibility 0s linear var(--t-ui)}
-  .sheet.open{opacity:1;transform:none;visibility:visible;transition-delay:0s}
+  /* A popover in the top layer: it hangs under the header (anchor where supported, the header's 68 otherwise). */
+  .top{anchor-name:--site-top}
+  .sheet{position:fixed;inset:68px 0 auto 0;width:auto;max-width:none;margin:0;border:0;color:inherit;background:var(--bg);box-shadow:0 1px 0 var(--line),0 30px 40px -20px rgba(23,41,31,.35);padding:8px var(--gutter) 24px;transform:translateY(-8px);opacity:0;transition:opacity var(--t-ui),transform var(--t-ui) var(--ease),overlay var(--t-ui) allow-discrete,display var(--t-ui) allow-discrete,visibility 0s linear var(--t-ui)}
+  /* After its fade-out a closed sheet is hidden too, so it never takes taps where an engine keeps it displayed (WebKit
+     26, Design 23 Nov). It hangs under the header by anchor only where the engine also has overlay; elsewhere the
+     header's 68 holds (WebKit 26 has anchors but no overlay). */
+  @supports (top:anchor(bottom)) and (overlay:auto){.sheet{top:max(0px,anchor(--site-top bottom))}}
+  .sheet:not(:popover-open){visibility:hidden}
+  .sheet:popover-open{display:block;opacity:1;transform:none;visibility:visible;transition-delay:0s}
+  @starting-style{.sheet:popover-open{opacity:0;transform:translateY(-8px)}}
+  /* Without the popover attribute the header offers the sign-up only; every section is still one scroll away. */
+  @supports not selector(:popover-open){.menu{display:none}}
   .sheet a{display:flex;align-items:center;min-height:56px;font-weight:800;font-size:22px;letter-spacing:-.02em;text-decoration:none;border-bottom:1px solid var(--line)}
   .sheet a.login-row{font-weight:650;font-size:17px;border:0}
 }

@@ -22,8 +22,9 @@ export function requireSameOrigin(request: Request) {
   if (!origin || origin !== expected) throw new DomainError("INVALID_ORIGIN", "Request origin not allowed");
 }
 
-export async function jsonBody(request: Request, maxBytes = 3_100_000) {
-  if (!request.headers.get("content-type")?.startsWith("application/json")) throw new DomainError("INVALID_CONTENT_TYPE", "Expected JSON");
+export async function jsonBody(request: Request, maxBytes = 3_100_000, contentTypes: readonly string[] = ["application/json"]) {
+  const type = request.headers.get("content-type") ?? "";
+  if (!contentTypes.some(allowed => type.startsWith(allowed))) throw new DomainError("INVALID_CONTENT_TYPE", "Expected JSON");
   const advertisedLength = Number(request.headers.get("content-length"));
   if (advertisedLength > maxBytes) throw new DomainError("TOO_LARGE", "Request too large");
   const reader = request.body?.getReader();

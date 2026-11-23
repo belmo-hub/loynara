@@ -13,13 +13,24 @@
   min-width: 220px; height: fit-content; align-content: start; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-raised); color: var(--color-ink); box-shadow: var(--shadow-overlay);
   /* Menu: fades and scales out of the button's corner, and leaves faster than it came. */
   opacity: 0; transform: scale(.96); transform-origin: top right;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), overlay 160ms allow-discrete, display 160ms allow-discrete;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), overlay 160ms allow-discrete, display 160ms allow-discrete, visibility 0s linear 160ms;
 }
-.menu:popover-open { display: grid; gap: var(--space-2); opacity: 1; transform: none; transition-duration: var(--dur-ui); }
+/* After its fade-out a closed menu is hidden too, so it never takes taps over the card head, even where an engine keeps
+   it displayed (WebKit 26: „Abmelden“ invisible but live, Design 23 Nov). Opening shows it at once. */
+.menu:not(:popover-open) { visibility: hidden; }
+.menu:popover-open { display: grid; gap: var(--space-2); opacity: 1; transform: none; visibility: visible; transition-duration: var(--dur-ui); transition-delay: 0s; }
 @starting-style { .menu:popover-open { opacity: 0; transform: scale(.96); } }
 /* One hand, ten seconds: every menu item is a full-width row at cashier height (height, so it beats the 44 px floor). */
 .menu:popover-open > * { width: 100%; }
 .menu:popover-open :is(a, button) { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: var(--target-cashier); font-size: var(--text-18); }
+/* Where anchor positioning exists the menu hangs 8 under its button wherever the header puts it (larger text wraps
+   the header); the fixed inset above stays the fallback, so inset and margin are only reset inside the check. Only
+   with overlay too: WebKit 26 has anchors but no overlay, and there the anchored menu opened invisible (Design r2).
+   Anchored, it grows from its top edge: a flipped menu (200 % text) then still comes out of the button's row. */
+@supports (position-area: bottom) and (overlay: auto) {
+  .menuButton { anchor-name: --kasse-menu; }
+  .menu { position-anchor: --kasse-menu; inset: auto; margin: var(--space-2) 0 0; position-area: bottom span-left; position-try-fallbacks: flip-inline; transform-origin: top; }
+}
 /* Browsers without the popover attribute show the controls in the header, as before. */
 @supports not selector(:popover-open) { .menuButton { display: none; } .menu { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; opacity: 1; transform: none; } }
 
@@ -86,7 +97,7 @@
 /* The keys take the height the page leaves, between 96 and 200, so on a short card (points, no reward) the amount,
    „Neuer Stand“ and the button stay one group at the foot instead of the amount floating in an empty panel. */
 .stepper { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 40px; min-height: 96px; max-height: 200px; margin-top: calc(-1 * var(--space-6)); }
-.stepper output { min-width: 72px; font-size: 96px; line-height: 96px; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper output { min-width: 72px; font-size: 96px; line-height: 6rem; font-weight: var(--weight-heavy); letter-spacing: -.025em; text-align: center; font-variant-numeric: tabular-nums; }
 /* With the redeem band in the dock the keys keep the open dock's top inset (28): the step area grows to hold them. */
 .stepper:has(~ .band) { min-height: 128px; }
 @media (min-width: 800px) { .stepper:has(~ .band) { min-height: 146px; } } /* the counter tablet's open inset, 38 */
@@ -98,9 +109,9 @@
 .stepper .step { width: 72px; height: 72px; min-height: 72px; padding: 0; border: 1px solid var(--color-line-strong); border-radius: 50%; background: transparent; }
 .newBalance { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 56px; margin: 0 0 var(--space-4); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-raised); }
 .newBalance > span { font-weight: var(--weight-label); color: var(--color-ink-muted); }
-.newBalance b { font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); white-space: nowrap; font-variant-numeric: tabular-nums; }
-button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill); font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-strong); }
-.hint { margin: var(--space-3) 0 0; text-align: center; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.newBalance b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); white-space: nowrap; font-variant-numeric: tabular-nums; }
+button.book { min-height: 64px; padding-block: var(--space-2); border-radius: var(--radius-pill); font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-strong); }
+.hint { margin: var(--space-3) 0 0; text-align: center; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 
 /* The card on the dark counter (MixCard size kasse): its 1 px light ring, the foot's pill and state. */
 .kasse > section { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-ink) 6%, transparent), var(--shadow-object); }
@@ -108,7 +119,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 .pill:active { transform: scale(.97); }
 .pill:focus-visible { outline: 2px solid var(--merchant-ink); outline-offset: 2px; }
 .pillSpace { height: 56px; }
-.footNote { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); text-align: right; text-wrap: balance; }
+.footNote { flex: 1; min-width: 0; margin: 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); text-align: right; text-wrap: balance; }
 .state { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-strong); }
 .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); }
 .state[data-state="busy"] i { background: var(--color-warning); }
@@ -210,7 +221,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 }
 .bookedDetail { font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.35; font-variant-numeric: tabular-nums; }
 /* „Bereit für die nächste Karte“ steps back under the chip (Design, 18 Nov). */
-.bookedReady { color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-label); }
+.bookedReady { color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); }
 .bookedMeta { color: var(--color-ink-muted); font-size: var(--text-16); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; }
 /* Inside the booked dock the hint is a line of the stack, not a box (Design, 18 Nov). */
 .booked .bookedHint { max-width: none; margin: 0; padding: 0; background: none; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: var(--leading-body); text-wrap: balance; }
@@ -272,7 +283,7 @@ button.book { height: 64px; min-height: 64px; border-radius: var(--radius-pill);
 /* With the field below, the typed stack fits the open dock: 12 above the chip (6 + 6), the chip at 32, and 12 clear
    between the line above and the field's focus ring (6 + 10 − the ring's 4). */
 .bookedCompact .bookedHeadline { min-height: 32px; margin-top: 6px; }
-.bookedCompact .bookedDetail, .bookedCompact .bookedHint { line-height: 20px; }
+.bookedCompact .bookedDetail, .bookedCompact .bookedHint { line-height: 1.25rem; }
 /* margin-top 10: with the line above's 6 gap, 12 clear to the field's focus ring (10 + 6 − the ring's 4). */
 .dockCode { align-self: end; display: flex; align-items: center; gap: var(--space-2); box-sizing: border-box; width: 100%; max-width: 440px; margin-top: 10px; padding: 0 var(--space-1); }
 .dockCode.dockCode.dockCode input { box-sizing: border-box; flex: 1; width: 0; min-width: 0; height: var(--target); min-height: var(--target); padding: 0 var(--space-4); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-raised); color: var(--color-ink); font: inherit; text-align: left; letter-spacing: .02em; }
