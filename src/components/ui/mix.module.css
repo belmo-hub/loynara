@@ -44,6 +44,14 @@
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
 .text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
+/* `wrapEnd` rows, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): the value
+   goes under the words once a word no longer fits beside it, instead of over the words. */
+.row[data-wrap-end] { container: mix-row / inline-size; }
+@container mix-row (max-width: 15em) {
+  .body { flex-wrap: wrap; }
+  .text { flex: 1 1 0%; min-width: min-content; grid-template-columns: minmax(min-content, 1fr); hyphens: auto; } /* a word wider than the row („Durchschnittsbon“ at 200 % on 320) hyphenates */
+  .text + * { margin-left: auto; }
+}
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
 .chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
 .more { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row-2); margin-top: var(--space-2); border-top: 1px solid var(--color-line); color: var(--color-action); font-weight: var(--weight-strong); text-decoration: none; }

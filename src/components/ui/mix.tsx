@@ -39,7 +39,8 @@ export function MixTile({ tone, children }: { tone?: "coral" | "mute"; children:
  * A row: 52 with one line, 64 with a sub line or a tile, 72 with the card thumbnail. The value and the chevron end on
  * the inset. With `href` the whole row is the link.
  */
-export function MixRow({ icon, tone, thumb, title, sub, end, href }: { icon?: ReactNode; tone?: "coral" | "mute"; thumb?: ReactNode; title: ReactNode; sub?: ReactNode; end?: ReactNode; href?: string }) {
+/** `wrapEnd`: under large text the end value goes under the words once a word no longer fits beside it. */
+export function MixRow({ icon, tone, thumb, title, sub, end, href, wrapEnd }: { icon?: ReactNode; tone?: "coral" | "mute"; thumb?: ReactNode; title: ReactNode; sub?: ReactNode; end?: ReactNode; href?: string; wrapEnd?: boolean }) {
   const content = <>
     {thumb ?? (icon ? <MixTile tone={tone}>{icon}</MixTile> : null)}
     <div className={styles.body}>
@@ -49,7 +50,7 @@ export function MixRow({ icon, tone, thumb, title, sub, end, href }: { icon?: Re
     </div>
   </>;
   const lead = thumb ? "card" : icon ? "tile" : undefined;
-  return href ? <Link href={href} className={styles.row} data-lead={lead}>{content}</Link> : <div className={styles.row} data-lead={lead}>{content}</div>;
+  return href ? <Link href={href} className={styles.row} data-lead={lead} data-wrap-end={wrapEnd || undefined}>{content}</Link> : <div className={styles.row} data-lead={lead} data-wrap-end={wrapEnd || undefined}>{content}</div>;
 }
 
 export function MixChip({ warm, children }: { warm?: boolean; children: ReactNode }) {
