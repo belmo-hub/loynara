@@ -85,6 +85,13 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {
     before: createAuthMiddleware(async (context) => {
+      // A passkey's name is chosen by the server when it is added (afterVerification above): a name the client sends is
+      // dropped, so it cannot win over it. A rename keeps to 60 characters (Reviewer, #349).
+      if (context.path === "/passkey/verify-registration" && context.body && typeof context.body === "object") delete (context.body as { name?: unknown }).name;
+      if (context.path === "/passkey/update-passkey") {
+        const name = (context.body as { name?: unknown } | undefined)?.name;
+        if (typeof name !== "string" || !name.trim() || name.length > 60) throw new APIError("BAD_REQUEST", { message: "Passkey name must be 1 to 60 characters" });
+      }
       if (
         context.path === "/sign-up/email" &&
         process.env.PUBLIC_REGISTRATION_ENABLED !== "true"

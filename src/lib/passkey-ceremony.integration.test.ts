@@ -71,11 +71,11 @@ async function account(verified = true, role = true) {
   if (role) { const tenant = randomUUID(); await pool.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Synthetic Passkey Shop', $2)", [tenant, `pk-${tenant.slice(0, 12)}`]); await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role) VALUES ($1, $2, 'owner')", [tenant, id]); }
   return { email, id, cookie: jar(signIn) };
 }
-async function register(user: { cookie: string }, a = authenticator(), flags?: number) {
+async function register(user: { cookie: string }, a = authenticator(), flags?: number, name?: string) {
   const options = await get("/passkey/generate-register-options", user.cookie);
   if (options.status !== 200) return { status: `options ${options.status}`, a };
   const { challenge } = await options.json() as { challenge: string };
-  const verified = await post("/passkey/verify-registration", { response: a.register(challenge, flags) }, `${user.cookie}; ${jar(options)}`);
+  const verified = await post("/passkey/verify-registration", { response: a.register(challenge, flags), ...(name ? { name } : {}) }, `${user.cookie}; ${jar(options)}`);
   return { status: `${verified.status}`, a };
 }
 async function signInWith(a: ReturnType<typeof authenticator>, faults: Parameters<ReturnType<typeof authenticator>["assert"]>[1] = {}) {
@@ -138,4 +138,21 @@ describe("passkeys at the auth route", () => {
     expect((await register(manager)).status).toBe("200");
     expect(await passkeys()).toBe(1);
   });
+
+  it("keeps the server's name over a client's and caps a rename at 60 characters (Reviewer, #349)", async () => {
+    const owner = await account();
+    expect((await register(owner, authenticator(), undefined, "Chef-Passkey von außen")).status).toBe("200");
+    const [{ id, name }] = (await pool.query('SELECT id, name FROM passkey WHERE "userId" = $1', [owner.id])).rows;
+    expect(name).toBe("iPhone");
+    expect((await post("/passkey/update-passkey", { id, name: "x".repeat(61) }, owner.cookie)).status).toBe(400);
+    expect((await post("/passkey/update-passkey", { id, name: "x".repeat(60) }, owner.cookie)).status).toBe(200);
+    expect((await pool.query("SELECT name FROM passkey WHERE id = $1", [id])).rows[0].name).toBe("x".repeat(60));
+  });
+
+  it("refuses a role that is no longer active (Reviewer, #349)", async () => {
+    const owner = await account();
+    await pool.query('UPDATE staff_roles SET active = false WHERE user_id = $1', [owner.id]);
+    expect((await get("/passkey/generate-register-options", owner.cookie)).status).toBe(403);
+  });
 });
+
