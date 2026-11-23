@@ -85,7 +85,7 @@ Only ever say „zeigen wir als Ausblick, ist nicht Teil des Pilotangebots“.
 
 ## Commercial truth: project gates vs legal requirements
 
-- **Price (D-016):** list price **49 € pro Monat und Standort** (`SITE.price`). Founding price: „Gründungspreis 39 € für die ersten Betriebe, fest für die Vertragslaufzeit, nur im persönlichen Gespräch“. Never name a number of shops or an end date. In writing (site, ads, messages) only 49 € plus „Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch.“; the 39 € is said, not written. These are the only prices used anywhere in `gtm/`.
+- **Price (D-016):** **49 € pro Monat und Standort** (`SITE.price`), the same for every shop, in writing and in person (founder, 24 Nov 2026: no founding, fallback or lower price). This is the only price used anywhere in `gtm/`.
 
 **Project commercial / launch gates.** These are owner decisions recorded in the Launch Ledger (`docs/launch-ledger/` on branch `docs/launch-ledger-checkpoint-001`):
 
@@ -93,7 +93,7 @@ Only ever say „zeigen wir als Ausblick, ist nicht Teil des Pilotangebots“.
 |---|---|
 | O-001 | Operator identity (who the merchant contracts with; Impressum data) |
 | O-011 | Invoice route |
-| O-012 | Pricing and VAT presentation (49 € list, 39 € founding price) |
+| O-012 | Pricing and VAT presentation (49 € per location) |
 | O-013 | Commercial and data-protection documents (AGB, AVV) |
 | O-014 | Publishing the public website |
 | D-1 | Pilot terms before invoicing exists |
@@ -113,12 +113,12 @@ Only ever say „zeigen wir als Ausblick, ist nicht Teil des Pilotangebots“.
 - Take a merchant live with real customer data (D-1)
 
 **The founder line until then:**
-> „Pro Monat und Standort: normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist. Bevor du irgendetwas zahlst, bekommst du alle Bedingungen schriftlich – ein Startdatum nenne ich dir erst, wenn die stehen.“
+> „Pro Monat und Standort sind es 49 €, für jeden Laden gleich. Bevor du irgendetwas zahlst, bekommst du alle Bedingungen schriftlich – ein Startdatum nenne ich dir erst, wenn die stehen.“
 
 ## Proof truth
 
 We have **zero** paying merchants, **zero** testimonials and **zero** measured outcomes. Every example in scripts, pages and ads is labelled *Beispiel* / *Beispieldaten*, and owner screens show pseudonymous cards. The only numbers we may use are arithmetic:
-- „Bei 25 € pro Haarschnitt sind 49 € zwei Haarschnitte.“ (list price; the founding price needs the same two)
+- „Bei 25 € pro Haarschnitt sind 49 € zwei Haarschnitte.“
 - The website calculator (*Rechenbeispiel, keine Prognose*).
 
 The first real proof comes from [13-learning-system.md](13-learning-system.md): record it, ask permission, then use it.

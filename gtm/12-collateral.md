@@ -20,7 +20,7 @@ ORDER  Kunde → Tresen → Prämie → Empfehlung → Inhaber → Vertrauen →
 5 INHABER    Returning cards + one card (pseudonymous): last visit 9 weeks ago. → "Merkst du sowas heute?"
 6 VERTRAUEN  Before RC: lost link = new card + you re-book; reissue "kommt mit dem Update". After RC: reissue, same stand. Say the Ausblick list.
 7 RECHNUNG   Their basket → calculator. "Rechenbeispiel, keine Prognose."
-8 PREIS      "Normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist." Then SILENCE.
+8 PREIS      "49 € pro Monat und Standort, für jeden Laden gleich." Then SILENCE.
 ASK          "Würde dir das bei etwas Konkretem helfen?"
 CLOSE        Before gates: "Willst du einer der ersten sein, sobald die Bedingungen stehen?" (no date, no payment)
              After gates:  "Wollen wir's bei dir ausprobieren? Eine halbe Stunde, wenn's ruhig ist."
@@ -47,7 +47,7 @@ BREAK-EVEN  Barber 25 € → 2 · Pizzeria 18 € → 3 · Café 6 € → 7 ·
 > **Was Loynara heute kann:** QR-Karte im Browser, Bestätigung durch dein Team, Prämien, Empfehlungen mit Bonus erst nach dem ersten bestätigten Besuch, Übersicht über wiederkehrende und länger fehlende Kunden.
 > **Was es noch nicht kann:** Nachrichten an Kunden, Wallet, NFC-Antippen, Logo auf der Karte, Kassen- oder Lieferplattform-Anbindung.
 >
-> **Preis:** 49 € pro Monat und Standort. Für die ersten Betriebe gibt es einen Gründungspreis – im persönlichen Gespräch. Alle Bedingungen schriftlich, bevor du etwas zahlst.
+> **Preis:** 49 € pro Monat und Standort. Alle Bedingungen schriftlich, bevor du etwas zahlst.
 >
 > **Nächster Schritt:** [vereinbarter Termin] / Vor Freigabe der Bedingungen: „Ich melde mich, sobald ich dir alles schriftlich geben kann.“ Danach: „Sag mir einen ruhigen Nachmittag, dann richten wir's in einer halben Stunde ein.“
 >

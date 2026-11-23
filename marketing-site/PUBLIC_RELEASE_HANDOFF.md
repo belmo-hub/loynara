@@ -16,7 +16,7 @@ Claude's worktrees, application RC branches, application source, Railway, DNS an
 - `src/pages.ts`: expose the same live lookup, correction and recovery details through native FAQ disclosures on `/fuer-barber/` and `/fuer-pizzerien/`. `/empfehlungen/` remains truthful and unchanged.
 - Regenerate the committed public HTML/browser bundle. Update claim guards and release-state documentation.
 - QR remains primary. NFC is prepared outlook; TAG-01 preview acceptance does not imply production availability. Wallet and promotional sending/automations remain unsent, labelled previews.
-- Proposed pilot price remains 39 €/month/location. Demo mail drafts remain the acquisition path; no public registration, payment, discount, urgency, proof or ROI guarantee was added. Commercial onboarding remains a personal discussion.
+- The price is 49 €/month/location for every shop (founder, 24 Nov 2026: no pilot or founding price). Demo mail drafts remain the acquisition path; no public registration, payment, discount, urgency, proof or ROI guarantee was added. Commercial onboarding remains a personal discussion.
 
 ## Verification
 
@@ -57,7 +57,7 @@ npx --no-install wrangler pages deploy marketing-site/site \
 ```
 
 The branch argument intentionally matches the existing Cloudflare production branch; it does not switch or edit the Git functional branch. This publishes the reviewed Concept D candidate to `https://getloynara.com` through the existing project, without DNS mutation.
-After approval and upload: verify Cloudflare canonical deployment ID/source/status and all four routes, assets, headers, demo/mail CTAs, QR-first wording and 39 € pricing on the apex. Retain immutable deployment URL and rollback ID.
+After approval and upload: verify Cloudflare canonical deployment ID/source/status and all four routes, assets, headers, demo/mail CTAs, QR-first wording and 49 € pricing on the apex. Retain immutable deployment URL and rollback ID.
 
 Rollback action if needed: use Cloudflare Pages → `loynara-marketing` → Deployments → `39480f99` → Rollback to this deployment; or authorized authenticated POST to `/accounts/3d22051f9fe1732ae3c62e210795629a/pages/projects/loynara-marketing/deployments/39480f99-36d1-4dc8-b26c-5ca3e90218e5/rollback`, then verify apex and canonical ID.
 [Cloudflare rollback documentation](https://developers.cloudflare.com/pages/configuration/rollbacks/) · [API rollback action](https://developers.cloudflare.com/api/resources/pages/subresources/projects/subresources/deployments/methods/rollback/).

@@ -66,6 +66,6 @@ One design: **Tresenaufsteller A6**, 122.4 × 92 × 149 mm, 20° tilt, matt-blac
 ## F · QA performed
 
 - 78 / 78 marketing + GTM tests, including `field-kit.test.ts` (60-row list integrity and hygiene; collateral claim safety in the current and the post-gate variants; stand artwork rules).
-- Collateral rendered to PDF and checked visually page by page (page counts: 1 / 1 / 2 / 1 / 1). German spelling and „39 €“ formatting reviewed by text search; no banned claim phrases in merchant-facing pages.
+- Collateral rendered to PDF and checked visually page by page (page counts: 1 / 1 / 2 / 1 / 1). German spelling and euro formatting reviewed by text search; no banned claim phrases in merchant-facing pages.
 - Stand: 28 automated geometry/fit/artwork checks, QR decode simulation (zxing), dimensioned drawings reviewed against the geometry, 3D preview and paper prototype reviewed at size.
 - **Not covered:** physical prototype, NFC read test, phone scans, print proof, fabricator fit, Excel/Numbers opening.

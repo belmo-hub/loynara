@@ -15,7 +15,7 @@ Branch `marketing/mobile-clean`, based on `marketing/compact-v3` (`9d0763b`). De
 - **≤ 380 px:** tab number circles, owner "Inhaber-Ansicht" and inline price unit are dropped/stacked so nothing breaks mid-word.
 
 ## Preserved
-Palette, typography, copy, referral/stand/Wallet/owner/calculator story, 39 € offer, all state machines and the calculator maths. Tests: `browser-check.mjs` now requires the hero stand on phones wider than 380 px.
+Palette, typography, copy, referral/stand/Wallet/owner/calculator story, 49 € price, all state machines and the calculator maths. Tests: `browser-check.mjs` now requires the hero stand on phones wider than 380 px.
 
 ## Results
 `marketing:test` 43/43; `marketing:verify` pass; `browser-check.mjs` 392/392; axe: no violations; captures reviewed at 430, 390, 375, 360 and 320 px (hero, journey, referral before/after, studio, owner overview/quiet/win, calculator, offer, contact). Mobile page height 9 619 → 11 159 px (+16 %, still −20 % versus premium-v2's 14 014); desktop height unchanged (6 250). Assets: app.js unchanged, CSS 47.0 → 54.9 KB raw (12.4 KB gzip).
