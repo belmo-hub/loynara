@@ -1,5 +1,7 @@
 "use client";
 
+import { shopZone } from "@/lib/german-date";
+import { useOwner } from "./owner-context";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { ClipboardCheck, Link2, Users } from "lucide-react";
@@ -39,6 +41,7 @@ export function sourceLabel(source: string) {
  * result keeps the same idempotency key, so retrying cannot book the correction twice.
  */
 export function CorrectionStep({ entry, kind, locationId, balance, back, onDone }: { entry: Entry; kind: "stamp" | "points"; locationId: string; balance: number; back: Back; onDone: () => void }) {
+  const zone = shopZone(useOwner());
   const [reason, setReason] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "uncertain" | "error">("idle");
   const [error, setError] = useState("");
@@ -66,7 +69,7 @@ export function CorrectionStep({ entry, kind, locationId, balance, back, onDone 
   return (
     <QuestionForm title="Vorgang korrigieren" back={back} busy={state === "saving"} busyLabel="Wird gebucht …" disabled={!valid || blocked} failed=""
       action={state === "uncertain" ? "Erneut senden" : "Korrektur buchen"} onSubmit={() => void submit()}>
-      <div className="ow-qpanel ow-qcmp"><p>Vorgang</p><p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE")} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitWord(entry.delta, kind)}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p></div>
+      <div className="ow-qpanel ow-qcmp"><p>Vorgang</p><p>{entry.kind === "award" ? "Buchung" : entry.kind === "expiry" ? "Verfall" : "Einlösung"} vom {new Date(entry.createdAt).toLocaleString("de-DE", { timeZone: zone })} · {entry.delta > 0 ? "+" : ""}{entry.delta} {unitWord(entry.delta, kind)}{entry.rewardTitle ? ` · ${entry.rewardTitle}` : ""}</p></div>
       <p className="ow-qpanel">Loynara bucht <strong>{effect > 0 ? "+" : ""}{effect} {unitWord(effect, kind)}</strong> als verknüpfte Korrektur. Der ursprüngliche Vorgang bleibt im Verlauf sichtbar und zählt danach nicht mehr in Auswertungen{entry.kind === "award" ? " und nicht als Buchung für Empfehlungen" : ""}.</p>
       <div className="ow-qpanel ow-qsum">
         <p className="ow-cardline-label">Rechnerische Auswirkung dieses Vorgangs</p>
