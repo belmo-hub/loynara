@@ -63,7 +63,7 @@ export function NewAppointmentDialog({ day, services, onClose, onBooked }: { day
     setBusy(true); setError("");
     try {
       const row = await postJson<OwnerAppointment>("/api/merchant/booking/caller", { card: card.cardLocator, serviceId, staffId: picked.staffId, start: picked.start, customerName: name.trim(), idempotencyKey: key });
-      onBooked(`${name.trim()}: ${longDate(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)} eingetragen.`, row, date);
+      onBooked(`${name.trim()}: ${longDate(date).replace(/(\d+\.) /, "$1\u00a0")}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)} eingetragen.`, row, date);
     } catch (cause) { setError(actionError(failure(cause))); }
     finally { setBusy(false); }
   }
@@ -91,11 +91,12 @@ export function NewAppointmentDialog({ day, services, onClose, onBooked }: { day
   const multi = (slots?.staff.length ?? 0) > 1;
   const when = picked ? `${shortDay(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)}` : "";
   return (
-    <OwnerDialog view="slots" title="Termin eintragen" scroll onClose={onClose} actions={<>{cancel}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !picked || !name.trim()} aria-busy={busy} aria-describedby={picked ? "bn-when" : undefined}>
+    <OwnerDialog view="slots" title="Termin eintragen" scroll onClose={onClose} actions={<>{cancel}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !picked || !name.trim()} aria-busy={busy}>
       {/* Narrow or at large text the button says „Eintragen“ and the summary line above it names when (Design r2). */}
-      {picked ? <><span className="ow-caller-long">{when} eintragen</span><span className="ow-caller-short">Eintragen</span></> : "Eintragen"}</button>
+      {picked ? <><span className="ow-caller-long">{when} eintragen</span><span className="ow-caller-short">Eintragen<span className="ow-sr">, {when}</span></span></> : "Eintragen"}</button>
       {/* Last in the reversed-wrap action row, so it stands right above the buttons. */}
-      {picked && <p id="bn-when" className="ow-caller-summary">{when}</p>}</>}>
+      {/* Seen only narrow; the short label carries the same words for a screen reader, so they are read once. */}
+      {picked && <p className="ow-caller-summary" aria-hidden="true">{when}</p>}</>}>
       <div className="ow-row" style={{ justifyContent: "space-between" }}><p className="ow-hint" translate="no">Karte {card.cardLocator}</p>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setCard(null); setPicked(null); setError(""); }} disabled={busy}>Andere Karte</button></div>
       <div className="ow-field"><label htmlFor="bn-name">Name</label><input id="bn-name" className="ow-input" autoComplete="off" maxLength={60} value={name} onChange={event => setName(event.target.value)} data-autofocus /></div>
@@ -109,8 +110,7 @@ export function NewAppointmentDialog({ day, services, onClose, onBooked }: { day
           : slots === null ? <LoadingBlock rows={1} height={44} />
           : shown.length === 0 ? <><p className="ow-muted">{staffId ? `Bei ${staffName(staffId)} ist an diesem Tag nichts frei.` : "An diesem Tag ist nichts frei."}</p>
             <NextFreeDay key={`${date}:${staffId}:${serviceId}`} find={() => firstFree(shiftDate(date, 1))} onPick={target => choose({ date: target })} /></>
-          : <div className="ow-row" role="group" aria-labelledby="bn-slots" style={{ gap: "var(--space-2)" }}>{shown.map(slot => <button key={`${slot.start}:${slot.staffId}`} type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-num" aria-pressed={picked === slot}
-            style={picked === slot ? { borderColor: "var(--color-action)", background: "var(--color-action-soft)" } : undefined} onClick={() => setPicked(slot)}>{wallTime(slot.start, zone)}{multi && !staffId && ` · ${staffName(slot.staffId)}`}</button>)}</div>}
+          : <div className="ow-row" role="group" aria-labelledby="bn-slots" style={{ gap: "var(--space-2)" }}>{shown.map(slot => <button key={`${slot.start}:${slot.staffId}`} type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-num ow-slot" aria-pressed={picked === slot} onClick={() => setPicked(slot)}>{wallTime(slot.start, zone)}{multi && !staffId && ` · ${staffName(slot.staffId)}`}</button>)}</div>}
       </>}
       {error && <p className="ow-error" role="alert">{error}</p>}
     </OwnerDialog>

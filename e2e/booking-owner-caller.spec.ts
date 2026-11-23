@@ -73,12 +73,16 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   const slot = dialog.getByRole("group", { name: "Freie Zeiten" }).getByRole("button").nth(8);
   const time = (await slot.textContent())!.trim();
   await slot.click();
+  // The picked time uses the house pressed style (ink fill), which forced colours outline in Highlight (Design r3).
+  await expect.poll(() => slot.evaluate(element => getComputedStyle(element).backgroundColor === getComputedStyle(element).borderColor && element.getAttribute("style") === null)).toBe(true);
   const shortDay = `${new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)).replace(".", "")} ${date.slice(8, 10)}.${date.slice(5, 7)}.`;
   const primary = dialog.getByRole("button", { name: `${shortDay}, ${time} Uhr bei Lena eintragen` });
   await expect(primary).toBeInViewport({ ratio: 1 });
   // Design r2: at 200 % text the button says „Eintragen“ and a summary line above it names when and with whom.
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
-  await expect(dialog.getByRole("button", { name: "Eintragen", exact: true })).toBeVisible();
+  // The short label carries the summary for a screen reader, so it is read once (Design r3).
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(dialog.getByRole("button", { name: new RegExp(`^Eintragen\\s*,\\s*${escape(`${shortDay}, ${time} Uhr bei Lena`)}$`) })).toBeVisible();
   await expect(dialog.getByText(`${shortDay}, ${time} Uhr bei Lena`, { exact: true })).toBeInViewport({ ratio: 1 });
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);

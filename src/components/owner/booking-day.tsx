@@ -75,7 +75,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
         <div className="ow-dayhead"><h1>{dayName(date, today)}</h1>
           {ready && !readOnly && me?.role === "owner" && <Link className="ow-btn ow-btn--ghost ow-dayhead-link" href="/merchant/termine/einrichten" aria-label="Einrichtung"><Settings size={20} aria-hidden="true" /><span className="ow-dayhead-label">Einrichtung</span></Link>}
           <p>{subLine(date, today)}</p></div>
-        {ready && !readOnly && <div className="ow-row">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
+        {ready && !readOnly && <div className="ow-row ow-dayactions">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
@@ -96,7 +96,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
         <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
       )}
       {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
-      {flash?.date === date && <div ref={flashBox} tabIndex={-1}><Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice></div>}
+      {flash?.date === date && <div ref={flashBox} className="ow-flash" tabIndex={-1}><Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice></div>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
         {requestsLine(shown.pendingRequests, shown.nextRequestDate, today)}</Notice>}
