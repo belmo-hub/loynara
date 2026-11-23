@@ -1,5 +1,6 @@
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
+import { passkeyName } from "./passkey-names";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
 import { guardPoolErrors } from "@/db/pool-errors";
@@ -74,7 +75,12 @@ export const auth = betterAuth({
     rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname,
     rpName: "Loynara",
     authenticatorSelection: { userVerification: "required" },
-    registration: { requireSession: true },
+    // Each passkey is named when it is added: its provider (iCloud-Schlüsselbund, Google Passwortmanager …) from the
+    // AAGUID, otherwise the device (Design, #349 round 2), so several passkeys can be told apart.
+    registration: {
+      requireSession: true,
+      afterVerification: ({ ctx, verification }) => ({ name: passkeyName(verification.registrationInfo?.aaguid, ctx.headers?.get("user-agent") ?? undefined) }),
+    },
   })],
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {

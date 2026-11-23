@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { staffRoles } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { DomainError } from "@/lib/loyalty";
@@ -18,6 +21,19 @@ async function answerNoSooner(request: Request) {
   const started = Date.now();
   try { return await handlers.POST(request); }
   finally { await new Promise(resolve => setTimeout(resolve, Math.max(0, ANSWER_MS - (Date.now() - started)))); }
+}
+
+// Passkeys are for owners and managers on their own phones, not the Kasse: a passkey on a shared counter device would let
+// anyone who can unlock it sign in as that person (Design R1, CTO, 23 Nov). Adding one is refused for a cashier.
+const PASSKEY_REGISTRATION = ["/passkey/generate-register-options", "/passkey/verify-registration"];
+async function passkeyRegistrationRefused(request: Request) {
+  const path = new URL(request.url).pathname;
+  if (!PASSKEY_REGISTRATION.some(route => path.endsWith(route))) return null;
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) return null; // the plugin answers a missing session itself (401)
+  const [staff] = await db.select({ role: staffRoles.role, active: staffRoles.active }).from(staffRoles).where(eq(staffRoles.userId, session.user.id)).limit(1);
+  if (staff && (staff.role === "cashier" || !staff.active)) return Response.json({ code: "PASSKEY_NOT_FOR_ROLE", message: "Passkeys are for owners and managers" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  return null;
 }
 
 function validateIngress(request: Request) {
@@ -45,7 +61,7 @@ export async function GET(request: Request) {
     validateIngress(request);
     // Each passkey challenge is a stored row: a page load asks for one, a script must not ask for thousands.
     if (new URL(request.url).pathname.endsWith("/passkey/generate-authenticate-options")) await enforcePeerLimit(request, "auth_passkey_peer", 60, 15 * 60);
-    return await handlers.GET(request);
+    return await passkeyRegistrationRefused(request) ?? await handlers.GET(request);
   }
   catch (error) { return respondError(error); }
 }
@@ -67,6 +83,8 @@ export async function POST(request: Request) {
     }
     if (path.endsWith("/reset-password")) await enforcePeerLimit(request, "auth_reset_use_peer", 10, 15 * 60);
     if (path.endsWith("/passkey/generate-authenticate-options") || path.endsWith("/passkey/verify-authentication")) await enforcePeerLimit(request, "auth_passkey_peer", 60, 15 * 60);
+    const refused = await passkeyRegistrationRefused(request);
+    if (refused) return refused;
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };

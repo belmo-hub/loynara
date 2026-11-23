@@ -55,7 +55,7 @@ export function ResetForm() {
 
   if (state === "done") return <AuthShell>
     <div key="done" ref={page} className={styles.page}>
-      <PageHeader title="Dein Passwort ist geändert." description="Du bist auf allen Geräten abgemeldet. Melde dich jetzt mit dem neuen Passwort an." />
+      <PageHeader title="Dein Passwort ist geändert." description="Du bist auf allen Geräten abgemeldet. Deine Passkeys sind gelöscht. Du kannst sie unter Konto neu hinzufügen. Melde dich jetzt mit dem neuen Passwort an." />
       <Link href="/login" className={buttonClassName({ block: true })}>Anmelden</Link>
     </div>
   </AuthShell>;

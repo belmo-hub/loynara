@@ -205,6 +205,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
               };
               from();
               swap.setAttribute("data-swap", "");
+              // Only the messages of the first paint come in with the swap; a message that appears later drops in as
+              // specified (Field error and notices), even though the screen keeps its mark (Design, #349 round 2).
+              for (const message of swap.querySelectorAll(".ow-error")) message.setAttribute("data-first-paint", "");
               requestAnimationFrame(from);
             }
           }

@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { TextField } from "@/components/ui/field";
 import { useFormCheck } from "@/components/ui/form-check";
 import { authClient } from "@/lib/auth-client";
+import { passkeyCancelled } from "@/lib/passkey-names";
 import { withInviteReturn } from "@/lib/invite-return";
 import styles from "@/components/auth/auth.module.css";
 
@@ -23,13 +24,29 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
 
   // A saved passkey is offered in the address field's autofill (conditional mediation); the password form stays as it is.
+  // A passkey that did not work (deleted by a password reset, removed elsewhere) says so in the form, is reported to the
+  // phone as unknown where it can be, and the autofill is offered again. Only a sign-in that left a session leads on:
+  // a cookie that did not stick must not loop /login and /merchant (Design, #349 round 2).
   useEffect(() => {
-    let active = true;
-    void (async () => {
+    let active = true, tries = 0;
+    const offer = async (): Promise<void> => {
       if (!await globalThis.PublicKeyCredential?.isConditionalMediationAvailable?.()) return;
-      const result = await authClient.signIn.passkey({ autoFill: true });
-      if (active && result?.data && !result.error) { router.push(next ?? "/merchant"); router.refresh(); }
-    })().catch(() => { /* no passkey offered: the password form is the way in */ });
+      const result = await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
+      if (!active) return;
+      if (result?.data && !result.error) {
+        if ((await authClient.getSession()).data?.session) { router.push(next ?? "/merchant"); router.refresh(); return; }
+      } else if (result?.error && passkeyCancelled(result.error)) {
+        // The person closed the prompt: nothing to say, and the autofill offers it again below.
+      } else {
+        setError("Mit diesem Passkey ging es nicht. Melde dich mit deinem Passwort an.");
+        const credentialId = (result as { webauthn?: { response?: { id?: string } } } | null)?.webauthn?.response?.id;
+        const signal = (globalThis.PublicKeyCredential as { signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void> } | undefined)?.signalUnknownCredential;
+        if (result?.error && "code" in result.error && result.error.code === "PASSKEY_NOT_FOUND" && credentialId && signal) await signal({ rpId: location.hostname, credentialId }).catch(() => undefined);
+      }
+      // A few more offers only: a request that fails without the person doing anything must not spin.
+      if (active && (tries += 1) < 3) return offer();
+    };
+    void offer().catch(() => { /* no passkey offered: the password form is the way in */ });
     return () => { active = false; };
   }, [router, next]);
 

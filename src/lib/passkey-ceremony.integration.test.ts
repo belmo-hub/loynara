@@ -28,7 +28,8 @@ const b64 = (bytes: Uint8Array) => isoBase64URL.fromBuffer(new Uint8Array(bytes)
 const u32 = (n: number) => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
 const cat = (...parts: Uint8Array[]) => { const all = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let i = 0; for (const p of parts) { all.set(p, i); i += p.length; } return all; };
 const jar = (...responses: Response[]) => responses.flatMap(r => r.headers.getSetCookie()).map(c => c.split(";")[0]).filter(c => !/=$/.test(c)).join("; ");
-const headers = (cookie = "") => ({ origin, "content-type": "application/json", "cf-connecting-ip": `198.51.100.${(peer += 1) % 250 + 1}`, ...(cookie ? { cookie } : {}) });
+const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+const headers = (cookie = "") => ({ origin, "content-type": "application/json", "user-agent": IPHONE, "cf-connecting-ip": `198.51.100.${(peer += 1) % 250 + 1}`, ...(cookie ? { cookie } : {}) });
 const get = (path: string, cookie = "") => GET(new Request(`${origin}/api/auth${path}`, { headers: headers(cookie) }));
 const post = (path: string, body: unknown, cookie = "") => POST(new Request(`${origin}/api/auth${path}`, { method: "POST", headers: headers(cookie), body: JSON.stringify(body) }));
 
@@ -106,5 +107,30 @@ describe("passkeys at the auth route", () => {
     expect(presenceOnly.status).not.toBe(200);
     expect(presenceOnly.session).toBe(false);
     expect(await signInWith(added.a)).toMatchObject({ status: 200, session: true });
+  });
+
+  it("names a passkey when it is added, from its provider or else the device (Design, #349 round 2)", async () => {
+    const owner = await account();
+    expect((await register(owner)).status).toBe("200");
+    // The software authenticator has no known AAGUID, so the device from the user agent names it.
+    expect((await pool.query('SELECT name FROM passkey WHERE "userId" = $1', [owner.id])).rows[0].name).toBe("iPhone");
+  });
+
+  it("is for owners and managers only: a cashier cannot add one, a manager can (Design R1, CTO, 23 Nov)", async () => {
+    const tenant = randomUUID();
+    await pool.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Synthetic Passkey Shop', $2)", [tenant, `passkey-${tenant.slice(0, 8)}`]);
+    const { rows: [location] } = await pool.query("INSERT INTO locations (tenant_id, name, city, country, timezone) VALUES ($1, 'Mitte', 'Kassel', 'DE', 'Europe/Berlin') RETURNING id", [tenant]);
+    const role = (user: { id: string }, name: string) => pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, $3, $4)", [tenant, user.id, name, location.id]);
+    const cashier = await account();
+    await role(cashier, "cashier");
+    const refused = await get("/passkey/generate-register-options", cashier.cookie);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({ code: "PASSKEY_NOT_FOR_ROLE" });
+    expect((await post("/passkey/verify-registration", { response: authenticator().register("x") }, cashier.cookie)).status).toBe(403);
+    expect(await passkeys()).toBe(0);
+    const manager = await account();
+    await role(manager, "manager");
+    expect((await register(manager)).status).toBe("200");
+    expect(await passkeys()).toBe(1);
   });
 });
