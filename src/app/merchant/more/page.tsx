@@ -33,7 +33,7 @@ export default function MorePage() {
         {/* Booking surfaces only where the operator switched it on (Design, 22 Nov); other shops see the screen as before. */}
         {me.bookingShown && <Rows title="Termine"><Row key="termine" href="/merchant/termine" icon={CalendarDays} title="Termine" sub="Tagesansicht und Einrichtung der Online-Buchung" /></Rows>}
         {isOwner && <Rows title="Geschäft">
-          <Row key="settings" href="/merchant/settings" icon={Store} title="Geschäft" sub={[...(senderOffered(owner.hiddenSurfaces) ? ["Absender"] : []), "Wochenbericht", ...(owner.hiddenSurfaces.includes("cancellation") ? [] : ["Programmende"])].join(", ")} />
+          <Row key="settings" href="/merchant/settings" icon={Store} title="Geschäft" sub={[...(senderOffered(owner.hiddenSurfaces) ? ["Absender"] : []), "Wochenbericht", ...(owner.me?.bookingContractsAcceptedAt !== undefined ? ["Verträge"] : []), ...(owner.hiddenSurfaces.includes("cancellation") ? [] : ["Programmende"])].join(", ")} />
           <Row key="locations" href="/merchant/locations" icon={MapPin} title="Standorte" value={owner.locations.length ? nf.format(owner.locations.length) : undefined} big />
           <Row key="staff" href="/merchant/staff" icon={Users} title="Team" value={team === null ? undefined : nf.format(team)} big />
           {billing && <Row key="billing" href="/merchant/billing" icon={Euro} title="Abrechnung" sub={plan.state === "ok" ? billingStatus(plan.data) : undefined} />}

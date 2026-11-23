@@ -123,7 +123,7 @@ export async function setLocationCoordinates(input: { actorUserId: string; env: 
   });
 }
 
-export const BOOKING_AVV_MISSING = "Dieses Geschäft hat die aktuelle Auftragsverarbeitung mit Terminbuchung noch nicht angenommen.";
+export const BOOKING_AVV_MISSING = "Dieses Geschäft hat die Vertragsbedingungen und die Auftragsverarbeitung mit Termin + Treue noch nicht angenommen.";
 
 /** The plan gate: turns online booking on or off for one location. Writes only `enabled`; a missing row starts with the defaults. */
 export async function setBookingEnabled(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; enabled: boolean }) {

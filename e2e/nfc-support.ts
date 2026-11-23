@@ -36,11 +36,14 @@ export async function sql<T extends pg.QueryResultRow = pg.QueryResultRow>(text:
 // applied before each test so a long file does not exhaust the bucket on its own.
 const PEER_SCOPES = ["auth_signup_peer", "auth_signin_peer", "enroll_peer", "card_read_peer", "card_contact_peer", "recovery_request_peer", "recovery_confirm_peer", "tap_bind_peer", "card_export_peer", "merchant_locations_read_peer", "merchant_locations_create_peer", "enroll_existing_peer", "enroll_open_peer", "tap_peer", "push_subscribe_user", "cashier_lookup_peer", "qr_render_peer", "merchant_onboard_peer", "merchant_export_peer", "staff_invite_peer", "program_read_peer"];
 
-export async function resetPeerLimits() {
+export async function resetPeerLimits() { await resetPeerLimitsWith(sql); }
+
+/** The same reset through the caller's own database access (a spec that checks its database itself, not the NFC one). */
+export async function resetPeerLimitsWith(query: (text: string, params: unknown[]) => Promise<unknown>) {
   const secret = process.env.BETTER_AUTH_SECRET ?? dotenv.parse(readFileSync(path.resolve(process.cwd(), ".env"))).BETTER_AUTH_SECRET;
   if (!secret) throw new Error("BETTER_AUTH_SECRET is needed to reset the peer rate limits");
   const hashes = PEER_SCOPES.map(scope => createHmac("sha256", secret).update(scope).update("\0").update("untrusted-peer").digest("hex"));
-  await sql("DELETE FROM rate_limits WHERE key_hash = ANY($1::text[])", [hashes]);
+  await query("DELETE FROM rate_limits WHERE key_hash = ANY($1::text[])", [hashes]);
 }
 
 /** A merchant with an owner, one invited cashier of its only location, and one registered counter tag (staff-confirmed taps). `program` overrides the stamp programme, e.g. purchase points. */

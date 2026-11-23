@@ -3,7 +3,7 @@ import { expect, request as apiRequest, test } from "@playwright/test";
 import { Pool } from "pg";
 import { OWNER_AVV, OWNER_TERMS, SIGNUP_ACCEPTANCE_HEADER } from "../src/lib/owner-contract";
 
-import { resetPeerLimits } from "./nfc-support";
+import { resetPeerLimitsWith } from "./nfc-support";
 import { signUp } from "./support/sign-up";
 
 // Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
@@ -11,7 +11,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ENG-339: a shop on the older Fassungen accepts the terms and the AVV with „Termin + Treue“ under Einstellungen › Geschäft.
 // CI runs every owner spec through one peer: these sign-ups must not use up the 15 the later files need (as the NFC specs do).
-test.beforeEach(resetPeerLimits);
+const resetPeerLimits = () => resetPeerLimitsWith((text, params) => pool.query(text, params));
+test.beforeEach(async () => { await resetPeerLimits(); });
 test.afterAll(async () => { await resetPeerLimits(); await pool.end(); });
 // The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
 if (process.env.E2E_BASE_URL) test.use({ baseURL: process.env.E2E_BASE_URL });
@@ -30,7 +31,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   const context = await browser.newContext({ baseURL, storageState: await owner.storageState(), viewport, hasTouch: viewport.width < 768 });
   const page = await context.newPage();
   await page.goto("/merchant/settings");
-  const row = page.getByRole("button", { name: /^Termin \+ Treue/ });
+  const row = page.getByRole("button", { name: /^Termin\s\+\sTreue/ });
   // Legal § 6: optional for every owner, no warning chip.
   await expect(row).toContainText("Optional: Vertragsbedingungen und Auftragsverarbeitung für Online-Termine. Annehmen kostet nichts.");
   await expect(row).not.toContainText("Offen");
@@ -48,7 +49,11 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
 
   await row.click();
   await page.getByRole("dialog").getByRole("button", { name: "Annehmen" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Angenommen. Loynara schaltet Termin + Treue ein, sobald du es für einen Standort möchtest." })).toBeVisible();
+  const outcome = page.getByRole("status").filter({ hasText: /^Angenommen\. Loynara schaltet Termin\s\+\sTreue ein, sobald du es für einen Standort möchtest\. Schreib uns dafür an support@getloynara\.com\./ });
+  await expect(outcome).toBeVisible();
+  // Design (24 Nov): focus lands on the outcome, not on the page body.
+  await expect(outcome).toBeFocused();
+  await expect(page.getByText(`angenommen am`).first()).toContainText(`Fassung vom ${OWNER_TERMS.stand}`);
   await expect(page.getByText(/Vertragsbedingungen und Auftragsverarbeitung · angenommen am /)).toBeVisible();
   expect((await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE user_id = $1 AND path = 'booking' AND avv_version = $2 AND terms_version = $3", [id, OWNER_AVV.version, OWNER_TERMS.version])).rows[0].n).toBe(1);
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
@@ -56,6 +61,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   // After a reload the row stays answered and opens nothing.
   await page.reload();
   await expect(page.getByText(/Vertragsbedingungen und Auftragsverarbeitung · angenommen am /)).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Termin \+ Treue/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Termin\s\+\sTreue/ })).toHaveCount(0);
+  // The answered row links both documents.
+  await expect(page.getByRole("link", { name: "Vertragsbedingungen", exact: true })).toHaveAttribute("href", "/vertragsbedingungen");
+  await expect(page.getByRole("link", { name: "Auftragsverarbeitung", exact: true })).toHaveAttribute("href", "/avv");
   await context.close(); await owner.dispose();
 });

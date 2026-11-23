@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, request as apiRequest, test } from "@playwright/test";
 import { Pool } from "pg";
-import { resetPeerLimits } from "./nfc-support";
+import { resetPeerLimitsWith } from "./nfc-support";
 import { signUp } from "./support/sign-up";
 
 // Its own pool: CI runs the owner specs in one worker, where ending a shared pool breaks the files after this one.
@@ -9,7 +9,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Design blocker 3 (22 Nov): a shop without online booking sees its owner screens as before #330.
 // CI runs every owner spec through one peer: these sign-ups must not use up the 15 the later files need (as the NFC specs do).
-test.beforeEach(resetPeerLimits);
+const resetPeerLimits = () => resetPeerLimitsWith((text, params) => pool.query(text, params));
+test.beforeEach(async () => { await resetPeerLimits(); });
 test.afterAll(async () => { await resetPeerLimits(); await pool.end(); });
 // The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
 test.use({ ...(process.env.E2E_BASE_URL ? { baseURL: process.env.E2E_BASE_URL } : {}), viewport: { width: 390, height: 844 }, hasTouch: true });
@@ -68,7 +69,7 @@ test("booking switched off with every appointment past: the read-only day view a
   expect(download.status()).toBe(200);
   expect(await download.text()).toContain("Name gelöscht");
   await page.goto("/merchant/termine");
-  await expect(page.getByText("Online-Termine sind aus. Gebuchte Termine bleiben hier und im Export „Termine für Excel“.")).toBeVisible();
+  await expect(page.getByText(/^Online-Termine sind aus\. Gebuchte Termine bleiben hier und unter Mehr im Export „Termine\sfür\sExcel“\.$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Zeit blocken" })).toHaveCount(0);
   await context.close(); await owner.dispose(); await guest.dispose();
 });
