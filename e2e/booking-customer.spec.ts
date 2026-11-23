@@ -113,7 +113,9 @@ test("a guest books from the card in under a minute, moves it, sees it on the ca
   await expect(page.getByText(/^Kostenlos, die Frist läuft bis /)).toBeVisible();
   await shot(page, "08-cancel-confirm");
   await page.getByRole("button", { name: "Ja, absagen" }).click();
-  await expect(page.locator(".booking-mine")).toContainText("Haarschnitt: abgesagt");
+  // Design r3: the cancel says so under „Meine Termine“; „Zuletzt“ does not repeat it.
+  await expect(page.locator(".booking-mine").getByRole("status")).toHaveText(/^Abgesagt: \p{L}{2} \d{2}\.\d{2}\., \d{2}:\d{2}$/u);
+  await expect(page.locator(".booking-mine")).not.toContainText("Haarschnitt: abgesagt");
   await shot(page, "09-cancelled");
 
   await page.emulateMedia({ colorScheme: "dark" });
@@ -152,4 +154,22 @@ test("D3 at 390x664 with two open appointments: the step comes first and „Term
   const button = page.getByRole("button", { name: "Termin buchen" });
   await page.evaluate(() => document.querySelector(".booking-flow")?.scrollIntoView({ block: "start" }));
   await expect(button).toBeInViewport({ ratio: 1 });
+});
+
+test("booking, then cancelling that same appointment from the done screen, leaves no stale „fix“ line; the tab names the shop", async ({ page }) => {
+  const { card } = await bookingShop();
+  await page.goto(`/card/${card.cardToken}/termin`);
+  await expect(page).toHaveTitle("Termin buchen – Studio Lena");
+  await page.getByRole("button", { name: /Haarschnitt/ }).click();
+  await page.locator(".booking-flow button[aria-pressed]").filter({ hasText: /^\p{L}{2} \d{2}\.\d{2}\.$/u }).nth(2).click();
+  await page.locator(".booking-flow button").filter({ hasText: /^\d{2}:\d{2}$/ }).first().click();
+  await page.getByLabel("Dein Name").fill("Mia");
+  await page.getByRole("button", { name: "Termin buchen" }).click();
+  await expect(page.getByRole("heading", { name: /^Dein Termin ist fix/ })).toBeVisible();
+  await page.getByRole("button", { name: "1 offener Termin · ansehen" }).click();
+  await page.getByRole("button", { name: "Absagen" }).click();
+  await page.getByRole("button", { name: "Ja, absagen" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Abgesagt: / })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Dein Termin ist fix/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Leistung wählen" })).toBeVisible();
 });

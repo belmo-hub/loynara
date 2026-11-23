@@ -130,6 +130,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const moved = useRef(false);
   const slotsRequest = useRef(0);
   const pushed = useRef(0);
+  const [cancelledLine, setCancelledLine] = useState<{ id: string; text: string } | null>(null);
 
   // The rebook push links here with ?service=&staff=&rebook=: the day step opens with both pre-selected.
   useEffect(() => { if (arrival) void loadSlots(arrival.service, arrival.staffId); }, [arrival]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -243,7 +244,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const inProgress = step !== "service" || Boolean(result);
   // Design (22 Nov): the open-appointment limit is known on load, so it is said before step 1, not after four steps.
   const atLimit = !moving && view.upcoming.length >= view.shop.maxOpenPerCard;
-  const mine = <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} collapsed={inProgress} />;
+  const mine = <Mine view={view} base={base} scope={swScope} reload={reload} onMove={view.blocked ? undefined : startMove} offerPush={step !== "done"} collapsed={inProgress} cancelled={cancelledLine} onCancelled={(id, text) => { setCancelledLine({ id, text }); if (result?.id === id) reset(); }} />;
   // A refusal that a retry cannot fix (a taken slot, a limit) takes the main button's place: one primary at a time.
   const submitBlocked = Boolean(problem && !problem.retry);
 
@@ -339,9 +340,10 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
 }
 
 /** Upcoming appointments with move and cancel, then the last past ones. One line when there are none. */
-function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean; collapsed?: boolean }) {
+// `cancelled` lives in the flow: Mine moves between two places in the page (and remounts) when a booking starts or ends.
+function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false, cancelled = null, onCancelled }: { view: Enabled; base: string; scope: string; reload: () => Promise<void>; onMove?: (appointment: Appointment) => void; offerPush: boolean; collapsed?: boolean; cancelled?: { id: string; text: string } | null; onCancelled?: (id: string, text: string) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const [cancelled, setCancelled] = useState("");
+  const past = view.past.filter(a => a.id !== cancelled?.id);
   const tz = view.shop.timezone;
   const [confirming, setConfirming] = useState<{ id: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -352,15 +354,16 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
 
   async function cancel(id: string) {
     setBusy(true); setError("");
-    try { const gone = view.upcoming.find(a => a.id === id); await post(`${base}/appointments/${id}/cancel`, {}); closeConfirm(); await reload(); if (gone) setCancelled(`Abgesagt: ${formatWhen(gone.start, tz)}`); }
+    try { const gone = view.upcoming.find(a => a.id === id); await post(`${base}/appointments/${id}/cancel`, {}); closeConfirm(); await reload(); onCancelled?.(id, gone ? `Abgesagt: ${formatWhen(gone.start, tz)}` : "Abgesagt"); }
     catch (cause) { setError(problemFor(cause, view).text); if (["STALE", "TOO_LATE"].includes((cause as Failure).code ?? "")) void reload(); }
     finally { setBusy(false); }
   }
 
   if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
   return <section className={`booking-mine ${mix.panel} ${mix.pad}${collapsed ? ` ${styles.arrive}` : ""}`} aria-labelledby="booking-mine-title">
-    {cancelled ? <p className={`${card.muted} ${styles.arrive}`} role="status">{cancelled}</p> : null}
     <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>Meine Termine</h2>
+    {/* Design r3: the cancel's status line sits under the heading; the row it names leaves „Zuletzt“ for this visit. */}
+    {cancelled ? <p className={`${card.muted} ${styles.arrive}`} role="status">{cancelled.text}</p> : null}
     {!view.upcoming.length && !view.past.length ? <p className={card.muted}>Noch keine Termine. Such dir unten einen aus.</p> : null}
     {view.upcoming.length ? <ul className={styles.list}>{view.upcoming.map(a => {
       return <li key={a.id}>
@@ -385,9 +388,9 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false 
     })}</ul> : null}
     {error ? <p className={card.alert} role="alert">{error}</p> : null}
     {offerPush && (view.upcoming.length || view.push.subscribed || view.push.rebookConsent) ? <BookingPush base={base} scope={scope} push={view.push} reload={reload} /> : null}
-    {view.past.length ? <>
+    {past.length ? <>
       <h3 className={mix.h}>Zuletzt</h3>
-      <ul className={styles.list}>{view.past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>
+      <ul className={styles.list}>{past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>
     </> : null}
   </section>;
 }
