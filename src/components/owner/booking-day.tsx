@@ -77,7 +77,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
         <Notice tone="info" actions={<Link className="ow-btn ow-btn--sm ow-btn--primary" href="/merchant/termine/einrichten">Jetzt einrichten</Link>}>Richte zuerst Leistungen und Zeiten ein.</Notice>
       )}
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
-        <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
+        <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier und im Export „Termine für Excel“.</Notice>
       )}
       {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
       {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
