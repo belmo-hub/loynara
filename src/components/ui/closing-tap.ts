@@ -11,8 +11,10 @@ export function swallowClosingTap(popover: HTMLElement | null) {
   const doc = popover.ownerDocument;
   let armed = false;
   const down = (event: PointerEvent) => {
+    if (!event.isPrimary) return; // a second finger changes nothing
     const target = event.target instanceof Element ? event.target : null;
-    armed = popover.matches(":popover-open") && !!target && !popover.contains(target) && !target.closest(`[popovertarget="${popover.id}"]`);
+    // Only a main-button press arms it: a right-click or a context-menu long-press has no click to swallow.
+    armed = event.button === 0 && popover.matches(":popover-open") && !!target && !popover.contains(target) && !target.closest(`[popovertarget="${popover.id}"]`);
   };
   const click = (event: MouseEvent) => {
     if (!armed || event.detail === 0) return;
