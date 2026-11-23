@@ -8,7 +8,7 @@
 .top { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
 .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); font-weight: var(--weight-heavy); }
 .id { display: grid; min-width: 0; }
-.id b { font-weight: var(--weight-strong); line-height: 1.375rem; }
+.id b { font-weight: var(--weight-strong); line-height: 1.375rem; hyphens: auto; } /* a long shop name hyphenates under large text */
 .id span { font-size: var(--text-14); line-height: 1.25rem; color: var(--on-card); }
 .n { display: grid; flex: none; margin-left: auto; text-align: right; }
 .n b { font-size: var(--text-28); line-height: 1.875rem; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
