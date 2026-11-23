@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, request as apiRequest, test, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, request as apiRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { signUp } from "./support/sign-up";
 
 // ENG-368 (Design, #348's 320/200 pass): what Android's text-scale opt-in would hand to people with large phone text.
 // At 320 px and 200 % text no page scrolls sideways and the named parts stay apart; at 100 % the same parts look as before.
@@ -8,7 +10,23 @@ import { expect, request as apiRequest, test, type Page } from "@playwright/test
 // have per-owner budgets.
 const demo = JSON.parse(readFileSync(resolve("var/demo-access.json"), "utf8")) as { ownerEmail: string; ownerPassword: string; cashierEmail: string; cashierPassword: string; programSlug: string; cardToken: string };
 test.describe.configure({ mode: "serial" });
-test.beforeEach(({ page }) => page.emulateMedia({ reducedMotion: "reduce" }));
+// Each width and text size change is a resize, and the owner screens read their data again on a resize. Those reads
+// count against network-wide budgets the whole owner job shares (the programme read: 240 in 15 minutes), so within a
+// test a repeated read is answered with the first answer: the page shows the same data, the server is asked once.
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  type Answer = { status: number; headers: Record<string, string>; body: Buffer };
+  // Promises, not answers: development mounts every read twice at once, and the second must wait for the first.
+  const answers = new Map<string, Promise<Answer>>();
+  await page.route(url => url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/auth/"), async route => {
+    if (route.request().method() !== "GET") return route.continue();
+    const key = route.request().url();
+    if (!answers.has(key)) answers.set(key, route.fetch().then(async response => ({ status: response.status(), headers: response.headers(), body: await response.body() })));
+    const answer = await answers.get(key)!;
+    if (answer.status >= 400) answers.delete(key); // a refused read is asked again, not replayed
+    return route.fulfill(answer);
+  });
+});
 
 async function signIn(page: Page, email: string, password: string) {
   const api = await apiRequest.newContext({ baseURL: test.info().project.use.baseURL });
@@ -16,6 +34,26 @@ async function signIn(page: Page, email: string, password: string) {
   await page.context().addCookies((await api.storageState()).cookies);
   await api.dispose();
 }
+/**
+ * An owner of its own for the overview, Kunden and Programm checks, made once for the file: the demo owner's reads have
+ * per-owner budgets (referrals, retention, spend, winback: 60 in 15 minutes) that the owner job's other specs already use
+ * up to the edge, so even a spec that only reads must not spend them.
+ */
+let own: Promise<Awaited<ReturnType<APIRequestContext["storageState"]>>["cookies"]> | null = null;
+function ownOwner() {
+  own ??= (async () => {
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    const api = await apiRequest.newContext({ baseURL: origin, extraHTTPHeaders: { Origin: origin } });
+    const email = `large-text-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
+    expect((await signUp(api, { data: { name: "Synthetic large-text owner", email, password } })).status()).toBe(200);
+    expect((await api.post("/api/merchant/onboard", { data: { businessName: "Synthetische Kaffeebar Kassel-Wilhelmshöhe", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee aufs Haus", rewardCost: 8 } })).status()).toBe(201);
+    const { cookies } = await api.storageState();
+    await api.dispose();
+    return cookies;
+  })();
+  return own;
+}
+
 /** Width and text size on the loaded page (large text without hyphenation), then until the layout holds for 300 ms. */
 async function size(page: Page, width: number, percent: number) {
   await page.setViewportSize({ width, height: 844 });
@@ -59,7 +97,7 @@ test("the till: the display title breaks instead of pushing the Kasse sideways",
 });
 
 test("the owner header, sub-pages, tabs and overview hold at 200 % and look as before at 100 %", async ({ page }) => {
-  await signIn(page, demo.ownerEmail, demo.ownerPassword);
+  await page.context().addCookies(await ownOwner());
   await page.goto("/merchant/customers");
   await expect(page.locator(".ow-content h1")).toBeVisible();
   const bar = () => page.evaluate(() => {
@@ -108,7 +146,7 @@ test("the Kunden card's history row puts the amount and „Korrigieren“ under 
 });
 
 test("Programm: the card preview's fields stack and the sub lines stay in their rows at 200 %", async ({ page }) => {
-  await signIn(page, demo.ownerEmail, demo.ownerPassword);
+  await page.context().addCookies(await ownOwner());
   await page.goto("/merchant/program");
   await expect(page.getByRole("heading", { name: "Extras" })).toBeVisible();
   const fields = "[data-play] [class*=__fields] > span";

@@ -8,7 +8,7 @@
 .top { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
 .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in oklab, var(--merchant-ink) 16%, transparent); font-weight: var(--weight-heavy); }
 .id { display: grid; min-width: 0; }
-.id b { font-weight: var(--weight-strong); line-height: 1.375rem; hyphens: auto; } /* a long shop name hyphenates under large text */
+.id b { font-weight: var(--weight-strong); line-height: 1.375rem; hyphens: auto; overflow-wrap: anywhere; } /* a long shop name hyphenates under large text, and breaks where German cannot be hyphenated (Linux Chrome) */
 .id span { font-size: var(--text-14); line-height: 1.25rem; color: var(--on-card); }
 .n { display: grid; flex: none; margin-left: auto; text-align: right; }
 .n b { font-size: var(--text-28); line-height: 1.875rem; font-weight: var(--weight-heavy); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -31,9 +31,12 @@
 .fields span + span { text-align: right; }
 .fields small { font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); color: var(--on-card); }
 .fields strong { font-weight: var(--weight-strong); }
-/* Under large text only (the card narrower than 15 of its own em): the two fields stack instead of running together. */
-.card:has(.fields) { container: mix-fields / inline-size; }
-@container mix-fields (max-width: 15em) {
+/* Under large text only (the card narrower than 15 of its own em; at 100 % even a 320 phone is wider): the balance goes
+   under the name instead of pushing the card past the screen, and the two fields stack instead of running together. */
+.card { container: mix-card / inline-size; }
+@container mix-card (max-width: 15em) {
+  .card:not(.kasse) .top { flex-wrap: wrap; }
+  .card:not(.kasse) .n { flex-shrink: 1; min-width: 0; }
   .fields { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
   .fields span + span { text-align: start; }
   .fields strong { overflow-wrap: break-word; hyphens: auto; }
