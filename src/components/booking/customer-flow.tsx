@@ -19,6 +19,7 @@ import mix from "../ui/mix.module.css";
 import { defaultTerms, durationLabel, missedPhrase } from "../owner/booking-setup-helpers";
 import { addDays } from "@/lib/booking/time";
 import { BookingPush } from "./booking-push";
+import { Reveal } from "../customer/reveal";
 import { TOO_MANY_BOOKINGS, attemptKey, daysWithSlots, formatDay, formatPrice, formatTime, formatWhen, wallDate, type Appointment, type BookingView, type Service, type Slot, type SlotDay } from "./booking-format";
 
 type Step = "service" | "day" | "time" | "confirm" | "done";
@@ -130,6 +131,7 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
   const moved = useRef(false);
   const slotsRequest = useRef(0);
   const pushed = useRef(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [cancelledLine, setCancelledLine] = useState<{ id: string; text: string } | null>(null);
 
   // The rebook push links here with ?service=&staff=&rebook=: the day step opens with both pre-selected.
@@ -319,12 +321,14 @@ function Flow({ token, base, view, reload }: { token: string; base: string; view
         <div className={styles.after}>{submitBlocked ? problemBlock : <Button block loading={busy} onClick={() => void submit(slot.start, key)}>{moving ? "Hierhin verschieben" : "Termin buchen"}</Button>}</div>
         <div className={styles.fine}>
           {problem?.nextFree ? null : <p className={card.rules}>{!view.shop.cancelDeadlineHours ? "Absagen geht kostenlos bis zum Termin." : deadlinePassed ? "Die kostenlose Absagefrist ist für diese Zeit schon vorbei. Absagen geht trotzdem, zählt dann als kurzfristig." : `Kostenlos absagen bis ${formatWhen(new Date(Date.parse(slot.start) - view.shop.cancelDeadlineHours * 3_600_000).toISOString(), tz)}. Später geht es auch, zählt dann als kurzfristige Absage.`}</p>}
-          <details className={styles.rules}><summary>Regeln des Geschäfts<ChevronDown size={20} aria-hidden="true" /></summary>
+          {/* Design r3: the house Disclosure (Reveal: rows 0fr → 1fr), with a real button that says whether it is open. */}
+          <button type="button" className={styles.rulesToggle} aria-expanded={rulesOpen} aria-controls="booking-rules" onClick={() => setRulesOpen(open => !open)}>Regeln des Geschäfts<ChevronDown size={20} aria-hidden="true" /></button>
+          <Reveal open={rulesOpen} gap="var(--space-2)"><div id="booking-rules" className={styles.rulesBody}>
             {ownTerms ? <p className={card.rules}>{view.shop.termsText}</p> : null}
             <p className={card.rules}>{view.shop.maxReschedulesPerMonth > 0 ? `Verschieben: bis zu ${view.shop.maxReschedulesPerMonth}-mal im Monat, bis zur Absagefrist.` : "Verschieben geht online nicht; sag ab und buch neu."}</p>
             {view.shop.autoConfirm ? null : <p className={card.rules}>Das Geschäft bestätigt deinen Termin, dann ist er fix.</p>}
             {view.shop.noShowBlockAfter > 0 ? <p className={card.rules}>Nach {missedPhrase(view.shop.noShowBlockAfter)} ohne Absage in 12 Monaten sind die Online-Termine für deine Karte pausiert.</p> : null}
-          </details>
+          </div></Reveal>
         </div>
       </> : null}
 
@@ -359,8 +363,7 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false,
     finally { setBusy(false); }
   }
 
-  if (collapsed && !expanded) return view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} onClick={() => setExpanded(true)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · ansehen</Button></p> : null;
-  return <section className={`booking-mine ${mix.panel} ${mix.pad}${collapsed ? ` ${styles.arrive}` : ""}`} aria-labelledby="booking-mine-title">
+  const panel = <section className={`booking-mine ${mix.panel} ${mix.pad}`} aria-labelledby="booking-mine-title">
     <h2 id="booking-mine-title" ref={title} tabIndex={-1} className={`${mix.h} ${styles.panelTitle}`}>Meine Termine</h2>
     {/* Design r3: the cancel's status line sits under the heading; the row it names leaves „Zuletzt“ for this visit. */}
     {cancelled ? <p className={`${card.muted} ${styles.arrive}`} role="status">{cancelled.text}</p> : null}
@@ -393,4 +396,11 @@ function Mine({ view, base, scope, reload, onMove, offerPush, collapsed = false,
       <ul className={styles.list}>{past.map(a => <li key={a.id}><p className={card.muted}>{formatWhen(a.start, tz)}, {a.service.name}: {PAST[a.status]}{a.lateCancel ? " (kurzfristig)" : ""}</p></li>)}</ul>
     </> : null}
   </section>;
+  if (!collapsed) return panel;
+  if (!view.upcoming.length && !cancelled) return null;
+  // Design r3: folded under the step, „ansehen“ opens the panel in the house Disclosure (Reveal), and closes it again.
+  return <>
+    {view.upcoming.length ? <p className={styles.mineLine}><Button variant="quiet" size="sm" className={styles.edge} aria-expanded={expanded} aria-controls="booking-mine" onClick={() => setExpanded(open => !open)}>{view.upcoming.length === 1 ? "1 offener Termin" : `${view.upcoming.length} offene Termine`} · {expanded ? "ausblenden" : "ansehen"}</Button></p> : null}
+    <Reveal open={expanded || !view.upcoming.length} gap="var(--space-4)"><div id="booking-mine">{panel}</div></Reveal>
+  </>;
 }

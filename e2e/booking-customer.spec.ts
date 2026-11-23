@@ -154,6 +154,12 @@ test("D3 at 390x664 with two open appointments: the step comes first and „Term
   const button = page.getByRole("button", { name: "Termin buchen" });
   await page.evaluate(() => document.querySelector(".booking-flow")?.scrollIntoView({ block: "start" }));
   await expect(button).toBeInViewport({ ratio: 1 });
+  // Regeln is the house Disclosure: a button that says whether it is open, and the rules inside appear on a tap.
+  const rules = page.getByRole("button", { name: "Regeln des Geschäfts" });
+  await expect(rules).toHaveAttribute("aria-expanded", "false");
+  await rules.click();
+  await expect(rules).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#booking-rules").getByText(/^Verschieben: bis zu 2-mal im Monat/)).toBeVisible();
 });
 
 test("booking, then cancelling that same appointment from the done screen, leaves no stale „fix“ line; the tab names the shop", async ({ page }) => {

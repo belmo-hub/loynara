@@ -31,20 +31,19 @@
 .headTitle { margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-body); color: var(--color-ink-muted); }
 
 /* D3: the shop's rules under the button as one disclosure; the folded „Meine Termine“ line sits on the content edge. */
-.rules summary { min-height: 44px; display: flex; align-items: center; gap: var(--space-1); cursor: pointer; font-weight: var(--weight-strong); list-style: none; }
-.rules summary::-webkit-details-marker { display: none; }
-.rules summary svg { transition: transform var(--dur-press) var(--ease-out); }
-.rules[open] summary svg { transform: rotate(180deg); }
-.rules[open] > :not(summary) { animation: booking-arrive var(--dur-ui) var(--ease-out) both; }
-.rules[open] summary { margin-bottom: var(--space-2); }
 .mineLine { margin: 0; }
+.rulesToggle { justify-self: start; display: flex; align-items: center; gap: var(--space-1); min-height: var(--target); padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.rulesToggle svg { transition: transform var(--dur-press) var(--ease-out); }
+.rulesToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.rulesToggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.rulesBody { display: grid; gap: var(--space-2); }
 
 /* D8 (Design, 22 Nov): each step and each problem line arrives (an 8 px rise over --dur-ui); chips and rows press. */
 .arrive { animation: booking-arrive var(--dur-ui) var(--ease-out) both; }
 @keyframes booking-arrive { from { opacity: 0; transform: translateY(8px); } }
 .chip, .rewardRow { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
 .chip:active:not(:disabled), .rewardRow:active { transform: scale(.97); }
-@media (prefers-reduced-motion: reduce) { .arrive, .rules[open] > :not(summary) { animation: none; } .rules summary svg { transition: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .arrive { animation: none; } .rulesToggle svg { transition: none; } .chip, .rewardRow { transition: none; } .chip:active:not(:disabled), .rewardRow:active { transform: none; } }
 
 /* Quiet buttons in a left-aligned flow (Design, 22 Nov): the label sits on the content edge, the 44 px hit area stays. */
 .edge { justify-self: start; align-self: flex-start; margin-inline-start: calc(-1 * var(--space-4)); }
