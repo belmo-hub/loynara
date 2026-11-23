@@ -1,4 +1,6 @@
+import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
+import { passkeyName } from "./passkey-names";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { Pool } from "pg";
 import { guardPoolErrors } from "@/db/pool-errors";
@@ -27,6 +29,9 @@ export const auth = betterAuth({
       // The password is already changed and every device signed out; a failure here leaves the address unconfirmed only.
       await authPool.query('UPDATE "user" SET "emailVerified" = true WHERE id = $1', [user.id])
         .catch(error => console.error(`Address not confirmed after reset (${error instanceof Error ? error.name : "error"})`));
+      // A reset takes the account back (ENG-286), so passkeys added before it go too: someone who held the account must
+      // not keep a way in. Not caught: the reset must not look done while an old passkey still works.
+      await authPool.query('DELETE FROM "passkey" WHERE "userId" = $1', [user.id]);
     },
     sendResetPassword: async ({ user, token }) => {
       const { sendPasswordReset } = await import("./account-verification");
@@ -49,18 +54,44 @@ export const auth = betterAuth({
       // Sign-up does not wait for the mail (ENG-283): an existing address gets none, so waiting would show in the timing.
       if (!request?.url.endsWith("/send-verification-email")) return;
       // A signed-in owner pressing „E-Mail erneut senden“ learns that nothing went out (Design). An anonymous resend
-      // always answers alike, so it reveals nothing about an address.
-      const outcome = await sending;
-      if (outcome === "sent") return;
+      // always answers alike and does not wait for the mail either (ENG-344): only an unconfirmed address gets one, so
+      // a slow provider would show in the timing.
       const { auth: self } = await import("./auth");
       if (!await self.api.getSession({ headers: request.headers })) return;
+      const outcome = await sending;
+      if (outcome === "sent") return;
       throw new APIError(outcome === "limited" ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", { message: "Verification email not sent" });
     },
   },
-  session: { expiresIn: 60 * 60 * 24 * 7 },
+  // freshAge: adding a passkey needs a sign-in from the last 10 minutes (CTO, 22 Nov), so a stolen session cookie cannot
+  // plant a lasting way in. Better Auth checks it only for passkey registration here; the other routes that use it
+  // (/list-sessions, /unlink-account) are not used by the app.
+  session: { expiresIn: 60 * 60 * 24 * 7, freshAge: 10 * 60 },
+  // Optional passkeys next to the password (web audit finding 10): added by a signed-in person in Einstellungen, used
+  // from the sign-in form's autofill. The relying party is the app's own host; nothing here changes password sign-in.
+  // User verification is required (CTO, 22 Nov): a passkey always asks for Face ID, a fingerprint or the device PIN, so a
+  // security key without a PIN cannot sign in with a tap. Adding one needs a signed-in session (pinned by a test).
+  plugins: [passkey({
+    rpID: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").hostname,
+    rpName: "Loynara",
+    authenticatorSelection: { userVerification: "required" },
+    // Each passkey is named when it is added: its provider (iCloud-Schlüsselbund, Google Passwortmanager …) from the
+    // AAGUID, otherwise the device (Design, #349 round 2), so several passkeys can be told apart.
+    registration: {
+      requireSession: true,
+      afterVerification: ({ ctx, verification }) => ({ name: passkeyName(verification.registrationInfo?.aaguid, ctx.headers?.get("user-agent") ?? undefined) }),
+    },
+  })],
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
   hooks: {
     before: createAuthMiddleware(async (context) => {
+      // A passkey's name is chosen by the server when it is added (afterVerification above): a name the client sends is
+      // dropped, so it cannot win over it. A rename keeps to 60 characters (Reviewer, #349).
+      if (context.path === "/passkey/verify-registration" && context.body && typeof context.body === "object") delete (context.body as { name?: unknown }).name;
+      if (context.path === "/passkey/update-passkey") {
+        const name = (context.body as { name?: unknown } | undefined)?.name;
+        if (typeof name !== "string" || !name.trim() || name.length > 60) throw new APIError("BAD_REQUEST", { message: "Passkey name must be 1 to 60 characters" });
+      }
       if (
         context.path === "/sign-up/email" &&
         process.env.PUBLIC_REGISTRATION_ENABLED !== "true"

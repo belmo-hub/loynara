@@ -62,10 +62,25 @@ test("a foreign next is ignored: the inbox answer still leads to the plain sign-
   const email = `owner-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
   await page.goto(`/register?next=${encodeURIComponent("//evil.example/invite/abc")}`);
   await expect(page.getByRole("link", { name: "Anmelden", exact: true })).toHaveAttribute("href", "/login");
+  // A password manager saves the new login against the address only when the field says it is the username.
+  await expect(page.getByLabel("E-Mail-Adresse", { exact: true })).toHaveAttribute("autocomplete", "username");
+  await expect(page.getByLabel("Passwort", { exact: true })).toHaveAttribute("autocomplete", "new-password");
   await page.getByLabel("Dein Name", { exact: true }).fill("Synthetic owner");
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(email);
   await page.getByLabel("Passwort", { exact: true }).fill(password);
   await page.getByLabel("Passwort wiederholen", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Konto erstellen", exact: true }).click();
   await expect(page.getByRole("link", { name: "Zur Anmeldung", exact: true })).toHaveAttribute("href", "/login");
+  // ENG-342: the answer names the address, so a typo shows, and offers the spam hint, support and the resend.
+  await expect(page.locator("h1 + p strong")).toHaveText(email);
+  await expect(page.getByRole("link", { name: "support@getloynara.com", exact: true })).toHaveAttribute("href", "mailto:support@getloynara.com");
+  // The live region is in the tree before it speaks (Design, 22 Nov), so the outcome is announced.
+  await expect(page.getByText(/^Nichts angekommen\?/)).toHaveText("Nichts angekommen? Prüfe deinen Spam\u2011Ordner oder schreibe uns an support@getloynara.com.");
+  await expect(page.getByRole("status")).toBeAttached();
+  await expect(page.getByRole("status")).toHaveText("");
+  await page.getByRole("button", { name: "E-Mail erneut senden", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Wir haben dir eine neue E\u2011Mail geschickt. Schau auch im Spam\u2011Ordner nach.");
+  // The spam hint stands once: after a send the note keeps only the way to support.
+  await expect(page.getByText(/^Nichts angekommen\?/)).toHaveText("Nichts angekommen? Schreibe uns an support@getloynara.com.");
+  await expect(page.getByText(/Spam\u2011Ordner/)).toHaveCount(1);
 });

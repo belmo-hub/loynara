@@ -19,10 +19,11 @@ import type { RetentionSummary } from "@/lib/retention";
 import { retentionCustomerHref } from "@/lib/retention-links";
 import { formatMinor, SPEND_COPY } from "@/lib/spend-copy";
 import { CancellationNotice } from "./cancellation-notice";
-import { downloadCounterSign, joinUrlOf } from "./join-card";
+import { joinUrlOf, openCounterSign, SIGN_FAILED, SIGN_NOTE } from "./join-card";
 import { BigMoney, BoardPlaceholder, BonusOffBand, BookPlaceholder, FactsPlaceholder, Brought, CardStock, DemoDataChip, Diary, EmptyStrip, Facts, FactsHelp, NextBandPlaceholder, NextPanel, Strip, type NextAction, type Tile } from "./overview-board";
 import s from "./overview.module.css";
 import { buildInsights, WINBACK_HREF, type ReferralRow, type WinbackState } from "./retention-insights";
+import { shopZone } from "@/lib/german-date";
 import { useOwner } from "./owner-context";
 import { nf, OwnerIcon } from "./owner-ui";
 import { useLoad, type Loadable } from "./use-load";
@@ -95,6 +96,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const [readiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
   const firstName = useFirstName(me.userId);
   const [signError, setSignError] = useState("");
+  const [signed, setSigned] = useState<"busy" | "opened" | "downloaded" | null>(null);
 
   const failed = [analytics, spend, retention].some(state => state.state === "error");
   const reload = () => { reloadAnalytics(); reloadSpend(); reloadRetention(); };
@@ -134,7 +136,11 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
   const quiet = a ? quietOf(a) : null;
   const gap = a && typeof quiet === "number" && a.lastBookingOn ? { from: shiftDay(a.lastBookingOn, 1), to: shiftDay(a.today, -1) } : null;
   const news = board ? headline({ days: board.days, lastBookingOn: board.lastBookingOn, today: board.today, fullTwoWeeks: board.fullTwoWeeks, everBooked: board.over90 }) : null;
-  const sign = () => { setSignError(""); downloadCounterSign(me).catch(cause => setSignError(cause instanceof Error ? cause.message : "Das Tresenschild konnte nicht geladen werden.")); };
+  const sign = () => {
+    if (signed === "busy") return; // a second tap would open a second tab
+    setSignError(""); setSigned("busy");
+    openCounterSign(me).then(setSigned, cause => { setSigned(null); setSignError(cause instanceof Error ? cause.message : SIGN_FAILED); });
+  };
   const next = failed || !answered ? null : nextStep({ me, retention, referrals: referrals.state === "ok" ? referrals.data.referrals : null, readiness, winback: a?.winback ?? null, quiet, sign });
   const milestone = useMilestone(me.locationId, me.stats?.members ?? 0);
   // ENG-095, owner only (the spend read): the block once this location had a brought customer in 90 days, a true 0
@@ -170,6 +176,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {panel ? <NextPanel next={next} lead={thumb ? { kind: "card", node: thumb } : next ? { kind: "tile", node: <MixTile tone="mute">{stepIcon(next.kind)}</MixTile> } : undefined} milestone={milestone} onSign={sign} /> : slot && <NextBandPlaceholder closing={slotCloses} />}
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
+        <p className={cx("ow-muted", s.signError)} role="status">{signed === "opened" || signed === "downloaded" ? SIGN_NOTE[signed] : null}</p>
         <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={board && !brought ? "" : undefined}>
           <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
@@ -363,7 +370,7 @@ const FIRST_STEPS: Record<string, (me: MeResponse) => { title: string; text?: st
 
 function EmptyShop({ me }: { me: MeResponse }) {
   const [readiness, reloadReadiness] = useLoad<LaunchReadiness>("/api/merchant/readiness");
-  const today = localNow(new Date(), "Europe/Berlin").date;
+  const today = localNow(new Date(), shopZone(useOwner())).date;
   const steps = readiness.state === "ok" ? readiness.data.steps.filter(step => step.id in FIRST_STEPS) : [];
   const current = steps.find(step => step.required && step.status === "todo");
   const joinUrl = joinUrlOf(me);

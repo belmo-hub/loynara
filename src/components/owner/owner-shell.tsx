@@ -25,6 +25,30 @@ const useTapped = () => useSyncExternalStore(watcher => { tapWatchers.add(watche
  * until the next screen is shown: the screen in view stays that long, so the tapped tab or row takes its selected look
  * at once (owner.css).
  */
+/** The page keeps the room the phone's bottom bar really takes (it grows when its labels wrap under large text): its
+ *  height goes to --ow-tabbar while it shows; owner.css's 65 + inset stays the value before it is measured (Design r2). */
+function watchTabbar(bar: HTMLElement | null) {
+  const app = bar?.closest<HTMLElement>(".owner-app");
+  if (!bar || !app || typeof ResizeObserver === "undefined") return;
+  const fit = () => { const height = bar.getBoundingClientRect().height; if (height > 0) app.style.setProperty("--ow-tabbar", `${height}px`); else app.style.removeProperty("--ow-tabbar"); };
+  const watch = new ResizeObserver(fit);
+  watch.observe(bar);
+  fit();
+  return () => { watch.disconnect(); app.style.removeProperty("--ow-tabbar"); };
+}
+
+/** Under large text the top bar scrolls with the page (owner.css): --ow-topbar is its height while it sticks, else 0,
+ *  so a focused field is not kept 56 px below a bar that is no longer there. */
+function watchTopbar(bar: HTMLElement | null) {
+  if (!bar || typeof ResizeObserver === "undefined") return;
+  const root = document.documentElement;
+  const fit = () => root.style.setProperty("--ow-topbar", getComputedStyle(bar).position === "sticky" ? `${bar.getBoundingClientRect().height}px` : "0px");
+  const watch = new ResizeObserver(fit);
+  watch.observe(bar);
+  fit();
+  return () => { watch.disconnect(); root.style.removeProperty("--ow-topbar"); };
+}
+
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
   const { guard } = useOwner();
@@ -205,6 +229,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
               };
               from();
               swap.setAttribute("data-swap", "");
+              // Only the messages of the first paint come in with the swap; a message that appears later drops in as
+              // specified (Field error and notices), even though the screen keeps its mark (Design, #349 round 2).
+              for (const message of swap.querySelectorAll(".ow-error")) message.setAttribute("data-first-paint", "");
               requestAnimationFrame(from);
             }
           }
@@ -289,10 +316,10 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         </div>
       </aside>
       <div className="ow-main">
-        <div className="ow-topbar">
+        <div ref={watchTopbar} className="ow-topbar">
           <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.businessName}</strong><span>{me.locationName}</span></> : <Skeleton height={14} width={140} />}</div>
-          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} />Kasse</Link>
+          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} /><span className="ow-topbar-kasse">Kasse</span></Link>
         </div>
         {notice}
         {subItems.length > 1 && (
@@ -311,8 +338,9 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
             : <div key={`${me.locationId}:${owner.epoch}`} className="ow-body">{/* One element that stays for the whole screen: a page that swaps its own root (loading frame, then form) would end the transition early. */}<ViewTransition key={pathname} enter="ow-screen" exit={{ "kasse-sheet": "none", default: "ow-screen" }} default="none"><div className="ow-screen">{children}</div></ViewTransition></div>}
         </main>
         {/* Phones and tablets: the first areas in thumb reach; „Mehr“ is the page with the rest (Einstellungen, data, sign-out). */}
-        <nav className="ow-tabs" aria-label="Bereiche">
-          {visibleGroups(role, hidden).slice(0, 4).map(item => (
+        <nav ref={watchTabbar} className="ow-tabs" aria-label="Bereiche">
+          {/* „Einstellungen“ is the desktop's name for „Mehr“: on the phone the Mehr tab stands for it, never twice. */}
+          {visibleGroups(role, hidden).filter(item => item.id !== "settings").slice(0, 4).map(item => (
             <GuardedLink key={item.id} href={groupHref(item, role, hidden)} prefetch className="ow-tab" aria-current={group?.id === item.id ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name={item.icon} /></span><span className="ow-tab-label">{item.label}</span></GuardedLink>
           ))}
           <GuardedLink href={MORE_HREF} prefetch className="ow-tab" aria-current={pathname === MORE_HREF || group?.id === "settings" ? "page" : undefined}><span className="ow-tab-icon"><OwnerIcon name="menu" /></span><span className="ow-tab-label">Mehr</span></GuardedLink>

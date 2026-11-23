@@ -25,6 +25,7 @@ const CONTROLS = [".owner-app summary", ".ow-radio-card input", '.ow-colorrow in
 
 const EXCEPTIONS: Exception[] = [
   { file: "src/app/globals.css", kind: "colour", property: "background-color", value: "#0F1713", reason: "the page canvas follows the dark theme above any token scope (dark --color-bg); documented beside the rule" },
+  ...["src/app/layout.tsx", "src/app/merchant/layout.tsx"].map(file => ({ file, kind: "colour" as const, reason: "theme-color metadata is a hex string for the browser bar, pinned to the tokens by src/app/theme-colour.test.ts (Design 36c)" })),
   { file: "src/app/global-error.tsx", kind: "colour", selectors: [":root"], reason: "global-error renders without the app's CSS, so it inlines the token values" },
   { file: "src/app/global-error.tsx", kind: "font size", reason: "global-error renders without the app's CSS, so it inlines the type scale" },
   { file: "src/app/global-error.tsx", kind: "radius", selectors: ["button"], value: "999px", reason: "global-error inlines --radius-pill" },
@@ -44,6 +45,8 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "font size", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "weight", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
+  { file: "src/components/owner/owner.css", kind: "font size", selectors: [".ow-tab"], reason: "the tab label's token size, capped at 20 px so „Programm“ never breaks to a lone „m“ under large text (Design r2, 23 Nov)" },
+  { file: "src/components/owner/owner.css", kind: "font size", selectors: [".ow-tab-label"], reason: "tab labels stop growing at the 150 % size (18 px), as tab bars do, so no label takes three lines (Design, #348)" },
   { file: "src/components/owner/owner.css", kind: "weight", selectors: [".ow-lock-time"], reason: "the lock-screen clock is drawn as the phone draws it, in a light 300" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, ENG-139 (SF-8, SF-9)" },
@@ -56,7 +59,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/qr-scanner.module.css", kind: "colour", selectors: [".sight"], value: "var(--sight-ink, rgba(255, 255, 255, .92))", reason: "sight brackets drawn over the live camera image (white unless the cashier shell tints them)" },
   { file: "src/components/ui/dialog.module.css", kind: "colour", selectors: [".dialog::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
   { file: "src/components/ui/sheet.module.css", kind: "colour", selectors: [".sheet::backdrop"], value: "rgba(15, 23, 19, .48)", reason: "::backdrop does not inherit custom properties in older Safari; same value as --color-scrim" },
-  ...(["colour", "font size", "weight"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
+  ...(["colour", "font size", "weight", "radius"] as const).map(kind => ({ file: "src/lib/counter-sign.ts", kind, reason: `printable counter sign: ${STANDALONE}` })),
   ...(["colour", "font size", "radius"] as const).map(kind => ({ file: "src/lib/wallet/http.ts", kind, reason: `wallet hand-off page: ${STANDALONE}` })),
 ];
 

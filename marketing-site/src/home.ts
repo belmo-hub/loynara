@@ -18,11 +18,11 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
     <nav class="nav" aria-label="Hauptnavigation"><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a></nav>
     <div class="acts">
       <a class="login" href="${SITE.loginUrl}">Anmelden</a>
-      <a class="btn btn-pri btn-sm" href="#rq" data-want="start"><span class="long">Ersten Monat gratis starten</span><span class="short">1. Monat gratis</span></a>
-      <button class="menu" id="menuBtn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="sheet"><span></span><span></span><span></span></button>
+      <a class="btn btn-pri btn-sm" href="${SITE.registerUrl}"><span class="long">Ersten Monat gratis starten</span><span class="short">1. Monat gratis</span></a>
+      <button class="menu" id="menuBtn" type="button" aria-label="Menü" popovertarget="sheet"><span></span><span></span><span></span></button>
     </div>
   </div>
-  <nav class="sheet" id="sheet" aria-label="Menü"><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a><a class="login-row" href="${SITE.loginUrl}">Anmelden</a></nav>
+  <nav class="sheet" id="sheet" aria-label="Menü" popover><a href="#ablauf">So funktioniert’s</a><a href="#geschaefte">Für dein Geschäft</a><a href="#preis">Preis</a><a href="#fragen">Fragen</a><a class="login-row" href="${SITE.loginUrl}">Anmelden</a></nav>
 </header>
 
 <main id="inhalt">
@@ -32,7 +32,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
     <div class="hero-stage">
       <div class="side">
         <p class="lede">Die digitale Stempelkarte für deinen Tresen. Tippe auf das Schild wie dein Kunde: Dein Team bestätigt, der Stempel landet.</p>
-        <a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a>
+        <a class="btn btn-pri" href="${SITE.registerUrl}">Ersten Monat gratis starten</a>
       </div>
       <div class="phone" id="heroPhone" aria-hidden="true"><i class="notch"></i><div class="scr">
         <div class="banner" id="heroBanner"><i></i><span>Dein Team hat bestätigt</span></div>
@@ -56,7 +56,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
       <p class="sr" role="status" id="tapStatus"></p>
     </div>
     <div class="mobile-acts" id="mobileActs">
-      <a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a>
+      <a class="btn btn-pri" href="${SITE.registerUrl}">Ersten Monat gratis starten</a>
       <a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a>
       <p class="price">${price} pro Monat und Standort. Der erste Monat ist gratis.</p>
     </div>
@@ -172,7 +172,7 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
     <div class="price">
       <div class="pcard"><p class="amt">${price}</p><p class="per">pro Monat und Standort</p>
         <div class="free"><i class="ck" aria-hidden="true"></i><div><b>Der erste Monat ist gratis.</b><span>Zahlungsdaten erst ab dem zweiten Monat. Monatlich kündbar, keine Einrichtungsgebühr.</span></div></div>
-        <div class="acts"><a class="btn btn-pri" href="#rq" data-want="start">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
+        <div class="acts"><a class="btn btn-pri" href="${SITE.registerUrl}">Ersten Monat gratis starten</a><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a></div></div>
       <ul class="incl" aria-label="Im Preis enthalten">
         <li>Stempel- oder Punktekarte mit deinen Prämien</li><li>NFC-Antippen und QR-Einstieg am Tresen</li><li>Bestätigung durch dein Team, mit Rollen</li><li>Apple Wallet auf Wunsch. Nachrichten zeigen wir als Ausblick und vereinbaren sie gesondert</li><li>Empfehlungen und Willkommen-zurück-Bonus</li><li>Happy Hour bei Punkten nach Einkaufswert, Geburtstags-Bonus mit Apple Wallet</li><li>Überblick, wie viele wiederkommen</li><li>Kunden, Karten und dein Team kosten nichts extra</li>
       </ul>
@@ -221,4 +221,4 @@ export const homeBody = (): string => `<a class="skip" href="#inhalt">Zum Inhalt
 </section>
 <footer><div class="wrap"><div class="rule"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><span class="c">© Loynara</span></div></div></footer>
 
-<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="#rq" data-want="start">1. Monat gratis</a></nav>`;
+<nav class="bar" id="bar" aria-label="Anfrage" inert><a class="btn btn-sec" href="#rq" data-want="demo">Demo anfragen</a><a class="btn btn-pri" href="${SITE.registerUrl}">1. Monat gratis</a></nav>`;

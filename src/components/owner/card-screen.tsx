@@ -15,6 +15,7 @@ import type { MerchantMember, MerchantMemberDetail } from "@/lib/merchant-member
 import { unitWord, withUnit } from "@/lib/units";
 import { correctable, CorrectionStep, ReissueStep, sourceLabel } from "./card-actions";
 import { useOwner } from "./owner-context";
+import { BERLIN, daysBetween, shopZone, zoneDay } from "@/lib/german-date";
 import { ErrorNotice, germanDate, nf, Notice } from "./owner-ui";
 import { useReview } from "./question-form";
 import { useLoad } from "./use-load";
@@ -23,7 +24,7 @@ import s from "./card-screen.module.css";
 type Entry = MerchantMemberDetail["timeline"][number];
 const NBSP = " ";
 
-const when = (value: string | null) => value ? germanDate(value, "feed") : "Noch kein bestätigter Vorgang";
+const when = (value: string | null, timeZone: string) => value ? germanDate(value, "feed", { timeZone }) : "Noch kein bestätigter Vorgang";
 function eligibilityLabel(value: MerchantMember["eligibility"]) {
   return ({ eligible: "Prämie einlösbar", not_yet: "Noch nicht einlösbar", not_configured: "Keine aktive Prämie", closed: "Karte geschlossen", not_checked: "Noch nicht geprüft", unavailable: "Nicht verfügbar" } as const)[value];
 }
@@ -38,6 +39,7 @@ function referralLabel(value: MerchantMember["referralStatus"]) {
  */
 export function CardScreen({ id, seed: given, back, onMember }: { id: string; seed?: { member: MerchantMember; program: PublicProgram }; back: Back; onMember: (member: MerchantMember) => void }) {
   const me = useOwner().me!;
+  const zone = shopZone(useOwner());
   const [first, reload] = useLoad<MerchantMemberDetail>(`/api/merchant/customers/${encodeURIComponent(id)}`);
   // The target reward comes from the active location's programme: the card read lists only the rewards already reached.
   const [program] = useLoad<PublicProgram>(`/api/program/${encodeURIComponent(me.programSlug)}`);
@@ -91,14 +93,14 @@ export function CardScreen({ id, seed: given, back, onMember }: { id: string; se
     finally { setOlderBusy(false); }
   }
   const days = timeline.reduce<Array<[string, Entry[]]>>((list, entry) => {
-    const day = dayLabel(entry.createdAt), last = list.at(-1);
+    const day = dayLabel(entry.createdAt, new Date(), zone), last = list.at(-1);
     if (last?.[0] === day) last[1].push(entry); else list.push([day, [entry]]);
     return list;
   }, []);
   const details: Array<[string, string | number]> = !detail ? [] : [
     ["Prämienstatus", eligibilityLabel(member.eligibility)],
     ...detail.eligibleRewards.length > 0 ? [["Jetzt einlösbar", detail.eligibleRewards.map(reward => `${reward.title} · ${withUnit(reward.cost, kind)}`).join(", ")] as [string, string]] : [],
-    ["Erste Buchung", when(member.firstQualifyingAt)],
+    ["Erste Buchung", when(member.firstQualifyingAt, zone)],
     ["Erfasste Käufe", member.purchaseCount === null ? "Nicht erfasst" : member.purchaseCount],
     ["E-Mail-Marketing", member.emailMarketingEligible ? "Verifiziert und zugestimmt" : "Nicht berechtigt"],
     ["Als geworbene Karte", referralLabel(member.referralStatus)],
@@ -125,21 +127,21 @@ export function CardScreen({ id, seed: given, back, onMember }: { id: string; se
         <MixPanel pad className={s.facts}>
           <Fact value={nf.format(member.qualifyingCheckouts)} label={member.qualifyingCheckouts === 1 ? "Buchung" : "Buchungen"} />
           <Fact value={nf.format(member.redemptionCount)} label={member.redemptionCount === 1 ? "Einlösung" : "Einlösungen"} />
-          <Fact value={sinceDate.format(new Date(member.createdAt))} label="Karte seit" />
+          <Fact value={sinceDate(member.createdAt, zone)} label="Karte seit" />
         </MixPanel>
         <section className={cx(mixStyles.panel, s.feed)} aria-labelledby="cu-verlauf">
           <div className={mixStyles.ph}><h2 className={mixStyles.h} id="cu-verlauf">Verlauf</h2></div>
           {timeline.length === 0 ? <EmptyState level={3} size="compact" className={s.empty} title="Noch keine Buchungen.">Buchungen und Einlösungen dieser Karte erscheinen hier.</EmptyState>
             : days.map(([day, entries]) => <div key={day} role="group" aria-label={day}>
               <p className={s.day} aria-hidden="true">{day}</p>
-              {entries.map(entry => <Statement key={entry.id} entry={entry} kind={kind} timeline={timeline}
+              {entries.map(entry => <Statement key={entry.id} entry={entry} kind={kind} timeline={timeline} zone={zone}
                 onCorrect={canAct && correctable(entry) ? () => openStep(`correct:${entry.id}`) : undefined} />)}
             </div>)}
           {olderError && <div className={s.olderError}><ErrorNotice message={olderError} onRetry={() => void loadOlder()} /></div>}
           {nextCursor && <button type="button" className={cx(mixStyles.more, s.more)} onClick={() => void loadOlder()} disabled={olderBusy}>{olderBusy ? "Wird geladen …" : "Ältere Vorgänge laden"}</button>}
         </section>
         <MixPanel className={s.details} head={<h2 className={mixStyles.h}>Details</h2>}>
-          {details.map(([label, value]) => <div key={label} className={mixStyles.row}><div className={mixStyles.body}><span className={s.key}>{label}</span><span className={s.value}>{value}</span></div></div>)}
+          {details.map(([label, value]) => <div key={label} className={mixStyles.row}><div className={`${mixStyles.body} ${s.pair}`}><span className={s.key}>{label}</span><span className={s.value}>{value}</span></div></div>)}
         </MixPanel>
         {!member.closedAt && (canAct
           ? <MixPanel className={s.action}><button type="button" className={cx(mixStyles.row, s.rowButton)} data-lead="tile" onClick={() => openStep("reissue")}>
@@ -188,19 +190,19 @@ function Fact({ value, label }: { value: string; label: string }) {
 }
 
 const KIND = { award: "Gutschrift", redeem: "Einlösung", expiry: "Verfallen", reversal: "Korrektur" } as const;
-const time = (at: string) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date(at));
+const time = (at: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(at));
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${nf.format(Math.abs(n))}`;
 
 /**
  * One statement line (D): tile, what happened, its time and source, the amount at the right with „Korrigieren“ under it
  * (beside it from 600). A correction hangs from its first line and says what it undoes and why.
  */
-function Statement({ entry, kind, timeline, onCorrect }: { entry: Entry; kind: MerchantMember["programType"]; timeline: Entry[]; onCorrect?: () => void }) {
+function Statement({ entry, kind, timeline, zone, onCorrect }: { entry: Entry; kind: MerchantMember["programType"]; timeline: Entry[]; zone: string; onCorrect?: () => void }) {
   const reversal = entry.kind === "reversal", redeem = entry.kind === "redeem";
   const original = reversal && entry.reversalOfId ? timeline.find(item => item.id === entry.reversalOfId) : undefined;
   const subs = reversal
-    ? [time(entry.createdAt), entry.reversalOfId ? (original ? `Hebt die ${KIND[original.kind]} vom ${germanDate(original.createdAt, "feed")} auf.` : "Hebt einen älteren Vorgang auf.") : null, entry.reason ? `Grund: ${entry.reason}` : null]
-    : [`${time(entry.createdAt)} · ${sourceLabel(entry.source)}`];
+    ? [time(entry.createdAt, zone), entry.reversalOfId ? (original ? `Hebt die ${KIND[original.kind]} vom ${germanDate(original.createdAt, "feed", { timeZone: zone })} auf.` : "Hebt einen älteren Vorgang auf.") : null, entry.reason ? `Grund: ${entry.reason}` : null]
+    : [`${time(entry.createdAt, zone)} · ${sourceLabel(entry.source)}`];
   const tone = redeem ? "coral" : reversal || entry.kind === "expiry" || entry.reversed ? "mute" : undefined;
   const Icon = redeem ? Gift : reversal ? Undo2 : entry.kind === "expiry" ? Hourglass : Check;
   return <div className={cx(mixStyles.row, s.stmt)} data-lead="tile" data-entry={entry.kind} data-hang={reversal || undefined}>
@@ -217,14 +219,13 @@ function Statement({ entry, kind, timeline, onCorrect }: { entry: Entry; kind: M
   </div>;
 }
 
-const sinceDate = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Berlin" });
-/** The statement's day: „Heute“, „Gestern“ or „Donnerstag, 12.11.“, on the viewer's clock as the feed times. */
-export function dayLabel(at: string, today = new Date()) {
-  const date = new Date(at), key = (d: Date) => d.toDateString(), yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (key(date) === key(today)) return "Heute";
-  if (key(date) === key(yesterday)) return "Gestern";
-  return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" }).format(date);
+const sinceDate = (at: string, timeZone: string) => new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", year: "numeric", timeZone }).format(new Date(at));
+/** The statement's day: „Heute“, „Gestern“ or „Donnerstag, 12.11.“, on the shop's clock (time-zone rule, 22 Nov). */
+export function dayLabel(at: string, today = new Date(), timeZone = BERLIN) {
+  const days = daysBetween(zoneDay(at, timeZone), zoneDay(today, timeZone));
+  if (days === 0) return "Heute";
+  if (days === 1) return "Gestern";
+  return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone }).format(new Date(at));
 }
 
 /** Back to the list the card came from, and the card number as the heading (a placeholder while it loads). */

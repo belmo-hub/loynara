@@ -210,10 +210,10 @@ export function ProgramList({ me }: { me: MeResponse }) {
   }) : null;
   const section = (title: string) => {
     const found = sections?.find(item => item.title === title);
-    return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel>{found.rows.map(({ icon: Icon, ...row }) =>
+    return found && <div className={styles[AREA[title]]}><MixSection title={title} note={found.note}><MixPanel wrapEnd>{found.rows.map(({ icon: Icon, ...row }) =>
       <MixRow key={row.href} href={row.href} icon={<Icon size={20} />} sub={row.sub && row.href === "/merchant/program/rule" ? <span className={styles.clamp}>{row.sub}</span> : row.sub}
         title={<>{row.title}{row.pending && <span className="ow-chip ow-chip--warn"><CalendarClock size={16} aria-hidden="true" />{row.pending}</span>}<LinkPending /></>}
-        end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} />)}</MixPanel></MixSection></div>;
+        end={row.value ? <span className={cx(mixStyles.val, !row.off && styles.on)}>{row.value}</span> : undefined} wrapEnd />)}</MixPanel></MixSection></div>;
   };
   const reward = program.state === "ok" ? program.data.rewards[0] : undefined;
   return (

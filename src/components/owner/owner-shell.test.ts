@@ -23,8 +23,10 @@ describe("the owner shell before /api/me has answered", () => {
   it("uses the role the server read, so a manager never sees the owner-only areas flash up (ENG-184)", () => {
     state.role = "manager";
     expect(html()).not.toContain("Aktionen");
-    expect(html()).not.toContain("Einstellungen");
     expect(html()).not.toContain("/merchant/actions");
+    // Einstellungen (Konto) is in the sidebar for managers (CTO, 23 Nov), never as a second phone tab beside „Mehr“.
+    expect(html()).toContain(">Einstellungen</a></nav>");
+    expect((html().match(/class="ow-tab"[^>]*href="\/merchant\/more"/g) ?? []).length).toBe(1);
     state.role = "owner";
     expect(html()).toContain("Aktionen");
     expect(html()).toContain("Einstellungen");

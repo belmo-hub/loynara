@@ -7,7 +7,7 @@ import { Notice } from "./owner-ui";
 
 const IDLE = "E-Mail erneut senden";
 // U+2011 (non-breaking hyphen) keeps „E‑Mail“ and „Spam‑Ordner“ whole in the narrow action column.
-const OUTCOME = {
+export const OUTCOME = {
   sent: "Wir haben dir eine neue E‑Mail geschickt. Schau auch im Spam‑Ordner nach.",
   limited: "Zu viele Versuche. Warte bitte etwas und versuche es erneut.",
   failed: "Die E‑Mail konnte gerade nicht verschickt werden. Versuche es später erneut.",
@@ -46,7 +46,7 @@ export function VerifyEmailNotice({ email }: { email: string }) {
       <p role="status" className="ow-verify-status" data-tone={state === "limited" || state === "failed" ? "danger" : undefined}>{state in OUTCOME ? OUTCOME[state as keyof typeof OUTCOME] : null}</p>
     </>}>
       <div className="ow-verify-text">
-        <strong>Bestätige deine E-Mail-Adresse.</strong>
+        <strong>Bestätige deine E‑Mail-Adresse.</strong>
         {expired
           ? <p>{linkError(error ?? "")}</p>
           : <p>Wir haben dir einen Link an {address} geschickt.{full && " Erst nach der Bestätigung bekommst du E‑Mails zu deinem Geschäft, zum Beispiel den Wochenbericht."}</p>}

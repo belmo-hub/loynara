@@ -73,7 +73,8 @@ describe("colour helpers", () => {
 describe("navigation", () => {
   it("has five destinations for owners and hides owner-only areas from managers", () => {
     expect(visibleGroups("owner").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Aktionen", "Einstellungen"]);
-    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden"]);
+    // Managers reach Konto on a computer through „Einstellungen“ (CTO, 23 Nov); the page shows them only Konto.
+    expect(visibleGroups("manager").map(group => group.label)).toEqual(["Übersicht", "Programm", "Kunden", "Einstellungen"]);
   });
   it("marks the current tab by more than colour: a 56×32 neutral pill behind a 2.5 icon, 800 (I-10, ENG-138)", () => {
     const rules = cssDeclarations(readFileSync(join(__dirname, "owner.css"), "utf8"));
@@ -90,7 +91,7 @@ describe("navigation", () => {
     for (const url of urls) expect(activeGroup(url, "owner"), url).toBeDefined();
   });
   it("links each destination to a page its role can open", () => {
-    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers"]).toContain(groupHref(group, "manager"));
+    for (const group of visibleGroups("manager")) expect(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/more"]).toContain(groupHref(group, "manager"));
   });
 });
 

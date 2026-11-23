@@ -4,14 +4,14 @@
 /* Page rhythm: shell to greeting 32, greeting to the first block 24; gutters 16, 24 from 600, 40 from 1024. */
 :global(.ow-page).page { display: block; max-width: 1180px; margin-inline: auto; padding: var(--space-8) var(--space-4) 0; }
 :global(.ow-page).page > :global(.ow-dash-notice):not(:empty) { margin-bottom: var(--space-6); }
-.page > .hello.hello { margin: 0 0 var(--space-6); font-size: var(--text-28); line-height: 34px; }
+.page > .hello.hello { margin: 0 0 var(--space-6); font-size: var(--text-28); line-height: 2.125rem; }
 @media (min-width: 600px) { :global(.ow-page).page { padding: var(--space-10) var(--space-6) 0; } }
-@media (min-width: 1024px) { :global(.ow-page).page { padding-inline: var(--space-10); } .page > .hello.hello { font-size: var(--display-36); line-height: 40px; } }
+@media (min-width: 1024px) { :global(.ow-page).page { padding-inline: var(--space-10); } .page > .hello.hello { font-size: var(--display-36); line-height: 2.5rem; } }
 
 /* Type the mix system leaves to the page: the figure 40/44 and a figure in a row 22/28. */
-.fig { font-size: var(--display-tile); line-height: 44px; font-weight: var(--weight-heavy); letter-spacing: -.025em; }
+.fig { font-size: var(--display-tile); line-height: 2.75rem; font-weight: var(--weight-heavy); letter-spacing: -.025em; }
 .fig.fig + * { margin-top: var(--space-1); } /* beats `.owner-app p { margin: 0 }` */
-.num { font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-heavy); white-space: nowrap; }
+.num { font-size: var(--text-22); line-height: 1.75rem; font-weight: var(--weight-heavy); white-space: nowrap; }
 .num[data-none] { color: var(--color-ink-muted); }
 [data-fact] .num { order: 1; }
 /* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it: a 44 target that
@@ -26,7 +26,7 @@
 .line.line > button[data-link]:focus-visible { outline: none; }
 .line.line > button[data-link]:focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
 .facts [data-fact] svg { order: 2; }
-.kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* „Als Nächstes“: a row hangs from its first line, its action under the sentence; the milestone's tile stands in the
    middle of the thumbnail's column. From 600 each row is one line with its action at the end (F at 880 and 1440). */
@@ -37,7 +37,7 @@
 .line { display: grid; justify-items: start; flex: 1; min-width: 0; }
 .line > span { display: grid; }
 .line b { font-weight: var(--weight-strong); text-wrap: pretty; }
-.line small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.line small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .line > :not(:first-child, [data-link]) { margin-top: var(--space-3); }
 /* Below 600 the step's button stands under its text and may take two lines, never wider than the panel. */
 @media (max-width: 599px) {
@@ -53,6 +53,7 @@
 .line.line > button[data-link]:active, .help:active { transform: scale(.97); }
 .thumb { display: flex; flex: none; }
 .signError { margin: 0; }
+.signError:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; } /* the waiting status takes no room */
 /* The panel's slot while its reads load: a flat block of the panel with both rows (the loaded picture's size). */
 .nextPh { display: block; height: 255px; border-radius: var(--radius-lg); }
 @media (min-width: 600px) { .nextPh { height: 199px; } }
@@ -73,7 +74,7 @@
 /* The bookings panel and C's week chart: faint lines at half and full height, thin opaque bars, yesterday in ink,
    a 2 px stub for a day without bookings, the best day reaching the top line with its value over it. */
 .week { display: grid; gap: var(--space-3); margin-top: var(--space-1); }
-.legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .legend > span { display: flex; align-items: center; gap: var(--space-2); }
 .legend i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 2px; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
 .legend i[data-lit] { background: var(--color-ink); }
@@ -82,7 +83,7 @@
 /* The empty shop's days to come: no scale, the bar and the 40 over it (live EmptyStrip). */
 .chart[data-empty] { height: 76px; background: none; }
 .day { position: relative; display: grid; justify-items: center; align-content: end; gap: var(--space-1); height: 100%; min-width: 0; }
-.day > b { font-size: var(--text-14); line-height: 16px; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.day > b { font-size: var(--text-14); line-height: 1rem; font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .bar { --h: calc(var(--v, 0) * (100cqh + 1px - var(--space-6))); /* cqh is inside the 1 px baseline */ height: var(--h); height: round(var(--h), 1px); width: 20px; border-radius: var(--space-1) var(--space-1) 0 0; background: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface)); }
 .bar[data-lit] { background: var(--color-ink); }
 .bar[data-zero] { height: 2px; border-radius: 1px; background: color-mix(in oklab, var(--color-ink) 50%, var(--color-surface)); }
@@ -92,7 +93,7 @@
 /* ENG-210, with the weekly line: this week's other days muted, a hairline before Monday. */
 .chart[data-week] .bar:not([data-lit], [data-today], [data-zero]) { background: var(--color-line-strong); }
 .day[data-week-start]::before { content: ""; position: absolute; inset-block: 0; left: 0; width: 1px; background: var(--color-line-strong); }
-.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: var(--space-2); text-align: center; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); white-space: nowrap; }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: var(--space-2); text-align: center; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); white-space: nowrap; }
 .days > [data-yesterday] { color: var(--color-ink); font-weight: var(--weight-strong); }
 /* Phone columns are about 45 px: the empty week's bold „gestern“ is 53 at 14 and fits at 12; the line stays 20. */
 @media (max-width: 599px) { .chart[data-empty] + .days { font-size: var(--text-12); } }
@@ -113,15 +114,15 @@
   .day > b { position: relative; padding-inline: 2px; background: Canvas; }
 }
 .foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
-.book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 44px; }
+.book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 2.75rem; }
 .book :global(.ow-week-line) { color: var(--color-ink); }
 
 /* „Vorschlag“: the whole panel is the link; the kicker in green with its small arrow on the inset. */
 .sug { color: inherit; text-decoration: none; align-content: start; }
 .sug .kicker { color: var(--color-action); }
 .sug .kicker > svg:last-child { margin-left: auto; }
-.sug b { display: block; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); }
-.sug b + small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.sug b { display: block; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
+.sug b + small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .sug:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* The whole panel is the link: it presses like a row and underlines its title under a fine pointer. */
 .sug { transition: transform var(--dur-press) var(--ease-out); }
@@ -133,7 +134,7 @@
 .help.help.help:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-pill); }
 .helpText h3 { margin: 0; font-size: var(--text-16); }
 .helpText p { margin: 0 0 var(--space-4); }
-.offline { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); }
+.offline { margin: 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 .chip { margin-left: var(--space-2); }
 
 /* From 1024, C's tile grid: the bookings over two of three columns and two rows, the figures and „Vorschlag“ beside
@@ -161,7 +162,7 @@
   .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
   .diary > [data-day] > :last-child { min-height: var(--mix-row); }
   .diary [data-day] > :last-child > :first-child { grid-template-columns: 200px minmax(0, 1fr); column-gap: var(--space-4); align-items: baseline; }
-  .diary [data-day] > :last-child > :first-child > small { font-size: var(--text-16); line-height: 24px; }
+  .diary [data-day] > :last-child > :first-child > small { font-size: var(--text-16); line-height: 1.5rem; }
 }
 /* In dark full ink would be the brightest block on the screen (Design, 30 Oct; as the live strip). */
 :global(.ly-theme-dark) .bar[data-lit], :global(.ly-theme-dark) .legend i[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
@@ -179,11 +180,11 @@
 .ghost > * { visibility: hidden; }
 .foot.foot[data-sk] { border-top-color: transparent; }
 /* Empty: „1 von 3“ as the board's count; open steps an empty ring; „Pflicht“ on its own line under the title. */
-.fig > small { margin-left: var(--space-2); font-size: var(--text-22); line-height: 28px; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--color-ink-muted); }
+.fig > small { margin-left: var(--space-2); font-size: var(--text-22); line-height: 1.75rem; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--color-ink-muted); }
 .ring { flex: none; width: var(--mix-tile); height: var(--mix-tile); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); }
 .steps [data-day] > :last-child > :first-child > span:not(:first-child) { margin-block: calc(var(--space-1) / 2) var(--space-1); }
 /* Error: the retry is the small quiet button. */
-.sm.sm { padding-inline: var(--space-4); font-size: var(--text-14); line-height: 20px; }
+.sm.sm { padding-inline: var(--space-4); font-size: var(--text-14); line-height: 1.25rem; }
 @media (min-width: 1024px) {
   .steps { align-self: start; } /* beside the board, as the figure rows stand; it ends at its last step */
   .off { padding-top: var(--space-5); }

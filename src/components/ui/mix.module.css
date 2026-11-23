@@ -6,21 +6,21 @@
 .stack > .sec:not(:first-child) { margin-top: calc(var(--space-8) - var(--space-4)); }
 .sec > .h, .sec > .secHead { margin-bottom: calc(var(--space-3) - var(--space-4)); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+.note { margin: calc(var(--space-3) - var(--space-4)) 0 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 /* A note under a full-width panel keeps a reading measure from 600 (two lines of about 70 characters). */
 @media (min-width: 600px) { .note { max-width: 640px; } }
 
 /* Type roles. */
-.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 26px; font-weight: var(--weight-heavy); text-wrap: balance; }
+.h { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); text-wrap: balance; }
 /* A title in a padded panel fills its first line, so a hyphenated compound stays whole. */
 .pad .h { text-wrap: wrap; }
 .h > svg { color: var(--color-action); }
-.kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
-.sub { margin: 0; font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+.kicker { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
+.sub { margin: 0; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .h + .sub { margin-top: var(--space-1); }
 /* Inside the owner app, `.owner-app :is(h1, h2, h3)` (one class and a tag) sets every heading's line height, weight and
    colour; a mix title or kicker that is a heading keeps its own. Non-mix owner headings are untouched. */
-:global(.owner-app) .h { line-height: 26px; }
+:global(.owner-app) .h { line-height: 1.625rem; }
 :global(.owner-app) .kicker { font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* The panel (ruling 2): white, 1 px line, radius 20, no shadow. Rows bring their own inset; .pad is for free content.
@@ -42,8 +42,27 @@
 .row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
 .text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
-.text > small { font-size: var(--text-14); line-height: 20px; color: var(--color-ink-muted); text-wrap: pretty; }
+/* A title word wider than its row („Programmregeln“ at 320/200) breaks inside it, not under the chevron. wrapEnd panels
+   (Programm) have their own large-text rule and keep their 100 % layout. */
+.panel:not([data-wrap-end]) .text > b { overflow-wrap: anywhere; hyphens: auto; hyphenate-limit-chars: 12 5 5; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; } /* only long words hyphenate („Programm- / regeln“) */
+.text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
+/* `wrapEnd` panels, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): a row's
+   words take at least 8em, so its value (with the chevron, as one unit) goes under them once they no longer fit beside
+   it, instead of over the words. A title word wider than the whole row hyphenates; sub lines break at words. The container is the panel, not the row: a
+   <button> row (the Kasse's rewards) cannot be one in Chrome. */
+.panel[data-wrap-end] { container: mix-row / inline-size; }
+.end { display: flex; flex: none; align-items: center; gap: var(--space-3); }
+@container mix-row (max-width: 15em) {
+  .body { flex-wrap: wrap; }
+  .body:not(:has(.val)) { flex-wrap: nowrap; } /* a chevron with no value stays beside the words, never alone on a line */
+  .text { flex: 1 1 8em; min-width: 0; hyphens: manual; overflow-wrap: break-word; } /* sub lines keep their words whole */
+  .text > small { overflow-wrap: anywhere; } /* a sub-line word wider than the row („Umsatzschätzung“ at 320/200) breaks inside it, not past it */
+  /* Only a long title word hyphenates, never into stubs („Startbo-nus“): 12 letters, 5 before and after a break; WebKit
+     has no word length, so 6 before and after keeps a 10-letter word („hinzufügen“) whole there. */
+  .text > b { hyphens: auto; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; hyphenate-limit-chars: 12 5 5; }
+  .text + * { margin-left: auto; }
+}
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
 .chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
 .more { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row-2); margin-top: var(--space-2); border-top: 1px solid var(--color-line); color: var(--color-action); font-weight: var(--weight-strong); text-decoration: none; }
@@ -57,18 +76,18 @@
 @media (prefers-color-scheme: dark) { :global(.ly-theme-auto) .tile[data-tone="mute"] { background: var(--color-raised); } }
 
 /* Chips. */
-.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); height: 24px; padding: 0 calc(var(--space-2) - 1px); border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); white-space: nowrap; }
+.chip { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); min-height: 24px; padding: 0 calc(var(--space-2) - 1px); border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-fill); color: var(--color-ink-muted); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); white-space: nowrap; }
 .warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }
 
 /* Buttons: 44 high (.lg 52), the primary filled green, the quiet one outlined. */
-.btn { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: var(--space-2); height: var(--target); padding: 0 var(--space-5); border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; text-decoration: none; cursor: pointer; }
+.btn { display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: var(--space-2); min-width: 0; min-height: var(--target); padding: var(--space-1) var(--space-5); border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); text-align: center; overflow-wrap: break-word; text-decoration: none; cursor: pointer; } /* one line at 100 %; a label that no longer fits wraps under large text */
 .btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .primary { background: var(--color-action); color: var(--color-on-action); }
 .quiet { border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-ink); }
 .lg { height: var(--mix-row); padding: 0 var(--space-6); }
 .block { display: flex; width: 100%; }
 /* The underlined ink link beside a title or in a row; 44 tall without pushing the row apart. */
-.link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 20px; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.link { display: inline-flex; flex: 0 1 auto; max-width: 100%; overflow-wrap: break-word; align-items: center; min-height: var(--target); margin: max(-1 * var(--space-3), (1.25rem - var(--target)) / 2) 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; text-align: start; } /* the target reaches 12 into the gap at 100 %, less once the text fills it (large text) */
 
 /* Feedback (DESIGN.md › Motion, press): buttons press to .97, rows and the closing row to .985; hover fills only with a
    fine pointer. The panel's overflow would clip the house ring, so a row's ring is drawn inside it. */

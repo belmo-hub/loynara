@@ -159,7 +159,7 @@ export function CustomerCard(props: CustomerCardProps) {
   const hasRules = Boolean(rulesText || pointsExpiry || challenge || level);
   const activityRow = (item: CardActivity) => <ActivityRow key={item.id} late={!arriving}>
     <MixTile tone={item.change < 0 ? "mute" : undefined}>{item.change < 0 ? <Minus size={20} /> : <Check size={20} />}</MixTile>
-    <span className={mix.body}><span className={mix.text}><b>{item.label}</b><small className={styles.activityDay}>{item.date}</small></span>
+    <span className={`${mix.body} ${styles.activityBody}`}><span className={mix.text}><b>{item.label}</b><small className={styles.activityDay}>{item.date}</small></span>
       <span className={styles.amount} data-sign={item.change < 0 ? "minus" : undefined}><b>{item.change > 0 ? "+" : ""}{item.change}</b> <small>{t.unit(item.change, programType)}</small></span></span>
   </ActivityRow>;
 
@@ -184,7 +184,7 @@ export function CustomerCard(props: CustomerCardProps) {
       </div>
 
       <section className={`customer-qr-panel ${mix.panel} ${mix.pad} ${styles.ticket}`} aria-label={t.codeHeading}>
-        {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} priority /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
+        {qrSrc ? <div className={`customer-qr ${styles.qr}`}><Image unoptimized src={qrSrc} alt={t.qrAlt} width={220} height={220} loading="eager" fetchPriority="high" /></div> : <p className={styles.missingQr}>{t.missingQr}</p>}
         {cardLocator ? <p className={`customer-card-number ${styles.locator}`}><span>{t.cardNumber}</span><strong translate="no">{cardLocator}</strong><small>{toldReady > 0 ? t.showToRedeem : t.cardNumberHint}</small></p> : null}
       </section>
 
@@ -299,7 +299,7 @@ function GuestMixCard({ landed, landedCount = 1, className, ...card }: Component
   // linear, over the new card at full opacity, so a stamp that stays earned keeps its pixels. The card's height eases to
   // the new one as the ready band's slot does, its shadow on the growing edge, and the foot slides down with that edge,
   // so no word stands in two places and what is below slides. Reduced motion keeps the cut.
-  const shown = useRef<{ id: string; html: string; height: number; stampsEnd: number; footTop: number } | null>(null);
+  const shown = useRef<{ id: string; face: HTMLElement; height: number; stampsEnd: number; footTop: number } | null>(null);
   const parts = (card: HTMLElement) => {
     const stamps = card.querySelector<HTMLElement>('[role="img"]');
     return { stamps, count: card.querySelector<HTMLElement>("[data-figure]")?.closest<HTMLElement>("div") ?? null, foot: stamps?.nextElementSibling as HTMLElement | null | undefined };
@@ -317,7 +317,7 @@ function GuestMixCard({ landed, landedCount = 1, className, ...card }: Component
     const ease = root.getPropertyValue("--ease-out").trim() || "ease-out";
     // The old card as a hidden frame that shows only its stamps and count, clipped to the stamp area.
     const old = document.createElement("div");
-    old.innerHTML = before.html;
+    old.append(before.face.cloneNode(true)); // a copy of the kept copy: the effect may run twice
     for (const node of old.querySelectorAll<HTMLElement>("*")) { node.removeAttribute("id"); node.removeAttribute("data-new"); node.style.animation = "none"; }
     const frame = old.firstElementChild as HTMLElement, then = parts(frame);
     Object.assign(frame.style, { visibility: "hidden", background: "none", boxShadow: "none" });
@@ -342,7 +342,8 @@ function GuestMixCard({ landed, landedCount = 1, className, ...card }: Component
     const face = ref.current?.firstElementChild as HTMLElement | null | undefined;
     if (!face) return;
     const { stamps, foot } = parts(face);
-    shown.current = { id: goalId, html: face.outerHTML, height: face.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
+    // A DOM copy, not outerHTML: no HTML string is parsed back (no string-to-DOM sink for the shop's own words).
+    shown.current = { id: goalId, face: face.cloneNode(true) as HTMLElement, height: face.offsetHeight, stampsEnd: stamps ? stamps.offsetTop + stamps.offsetHeight : 0, footTop: foot?.offsetTop ?? 0 };
   });
   return <div ref={ref} className={className}><MixCard {...card} landedFrom={landed === undefined ? undefined : landed - landedCount} /></div>;
 }

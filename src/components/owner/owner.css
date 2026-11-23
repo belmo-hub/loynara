@@ -24,7 +24,7 @@
 .owner-app :is(p, .ow-hint, .ow-notice, .ow-prog-note, small) { text-wrap: pretty; }
 .owner-app small { font-size: var(--text-14); } /* browsers shrink <small> to 12.8 px */
 /* Disclosure rows are tap targets too (marker kept: display stays list-item). */
-.owner-app summary { min-height: 44px; padding-block: 10px; line-height: 24px; cursor: pointer; }
+.owner-app summary { min-height: 44px; padding-block: 10px; line-height: 1.5rem; cursor: pointer; }
 
 /* Shell */
 .ow-shell { display: grid; grid-template-columns: var(--ow-sidebar) minmax(0, 1fr); min-height: 100vh; }
@@ -94,8 +94,9 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-topbar-loc strong { font-size: var(--text-16); font-weight: var(--weight-heavy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-topbar-loc span { font-size: var(--text-14); font-weight: var(--weight-body); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ow-subnav { top: 56px; }
-  html:has(.ow-topbar) { scroll-padding-top: 56px; }
-  html:has(.ow-subnav) { scroll-padding-top: 105px; }
+  /* --ow-topbar is the bar's height while it sticks, 0 while it scrolls with the page (owner-shell watches it). */
+  html:has(.ow-topbar) { scroll-padding-top: var(--ow-topbar, 56px); }
+  html:has(.ow-subnav) { scroll-padding-top: calc(var(--ow-topbar, 56px) + 49px); }
   .ow-subnav-inner { padding-inline: var(--space-3); }
 }
 @keyframes ow-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -118,6 +119,19 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 /* The bars stay: each is captured on its own layer above the screens and shows its new state at once, without the
    browser's own crossfade. */
 .ow-topbar { view-transition-name: ow-topbar; }
+/* Under large text only (the shell narrower than 19.5 of its own em; at 100 % no phone is): the top bar scrolls with the
+   page, the shop and place wrap instead of ending in „…“, „Kasse“ keeps its icon and a hidden name, and the sub-pages
+   wrap instead of scrolling sideways (Design, #348). */
+@media (max-width: 1023px) { .ow-shell { container: ow-shell / inline-size; } }
+@container ow-shell (max-width: 19.5em) {
+  .ow-topbar { position: static; }
+  .ow-topbar-loc strong, .ow-topbar-loc span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; hyphens: auto; }
+  .owner-app .ow-hello { overflow-wrap: anywhere; hyphens: auto; } /* the greeting breaks only here; at 100 % „Synthetische Pizzeria“ stays whole */
+  .ow-topbar-kasse { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .ow-subnav { top: 0; }
+  .ow-subnav-inner { flex-wrap: wrap; overflow-x: visible; }
+  .ow-subnav .ow-subnav-inner, .ow-subnav .ow-subnav-inner[data-start][data-end] { mask-image: none; } /* nothing scrolls, so no edge fades */
+}
 .ow-subnav { view-transition-name: ow-subnav; }
 .ow-tabs { view-transition-name: ow-tabs; }
 ::view-transition-group(ow-topbar), ::view-transition-group(ow-subnav), ::view-transition-group(ow-tabs) { z-index: var(--z-nav); animation: none; }
@@ -189,8 +203,11 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
     padding: var(--space-1) 0 calc(var(--space-1) + env(safe-area-inset-bottom)); background: var(--color-raised); border-top: 1px solid var(--color-line);
   }
   .ow-tab {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
-    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: var(--text-14); font-weight: var(--weight-label); line-height: 1.1;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--space-1); min-width: 0; min-height: 56px; padding: 0;
+    /* Top-aligned so the icons stay in one row when a label wraps under large text; at the default size the top
+       padding is exactly what centring gave (56 − icon 32 − gap − label line, halved). */
+    padding-top: max(0px, calc((56px - 32px - var(--space-1) - 1.34em) / 2));
+    border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-muted); font: inherit; font-size: min(var(--text-14), 20px); font-weight: var(--weight-label); line-height: 1.1;
     text-align: center; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   }
@@ -200,14 +217,18 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"], .ow-tab[data-pending] { color: var(--color-ink); font-weight: var(--weight-heavy); }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] .ow-tab-icon, .ow-tab[data-pending] .ow-tab-icon { background: var(--color-fill); }
   .ow-tabs:not(:has([data-pending])) .ow-tab[aria-current="page"] svg, .ow-tab[data-pending] svg { stroke-width: 2.5; }
-  /* Under text scaling a label ends in an ellipsis instead of running into its neighbour. */
-  /* 1.34 (the 12/16 token) leaves room for descenders: WebKit clips the „g“ of „Programm“ at 1.1 under overflow: hidden. */
-  .ow-tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.34; }
+  /* Under large text a label wraps to a second line (hyphenated, never into its neighbour) instead of ending in „…“
+     (Design R1, 23 Nov); at the default size every label stays on one line. 1.34 (the 12/16 token) leaves room for
+     descenders: WebKit clips the „g“ of „Programm“ at 1.1. */
+  .ow-tab-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; hyphens: auto; line-height: 1.34; }
+  /* Tab labels stop growing at the 150 % size, as tab bars do: „Pro- / gramm“, never three lines (Design, #348). */
+  .ow-tab-label { font-size: min(1em, 18px); }
   /* No side padding: the ring sits inside the tab so it neither cuts the next label nor touches the screen edge. */
   .owner-app .ow-tab:focus-visible { outline-offset: -2px; }
   .ow-tab:active { transform: scale(.97); }
   /* „Programm“ at 800 needs a cell of about 84 px at 14 px; below 420 a fifth of the screen is narrower (Design ruling 1). */
-  @media (max-width: 419px) { .ow-tab { font-size: var(--text-12); } }
+  /* The label's size is capped, so „Programm“ never ends in a lone „m“ under large text (Design r2). */
+  @media (max-width: 419px) { .ow-tab { font-size: min(var(--text-12), 20px); } }
   .ow-topbar .ow-btn--sm { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ow-tab, .ow-btn { transition: none; } .ow-tab:active, .ow-btn:active:not(:disabled) { transform: none; } }
@@ -216,6 +237,7 @@ html:has(.ow-subnav) { scroll-padding-top: 49px; }
 .ow-page { max-width: 1120px; margin-inline: auto; padding: var(--space-8) var(--space-6) 0; display: flex; flex-direction: column; gap: var(--space-4); }
 @media (max-width: 640px) { .ow-page { padding: var(--space-6) var(--space-4) 0; } }
 .ow-pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.ow-pagehead > h1 { min-width: 0; } /* the title may break instead of widening the page under large text */
 /* Page head to the first block is 24 on every page (SF-7): the page's 16 gap plus 8 under the head. */
 .ow-page > .ow-pagehead { margin-bottom: var(--space-2); }
 .ow-pagehead h1 { font-family: var(--font-display); font-size: var(--text-28); font-weight: var(--weight-heavy); line-height: 1.15; letter-spacing: -.025em; text-wrap: balance; hyphens: manual; overflow-wrap: break-word; }
@@ -591,6 +613,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 
 /* Icon+label segmented buttons */
 .ow-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+/* Under large text a choice hyphenates inside its third instead of running past the screen (Design R1). */
+.ow-seg button { min-width: 0; overflow-wrap: anywhere; hyphens: auto; } /* anywhere: where the browser has no German hyphenation, „Geschlossen“ still breaks inside its button */
 /* On phones toggle groups fill the width with equal segments on one row: a two-word label wraps inside its segment,
    a segment never gets narrower than its longest word, and the group only wraps when even the longest words don't fit. */
 @media (max-width: 640px) {
@@ -632,6 +656,8 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 .ow-prog-text { flex: 1 1 0; max-width: 100%; overflow-wrap: break-word; }
 .ow-prog-text strong { display: block; font-weight: var(--weight-strong); line-height: 1.35; }
 .ow-prog-text small { display: block; margin-top: var(--space-1); color: var(--color-ink-muted); line-height: 1.4; }
+.ow-prog-sub { animation: ow-fade var(--dur-ui) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .ow-prog-sub { animation: none; } }
 .ow-prog-value { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ow-prog-value[data-off] { color: var(--color-ink-muted); }
 .ow-prog-value[data-big] { font-size: var(--text-28); font-weight: var(--weight-heavy); letter-spacing: -.03em; line-height: 1; }
@@ -641,6 +667,27 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
 .ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
+/* An outcome under a panel (Rows noteTone): the icon on the first line, then the words (Design, #349 round 2). */
+.ow-prog .ow-prog-outcome { display: flex; align-items: flex-start; gap: var(--space-2); }
+.ow-prog .ow-prog-outcome > svg { flex: none; height: 1lh; }
+.ow-prog .ow-prog-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); scroll-margin-bottom: calc(var(--ow-tabbar, 0px) + var(--space-4)); }
+/* A row that ends in its own button keeps no space for the arrow the other rows have. */
+.ow-prog ul div.ow-prog-row[data-ends="button"]::after { display: none; }
+/* Holds a row's place until its list answers, so the group does not jump. */
+.ow-prog-row[data-placeholder] > * { visibility: hidden; }
+/* Busy: the row's icon turns into a spinner once the action has waited 300 ms (passkey-rows.tsx sets it then). */
+.ow-spinner { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: ow-spin 700ms linear infinite; }
+@keyframes ow-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ow-spinner { animation-duration: 2s !important; animation-iteration-count: infinite !important; } }
+/* Row add and remove (Design R3, 23 Nov): a row added in place opens by its height (0fr → 1fr) and fades in over
+   --dur-ui; a removed one fades over --dur-press while its height closes over 160 ms. Instant under reduced motion. */
+.ow-rowfold { display: grid; grid-template-rows: 1fr; opacity: 1; }
+.ow-rowfold > * { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .ow-rowfold { transition: grid-template-rows var(--dur-ui) var(--ease-out), opacity var(--dur-ui) var(--ease-out); }
+  @starting-style { .ow-rowfold[data-added] { grid-template-rows: 0fr; opacity: 0; } }
+}
+.ow-rowfold[data-closing] { grid-template-rows: 0fr; opacity: 0; transition-duration: 160ms, var(--dur-press); }
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .ow-prog-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
@@ -1104,6 +1151,8 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog-text { flex: 1 1 min-content; min-width: 0; }
 .ow-prog-text strong { overflow-wrap: break-word; }
 .ow-prog-text small { overflow-wrap: anywhere; }
+/* A passkey row's date keeps whole words, so the house value rule can put „Entfernen“ under it (Design r5). */
+.ow-prog-row[data-ends=button] .ow-prog-text small { overflow-wrap: break-word; }
 /* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
 .owner-app .ow-rows-head > h2 { margin: 0; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
@@ -1289,7 +1338,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
      at once, and its bars do not grow again. Nor do the bars of a new period (data-switched): they would grow from 0,
      not from the value before. */
   .ow-content [data-swap] { animation: ow-swap var(--dur-ui) var(--ease-out) backwards; }
-  .ow-content [data-return]:is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
+  .ow-content [data-return]:is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice), .ow-content [data-swap] .ow-error[data-first-paint], .ow-content [data-return] .ow-error, .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
   /* The rows of a block that arrives come with their block. */
   .ow-content [data-arrive]:is(li, tr, .ow-goal, .ow-day), .ow-content [data-arrive] :is(li, tr, .ow-goal, .ow-day) { animation: none; }
   /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
@@ -1303,7 +1352,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
   /* Field error and notices: a message that appears fades in and settles 4 px down; the field's border changes with it. */
-  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span, .ow-prog-outcome, .ow-prog-step { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
   /* The shop search's suggestions open like a menu, from their top edge. */
   .ow-options:not([hidden]) { transform-origin: top; animation: ow-in var(--dur-ui) var(--ease-out) backwards; }
   /* Disclosure: a fold's content that the browser cannot open by its row height (below) settles in the same way. */
