@@ -32,6 +32,10 @@ async function signedIn() {
   const response = await post("/sign-in/email", { email, password }, "198.51.100.11");
   expect(response.status).toBe(200);
   await pool.query("DELETE FROM rate_limits");
+  // An owner of a shop: passkeys are for owners and managers (the route refuses anyone else).
+  const tenant = randomUUID();
+  await pool.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Synthetic Passkey Shop', $2)", [tenant, `pk-${tenant.slice(0, 12)}`]);
+  await pool.query(`INSERT INTO staff_roles (tenant_id, user_id, role) SELECT $1, id, 'owner' FROM "user" WHERE email = $2`, [tenant, email]);
   return { email, cookie: response.headers.getSetCookie().map(line => line.split(";")[0]).join("; ") };
 }
 

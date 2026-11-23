@@ -24,7 +24,7 @@ async function answerNoSooner(request: Request) {
 }
 
 // Passkeys are for owners and managers on their own phones, not the Kasse: a passkey on a shared counter device would let
-// anyone who can unlock it sign in as that person (Design R1, CTO, 23 Nov). Adding one is refused for a cashier.
+// anyone who can unlock it sign in as that person (Design R1, CTO, 23 Nov). Adding one is refused for anyone else.
 const PASSKEY_REGISTRATION = ["/passkey/generate-register-options", "/passkey/verify-registration"];
 async function passkeyRegistrationRefused(request: Request) {
   const path = new URL(request.url).pathname;
@@ -32,7 +32,8 @@ async function passkeyRegistrationRefused(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return null; // the plugin answers a missing session itself (401)
   const [staff] = await db.select({ role: staffRoles.role, active: staffRoles.active }).from(staffRoles).where(eq(staffRoles.userId, session.user.id)).limit(1);
-  if (staff && (staff.role === "cashier" || !staff.active)) return Response.json({ code: "PASSKEY_NOT_FOR_ROLE", message: "Passkeys are for owners and managers" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  // Only an active owner or manager: a cashier, a revoked person or an account without a shop role adds none.
+  if (!staff || !staff.active || (staff.role !== "owner" && staff.role !== "manager")) return Response.json({ code: "PASSKEY_NOT_FOR_ROLE", message: "Passkeys are for owners and managers" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   return null;
 }
 

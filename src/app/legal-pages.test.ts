@@ -93,8 +93,9 @@ describe("owner privacy notice", () => {
     expect(html).toContain("<h1>Datenschutzhinweise für Geschäfte</h1>");
     expect(GeschaefteMetadata.title).toBe("Datenschutzhinweise für Geschäfte – Loynara");
     expect(html).toContain("Stand: 29. November 2026. Diese Hinweise gelten für alle, die für ein Geschäft ein Konto bei Loynara haben: Inhaber:innen, Leitung und Kasse.");
-    // Legal, 22 Nov (passkeys, #349): word for word, right after the session sentence.
-    expect(html).toContain("Bei jeder Anmeldung speichern wir die Sitzung mit IP-Adresse und Browser. Richtest du einen Passkey ein, speichern wir seinen öffentlichen Schlüssel, seine Kennung, einen Anmeldezähler, das Datum und technische Angaben zum Speicherort (zum Beispiel ob der Passkey in einem Passwortmanager gesichert ist). Fingerabdruck, Gesicht und Geräte-PIN bleiben auf deinem Gerät; wir erhalten sie nie. Einen Passkey entfernst du unter Mehr › Konto; setzt du dein Passwort zurück, löschen wir alle Passkeys deines Kontos. ");
+    // Legal's final passkey text (23 Nov, #349): its own paragraph right after „Was wir speichern“ and before „Warum“, word for word.
+    expect(html).toContain("</p><p><strong>Passkeys:</strong> Richtest du einen Passkey ein, speichern wir seinen öffentlichen Schlüssel, seine Kennung, einen Anmeldezähler, das Datum der Einrichtung und technische Angaben zum Speicherort (zum Beispiel, ob der Passkey in einem Passwortmanager gesichert ist). Dein Gerät prüft Face ID, Fingerabdruck oder Display-Sperre selbst; wir erfahren nur, dass die Prüfung geklappt hat. Einen Passkey entfernst du unter Mehr › Konto, am Computer unter Einstellungen › Konto. Setzt du dein Passwort zurück, löschen wir alle Passkeys deines Kontos.</p><p><strong>Warum:</strong>");
+    expect(html.indexOf("<strong>Was wir speichern:</strong>")).toBeLessThan(html.indexOf("<strong>Passkeys:</strong>"));
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
     expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");

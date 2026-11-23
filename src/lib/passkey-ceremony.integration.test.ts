@@ -60,13 +60,15 @@ function authenticator() {
   };
 }
 
-async function account(verified = true) {
+async function account(verified = true, role = true) {
   const email = `${randomUUID()}@example.test`, password = "synthetic-passkey-password";
   process.env.PUBLIC_REGISTRATION_ENABLED = "true";
   await post("/sign-up/email", { name: "Synthetic owner", email, password });
   if (verified) await pool.query('UPDATE "user" SET "emailVerified" = true WHERE email = $1', [email]);
   const signIn = await post("/sign-in/email", { email, password });
   const id = (await pool.query('SELECT id FROM "user" WHERE email = $1', [email])).rows[0].id as string;
+  // An owner of a shop: passkeys are for owners and managers (the route refuses anyone else).
+  if (role) { const tenant = randomUUID(); await pool.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Synthetic Passkey Shop', $2)", [tenant, `pk-${tenant.slice(0, 12)}`]); await pool.query("INSERT INTO staff_roles (tenant_id, user_id, role) VALUES ($1, $2, 'owner')", [tenant, id]); }
   return { email, id, cookie: jar(signIn) };
 }
 async function register(user: { cookie: string }, a = authenticator(), flags?: number) {
@@ -121,14 +123,17 @@ describe("passkeys at the auth route", () => {
     await pool.query("INSERT INTO tenants (id, name, slug) VALUES ($1, 'Synthetic Passkey Shop', $2)", [tenant, `passkey-${tenant.slice(0, 8)}`]);
     const { rows: [location] } = await pool.query("INSERT INTO locations (tenant_id, name, city, country, timezone) VALUES ($1, 'Mitte', 'Kassel', 'DE', 'Europe/Berlin') RETURNING id", [tenant]);
     const role = (user: { id: string }, name: string) => pool.query("INSERT INTO staff_roles (tenant_id, user_id, role, location_id) VALUES ($1, $2, $3, $4)", [tenant, user.id, name, location.id]);
-    const cashier = await account();
+    // Without a shop role nothing is offered either.
+    const nobody = await account(true, false);
+    expect((await get("/passkey/generate-register-options", nobody.cookie)).status).toBe(403);
+    const cashier = await account(true, false);
     await role(cashier, "cashier");
     const refused = await get("/passkey/generate-register-options", cashier.cookie);
     expect(refused.status).toBe(403);
     expect(await refused.json()).toMatchObject({ code: "PASSKEY_NOT_FOR_ROLE" });
     expect((await post("/passkey/verify-registration", { response: authenticator().register("x") }, cashier.cookie)).status).toBe(403);
     expect(await passkeys()).toBe(0);
-    const manager = await account();
+    const manager = await account(true, false);
     await role(manager, "manager");
     expect((await register(manager)).status).toBe("200");
     expect(await passkeys()).toBe(1);

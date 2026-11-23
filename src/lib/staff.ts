@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "@/db";
-import { locations, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
+import { locations, passkeys, staffAuditEvents, staffInvites, staffRoles } from "@/db/schema";
 import { DomainError } from "./loyalty";
 
 const inviteInput = z.object({ actorUserId: z.string().min(1), locationId: z.uuid(), email: z.email(), role: z.enum(["manager", "cashier"]) });
@@ -69,6 +69,8 @@ export async function acceptStaffInvite(input: { userId: string; token: string }
         .onConflictDoNothing({ target: staffRoles.userId }).returning({ userId: staffRoles.userId });
       if (!inserted.length) throw new DomainError("ALREADY_ASSIGNED", "Account already belongs to another merchant");
     }
+    // Back as Kasse: passkeys are for owners and managers only (Design R1, CTO, 23 Nov), so any from before go.
+    if (invite.role === "cashier") await tx.delete(passkeys).where(eq(passkeys.userId, input.userId));
     await tx.update(staffInvites).set({ acceptedAt: new Date() }).where(eq(staffInvites.id, invite.id));
     await tx.insert(staffAuditEvents).values({ tenantId: invite.tenantId, action: "invite_accepted", actorUserId: input.userId, subjectUserId: input.userId, inviteId: invite.id, locationId: invite.locationId, role: invite.role });
     return { tenantId: invite.tenantId, locationId: invite.locationId, role: invite.role };
@@ -97,6 +99,8 @@ export async function revokeStaff(input: { actorUserId: string; userId: string }
     if (target.role === "owner") throw new DomainError("CANNOT_REVOKE_OWNER", "Owner role cannot be revoked here");
     if (!target.active) return { userId: input.userId, active: false };
     await tx.update(staffRoles).set({ active: false }).where(and(eq(staffRoles.tenantId, owner.tenantId), eq(staffRoles.userId, input.userId)));
+    // The access ends, so do the person's passkeys, in the same transaction (CTO, 23 Nov): no way in is left behind.
+    await tx.delete(passkeys).where(eq(passkeys.userId, input.userId));
     // An invitation this person has not used yet was issued for the access that ends here; it must not bring it back.
     // Only an invitation created after this revocation can. Acceptance re-reads the invitation under its row lock.
     const account = await tx.execute<{ email: string }>(sql`SELECT email FROM "user" WHERE id = ${input.userId}`);
