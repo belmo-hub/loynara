@@ -42,7 +42,7 @@ export default function MerchantSettingsPage() {
         {sender}
         <Rows title="E-Mail"><WeeklyReport key="weekly" /></Rows>
         {/* Legal § 6: only shops that signed up online accept in the app; a paper-contract shop gets an addendum. */}
-        {me.bookingContractsAcceptedAt !== undefined && <BookingAvvRows acceptedAt={me.bookingContractsAcceptedAt} founding={me.bookingFoundingPlan === true} />}
+        {me.bookingContractsAcceptedAt !== undefined && <BookingAvvRows acceptedAt={me.bookingContractsAcceptedAt} fassung={me.bookingContractsFassung ?? null} founding={me.bookingFoundingPlan === true} />}
       </div>
       {preview && <aside className="ow-split-aside">{preview}</aside>}
       </div>

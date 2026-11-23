@@ -45,6 +45,10 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   await expect(dialog).toContainText(`Annehmen kostet nichts.${founding ? "59 € statt 39 €" : "69 € statt 49 €"} je Standort und Monat, nur für Standorte mit Termin + Treue.Loynara schaltet Termin + Treue nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}, und der Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.`);
   await expect(dialog.getByRole("link", { name: `Vertragsbedingungen, Fassung vom ${OWNER_TERMS.stand}` })).toHaveAttribute("href", "/vertragsbedingungen");
   await expect(dialog.getByRole("link", { name: `Vertrag zur Auftragsverarbeitung, Fassung vom ${OWNER_AVV.stand}` })).toHaveAttribute("href", "/avv");
+  // Design r2: at 200 % text the links and their commas stay inside the dialog.
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  expect(await dialog.evaluate(box => { const edge = box.getBoundingClientRect().right; return [...box.querySelectorAll("p")].every(p => p.scrollWidth <= p.clientWidth + 1 && p.getBoundingClientRect().right <= edge + 1); })).toBe(true);
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
   // Abbrechen writes nothing.
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
   await expect(dialog).toHaveCount(0);

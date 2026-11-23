@@ -36,10 +36,15 @@ export const bookingAccepted = (tenantId: string) => and(eq(ownerAcceptances.ten
 
 /** When the business accepted them, or null; /api/me carries it for the owner, so the settings page never grows after it scrolls. */
 export async function bookingAcceptedAt(tenantId: string) {
-  const [row] = await db.select({ acceptedAt: ownerAcceptances.acceptedAt }).from(ownerAcceptances)
+  return (await bookingAcceptance(tenantId))?.acceptedAt ?? null;
+}
+
+/** The acceptance itself: when, and which Fassungen it stored, so the row names what the shop accepted, not today's Fassung (Design r2). */
+export async function bookingAcceptance(tenantId: string) {
+  const [row] = await db.select({ acceptedAt: ownerAcceptances.acceptedAt, terms: ownerAcceptances.termsVersion, avv: ownerAcceptances.avvVersion }).from(ownerAcceptances)
     .where(bookingAccepted(tenantId))
     .orderBy(desc(ownerAcceptances.acceptedAt)).limit(1);
-  return row?.acceptedAt.toISOString() ?? null;
+  return row ? { acceptedAt: row.acceptedAt.toISOString(), terms: row.terms, avv: row.avv } : null;
 }
 
 /**
@@ -60,5 +65,5 @@ export async function acceptBookingAvv(userId: string) {
       privacyVersion: OWNER_PRIVACY_NOTICE.version, textVersion: BOOKING_AVV_ACCEPTANCE_TEXT_VERSION });
     return tenantId;
   });
-  return { acceptedAt: await bookingAcceptedAt(tenantId) };
+  return (await bookingAcceptance(tenantId))!;
 }

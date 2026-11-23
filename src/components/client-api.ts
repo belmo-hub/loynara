@@ -116,6 +116,8 @@ export type MeResponse = {
   bookingContractsAcceptedAt?: string | null;
   /** ENG-339, with the field above: the shop is on the founding price (39 €), so its Termin + Treue price differs (Legal § 7). */
   bookingFoundingPlan?: boolean;
+  /** With the fields above: the Fassungen (versions, YYYY-MM-DD) the stored acceptance names, or null. */
+  bookingContractsFassung?: { terms: string; avv: string } | null;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";

@@ -89,7 +89,7 @@ it("the owner accepts once: one append-only row with both Fassungen (terms and A
   const res = await accept(shop.ownerCookie);
   expect(res.status).toBe(200);
   const answer = await res.json() as { acceptedAt: string };
-  expect(answer).toEqual({ acceptedAt: expect.any(String) });
+  expect(answer).toEqual({ acceptedAt: expect.any(String), terms: OWNER_TERMS.version, avv: OWNER_AVV.version });
   expect(await acceptedAt(shop.ownerCookie)).toBe(answer.acceptedAt);
   expect(await rows(shop.scope.tenantId)).toEqual([{ user_id: shop.owner.userId, tenant_id: shop.scope.tenantId, path: "booking", terms_version: OWNER_TERMS.version,
     avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: "2026-11-25", accepted_at: expect.any(Date) }]);
@@ -160,4 +160,15 @@ it("/api/me says whether the shop is on the founding price, so the dialog names 
   expect(await founding()).toBe(false);
   await pool.query("UPDATE subscriptions SET plan_code = 'founding' WHERE tenant_id = $1", [shop.scope.tenantId]);
   expect(await founding()).toBe(true);
+});
+
+it("the row names the Fassungen the stored acceptance holds, not today's constants (Design r2)", async () => {
+  const shop = await shopOnOlderFassung();
+  const fassung = async () => ((await (await meRoute(request("/api/me", { cookie: shop.ownerCookie }))).json()) as { bookingContractsFassung?: { terms: string; avv: string } | null }).bookingContractsFassung;
+  expect(await fassung()).toBeNull();
+  await accept(shop.ownerCookie);
+  expect(await fassung()).toEqual({ terms: OWNER_TERMS.version, avv: OWNER_AVV.version });
+  // A later acceptance (a later Fassung) is the one shown, with its own terms and AVV versions.
+  await pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, path, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 'booking', '2027-03-01', '2027-02-01', 'x', 'x')", [shop.owner.userId, shop.scope.tenantId]);
+  expect(await fassung()).toEqual({ terms: "2027-03-01", avv: "2027-02-01" });
 });

@@ -435,6 +435,8 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 @media (prefers-reduced-motion: reduce) { .ow-dialog-view { animation: none; } }
 .ow-dialog h2 { font-size: var(--text-22); letter-spacing: -.01em; }
 .ow-dialog p { color: var(--color-ink-muted); }
+/* A long word or a link with its comma breaks inside the dialog at 200 %, never past its edge (Design r2). */
+.ow-dialog p { overflow-wrap: break-word; hyphens: auto; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; hyphenate-limit-chars: 12 5 5; }
 .ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap-reverse; margin-top: var(--space-3); }
 .ow-dialog-actions .ow-btn { min-height: 48px; }
 /* Buttons share the row, or each takes the full width once they wrap, never a ragged stack of two widths. */
