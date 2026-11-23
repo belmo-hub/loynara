@@ -33,8 +33,8 @@ async function shopOnOlderFassung() {
 const shopWithoutBooking = shopOnOlderFassung;
 const bookingRows = async (tenantId: string) => (await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE tenant_id = $1 AND path = 'booking'", [tenantId])).rows[0].n;
 
-// The dialog's wording of Legal § 6 is version 2026-11-24; a new wording takes a new date here and in booking-avv.ts.
-it("the acceptance text version is the one for Legal § 6's wording", () => expect(BOOKING_AVV_ACCEPTANCE_TEXT_VERSION).toBe("2026-11-24"));
+// The dialog's wording of Legal § 7 is version 2026-11-25; a new wording takes a new date here and in booking-avv.ts.
+it("the acceptance text version is the one for Legal § 7's wording", () => expect(BOOKING_AVV_ACCEPTANCE_TEXT_VERSION).toBe("2026-11-25"));
 
 it("a shop on the older Fassungen (the real case) can accept: one booking row, and /api/me then says when (Reviewer W1)", async () => {
   const shop = await shopOnOlderFassung();
@@ -92,7 +92,7 @@ it("the owner accepts once: one append-only row with both Fassungen (terms and A
   expect(answer).toEqual({ acceptedAt: expect.any(String) });
   expect(await acceptedAt(shop.ownerCookie)).toBe(answer.acceptedAt);
   expect(await rows(shop.scope.tenantId)).toEqual([{ user_id: shop.owner.userId, tenant_id: shop.scope.tenantId, path: "booking", terms_version: OWNER_TERMS.version,
-    avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: "2026-11-24", accepted_at: expect.any(Date) }]);
+    avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: "2026-11-25", accepted_at: expect.any(Date) }]);
   expect((await toggle()).status).toBe(200);
 
   // A second tap, or two at once, adds nothing.
@@ -150,4 +150,14 @@ it("an online shop's contract start stays its sign-up: the booking row comes lat
   const signedUp = (await pool.query("SELECT to_json(accepted_at) #>> '{}' AS at FROM owner_acceptances WHERE tenant_id = $1 AND path = 'register'", [shop.scope.tenantId])).rows[0].at;
   expect((await accept(shop.ownerCookie)).status).toBe(200);
   expect((await operatorOverview(operator.userId)).contracts).toEqual([expect.objectContaining({ tenantId: shop.scope.tenantId, acceptedAt: signedUp })]);
+});
+
+it("/api/me says whether the shop is on the founding price, so the dialog names its own Termin price (Legal § 7)", async () => {
+  const shop = await shopOnOlderFassung();
+  const founding = async () => ((await (await meRoute(request("/api/me", { cookie: shop.ownerCookie }))).json()) as { bookingFoundingPlan?: boolean }).bookingFoundingPlan;
+  expect(await founding()).toBe(false);
+  await pool.query("UPDATE subscriptions SET plan_code = 'list' WHERE tenant_id = $1", [shop.scope.tenantId]);
+  expect(await founding()).toBe(false);
+  await pool.query("UPDATE subscriptions SET plan_code = 'founding' WHERE tenant_id = $1", [shop.scope.tenantId]);
+  expect(await founding()).toBe(true);
 });

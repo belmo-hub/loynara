@@ -6,13 +6,16 @@ import { useEffect, useRef, useState } from "react";
 import { postJson } from "@/components/client-api";
 import { Row, Rows } from "@/components/owner/owner-rows";
 import { Notice, OwnerDialog } from "@/components/owner/owner-ui";
-import { OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
+import { OWNER_AVV, OWNER_TERMS, TERMIN_PRICE } from "@/lib/owner-contract";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Berlin" });
-/** Legal § 5 (23 Nov): the price stands before the button. */
 /** The plan's name never breaks across lines (Design, 24 Nov). */
 const PLAN = "Termin\u00a0+\u00a0Treue";
-export const BOOKING_PRICE_LINE = `69 € statt 49 € je Standort und Monat, nur für Standorte mit ${PLAN}.`;
+/** Legal § 5 and § 7: the price stands before the button, from the shop's plan (a founding shop pays from 39 €). */
+export const bookingPriceLine = (founding: boolean) => {
+  const price = founding ? TERMIN_PRICE.founding : TERMIN_PRICE.list;
+  return `${price.termin} € statt ${price.base} € je Standort und Monat, nur für Standorte mit ${PLAN}.`;
+};
 const documents = <><Link className="ow-link" href="/vertragsbedingungen" target="_blank" rel="noopener">Vertragsbedingungen</Link> · <Link className="ow-link" href="/avv" target="_blank" rel="noopener">Auftragsverarbeitung</Link></>;
 
 /**
@@ -20,7 +23,7 @@ const documents = <><Link className="ow-link" href="/vertragsbedingungen" target
  * here, before Loynara can switch online booking on. One append-only acceptance with both versions; afterwards the row says when.
  * The answer comes with /api/me, so the page has its full height when it scrolls to a section (#absender).
  */
-export function BookingAvvRows({ acceptedAt }: { acceptedAt: string | null }) {
+export function BookingAvvRows({ acceptedAt, founding }: { acceptedAt: string | null; founding: boolean }) {
   const [accepted, setAccepted] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -40,15 +43,16 @@ export function BookingAvvRows({ acceptedAt }: { acceptedAt: string | null }) {
   }
   return <>
     <div ref={section}><Rows title="Verträge" noteTone={accepted ? "ok" : undefined}
-      note={accepted ? <>Angenommen. Loynara schaltet {PLAN} ein, sobald du es für einen Standort möchtest. Schreib uns dafür an <a className="ow-link" href="mailto:support@getloynara.com">support@getloynara.com</a>. {documents}</> : answered ? documents : undefined}>
+      note={accepted ? <>Angenommen. Schreib uns an <a className="ow-link" href="mailto:support@getloynara.com">support@getloynara.com</a>, für welchen Standort du {PLAN} möchtest. {documents}</> : answered ? documents : undefined}>
       {answered
         ? <Row icon={Scale} title={PLAN} sub={`Vertragsbedingungen und Auftragsverarbeitung · angenommen am ${day(answered)} · Fassung vom ${OWNER_TERMS.stand}`} />
         : <Row icon={Scale} title={PLAN} sub="Optional: Vertragsbedingungen und Auftragsverarbeitung für Online-Termine. Annehmen kostet nichts." onClick={() => setAsking(true)} />}
     </Rows></div>
-    {asking && <OwnerDialog title={`${PLAN} annehmen?`} onClose={() => setAsking(false)}
+    {asking && <OwnerDialog title={`Verträge für ${PLAN} annehmen?`} onClose={() => setAsking(false)}
       actions={<><button type="button" className="ow-btn ow-btn--ghost" onClick={() => setAsking(false)} disabled={busy} data-autofocus>Abbrechen</button><button type="button" className="ow-btn ow-btn--primary" onClick={() => void accept()} disabled={busy} aria-busy={busy}>Annehmen</button></>}>
-      <p><strong>{BOOKING_PRICE_LINE}</strong></p>
-      <p>Annehmen kostet nichts. Loynara schaltet {PLAN} nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die <Link className="ow-link" href="/vertragsbedingungen" target="_blank" rel="noopener">Vertragsbedingungen, Fassung vom {OWNER_TERMS.stand}</Link>, und der <Link className="ow-link" href="/avv" target="_blank" rel="noopener">Vertrag zur Auftragsverarbeitung, Fassung vom {OWNER_AVV.stand}</Link>. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.</p>
+      <p>Annehmen kostet nichts.</p>
+      <p><strong>{bookingPriceLine(founding)}</strong></p>
+      <p>Loynara schaltet {PLAN} nur auf deinen Wunsch für einzelne Standorte ein; erst ab dann gilt dort der neue Preis. Es gelten die <Link className="ow-link" href="/vertragsbedingungen" target="_blank" rel="noopener">Vertragsbedingungen, Fassung vom {OWNER_TERMS.stand}</Link>, und der <Link className="ow-link" href="/avv" target="_blank" rel="noopener">Vertrag zur Auftragsverarbeitung, Fassung vom {OWNER_AVV.stand}</Link>. Mit Online-Terminen verarbeitet Loynara für dich auch Namen und Telefonnummern deiner Kundschaft.</p>
       {error && <Notice tone="danger" role="alert">{error}</Notice>}
     </OwnerDialog>}
   </>;
