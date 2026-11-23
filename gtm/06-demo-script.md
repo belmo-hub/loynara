@@ -41,7 +41,7 @@ Each step has a one-line purpose. If time runs out, cut from the middle (Referra
 > „Würde dir das bei etwas Konkretem helfen?“
 
 Then, before the commercial gates are cleared:
-> „Wenn die Bedingungen schriftlich stehen – willst du einer der ersten Läden sein? Ich melde mich, sobald ich dir alles geben kann.“ (log `pilot_interest_date`)
+> „Wenn die Bedingungen schriftlich stehen: Darf ich mich dann bei dir melden, und wie am besten?“ (log `pilot_interest_date`)
 
 After the gates are cleared:
 > „Wollen wir's bei dir ausprobieren? Ich brauch eine halbe Stunde mit dir, wenn's ruhig ist.“

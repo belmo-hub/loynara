@@ -71,7 +71,7 @@ Let them talk. Write the answer down after you leave, not in front of them.
 **Close: ask for the smallest real step:**
 - Strong fit (score ≥ 8, see [03-verticals.md](03-verticals.md)):
   - *Before the owner clears the commercial gates* (ask for pilot interest only):
-    > „Ich starte gerade mit den ersten Läden hier. Wenn die Bedingungen schriftlich stehen – willst du dabei sein? Dann melde ich mich bei dir, sobald ich dir alles geben kann. Zahlen oder ein festes Startdatum gibt's vorher nicht.“
+    > „Wenn die Bedingungen schriftlich stehen: Darf ich mich dann bei dir melden, und wie am besten? Zahlen oder ein festes Startdatum gibt's vorher nicht.“
   - *After the gates are cleared:*
     > „Wollen wir's ausprobieren? Ich komm diese Woche einmal vorbei, wir legen die Prämie fest, drucken das Schild, und ab dem nächsten Kunden läuft's. Bevor du irgendwas zahlst, bekommst du alles schriftlich.“
 - Medium fit:
