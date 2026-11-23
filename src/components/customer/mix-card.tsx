@@ -33,7 +33,7 @@ type Props = {
   /** The full card's foot: the guest's line and reward, or the owner's neutral line. */
   voice?: "guest" | "owner";
   /** In place of the shop's name and location (the Kasse: the card number and its note). */
-  title?: string; sub?: string;
+  title?: string; /** A node only at the till: a finished visit's warning line (Design r3). */ sub?: ReactNode;
   /** A label under the balance (the Kasse); „von 8“ then stands beside the figure. */
   label?: string;
   /** The page's own foot, in place of the voice's (the Kasse's pill and state). */

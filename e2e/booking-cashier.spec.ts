@@ -17,7 +17,10 @@ const nextQuarter = () => new Date(Math.ceil((Date.now() + 60_000) / 900_000) * 
 async function shopWithAppointment(baseURL: string, done: boolean) {
   const origin = { Origin: new URL(baseURL).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin }), guest = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
-  expect((await signUp(owner, { data: { name: "Synthetic booking owner", email: `till-owner-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  const ownerEmail = `till-owner-${randomUUID()}@example.test`;
+  expect((await signUp(owner, { data: { name: "Synthetic booking owner", email: ownerEmail, password: `Local!${randomUUID()}Aa` } })).status()).toBe(200);
+  // railway-rc asks a new owner to confirm the address before the owner screens open.
+  await pool.query('UPDATE "user" SET "emailVerified" = true WHERE email = $1', [ownerEmail]);
   const setup = await owner.post("/api/merchant/onboard", { data: { businessName: "Synthetic Studio", locationName: "Kassel Mitte", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", rulesText: "Synthetic rules.", rewardTitle: "Kaffee", programName: "Synthetic", programType: "stamp", rewardCost: 10 } });
   expect(setup.status()).toBe(201);
   const { programSlug } = await setup.json() as { programSlug: string };
@@ -65,12 +68,14 @@ for (const size of SIZES.slice(1)) test(`${size.width}x${size.height}: a finishe
   const context = await browser.newContext({ baseURL, storageState: await shop.owner.storageState(), viewport: size, hasTouch: true });
   const page = await context.newPage();
   await openAtTill(page, shop.scanCode);
-  const warning = page.getByText("Achtung: Termin schon gutgeschrieben", { exact: true }).first();
+  const warning = page.getByRole("status").filter({ hasText: /^Termin schon gutgeschrieben$/ }).first();
+  await expect(page.getByText("Schon gutgeschrieben", { exact: true }).first()).toBeVisible();
   await expect(warning).toBeVisible();
   expect(await warning.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.top >= 0 && box.bottom <= innerHeight && Boolean(hit && element.contains(hit)); })).toBe(true);
   const other = page.getByRole("button", { name: "Andere Karte" }).first();
   expect(await other.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
   await page.locator(".cashier-award-now").click();
   await expect(page.getByRole("dialog", { name: "Trotzdem vergeben?" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Trotzdem vergeben?" })).toContainText(/vergeben\?\s*Termin schon gutgeschrieben\./);
   await context.close(); await shop.close();
 });
