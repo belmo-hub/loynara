@@ -650,6 +650,27 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 @media (hover: hover) { .ow-prog-row:hover .ow-prog-arrow { color: var(--color-ink); transform: translateX(2px); } }
 .ow-prog .ow-prog-note { margin: var(--space-2) 0 0; font-size: var(--text-14); color: var(--color-ink-muted); }
 .ow-prog .ow-prog-note.ow-error { color: var(--color-danger); }
+/* An outcome under a panel (Rows noteTone): the icon on the first line, then the words (Design, #349 round 2). */
+.ow-prog .ow-prog-outcome { display: flex; align-items: flex-start; gap: var(--space-2); }
+.ow-prog .ow-prog-outcome > svg { flex: none; height: 1lh; }
+.ow-prog .ow-prog-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); scroll-margin-bottom: calc(var(--ow-tabbar, 0px) + var(--space-4)); }
+/* A row that ends in its own button keeps no space for the arrow the other rows have. */
+.ow-prog ul div.ow-prog-row[data-ends="button"]::after { display: none; }
+/* Holds a row's place until its list answers, so the group does not jump. */
+.ow-prog-row[data-placeholder] > * { visibility: hidden; }
+/* Busy: the row's icon turns into a spinner once the action has waited 300 ms (passkey-rows.tsx sets it then). */
+.ow-spinner { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: ow-spin 700ms linear infinite; }
+@keyframes ow-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ow-spinner { animation-duration: 2s !important; animation-iteration-count: infinite !important; } }
+/* Row add and remove (Design R3, 23 Nov): a row added in place opens by its height (0fr → 1fr) and fades in over
+   --dur-ui; a removed one fades over --dur-press while its height closes over 160 ms. Instant under reduced motion. */
+.ow-rowfold { display: grid; grid-template-rows: 1fr; opacity: 1; }
+.ow-rowfold > * { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .ow-rowfold { transition: grid-template-rows var(--dur-ui) var(--ease-out), opacity var(--dur-ui) var(--ease-out); }
+  @starting-style { .ow-rowfold[data-added] { grid-template-rows: 0fr; opacity: 0; } }
+}
+.ow-rowfold[data-closing] { grid-template-rows: 0fr; opacity: 0; transition-duration: 160ms, var(--dur-press); }
 /* Below 360 px the icons give their room to the words. */
 @media (max-width: 359px) { .ow-prog-icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ow-prog-row:active, .ow-prog-row:hover .ow-prog-arrow { transform: none; } }
@@ -1113,6 +1134,8 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-prog-text { flex: 1 1 min-content; min-width: 0; }
 .ow-prog-text strong { overflow-wrap: break-word; }
 .ow-prog-text small { overflow-wrap: anywhere; }
+/* A passkey row's date keeps whole words, so the house value rule can put „Entfernen“ under it (Design r5). */
+.ow-prog-row[data-ends=button] .ow-prog-text small { overflow-wrap: break-word; }
 /* A head with its „?“ sits on the „?“'s centre line, not 20 lower (Design FIX 2). */
 .owner-app .ow-rows-head > h2 { margin: 0; }
 .ow-prog ul { grid-template-columns: minmax(0, 1fr); } /* a grid track otherwise grows to the longest unbroken word */
@@ -1298,7 +1321,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
      at once, and its bars do not grow again. Nor do the bars of a new period (data-switched): they would grow from 0,
      not from the value before. */
   .ow-content [data-swap] { animation: ow-swap var(--dur-ui) var(--ease-out) backwards; }
-  .ow-content [data-return]:is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
+  .ow-content [data-return]:is(li, tr, .ow-goal, .ow-day, .ow-notice, .ow-error), .ow-content :is([data-swap], [data-return]) :is(li, tr, .ow-goal, .ow-day, .ow-notice), .ow-content [data-swap] .ow-error[data-first-paint], .ow-content [data-return] .ow-error, .ow-content [data-return] :is(.ow-strip-bar, .ow-stock), .ow-strip[data-switched] .ow-strip-bar { animation: none; }
   /* The rows of a block that arrives come with their block. */
   .ow-content [data-arrive]:is(li, tr, .ow-goal, .ow-day), .ow-content [data-arrive] :is(li, tr, .ow-goal, .ow-day) { animation: none; }
   /* Bars grow: a chart's bars rise from the base, 30 ms apart (the eighth and later together); the count above each bar
@@ -1312,7 +1335,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
   /* Field error and notices: a message that appears fades in and settles 4 px down; the field's border changes with it. */
-  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span, .ow-prog-outcome, .ow-prog-step { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
   /* The shop search's suggestions open like a menu, from their top edge. */
   .ow-options:not([hidden]) { transform-origin: top; animation: ow-in var(--dur-ui) var(--ease-out) backwards; }
   /* Disclosure: a fold's content that the browser cannot open by its row height (below) settles in the same way. */
