@@ -37,6 +37,18 @@ function watchTabbar(bar: HTMLElement | null) {
   return () => { watch.disconnect(); app.style.removeProperty("--ow-tabbar"); };
 }
 
+/** Under large text the top bar scrolls with the page (owner.css): --ow-topbar is its height while it sticks, else 0,
+ *  so a focused field is not kept 56 px below a bar that is no longer there. */
+function watchTopbar(bar: HTMLElement | null) {
+  if (!bar || typeof ResizeObserver === "undefined") return;
+  const root = document.documentElement;
+  const fit = () => root.style.setProperty("--ow-topbar", getComputedStyle(bar).position === "sticky" ? `${bar.getBoundingClientRect().height}px` : "0px");
+  const watch = new ResizeObserver(fit);
+  watch.observe(bar);
+  fit();
+  return () => { watch.disconnect(); root.style.removeProperty("--ow-topbar"); };
+}
+
 function GuardedLink({ href, children, ...rest }: { href: string; children: ReactNode } & Omit<React.ComponentProps<typeof Link>, "href">) {
   const router = useRouter();
   const { guard } = useOwner();
@@ -304,10 +316,10 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
         </div>
       </aside>
       <div className="ow-main">
-        <div className="ow-topbar">
+        <div ref={watchTopbar} className="ow-topbar">
           <GuardedLink href="/merchant" className="ow-topbar-brand" aria-label="Loynara – Übersicht"><BrandMark word={false} /></GuardedLink>
           <div className="ow-topbar-loc">{me ? <><strong>{me.businessName}</strong><span>{me.locationName}</span></> : <Skeleton height={14} width={140} />}</div>
-          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} />Kasse</Link>
+          <Link href="/cashier" className="ow-btn ow-btn--secondary ow-btn--sm" onClick={openCashier}><OwnerIcon name="till" size={16} /><span className="ow-topbar-kasse">Kasse</span></Link>
         </div>
         {notice}
         {subItems.length > 1 && (

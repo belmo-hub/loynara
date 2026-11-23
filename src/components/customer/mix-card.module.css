@@ -31,6 +31,13 @@
 .fields span + span { text-align: right; }
 .fields small { font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-label); color: var(--on-card); }
 .fields strong { font-weight: var(--weight-strong); }
+/* Under large text only (the card narrower than 15 of its own em): the two fields stack instead of running together. */
+.card:has(.fields) { container: mix-fields / inline-size; }
+@container mix-fields (max-width: 15em) {
+  .fields { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .fields span + span { text-align: start; }
+  .fields strong { overflow-wrap: break-word; hyphens: auto; }
+}
 
 /* The Kasse: the card number is the card's name, the balance the house figure, the stamps larger (56 in 358). */
 .kasse { padding-bottom: var(--space-5); }
