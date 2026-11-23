@@ -1,10 +1,13 @@
 // ENG-277: the documents an owner accepts at open sign-up (Legal, 20 Nov 2026). A new text gets a new version and „Stand“;
 // the repo history keeps the old one. The sentence on /register has its own version, like JOIN_CONSENT_TEXT_VERSION.
-export const OWNER_TERMS = { version: "2026-11-22", stand: "22. November 2026", href: "/vertragsbedingungen" } as const;
+// Placeholder until the booking ship date (Legal, 23 Nov): the Fassung with „Termin + Treue“ in § 1 (6), § 3 (1) and § 3 (5).
+export const OWNER_TERMS = { version: "2026-11-29", stand: "29. November 2026", href: "/vertragsbedingungen" } as const;
 // Placeholder until the ship date (Legal, 22 Nov): the Fassung with Terminbuchung in Anlage 1 and 3; the founder still approves the text.
 export const OWNER_AVV = { version: "2026-11-29", stand: "29. November 2026", href: "/avv" } as const;
 /** The first AVV Fassung that covers Terminbuchung: the operator's booking switch needs a shop acceptance of it or a later one (B-1). */
 export const BOOKING_AVV_VERSION = "2026-11-29";
+/** The first terms Fassung with „Termin + Treue“; the booking acceptance and the operator's switch need it too (Legal § 5). */
+export const BOOKING_TERMS_VERSION = "2026-11-29";
 export const SIGNUP_ACCEPTANCE_TEXT_VERSION = "2026-11-20";
 /** Sent by /register with the sentence's version; staff coming from an invitation see no sentence and send none. */
 export const SIGNUP_ACCEPTANCE_HEADER = "x-loynara-acceptance";

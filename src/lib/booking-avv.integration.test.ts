@@ -22,16 +22,17 @@ async function shopWithoutBooking() {
   return shop;
 }
 
-it("the owner accepts once: one append-only row with the server's versions, and the operator's switch then works", async () => {
+it("the owner accepts once: one append-only row with both Fassungen (terms and AVV), and the operator's switch then works", async () => {
   const operator = await identity(), shop = await shopWithoutBooking();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   const toggle = () => toggleRoute(request("/api/operator/booking", { body: { ...shop.scope, enabled: true }, cookie: operator.cookie }));
-  expect(await status(shop.ownerCookie)).toEqual({ version: OWNER_AVV.version, stand: OWNER_AVV.stand, acceptedAt: null });
+  const fassungen = { terms: { version: OWNER_TERMS.version, stand: OWNER_TERMS.stand }, avv: { version: OWNER_AVV.version, stand: OWNER_AVV.stand } };
+  expect(await status(shop.ownerCookie)).toEqual({ ...fassungen, acceptedAt: null });
   expect((await toggle()).status).toBe(409);
 
   const res = await accept(shop.ownerCookie);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ version: OWNER_AVV.version, stand: OWNER_AVV.stand, acceptedAt: expect.any(String) });
+  expect(await res.json()).toEqual({ ...fassungen, acceptedAt: expect.any(String) });
   expect(await rows(shop.scope.tenantId)).toEqual([{ user_id: shop.owner.userId, tenant_id: shop.scope.tenantId, path: "booking", terms_version: OWNER_TERMS.version,
     avv_version: OWNER_AVV.version, privacy_version: OWNER_PRIVACY_NOTICE.version, text_version: BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, accepted_at: expect.any(Date) }]);
   expect((await toggle()).status).toBe(200);

@@ -8,7 +8,7 @@ import GeschaefteDatenschutzPage, { metadata as GeschaefteMetadata } from "./dat
 import { InviteClient } from "@/components/invite-client";
 import VertragsbedingungenPage, { metadata as TermsMetadata } from "./vertragsbedingungen/page";
 import AvvPage, { metadata as AvvMetadata } from "./avv/page";
-import { AVV_FILL_INS, BOOKING_AVV_VERSION, hasOpenMarks, OWNER_AVV } from "@/lib/owner-contract";
+import { AVV_FILL_INS, BOOKING_AVV_VERSION, BOOKING_TERMS_VERSION, hasOpenMarks, OWNER_AVV, OWNER_TERMS } from "@/lib/owner-contract";
 import { REBOOK_CONSENT } from "@/lib/booking/rebook-consent-text";
 
 const search = vi.hoisted(() => ({ value: "" }));
@@ -176,11 +176,14 @@ describe("owner sign-up acceptance", () => {
     const html = open(VertragsbedingungenPage, "true");
     expect(TermsMetadata.title).toBe("Vertragsbedingungen für Geschäfte – Loynara");
     expect(html).toContain("<h1>Vertragsbedingungen für Geschäfte</h1>");
-    expect(html).toContain("Stand: 22. November 2026. Fassung 2026-11-22.");
+    expect(html).toContain("Stand: 29. November 2026. Fassung 2026-11-29.");
+    // ENG-339, Legal § 5 (23 Nov): Termin + Treue, word for word.
+    expect(html).toContain("</p><p>(6) Auf Wunsch des Betriebs kann der Anbieter für einzelne Standorte „Termin + Treue“ einschalten. Für diese Standorte kommt die Terminbuchung hinzu: Die Kundschaft bucht Termine über ihre Karte und kann Erinnerungen einschalten, soweit Browser und Gerät Mitteilungen erlauben. Der Betrieb kann telefonisch vereinbarte Termine bei der Karte eintragen und die Online-Buchung für Karten mit nicht wahrgenommenen Terminen pausieren. Diese Funktionen bleiben erhalten, solange der Standort „Termin + Treue“ hat. Zahlungen und Anzahlungen für Termine sind nicht enthalten.</p><h2>§ 2 Start, Laufzeit, Kündigung</h2>");
+    expect(html).toContain("<p>(1) Das Entgelt beträgt 49 € je Standort und Monat, für Standorte mit „Termin + Treue“ (§ 1 Abs. 6) 69 €. Der erste Abrechnungsmonat ist kostenlos (§ 2 Abs. 2), auch mit „Termin + Treue“; für Standorte, die der Betrieb später hinzunimmt, zahlt er ab ihrem Starttag, im laufenden Abrechnungsmonat anteilig nach Tagen. Eine Einrichtungsgebühr fällt nicht an.</p>");
+    expect(html).toContain("</p><p>(5) „Termin + Treue“ gilt ab dem Tag, an dem der Anbieter es für den Standort einschaltet; für den Rest des laufenden Abrechnungsmonats berechnet er den Unterschied anteilig nach Tagen mit der nächsten Rechnung. Der Betrieb kann in Textform zum Ende des laufenden Abrechnungsmonats zurück zum Entgelt von 49 € wechseln. Ab dann können für den Standort keine neuen Termine gebucht oder eingetragen werden; bereits gebuchte Termine bleiben im Inhaberbereich sichtbar und exportierbar.</p><h2>§ 4 Pflichten des Betriebs</h2>");
     // ENG-323, Legal's T-2 as § 1 (5), right after (4).
     expect(html).toContain(`Wesentliche Änderungen kündigt der Anbieter mindestens zwei Wochen vorher in Textform an.</p><p>(5) Die Lage eines Standorts bestimmt der Betrieb über eine Suche, die Google Maps nutzt, sobald der Anbieter sie anbietet. Für diese Suche gelten die <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener">Zusätzlichen Nutzungsbedingungen für Google Maps/Google Earth</a> und die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Google</a>.</p>`);
     expect(html).toContain("(1) Der Vertrag kommt zustande, wenn der Betrieb bei der Registrierung „Konto erstellen“ wählt.");
-    expect(html).toContain("(1) Das Entgelt beträgt 49 € je Standort und Monat.");
     expect(html).toContain('Der <a href="/avv">Vertrag zur Auftragsverarbeitung</a> (AVV) ist Teil dieses Vertrags');
     expect(html).toContain("Diese Bedingungen kann der Betrieb auf dieser Seite jederzeit ausdrucken oder speichern.");
     expect(html).not.toMatch(/\{[^}]*\}|Entwurf/);
@@ -256,6 +259,8 @@ describe("Loynara Termin legal texts", () => {
     ]) expect(html).toContain(part);
     expect(html).not.toContain("Nicht erhoben:</strong> Name, Telefonnummer");
     expect(OWNER_AVV.version >= BOOKING_AVV_VERSION).toBe(true);
+    // ENG-339: new sign-ups accept the terms Fassung with „Termin + Treue“ (OWNER_TERMS is what /register records).
+    expect(OWNER_TERMS.version >= BOOKING_TERMS_VERSION).toBe(true);
     expect(html).toContain(OWNER_AVV.stand);
   });
 

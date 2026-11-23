@@ -2,7 +2,7 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { ownerAcceptances, staffRoles, tenants } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { BOOKING_AVV_VERSION, OWNER_AVV, OWNER_TERMS } from "./owner-contract";
+import { BOOKING_AVV_VERSION, BOOKING_TERMS_VERSION, OWNER_AVV, OWNER_TERMS } from "./owner-contract";
 import { OWNER_PRIVACY_NOTICE } from "./owner-privacy";
 
 /** The button's sentence in the app (ENG-339); a new wording gets a new version, like SIGNUP_ACCEPTANCE_TEXT_VERSION. */
@@ -17,23 +17,26 @@ async function ownerTenant(userId: string, reader: Pick<typeof db, "select"> = d
   return role.tenantId;
 }
 
-/** When the business accepted the AVV Fassung with Terminbuchung (or a later one), or null. The same test as the operator's switch. */
+/** Both Fassungen with „Termin + Treue“ (or later ones) in one acceptance: the terms and the AVV (Legal § 5). The operator's switch asks the same. */
+export const bookingAccepted = (tenantId: string) => and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, BOOKING_AVV_VERSION), gte(ownerAcceptances.termsVersion, BOOKING_TERMS_VERSION));
+
+/** When the business accepted them, or null. */
 export async function bookingAvvStatus(userId: string) {
   const tenantId = await ownerTenant(userId);
   const [row] = await db.select({ acceptedAt: ownerAcceptances.acceptedAt }).from(ownerAcceptances)
-    .where(and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, BOOKING_AVV_VERSION)))
+    .where(bookingAccepted(tenantId))
     .orderBy(desc(ownerAcceptances.acceptedAt)).limit(1);
-  return { version: OWNER_AVV.version, stand: OWNER_AVV.stand, acceptedAt: row?.acceptedAt.toISOString() ?? null };
+  return { terms: { version: OWNER_TERMS.version, stand: OWNER_TERMS.stand }, avv: { version: OWNER_AVV.version, stand: OWNER_AVV.stand }, acceptedAt: row?.acceptedAt.toISOString() ?? null };
 }
 
-/** ENG-339: the owner accepts the current AVV Fassung (and terms) in the app: one append-only row; a repeat adds nothing. */
+/** ENG-339: the owner accepts the current terms and AVV Fassung in the app: one append-only row with both versions; a repeat adds nothing. */
 export async function acceptBookingAvv(userId: string) {
   await db.transaction(async tx => {
     const tenantId = await ownerTenant(userId, tx);
     // One acceptance per business is enough; the lock keeps two taps from writing two rows.
     await tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, tenantId)).for("update");
     const [done] = await tx.select({ id: ownerAcceptances.id }).from(ownerAcceptances)
-      .where(and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, OWNER_AVV.version))).limit(1);
+      .where(and(eq(ownerAcceptances.tenantId, tenantId), gte(ownerAcceptances.avvVersion, OWNER_AVV.version), gte(ownerAcceptances.termsVersion, OWNER_TERMS.version))).limit(1);
     if (done) return;
     // The time is the database's (insert trigger), the versions the server's, never the caller's.
     await tx.insert(ownerAcceptances).values({ userId, tenantId, path: "booking", termsVersion: OWNER_TERMS.version, avvVersion: OWNER_AVV.version,

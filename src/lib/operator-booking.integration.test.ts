@@ -5,7 +5,7 @@ import { GET as cardBookingRoute } from "@/app/api/card/[token]/booking/route";
 import { getBillingOverview } from "./billing";
 import { bookingShop, identity, request, withBookingDatabase } from "./booking/test-fixture";
 import { BOOKING_AVV_MISSING, operatorOverview } from "./operator";
-import { BOOKING_AVV_VERSION } from "./owner-contract";
+import { BOOKING_AVV_VERSION, BOOKING_TERMS_VERSION } from "./owner-contract";
 import { createMerchant } from "./product";
 
 withBookingDatabase();
@@ -14,9 +14,9 @@ afterAll(() => { if (saved === undefined) delete process.env.PLATE_OPERATOR_USER
 
 const toggle = (body: unknown, cookie: string) => bookingRoute(request("/api/operator/booking", { body, cookie }));
 const cardView = async (token: string) => (await cardBookingRoute(request(`/api/card/${token}/booking`), { params: Promise.resolve({ token }) })).json();
-/** The shop's acceptance at sign-up of the given AVV Fassung (owner_acceptances is append-only; the row is written whole). */
-const accept = (userId: string, tenantId: string, avvVersion = BOOKING_AVV_VERSION) => pool.query(
-  "INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 'synthetic', $3, 'synthetic', 'synthetic')", [userId, tenantId, avvVersion]);
+/** The shop's acceptance at sign-up of the given AVV and terms Fassungen (owner_acceptances is append-only; the row is written whole). */
+const accept = (userId: string, tenantId: string, avvVersion = BOOKING_AVV_VERSION, termsVersion = BOOKING_TERMS_VERSION) => pool.query(
+  "INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, $4, $3, '2026-11-20', '2026-11-20')", [userId, tenantId, avvVersion, termsVersion]);
 const settings = async (locationId: string) => (await pool.query("SELECT enabled, auto_confirm, setup_done_at FROM booking_settings WHERE location_id = $1", [locationId])).rows[0];
 
 it("turns online booking on and off per location, leaving the owner's settings alone, and the card follows", async () => {
@@ -57,8 +57,9 @@ it("refuses to turn booking on until the shop accepted the AVV Fassung with Term
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   const refused = async () => { const res = await toggle({ ...shop.scope, enabled: true }, operator.cookie); expect(res.status).toBe(409); expect(await res.json()).toMatchObject({ error: BOOKING_AVV_MISSING, code: "AVV_NOT_ACCEPTED" }); };
   await refused();
-  // An acceptance of the older Fassung, or of the right one by another shop, does not count.
+  // An acceptance of the older AVV, of the right AVV with the older terms (Legal § 5), or of the right ones by another shop, does not count.
   await accept(shop.owner.userId, shop.scope.tenantId, "2026-11-20");
+  await accept(shop.owner.userId, shop.scope.tenantId, BOOKING_AVV_VERSION, "2026-11-22");
   const other = await bookingShop();
   await accept(other.owner.userId, other.scope.tenantId);
   await refused();
