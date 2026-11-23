@@ -34,7 +34,8 @@ export function CardBirthday({ token }: { token: string }) {
 
   async function run(action: () => Promise<unknown>, done: string) {
     setBusy(true); setError(""); setNotice("");
-    try { await action(); setState(await apiJson<Birthday>(url)); setNotice(done); }
+    // A saved or deleted birthday ends the earlier attempt: the „Bitte wähle …“ line must not come back (Design r2).
+    try { await action(); setTried(false); setState(await apiJson<Birthday>(url)); setNotice(done); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt. Versuche es noch einmal."); }
     finally { setBusy(false); }
   }

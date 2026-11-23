@@ -128,4 +128,13 @@ test("the birthday's „Speichern“ names what is missing in one line, and the 
   await expect.poll(gaps).toEqual([12, 12]);
   await save.click();
   await expect.poll(() => posted).toEqual([{ day: 12, month: 5 }]);
+  // Design r2: once saved, deleting it again brings back neither the line nor the marks of the earlier empty press.
+  await page.route("**/api/card/*/birthday", route => route.request().method() === "GET"
+    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, day: 12, month: 5, text: "In deiner Geburtstagswoche gibt es einen Bonus." }) })
+    : route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
+  await expect(page.getByRole("button", { name: "Löschen", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await expect(page.getByText("Gelöscht.")).toBeVisible();
+  await expect(line).toHaveCount(0);
+  for (const select of [day, month]) await expect(select).not.toHaveAttribute("aria-invalid", "true");
 });
