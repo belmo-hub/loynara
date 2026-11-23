@@ -45,7 +45,8 @@
 
 /* „Details“: a label and its value. */
 .key { flex: none; color: var(--color-ink-muted); }
-.value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
+.pair { flex-wrap: wrap; } /* under large text the value goes under its label instead of out of the panel */
+.value { flex: 1 1 auto; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
 
 /* „Karte neu ausstellen“ as one tappable row. */
 .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
@@ -82,10 +83,10 @@
    Design; under 600 since 19 Nov, ENG-290: real dates do not fit three figure columns in a phone, and never break). */
 @media (max-width: 1199px) {
   .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .facts > div { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
+  .facts > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
   .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
   .facts .label { order: -1; font-weight: var(--weight-strong); }
-  .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
+  .facts .figure { flex: none; max-width: 100%; margin-left: auto; white-space: normal; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way first; a figure breaks only when it is wider than the whole row (large text) */
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)
    all three figures step down to 22/28 together (Head of Design, 20 Nov). */

@@ -88,6 +88,10 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 .newsText { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
 /* „Letzte Aktivität“: the check tile, the label over the day, the amount right (green for a booking). */
+/* Under large text the amount goes under the label instead of over it. */
+.activityBody { flex-wrap: wrap; }
+.activityBody > :first-child { flex-basis: auto; }
+.activityBody > .amount { margin-left: auto; }
 .activityDay { font-variant-numeric: tabular-nums; }
 .amount { flex: none; white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; color: var(--color-success); }
 .amount b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
