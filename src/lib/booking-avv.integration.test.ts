@@ -3,7 +3,8 @@ import { pool } from "@/db";
 import { POST as acceptRoute } from "@/app/api/merchant/booking/avv/route";
 import { GET as meRoute } from "@/app/api/me/route";
 import { POST as toggleRoute } from "@/app/api/operator/booking/route";
-import { BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, BOOKING_AVV_OWNER_ONLY } from "./booking-avv";
+import { BOOKING_AVV_ACCEPTANCE_TEXT_VERSION, BOOKING_AVV_OWNER_ONLY, BOOKING_PAPER_CONTRACT } from "./booking-avv";
+import { operatorOverview } from "./operator";
 
 import { bookingShop, identity, origin, request, withBookingDatabase } from "./booking/test-fixture";
 import { OWNER_AVV, OWNER_TERMS } from "./owner-contract";
@@ -16,19 +17,20 @@ afterAll(() => { if (saved === undefined) delete process.env.PLATE_OPERATOR_USER
 
 const acceptedAt = async (cookie: string) => ((await (await meRoute(request("/api/me", { cookie }))).json()) as { bookingContractsAcceptedAt?: string | null }).bookingContractsAcceptedAt;
 const accept = (cookie: string) => acceptRoute(request("/api/merchant/booking/avv", { method: "POST", body: {}, cookie }));
-const rows = async (tenantId: string) => (await pool.query("SELECT user_id, tenant_id, path, terms_version, avv_version, privacy_version, text_version, accepted_at FROM owner_acceptances WHERE tenant_id = $1 ORDER BY accepted_at", [tenantId])).rows;
-/** bookingShop switches booking on directly; these tests start from a shop the operator has not switched on yet. */
-async function shopWithoutBooking() {
+const rows = async (tenantId: string) => (await pool.query("SELECT user_id, tenant_id, path, terms_version, avv_version, privacy_version, text_version, accepted_at FROM owner_acceptances WHERE tenant_id = $1 AND path = 'booking' ORDER BY accepted_at", [tenantId])).rows;
+/** bookingShop switches booking on directly and writes no acceptance; operator-created shops look like that. */
+async function paperShop() {
   const shop = await bookingShop();
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   return shop;
 }
-/** As every shop from before 29 Nov: its sign-up row, business attached at setup, on the older Fassungen (Reviewer N-1). */
+/** As every shop that signed up online before 29 Nov: its sign-up row, business attached at setup, on the older Fassungen (Reviewer N-1). */
 async function shopOnOlderFassung() {
-  const shop = await shopWithoutBooking();
+  const shop = await paperShop();
   await pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, '2026-11-22', '2026-11-20', '2026-11-20', '2026-11-20')", [shop.owner.userId, shop.scope.tenantId]);
   return shop;
 }
+const shopWithoutBooking = shopOnOlderFassung;
 const bookingRows = async (tenantId: string) => (await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE tenant_id = $1 AND path = 'booking'", [tenantId])).rows[0].n;
 
 // The dialog's wording of Legal § 6 is version 2026-11-24; a new wording takes a new date here and in booking-avv.ts.
@@ -78,7 +80,7 @@ it("the owner accepts once: one append-only row with both Fassungen (terms and A
   const operator = await identity(), shop = await shopWithoutBooking();
   process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
   const toggle = () => toggleRoute(request("/api/operator/booking", { body: { ...shop.scope, enabled: true }, cookie: operator.cookie }));
-  // bookingShop's owner has no acceptance row at all, so /api/me says not yet.
+  // Signed up online on the older Fassungen: /api/me says not yet.
   expect(await acceptedAt(shop.ownerCookie)).toBeNull();
   expect((await toggle()).status).toBe(409);
 
@@ -129,4 +131,21 @@ it("an accepted row stays append-only, and a booking row without its business is
     .rejects.toThrow(/owner_acceptances_path_valid/);
   await expect(pool.query("INSERT INTO owner_acceptances (user_id, tenant_id, path, terms_version, avv_version, privacy_version, text_version) VALUES ($1, $2, 'other', 'x', 'x', 'x', 'x')", [shop.owner.userId, shop.scope.tenantId]))
     .rejects.toThrow(/owner_acceptances_path_valid/);
+});
+
+it("a shop on a signed paper contract (no online sign-up row) is refused, nothing is written, and /api/me offers it no row (Legal § 6)", async () => {
+  const shop = await paperShop();
+  expect(await acceptedAt(shop.ownerCookie)).toBeUndefined();
+  const res = await accept(shop.ownerCookie);
+  expect(res.status).toBe(403);
+  expect(await res.json()).toMatchObject({ error: BOOKING_PAPER_CONTRACT });
+  expect(await pool.query("SELECT count(*)::int AS n FROM owner_acceptances WHERE tenant_id = $1", [shop.scope.tenantId]).then(r => r.rows[0].n)).toBe(0);
+});
+
+it("an online shop's contract start stays its sign-up: the booking row comes later and never moves it (ENG-310 record)", async () => {
+  const operator = await identity(), shop = await shopOnOlderFassung();
+  process.env.PLATE_OPERATOR_USER_IDS = operator.userId;
+  const signedUp = (await pool.query("SELECT to_json(accepted_at) #>> '{}' AS at FROM owner_acceptances WHERE tenant_id = $1 AND path = 'register'", [shop.scope.tenantId])).rows[0].at;
+  expect((await accept(shop.ownerCookie)).status).toBe(200);
+  expect((await operatorOverview(operator.userId)).contracts).toEqual([expect.objectContaining({ tenantId: shop.scope.tenantId, acceptedAt: signedUp })]);
 });
