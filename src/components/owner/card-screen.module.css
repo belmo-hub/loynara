@@ -3,9 +3,9 @@
    rest full width, Details in two columns. From 1200: D's rail (400) beside the statement, 40 apart. */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); grid-template-areas: "card" "feed" "facts" "details" "action"; }
 .card { grid-area: card; display: grid; --grow-after: var(--dur-reward); } /* a fill grows once the card has landed */
-.facts { grid-area: facts; }
+.facts { grid-area: facts; container-type: inline-size; }
 .feed { grid-area: feed; }
-.details { grid-area: details; }
+.details { grid-area: details; container-type: inline-size; }
 .action { grid-area: action; }
 
 /* From 1200, in the rail: the three figures, a figure over its label, spread from inset to inset. */
@@ -45,8 +45,10 @@
 
 /* „Details“: a label and its value. */
 .key { flex: none; color: var(--color-ink-muted); }
-.pair { flex-wrap: wrap; } /* under large text the value goes under its label instead of out of the panel */
-.value { flex: 1 1 auto; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
+.pair { flex-wrap: wrap; }
+.value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
+/* Under large text only: the value goes under its label instead of out of the panel. */
+@container (max-width: 17em) { .value { flex: 1 1 auto; } }
 
 /* „Karte neu ausstellen“ as one tappable row. */
 .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
@@ -83,10 +85,15 @@
    Design; under 600 since 19 Nov, ENG-290: real dates do not fit three figure columns in a phone, and never break). */
 @media (max-width: 1199px) {
   .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .facts > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
+  .facts > div { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); padding-block: var(--space-2); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
   .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
   .facts .label { order: -1; font-weight: var(--weight-strong); }
-  .facts .figure { flex: none; max-width: 100%; margin-left: auto; white-space: normal; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way first; a figure breaks only when it is wider than the whole row (large text) */
+  .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
+  /* Under large text only: the figure goes under its label, and breaks only when it is wider than the whole row. */
+  @container (max-width: 17em) {
+    .facts > div { flex-wrap: wrap; }
+    .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; }
+  }
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)
    all three figures step down to 22/28 together (Head of Design, 20 Nov). */

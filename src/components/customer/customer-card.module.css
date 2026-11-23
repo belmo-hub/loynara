@@ -90,7 +90,7 @@ section.ticket { grid-template-columns: auto minmax(0, 1fr); align-items: center
 /* „Letzte Aktivität“: the check tile, the label over the day, the amount right (green for a booking). */
 /* Under large text the amount goes under the label instead of over it. */
 .activityBody { flex-wrap: wrap; }
-.activityBody > :first-child { flex-basis: auto; }
+.activityBody > :first-child { flex: 1 1 0%; min-width: min-content; grid-template-columns: minmax(min-content, 1fr); } /* wraps only when a word no longer fits */
 .activityBody > .amount { margin-left: auto; }
 .activityDay { font-variant-numeric: tabular-nums; }
 .amount { flex: none; white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; color: var(--color-success); }

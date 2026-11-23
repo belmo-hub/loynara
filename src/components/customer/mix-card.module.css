@@ -42,10 +42,14 @@
 .kasse .stamps:not([data-rows="1"]) { min-height: calc(2 * round(0.76 * (100cqi - 3 * var(--space-2)) / 4, 1px) + var(--space-3)); }
 .kasse .stamp { --st: 76%; }
 .kasse .id b { font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); hyphens: manual; } /* a card number never hyphenates */
-.kasse .top { flex-wrap: wrap; } /* under large text the balance goes under the number instead of over it */
 .kasse .n b { font-size: var(--display-tile); line-height: 2.75rem; }
-.kasse .foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.kasse .foot > p { flex: 1 1 8rem; } /* under large text the note goes under the button instead of out of the card */
+.kasse .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+/* Under large text only (the card is narrower than 15 of its own em; at 100 % even a 320 phone is wider): the balance goes
+   under the number and the note under „Andere Karte“, both starting at the left, instead of over them or out of the card. */
+@container (max-width: 15em) {
+  .kasse .top, .kasse .foot { flex-wrap: wrap; }
+  .kasse .foot > p { flex: 1 1 8rem; text-align: start; }
+}
 
 /* The thumbnail for list rows: the shop's colour and the stamps as dots, 64 x 44, no type. */
 .thumb { display: grid; flex: none; place-content: center; grid-template-columns: repeat(var(--cols), 8px); gap: var(--space-1) 6px; width: 64px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(160deg, var(--merchant) 0%, var(--merchant-deep) 100%); }
