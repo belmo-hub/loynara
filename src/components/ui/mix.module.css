@@ -44,6 +44,21 @@
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
 .text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
+/* `wrapEnd` panels, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): a row's
+   words take at least 8em, so its value (with the chevron, as one unit) goes under them once they no longer fit beside
+   it, instead of over the words. A title word wider than the whole row hyphenates; sub lines break at words. The container is the panel, not the row: a
+   <button> row (the Kasse's rewards) cannot be one in Chrome. */
+.panel[data-wrap-end] { container: mix-row / inline-size; }
+.end { display: flex; flex: none; align-items: center; gap: var(--space-3); }
+@container mix-row (max-width: 15em) {
+  .body { flex-wrap: wrap; }
+  .body:not(:has(.val)) { flex-wrap: nowrap; } /* a chevron with no value stays beside the words, never alone on a line */
+  .text { flex: 1 1 8em; min-width: 0; hyphens: manual; overflow-wrap: break-word; } /* sub lines keep their words whole */
+  /* Only a long title word hyphenates, never into stubs („Startbo-nus“): 12 letters, 5 before and after a break; WebKit
+     has no word length, so 6 before and after keeps a 10-letter word („hinzufügen“) whole there. */
+  .text > b { hyphens: auto; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; hyphenate-limit-chars: 12 5 5; }
+  .text + * { margin-left: auto; }
+}
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */
 .chev { flex: none; margin: 0 -6px; color: var(--color-ink-faint); }
 .more { display: flex; align-items: center; justify-content: center; min-height: var(--mix-row-2); margin-top: var(--space-2); border-top: 1px solid var(--color-line); color: var(--color-action); font-weight: var(--weight-strong); text-decoration: none; }

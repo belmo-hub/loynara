@@ -324,3 +324,24 @@ test("the address notice's button stays put through busy, sent, limited and fail
     }
   } finally { await owner.close(); }
 });
+
+// Finding 17 (Design, 22 Nov): „Weiter“ stays pressable for a text that isn't ready; the press focuses the field and shows
+// its existing error. Capped, quiet hours and no reach keep it disabled (their notice explains). The overview is answered
+// here, so the shop's real cap and reach don't matter.
+test("„Weiter“ on a message that isn't ready shows why instead of doing nothing", async () => {
+  const overview = { shopName: "Demo", reach: 5, remaining: 3, nextAllowedAt: null, quietNow: false, timezone: "Europe/Berlin", guidanceConfirmed: true, history: [] };
+  await page.route("**/api/merchant/wallet-messages?*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(overview) }));
+  try {
+    await page.evaluate(() => localStorage.removeItem("loynara-wallet-message-draft"));
+    await page.goto("/merchant/wallet-messages");
+    const field = page.locator("#wm-text"), next = page.getByRole("button", { name: "Weiter", exact: true });
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(field).toBeFocused();
+    await expect(page.locator("#wm-error")).toHaveText("Bitte schreib eine Nachricht.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Nachricht senden");
+    await page.route("**/api/merchant/wallet-messages?*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...overview, quietNow: true }) }));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeDisabled();
+  } finally { await page.unrouteAll({ behavior: "ignoreErrors" }); }
+});

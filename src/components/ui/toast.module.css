@@ -1,4 +1,5 @@
-.region { position: fixed; left: 0; right: 0; bottom: calc(var(--toast-offset, 0px) + var(--space-4) + env(safe-area-inset-bottom)); z-index: var(--z-toast); display: grid; justify-items: center; gap: var(--space-2); padding: 0 var(--space-4); pointer-events: none; }
+/* A popover: the browser's own popover box (centred, bordered, Canvas) is reset to the old fixed strip. */
+.region { position: fixed; inset: auto 0 calc(var(--toast-offset, 0px) + var(--space-4) + env(safe-area-inset-bottom)); width: auto; height: auto; margin: 0; border: 0; background: none; color: inherit; overflow: visible; z-index: var(--z-toast); display: grid; justify-items: center; gap: var(--space-2); padding: 0 var(--space-4); pointer-events: none; }
 .toast {
   display: flex; align-items: center; gap: var(--space-3); width: min(100%, 420px); min-height: 48px; padding: var(--space-2) calc((48px - var(--target)) / 2) var(--space-2) var(--space-4);
   border-radius: var(--radius-xl); background: var(--color-ink); color: var(--color-bg); box-shadow: var(--shadow-raised); pointer-events: auto;

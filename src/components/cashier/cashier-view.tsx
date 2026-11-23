@@ -417,7 +417,7 @@ export function CashierView({ locationName, businessName = "", brandColor, card,
     {/* One reward and it is ready: the dock's band names and redeems it, so the row is left out and nothing sits under the
         dock (Design, 18 Nov). With several the list stays and scrolls clear of the dock. */}
     {shown && !(rowGivesWay && shown.rewards.length === 1) && <section className={styles.rewards} aria-label={t.rewards}>
-      {shown.rewards.length ? <div className={cx(card && "reward-action-list", mixStyles.panel)}>
+      {shown.rewards.length ? <div className={cx(card && "reward-action-list", mixStyles.panel)} data-wrap-end>
         {shown.rewards.map(reward => {
           const left = reward.cost - shown.balance, ready = card ? reward.eligible : left <= 0;
           // The one ready reward the band names and redeems: its row shows the price only, as on the closed card (Design, 19 Nov).

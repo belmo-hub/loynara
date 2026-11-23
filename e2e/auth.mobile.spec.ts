@@ -12,7 +12,7 @@ test.describe("sign-in on phones", () => {
     await page.goto("/login");
     const email = page.getByLabel("E-Mail-Adresse", { exact: true }), password = page.getByLabel("Passwort", { exact: true });
     await expect(email).toHaveAttribute("type", "email");
-    await expect(email).toHaveAttribute("autocomplete", "username");
+    await expect(email).toHaveAttribute("autocomplete", "username webauthn");
     await expect(email).toHaveAttribute("inputmode", "email");
     await expect(email).toHaveAttribute("autocapitalize", "none");
     await expect(password).toHaveAttribute("type", "password");

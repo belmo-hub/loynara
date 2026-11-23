@@ -39,9 +39,9 @@ describe("navigation with pilot-withheld surfaces", () => {
       expect(visibleItems(customers, role, hidden).map(item => item.href)).toEqual(["/merchant/customers"]);
     }
   });
-  it("manager keeps overview, programme and customers (with audience counts) only", () => {
+  it("manager keeps overview, programme, customers (with audience counts) and Einstellungen for Konto (CTO, 23 Nov)", () => {
     const groups = visibleGroups("manager", ALL);
-    expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers"]);
+    expect(groups.map(group => group.id)).toEqual(["overview", "program", "customers", "settings"]);
     // Audience counts are pseudonymous and location-scoped for managers on the server; no campaign access.
     expect(visibleItems(groups[2], "manager", ALL).map(item => item.href)).toEqual(["/merchant/customers", "/merchant/audiences"]);
   });
