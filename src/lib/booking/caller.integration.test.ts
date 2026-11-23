@@ -3,9 +3,11 @@ import { expect, it } from "vitest";
 import { pool } from "@/db";
 import { GET as lookupRoute, POST as bookRoute } from "@/app/api/merchant/booking/caller/route";
 import { GET as slotsRoute } from "@/app/api/merchant/booking/caller/slots/route";
+import { GET as nextFreeRoute } from "@/app/api/merchant/booking/caller/next-free/route";
 import { formatCardLocator } from "@/lib/card-locator";
 import { CALLER_CARD_MISSING } from "./appointments";
-import { bookingShop, dayOf, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
+import { allWeek, bookingShop, dayOf, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
+import { addDays, instantToWall } from "./time";
 
 // ENG-372 (founder Q-116 c): the shop enters a caller's appointment, only for an existing card found by its number.
 withBookingDatabase();
@@ -78,4 +80,17 @@ it("refuses while online booking is off at the location", async () => {
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   expect((await bookFor(shop, await locator(shop))).status).toBe(404);
   expect(await rows(shop)).toEqual([]);
+});
+
+it("„Nächster freier Tag“ is one request: the first of the next 28 days with a free start, for the chosen person", async () => {
+  // Lena works one weekday only: the one three days from today in Berlin.
+  const today = instantToWall(new Date(), "Europe/Berlin").date;
+  const target = addDays(today, 3);
+  const weekday = ((new Date(`${target}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  const shop = await bookingShop({ workingHours: allWeek().filter(day => day.weekday === weekday) });
+  const nextFree = async (query: string) => nextFreeRoute(request(`/api/merchant/booking/caller/next-free?serviceId=${shop.serviceId}&${query}`, { cookie: shop.ownerCookie }));
+  expect(await (await nextFree(`from=${addDays(today, 1)}`)).json()).toEqual({ date: target });
+  expect(await (await nextFree(`from=${target}&staffId=${shop.staffId}`)).json()).toEqual({ date: target });
+  expect(await (await nextFree(`from=${addDays(target, 1)}`)).json()).toEqual({ date: addDays(target, 7) });
+  expect((await nextFree(`from=${today}&staffId=00000000-0000-4000-8000-000000000000`)).status).toBe(404);
 });

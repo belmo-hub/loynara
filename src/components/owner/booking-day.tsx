@@ -4,7 +4,7 @@ import { Ban, CalendarDays, ChevronLeft, ChevronRight, Settings } from "lucide-r
 import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { instantToWall } from "@/lib/booking/time";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,7 +17,7 @@ import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon }
 import { useLoad } from "./use-load";
 
 type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null; services: Array<{ id: string; name: string }> };
-type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string } | null;
+type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string; focus?: boolean } | null;
 type Blocked = { membershipId: string; name: string; cardLocator: string; blockedAt: string; reason: string };
 type Done = (text: string, tone?: "ok" | "danger" | "info", row?: OwnerAppointment) => void;
 const failure = (cause: unknown) => cause instanceof ClientApiError ? { code: cause.code, status: cause.status, message: cause.message } : {};
@@ -42,6 +42,8 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [flash, setFlash] = useState<Flash>(null);
+  // After a booking jumps to its day, focus goes to the message there, not to the page body (Design r2).
+  const flashBox = useRef<HTMLDivElement>(null);
   const shown = day.state === "ok" ? (patch?.at === day.at ? patchDay(day.data, patch.rows) : day.data) : null;
   const timezone = shown?.timezone ?? zone ?? BROWSER_ZONE;
   const today = todayIn(timezone);
@@ -56,11 +58,12 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
     reload(); reloadBlocked();
   };
 
+  useEffect(() => { if (flash?.focus && flash.date === date) flashBox.current?.focus(); }, [flash, date]);
   // Design (24 Nov): a booking for another day opens that day, so it doesn't seem to vanish; the flash names day, time and person.
   const booked = (text: string, row: OwnerAppointment, target: string) => {
     done(text, "ok", row);
     if (target === date) return;
-    setFlash({ date: target, tone: "ok", text });
+    setFlash({ date: target, tone: "ok", text, focus: true });
     setZone(timezone);
     router.push(`/merchant/termine?date=${target}`, { scroll: false });
   };
@@ -69,8 +72,9 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
     <div className="ow-page">
       <header className="ow-pagehead ow-prog">
         {/* Design (24 Nov): „Einrichtung“ is a quiet gear link across from the day, so the two actions keep one line at 390. */}
-        <div className="ow-row" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "nowrap" }}><div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-          {ready && !readOnly && me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten"><Settings size={20} aria-hidden="true" />Einrichtung</Link>}</div>
+        <div className="ow-dayhead"><h1>{dayName(date, today)}</h1>
+          {ready && !readOnly && me?.role === "owner" && <Link className="ow-btn ow-btn--ghost ow-dayhead-link" href="/merchant/termine/einrichten" aria-label="Einrichtung"><Settings size={20} aria-hidden="true" /><span className="ow-dayhead-label">Einrichtung</span></Link>}
+          <p>{subLine(date, today)}</p></div>
         {ready && !readOnly && <div className="ow-row">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
@@ -92,7 +96,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
         <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
       )}
       {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
-      {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
+      {flash?.date === date && <div ref={flashBox} tabIndex={-1}><Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice></div>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
         {requestsLine(shown.pendingRequests, shown.nextRequestDate, today)}</Notice>}

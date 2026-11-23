@@ -590,6 +590,14 @@ export async function callerSlots(input: Scope & { serviceId: string; date: stri
   return staffSlots(input, await liveService(db, input, input.serviceId), input.date, now);
 }
 
+/** „Nächster freier Tag“ in one request (Design r2: 28 slot requests ran into the rate limit): the first of the next 28 days with a free start. */
+export async function callerNextFree(input: Scope & { serviceId: string; from: string; staffId?: string }, now = new Date()) {
+  const service = await liveService(db, input, input.serviceId);
+  const days = Array.from({ length: 28 }, (_, offset) => addDays(input.from, offset));
+  const found = await availability(db, { ...input, timezone: await timezoneOf(db, input) }, { service, staffId: input.staffId, days, settings: OWNER_SLOT_RULES, now });
+  return { date: found.find(day => day.slots.length > 0)?.date ?? null };
+}
+
 /** Confirmed at once (the shop agreed it on the phone). The card's online pause and open-booking cap are for online booking, so they don't apply. */
 export async function ownerBook(input: Scope & { cardNumber: string; serviceId: string; staffId: string; start: Date; customerName: string; idempotencyKey: string }, now = new Date()) {
   return db.transaction(async tx => {

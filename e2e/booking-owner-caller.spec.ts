@@ -76,13 +76,33 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   const shortDay = `${new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)).replace(".", "")} ${date.slice(8, 10)}.${date.slice(5, 7)}.`;
   const primary = dialog.getByRole("button", { name: `${shortDay}, ${time} Uhr bei Lena eintragen` });
   await expect(primary).toBeInViewport({ ratio: 1 });
+  // Design r2: at 200 % text the button says „Eintragen“ and a summary line above it names when and with whom.
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  await expect(dialog.getByRole("button", { name: "Eintragen", exact: true })).toBeVisible();
+  await expect(dialog.getByText(`${shortDay}, ${time} Uhr bei Lena`, { exact: true })).toBeInViewport({ ratio: 1 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
   await primary.click();
   const longDay = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
-  await expect(page.getByRole("status").filter({ hasText: `${longDay}, ${time} Uhr bei Lena eingetragen.` })).toBeVisible();
+  const flash = page.getByRole("status").filter({ hasText: `Jonas: ${longDay}, ${time} Uhr bei Lena eingetragen.` });
+  await expect(flash).toBeVisible();
+  // After the jump focus is on the message, not on the page body (Design r2).
+  expect(await flash.evaluate(element => element.parentElement === document.activeElement)).toBe(true);
   await expect(page).toHaveURL(new RegExp(`date=${date}$`));
   await expect(page.getByRole("button", { name: new RegExp(`${time}.*Haarschnitt`) })).toContainText("Jonas bei Lena");
   expect((await pool.query("SELECT status, customer_name, customer_phone FROM booking_appointments a JOIN memberships m ON m.id = a.membership_id WHERE m.card_token = $1", [cardToken])).rows)
     .toEqual([{ status: "confirmed", customer_name: "Jonas", customer_phone: null }]);
+  // Design r2: the title row never runs past the edge. At 320 on a Thursday, and at 390 with 200 % text, „Einrichtung“ is the gear
+  // alone (name kept, 44 px), the date has its own line, and nothing scrolls sideways.
+  const thursday = (() => { let d = date; for (let i = 0; i < 7 && new Date(`${d}T12:00:00Z`).getUTCDay() !== 4; i++) d = new Date(Date.parse(`${d}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10); return d; })();
+  for (const [width, size] of [[320, ""], [390, "200%"]] as const) {
+    await page.setViewportSize({ width, height: 740 });
+    await page.goto(`/merchant/termine?date=${thursday}`);
+    await page.evaluate(fontSize => { document.documentElement.style.fontSize = fontSize; }, size);
+    const gear = page.getByRole("link", { name: "Einrichtung" });
+    await expect(gear).toBeVisible();
+    expect(await gear.evaluate(element => { const box = element.getBoundingClientRect(); return box.width >= 44 && box.height >= 44 && box.right <= innerWidth && (element.querySelector(".ow-dayhead-label") as HTMLElement).offsetParent === null; })).toBe(true);
+    expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
+  }
   await context.close(); await owner.dispose(); await guest.dispose();
 });

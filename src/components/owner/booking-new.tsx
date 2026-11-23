@@ -63,18 +63,12 @@ export function NewAppointmentDialog({ day, services, onClose, onBooked }: { day
     setBusy(true); setError("");
     try {
       const row = await postJson<OwnerAppointment>("/api/merchant/booking/caller", { card: card.cardLocator, serviceId, staffId: picked.staffId, start: picked.start, customerName: name.trim(), idempotencyKey: key });
-      onBooked(`${longDate(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)} eingetragen.`, row, date);
+      onBooked(`${name.trim()}: ${longDate(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)} eingetragen.`, row, date);
     } catch (cause) { setError(actionError(failure(cause))); }
     finally { setBusy(false); }
   }
-  async function firstFree(from: string) {
-    for (let offset = 0; offset < 28; offset++) {
-      const target = shiftDate(from, offset);
-      const found = await apiJson<Slots>(slotsUrl(target)).catch(() => null);
-      if (found?.slots.some(slot => !staffId || slot.staffId === staffId)) return target;
-    }
-    return null;
-  }
+  // One request for 28 days (Design r2): the server reads them in one pass.
+  const firstFree = async (from: string) => (await apiJson<{ date: string | null }>(`/api/merchant/booking/caller/next-free?serviceId=${serviceId}&from=${from}${staffId ? `&staffId=${staffId}` : ""}`).catch(() => ({ date: null }))).date;
   const choose = (next: { date?: string; staffId?: string; serviceId?: string }) => {
     if (next.date !== undefined) setDate(next.date);
     if (next.staffId !== undefined) setStaffId(next.staffId);
@@ -95,9 +89,13 @@ export function NewAppointmentDialog({ day, services, onClose, onBooked }: { day
   );
 
   const multi = (slots?.staff.length ?? 0) > 1;
+  const when = picked ? `${shortDay(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)}` : "";
   return (
-    <OwnerDialog view="slots" title="Termin eintragen" scroll onClose={onClose} actions={<>{cancel}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !picked || !name.trim()} aria-busy={busy}>
-      {picked ? `${shortDay(date)}, ${wallTime(picked.start, zone)} Uhr bei ${staffName(picked.staffId)} eintragen` : "Eintragen"}</button></>}>
+    <OwnerDialog view="slots" title="Termin eintragen" scroll onClose={onClose} actions={<>{cancel}<button type="button" className="ow-btn ow-btn--primary" onClick={() => void save()} disabled={busy || !picked || !name.trim()} aria-busy={busy} aria-describedby={picked ? "bn-when" : undefined}>
+      {/* Narrow or at large text the button says „Eintragen“ and the summary line above it names when (Design r2). */}
+      {picked ? <><span className="ow-caller-long">{when} eintragen</span><span className="ow-caller-short">Eintragen</span></> : "Eintragen"}</button>
+      {/* Last in the reversed-wrap action row, so it stands right above the buttons. */}
+      {picked && <p id="bn-when" className="ow-caller-summary">{when}</p>}</>}>
       <div className="ow-row" style={{ justifyContent: "space-between" }}><p className="ow-hint" translate="no">Karte {card.cardLocator}</p>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" onClick={() => { setCard(null); setPicked(null); setError(""); }} disabled={busy}>Andere Karte</button></div>
       <div className="ow-field"><label htmlFor="bn-name">Name</label><input id="bn-name" className="ow-input" autoComplete="off" maxLength={60} value={name} onChange={event => setName(event.target.value)} data-autofocus /></div>
