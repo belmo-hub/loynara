@@ -7,7 +7,8 @@ import { signUp } from "./support/sign-up";
 // ENG-372 (founder Q-116 c): the owner enters a caller's appointment from the day view, only for a card found by number.
 const database = new URL(process.env.DATABASE_URL ?? "http://invalid");
 if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Local disposable database required");
-test.use({ baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000" });
+// The config's server (CI runs these on its own port); E2E_BASE_URL only for a server started by hand.
+if (process.env.E2E_BASE_URL) test.use({ baseURL: process.env.E2E_BASE_URL });
 test.afterAll(async () => { await pool.end(); });
 const hours = [1, 2, 3, 4, 5, 6, 7].map(weekday => ({ weekday, start: "06:00", end: "22:00", breaks: [] }));
 
