@@ -25,7 +25,7 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   };
 
   const uv = { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } as const;
-  const rows = () => page.getByRole("button", { name: "Entfernen", exact: true });
+  const rows = () => page.getByRole("button", { name: / entfernen$/ }); // each row's button is named „<Name> entfernen“
 
   await signInWithPassword();
   await page.goto("/merchant/more");
@@ -49,11 +49,26 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   expect(await page.locator("li:has(#passkey-add)").count()).toBe(1);
   expect(await page.locator("li:has(button:text-is('Entfernen'))").count()).toBe(2);
   // Removing asks first, names the passkey, and hands the focus to the next row's „Entfernen“.
+  // The removed row only ever goes open → closing → gone after the tap, and never comes back while the list reloads.
+  const removedId = await rows().first().getAttribute("id");
   await rows().first().click();
   await expect(page.getByRole("heading", { name: "Passkey entfernen?" })).toBeVisible();
   await expect(page.getByText("Du meldest dich dann wieder mit deinem Passwort an. Lösche ihn auch in den Einstellungen deines Geräts.")).toBeVisible();
+  const states = page.evaluate(id => new Promise<string>(resolve => {
+    const seen: string[] = [], start = performance.now();
+    const tick = () => {
+      if (document.querySelector(".ow-prog-outcome")) {
+        const row = document.getElementById(id ?? "")?.closest(".ow-rowfold");
+        const state = !row ? "gone" : row.hasAttribute("data-closing") ? "closing" : "open";
+        if (seen.at(-1) !== state) seen.push(state);
+      }
+      if (performance.now() - start < 800) requestAnimationFrame(tick); else resolve(seen.join(" "));
+    };
+    requestAnimationFrame(tick);
+  }), removedId);
   await page.getByRole("button", { name: "Entfernen", exact: true }).click();
   await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey entfernt.");
+  expect(await states).toMatch(/^(open )?(closing )?gone$/);
   await expect(rows()).toHaveCount(1);
   await expect(rows()).toBeFocused();
 
@@ -76,10 +91,11 @@ test("adding a passkey with an older sign-in offers to sign in again and comes b
   await page.route("**/api/auth/passkey/generate-register-options*", route => route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ code: "SESSION_NOT_FRESH", message: "Session is not fresh" }) }));
   await page.goto("/merchant/more");
   await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
-  await expect(page.getByText("Zum Hinzufügen meldest du dich einmal neu an.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Zum Hinzufügen meldest du dich einmal mit deinem Passwort neu an." })).toBeInViewport();
   await expect(page.locator(".ow-prog-note.ow-error")).toHaveCount(0);
   await page.getByRole("button", { name: "Neu anmelden", exact: true }).click();
   await expect(page).toHaveURL(/\/login\?next=%2Fmerchant%2Fmore$/);
+  await expect(page.getByText("Danach kannst du deinen Passkey hinzufügen.")).toBeVisible();
   await page.unrouteAll({ behavior: "ignoreErrors" });
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill(email);
   await page.getByLabel("Passwort", { exact: true }).fill(password);
@@ -102,7 +118,7 @@ test("a passkey that no longer works says so on the sign-in page and stays there
   await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
   await page.goto("/merchant/more");
   await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
-  await expect(page.getByRole("button", { name: "Entfernen", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: / entfernen$/ })).toHaveCount(1);
   await page.context().clearCookies();
   await page.route("**/api/auth/passkey/verify-authentication", route => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ code: "PASSKEY_NOT_FOUND", message: "Passkey not found" }) }));
   await page.goto("/login");
@@ -110,4 +126,55 @@ test("a passkey that no longer works says so on the sign-in page and stays there
   await page.waitForTimeout(1500);
   await expect(page).toHaveURL(/\/login$/);
   await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+// Design, #349 round 2: a failed options request on page load is not the person's passkey failing: no alert.
+test("a failed passkey options request on the sign-in page stays quiet", async ({ page }) => {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  let calls = 0;
+  await page.route("**/api/auth/passkey/generate-authenticate-options*", route => { calls += 1; return route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ message: "Too many requests" }) }); });
+  await page.goto("/login");
+  await expect.poll(() => calls).toBeGreaterThan(0);
+  await page.waitForTimeout(1000);
+  await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(0); // the route announcer is an empty alert
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+// Design, #349 round 2: a passkey the server accepted without leaving a session gets the form's existing line.
+test("a passkey sign-in that leaves no session says so", async ({ page, baseURL }) => {
+  const url = new URL(baseURL ?? "http://localhost:3000");
+  const api = await apiRequest.newContext({ baseURL: url.origin, extraHTTPHeaders: { Origin: url.origin } });
+  const email = `passkey-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
+  expect((await signUp(api, { data: { name: "Synthetic passkey owner", email, password } })).status()).toBe(200);
+  expect((await api.post("/api/merchant/onboard", { data: { businessName: "Synthetic Passkey Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Passkey card", programType: "stamp", rulesText: "Synthetic local test only.", rewardTitle: "Kaffee", rewardCost: 5 } })).status()).toBe(201);
+  await page.context().addCookies((await api.storageState()).cookies);
+  await api.dispose();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.goto("/merchant/more");
+  await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
+  await expect(page.getByRole("button", { name: / entfernen$/ })).toHaveCount(1);
+  await page.context().clearCookies();
+  // The server says yes but sets no cookie: the page must not lead on without a session.
+  await page.route("**/api/auth/passkey/verify-authentication", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ session: { id: "none" } }) }));
+  await page.goto("/login");
+  await expect(page.getByText("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.")).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+// A browser that rejects an empty conditional request at once reads as a cancel: the sign-in page must not ask again
+// until the person comes back to the address field.
+test("a passkey prompt that closes at once is not asked for again in a loop", async ({ page }) => {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  let calls = 0;
+  page.on("request", request => { if (request.url().includes("/passkey/generate-authenticate-options")) calls += 1; });
+  await page.goto("/login");
+  await page.waitForTimeout(2000);
+  expect(calls).toBeLessThanOrEqual(2); // one per effect run (development runs effects twice)
 });

@@ -28,23 +28,36 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   // phone as unknown where it can be, and the autofill is offered again. Only a sign-in that left a session leads on:
   // a cookie that did not stick must not loop /login and /merchant (Design, #349 round 2).
   useEffect(() => {
-    let active = true, tries = 0;
+    let active = true, failures = 0;
     const offer = async (): Promise<void> => {
       if (!await globalThis.PublicKeyCredential?.isConditionalMediationAvailable?.()) return;
       const result = await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
       if (!active) return;
+      const answered = (result as { webauthn?: { response?: { id?: string } } } | null)?.webauthn;
+      if (result?.error && passkeyCancelled(result.error)) {
+        // A closed prompt is not a failure and says nothing. It is offered again when the person comes back to the address
+        // field, never at once: a browser that rejects an empty conditional request straight away would otherwise spin.
+        const field = document.getElementById("login-email");
+        const again = () => { field?.removeEventListener("focus", again); field?.removeEventListener("pointerdown", again); if (active) void offer().catch(() => undefined); };
+        field?.addEventListener("focus", again); field?.addEventListener("pointerdown", again);
+        return;
+      }
       if (result?.data && !result.error) {
         if ((await authClient.getSession()).data?.session) { router.push(next ?? "/merchant"); router.refresh(); return; }
-      } else if (result?.error && passkeyCancelled(result.error)) {
-        // The person closed the prompt: nothing to say, and the autofill offers it again below.
-      } else {
-        setError("Mit diesem Passkey ging es nicht. Melde dich mit deinem Passwort an.");
-        const credentialId = (result as { webauthn?: { response?: { id?: string } } } | null)?.webauthn?.response?.id;
-        const signal = (globalThis.PublicKeyCredential as { signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void> } | undefined)?.signalUnknownCredential;
-        if (result?.error && "code" in result.error && result.error.code === "PASSKEY_NOT_FOUND" && credentialId && signal) await signal({ rpId: location.hostname, credentialId }).catch(() => undefined);
+        setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
+      } else if (answered && result?.error) {
+        // Only a passkey the person used gets a word; a failed options request on page load stays quiet.
+        if (result.error.status === 429) setError("Zu viele Anmeldeversuche. Warte bitte etwas und versuche es erneut.");
+        else if (result.error.status >= 500) setError("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.");
+        else {
+          setError("Mit diesem Passkey ging es nicht. Melde dich mit deinem Passwort an.");
+          const credentialId = answered.response?.id;
+          const signal = (globalThis.PublicKeyCredential as { signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void> } | undefined)?.signalUnknownCredential;
+          if ("code" in result.error && result.error.code === "PASSKEY_NOT_FOUND" && credentialId && signal) await signal({ rpId: location.hostname, credentialId }).catch(() => undefined);
+        }
       }
-      // A few more offers only: a request that fails without the person doing anything must not spin.
-      if (active && (tries += 1) < 3) return offer();
+      // A few more offers after a failure only: a request that fails without the person doing anything must not spin.
+      if (active && (failures += 1) < 3) return offer();
     };
     void offer().catch(() => { /* no passkey offered: the password form is the way in */ });
     return () => { active = false; };
@@ -92,7 +105,7 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   // everywhere else (G-22: green is the one next step). Copy is live (R22).
   return <AuthShell mark footer={null}>
     <div className={styles.page}>
-      <PageHeader className={styles.signin} title="Gut, dass du da bist." description="Melde dich an, um dein Treueprogramm und die Kasse zu öffnen." />
+      <PageHeader className={styles.signin} title="Gut, dass du da bist." description={next === "/merchant/more" ? "Danach kannst du deinen Passkey hinzufügen." : "Melde dich an, um dein Treueprogramm und die Kasse zu öffnen."} />
       <div className={styles.sheet}>
         <form className={`auth-form ${styles.form}`} onSubmit={submit} onInput={fields.onInput} noValidate>
           {verified ? <p className={styles.alert} data-tone="ok" role="status"><CircleCheck size={20} aria-hidden="true" />Deine E-Mail-Adresse ist bestätigt.</p> : null}

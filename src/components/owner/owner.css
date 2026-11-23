@@ -646,7 +646,7 @@ button.ow-prog-row { width: 100%; border: 0; color: inherit; font: inherit; text
 /* An outcome under a panel (Rows noteTone): the icon on the first line, then the words (Design, #349 round 2). */
 .ow-prog .ow-prog-outcome { display: flex; align-items: flex-start; gap: var(--space-2); }
 .ow-prog .ow-prog-outcome > svg { flex: none; height: 1lh; }
-.ow-prog .ow-prog-note .ow-note-action { margin-left: var(--space-2); vertical-align: middle; }
+.ow-prog .ow-prog-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); scroll-margin-bottom: calc(var(--ow-tabbar, 0px) + var(--space-4)); }
 /* A row that ends in its own button keeps no space for the arrow the other rows have. */
 .ow-prog ul div.ow-prog-row[data-ends="button"]::after { display: none; }
 /* Holds a row's place until its list answers, so the group does not jump. */
@@ -1326,7 +1326,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   /* Indicator slide: the picked segment's pill comes over from where owner-shell measured the segment picked before. */
   .ow-seg button[data-slide]::before { animation: ow-slide var(--dur-ui) var(--ease-in-out) backwards; }
   /* Field error and notices: a message that appears fades in and settles 4 px down; the field's border changes with it. */
-  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
+  .ow-error, .ow-notice, .ow-board-help, .ow-place-status > span, .ow-prog-outcome, .ow-prog-step { animation: ow-drop var(--dur-ui) var(--ease-out) backwards; }
   /* The shop search's suggestions open like a menu, from their top edge. */
   .ow-options:not([hidden]) { transform-origin: top; animation: ow-in var(--dur-ui) var(--ease-out) backwards; }
   /* Disclosure: a fold's content that the browser cannot open by its row height (below) settles in the same way. */

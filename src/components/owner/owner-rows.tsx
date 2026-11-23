@@ -56,7 +56,7 @@ export function Band({ icon: Icon, title, sub, href, onClick }: { icon: LucideIc
 }
 
 /** A confirmation as a screen of its own (Programm 28/30): the question, what happens, the action filled and „Abbrechen“ under it. */
-export function Confirm({ title, back, action, busyAction, busy, danger = true, disabled = false, onConfirm, onCancel, children }: { title: string; back: string; action: string; busyAction?: string; busy: boolean; danger?: boolean; disabled?: boolean; onConfirm: () => void; onCancel: () => void; children: ReactNode }) {
+export function Confirm({ title, back, action, busyAction, busy, danger = true, disabled = false, onConfirm, onCancel, children }: { title: string; back: ReactNode; action: string; busyAction?: string; busy: boolean; danger?: boolean; disabled?: boolean; onConfirm: () => void; onCancel: () => void; children: ReactNode }) {
   return (
     <div className="ow-page ow-qpage">
       <PageTitle back={{ label: back, onClick: onCancel }} title={title} />
@@ -85,8 +85,9 @@ export function NumberCard({ label, value, unit, facts, children }: { label: str
 }
 
 /** A section head on the grey and its rows; `help` puts a „?“ on the head that opens the live help text in a sheet. */
-/** `noteTone`: the note is an outcome under the panel: an error (alert icon, announced) or a confirmation (check, status). */
-export function Rows({ title, help, helpTitle = "So zählen wir", note, noteTone, children }: { title: string; help?: ReactNode; helpTitle?: string; note?: ReactNode; noteTone?: "error" | "ok"; children: ReactNode }) {
+/** `noteTone`: the note is an outcome under the panel: an error (alert icon, announced), a confirmation (check, status) or a
+ *  neutral next step (status, its text and button wrapping as one row). */
+export function Rows({ title, help, helpTitle = "So zählen wir", note, noteTone, children }: { title: string; help?: ReactNode; helpTitle?: string; note?: ReactNode; noteTone?: "error" | "ok" | "info"; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
@@ -95,7 +96,9 @@ export function Rows({ title, help, helpTitle = "So zählen wir", note, noteTone
         ? <div className="ow-rows-head ow-prog-head"><h2>{title}</h2><button type="button" className="ow-tile-q" aria-haspopup="dialog" onClick={() => setOpen(true)}><CircleHelp size={22} aria-hidden="true" /><span className="ow-sr">{helpTitle} „{title}“</span></button></div>
         : <h2>{title}</h2>}
       <ul>{Children.toArray(children).map((child, index) => <li key={isValidElement(child) ? child.key : index}>{child}</li>)}</ul>
-      {note && (noteTone
+      {note && (noteTone === "info"
+        ? <p className="ow-prog-note ow-prog-step" role="status">{note}</p>
+        : noteTone
         ? <p className={`ow-prog-note ow-prog-outcome${noteTone === "error" ? " ow-error" : ""}`} role={noteTone === "error" ? "alert" : "status"}><OwnerIcon name={noteTone === "error" ? "alert" : "check"} size={20} /><span>{note}</span></p>
         : <p className="ow-prog-note">{note}</p>)}
       {help && <Sheet open={open} onClose={close} title={helpTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>{help}</Sheet>}

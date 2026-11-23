@@ -7,13 +7,14 @@ import { apiJson, postJson } from "@/components/client-api";
 import { authClient } from "@/lib/auth-client";
 import { germanDate, shopZone } from "@/lib/german-date";
 import { passkeyCancelled } from "@/lib/passkey-names";
-import { Confirm } from "./owner-rows";
+import { Confirm, MoreLabel } from "./owner-rows";
 import { useOwner } from "./owner-context";
 
 type Passkey = { id: string; name?: string | null; createdAt?: string | null };
-type Note = { tone?: "error" | "ok"; text: ReactNode } | null;
+type Note = { tone: "error" | "ok" | "info"; text: ReactNode } | null;
 const LIST = "/api/auth/passkey/list-user-passkeys";
 const ADD_ID = "passkey-add";
+const AGAIN_ID = "passkey-sign-in-again";
 const SUB = "Melde dich mit Face ID, Fingerabdruck oder Displaysperre an. Dein Passwort bleibt.";
 // The row add/remove motion (Design R3): a removed row closes over 160 ms before the list drops it.
 const CLOSE_MS = 160;
@@ -44,7 +45,8 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
   const focusNext = useRef<string | null>(null);
 
   const load = useCallback(() => apiJson<Passkey[]>(LIST).then(list => {
-    // Rows of the first answer stand still; a row added later opens (Design R3).
+    // Rows of the first answer stand still; a row added later opens once (Design R3): the Confirm marks every listed row
+    // known, so the list coming back after it does not open them again.
     setKnown(current => current ?? new Set(list.map(key => key.id)));
     setKeys(list);
   }, () => setKeys([])), []);
@@ -56,6 +58,8 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
   }
   useEffect(() => { if (supported && allowed) void load(); }, [supported, allowed, load]);
   // After a removal the focus goes to the next row's „Entfernen“, else to „Passkey hinzufügen“, never to the page.
+  // The sign-in-again note lands below the page end on a phone: bring it into view (Design, #349 round 2).
+  useEffect(() => { if (note?.tone === "info") document.getElementById(AGAIN_ID)?.closest("p")?.scrollIntoView({ block: "nearest" }); }, [note]);
   useEffect(() => {
     if (!focusNext.current || removing) return;
     const target = document.getElementById(focusNext.current);
@@ -73,7 +77,7 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
     if (result?.error && passkeyCancelled(result.error)) return;
     // Adding one needs a sign-in from the last 10 minutes (auth.ts): a neutral step, not an error.
     if (result?.error?.status === 403) {
-      setNote({ text: <>Zum Hinzufügen meldest du dich einmal neu an. <button type="button" className="ow-btn ow-btn--secondary ow-btn--sm ow-note-action" onClick={() => void signInAgain()}>Neu anmelden</button></> });
+      setNote({ tone: "info", text: <><span>Zum Hinzufügen meldest du dich einmal mit deinem Passwort neu an.</span><button type="button" id={AGAIN_ID} className="ow-btn ow-btn--secondary ow-btn--sm" onClick={() => void signInAgain()}>Neu anmelden</button></> });
       return;
     }
     setNote({ tone: "error", text: "Der Passkey wurde nicht gespeichert. Versuche es noch einmal." });
@@ -88,8 +92,11 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
       focusNext.current = next ? `passkey-remove-${next.id}` : ADD_ID;
       setNote({ tone: "ok", text: "Passkey entfernt." });
       setRemoving(null);
-      if (still()) void load();
-      else { setClosing(key.id); window.setTimeout(() => { setClosing(null); void load(); }, CLOSE_MS); }
+      // The list comes back with the row open, closes it on the next frame and drops it locally after the close, so the
+      // removed passkey never shows again while the list reloads in the background.
+      const drop = () => { setKeys(current => current?.filter(item => item.id !== key.id) ?? current); setClosing(null); void load(); };
+      if (still()) drop();
+      else { requestAnimationFrame(() => requestAnimationFrame(() => setClosing(key.id))); window.setTimeout(drop, CLOSE_MS + 50); }
     } catch {
       setRemoving(null);
       focusNext.current = `passkey-remove-${key.id}`;
@@ -99,7 +106,7 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
 
   if (!allowed || !supported) return { rows: [], note: null, confirm: null };
   const confirm = removing
-    ? <Confirm title="Passkey entfernen?" back="Mehr" action="Entfernen" busyAction="Wird entfernt …" busy={busy} onConfirm={() => void remove(removing)} onCancel={() => { focusNext.current = `passkey-remove-${removing.id}`; setRemoving(null); }}>
+    ? <Confirm title="Passkey entfernen?" back={<MoreLabel />} action="Entfernen" busyAction="Wird entfernt …" busy={busy} onConfirm={() => void remove(removing)} onCancel={() => { focusNext.current = `passkey-remove-${removing.id}`; setRemoving(null); }}>
       <div className="ow-qpanel ow-stack ow-stack--tight"><p><strong>{removing.name || "Passkey"}</strong></p><p>Du meldest dich dann wieder mit deinem Passwort an. Lösche ihn auch in den Einstellungen deines Geräts.</p></div>
     </Confirm>
     : null;
@@ -111,11 +118,11 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
   // Until the list answers, the add row's twin holds its place, so Konto does not jump when it arrives.
   if (keys === null) return { rows: [addRow(true)], note, confirm };
   const rows = keys.map(key => <div key={key.id} className="ow-rowfold" data-added={known?.has(key.id) ? undefined : ""} data-closing={closing === key.id || undefined}>
-    <div className="ow-prog-row" data-ends="button">
+    <div><div className="ow-prog-row" data-ends="button">
       <span className="ow-prog-icon"><KeyRound size={22} aria-hidden="true" /></span>
       <span className="ow-prog-main"><span className="ow-prog-text"><strong>{key.name || "Passkey"}</strong>{key.createdAt && <small>Hinzugefügt am {germanDate(key.createdAt, "long", { timeZone: zone })}</small>}</span></span>
-      <button type="button" id={`passkey-remove-${key.id}`} className="ow-btn ow-btn--secondary ow-btn--sm" disabled={busy} onClick={() => { setNote(null); setRemoving(key); }}>Entfernen</button>
-    </div>
+      <button type="button" id={`passkey-remove-${key.id}`} className="ow-btn ow-btn--secondary ow-btn--sm" aria-label={`${key.name || "Passkey"} entfernen`} disabled={busy} onClick={() => { setNote(null); setKnown(new Set(keys.map(item => item.id))); setRemoving(key); }}>Entfernen</button>
+    </div></div>
   </div>);
   return { rows: [...rows, addRow(false)], note, confirm };
 }
