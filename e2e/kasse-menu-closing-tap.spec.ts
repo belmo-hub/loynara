@@ -112,3 +112,24 @@ test("after the menu is closed, a normal tap on „1 Stempel vergeben“ sends e
   expect(sent).toHaveLength(1);
   expect((await card(page)).balance).toBe(before);
 });
+
+test("a gesture cancelled outside the open menu disarms the guard: a later synthetic click still goes through", async ({ page }) => {
+  await openCard(page);
+  const sent: string[] = [];
+  await page.route(url => url.pathname.startsWith("/api/cashier/award"), route => {
+    if (route.request().method() === "GET") return route.continue();
+    sent.push(route.request().url());
+    return route.abort(); // stopped at the network: nothing is booked
+  });
+  await openMenu(page);
+  // A press outside the menu that the browser then cancels (a scroll, a palm): no click of its own follows.
+  await page.getByRole("button", { name: /^1 Stempel vergeben$/ }).evaluate(button => {
+    button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, pointerType: "touch" }));
+    button.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, composed: true, pointerType: "touch" }));
+    document.getElementById("cashier-menu")!.hidePopover();
+  });
+  await expect(menu(page)).toBeHidden();
+  // Later, a screen reader activates the button with a synthetic click (detail 1, no pointer press of its own).
+  await page.getByRole("button", { name: /^1 Stempel vergeben$/ }).evaluate(button => button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, composed: true, detail: 1 })));
+  await expect.poll(() => sent.length).toBe(1);
+});
