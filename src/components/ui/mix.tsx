@@ -26,8 +26,9 @@ export function MixSection({ title, aside, note, children }: { title: ReactNode;
 }
 
 /** White, 1 px line, radius 20, no shadow. `pad` for free content; `head` is the panel's own title row. */
-export function MixPanel({ pad, head, className, children }: { pad?: boolean; head?: ReactNode; className?: string; children: ReactNode }) {
-  return <div className={cx(styles.panel, pad && styles.pad, className)}>{head ? <div className={styles.ph}>{head}</div> : null}{children}</div>;
+/** `wrapEnd`: under large text a row's value goes under its words once they no longer fit beside it (rows set it too). */
+export function MixPanel({ pad, head, className, wrapEnd, children }: { pad?: boolean; head?: ReactNode; className?: string; wrapEnd?: boolean; children: ReactNode }) {
+  return <div className={cx(styles.panel, pad && styles.pad, className)} data-wrap-end={wrapEnd || undefined}>{head ? <div className={styles.ph}>{head}</div> : null}{children}</div>;
 }
 
 /** The 40 px icon tile: green, coral (earned, ready) or muted. */
@@ -37,20 +38,21 @@ export function MixTile({ tone, children }: { tone?: "coral" | "mute"; children:
 
 /**
  * A row: 52 with one line, 64 with a sub line or a tile, 72 with the card thumbnail. The value and the chevron end on
- * the inset. With `href` the whole row is the link.
+ * the inset. With `href` the whole row is the link. `wrapEnd` (in a `wrapEnd` panel): the value and the chevron stay
+ * together as one unit when they go under the words.
  */
-/** `wrapEnd`: under large text the end value goes under the words once a word no longer fits beside it. */
 export function MixRow({ icon, tone, thumb, title, sub, end, href, wrapEnd }: { icon?: ReactNode; tone?: "coral" | "mute"; thumb?: ReactNode; title: ReactNode; sub?: ReactNode; end?: ReactNode; href?: string; wrapEnd?: boolean }) {
+  const endNode = typeof end === "string" ? <span className={styles.val}>{end}</span> : end;
+  const chevron = href ? <ChevronRight className={styles.chev} size={20} aria-hidden="true" /> : null;
   const content = <>
     {thumb ?? (icon ? <MixTile tone={tone}>{icon}</MixTile> : null)}
     <div className={styles.body}>
       <span className={styles.text}><b>{title}</b>{sub ? <small>{sub}</small> : null}</span>
-      {typeof end === "string" ? <span className={styles.val}>{end}</span> : end}
-      {href ? <ChevronRight className={styles.chev} size={20} aria-hidden="true" /> : null}
+      {wrapEnd ? <span className={styles.end}>{endNode}{chevron}</span> : <>{endNode}{chevron}</>}
     </div>
   </>;
   const lead = thumb ? "card" : icon ? "tile" : undefined;
-  return href ? <Link href={href} className={styles.row} data-lead={lead} data-wrap-end={wrapEnd || undefined}>{content}</Link> : <div className={styles.row} data-lead={lead} data-wrap-end={wrapEnd || undefined}>{content}</div>;
+  return href ? <Link href={href} className={styles.row} data-lead={lead}>{content}</Link> : <div className={styles.row} data-lead={lead}>{content}</div>;
 }
 
 export function MixChip({ warm, children }: { warm?: boolean; children: ReactNode }) {

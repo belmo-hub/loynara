@@ -44,12 +44,15 @@
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
 .text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
-/* `wrapEnd` rows, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): the value
-   goes under the words once a word no longer fits beside it, instead of over the words. */
-.row[data-wrap-end] { container: mix-row / inline-size; }
+/* `wrapEnd` panels, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): a row's
+   words take at least 8em, so its value (with the chevron, as one unit) goes under them once they no longer fit beside
+   it, instead of over the words. A word wider than the whole row hyphenates. The container is the panel, not the row: a
+   <button> row (the Kasse's rewards) cannot be one in Chrome. */
+.panel[data-wrap-end] { container: mix-row / inline-size; }
+.end { display: flex; flex: none; align-items: center; gap: var(--space-3); }
 @container mix-row (max-width: 15em) {
   .body { flex-wrap: wrap; }
-  .text { flex: 1 1 0%; min-width: min-content; grid-template-columns: minmax(min-content, 1fr); hyphens: auto; } /* a word wider than the row („Durchschnittsbon“ at 200 % on 320) hyphenates */
+  .text { flex: 1 1 8em; min-width: 0; hyphens: auto; }
   .text + * { margin-left: auto; }
 }
 /* The chevron's box is tucked by 6 so its stroke ends on the inset where every value ends. */

@@ -11,7 +11,7 @@ test.beforeEach(({ page }) => page.emulateMedia({ reducedMotion: "reduce" }));
 async function open(page: Page, width: number, percent: number) {
   await page.setViewportSize({ width, height: 844 });
   await page.goto("/merchant/program");
-  await expect(page.getByRole("heading", { name: "Für die Ergebnisse" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Extras" })).toBeVisible(); // always there, whatever the programme type
   if (percent !== 100) {
     await page.addStyleTag({ content: `html { font-size: ${percent}% !important }` });
     await page.waitForFunction(size => getComputedStyle(document.documentElement).fontSize === size, `${16 * percent / 100}px`);
@@ -35,7 +35,10 @@ const rows = (page: Page) => page.evaluate(() => [...document.querySelectorAll("
   const lines = [...text.querySelectorAll("b, small")].flatMap(element => { const range = document.createRange(); range.selectNodeContents(element); return [...range.getClientRects()]; });
   // 3 px of slack: at 100 % on a 320 phone „Durchschnittsbon“ grazes the value's line box by 2 px, as on rc.
   const under = lines.some(line => line.left < box.right - 3 && box.left < line.right - 3 && line.top < box.bottom - 3 && box.top < line.bottom - 3);
-  return [{ name: text.querySelector("b")?.textContent ?? "", beside: box.top < words.bottom - 1, under }];
+  // The chevron stays with its value: one unit, never alone on a line of its own.
+  const chevron = body.querySelector("svg")?.getBoundingClientRect();
+  const together = !chevron || Math.abs((chevron.top + chevron.bottom) / 2 - (box.top + box.bottom) / 2) < 2;
+  return [{ name: text.querySelector("b")?.textContent ?? "", beside: box.top < words.bottom - 1, under, together }];
 }));
 const sideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
@@ -51,9 +54,25 @@ test("Programm keeps each value beside its words at 100 % and never puts words u
     expect(found.filter(row => !row.beside).map(row => row.name), `values beside their words at ${width}`).toEqual([]);
     expect(found.filter(row => row.under).map(row => row.name), `no words under a value at ${width}`).toEqual([]);
   }
-  for (const percent of [160, 200]) for (const width of [320, 390]) {
+  for (const percent of [160, 200]) for (const width of [320, 360, 390]) {
     await open(page, width, percent);
-    expect((await rows(page)).filter(row => row.under).map(row => row.name), `no words under a value at ${width}, ${percent} %`).toEqual([]);
+    const found = await rows(page);
+    expect(found.filter(row => row.under).map(row => row.name), `no words under a value at ${width}, ${percent} %`).toEqual([]);
+    expect(found.filter(row => !row.together).map(row => row.name), `chevrons with their values at ${width}, ${percent} %`).toEqual([]);
+    // A title that fits beside its value and chevron, or on its own line, stays whole: the value moves, the word is not
+    // cut into syllables (Design r4).
+    expect(await page.evaluate(() => [...document.querySelectorAll("main [class*=mix-module][class*=__text] > b")].filter(title => {
+      const text = title.firstChild;
+      if (!(text instanceof Text) || /[\s-]/.test(text.data.trim())) return false; // one word only
+      const probe = document.createElement("span"); probe.textContent = text.data; probe.style.whiteSpace = "nowrap";
+      title.append(probe); const width = probe.getBoundingClientRect().width; probe.remove(); // the word unbroken
+      const range = document.createRange(); range.selectNodeContents(text);
+      // Room for the word: the row, less its value and chevron when they still sit beside the words.
+      const body = title.closest("[class*=__body]")!, end = body.querySelector("[class*=__end]");
+      const style = getComputedStyle(body), inner = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const room = inner - (end && end.getBoundingClientRect().top < title.getBoundingClientRect().bottom ? end.getBoundingClientRect().width + parseFloat(style.columnGap) : 0);
+      return width < room && new Set([...range.getClientRects()].map(line => Math.round(line.top))).size > 1;
+    }).map(title => title.textContent)), `whole titles at ${width}, ${percent} %`).toEqual([]);
     expect(await sideways(page)).toBe(0);
   }
 });
