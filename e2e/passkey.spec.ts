@@ -105,6 +105,13 @@ test("an owner adds a passkey under Mehr, signs in with it from the address fiel
   const removedId = await rows().first().getAttribute("id");
   await rows().first().click();
   await expect(page.getByRole("heading", { name: "Passkey entfernen?" })).toBeVisible();
+  // The step opens with the focus on its heading, and Esc goes back like „Abbrechen“ (Design, release check).
+  await expect(page.getByRole("heading", { name: "Passkey entfernen?" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "Passkey entfernen?" })).toHaveCount(0);
+  await expect(rows()).toHaveCount(2);
+  await rows().first().click();
+  await expect(page.getByRole("heading", { name: "Passkey entfernen?" })).toBeFocused();
   await expect(page.getByText("Du meldest dich dann wieder mit deinem Passwort an. Lösche ihn auch in den Einstellungen deines Geräts.")).toBeVisible();
   const states = page.evaluate(id => new Promise<string>(resolve => {
     const seen: string[] = [], start = performance.now();
