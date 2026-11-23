@@ -813,7 +813,7 @@ fieldset.ow-group > .ow-hint { margin-top: var(--space-2); }
 @media (min-width: 1024px) { .ow-dash:not(.ow-dash--single):not(:has(> .ow-next)) { grid-template-areas: "notice notice" "hello hello" "board side" "diary diary"; } }
 .ow-dash-notice:empty { display: none; }
 /* `.owner-app` beats `.owner-app p { margin: 0 }`; the greeting is the visible heading (the sr-only h1 names the page). */
-.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
+.owner-app .ow-hello { margin: 0 0 var(--space-2); font: var(--weight-heavy) var(--text-28)/1.2 var(--font-display); letter-spacing: -.025em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
 /* The greeting reads as the Übersicht's title: the same 36 as every page title on desktop (I-07). */
 @media (min-width: 1024px) { .owner-app .ow-hello { font-size: var(--display-36); line-height: 1.1; } }
 
