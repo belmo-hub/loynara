@@ -99,12 +99,18 @@ describe("owner privacy notice", () => {
     expect(html).toContain('<a href="/datenschutz">Datenschutzhinweise zur Kundenkarte</a>');
     expect(html).toContain('href="https://getloynara.com/impressum/"');
     expect(html).toContain("Mailgun (E-Mail-Versand, über Server in der EU)");
+    // ENG-338, Legal (legal-ops/2026-11-22-eng-201-termin-booking.md): kept by the worker's daily pruneStaffPushSubscriptions.
+    expect(html).toContain("dafür speichern wir von der IP-Adresse nur einen Prüfwert. Erlaubst du auf einem Gerät Mitteilungen, speichern wir für dieses Gerät eine Push-Adresse. Wir löschen sie, wenn du die Mitteilungen ausschaltest oder dich abmeldest, spätestens einen Tag nachdem deine Anmeldung abgelaufen oder dein Zugang beendet ist. Die Mitteilungen gehen verschlüsselt und ohne Kundendaten über den Push-Dienst deines Browsers. Als Inhaber:in außerdem:");
     // ENG-323, Legal's T-1, right after „Empfänger“.
     expect(html).toContain(`Stripe (Zahlungen). Eine Verarbeitung außerhalb der Europäischen Union kann bei diesen Anbietern nicht ausgeschlossen werden.</p><p><strong>Standortsuche:</strong> Die Lage deines Geschäfts bestimmst du über eine Suche, sobald wir sie anbieten. Dafür schicken wir deinen Suchtext über unseren Server an Google (Google Places API) und rufen für den Vorschlag, den du wählst, dessen Koordinaten ab. Google erhält dabei weder deinen Namen noch deine E-Mail-Adresse noch deine IP-Adresse. Google verarbeitet den Suchtext als eigener Verantwortlicher nach der <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Google</a> und kann ihn auch in den USA verarbeiten; Grundlage ist der Angemessenheitsbeschluss der EU-Kommission zum EU-US Data Privacy Framework, nach dem die Google LLC zertifiziert ist. Die Koordinaten speichern wir beim Standort, damit Wallet-Karten deiner Kundschaft in der Nähe des Geschäfts angezeigt werden können, und frischen sie regelmäßig bei Google auf.</p>`);
     expect(html).toContain("die Bestätigung deiner E-Mail-Adresse, das Zurücksetzen deines Passworts, Erinnerungen und Berichte zu deinem Programm. Werbung schicken wir dir nur mit deiner Einwilligung.");
     expect(html).not.toContain("Einladungen");
     expect(html).toContain("Für Loynara ist der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Wilhelmstraße 7, 65185 Wiesbaden, zuständig.");
     expect(html).not.toMatch(/\{Datum\}|Entwurf/);
+  });
+
+  it("promises the push address goes a day after login or access ends only because the worker prunes daily (ENG-338)", () => {
+    expect(readFileSync("scripts/worker.ts", "utf8")).toMatch(/staffPushPrunedAt >= 24 \* 60 \* 60_000[\s\S]{0,400}pruneStaffPushSubscriptions\(housekeepingDatabase\)[\s\S]{0,300}staffPushPrunedAt = Date\.now\(\)/);
   });
 
   it("promises the 48-hour counter deletion only because the worker runs the prune daily (ENG-281)", () => {
