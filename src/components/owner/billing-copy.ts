@@ -2,7 +2,7 @@
 export type BillingOverview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
   currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
-  liveBilling: boolean; charge: { planCode: "founding" | "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "founding" | "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
+  liveBilling: boolean; charge: { planCode: "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
   locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };

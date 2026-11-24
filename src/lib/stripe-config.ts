@@ -2,11 +2,11 @@ import { isProductionDeployment } from "./pilot-policy";
 
 /**
  * Stripe billing configuration (ENG-055). Kept free of database imports so the production gate (scripts/config-check.ts)
- * can use it. Prices live in Stripe; the env names which price is which plan. The amounts here are what the owner sees
- * and what checkout verifies the Stripe price against, so a swapped or wrong price ID is refused, never charged.
+ * can use it. The price lives in Stripe; the env names it. The amount here is what the owner sees and what checkout
+ * verifies the Stripe price against, so a wrong price ID is refused, never charged. One price for every shop (founder, 23 Nov
+ * 2026); the database CHECK still allows the retired second plan code, which nothing writes any more.
  */
 export const PLANS = {
-  founding: { priceMinor: 3900, priceEnv: "STRIPE_PRICE_FOUNDING", label: "Gründungspreis" },
   list: { priceMinor: 4900, priceEnv: "STRIPE_PRICE_LIST", label: "Listenpreis" },
 } as const;
 export type PlanCode = keyof typeof PLANS;
@@ -16,16 +16,16 @@ export const VAT_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.";
 export const VAT_STANDARD_NOTE = "Zuzüglich 19 % Umsatzsteuer.";
 /** The start guarantee's credit line on the month-2 invoice, one per qualifying location. */
 export const GUARANTEE_LINE = "Monat 2 kostenlos – Startgarantie";
-export const isPlanCode = (value: unknown): value is PlanCode => value === "founding" || value === "list";
+export const isPlanCode = (value: unknown): value is PlanCode => value === "list";
 
 /**
- * The one price the owner page shows and the Stripe checkout charges (Finance, 24 Oct): the operator's plan, one unit per
- * location. Null until the operator has set a plan, so the page shows no amount and checkout refuses.
+ * The one price the owner page shows and the Stripe checkout charges (Finance, 24 Oct; pilot agreement § 3 (1)): the list
+ * price, one unit per location, for every shop. Null only for a non-euro shop, which checkout refuses.
  */
-export function planCharge(sub: { planCode: string | null; activeLocationCount: number; currency: string }) {
-  if (!isPlanCode(sub.planCode) || sub.currency !== "EUR") return null;
-  const unitMinor = PLANS[sub.planCode].priceMinor;
-  return { planCode: sub.planCode, unitMinor, quantity: sub.activeLocationCount, totalMinor: unitMinor * sub.activeLocationCount };
+export function planCharge(sub: { activeLocationCount: number; currency: string }) {
+  if (sub.currency !== "EUR") return null;
+  const unitMinor = PLANS.list.priceMinor;
+  return { planCode: "list" as const, unitMinor, quantity: sub.activeLocationCount, totalMinor: unitMinor * sub.activeLocationCount };
 }
 
 type Env = Record<string, string | undefined>;
@@ -33,7 +33,6 @@ const price = /^price_[A-Za-z0-9]{8,}$/;
 const formats: Record<string, RegExp> = {
   STRIPE_SECRET_KEY: /^(sk|rk)_(live|test)_[A-Za-z0-9]{16,}$/,
   STRIPE_WEBHOOK_SECRET: /^whsec_[A-Za-z0-9+/=]{16,}$/,
-  STRIPE_PRICE_FOUNDING: price,
   STRIPE_PRICE_LIST: price,
 };
 const OPTIONAL_SETTINGS = ["BILLING_PRODUCTION_APPROVED", "BILLING_VAT_MODE", "STRIPE_TAX_RATE_ID", "START_GUARANTEE_MIN_CUSTOMERS", "START_GUARANTEE_CONTRACT_CUTOFF"];
@@ -53,7 +52,6 @@ export function stripeConfigIssues(env: Env, production: boolean): string[] {
   const live = env.LIVE_BILLING_ENABLED === "true";
   if (live) {
     for (const [name, format] of Object.entries(formats)) if (!format.test(env[name] ?? "")) issues.push(`Live billing requires a valid ${name}`);
-    if (env.STRIPE_PRICE_FOUNDING && env.STRIPE_PRICE_FOUNDING === env.STRIPE_PRICE_LIST) issues.push("STRIPE_PRICE_FOUNDING and STRIPE_PRICE_LIST must differ");
     const liveKey = /^(sk|rk)_live_/.test(env.STRIPE_SECRET_KEY ?? "");
     if (production && !liveKey) issues.push("Production billing requires a live-mode STRIPE_SECRET_KEY");
     // Taking real money is a second explicit act on real production (CTO, 22 Oct), like Wallet's production approval; flags get copied between environments.

@@ -102,27 +102,26 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       window.location.assign(url);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt."); setBusy(false); }
   }
-  const canCheckout = o.planCode !== null && ["manual_pending", "pending_checkout", "cancelled"].includes(o.status);
+  const canCheckout = o.charge !== null && ["manual_pending", "pending_checkout", "cancelled"].includes(o.status);
   const checkout = () => { if (!busy) void go("/api/merchant/billing/handoff", "https://checkout.stripe.com"); };
   return (
     <div className="ow-page">
       {head}
       {error && <ErrorNotice message={error} />}
       {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
-      {/* No amount before the operator has set the plan: a list total would be untrue for a price not yet agreed (Product, L10). */}
-      {o.charge
-        ? <NumberCard label="Monatlich" value={money(o.charge.totalMinor, o.currency)}>
+      {/* One price for every shop, 49 € je Standort (pilot agreement § 3 (1)); no charge only for a non-euro shop. */}
+      {o.charge &&
+        <NumberCard label="Monatlich" value={money(o.charge.totalMinor, o.currency)}>
           <p className="ow-board-sub">{perMonth(o.charge.quantity, o.charge.totalMinor, o.currency)}</p>
           {o.taxNote && <p className="ow-board-sub">{o.taxNote}</p>}
-        </NumberCard>
-        : <NumberCard label="Monatlich" value="Tarif offen"><p className="ow-board-sub">Dein Preis wird mit dir vereinbart.</p></NumberCard>}
+        </NumberCard>}
       {canCheckout && <Band icon={CreditCard} title="Abo abschließen" sub="Zahlung, Rechnungen und Kündigung laufen über unseren Zahlungsanbieter Stripe." onClick={checkout} />}
       <div className="ow-prog">
         <Rows title="Status">
           <Row key="status" icon={Euro} title={billingStatus(o)} sub={liveStatusSub(o, date)} />
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
-        <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.planCode === null ? "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen." : undefined}>
+        <Rows title="Standorte" help={<p>{o.countingRule}</p>}>
           {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
         </Rows>
       </div>

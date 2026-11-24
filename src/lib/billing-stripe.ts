@@ -193,16 +193,17 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
   });
 }
 
-/** Owner: open (or reuse) a Stripe Checkout for the operator-chosen plan, one unit per location. */
+/** Owner: open (or reuse) a Stripe Checkout at the list price, one unit per location. */
 export async function createStripeCheckout(actorUserId: string, at = new Date()) {
   requireStripe();
   // shortcut: Stripe calls run inside the row lock, which serializes one shop's checkouts (no second open session); fine at pilot volume.
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
-    const sub = await lockedSubscription(tx, tenantId);
+    let sub = await lockedSubscription(tx, tenantId);
     if (!CHECKOUT_OPEN.includes(sub.status)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo.");
     const charge = planCharge(sub);
-    if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Der Tarif für dein Geschäft wird noch festgelegt. Bitte wende dich an den Support.");
+    if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte wende dich an den Support.");
+    if (!isPlanCode(sub.planCode)) sub = await applyPlan(tx, sub.tenantId, "list");
     const amountMinor = charge.totalMinor;
     const [pending] = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")))
       .orderBy(desc(billingHandoffs.createdAt)).limit(1);
@@ -449,26 +450,6 @@ export async function assertBillingMonthEnd(tenantId: string, endDate: string) {
   if (isBillingMonthEnd(endDate, day)) return;
   const next = nextBillingMonthEnd(endDate, day);
   throw new DomainError("NOT_BILLING_MONTH_END", `Das Vertragsende muss der letzte Tag eines Abrechnungsmonats sein (Abrechnung jeweils am ${day}.). Nächstes mögliches Ende: ${next}.`);
-}
-
-/** Operator (/operator): which plan a shop gets. Locked while a Stripe subscription runs: the founding price holds for the contract term. */
-export async function setTenantPlan(input: { actorUserId: string; env: Env; tenantId: string; planCode: unknown }) {
-  if (!isPlanCode(input.planCode) || !z.uuid().safeParse(input.tenantId).success) throw new DomainError("INVALID_INPUT", "Bitte wähle einen gültigen Tarif.");
-  const plan = PLANS[input.planCode];
-  return db.transaction(async tx => {
-    await assertPlateOperator(tx, input.actorUserId, input.env);
-    const sub = await lockedSubscription(tx, input.tenantId);
-    if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte prüfe die Währung des Geschäfts.");
-    if (sub.providerSubscriptionId && RUNNING.includes(sub.status)) throw new DomainError("BILLING_STATE", "Der Tarif ist für die Vertragslaufzeit fest.");
-    // An open checkout still shows the old price: close it so it can never complete at that price.
-    const open = await tx.select().from(billingHandoffs).where(and(eq(billingHandoffs.tenantId, input.tenantId), eq(billingHandoffs.provider, "stripe"), eq(billingHandoffs.status, "pending")));
-    for (const handoff of open) {
-      if (handoff.providerRef) await client("POST", `/checkout/sessions/${handoff.providerRef}/expire`, {}, `expire-${handoff.providerRef}`);
-      await tx.update(billingHandoffs).set({ status: "expired", completedAt: new Date() }).where(eq(billingHandoffs.id, handoff.id));
-    }
-    await applyPlan(tx, input.tenantId, input.planCode as PlanCode);
-    return { tenantId: input.tenantId, planCode: input.planCode, priceMinor: plan.priceMinor };
-  });
 }
 
 type Recorded = { eventId: string; eventType: string; payloadHash: string };
