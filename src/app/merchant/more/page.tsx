@@ -29,28 +29,38 @@ export default function MorePage() {
   useEffect(() => { writeReturn(null, MORE_HOME.list); }, []);
   // The outcome sits far down on a phone: bring it into view above the tab bar, then focus the row, as Programm's return
   // does. First the moment it renders, before the first paint, so the screen change goes straight into Konto: in a
-  // microtask, after the shell's own scroll to the top in the same commit. Then once Mehr has settled (the reads give
-  // Konto its height) and, in WebKit, after the screen change and the fonts, where an early scroll lands a little short:
-  // a correction, which `block: "nearest"` makes a no-op for a note already in view (Design r2, r3).
+  // microtask, after the shell's own scroll to the top in the same commit. Then it is held there, on every frame and every
+  // scroll, until Mehr has settled (the reads give Konto its height), the fonts are in and the screen change is over: in
+  // WebKit an older offset comes back about 95 ms into the change, under the tab bar (Design r2–r4). `block: "nearest"`
+  // leaves a note already in view alone.
   const settled = Boolean(me) && staff.state !== "loading" && plan.state !== "loading" && passkeys.ready;
-  const early = useRef(false), placed = useRef(false), live = useRef(true);
-  const note = () => document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" });
-  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
+  const calm = useRef(false), held = useRef(false);
+  useLayoutEffect(() => { calm.current = settled; }, [settled]);
   useLayoutEffect(() => {
-    if (early.current || !me || !back?.saved) return;
-    early.current = true;
-    queueMicrotask(() => { if (live.current) note(); });
-  }, [me, back]);
-  useEffect(() => {
-    if (placed.current || !settled || !back?.saved) return;
-    placed.current = true;
-    const change = (document as Document & { activeViewTransition?: { finished: Promise<void> } | null }).activeViewTransition;
-    void Promise.all([change?.finished.catch(() => undefined), document.fonts.ready]).then(() => requestAnimationFrame(() => {
-      if (!live.current) return; // tapped away meanwhile: leave the next screen alone
+    if (held.current || !me || !back?.saved) return;
+    let alive = true; // cleared on leaving: a quick tap away leaves the next screen alone
+    const note = () => { if (alive) document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" }); };
+    queueMicrotask(note);
+    window.addEventListener("scroll", note, { passive: true });
+    let fonts = false;
+    void document.fonts.ready.then(() => { fonts = true; });
+    const started = performance.now();
+    let seen = false;
+    const frame = () => {
+      if (!alive) return;
+      const changing = Boolean((document as Document & { activeViewTransition?: unknown }).activeViewTransition);
+      seen ||= changing;
       note();
+      // Done once settled and the change has run (or none came, as with reduced motion); never past 3 s.
+      const done = calm.current && fonts && !changing && (seen || performance.now() - started > 400);
+      if (!done && performance.now() - started < 3000) { requestAnimationFrame(frame); return; }
+      held.current = true;
+      window.removeEventListener("scroll", note);
       Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
-    }));
-  }, [settled, back]);
+    };
+    requestAnimationFrame(frame);
+    return () => { alive = false; window.removeEventListener("scroll", note); };
+  }, [me, back]);
   if (!me) return null;
   // Removing a passkey asks first, on its own screen, as Team does for a revoked access.
   if (passkeys.confirm) return passkeys.confirm;

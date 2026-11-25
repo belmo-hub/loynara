@@ -12,18 +12,22 @@ async function change(page: Page, from: string, to: string) {
   await page.getByLabel("Neues Passwort").fill(to);
   // Every frame from the tap on: Mehr with the outcome rendered never shows its top (Design r3: no hop from the top to Konto).
   await page.evaluate(() => {
-    const frames: Array<{ path: string; note: boolean; y: number }> = (window as unknown as { frames_: typeof frames }).frames_ = [];
-    const log = () => { frames.push({ path: location.pathname, note: Boolean(document.querySelector(".ow-prog-outcome")), y: window.scrollY }); if (frames.length < 600) requestAnimationFrame(log); };
+    const frames: Array<{ path: string; note: boolean; y: number; below: number }> = (window as unknown as { frames_: typeof frames }).frames_ = [];
+    const log = () => {
+      const note = document.querySelector(".ow-prog-outcome"), tabs = document.querySelector(".ow-tabs");
+      frames.push({ path: location.pathname, note: Boolean(note), y: window.scrollY, below: note && tabs ? Math.round(note.getBoundingClientRect().bottom - tabs.getBoundingClientRect().top) : 0 }); if (frames.length < 600) requestAnimationFrame(log); };
     requestAnimationFrame(log);
   });
   await page.getByRole("button", { name: "Passwort speichern" }).click();
   await expect(page).toHaveURL(/\/merchant\/more$/);
   await expect(page.locator(".ow-prog-outcome")).toBeVisible();
   await page.waitForTimeout(1_000);
-  const frames = await page.evaluate(() => (window as unknown as { frames_: Array<{ path: string; note: boolean; y: number }> }).frames_);
+  const frames = await page.evaluate(() => (window as unknown as { frames_: Array<{ path: string; note: boolean; y: number; below: number }> }).frames_);
   const shown = frames.filter(frame => frame.path === "/merchant/more" && frame.note);
   expect(shown.length).toBeGreaterThan(0);
   expect(shown.filter(frame => frame.y === 0)).toEqual([]);
+  // Nor a frame with the note under the tab bar (Design r4: WebKit restored an older offset ~95 ms in); 8 px of slack.
+  expect(shown.filter(frame => frame.below > 8)).toEqual([]);
   await expect(async () => {
     const note = (await page.locator(".ow-prog-outcome").boundingBox())!, tabs = (await page.locator(".ow-tabs").boundingBox())!;
     expect(note.y).toBeGreaterThanOrEqual(0);
