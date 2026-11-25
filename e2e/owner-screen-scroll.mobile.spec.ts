@@ -6,7 +6,9 @@ import { signUp } from "./support/sign-up";
 // end, half empty, with its save button out of reach (Programm → „Geburtstag“ and ten other screens; Design, 25 Nov).
 // Playwright's WebKit shows it without the phone emulation (isMobile), at the phone's width; with it, it does not.
 test.use({ viewport: { width: 390, height: 844 }, isMobile: false, hasTouch: false });
-test("a screen opened from low in Programm opens at its top, with its save button in reach", async ({ page }) => {
+test("a screen opened from low in Programm opens at its top, with its save button in reach", async ({ page, browserName }) => {
+  // A local guard: the bug is WebKit's, and CI has no WebKit, so the Chrome phone project proves nothing here.
+  test.skip(browserName !== "webkit", "WebKit only");
   const origin = new URL(test.info().project.use.baseURL!).origin;
   if (!["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) throw new Error("Requires the synthetic local app");
   const email = `scroll-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
