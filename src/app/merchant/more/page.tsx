@@ -1,7 +1,7 @@
 "use client";
 
 import { Euro, FileJson, FileText, LockKeyhole, LogOut, MapPin, Store, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import { billingStatus, type BillingOverview } from "@/components/owner/billing-copy";
 import { useOwner } from "@/components/owner/owner-context";
@@ -27,6 +27,18 @@ export default function MorePage() {
   // Back from „Passwort ändern“: its row outlined and the outcome under Konto, once (Design rule 10).
   const [back] = useState(() => readReturn(MORE_HOME.list));
   useEffect(() => { writeReturn(null, MORE_HOME.list); }, []);
+  // The outcome sits far down on a phone: bring it into view above the tab bar, then focus the row, as Programm's return
+  // does. On the next frame: the shell opens every screen at its top and focuses the content after this page's effects.
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || !me || !back?.saved) return;
+    const frame = requestAnimationFrame(() => {
+      placed.current = true;
+      document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" });
+      Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [me, back]);
   if (!me) return null;
   // Removing a passkey asks first, on its own screen, as Team does for a revoked access.
   if (passkeys.confirm) return passkeys.confirm;

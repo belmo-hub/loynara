@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CONNECTION_LOST, PASSWORD_MAX, PASSWORD_MIN } from "@/components/auth/auth-errors";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@/components/auth/auth-errors";
 import { authClient } from "@/lib/auth-client";
 import { useDirtyGuard } from "./owner-context";
 import { MoreLabel } from "./owner-rows";
@@ -20,7 +20,7 @@ const TOO_LONG = `Das Passwort ist zu lang. Es darf höchstens ${PASSWORD_MAX} Z
 
 /** What is wrong with each field before anything is sent. */
 const passwordProblems = (draft: Draft): Record<string, string> =>
-  ({ "pw-current": draft.current ? "" : "Gib dein aktuelles Passwort ein.", "pw-next": draft.next.length < PASSWORD_MIN ? TOO_SHORT : "" });
+  ({ "pw-current": draft.current ? "" : "Gib dein aktuelles Passwort ein.", "pw-next": !draft.next ? "Gib ein neues Passwort ein." : draft.next.length < PASSWORD_MIN ? TOO_SHORT : "" });
 
 /** Better Auth's refusal as a sentence: a wrong current password goes under its field, everything else above the button. */
 function passwordFailure(error: { status?: number; code?: string }): { field?: string; text: string } {
@@ -55,7 +55,8 @@ export function PasswordQuestion() {
       const next = passwordFailure(failed);
       setRefused(next);
       if (next.field) document.getElementById(next.field)?.focus();
-    } catch { setRefused({ text: CONNECTION_LOST }); }
+    // The change may have gone through before the answer was lost; a retry would then call the old password wrong.
+    } catch { setRefused({ text: "Die Antwort ist nicht angekommen. Vielleicht ist dein Passwort schon geändert. Prüfe deine Verbindung und versuche es erneut." }); }
     setBusy(false);
   }
 
@@ -67,8 +68,8 @@ export function PasswordQuestion() {
           <input id="pw-current" className="ow-input" type="password" autoComplete="current-password" maxLength={PASSWORD_MAX} value={draft.current} {...aria("pw-current", error("pw-current"))} onChange={event => set({ current: event.target.value })} />
           <FieldError id="pw-current-error">{error("pw-current")}</FieldError></div>
         <div className="ow-field"><label htmlFor="pw-next">Neues Passwort</label>
-          <input id="pw-next" className="ow-input" type="password" autoComplete="new-password" minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} value={draft.next} {...aria("pw-next", error("pw-next"), "pw-next-hint")} onChange={event => set({ next: event.target.value })} />
-          <p id="pw-next-hint" className="ow-hint">Mindestens {PASSWORD_MIN}, höchstens {PASSWORD_MAX} Zeichen.</p>
+          <input id="pw-next" className="ow-input" type="password" autoComplete="new-password" minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} value={draft.next} {...aria("pw-next", error("pw-next"), error("pw-next") ? undefined : "pw-next-hint")} onChange={event => set({ next: event.target.value })} />
+          {!error("pw-next") && <p id="pw-next-hint" className="ow-hint">Mindestens {PASSWORD_MIN}, höchstens {PASSWORD_MAX} Zeichen.</p>}
           <FieldError id="pw-next-error">{error("pw-next")}</FieldError></div>
         <label className="ow-check"><input type="checkbox" checked={draft.others} onChange={event => set({ others: event.target.checked })} /> Auf anderen Geräten abmelden</label>
       </div>

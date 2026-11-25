@@ -33,6 +33,9 @@ test("an owner changes the password under Konto; this phone stays signed in, the
   const save = page.getByRole("button", { name: "Passwort speichern" });
   await save.click();
   await expect(page.getByText("Gib dein aktuelles Passwort ein.")).toBeVisible();
+  await expect(page.getByText("Gib ein neues Passwort ein.")).toBeVisible();
+  // The error takes the hint's place, so the limit is not said twice.
+  await expect(page.getByText("Mindestens 12, höchstens 128 Zeichen.")).toHaveCount(0);
   await expect(page.getByLabel("Aktuelles Passwort")).toBeFocused();
 
   await page.getByLabel("Aktuelles Passwort").fill(password);
@@ -50,6 +53,13 @@ test("an owner changes the password under Konto; this phone stays signed in, the
   await save.click();
   await expect(page).toHaveURL(/\/merchant\/more$/);
   await expect(page.locator(".ow-prog-outcome")).toHaveText("Dein Passwort ist geändert. Auf deinen anderen Geräten bist du abgemeldet.");
+  // On a phone the outcome sits far down Mehr: it is brought into view above the tab bar, and the row has the focus.
+  await expect(async () => {
+    const note = (await page.locator(".ow-prog-outcome").boundingBox())!, tabs = (await page.locator(".ow-tabs").boundingBox())!;
+    expect(note.y).toBeGreaterThanOrEqual(0);
+    expect(note.y + note.height).toBeLessThanOrEqual(tabs.y);
+  }).toPass({ timeout: 3_000 });
+  await expect(page.getByRole("link", { name: /Passwort ändern/ })).toBeFocused();
 
   expect((await other.get("/api/me")).status()).toBe(401);
   await page.reload();
