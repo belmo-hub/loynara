@@ -10,9 +10,20 @@ async function change(page: Page, from: string, to: string) {
   await expect(page.getByRole("heading", { level: 1, name: "Passwort ändern" })).toBeVisible();
   await page.getByLabel("Aktuelles Passwort").fill(from);
   await page.getByLabel("Neues Passwort").fill(to);
+  // Every frame from the tap on: Mehr with the outcome rendered never shows its top (Design r3: no hop from the top to Konto).
+  await page.evaluate(() => {
+    const frames: Array<{ path: string; note: boolean; y: number }> = (window as unknown as { frames_: typeof frames }).frames_ = [];
+    const log = () => { frames.push({ path: location.pathname, note: Boolean(document.querySelector(".ow-prog-outcome")), y: window.scrollY }); if (frames.length < 600) requestAnimationFrame(log); };
+    requestAnimationFrame(log);
+  });
   await page.getByRole("button", { name: "Passwort speichern" }).click();
   await expect(page).toHaveURL(/\/merchant\/more$/);
   await expect(page.locator(".ow-prog-outcome")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  const frames = await page.evaluate(() => (window as unknown as { frames_: Array<{ path: string; note: boolean; y: number }> }).frames_);
+  const shown = frames.filter(frame => frame.path === "/merchant/more" && frame.note);
+  expect(shown.length).toBeGreaterThan(0);
+  expect(shown.filter(frame => frame.y === 0)).toEqual([]);
   await expect(async () => {
     const note = (await page.locator(".ow-prog-outcome").boundingBox())!, tabs = (await page.locator(".ow-tabs").boundingBox())!;
     expect(note.y).toBeGreaterThanOrEqual(0);

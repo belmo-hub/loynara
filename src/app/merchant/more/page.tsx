@@ -1,7 +1,7 @@
 "use client";
 
 import { Euro, FileJson, FileText, LockKeyhole, LogOut, MapPin, Store, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import { billingStatus, type BillingOverview } from "@/components/owner/billing-copy";
 import { useOwner } from "@/components/owner/owner-context";
@@ -28,16 +28,26 @@ export default function MorePage() {
   const [back] = useState(() => readReturn(MORE_HOME.list));
   useEffect(() => { writeReturn(null, MORE_HOME.list); }, []);
   // The outcome sits far down on a phone: bring it into view above the tab bar, then focus the row, as Programm's return
-  // does. Once Mehr has settled, as Programm waits for its data: the reads give Konto its height, and in WebKit a scroll
-  // during the screen change, or before the fonts, lands short (Design r2: 35 px under the tab bar).
+  // does. First the moment it renders, before the first paint, so the screen change goes straight into Konto: in a
+  // microtask, after the shell's own scroll to the top in the same commit. Then once Mehr has settled (the reads give
+  // Konto its height) and, in WebKit, after the screen change and the fonts, where an early scroll lands a little short:
+  // a correction, which `block: "nearest"` makes a no-op for a note already in view (Design r2, r3).
   const settled = Boolean(me) && staff.state !== "loading" && plan.state !== "loading" && passkeys.ready;
-  const placed = useRef(false);
+  const early = useRef(false), placed = useRef(false), live = useRef(true);
+  const note = () => document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
+  useLayoutEffect(() => {
+    if (early.current || !me || !back?.saved) return;
+    early.current = true;
+    queueMicrotask(() => { if (live.current) note(); });
+  }, [me, back]);
   useEffect(() => {
     if (placed.current || !settled || !back?.saved) return;
     placed.current = true;
     const change = (document as Document & { activeViewTransition?: { finished: Promise<void> } | null }).activeViewTransition;
     void Promise.all([change?.finished.catch(() => undefined), document.fonts.ready]).then(() => requestAnimationFrame(() => {
-      document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" });
+      if (!live.current) return; // tapped away meanwhile: leave the next screen alone
+      note();
       Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
     }));
   }, [settled, back]);
