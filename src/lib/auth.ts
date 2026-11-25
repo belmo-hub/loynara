@@ -12,6 +12,9 @@ export const authPool = guardPoolErrors(new Pool({ connectionString: process.env
 
 export const auth = betterAuth({
   database: authPool,
+  // ENG-380: meant for server code, but Better Auth serves it over HTTP, where any session could check guessed passwords
+  // outside the per-account budget. The app never calls it.
+  disabledPaths: ["/verify-password"],
   // Avoid Better Auth's default X-Forwarded-For trust. Its existing rate/session
   // controls use the same deployment-approved source as our outer peer limits.
   advanced: { ipAddress: { ipAddressHeaders: process.env.TRUSTED_INGRESS === "cloudflare_tunnel" ? ["cf-connecting-ip"] : [] } },
