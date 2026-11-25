@@ -40,8 +40,13 @@ export default function MorePage() {
     if (held.current || !me || !back?.saved) return;
     let alive = true; // cleared on leaving: a quick tap away leaves the next screen alone
     const note = () => { if (alive) document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" }); };
+    // The owner's own input ends the hold at once: it must not fight their scrolling. WebKit's late offset comes without input.
+    const INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    const stop = () => { window.removeEventListener("scroll", note); for (const type of INPUT) window.removeEventListener(type, yielded); };
+    const yielded = () => { alive = false; held.current = true; stop(); };
     queueMicrotask(note);
     window.addEventListener("scroll", note, { passive: true });
+    for (const type of INPUT) window.addEventListener(type, yielded, { once: true, passive: true });
     let fonts = false;
     void document.fonts.ready.then(() => { fonts = true; });
     const started = performance.now();
@@ -55,11 +60,11 @@ export default function MorePage() {
       const done = calm.current && fonts && !changing && (seen || performance.now() - started > 400);
       if (!done && performance.now() - started < 3000) { requestAnimationFrame(frame); return; }
       held.current = true;
-      window.removeEventListener("scroll", note);
+      stop();
       Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
     };
     requestAnimationFrame(frame);
-    return () => { alive = false; window.removeEventListener("scroll", note); };
+    return () => { alive = false; stop(); };
   }, [me, back]);
   if (!me) return null;
   // Removing a passkey asks first, on its own screen, as Team does for a revoked access.

@@ -66,3 +66,30 @@ test("an owner changes the password under Konto; this phone stays signed in, the
   await expect(page.getByRole("heading", { level: 2, name: "Konto" })).toBeVisible();
   await other.dispose();
 });
+
+// Reviewer, 5c1f3b35: the hold that keeps the outcome in view through the screen change must not fight the owner. On a
+// slow connection it lasts until Mehr's reads arrive; a scroll of their own ends it, and the page stays where they put it.
+test("scrolling away from the outcome while Mehr still loads stays where the owner scrolled", async ({ page, baseURL }) => {
+  const url = new URL(baseURL ?? "http://localhost:3000");
+  if (!["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Requires the synthetic local app");
+  const email = `password-hold-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
+  const request = page.context().request;
+  expect((await signUp(request, { headers: { Origin: url.origin }, data: { name: "Synthetic password owner", email, password } })).status()).toBe(200);
+  expect((await request.post("/api/merchant/onboard", { headers: { Origin: url.origin }, data: { businessName: "Synthetic Passwort Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Passwort card", programType: "stamp", rulesText: "Synthetic local test only.", rewardTitle: "Kaffee", rewardCost: 5 } })).status()).toBe(201);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/merchant/more/passwort");
+  await page.getByLabel("Aktuelles Passwort").fill(password);
+  await page.getByLabel("Neues Passwort").fill(`Neu!${randomUUID()}Bb`);
+  // A slow billing read keeps Mehr unsettled, so the hold is still on when the owner scrolls.
+  await page.route("**/api/merchant/billing", async route => { await new Promise(resolve => setTimeout(resolve, 1_500)); await route.continue(); });
+  await page.getByRole("button", { name: "Passwort speichern" }).click();
+  await expect(page).toHaveURL(/\/merchant\/more$/);
+  await expect(page.locator(".ow-prog-outcome")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+  const placed = await page.evaluate(() => window.scrollY);
+  await page.mouse.move(195, 400);
+  await page.mouse.wheel(0, -900);
+  await page.waitForTimeout(2_000); // past the billing read: the hold would have ended by now either way
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(placed - 300);
+});
