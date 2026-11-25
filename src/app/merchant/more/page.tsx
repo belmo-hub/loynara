@@ -28,17 +28,19 @@ export default function MorePage() {
   const [back] = useState(() => readReturn(MORE_HOME.list));
   useEffect(() => { writeReturn(null, MORE_HOME.list); }, []);
   // The outcome sits far down on a phone: bring it into view above the tab bar, then focus the row, as Programm's return
-  // does. On the next frame: the shell opens every screen at its top and focuses the content after this page's effects.
+  // does. Once Mehr has settled, as Programm waits for its data: the reads give Konto its height, and in WebKit a scroll
+  // during the screen change, or before the fonts, lands short (Design r2: 35 px under the tab bar).
+  const settled = Boolean(me) && staff.state !== "loading" && plan.state !== "loading" && passkeys.ready;
   const placed = useRef(false);
   useEffect(() => {
-    if (placed.current || !me || !back?.saved) return;
-    const frame = requestAnimationFrame(() => {
-      placed.current = true;
+    if (placed.current || !settled || !back?.saved) return;
+    placed.current = true;
+    const change = (document as Document & { activeViewTransition?: { finished: Promise<void> } | null }).activeViewTransition;
+    void Promise.all([change?.finished.catch(() => undefined), document.fonts.ready]).then(() => requestAnimationFrame(() => {
       document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" });
       Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [me, back]);
+    }));
+  }, [settled, back]);
   if (!me) return null;
   // Removing a passkey asks first, on its own screen, as Team does for a revoked access.
   if (passkeys.confirm) return passkeys.confirm;
