@@ -24,9 +24,8 @@ afterAll(async () => {
   await pool.end();
 });
 
-function post(path: string, body: unknown, cookie?: string) {
-  peer += 1;
-  return POST(new Request(`${origin}/api/auth${path}`, { method: "POST", headers: { origin, "content-type": "application/json", "cf-connecting-ip": `198.51.100.${peer % 250 + 1}`, ...cookie ? { cookie } : {} }, body: JSON.stringify(body) }));
+function post(path: string, body: unknown, cookie?: string, from = `198.51.100.${(peer += 1) % 250 + 1}`) {
+  return POST(new Request(`${origin}/api/auth${path}`, { method: "POST", headers: { origin, "content-type": "application/json", "cf-connecting-ip": from, ...cookie ? { cookie } : {} }, body: JSON.stringify(body) }));
 }
 const cookieOf = (response: Response) => response.headers.getSetCookie().map(c => c.split(";")[0]).find(c => c.startsWith("better-auth.session_token=") && !c.endsWith("="));
 async function signIn(email: string, attempt = password) {
@@ -40,7 +39,7 @@ async function account() {
   const here = await signIn(email), elsewhere = await signIn(email);
   return { email, here: here.cookie!, elsewhere: elsewhere.cookie! };
 }
-const change = (cookie: string, body: object) => post("/change-password", { currentPassword: password, newPassword: next, ...body }, cookie);
+const change = (cookie: string, body: object, from?: string) => post("/change-password", { currentPassword: password, newPassword: next, ...body }, cookie, from);
 const codeOf = async (response: Response) => (await response.json() as { code?: string }).code;
 
 it("changes the password, keeps this device signed in and signs the other devices out", async () => {
@@ -97,6 +96,14 @@ it("does not use up the budget with right passwords or refused new ones", async 
   const { here } = await account();
   for (let i = 0; i < 11; i += 1) expect((await change(here, { newPassword: "short" })).status).toBe(400);
   expect((await change(here, {})).status).toBe(200);
+});
+
+it("allows 30 attempts per address in 15 minutes, whoever's session they carry", async () => {
+  const first = await account(), second = await account();
+  // Refused new passwords: they use no account budget, so only the address limit can stop the 31st.
+  for (let i = 0; i < 30; i += 1) expect((await change(i % 2 ? first.here : second.here, { newPassword: "short" }, "192.0.2.7")).status).toBe(400);
+  expect((await change(first.here, {}, "192.0.2.7")).status).toBe(429);
+  expect((await change(first.here, {}, "192.0.2.8")).status).toBe(200);
 });
 
 it("answers an account without a password with Better Auth's code, which the form turns into a sentence", async () => {

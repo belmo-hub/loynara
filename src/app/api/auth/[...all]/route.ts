@@ -37,6 +37,21 @@ async function passkeyRegistrationRefused(request: Request) {
   return null;
 }
 
+/** Reserves one password attempt for the account; a locked account's owner is told (at most once a day), then refused. */
+async function reserveAttempt(identity: string) {
+  const account = { ...accountFailures, identity };
+  try { await enforceRateLimit(account); }
+  catch (error) {
+    // A failure of the notice never changes the refusal.
+    if (error instanceof RateLimitError) {
+      await queueSignInLockNotice(identity)
+        .catch(notice => console.error(`Sign-in lock notice not queued (${notice instanceof Error ? notice.name : "error"})`));
+    }
+    throw error;
+  }
+  return account;
+}
+
 function validateIngress(request: Request) {
   // All auth endpoints can reach Better Auth's own IP limits/session metadata.
   // Validate first, including endpoints without an additional outer peer limit.
@@ -92,8 +107,7 @@ export async function POST(request: Request) {
       await enforcePeerLimit(request, "auth_change_password_peer", 30, 15 * 60);
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session) return await handlers.POST(request); // Better Auth answers a missing session itself (401)
-      const account = { ...accountFailures, identity: session.user.email.trim().toLowerCase() };
-      await enforceRateLimit(account);
+      const account = await reserveAttempt(session.user.email.trim().toLowerCase());
       let wrongPassword = false;
       try {
         const response = await handlers.POST(request);
@@ -105,16 +119,7 @@ export async function POST(request: Request) {
     }
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
-    const account = { ...accountFailures, identity: await signInAccount(request) };
-    try { await enforceRateLimit(account); }
-    catch (error) {
-      // The account is locked: tell its owner (at most once a day). A failure here never changes the refusal.
-      if (error instanceof RateLimitError) {
-        await queueSignInLockNotice(account.identity)
-          .catch(notice => console.error(`Sign-in lock notice not queued (${notice instanceof Error ? notice.name : "error"})`));
-      }
-      throw error;
-    }
+    const account = await reserveAttempt(await signInAccount(request));
     let wrongPassword = false;
     try {
       const response = await handlers.POST(request);
