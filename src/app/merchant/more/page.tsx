@@ -40,13 +40,19 @@ export default function MorePage() {
     if (held.current || !me || !back?.saved) return;
     let alive = true; // cleared on leaving: a quick tap away leaves the next screen alone
     const note = () => { if (alive) document.querySelector(".ow-prog-outcome")?.scrollIntoView({ block: "nearest", behavior: "instant" }); };
-    // The owner's own input ends the hold at once: it must not fight their scrolling. WebKit's late offset comes without input.
-    const INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
-    const stop = () => { window.removeEventListener("scroll", note); for (const type of INPUT) window.removeEventListener(type, yielded); };
-    const yielded = () => { alive = false; held.current = true; stop(); };
+    // The owner's own input ends the hold and its row focus at once: it must not fight their scrolling, and a VoiceOver
+    // swipe moves focus (focusin). The shell's own focus on the content after the change is not theirs. Added here, after
+    // the save tap; WebKit's late offset comes without input (Reviewer, Design r5).
+    const INPUT = ["wheel", "touchstart", "pointerdown", "keydown", "focusin"] as const;
+    const options = { capture: true, passive: true };
+    const stop = () => { window.removeEventListener("scroll", note); for (const type of INPUT) window.removeEventListener(type, yielded, options); };
+    const yielded = (event: Event) => {
+      if (event.type === "focusin" && (event.target === document.body || (event.target as Element).matches?.("main"))) return;
+      alive = false; held.current = true; stop();
+    };
     queueMicrotask(note);
     window.addEventListener("scroll", note, { passive: true });
-    for (const type of INPUT) window.addEventListener(type, yielded, { once: true, passive: true });
+    for (const type of INPUT) window.addEventListener(type, yielded, options);
     let fonts = false;
     void document.fonts.ready.then(() => { fonts = true; });
     const started = performance.now();
@@ -61,7 +67,8 @@ export default function MorePage() {
       if (!done && performance.now() - started < 3000) { requestAnimationFrame(frame); return; }
       held.current = true;
       stop();
-      Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
+      // Only where focus has not gone anywhere of the owner's choosing.
+      if (document.activeElement === document.body || document.activeElement?.matches("main")) Array.from(document.querySelectorAll<HTMLElement>(".ow-content a")).find(link => link.getAttribute("href") === back.row)?.focus({ preventScroll: true });
     };
     requestAnimationFrame(frame);
     return () => { alive = false; stop(); };

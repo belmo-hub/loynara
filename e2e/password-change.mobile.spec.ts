@@ -48,3 +48,29 @@ test("the outcome of a password change is in view above the tab bar, at 100 and 
   await page.addInitScript(() => document.addEventListener("DOMContentLoaded", () => document.head.appendChild(Object.assign(document.createElement("style"), { textContent: "html { font-size: 200% !important }" }))));
   await change(page, second, third);
 });
+
+// Design r5: on a slow connection the hold lasts until Mehr's reads arrive. A touch of the owner's own ends it, and the page
+// stays where they scroll it.
+test("a touch and scroll of the owner's own while Mehr still loads stays where they put it", async ({ page }) => {
+  const origin = new URL(test.info().project.use.baseURL!).origin;
+  if (!["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) throw new Error("Requires the synthetic local app");
+  const email = `password-touch-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
+  const request = page.context().request;
+  expect((await signUp(request, { headers: { Origin: origin }, data: { name: "Synthetic password owner", email, password } })).status()).toBe(200);
+  expect((await request.post("/api/merchant/onboard", { headers: { Origin: origin }, data: { businessName: "Synthetic Passwort Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Passwort card", programType: "stamp", rulesText: "Synthetic local test only.", rewardTitle: "Kaffee", rewardCost: 5 } })).status()).toBe(201);
+  await page.goto("/merchant/more/passwort");
+  await page.getByLabel("Aktuelles Passwort").fill(password);
+  await page.getByLabel("Neues Passwort").fill(`Neu!${randomUUID()}Bb`);
+  await page.route("**/api/merchant/billing", async route => { await new Promise(resolve => setTimeout(resolve, 2_500)); await route.continue(); });
+  await page.getByRole("button", { name: "Passwort speichern" }).click();
+  await expect(page).toHaveURL(/\/merchant\/more$/);
+  await expect(page.locator(".ow-prog-outcome")).toBeVisible();
+  await page.waitForTimeout(500);
+  const put = await page.evaluate(() => {
+    document.querySelector(".ow-content")!.dispatchEvent(new Event("touchstart", { bubbles: true }));
+    window.scrollBy({ top: -400, behavior: "instant" });
+    return window.scrollY;
+  });
+  await page.waitForTimeout(3_000);
+  expect(Math.abs(await page.evaluate(() => window.scrollY) - put)).toBeLessThanOrEqual(4);
+});
