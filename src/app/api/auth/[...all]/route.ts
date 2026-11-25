@@ -86,6 +86,23 @@ export async function POST(request: Request) {
     if (path.endsWith("/passkey/generate-authenticate-options") || path.endsWith("/passkey/verify-authentication")) await enforcePeerLimit(request, "auth_passkey_peer", 60, 15 * 60);
     const refused = await passkeyRegistrationRefused(request);
     if (refused) return refused;
+    // ENG-379: a wrong current password counts against the sign-in budget of the same account, so a stolen session
+    // cookie cannot use this form to guess the password at the address limit's pace.
+    if (path.endsWith("/change-password")) {
+      await enforcePeerLimit(request, "auth_change_password_peer", 30, 15 * 60);
+      const session = await auth.api.getSession({ headers: request.headers });
+      if (!session) return await handlers.POST(request); // Better Auth answers a missing session itself (401)
+      const account = { ...accountFailures, identity: session.user.email.trim().toLowerCase() };
+      await enforceRateLimit(account);
+      let wrongPassword = false;
+      try {
+        const response = await handlers.POST(request);
+        wrongPassword = response.status === 400 && (await response.clone().json().catch(() => null))?.code === "INVALID_PASSWORD";
+        return response;
+      } finally {
+        if (!wrongPassword) await refundRateLimit(account);
+      }
+    }
     if (!path.endsWith("/sign-in/email")) return await handlers.POST(request);
     await enforcePeerLimit(request, "auth_signin_peer", 30, 15 * 60);
     const account = { ...accountFailures, identity: await signInAccount(request) };
