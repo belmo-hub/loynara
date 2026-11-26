@@ -50,14 +50,14 @@ describe("merchant and customer journey", () => {
     expect(await db.select().from(staffRoles).where(eq(staffRoles.userId, userId))).toEqual([]);
   });
 
-  it("stores the configured draft EUR price shown on the homepage", async () => {
+  it("stores the list price for a new euro shop, whatever the retired draft-price setting says", async () => {
     const previous = process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR;
     process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR = "5900";
     try {
       const userId = await createUser();
       const merchant = await createMerchant({ userId, businessName: "Synthetic Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Kaffeekarte", programType: "stamp", rulesText: "Ein Stempel pro Kaffee.", rewardTitle: "Kaffee gratis", rewardCost: 8 });
       const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.tenantId, merchant.tenantId));
-      expect(subscription.priceMinor).toBe(5900);
+      expect(subscription.priceMinor).toBe(4900);
     } finally {
       if (previous === undefined) delete process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR;
       else process.env.NEXT_PUBLIC_DRAFT_EUR_PRICE_MINOR = previous;
