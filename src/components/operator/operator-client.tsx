@@ -201,16 +201,19 @@ export function OperatorClient({ numbers, rows, plates, awaiting, billing, guara
   return <main className="ow-page" id="ow-main">
     <PageHeader title="Operator" description="Platten und Geschäfte. Nur für dich sichtbar." />
     {/* ENG-384: at a glance, how many shops there are and whether they pay. Demo shops and erased shops do not count. */}
-    <NumberCard label="Zahlen" value={nf.format(numbers.shops)} unit={numbers.shops === 1 ? "Geschäft" : "Geschäfte"} facts={[
-      ["davon live", nf.format(numbers.live)],
+    {/* The five states add up to the total; the figures after them are not parts of it (Design, #376). */}
+    <NumberCard label="Zahlen" className="ow-numcard--wide" value={nf.format(numbers.shops)} unit={numbers.shops === 1 ? "Geschäft" : "Geschäfte"} facts={[
+      ["noch kein Abo", nf.format(numbers.open)],
       ["im Gratismonat", nf.format(numbers.freeMonth)],
       ["zahlend", nf.format(numbers.paying)],
-      ["Zahlung fehlgeschlagen", nf.format(numbers.failed)],
-      ["offen", nf.format(numbers.open)],
+      ["Zahlung fehlgeschlagen oder ausgesetzt", nf.format(numbers.failed)],
       ["beendet", nf.format(numbers.ended)],
-      ["Monatsumsatz (erwartet)", money(numbers.monthlyMinor, "EUR")],
-      ["neu in den letzten 7 Tagen", nf.format(numbers.newThisWeek)],
-    ]}><p className="ow-numcard-note">Monatsumsatz: Listenpreis × Standorte der zahlenden Geschäfte, kein Zahlungseingang.</p></NumberCard>
+    ]}>
+      <dl className="ow-numcard-facts">
+        {([["mit laufendem Programm", nf.format(numbers.live)], ["neu in den letzten 7\u00a0Tagen", nf.format(numbers.newThisWeek)], ["pro Monat von zahlenden Geschäften", money(numbers.monthlyMinor, "EUR")]] as const)
+          .map(([term, detail]) => <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>)}
+      </dl>
+    </NumberCard>
     {error && !label ? <p role="alert">{error}</p> : null}
     {demo ? <DemoMode running={demo.running} /> : null}
 

@@ -85,10 +85,10 @@ export function Confirm({ title, back, action, busyAction, busy, danger = true, 
 }
 
 /** The white card for the one number that matters (the Übersicht's board): its label, the number and its unit, a line per fact. */
-export function NumberCard({ label, value, unit, facts, children }: { label: string; value: string; unit?: string; facts?: Array<[string, string]>; children?: ReactNode }) {
+export function NumberCard({ label, value, unit, facts, className, children }: { label: string; value: string; unit?: string; facts?: Array<[string, string]>; className?: string; children?: ReactNode }) {
   const id = useId();
   return (
-    <section className="ow-board ow-numcard" aria-labelledby={id}>
+    <section className={`ow-board ow-numcard${className ? ` ${className}` : ""}`} aria-labelledby={id}>
       <p className="ow-board-kicker" id={id}>{label}</p>
       <p className="ow-board-big">{value}{unit && <small>{` ${unit}`}</small>}</p>
       {facts && <dl className="ow-numcard-facts">{facts.map(([term, detail]) => <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>)}</dl>}
