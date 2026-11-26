@@ -47,9 +47,14 @@ test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary 
   // Design (26 Nov): with booking shown, the Übersicht keeps its desktop grid at 1280: the chart and the figures share a row.
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1280, height: 900 });
+  // One confirmed stamp takes the shop past its first steps, so the Übersicht shows the 30 days and its figures.
+  const { scanCode } = await (await guest.get(`/api/card/${encodeURIComponent(cardToken)}`)).json() as { scanCode: string };
+  const { membershipId } = await (await owner.get(`/api/cashier/lookup?code=${encodeURIComponent(scanCode)}`)).json() as { membershipId: string };
+  expect((await owner.post("/api/cashier/award", { data: { membershipId, quantity: 1, idempotencyKey: randomUUID(), requestId: randomUUID() } })).status()).toBe(200);
   await page.goto("/merchant");
   const board = page.locator('[data-ow="board"]');
-  await expect(board).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Letzte 30 Tage an diesem Standort · erste Woche/ })).toBeVisible();
+  await expect(board).toHaveAttribute("aria-busy", "false");
   await expect.poll(() => board.evaluate(element => {
     const figures = element.nextElementSibling!.getBoundingClientRect(), chart = element.getBoundingClientRect();
     return Math.abs(figures.top - chart.top) <= 1 && chart.right <= figures.left;
@@ -59,7 +64,6 @@ test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary 
     const leaves = [...element.nextElementSibling!.querySelectorAll<HTMLElement>("*")].filter(node => node.children.length === 0 && /Woche/.test(node.textContent ?? ""));
     return { inDom: leaves.length > 0, shown: leaves.some(node => node.offsetParent !== null) };
   })).toEqual({ inDom: true, shown: false });
-  await expect(page.getByRole("heading", { name: /Letzte 30 Tage an diesem Standort · erste Woche/ })).toBeVisible();
   await page.goto(`/merchant/termine?date=${date}`);
   // Design (26 Nov): at 320 the day's quick switch keeps whole words, one line per button, and nothing scrolls sideways.
   await page.keyboard.press("Escape");
