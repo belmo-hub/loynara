@@ -44,6 +44,17 @@ test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary 
   const primary = dialog.getByRole("button", { name: /^Auf \d{2}:\d{2} Uhr verschieben$/ });
   await expect(primary).toBeInViewport({ ratio: 1 });
   expect(await primary.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
+  // Design (26 Nov): with booking shown, the Übersicht keeps its desktop grid at 1280: the chart and the figures share a row.
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/merchant");
+  const board = page.locator('[data-ow="board"]');
+  await expect(board).toBeVisible();
+  await expect.poll(() => board.evaluate(element => {
+    const figures = element.nextElementSibling!.getBoundingClientRect(), chart = element.getBoundingClientRect();
+    return Math.abs(figures.top - chart.top) <= 1 && chart.right <= figures.left;
+  })).toBe(true);
+  await page.goto(`/merchant/termine?date=${date}`);
   // Design (26 Nov): at 320 the day's quick switch keeps whole words, one line per button, and nothing scrolls sideways.
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 320, height: 640 });
