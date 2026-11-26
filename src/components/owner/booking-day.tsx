@@ -50,6 +50,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const date = urlDate ?? shown?.date ?? today;
   const pick = (target: string) => { setFlash(null); setZone(timezone); router.push(`/merchant/termine?date=${target}`, { scroll: false }); };
   const ready = setup.state === "ok" && setup.data.settings !== null;
+  const totals = shown?.date === date ? dayTotals(shown.appointments) : null;
   const blockedCount = blocked.state === "ok" ? blocked.data.customers.length : 0;
 
   const done: Done = (text, tone = "ok", row) => {
@@ -101,7 +102,9 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
         <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
       )}
-      {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
+      {/* While a booked message waits for its day, the totals line keeps its place, so arriving it pushes nothing under the
+          tab bar (Design r2, 26 Nov: WebKit painted it ~20 ms after the message was placed). */}
+      {ready && (totals || (flash?.focus && flash.date === date)) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite" aria-hidden={totals ? undefined : true}>{totals ?? "\u00a0"}</p>}
       {flash?.date === date && <div ref={flashBox} className="ow-flash" tabIndex={-1}><Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice></div>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
