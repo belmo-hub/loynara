@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { signUp } from "./support/sign-up";
+import { resetPeerLimits } from "./nfc-support";
+
+// Each test signs up its own owner; the owner job's specs share one network's sign-up budget (ENG-369).
+test.beforeEach(resetPeerLimits);
 
 // ENG-379, Design r2: back on Mehr after „Passwort ändern“, the outcome line under Konto must clear the tab bar on a
 // phone. In WebKit it first landed 35 px under it, and off screen at 200 % text: it was placed before Mehr settled.
