@@ -67,8 +67,8 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
 
       <nav className="ow-row" aria-label="Tag wählen" style={{ flexWrap: "nowrap", gap: "var(--space-1)" }}>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Vorheriger Tag" onClick={() => pick(shiftDate(date, -1))}><ChevronLeft size={20} aria-hidden="true" /></button>
-        <div className="ow-seg" role="group" aria-label="Schnellwahl" style={{ flex: "1 1 auto", maxWidth: 360, justifyContent: "space-between" }}>
-          {[-1, 0, 1].map(offset => { const target = shiftDate(today, offset); return <button key={offset} type="button" style={{ flex: 1 }} aria-pressed={date === target} onClick={() => pick(target)}>{dayName(target, today)}</button>; })}
+        <div className="ow-seg ow-dayseg" role="group" aria-label="Schnellwahl" style={{ maxWidth: 360, justifyContent: "space-between" }}>
+          {[-1, 0, 1].map(offset => { const target = shiftDate(today, offset); return <button key={offset} type="button" aria-pressed={date === target} onClick={() => pick(target)}>{dayName(target, today)}</button>; })}
         </div>
         <button type="button" className="ow-btn ow-btn--ghost ow-btn--sm" aria-label="Nächster Tag" onClick={() => pick(shiftDate(date, 1))}><ChevronRight size={20} aria-hidden="true" /></button>
       </nav>
