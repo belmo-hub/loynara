@@ -240,7 +240,7 @@ describe("Loynara Termin legal texts", () => {
       "<p><strong>Erinnerungen.</strong> Schaltest du auf deiner Karte Erinnerungen ein, speichern wir die Push-Adresse deines Browsers. Du bekommst dann einen Tag und zwei Stunden vor dem Termin eine Mitteilung, außerdem eine, wenn das Geschäft deinen Termin bestätigt, verschiebt oder absagt. Zwischen 21 und 8 Uhr schicken wir keine Mitteilungen, außer das Geschäft sagt einen Termin vor 8 Uhr ab, verschiebt oder bestätigt ihn. Sie gehen verschlüsselt über den Push-Dienst deines Browsers (zum Beispiel von Apple, Google oder Mozilla). Schaltest du die Erinnerungen aus, löschen wir die Push-Adresse. Rechtsgrundlage ist die Durchführung des Termins (Art. 6 Abs. 1 Buchst. b DSGVO).</p>",
       "<p><strong>Zeit für den nächsten Termin.</strong> Eine Mitteilung, wenn es Zeit für den nächsten Termin wäre, bekommst du nur mit deiner ausdrücklichen Einwilligung: höchstens einmal nach jedem Termin, zwischen 8 und 20 Uhr, und sie zählt zu den höchstens zwei Nachrichten pro Woche. Die Einwilligung wird mit Zeitpunkt und Textversion protokolliert, und du kannst sie jederzeit auf deiner Karte widerrufen. Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 Buchst. a DSGVO).</p>",
       "<p><strong>Nicht erschienen.</strong> Das Geschäft sieht, wie oft du in den letzten zwölf Monaten nicht zu einem gebuchten Termin gekommen bist. Hat das Geschäft eine Grenze eingestellt (zum Beispiel drei Mal), pausiert die Online-Buchung für deine Karte danach automatisch; das Geschäft kann sie auch selbst pausieren und wieder freigeben. Anrufen kannst du das Geschäft weiterhin, und Stempel oder Punkte bleiben unberührt. Rechtsgrundlage ist das berechtigte Interesse des Geschäfts, frei gehaltene Termine nicht zu verlieren (Art. 6 Abs. 1 Buchst. f DSGVO).</p>",
-      "<p><strong>Speicherdauer.</strong> Name und Telefonnummer bleiben beim Termin, bis du die Karte schließt oder das Geschäft seinen Vertrag mit Loynara beendet. Schließt du die Karte, löschen wir Name, Telefonnummer und Push-Adresse und sagen offene Termine ab; der Verlauf bleibt ohne Namen bei den Buchungen deiner Karte.</p>",
+      "<p><strong>Speicherdauer.</strong> Name und Telefonnummer löschen wir zwölf Monate nach dem Termin, spätestens wenn du die Karte schließt oder das Geschäft seinen Vertrag mit Loynara beendet. Schließt du die Karte, löschen wir Name, Telefonnummer und Push-Adresse und sagen offene Termine ab; der Verlauf bleibt ohne Namen bei den Buchungen deiner Karte.</p>",
     ].join(""));
   });
 
@@ -262,6 +262,8 @@ describe("Loynara Termin legal texts", () => {
     ]) expect(html).toContain(part);
     expect(html).not.toContain("Nicht erhoben:</strong> Name, Telefonnummer");
     expect(OWNER_AVV.version >= BOOKING_AVV_VERSION).toBe(true);
+    // ENG-371 (Legal § 5): the deletion after 12 months is a processing step the instruction names.
+    expect(html).toContain("Kontakt- und Wiederherstellungsdaten entfernt. Name und Telefonnummer aus Terminbuchungen werden zwölf Monate nach dem Termin gelöscht. Buchungen,");
     expect(html).toContain(OWNER_AVV.stand);
   });
 

@@ -13,6 +13,7 @@ import { sendWorkerHeartbeat, validHeartbeatUrl } from "./ops-heartbeat";
 import { boundedWorkerDatabase } from "./worker-database";
 import { startWorkerMonitor } from "./worker-monitor";
 import { superviseWalletJob, walletJobLifetimeMs, walletTimingLine } from "./worker-supervisor";
+import { BOOKING_CONTACT_PRUNE_INTERVAL_MS } from "../src/lib/booking/retention";
 import { RATE_LIMIT_PRUNE_INTERVAL_MS } from "../src/lib/rate-limit";
 
 type Job = OutboxJob;
@@ -32,6 +33,7 @@ let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
 let suppressionsPrunedAt = 0;
 let rateLimitsPrunedAt = 0;
+let bookingContactsClearedAt = 0;
 let googleClassesSyncedAt = 0;
 let erasureCheckedAt = 0;
 let demosEndedAt = 0;
@@ -464,6 +466,18 @@ async function main() {
           const removed = await pruneExpiredRateLimits(housekeepingDatabase);
           if (removed) console.log(`Rate limits: ${removed} expired counter(s) pruned`);
           rateLimitsPrunedAt = Date.now();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          throw error;
+        }
+      }
+      if (Date.now() - bookingContactsClearedAt >= BOOKING_CONTACT_PRUNE_INTERVAL_MS) {
+        try {
+          // Daily and idempotent (ENG-371, founder Q-114): booking name and phone go 12 months after the appointment.
+          const { clearOldBookingContacts } = await import("../src/lib/booking/retention");
+          const cleared = await clearOldBookingContacts(new Date(), housekeepingDatabase);
+          if (cleared) console.log(`Booking contacts: ${cleared} appointment(s) cleared after 12 months`);
+          bookingContactsClearedAt = Date.now();
         } catch (error) {
           if (shutdown.signal.aborted) return;
           throw error;
