@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { AuthShell } from "@/components/ui/auth-shell";
 import { LegalLinks } from "@/components/ui/legal-links";
@@ -25,6 +25,7 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   // ENG-383: a passkey button for browsers that offer no passkey in the address field's autofill (Chrome on iOS).
   const passkeys = useSyncExternalStore(() => () => undefined, () => "PublicKeyCredential" in window, () => false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const prompting = useRef(false); // the button's prompt is open: the autofill starts no request of its own meanwhile
 
   /**
    * A passkey sign-in's answer, from the autofill or the button. Only one that left a session leads on: a cookie that did
@@ -58,9 +59,10 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
     let active = true, failures = 0;
     const offer = async (): Promise<void> => {
       if (!await globalThis.PublicKeyCredential?.isConditionalMediationAvailable?.()) return;
-      const result = await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
+      const result = prompting.current ? null : await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
       if (!active) return;
-      const outcome = await settle(result, false);
+      // While the button's prompt runs this request waits for the next focus of the address field, like a closed one.
+      const outcome = result ? await settle(result, false) : "cancelled";
       if (outcome === "done") return;
       if (outcome === "cancelled") {
         // A closed prompt is not a failure and says nothing. It is offered again when the person comes back to the address
@@ -83,9 +85,17 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   async function signInWithPasskey() {
     if (passkeyBusy || busy) return;
     setPasskeyBusy(true); setError("");
-    try { await settle(await authClient.signIn.passkey({ returnWebAuthnResponse: true }), true); }
+    prompting.current = true;
+    try {
+      let result = await authClient.signIn.passkey({ returnWebAuthnResponse: true });
+      // An autofill request whose options were still on their way when the button was pressed starts after it and ends
+      // its prompt (Reviewer, #374). Once more then; the autofill waits from here. A closed sheet is NotAllowedError, so
+      // this cannot loop.
+      if (result?.error && "code" in result.error && result.error.code === "ERROR_CEREMONY_ABORTED") result = await authClient.signIn.passkey({ returnWebAuthnResponse: true });
+      await settle(result, true);
+    }
     catch { setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut."); }
-    finally { setPasskeyBusy(false); }
+    finally { prompting.current = false; setPasskeyBusy(false); }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {

@@ -256,6 +256,41 @@ test("„Mit Passkey anmelden“ ends a pending autofill request and signs in", 
   expect(await page.evaluate(() => (window as unknown as { aborted?: boolean }).aborted)).toBe(true);
 });
 
+// Reviewer, #374: pressed while the autofill's options request is still on its way, the button's prompt is the first. The
+// autofill then starts and ends it; the button tries once more and signs in. The autofill's options are held back 1.5 s, and
+// the button's prompt answers only after 2.5 s, so the autofill starts in the middle of it. The autofill request itself
+// never answers, so only the button can sign in.
+test("„Mit Passkey anmelden“ pressed before the autofill has started still signs in", async ({ page, baseURL }) => {
+  const { cookies } = await owner(baseURL);
+  await page.context().addCookies(cookies);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.goto("/merchant/more");
+  await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
+  await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    const real = navigator.credentials.get.bind(navigator.credentials);
+    // The autofill request only waits (so only the button can sign in); the button's prompt answers after 2.5 s.
+    navigator.credentials.get = options => options?.mediation === "conditional"
+      ? new Promise((_, reject) => options.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError"))))
+      : new Promise((resolve, reject) => {
+      const timer = setTimeout(() => real(options).then(resolve, reject), 2_500);
+      options?.signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); });
+    });
+  });
+  let first = true;
+  await page.route("**/api/auth/passkey/generate-authenticate-options*", async route => {
+    if (first) { first = false; await new Promise(resolve => setTimeout(resolve, 1_500)); }
+    await route.continue();
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page).toHaveURL(/\/merchant/, { timeout: 15_000 });
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // ENG-383: closing the prompt is the person's choice: nothing is said, and the page stays as it was.
 test("a closed passkey prompt from the button says nothing", async ({ page }) => {
   await page.addInitScript(() => {
