@@ -33,7 +33,7 @@ with a digital stamp card opened by QR in the browser, where the shop's team con
 
 ## Offer & conversion
 - Primary action: **Demo anfragen** → `#anfrage` → `mailto:` draft built by `src/request.ts` (must stay untouched).
-- Price: 39 € / Monat / Standort (single source `src/site.ts`), pilot conditions in a personal talk. No guarantee.
+- Price: 49 € / Monat / Standort for every shop (single source `src/site.ts`). No guarantee.
 - Secondary: "So funktioniert’s" (→ `#ablauf`), Anmelden (→ app login), calculator figures into the request.
 
 ## Copy status

@@ -165,14 +165,9 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   const staffName = (id: string) => slots?.staff.find(s => s.id === id)?.name ?? day.staff.find(s => s.id === id)?.name ?? "";
 
   /** The first day from `from` on with a free time for `staffId`, looked up one day at a time (four weeks at most). */
-  async function firstFree(from: string, staffId: string) {
-    for (let offset = 0; offset < 28; offset++) {
-      const date = shiftDate(from, offset);
-      const found = await apiJson<{ slots: Slot[] }>(`/api/merchant/booking/appointments/${appointment.id}/slots?date=${date}`).catch(() => null);
-      if (found?.slots.some(slot => slot.staffId === staffId && !(slot.start === appointment.start && slot.staffId === appointment.staff.id))) return date;
-    }
-    return null;
-  }
+  // One request for 28 days (Design r2): the server reads them in one pass.
+  const firstFree = async (from: string, staffId: string) =>
+    (await apiJson<{ date: string | null }>(`/api/merchant/booking/appointments/${appointment.id}/next-free?from=${from}&staffId=${staffId}`).catch(() => ({ date: null }))).date;
   // D4: on opening „Verschieben“ the dialog lands on the first day with a free time.
   useEffect(() => {
     if (mode !== "move") return;
