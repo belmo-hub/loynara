@@ -276,6 +276,14 @@ describe("plans and checkout", () => {
     expect(stripe.calls.filter(call => call.method === "POST" && call.path === "/checkout/sessions").map(call => call.params["line_items[0][quantity]"])).toEqual(["1", "2"]);
   });
 
+  it("charges a non-euro shop nothing: no price on the page, checkout refused before Stripe", async () => {
+    const s = await shop();
+    await pool.query("UPDATE subscriptions SET currency = 'MAD' WHERE tenant_id = $1", [s.tenantId]);
+    expect((await getBillingOverview(s.ownerId)).charge).toBeNull();
+    await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_UNAVAILABLE" });
+    expect(stripe.calls).toEqual([]);
+  });
+
   it("refuses a Stripe price that does not match the plan (a wrong price ID never charges)", async () => {
     const s = await shop();
     setEnv({ STRIPE_PRICE_LIST: "price_wrong000001" });
