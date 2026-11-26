@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingInvoices, billingLocationPlans, bookingSettings, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { checkoutOpen, planCharge, stripeEnabled, vatNote } from "./stripe-config";
+import { checkoutOpen, planCharge, PLANS, stripeEnabled, vatNote } from "./stripe-config";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const GRACE_MS = 7 * 86_400_000;
@@ -65,6 +65,14 @@ export async function ownerTenant(actorUserId: string, tx: Transaction | typeof 
   return role.tenantId;
 }
 
+/** ENG-382: the shop's billed locations with „Termin + Treue“ switched on, each charged the termin price (§ 3 (1)). */
+export async function terminLocations(executor: Transaction | typeof db, tenantId: string) {
+  const [row] = await executor.select({ count: sql<number>`count(*)::int` }).from(billingLocationPlans)
+    .innerJoin(bookingSettings, and(eq(bookingSettings.tenantId, billingLocationPlans.tenantId), eq(bookingSettings.locationId, billingLocationPlans.locationId)))
+    .where(and(eq(billingLocationPlans.tenantId, tenantId), eq(bookingSettings.enabled, true)));
+  return row?.count ?? 0;
+}
+
 async function reconcileSubscription(tx: Transaction, tenantId: string, at: Date) {
   const [current] = await tx.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)).for("update");
   if (!current) throw new DomainError("NOT_FOUND", "Dein Abo haben wir nicht gefunden. Bitte wende dich an den Support.");
@@ -88,7 +96,8 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       const [usage] = await tx.select({ activeMembers: sql<number>`count(*)::int` }).from(memberships)
         .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
         .where(and(eq(memberships.tenantId, tenantId), eq(programs.locationId, plan.locationId), sql`${memberships.closedAt} is null`));
-      return { ...plan, activeMembers: usage.activeMembers };
+      // A euro location with „Termin + Treue“ costs the termin price (ENG-382); otherwise its stored price.
+      return { ...plan, priceMinor: plan.bookingEnabled && plan.currency === "EUR" ? PLANS.termin.priceMinor : plan.priceMinor, activeMembers: usage.activeMembers };
     }));
     const invoices = await tx.select({ id: billingInvoices.id, providerInvoiceId: billingInvoices.providerInvoiceId, status: billingInvoices.status, amountMinor: billingInvoices.amountMinor, currency: billingInvoices.currency, taxMinor: billingInvoices.taxMinor, periodEnd: billingInvoices.periodEnd, createdAt: billingInvoices.createdAt })
       .from(billingInvoices).where(eq(billingInvoices.tenantId, tenantId)).orderBy(desc(billingInvoices.createdAt)).limit(20);
@@ -98,7 +107,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
       // Live billing shows the amount Stripe will charge, from the same function as checkout; none before a plan is set.
-      liveBilling: stripeEnabled(), charge: planCharge(subscription), taxNote: vatNote(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, checkoutOpen: checkoutOpen(subscription), guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
+      liveBilling: stripeEnabled(), charge: planCharge(subscription, locationUsage.filter(plan => plan.bookingEnabled).length), taxNote: vatNote(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, checkoutOpen: checkoutOpen(subscription), guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
       fixtureAvailable: billingFixtureAvailable(),
       countingRule: stripeEnabled()
         ? "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte."

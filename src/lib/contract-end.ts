@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { locations, programs, subscriptions, tenants } from "@/db/schema";
 import { addDays, EXPORT_DAYS_AFTER_END, MIN_NOTICE_DAYS } from "./programme-end-date";
+import { terminLocations } from "./billing";
 import { planCharge } from "./stripe-config";
 
 /**
@@ -80,7 +81,7 @@ export async function contractBasis(tenantId: string) {
     .where(eq(locations.tenantId, tenantId)).orderBy(locations.name)).map(row => row.name);
   const billed = !!sub && (sub.freeUntil !== null || sub.providerSubscriptionId !== null);
   return { anchorDay: Number(berlinDay(anchor).slice(8)), lastFreeDay, firstBillingDay: sub?.freeUntil ? berlinDay(sub.freeUntil) : null,
-    totalMinor: sub ? planCharge(sub)?.totalMinor ?? null : null, billed, locations: [...new Set(names)] };
+    totalMinor: sub ? planCharge(sub, await terminLocations(db, tenantId))?.totalMinor ?? null : null, billed, locations: [...new Set(names)] };
 }
 
 /** The three facts for an end on `endDate`, as the owner page, the operator preview and the emails show them. */

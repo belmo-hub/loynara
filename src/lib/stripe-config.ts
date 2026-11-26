@@ -3,13 +3,17 @@ import { isProductionDeployment } from "./pilot-policy";
 /**
  * Stripe billing configuration (ENG-055). Kept free of database imports so the production gate (scripts/config-check.ts)
  * can use it. The price lives in Stripe; the env names it. The amount here is what the owner sees and what checkout
- * verifies the Stripe price against, so a wrong price ID is refused, never charged. One price for every shop (founder, 23 Nov
- * 2026); the database CHECK still allows the retired second plan code, which nothing writes any more.
+ * verifies the Stripe price against, so a wrong price ID is refused, never charged. One plan for every shop (founder, 23 Nov
+ * 2026); a location with „Termin + Treue“ is charged the termin price instead (ENG-382, Vertragsbedingungen § 3 (1)). The
+ * database CHECK still allows the retired second plan code, which nothing writes any more.
  */
 export const PLANS = {
   list: { priceMinor: 4900, priceEnv: "STRIPE_PRICE_LIST", label: "Listenpreis" },
+  termin: { priceMinor: 6900, priceEnv: "STRIPE_PRICE_TERMIN", label: "Termin + Treue" },
 } as const;
-export type PlanCode = keyof typeof PLANS;
+/** The plan a subscription stores; „termin“ is a per-location price, never a plan code. */
+export type PlanCode = "list";
+export type PriceKey = keyof typeof PLANS;
 /** BILLING_VAT_MODE "kleinunternehmer": the footer of every Stripe invoice and the owner page's tax line. Absent: no VAT wording at all (D-021). */
 export const VAT_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.";
 /** BILLING_VAT_MODE "standard": prices are net, Stripe adds the 19 % tax rate named by STRIPE_TAX_RATE_ID. */
@@ -19,13 +23,17 @@ export const GUARANTEE_LINE = "Monat 2 kostenlos – Startgarantie";
 export const isPlanCode = (value: unknown): value is PlanCode => value === "list";
 
 /**
- * The one price the owner page shows and the Stripe checkout charges (Finance, 24 Oct; pilot agreement § 3 (1)): the list
- * price, one unit per location, for every shop. Null only for a non-euro shop, which checkout refuses.
+ * What the owner page shows and Stripe charges (Finance, 24 Oct; Vertragsbedingungen § 3 (1)): one unit per location, the
+ * list price, or the termin price for each of `terminLocations` locations with „Termin + Treue“. `lines` are the Stripe
+ * items, list first. Null only for a non-euro shop, which checkout refuses.
  */
-export function planCharge(sub: { activeLocationCount: number; currency: string }) {
+export function planCharge(sub: { activeLocationCount: number; currency: string }, terminLocations = 0) {
   if (sub.currency !== "EUR") return null;
-  const unitMinor = PLANS.list.priceMinor;
-  return { planCode: "list" as const, unitMinor, quantity: sub.activeLocationCount, totalMinor: unitMinor * sub.activeLocationCount };
+  const termin = Math.min(terminLocations, sub.activeLocationCount);
+  const lines = ([["list", sub.activeLocationCount - termin], ["termin", termin]] as const)
+    .filter(([, quantity]) => quantity > 0).map(([key, quantity]) => ({ key, unitMinor: PLANS[key].priceMinor, quantity }));
+  return { planCode: "list" as const, unitMinor: PLANS.list.priceMinor, quantity: sub.activeLocationCount, lines,
+    totalMinor: lines.reduce((sum, line) => sum + line.unitMinor * line.quantity, 0) };
 }
 
 /**
@@ -42,6 +50,7 @@ const formats: Record<string, RegExp> = {
   STRIPE_SECRET_KEY: /^(sk|rk)_(live|test)_[A-Za-z0-9]{16,}$/,
   STRIPE_WEBHOOK_SECRET: /^whsec_[A-Za-z0-9+/=]{16,}$/,
   STRIPE_PRICE_LIST: price,
+  STRIPE_PRICE_TERMIN: price,
 };
 const OPTIONAL_SETTINGS = ["BILLING_PRODUCTION_APPROVED", "BILLING_VAT_MODE", "STRIPE_TAX_RATE_ID", "START_GUARANTEE_MIN_CUSTOMERS", "START_GUARANTEE_CONTRACT_CUTOFF"];
 const isoDay = /^\d{4}-\d{2}-\d{2}$/;

@@ -214,12 +214,12 @@ describe("production configuration gate", () => {
 
   describe("live billing (Stripe)", () => {
     // Synthetic placeholders shaped like Stripe identifiers; none is a real credential.
-    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
+    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_LIST: "price_list00000001", STRIPE_PRICE_TERMIN: "price_termin000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
     it("is accepted off (absent or false) and on with the whole group", () => {
       expect(productionConfigIssues({ ...safe, LIVE_BILLING_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(stripe)).toEqual([]);
     });
-    it.each(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_LIST"])("refuses live billing without %s, naming the setting and never its value", name => {
+    it.each(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_LIST", "STRIPE_PRICE_TERMIN"])("refuses live billing without %s, naming the setting and never its value", name => {
       expect(productionConfigIssues({ ...stripe, [name]: undefined })).toEqual(expect.arrayContaining([`Live billing requires a valid ${name}`]));
     });
     it("needs the founder's separate production approval, exactly true", () => {

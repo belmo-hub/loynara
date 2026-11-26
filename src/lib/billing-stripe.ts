@@ -3,12 +3,12 @@ import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingLocationPlans, billingWebhookEvents, programs, subscriptions, tenants } from "@/db/schema";
-import { ownerTenant } from "./billing";
+import { ownerTenant, terminLocations } from "./billing";
 import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
 import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
-import { checkoutOpen, expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
+import { checkoutOpen, expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode, type PriceKey } from "./stripe-config";
 
 /**
  * Real billing through Stripe (ENG-055): hosted Checkout for the monthly subscription, the hosted customer portal for card
@@ -56,7 +56,7 @@ const stripeSubscription = z.object({
   cancel_at_period_end: z.boolean(), cancel_at: z.number().int().nullable(), ended_at: z.number().int().nullable(),
   metadata: z.object({ tenant_id: z.uuid() }),
   billing_cycle_anchor: z.number().int().optional(),
-  items: z.object({ data: z.array(z.object({ id: z.string(), quantity: z.number().int(), current_period_start: z.number().int().optional(), current_period_end: z.number().int() })).min(1) }),
+  items: z.object({ data: z.array(z.object({ id: z.string(), price: z.object({ id: z.string() }).optional(), quantity: z.number().int(), current_period_start: z.number().int().optional(), current_period_end: z.number().int() })).min(1) }),
 });
 const stripeInvoice = z.object({
   id: z.string().regex(/^in_[A-Za-z0-9]+$/), customer: z.string(), status: z.string(), billing_reason: z.string().nullable(), created: z.number().int(),
@@ -78,13 +78,23 @@ async function lockedSubscription(tx: Transaction, tenantId: string) {
   return sub;
 }
 
-/** The plan's Stripe price, verified against the plan's amount, so a swapped or wrong price ID is refused, never charged. */
-async function verifiedPrice(charge: NonNullable<ReturnType<typeof planCharge>>) {
-  const price = stripePrice.parse(await client("GET", `/prices/${process.env[PLANS[charge.planCode].priceEnv]}`));
-  if (!price.active || price.currency !== "eur" || price.unit_amount !== charge.unitMinor || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) {
+/** A Stripe price, verified against its amount in PLANS, so a swapped or wrong price ID is refused, never charged. */
+async function verifiedPrice(key: PriceKey) {
+  const price = stripePrice.parse(await client("GET", `/prices/${process.env[PLANS[key].priceEnv]}`));
+  if (!price.active || price.currency !== "eur" || price.unit_amount !== PLANS[key].priceMinor || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) {
     throw new DomainError("PLAN_MISCONFIGURED", "The Stripe price does not match the plan");
   }
   return price;
+}
+
+/** The charge's lines as Stripe form fields (`items` for a subscription, `line_items` for checkout), each price verified. */
+async function stripeLines(charge: NonNullable<ReturnType<typeof planCharge>>, field: "items" | "line_items") {
+  const params: Record<string, string> = {};
+  for (const [index, line] of charge.lines.entries()) {
+    params[`${field}[${index}][price]`] = (await verifiedPrice(line.key)).id;
+    params[`${field}[${index}][quantity]`] = String(line.quantity);
+  }
+  return params;
 }
 
 /** The VAT mode, with the 19 % rate verified (active, exclusive) when it is "standard". */
@@ -163,8 +173,8 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
     if (sub.providerSubscriptionId || sub.freeUntil) throw new DomainError("BILLING_STATE", "Die Abrechnung für dieses Geschäft wurde schon gestartet.");
     if (sub.currency !== "EUR") throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte prüfe die Währung des Geschäfts.");
     if (!isPlanCode(sub.planCode)) sub = await applyPlan(tx, sub.tenantId, "list");
-    const charge = planCharge(sub)!;
-    const price = await verifiedPrice(charge);
+    const charge = planCharge(sub, await terminLocations(tx, sub.tenantId))!;
+    const lines = await stripeLines(charge, "items");
     const standardVat = await verifiedVatMode() === "standard";
     const customer = await ensureCustomer(tx, sub);
     await client("POST", `/customers/${customer}`, {
@@ -172,7 +182,7 @@ export async function startBilling(input: { actorUserId: string; env: Env; tenan
       "address[city]": recipient.data.city, "address[country]": "DE",
     });
     const created = stripeSubscription.parse(await client("POST", "/subscriptions", {
-      customer, "items[0][price]": price.id, "items[0][quantity]": String(charge.quantity), "metadata[tenant_id]": sub.tenantId,
+      customer, ...lines, "metadata[tenant_id]": sub.tenantId,
       "billing_cycle_anchor_config[day_of_month]": String(Number(berlinDay(at).slice(8))), "billing_cycle_anchor_config[hour]": "0",
       "billing_cycle_anchor_config[minute]": "0", "billing_cycle_anchor_config[second]": "0", proration_behavior: "none",
       collection_method: "charge_automatically", "payment_settings[save_default_payment_method]": "on_subscription",
@@ -200,7 +210,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
     const tenantId = await ownerTenant(actorUserId, tx);
     let sub = await lockedSubscription(tx, tenantId);
     if (!checkoutOpen(sub)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo oder die Abrechnung startet mit dem Go-live.");
-    const charge = planCharge(sub);
+    const charge = planCharge(sub, await terminLocations(tx, tenantId));
     if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte wende dich an den Support.");
     if (!isPlanCode(sub.planCode)) sub = await applyPlan(tx, sub.tenantId, "list");
     const amountMinor = charge.totalMinor;
@@ -214,13 +224,13 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
       if (open.status === "open") await client("POST", `/checkout/sessions/${open.id}/expire`, {}, `expire-${open.id}`);
       await tx.update(billingHandoffs).set({ status: "expired", completedAt: at }).where(eq(billingHandoffs.id, pending.id));
     }
-    const price = await verifiedPrice(charge);
+    const lines = await stripeLines(charge, "line_items");
     const standardVat = await verifiedVatMode() === "standard";
     const customerId = await ensureCustomer(tx, sub);
     const [handoff] = await tx.insert(billingHandoffs).values({ tenantId, provider: "stripe", currency: "EUR", amountMinor, createdAt: at }).returning();
     const session = checkoutSession.parse(await client("POST", "/checkout/sessions", {
       mode: "subscription", customer: customerId, client_reference_id: tenantId, locale: "de",
-      "line_items[0][price]": price.id, "line_items[0][quantity]": String(charge.quantity),
+      ...lines,
       "subscription_data[metadata][tenant_id]": tenantId, "metadata[handoff_id]": handoff.id,
       billing_address_collection: "required", "customer_update[address]": "auto", "customer_update[name]": "auto",
       ...(standardVat ? { "subscription_data[default_tax_rates][0]": process.env.STRIPE_TAX_RATE_ID! } : {}),
@@ -557,19 +567,43 @@ export async function runBillingJob(env: Env = process.env) {
   }
   const credited = await creditOwedGuarantees();
   let quantities = 0;
-  const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount,
-    newestLocation: sql<Date>`(SELECT max(p.created_at) FROM billing_location_plans p WHERE p.tenant_id = ${subscriptions.tenantId})` })
+  // The subqueries name the outer row in full: a bare tenant_id resolved to their own table and read every shop's locations.
+  const running = await db.select({ tenantId: subscriptions.tenantId, subscriptionId: subscriptions.providerSubscriptionId, locations: subscriptions.activeLocationCount, freeUntil: subscriptions.freeUntil,
+    newestLocation: sql<Date>`(SELECT max(p.created_at) FROM billing_location_plans p WHERE p.tenant_id = "subscriptions"."tenant_id")`,
+    newestTermin: sql<Date | null>`(SELECT max(b.updated_at) FROM booking_settings b JOIN billing_location_plans p ON p.tenant_id = b.tenant_id AND p.location_id = b.location_id WHERE b.tenant_id = "subscriptions"."tenant_id" AND b.enabled)` })
     .from(subscriptions).where(and(eq(subscriptions.provider, "stripe"), eq(subscriptions.status, "active"), isNotNull(subscriptions.providerSubscriptionId)));
   for (const shop of running) {
-    const item = stripeSubscription.parse(await client("GET", `/subscriptions/${shop.subscriptionId}`)).items.data[0];
-    if (item.quantity === shop.locations) continue;
+    const items = stripeSubscription.parse(await client("GET", `/subscriptions/${shop.subscriptionId}`)).items.data;
+    const terminItem = items.find(item => item.price?.id === env[PLANS.termin.priceEnv]);
+    const item = items.find(other => other !== terminItem) ?? items[0];
+    const want = planCharge({ activeLocationCount: shop.locations, currency: "EUR" }, await terminLocations(db, shop.tenantId))!;
+    const termin = want.lines.find(line => line.key === "termin")?.quantity ?? 0;
+    const had = terminItem?.quantity ?? 0;
+    if (item.quantity === shop.locations - termin && had === termin) continue;
     // K-09 (ENG-123): a location added later pays from its own start day, pro rata in the shop's running billing month, on the
     // shop's one invoice; it gets no free month, also when it starts inside the shop's free month. Fewer locations change the
     // quantity from the next invoice on.
     const since = Math.max(Math.floor(new Date(shop.newestLocation).getTime() / 1000), item.current_period_start ?? 0);
-    await client("POST", `/subscription_items/${item.id}`, item.quantity < shop.locations
-      ? { quantity: String(shop.locations), proration_behavior: "create_prorations", proration_date: String(since) }
-      : { quantity: String(shop.locations), proration_behavior: "none" });
+    if (!terminItem && termin === 0) {
+      await client("POST", `/subscription_items/${item.id}`, item.quantity < shop.locations
+        ? { quantity: String(shop.locations), proration_behavior: "create_prorations", proration_date: String(since) }
+        : { quantity: String(shop.locations), proration_behavior: "none" });
+      quantities += 1;
+      continue;
+    }
+    // ENG-382, Vertragsbedingungen § 3 (5): switched on, the termin price applies from that day and the difference for the rest
+    // of the month is prorated onto the next invoice, never inside the free month (§ 3 (1)); switched off, it applies from the
+    // next billing month. Both items change in one update, so Stripe credits the list price for the time it charges the termin price.
+    // shortcut: the switch day is booking_settings.updated_at, which an owner's setup save before the next run also moves (later: in the
+    // shop's favour), and a location added and another switched within one day share one proration date; record the switch time if that matters.
+    const grew = item.quantity + had < shop.locations, switchedOn = had < termin, free = shop.freeUntil !== null && shop.freeUntil > new Date();
+    const prorate = grew || (switchedOn && !free);
+    const from = Math.max(since, switchedOn && shop.newestTermin ? Math.floor(new Date(shop.newestTermin).getTime() / 1000) : 0);
+    await client("POST", `/subscriptions/${shop.subscriptionId}`, {
+      "items[0][id]": item.id, "items[0][quantity]": String(shop.locations - termin),
+      ...(terminItem ? { "items[1][id]": terminItem.id } : { "items[1][price]": (await verifiedPrice("termin")).id }), "items[1][quantity]": String(termin),
+      ...(prorate ? { proration_behavior: "create_prorations", proration_date: String(from) } : { proration_behavior: "none" }),
+    });
     quantities += 1;
   }
   return { quantities, credited, ends };
