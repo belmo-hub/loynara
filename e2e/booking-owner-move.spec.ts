@@ -44,5 +44,12 @@ test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary 
   const primary = dialog.getByRole("button", { name: /^Auf \d{2}:\d{2} Uhr verschieben$/ });
   await expect(primary).toBeInViewport({ ratio: 1 });
   expect(await primary.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return Boolean(hit && element.contains(hit)); })).toBe(true);
+  // Design (26 Nov): at 320 the day's quick switch keeps whole words, one line per button, and nothing scrolls sideways.
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 320, height: 640 });
+  const quick = page.getByRole("group", { name: "Schnellwahl" }).getByRole("button");
+  await expect(quick).toHaveCount(3);
+  expect(await quick.evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth && button.getBoundingClientRect().height <= 48))).toBe(true);
+  expect(await page.evaluate(() => document.scrollingElement!.scrollWidth === innerWidth)).toBe(true);
   await context.close(); await owner.dispose(); await guest.dispose();
 });
