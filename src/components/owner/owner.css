@@ -1493,3 +1493,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-place-status:empty, .ow-place-status:has(> .ow-sr) { margin-top: calc(-1 * var(--space-2)); } /* always there for screen readers, no gap while silent */
 .ow-place-status > span { display: block; }
 .ow-place-status > [data-alert] { color: var(--color-ink); }
+
+/* The booking day's quick switch (Design, 26 Nov): „Gestern / Heute / Morgen“ stay whole words at 320 and 360, and stack one
+   per line when the shell is narrower than 19.5em (320 at 200 %). Only this row: other .ow-seg groups keep their layout. */
+.ow-dayseg { flex: 1 1 auto; min-width: 0; }
+.ow-dayseg > button { flex: 1 1 0; min-width: 0; padding-inline: var(--space-2); white-space: nowrap; hyphens: manual; }
+@container ow-shell (max-width: 19.5em) {
+  .ow-dayseg { flex-direction: column; }
+  .ow-dayseg > button { flex: none; white-space: normal; }
+}
