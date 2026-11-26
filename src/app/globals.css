@@ -25,3 +25,7 @@ main[tabindex="-1"]:focus { outline: none; }
 @media (prefers-color-scheme: dark) { :root:has(.ly-theme-auto) { color-scheme: dark; } }
 ::selection { background: color-mix(in oklab, var(--color-ink) 18%, transparent); color: var(--color-ink); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* A link in running text („Datenschutzhinweisen für Geschäfte“) breaks inside a word rather than past the screen under
+   large text; at 100 % every such link fits its line. */
+:where(p, li) a { overflow-wrap: anywhere; }

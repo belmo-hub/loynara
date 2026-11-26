@@ -42,6 +42,10 @@
 .row[data-lead="card"] > .body { min-height: var(--mix-row-card); }
 .text { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .text > b { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); max-width: 100%; font-weight: var(--weight-strong); }
+/* A tappable row's title word wider than the row („Programmregeln“ at 320/200) breaks inside it, not under the chevron.
+   wrapEnd panels (Programm) have their own large-text rule and keep their 100 % layout; plain rows (the card's „Letzte
+   Aktivität“) keep #356's rule that moves the amount under the label instead (Design, release check). */
+.panel:not([data-wrap-end]) :is(a, button).row .text > b { overflow-wrap: anywhere; hyphens: auto; hyphenate-limit-chars: 12 5 5; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; } /* only long words hyphenate („Programm- / regeln“) */
 .text > small { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); text-wrap: pretty; }
 .val { font-weight: var(--weight-label); color: var(--color-ink-muted); white-space: nowrap; text-align: right; }
 /* `wrapEnd` panels, under large text only (narrower than 15 of their own em; at 100 % even a 320 phone is wider): a row's
@@ -54,6 +58,7 @@
   .body { flex-wrap: wrap; }
   .body:not(:has(.val)) { flex-wrap: nowrap; } /* a chevron with no value stays beside the words, never alone on a line */
   .text { flex: 1 1 8em; min-width: 0; hyphens: manual; overflow-wrap: break-word; } /* sub lines keep their words whole */
+  .text > small { overflow-wrap: anywhere; } /* a sub-line word wider than the row („Umsatzschätzung“ at 320/200) breaks inside it, not past it */
   /* Only a long title word hyphenates, never into stubs („Startbo-nus“): 12 letters, 5 before and after a break; WebKit
      has no word length, so 6 before and after keeps a 10-letter word („hinzufügen“) whole there. */
   .text > b { hyphens: auto; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; hyphenate-limit-chars: 12 5 5; }
@@ -76,14 +81,14 @@
 .warm { background: color-mix(in oklab, var(--color-accent-text), transparent 90%); color: var(--color-accent-text); }
 
 /* Buttons: 44 high (.lg 52), the primary filled green, the quiet one outlined. */
-.btn { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: var(--space-2); height: var(--target); padding: 0 var(--space-5); border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); white-space: nowrap; text-decoration: none; cursor: pointer; }
+.btn { display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: var(--space-2); min-width: 0; min-height: var(--target); padding: var(--space-1) var(--space-5); border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: var(--weight-strong); text-align: center; overflow-wrap: break-word; text-decoration: none; cursor: pointer; } /* one line at 100 %; a label that no longer fits wraps under large text */
 .btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .primary { background: var(--color-action); color: var(--color-on-action); }
 .quiet { border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-ink); }
 .lg { height: var(--mix-row); padding: 0 var(--space-6); }
 .block { display: flex; width: 100%; }
 /* The underlined ink link beside a title or in a row; 44 tall without pushing the row apart. */
-.link { display: inline-flex; flex: none; align-items: center; min-height: var(--target); margin: calc(-1 * var(--space-3)) 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.link { display: inline-flex; flex: 0 1 auto; max-width: 100%; overflow-wrap: break-word; align-items: center; min-height: var(--target); margin: max(-1 * var(--space-3), (1.25rem - var(--target)) / 2) 0; font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; text-align: start; } /* the target reaches 12 into the gap at 100 %, less once the text fills it (large text) */
 
 /* Feedback (DESIGN.md › Motion, press): buttons press to .97, rows and the closing row to .985; hover fills only with a
    fine pointer. The panel's overflow would clip the house ring, so a row's ring is drawn inside it. */

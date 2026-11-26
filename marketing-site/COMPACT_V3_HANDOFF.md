@@ -39,7 +39,7 @@ Five colour presets (mirroring the app's card studio), three logo symbols, three
 Überblick (12 repeat visits, 3 rewards, 2 referrals; example data) is the default and part of the current offer. Ruhige Zeiten (quiet Tuesday afternoon, possible group requiring consent, preview "nicht versendet") and Zurückholen (long pause, example rule, preview) carry "Plattform-Ausblick – nicht im aktuellen Pilotangebot", all eight industries have their own copy.
 
 ## Calculator preservation
-Maths, inputs, ranges, German parsing/validation, graph, readout strip, zero-gain case, assumptions and single price source unchanged (unit tests + 392 browser checks). Example 50 / 7 € / 26 / 10 % / 39 € → 9.100 / 910 / 871 / 10.452 €; chart month-12 label now "+10.920 € Zusatzumsatz" (before fee); ratio 23,3× only inside "Berechnung und Annahmen im Detail".
+Maths, inputs, ranges, German parsing/validation, graph, readout strip, zero-gain case, assumptions and single price source unchanged (unit tests + 392 browser checks). Example 50 / 7 € / 26 / 10 % / 49 € → 9.100 / 910 / 861 / 10.332 €; chart month-12 label now "+10.920 € Zusatzumsatz" (before fee); ratio 18,6× only inside "Berechnung und Annahmen im Detail".
 
 ## QA results (all local, Chromium via system Chrome)
 - `npm run marketing:test`: 43 / 43 pass (calculator, demo, referral, brand, request, site copy and claim guards).
@@ -50,7 +50,7 @@ Maths, inputs, ranges, German parsing/validation, graph, readout strip, zero-gai
 - Not run: Safari/WebKit (install loop deliberately not repeated), physical iPhone, screen readers. `SAFARI_CHECKLIST.md` is the manual script.
 
 ## Reviewer assessments (not user research)
-- *Scanner* (reads headlines, tabs, first sentence per scene, 10 s): sees retention + referral + owner visibility + branding + price + CTA without clicking; the 39 € card is reached after 4 575 px desktop. Weak spot: strip text in the referral chapter stays the same sentence across its four steps; state is carried by the step line and counters.
+- *Scanner* (reads headlines, tabs, first sentence per scene, 10 s): sees retention + referral + owner visibility + branding + price + CTA without clicking; the 49 € card is reached after 4 575 px desktop. Weak spot: strip text in the referral chapter stays the same sentence across its four steps; state is carried by the step line and counters.
 - *Explorer* (clicks everything): every tab opens on a populated view, no state is lost by changing the brand or industry, the calculator is never reset; changing chapters after a redemption shows a coherent snapshot instead of replaying the redemption (by design).
 
 ## Privacy

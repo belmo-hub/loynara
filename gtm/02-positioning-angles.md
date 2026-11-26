@@ -24,7 +24,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 
 ## Final positioning
 
-**One sentence (internal):** For owner-run barbers, pizzerias and cafés in Kassel, Loynara replaces the paper stamp card with a browser card the customer opens by QR code. The team confirms every visit, so the owner can see how many customers come back, what each card has done, and which recommendation became a real visit. It costs 49 € per location (founding shops: 39 €, fixed for the contract term, named only in person), with no customer app and no hardware to buy.
+**One sentence (internal):** For owner-run barbers, pizzerias and cafés in Kassel, Loynara replaces the paper stamp card with a browser card the customer opens by QR code. The team confirms every visit, so the owner can see how many customers come back, what each card has done, and which recommendation became a real visit. It costs 49 € per location, the same for every shop, with no customer app and no hardware to buy.
 
 **German, spoken (what the founder says):**
 > „Das ist deine Stempelkarte, nur auf dem Handy deiner Kunden – ohne App. Dein Team bestätigt jeden Besuch, und du siehst, wie viele wiederkommen und welche Empfehlung ein echter Besuch war.“
@@ -662,7 +662,7 @@ The third sentence (referrals) and the first (the card) are SELL NOW. „Bring t
 **SELL NOW** · sources: O95, O96 · prev A7
 
 - **Merchant pain:** Tiered pricing by cards or staff is confusing.
-- **Commercial outcome:** 49 € per location (founding shops 39 €, named in person), without counting cards or staff.
+- **Commercial outcome:** 49 € per location, the same for every shop, without counting cards or staff.
 - **Strongest hook:** „Ein Preis pro Laden. Egal, wie viele Stühle.“
 - **Strongest verticals:** Barber with several chairs, busy café
 - **Best channel:** Static ad, walk-in
