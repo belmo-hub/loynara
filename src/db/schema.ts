@@ -1379,7 +1379,8 @@ export const ownerAcceptances = pgTable("owner_acceptances", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
 }, (t) => [
   index("owner_acceptances_user_idx").on(t.userId),
-  check("owner_acceptances_path_valid", sql`${t.path} = 'register'`),
+  // ENG-339: 'booking' is a later AVV Fassung accepted in the app by the Inhaberkonto, always for its business.
+  check("owner_acceptances_path_valid", sql`${t.path} = 'register' or (${t.path} = 'booking' and ${t.tenantId} is not null)`),
 ]);
 
 /**

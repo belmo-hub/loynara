@@ -169,7 +169,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     try { await postJson("/api/operator/booking", { tenantId: row.tenantId, locationId: row.locationId, enabled }); router.refresh(); }
     catch (cause) {
       // Design r2: the AVV refusal belongs on this shop's row, in words, not as „lade die Seite neu“ at the page top.
-      if (cause instanceof ClientApiError && cause.code === "AVV_NOT_ACCEPTED") setBookingError({ locationId: row.locationId, text: "Dieses Geschäft hat die Auftragsverarbeitung mit Terminbuchung noch nicht angenommen. Online-Termine bleiben aus." });
+      if (cause instanceof ClientApiError && cause.code === "AVV_NOT_ACCEPTED") setBookingError({ locationId: row.locationId, text: "Dieses Geschäft hat die Vertragsbedingungen und die Auftragsverarbeitung mit Termin + Treue noch nicht angenommen. Online-Termine bleiben aus." });
       else setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
     }
     finally { setBusy(false); }

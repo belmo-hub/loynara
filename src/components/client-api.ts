@@ -112,6 +112,10 @@ export type MeResponse = {
   bookingEnabled?: boolean;
   /** Booking on, or off with open appointments still ahead: the day view and its export stay (read-only when off). */
   bookingShown?: boolean;
+  /** ENG-339, owners of shops that signed up online only (absent otherwise): when the business accepted the Fassung with „Termin + Treue“, or null. */
+  bookingContractsAcceptedAt?: string | null;
+  /** With the fields above: the Fassungen (versions, YYYY-MM-DD) the stored acceptance names, or null. */
+  bookingContractsFassung?: { terms: string; avv: string } | null;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";

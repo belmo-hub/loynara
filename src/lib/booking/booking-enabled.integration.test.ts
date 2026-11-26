@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import { pool } from "@/db";
 import { GET as meRoute } from "@/app/api/me/route";
+import { GET as exportRoute } from "@/app/api/merchant/export/route";
 import { randomUUID } from "node:crypto";
 import { book } from "./appointments";
+import { bookingStateAt } from "./setup";
 import { bookingShop, request, withBookingDatabase } from "./test-fixture";
 
 // Design blocker 3 (22 Nov): every booking surface hides unless the operator switched booking on at the location.
@@ -18,13 +20,21 @@ it("/api/me says whether booking is on at the location: on, off, and no settings
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false });
 });
 
-it("switched off with an appointment still ahead, the day view stays (shown, read-only); once nothing is ahead it goes", async () => {
+it("switched off, a location that had appointments keeps the day view and „Termine für Excel“, also once all are past (§ 3 (5))", async () => {
   const shop = await bookingShop();
   const start = new Date(); start.setUTCDate(start.getUTCDate() + 2); start.setUTCHours(9, 0, 0, 0);
   const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() });
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: true, bookingShown: true });
   await pool.query("UPDATE booking_settings SET enabled = false WHERE location_id = $1", [shop.scope.locationId]);
   expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false, bookingShown: true });
-  await pool.query("UPDATE booking_appointments SET status = 'cancelled_by_shop', cancelled_at = now() WHERE id = $1", [appointment.id]);
-  expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false, bookingShown: false });
+  // Only past appointments (here: over a year ago, finished, the name cleared after 12 months): still shown, read-only, and the export answers with the row.
+  await pool.query("UPDATE booking_appointments SET during = tstzrange(now() - interval '13 months', now() - interval '13 months' + interval '30 minutes'), status = 'done', customer_name = 'Name gelöscht', customer_phone = NULL WHERE id = $1", [appointment.id]);
+  expect(await me(shop.ownerCookie)).toMatchObject({ bookingEnabled: false, bookingShown: true });
+  const csv = await exportRoute(request("/api/merchant/export?format=appointments", { cookie: shop.ownerCookie }));
+  expect(csv.status).toBe(200);
+  expect(await csv.text()).toContain("Name gelöscht");
+  // Reviewer D6: per location. A second location of the same shop that never had booking stays without it.
+  const second = (await pool.query("INSERT INTO locations (tenant_id, name, city, country, timezone) VALUES ($1, 'Nord', 'Kassel', 'DE', 'Europe/Berlin') RETURNING id", [shop.scope.tenantId])).rows[0].id as string;
+  expect(await bookingStateAt({ tenantId: shop.scope.tenantId, locationId: second })).toEqual({ bookingEnabled: false, bookingShown: false });
+  expect(await bookingStateAt(shop.scope)).toEqual({ bookingEnabled: false, bookingShown: true });
 });

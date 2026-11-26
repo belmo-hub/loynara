@@ -53,13 +53,16 @@ export async function bookingEnabledAt(scope: Scope, reader: Reader = db) {
   return row?.enabled ?? false;
 }
 
-/** Design r2: switched off with appointments still ahead, the owner keeps the day view (read-only) until they are past. */
+/**
+ * Switched off, a location that ever had an appointment keeps the day view (read-only) and „Termine für Excel“, also once
+ * every appointment is past: the Vertragsbedingungen § 3 (5) promise booked appointments stay visible and exportable (CTO, 23 Nov).
+ */
 export async function bookingStateAt(scope: Scope, reader: Reader = db) {
   const enabled = await bookingEnabledAt(scope, reader);
   if (enabled) return { bookingEnabled: true, bookingShown: true };
-  const [ahead] = await reader.select({ id: bookingAppointments.id }).from(bookingAppointments)
-    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`)).limit(1);
-  return { bookingEnabled: false, bookingShown: Boolean(ahead) };
+  const [any] = await reader.select({ id: bookingAppointments.id }).from(bookingAppointments)
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId))).limit(1);
+  return { bookingEnabled: false, bookingShown: Boolean(any) };
 }
 
 type OpeningDay = z.infer<typeof workingDay>;

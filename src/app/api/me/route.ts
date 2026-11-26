@@ -4,6 +4,9 @@ import { getMerchantContext, setupDraft } from "@/lib/product";
 import { respondError, sessionUser } from "@/lib/http";
 import { selectedLocationFromRequest } from "@/lib/locations";
 import { bookingStateAt } from "@/lib/booking/setup";
+import { bookingAcceptance, signedUpOnline } from "@/lib/booking-avv";
+
+const contracts = (accepted: Awaited<ReturnType<typeof bookingAcceptance>>) => ({ bookingContractsAcceptedAt: accepted?.acceptedAt ?? null, bookingContractsFassung: accepted ? { terms: accepted.terms, avv: accepted.avv } : null });
 
 export async function GET(request: Request) {
   try {
@@ -20,6 +23,6 @@ export async function GET(request: Request) {
       return Response.json({ userId: user.id, tenantId, programEnded, publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
     }
     // No context: an identity-only account, or the owner of a shop the operator created, whose draft prefills the assistant.
-    return Response.json({ ...(context ? { ...context, ...await bookingStateAt(context) } : { userId: user.id, tenantId: null, setupDraft: await setupDraft(user.id) }), publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ...(context ? { ...context, ...await bookingStateAt(context), ...(context.role === "owner" && await signedUpOnline(context.tenantId) ? contracts(await bookingAcceptance(context.tenantId)) : {}) } : { userId: user.id, tenantId: null, setupDraft: await setupDraft(user.id) }), publicBaseUrl }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

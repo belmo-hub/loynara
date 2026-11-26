@@ -3,6 +3,7 @@
 import { Check, MapPin, Palette, Phone, Scale, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { postJson } from "@/components/client-api";
+import { BookingAvvRows } from "@/components/owner/booking-avv";
 import { CancellationNotice } from "@/components/owner/cancellation-notice";
 import { MORE_HREF } from "@/components/owner/nav";
 import { useOwner, type OwnerLocation } from "@/components/owner/owner-context";
@@ -40,6 +41,8 @@ export default function MerchantSettingsPage() {
         </Rows>
         {sender}
         <Rows title="E-Mail"><WeeklyReport key="weekly" /></Rows>
+        {/* Legal § 6: only shops that signed up online accept in the app; a paper-contract shop gets an addendum. */}
+        {me.bookingContractsAcceptedAt !== undefined && <BookingAvvRows acceptedAt={me.bookingContractsAcceptedAt} fassung={me.bookingContractsFassung ?? null} />}
       </div>
       {preview && <aside className="ow-split-aside">{preview}</aside>}
       </div>
