@@ -86,6 +86,20 @@ it("tells an owner whose own account was locked, without putting the address int
   expect(sent[0].body).not.toContain("wrong-guess");
 });
 
+// ENG-379: wrong current passwords on „Passwort ändern“ share the sign-in budget; a lock reached there implies a stolen
+// session, so the owner hears about it the same way.
+it("tells the owner when the lock is reached through the change-password form", async () => {
+  const { owner } = await merchant();
+  const signedIn = await signIn(owner.email, password);
+  const cookie = signedIn.headers.getSetCookie().map(c => c.split(";")[0]).find(c => c.startsWith("better-auth.session_token=") && !c.endsWith("="))!;
+  for (let i = 0; i < 11; i += 1) {
+    address += 1;
+    await POST(new Request(`${origin}/api/auth/change-password`, { method: "POST", headers: { origin, cookie, "content-type": "application/json", "cf-connecting-ip": `203.0.113.${address % 250 + 1}` }, body: JSON.stringify({ currentPassword: `wrong-guess-${i}-padding`, newPassword: "synthetic-lock-new-password" }) }));
+  }
+  expect(await notices()).toHaveLength(1);
+  expect((await deliverAll()).map(message => message.to)).toEqual([owner.email]);
+});
+
 it("tells both the cashier and the merchant's owner when a cashier account is locked", async () => {
   const { owner, cashier } = await merchant();
   await lockOut(cashier.email);

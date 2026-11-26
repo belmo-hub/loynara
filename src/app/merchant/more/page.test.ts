@@ -64,5 +64,13 @@ describe("„Mehr“ (ENG-122c)", () => {
     for (const owners of ["/merchant/settings", "/merchant/locations", "/merchant/staff", "/merchant/billing", "/api/merchant/export", ">Geschäft</h2>", ">Daten</h2>"]) expect(page).not.toContain(owners);
     expect(state.urls).not.toContain("/api/staff");
   });
+
+  // ENG-379: owners and managers change their password from Konto; the Kasse never reaches this page.
+  it("Konto opens „Passwort ändern“ for owners and managers", () => {
+    for (const role of ["owner", "manager"]) {
+      state.role = role;
+      expect(html()).toMatch(/<a[^>]*href="\/merchant\/more\/passwort"[^>]*>.*?Passwort ändern/);
+    }
+  });
 });
 
