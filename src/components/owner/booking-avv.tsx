@@ -16,7 +16,8 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { day: "n
 /** The plan's name never breaks across lines (Design, 24 Nov). */
 const PLAN = "Termin\u00a0+\u00a0Treue";
 /** Legal § 5 and § 7: the price stands before the button, the same for every shop (founder, 24 Nov: no founding price any more). */
-export const BOOKING_PRICE_LINE = `69 € statt 49 € je Standort und Monat, nur für Standorte mit ${PLAN}.`;
+// An amount never parts from its „€“ under large text (Design, 26 Nov).
+export const BOOKING_PRICE_LINE = `69\u00a0€ statt 49\u00a0€ je Standort und Monat, nur für Standorte mit ${PLAN}.`;
 const documents = <><Link className="ow-link" href="/vertragsbedingungen" target="_blank" rel="noopener">Vertragsbedingungen</Link> · <Link className="ow-link" href="/avv" target="_blank" rel="noopener">Auftragsverarbeitung</Link></>;
 
 /**
