@@ -1,5 +1,7 @@
 /* The Übersicht in the founder's mix (ENG-260; mock mix/uebersicht.html): F's „Als Nächstes“ with two rows, then C's
    page in C's order. Panels, rows and type come from ui/mix.module.css; this file holds the page's own parts. */
+/* Rules on elements that also carry a shared mix class sit under .page, so they never depend on which module loads last
+   (the booking batch moved ui/mix.module.css later in the build and the Übersicht fell to one column; Design, 26 Nov). */
 
 /* Page rhythm: shell to greeting 32, greeting to the first block 24; gutters 16, 24 from 600, 40 from 1024. */
 :global(.ow-page).page { display: block; max-width: 1180px; margin-inline: auto; padding: var(--space-8) var(--space-4) 0; }
@@ -16,24 +18,24 @@
 [data-fact] .num { order: 1; }
 /* „Willkommen-zurück-Bonus ist aus“ links to the setting as a line of the sub text, as C draws it: a 44 target that
    keeps the 20 line. Its ring is drawn on the text's own line boxes, so a wrapped link is ringed line by line. */
-.facts.facts small > a { position: relative; display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
-.facts.facts small > a:focus-visible { outline: none; }
+.page .facts.facts small > a { position: relative; display: inline-block; padding: var(--space-3) 0; margin-block: calc(-1 * var(--space-3)); }
+.page .facts.facts small > a:focus-visible { outline: none; }
 /* The ring sits 2 px inside the content area, so the descenders above keep 2 px of air (measured at 320 and 1440); 4 px of
    inline padding, taken back by the margin, keeps the glyphs clear of its sides on every line. */
-.facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; border-radius: var(--radius-sm); }
-.facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.page .facts.facts small > a > span { padding-inline: var(--space-1); margin-inline: calc(-1 * var(--space-1)); -webkit-box-decoration-break: clone; box-decoration-break: clone; border-radius: var(--radius-sm); }
+.page .facts.facts small > a:focus-visible > span { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 /* „Tresenschild laden“ (one line): its ring around the text, the 44 box kept. */
 .line.line > button[data-link]:focus-visible { outline: none; }
 .line.line > button[data-link]:focus-visible::before { content: ""; position: absolute; inset: calc(var(--space-3) - var(--space-1)) calc(-1 * var(--space-1)); border: 2px solid var(--color-focus); border-radius: var(--radius-sm); }
-.facts [data-fact] svg { order: 2; }
+.page .facts [data-fact] svg { order: 2; }
 .kicker.kicker { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); color: var(--color-ink-muted); }
 
 /* „Als Nächstes“: a row hangs from its first line, its action under the sentence; the milestone's tile stands in the
    middle of the thumbnail's column. From 600 each row is one line with its action at the end (F at 880 and 1440). */
-.next > [data-hang] { align-items: flex-start; }
-.next > [data-hang][data-lead] > :first-child { margin-top: var(--space-3); }
-.next > [data-hang] > :last-child { align-items: flex-start; padding-block: var(--space-3); /* the first row has no separator line since ENG-254's forced-colours fix */ }
-.next[data-thumbs] [data-lead="tile"] > :first-child { margin-inline: var(--space-3); }
+.page .next > [data-hang] { align-items: flex-start; }
+.page .next > [data-hang][data-lead] > :first-child { margin-top: var(--space-3); }
+.page .next > [data-hang] > :last-child { align-items: flex-start; padding-block: var(--space-3); /* the first row has no separator line since ENG-254's forced-colours fix */ }
+.page .next[data-thumbs] [data-lead="tile"] > :first-child { margin-inline: var(--space-3); }
 .line { display: grid; justify-items: start; flex: 1; min-width: 0; }
 .line > span { display: grid; }
 .line b { font-weight: var(--weight-strong); text-wrap: pretty; }
@@ -47,7 +49,7 @@
 /* Below 360 the button spans the row under the lead tile, so it keeps two lines. */
 @media (max-width: 359px) { .next > [data-lead="tile"] .line.line > [data-go] { max-width: none; width: calc(100% + var(--mix-tile) + var(--space-3)); margin-left: calc(-1 * (var(--mix-tile) + var(--space-3))); } }
 /* Forced colours drop the muted tiles' fill: a transparent edge (size unchanged) shows as CanvasText there. */
-.next [data-lead="tile"] > :first-child { border: 1px solid transparent; }
+.page .next [data-lead="tile"] > :first-child { border: 1px solid transparent; }
 /* „Tresenschild laden“: the mix link (44 tall, the 20 line kept by its margins), its ring around the text (above). */
 .line.line > button[data-link] { position: relative; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
 .line.line > button[data-link]:active, .help:active { transform: scale(.97); }
@@ -58,9 +60,9 @@
 .nextPh { display: block; height: 255px; border-radius: var(--radius-lg); }
 @media (min-width: 600px) { .nextPh { height: 199px; } }
 @media (min-width: 600px) {
-  .next > [data-hang] { align-items: center; }
-  .next > [data-hang][data-lead] > :first-child { margin-top: 0; }
-  .next > [data-hang] > :last-child { align-items: center; padding-block: var(--space-2); }
+  .page .next > [data-hang] { align-items: center; }
+  .page .next > [data-hang][data-lead] > :first-child { margin-top: 0; }
+  .page .next > [data-hang] > :last-child { align-items: center; padding-block: var(--space-2); }
   /* The button stays beside its text while the text keeps 14rem; with less room it drops under (Design, 18 Nov). */
   .line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4); }
   .line > span { flex: 1 1 14rem; }
@@ -68,7 +70,7 @@
   .line > :not(:first-child, [data-link]) { margin-top: 0; }
   /* The tile hangs 12 from the row's top: centred on a one-line row, and from the first line when the button drops under
      its text (Design, #286 SHIP follow-up 2). */
-  .next > [data-hang][data-lead="tile"] > :first-child { align-self: flex-start; margin-top: var(--space-3); }
+  .page .next > [data-hang][data-lead="tile"] > :first-child { align-self: flex-start; margin-top: var(--space-3); }
 }
 
 /* The bookings panel and C's week chart: faint lines at half and full height, thin opaque bars, yesterday in ink,
@@ -114,19 +116,19 @@
   .day > b { position: relative; padding-inline: 2px; background: Canvas; }
 }
 .foot.foot { padding-top: var(--space-4); margin-top: var(--space-1); border-top: 1px solid var(--color-line); font-weight: var(--weight-strong); text-wrap: balance; }
-.book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 2.75rem; }
-.book :global(.ow-week-line) { color: var(--color-ink); }
+.page .book :global(.ow-board-big) { margin: 0; font-size: var(--display-tile); line-height: 2.75rem; }
+.page .book :global(.ow-week-line) { color: var(--color-ink); }
 
 /* „Vorschlag“: the whole panel is the link; the kicker in green with its small arrow on the inset. */
-.sug { color: inherit; text-decoration: none; align-content: start; }
-.sug .kicker { color: var(--color-action); }
-.sug .kicker > svg:last-child { margin-left: auto; }
-.sug b { display: block; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
-.sug b + small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
-.sug:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.page .sug { color: inherit; text-decoration: none; align-content: start; }
+.page .sug .kicker { color: var(--color-action); }
+.page .sug .kicker > svg:last-child { margin-left: auto; }
+.page .sug b { display: block; font-size: var(--text-18); line-height: 1.625rem; font-weight: var(--weight-heavy); }
+.page .sug b + small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
+.page .sug:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* The whole panel is the link: it presses like a row and underlines its title under a fine pointer. */
-.sug { transition: transform var(--dur-press) var(--ease-out); }
-.sug:active { transform: scale(.985); }
+.page .sug { transition: transform var(--dur-press) var(--ease-out); }
+.page .sug:active { transform: scale(.985); }
 @media (hover: hover) { .sug:hover b { text-decoration: underline; text-underline-offset: 3px; } }
 
 /* The section head's „?“: a 44 target that does not make the head taller. */
@@ -140,29 +142,29 @@
 /* From 1024, C's tile grid: the bookings over two of three columns and two rows, the figures and „Vorschlag“ beside
    them, the diary across with the day's sum beside the day. The figure rows are 80 (C's taller desktop rows). */
 @media (min-width: 1024px) {
-  .sec { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
-  .sec > .head, .diary { grid-column: 1 / -1; }
-  .book { grid-row: span 2; grid-template-rows: auto auto 1fr auto; }
+  .page .sec { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
+  .page .sec > .head, .page .diary { grid-column: 1 / -1; }
+  .page .book { grid-row: span 2; grid-template-rows: auto auto 1fr auto; }
   /* Without „Vorschlag“ (the suggestion stands in „Als Nächstes“, or nothing to suggest) the tile spans one row and its
      plot fills it, so the tile and the figure rows end together. */
-  .sec[data-single] { grid-template-rows: auto auto auto; }
-  .sec[data-single] > .book { grid-row: auto; }
+  .page .sec[data-single] { grid-template-rows: auto auto auto; }
+  .page .sec[data-single] > .book { grid-row: auto; }
   /* The figure rows share the row's height, so the two tiles end together with no empty foot in either. */
-  .sec[data-single] > .facts { display: grid; grid-auto-rows: 1fr; }
-  .sec[data-single] > .facts > [data-fact] { align-items: stretch; }
-  .sec[data-single] > .facts > [data-fact]:last-child { margin-bottom: 0; }
+  .page .sec[data-single] > .facts { display: grid; grid-auto-rows: 1fr; }
+  .page .sec[data-single] > .facts > [data-fact] { align-items: stretch; }
+  .page .sec[data-single] > .facts > [data-fact]:last-child { margin-bottom: 0; }
   /* The chart takes the tile's spare height: the plot grows, bars scale with it, the guide lines stay at half and full
      height, and the baseline and days end on the tile's bottom inset (Design, 18 Nov). Under 1024 nothing changes. */
-  .book > .week { display: flex; flex-direction: column; }
-  .book > .week:last-child { grid-row: span 2; } /* no „Gestern …“ line: the days end on the bottom inset */
-  .book > .week > :last-child { display: flex; flex: 1; flex-direction: column; }
+  .page .book > .week { display: flex; flex-direction: column; }
+  .page .book > .week:last-child { grid-row: span 2; } /* no „Gestern …“ line: the days end on the bottom inset */
+  .page .book > .week > :last-child { display: flex; flex: 1; flex-direction: column; }
   /* The lines at full (24 from the top) and half plot height ((H - 1) / 2 + 12.5 from the top = H / 2 + 12). */
   @media (forced-colors: active) { .chart:not([data-empty])::before { inset: var(--space-6) 0 auto; } }
-  .book .chart:not([data-empty]) { flex: 1; min-height: 168px; background: linear-gradient(var(--color-line), var(--color-line)) 0 var(--space-6) / 100% 1px no-repeat, linear-gradient(var(--color-line), var(--color-line)) 0 calc(50% + 12.5px) / 100% 1px no-repeat; }
-  .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
-  .diary > [data-day] > :last-child { min-height: var(--mix-row); }
-  .diary [data-day] > :last-child > :first-child { grid-template-columns: 200px minmax(0, 1fr); column-gap: var(--space-4); align-items: baseline; }
-  .diary [data-day] > :last-child > :first-child > small { font-size: var(--text-16); line-height: 1.5rem; }
+  .page .book .chart:not([data-empty]) { flex: 1; min-height: 168px; background: linear-gradient(var(--color-line), var(--color-line)) 0 var(--space-6) / 100% 1px no-repeat, linear-gradient(var(--color-line), var(--color-line)) 0 calc(50% + 12.5px) / 100% 1px no-repeat; }
+  .page .facts.facts.facts > :is([data-fact], [data-sk]) > :last-child { min-height: 80px; }
+  .page .diary > [data-day] > :last-child { min-height: var(--mix-row); }
+  .page .diary [data-day] > :last-child > :first-child { grid-template-columns: 200px minmax(0, 1fr); column-gap: var(--space-4); align-items: baseline; }
+  .page .diary [data-day] > :last-child > :first-child > small { font-size: var(--text-16); line-height: 1.5rem; }
 }
 /* In dark full ink would be the brightest block on the screen (Design, 30 Oct; as the live strip). */
 :global(.ly-theme-dark) .bar[data-lit], :global(.ly-theme-dark) .legend i[data-lit] { background: color-mix(in oklab, var(--color-ink) 72%, var(--color-surface)); }
@@ -174,7 +176,7 @@
 .sk[data-small] { height: var(--space-3); margin-block: var(--space-1); }
 .sk[data-fig] { width: 96px; height: 36px; margin-block: var(--space-1); }
 .sk[data-num] { width: var(--space-8); height: var(--space-5); margin-block: var(--space-1); }
-.facts > :is([data-fact], [data-sk]) > :last-child { min-height: var(--mix-row-2); } /* a placeholder row is as tall as the two-line row it stands for */
+.page .facts > :is([data-fact], [data-sk]) > :last-child { min-height: var(--mix-row-2); } /* a placeholder row is as tall as the two-line row it stands for */
 .skFig { display: grid; gap: var(--space-1); justify-items: start; }
 .ghost { border-radius: var(--radius-sm); background: var(--color-fill); }
 .ghost > * { visibility: hidden; }
@@ -182,11 +184,11 @@
 /* Empty: „1 von 3“ as the board's count; open steps an empty ring; „Pflicht“ on its own line under the title. */
 .fig > small { margin-left: var(--space-2); font-size: var(--text-22); line-height: 1.75rem; font-weight: var(--weight-strong); letter-spacing: 0; color: var(--color-ink-muted); }
 .ring { flex: none; width: var(--mix-tile); height: var(--mix-tile); border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); }
-.steps [data-day] > :last-child > :first-child > span:not(:first-child) { margin-block: calc(var(--space-1) / 2) var(--space-1); }
+.page .steps [data-day] > :last-child > :first-child > span:not(:first-child) { margin-block: calc(var(--space-1) / 2) var(--space-1); }
 /* Error: the retry is the small quiet button. */
 .sm.sm { padding-inline: var(--space-4); font-size: var(--text-14); line-height: 1.25rem; }
 @media (min-width: 1024px) {
-  .steps { align-self: start; } /* beside the board, as the figure rows stand; it ends at its last step */
+  .page .steps { align-self: start; } /* beside the board, as the figure rows stand; it ends at its last step */
   .off { padding-top: var(--space-5); }
 }
 
@@ -195,6 +197,6 @@
 /* In the flex title a space would collapse: the gap less 4 stands for it. */
 @media (min-width: 1024px) { .titleNote { display: inline; margin-left: calc(var(--space-1) - var(--space-2)); } .factsNote { display: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .sug, .help, .line.line > button[data-link] { transition: none; }
-  .sug:active, .help:active, .line.line > button[data-link]:active { transform: none; }
+  .page .sug, .help, .line.line > button[data-link] { transition: none; }
+  .page .sug:active, .help:active, .line.line > button[data-link]:active { transform: none; }
 }
