@@ -19,7 +19,8 @@ export const perMonth = (locations: number, totalMinor: number, currency: string
 export const billingStatus =(o: Pick<BillingOverview, "liveBilling" | "status">) => (o.liveBilling ? LIVE_STATUS : STATUS)[o.status] ?? o.status;
 
 /** The live status row's sub: the end once cancelled, a next charge only while the subscription runs and charges (fault 1). */
-export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd">, date: (value: string) => string) =>
+export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd" | "currency">, date: (value: string) => string) =>
   o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.`
     : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.`
-    : o.status === "manual_pending" ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;
+    // Only a euro shop starts at go-live (startBilling refuses another currency).
+    : o.status === "manual_pending" && o.currency === "EUR" ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;
