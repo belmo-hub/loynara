@@ -9,7 +9,7 @@ async function signInCashier(page: Page) {
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.cashierEmail);
   await page.getByLabel("Passwort").fill(access.cashierPassword);
-  await page.getByRole("button", { name: "Anmelden" }).click();
+  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe("/cashier");
 }
 

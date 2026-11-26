@@ -8,7 +8,7 @@ test("merchant opens a printable sign with its own identity and join QR", async 
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
   await page.getByLabel("Passwort").fill(access.ownerPassword);
-  await page.getByRole("button", { name: "Anmelden" }).click();
+  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
   await page.waitForURL("/merchant");
   const response = await page.request.get("/api/me");
   expect(response.ok()).toBe(true);

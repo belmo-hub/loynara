@@ -17,7 +17,7 @@ test.beforeAll(async ({ browser }) => {
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
   await page.getByLabel("Passwort").fill(access.ownerPassword);
-  await page.getByRole("button", { name: "Anmelden" }).click();
+  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
   await page.waitForURL("/merchant");
 });
 test.afterAll(() => page.close());

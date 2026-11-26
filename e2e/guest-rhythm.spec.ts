@@ -60,7 +60,7 @@ const heights = (page: Page, selector: string) => page.locator(selector).evaluat
 
 test("sign-in: fields and the button are 48 high", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Anmelden", exact: true })).toBeVisible();
   expect(await heights(page, "main input, main button[type=submit]")).toEqual([48]);
 });
 

@@ -40,7 +40,7 @@ test(`compiled website/application/worker journey ${phase}`, async ({ browser })
     await page.getByLabel("Passwort").fill(identity.password);
     const submit = async () => {
       const signed = page.waitForResponse(r => r.url().endsWith("/api/auth/sign-in/email") && r.request().method() === "POST");
-      await page.getByRole("button", { name: "Anmelden" }).click();
+      await page.getByRole("button", { name: "Anmelden", exact: true }).click();
       return signed;
     };
     let signed = await submit();

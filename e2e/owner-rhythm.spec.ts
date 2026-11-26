@@ -19,7 +19,7 @@ test.beforeAll(async ({ browser }) => {
   await page.goto("/login");
   await page.getByLabel("E-Mail-Adresse").fill(access.ownerEmail);
   await page.getByLabel("Passwort").fill(access.ownerPassword);
-  await page.getByRole("button", { name: "Anmelden" }).click();
+  await page.getByRole("button", { name: "Anmelden", exact: true }).click();
   await page.waitForURL("/merchant");
   // The seed's own bookings do not count outside the demo environment, so the diary and a card's history would be
   // empty. One synthetic card gets two stamps the way the Kasse books them.
