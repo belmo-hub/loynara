@@ -5,6 +5,7 @@ import { GET as lookupRoute, POST as bookRoute } from "@/app/api/merchant/bookin
 import { GET as slotsRoute } from "@/app/api/merchant/booking/caller/slots/route";
 import { GET as nextFreeRoute } from "@/app/api/merchant/booking/caller/next-free/route";
 import { formatCardLocator } from "@/lib/card-locator";
+import { enroll } from "@/lib/product";
 import { CALLER_CARD_MISSING } from "./appointments";
 import { allWeek, bookingShop, dayOf, futureStart, identity, request, withBookingDatabase } from "./test-fixture";
 import { addDays, instantToWall } from "./time";
@@ -93,4 +94,58 @@ it("„Nächster freier Tag“ is one request: the first of the next 28 days wit
   expect(await (await nextFree(`from=${target}&staffId=${shop.staffId}`)).json()).toEqual({ date: target });
   expect(await (await nextFree(`from=${addDays(target, 1)}`)).json()).toEqual({ date: addDays(target, 7) });
   expect((await nextFree(`from=${today}&staffId=00000000-0000-4000-8000-000000000000`)).status).toBe(404);
+});
+
+// Reviewer's proofs (26 Nov, N-1): each pins a break the tests above let through.
+const locatorOf = async (membershipId: string) => formatCardLocator((await pool.query("SELECT card_locator FROM memberships WHERE id = $1", [membershipId])).rows[0].card_locator);
+const lookupOf = async (shop: Shop, card: string) => (await lookupRoute(request(`/api/merchant/booking/caller?card=${encodeURIComponent(card)}`, { cookie: shop.ownerCookie }))).json();
+const later = (hours: number) => new Date(futureStart().getTime() + hours * 3_600_000).toISOString();
+/** A copy of the card's programme with its own id and slug, at `locationId` and with `status`, and the card moved into it; the shop's own programme stays active. */
+async function moveCard(shop: Shop, changes: { locationId?: string; status: string }) {
+  const [{ id }] = (await pool.query(`INSERT INTO programs SELECT (jsonb_populate_record(NULL::programs, to_jsonb(p) || jsonb_build_object('id', gen_random_uuid(), 'slug', p.slug || '-zz', 'location_id', coalesce($2::uuid, p.location_id), 'status', $3::text))).* FROM programs p WHERE p.id = (SELECT program_id FROM memberships WHERE id = $1) RETURNING id`, [shop.card.id, changes.locationId ?? null, changes.status])).rows;
+  await pool.query("UPDATE memberships SET program_id = $2 WHERE id = $1", [shop.card.id, id]);
+}
+
+it("P1 a card of another location of the same shop is refused here", async () => {
+  const shop = await bookingShop();
+  const number = await locatorOf(shop.card.id);
+  const [{ id }] = (await pool.query(`INSERT INTO locations SELECT (jsonb_populate_record(NULL::locations, to_jsonb(l) || jsonb_build_object('id', gen_random_uuid(), 'name', 'Zweiter Standort'))).* FROM locations l WHERE l.id = $1 RETURNING id`, [shop.scope.locationId])).rows;
+  await moveCard(shop, { locationId: id, status: "active" });
+  expect((await bookFor(shop, number)).status).toBe(404);
+});
+
+it("P2 a card of an ended programme at this location is refused", async () => {
+  const shop = await bookingShop();
+  const number = await locatorOf(shop.card.id);
+  await moveCard(shop, { status: "ended" });
+  expect((await bookFor(shop, number)).status).toBe(404);
+});
+
+it("P3 the lookup never offers a cleared name, nor another card's name", async () => {
+  const shop = await bookingShop();
+  const first = await locatorOf(shop.card.id);
+  expect((await bookFor(shop, first, { customerName: "Jonas" })).status).toBe(201);
+  await pool.query("UPDATE booking_appointments SET customer_name = 'Name gelöscht' WHERE membership_id = $1", [shop.card.id]);
+  expect(await lookupOf(shop, first)).toEqual({ cardLocator: first, name: null });
+  const second = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+  const secondNumber = await locatorOf(second.id);
+  expect((await bookFor(shop, secondNumber, { customerName: "Ali", start: later(2) })).status).toBe(201);
+  expect(await lookupOf(shop, first)).toEqual({ cardLocator: first, name: null });
+});
+
+it("P4 a key reused for another card is refused and books nothing for it", async () => {
+  const shop = await bookingShop();
+  const key = randomUUID();
+  expect((await bookFor(shop, await locatorOf(shop.card.id), { idempotencyKey: key })).status).toBe(201);
+  const second = await enroll({ slug: shop.merchant.programSlug, acceptedTerms: true });
+  const res = await bookFor(shop, await locatorOf(second.id), { idempotencyKey: key, start: later(2) });
+  expect(res.status).toBe(409);
+  expect(await res.json()).toMatchObject({ code: "KEY_REUSED" });
+  expect((await pool.query("SELECT count(*)::int AS n FROM booking_appointments WHERE membership_id = $1", [second.id])).rows[0].n).toBe(0);
+});
+
+it("P5 an entered appointment gets its reminders like an online one", async () => {
+  const shop = await bookingShop();
+  const created = await (await bookFor(shop, await locatorOf(shop.card.id))).json() as { id: string };
+  expect((await pool.query("SELECT count(*)::int AS n FROM outbox_jobs WHERE kind = 'booking.reminder' AND payload->>'appointmentId' = $1", [created.id])).rows[0].n).toBeGreaterThan(0);
 });
