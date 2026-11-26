@@ -93,7 +93,8 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }
   const flash = page.getByRole("status").filter({ hasText: `Jonas: ${longDay}, ${time} Uhr bei Lena eingetragen.` });
   await expect(flash).toBeVisible();
   // After the jump focus is on the message, not on the page body (Design r2).
-  expect(await flash.evaluate(element => element.parentElement === document.activeElement)).toBe(true);
+  // Focus follows once the target day's list has rendered (Design, 26 Nov), so it is awaited, not read at once.
+  await expect.poll(() => flash.evaluate(element => element.parentElement === document.activeElement)).toBe(true);
   // Design (26 Nov): and it is scrolled clear of the phone's tab bar (320×640 is the tight case).
   expect(await flash.evaluate(element => { const bar = document.querySelector(".ow-tabs"); const top = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().top : innerHeight; return element.getBoundingClientRect().bottom <= top; })).toBe(true);
   await expect(page).toHaveURL(new RegExp(`date=${date}$`));
