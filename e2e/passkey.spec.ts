@@ -208,6 +208,128 @@ test("a passkey prompt that closes at once is not asked for again in a loop", as
   expect(calls).toBe(settled);
 });
 
+// ENG-383: Chrome on iOS offers no passkey in the address field's autofill. „Mit Passkey anmelden“ opens the prompt itself.
+test("without autofill passkeys, „Mit Passkey anmelden“ signs in with the prompt", async ({ page, baseURL }) => {
+  const { cookies } = await owner(baseURL);
+  await page.context().addCookies(cookies);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.goto("/merchant/more");
+  await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
+  await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
+  await page.context().clearCookies();
+  await page.addInitScript(() => { if (window.PublicKeyCredential) PublicKeyCredential.isConditionalMediationAvailable = async () => false; });
+  let options = 0;
+  page.on("request", request => { if (request.url().includes("/passkey/generate-authenticate-options")) options += 1; });
+  await page.goto("/login");
+  await page.waitForTimeout(500);
+  expect(options).toBe(0); // no autofill request without conditional mediation
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page).toHaveURL(/\/merchant/);
+});
+
+// ENG-383: the browser runs one WebAuthn request at a time. A pending autofill request (here one that waits until it is
+// ended) gives way to the button's prompt, which then signs in.
+test("„Mit Passkey anmelden“ ends a pending autofill request and signs in", async ({ page, baseURL }) => {
+  const { cookies } = await owner(baseURL);
+  await page.context().addCookies(cookies);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.goto("/merchant/more");
+  await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
+  await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    const real = navigator.credentials.get.bind(navigator.credentials);
+    navigator.credentials.get = options => options?.mediation === "conditional"
+      ? new Promise((_, reject) => options.signal?.addEventListener("abort", () => { (window as unknown as { aborted: boolean }).aborted = true; reject(new DOMException("Aborted", "AbortError")); }))
+      : real(options);
+  });
+  let options = 0;
+  page.on("request", request => { if (request.url().includes("/passkey/generate-authenticate-options")) options += 1; });
+  await page.goto("/login");
+  await expect.poll(() => options).toBeGreaterThan(0); // the autofill request is pending
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page).toHaveURL(/\/merchant/);
+  expect(await page.evaluate(() => (window as unknown as { aborted?: boolean }).aborted)).toBe(true);
+});
+
+// Reviewer, #374: pressed while the autofill's options request is still on its way, the button's prompt is the first. The
+// autofill then starts and ends it; the button tries once more and signs in. The autofill's options are held back 1.5 s, and
+// the button's prompt answers only after 2.5 s, so the autofill starts in the middle of it. The autofill request itself
+// never answers, so only the button can sign in.
+test("„Mit Passkey anmelden“ pressed before the autofill has started still signs in", async ({ page, baseURL }) => {
+  const { cookies } = await owner(baseURL);
+  await page.context().addCookies(cookies);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.goto("/merchant/more");
+  await page.getByRole("button", { name: /Passkey hinzufügen/ }).click();
+  await expect(page.locator(".ow-prog-outcome")).toHaveText("Passkey hinzugefügt. Du kannst dich jetzt damit anmelden.");
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    const real = navigator.credentials.get.bind(navigator.credentials);
+    // The autofill request only waits (so only the button can sign in); the button's prompt answers after 2.5 s.
+    navigator.credentials.get = options => options?.mediation === "conditional"
+      ? new Promise((_, reject) => options.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError"))))
+      : new Promise((resolve, reject) => {
+      const timer = setTimeout(() => real(options).then(resolve, reject), 2_500);
+      options?.signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); });
+    });
+  });
+  let first = true;
+  await page.route("**/api/auth/passkey/generate-authenticate-options*", async route => {
+    if (first) { first = false; await new Promise(resolve => setTimeout(resolve, 1_500)); }
+    await route.continue();
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page).toHaveURL(/\/merchant/, { timeout: 15_000 });
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+// ENG-383, Design: the button is there from the first paint, so the lines under it do not jump at hydration.
+test("the sign-in page does not move when it becomes interactive", async ({ browser, baseURL }) => {
+  const top = async (javaScriptEnabled: boolean) => {
+    // Reduced motion: the sheet's arrival (a few px of travel) would otherwise be measured mid-way.
+    const context = await browser.newContext({ baseURL, javaScriptEnabled, reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.goto("/login");
+    if (javaScriptEnabled) await expect(page.getByRole("button", { name: "Mit Passkey anmelden" })).toBeEnabled();
+    const box = await page.getByText(/Noch kein (Konto|Zugang)\?/).boundingBox();
+    await context.close();
+    return box!.y;
+  };
+  expect(Math.abs(await top(false) - await top(true))).toBeLessThanOrEqual(2);
+});
+
+// ENG-383: a server fault behind the button gets the form's existing line; the autofill's own failed request stays quiet.
+test("a server fault behind „Mit Passkey anmelden“ says so", async ({ page }) => {
+  await page.route("**/api/auth/passkey/generate-authenticate-options*", route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Internal error" }) }));
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page.getByText("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.")).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+// ENG-383: closing the prompt is the person's choice: nothing is said, and the page stays as it was.
+test("a closed passkey prompt from the button says nothing", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window.PublicKeyCredential) PublicKeyCredential.isConditionalMediationAvailable = async () => false;
+    navigator.credentials.get = () => Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"));
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page.getByRole("button", { name: "Mit Passkey anmelden" })).toBeVisible(); // back from „Passkey wird geprüft …“
+  await page.waitForTimeout(500);
+  await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(0); // the route announcer is an empty alert
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 // Last of the shared owner's tests: „Neu anmelden“ signs out, which ends the session the others reuse.
 // Design, #349 round 2: a session older than 10 minutes gets a neutral step with „Neu anmelden“, not a dead end.
 test("adding a passkey with an older sign-in offers to sign in again and comes back to Konto", async ({ page, baseURL }) => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { AuthShell } from "@/components/ui/auth-shell";
 import { LegalLinks } from "@/components/ui/legal-links";
@@ -22,46 +22,83 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   const fields = useFormCheck({ "login-password": "Bitte gib dein Passwort ein." });
   // Until the page is interactive, a tap on "Anmelden" would submit the bare form natively and just reload the page, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
+  // ENG-383: a passkey button for browsers that offer no passkey in the address field's autofill (Chrome on iOS). Drawn
+  // from the first paint, so nothing under it moves at hydration (Design); disabled until then like „Anmelden“, and taken
+  // away only where the browser has no passkeys at all.
+  const passkeys = useSyncExternalStore(() => () => undefined, () => "PublicKeyCredential" in window, () => true);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const prompting = useRef(false); // the button's prompt is open: the autofill starts no request of its own meanwhile
+
+  /**
+   * A passkey sign-in's answer, from the autofill or the button. Only one that left a session leads on: a cookie that did
+   * not stick must not loop /login and /merchant (Design, #349 round 2). A closed prompt says nothing. `asked`: the person
+   * pressed the button, so a failed request gets a word even when no passkey answered.
+   */
+  const settle = useCallback(async (result: Awaited<ReturnType<typeof authClient.signIn.passkey>> | null, asked: boolean): Promise<"cancelled" | "done" | "failed"> => {
+    const answered = (result as { webauthn?: { response?: { id?: string } } } | null)?.webauthn;
+    if (result?.error && passkeyCancelled(result.error)) return "cancelled";
+    if (result?.data && !result.error) {
+      if ((await authClient.getSession()).data?.session) { router.push(next ?? "/merchant"); router.refresh(); return "done"; }
+      setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
+    } else if ((answered || asked) && result?.error) {
+      // From the autofill only a passkey the person used gets a word; a failed options request on page load stays quiet.
+      if (result.error.status === 429) setError("Zu viele Anmeldeversuche. Warte bitte etwas und versuche es erneut.");
+      else if (result.error.status >= 500) setError("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.");
+      else {
+        setError("Mit diesem Passkey ging es nicht. Melde dich mit deinem Passwort an.");
+        const credentialId = answered?.response?.id;
+        const signal = (globalThis.PublicKeyCredential as { signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void> } | undefined)?.signalUnknownCredential;
+        if ("code" in result.error && result.error.code === "PASSKEY_NOT_FOUND" && credentialId && signal) await signal({ rpId: location.hostname, credentialId }).catch(() => undefined);
+      }
+    } else if (asked) setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
+    return "failed";
+  }, [router, next]);
 
   // A saved passkey is offered in the address field's autofill (conditional mediation); the password form stays as it is.
   // A passkey that did not work (deleted by a password reset, removed elsewhere) says so in the form, is reported to the
-  // phone as unknown where it can be, and the autofill is offered again. Only a sign-in that left a session leads on:
-  // a cookie that did not stick must not loop /login and /merchant (Design, #349 round 2).
+  // phone as unknown where it can be, and the autofill is offered again.
   useEffect(() => {
     let active = true, failures = 0;
     const offer = async (): Promise<void> => {
       if (!await globalThis.PublicKeyCredential?.isConditionalMediationAvailable?.()) return;
-      const result = await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
+      const result = prompting.current ? null : await authClient.signIn.passkey({ autoFill: true, returnWebAuthnResponse: true });
       if (!active) return;
-      const answered = (result as { webauthn?: { response?: { id?: string } } } | null)?.webauthn;
-      if (result?.error && passkeyCancelled(result.error)) {
+      // While the button's prompt runs this request waits for the next focus of the address field, like a closed one.
+      const outcome = result ? await settle(result, false) : "cancelled";
+      if (outcome === "done") return;
+      if (outcome === "cancelled") {
         // A closed prompt is not a failure and says nothing. It is offered again when the person comes back to the address
-        // field, never at once: a browser that rejects an empty conditional request straight away would otherwise spin.
+        // field, never at once: a browser that rejects an empty conditional request straight away would otherwise spin. The
+        // passkey button's prompt ends this request the same way.
         const field = document.getElementById("login-email");
         const again = () => { field?.removeEventListener("focus", again); field?.removeEventListener("pointerdown", again); if (active) void offer().catch(() => undefined); };
         field?.addEventListener("focus", again); field?.addEventListener("pointerdown", again);
         return;
-      }
-      if (result?.data && !result.error) {
-        if ((await authClient.getSession()).data?.session) { router.push(next ?? "/merchant"); router.refresh(); return; }
-        setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut.");
-      } else if (answered && result?.error) {
-        // Only a passkey the person used gets a word; a failed options request on page load stays quiet.
-        if (result.error.status === 429) setError("Zu viele Anmeldeversuche. Warte bitte etwas und versuche es erneut.");
-        else if (result.error.status >= 500) setError("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.");
-        else {
-          setError("Mit diesem Passkey ging es nicht. Melde dich mit deinem Passwort an.");
-          const credentialId = answered.response?.id;
-          const signal = (globalThis.PublicKeyCredential as { signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void> } | undefined)?.signalUnknownCredential;
-          if ("code" in result.error && result.error.code === "PASSKEY_NOT_FOUND" && credentialId && signal) await signal({ rpId: location.hostname, credentialId }).catch(() => undefined);
-        }
       }
       // A few more offers after a failure only: a request that fails without the person doing anything must not spin.
       if (active && (failures += 1) < 3) return offer();
     };
     void offer().catch(() => { /* no passkey offered: the password form is the way in */ });
     return () => { active = false; };
-  }, [router, next]);
+  }, [settle]);
+
+  // The modal prompt. Starting it ends a pending autofill request first: the WebAuthn helper Better Auth uses aborts the
+  // running call whenever a new one starts, and the browser allows only one at a time.
+  async function signInWithPasskey() {
+    if (passkeyBusy || busy) return;
+    setPasskeyBusy(true); setError("");
+    prompting.current = true;
+    try {
+      let result = await authClient.signIn.passkey({ returnWebAuthnResponse: true });
+      // An autofill request whose options were still on their way when the button was pressed starts after it and ends
+      // its prompt (Reviewer, #374). Once more then; the autofill waits from here. A closed sheet is NotAllowedError, so
+      // this cannot loop.
+      if (result?.error && "code" in result.error && result.error.code === "ERROR_CEREMONY_ABORTED") result = await authClient.signIn.passkey({ returnWebAuthnResponse: true });
+      await settle(result, true);
+    }
+    catch { setError("Die Anmeldung konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es erneut."); }
+    finally { prompting.current = false; setPasskeyBusy(false); }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,6 +152,7 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
           {error ? <p className={styles.alert} role="alert"><CircleAlert size={20} aria-hidden="true" />{error}</p> : null}
           <Button type="submit" block loading={busy} disabled={!ready}>{busy ? "Anmeldung läuft …" : "Anmelden"}</Button>
         </form>
+        {passkeys ? <Button variant="secondary" block loading={passkeyBusy} disabled={!ready} onClick={() => void signInWithPasskey()}>{passkeyBusy ? "Passkey wird geprüft …" : "Mit Passkey anmelden"}</Button> : null}
         <p className={styles.note}>{registrationOpen
           ? <>Noch kein Konto? <Link className={styles.link} href={withInviteReturn("/register", next)}>Konto erstellen</Link></>
           : <>Noch keinen Zugang? Loynara richtet ihn gemeinsam mit dir ein.</>}</p>
