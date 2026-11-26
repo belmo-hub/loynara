@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { billingHandoffs, billingInvoices, billingLocationPlans, bookingSettings, billingWebhookEvents, locations, memberships, programs, staffRoles, subscriptions } from "@/db/schema";
 import { DomainError } from "./loyalty";
-import { planCharge, stripeEnabled, vatNote } from "./stripe-config";
+import { checkoutOpen, planCharge, stripeEnabled, vatNote } from "./stripe-config";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const GRACE_MS = 7 * 86_400_000;
@@ -98,7 +98,7 @@ export async function getBillingOverview(actorUserId: string, at = new Date()) {
       locations: locationUsage, invoices, provider: subscription.provider, currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd, graceUntil: subscription.graceUntil,
       // Live billing shows the amount Stripe will charge, from the same function as checkout; none before a plan is set.
-      liveBilling: stripeEnabled(), charge: planCharge(subscription), taxNote: vatNote(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
+      liveBilling: stripeEnabled(), charge: planCharge(subscription), taxNote: vatNote(), planCode: subscription.planCode, paymentAccount: subscription.providerCustomerId !== null, checkoutOpen: checkoutOpen(subscription), guaranteeApplied: locationUsage.some(plan => plan.guaranteeOutcome === "credit"),
       fixtureAvailable: billingFixtureAvailable(),
       countingRule: stripeEnabled()
         ? "Aktive Karten sind nicht geschlossene Mitgliedschaften je Standort. Der Monatsbetrag ist der Standortpreis mal die Zahl der Standorte."

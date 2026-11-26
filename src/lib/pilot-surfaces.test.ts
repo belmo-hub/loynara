@@ -23,7 +23,7 @@ describe("pilot surfaces follow the canonical production definition", () => {
     expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "true" })).toBe(false);
     expect(surfaceHidden("billing", { ...PROD, LIVE_BILLING_ENABLED: "TRUE" })).toBe(true);
     // stripeEnabled relies on this: whenever Stripe may run, the billing surface is shown (synthetic placeholders, no real key).
-    const stripe = { LIVE_BILLING_ENABLED: "true", STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001" };
+    const stripe = { LIVE_BILLING_ENABLED: "true", STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_LIST: "price_list00000001" };
     for (const env of [{ ...PROD, ...stripe, STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" }, { ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` }]) {
       expect(stripeEnabled(env)).toBe(true);
       expect(surfaceHidden("billing", env)).toBe(false);
