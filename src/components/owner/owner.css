@@ -452,7 +452,29 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 .ow-dialog--scroll > .ow-stack { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 @media (prefers-reduced-motion: reduce) { .ow-dialog-view { animation: none; } }
 .ow-dialog h2 { font-size: var(--text-22); letter-spacing: -.01em; }
-.ow-dialog p { color: var(--color-ink-muted); }
+/* Dialog text is muted, but an error keeps its own colour (Design, 24 Nov). */
+.ow-dialog p:not(.ow-error) { color: var(--color-ink-muted); }
+/* ENG-372 (Design r2): the caller dialog's primary names day, time and person; narrow or at large text it says „Eintragen“ and
+   a summary line above the buttons names them, so the times keep their room. */
+.ow-dialog:has(.ow-caller-long) { container-type: inline-size; }
+.ow-caller-short, .ow-dialog p.ow-caller-summary { display: none; }
+@container (max-width: 16em) {
+  .ow-caller-long { display: none; }
+  .ow-caller-short { display: inline; }
+  .ow-dialog p.ow-caller-summary { display: block; flex-basis: 100%; margin: 0; color: var(--color-ink); font-weight: var(--weight-strong); }
+}
+/* The day view's title row (Design r2): the day and „Einrichtung“ share a wrapping row, the date has its own line, and under
+   ~20em the link is the gear alone (its name stays „Einrichtung“, its target 44 px). */
+.ow-dayhead { container-type: inline-size; flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.ow-dayhead > p { flex-basis: 100%; }
+.ow-dayhead-link { margin-left: auto; min-width: var(--target); }
+/* Design r3: stacked at 320, the two day actions each take the full width. */
+@media (max-width: 359px) { .ow-dayactions > .ow-btn { flex-basis: 100%; } }
+/* The booked message takes focus after the jump: it stops above the phone's tab bar, not under it (Design r3). */
+.ow-flash { scroll-margin-bottom: calc(var(--ow-tabbar, 0px) + var(--space-4)); }
+/* The caller dialog's times: picked is the house pressed style (as .ow-days), which forced colours outline below. */
+.ow-btn.ow-slot[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-bg); }
+@container (max-width: 20em) { .ow-dayhead-label { display: none; } } /* an error keeps its colour inside a dialog (Design, 24 Nov) */
 .ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap-reverse; margin-top: var(--space-3); }
 .ow-dialog-actions .ow-btn { min-height: 48px; }
 /* Buttons share the row, or each takes the full width once they wrap, never a ragged stack of two widths. */
@@ -1434,7 +1456,7 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
   .ow-options [aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
   .ow-swatch[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
   /* A picked weekday too; while it has the keyboard, the focus ring stays the one outline. */
-  .ow-days button[aria-pressed="true"]:not(:focus-visible) { outline: 2px solid Highlight; outline-offset: -2px; }
+  :is(.ow-days button, .ow-slot)[aria-pressed="true"]:not(:focus-visible) { outline: 2px solid Highlight; outline-offset: -2px; }
   /* A transparent border is drawn here, so every sub-tab was underlined: only the current one keeps its line. */
   .ow-subnav a:not([aria-current="page"], [data-pending]) { border-bottom-color: Canvas; }
 }

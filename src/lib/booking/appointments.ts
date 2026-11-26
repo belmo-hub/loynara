@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, or, sql, type SQL } from "driz
 import { db } from "@/db";
 import { bookingAppointments, bookingBlockedCustomers, bookingBlocks, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, ledgerEntries, locations, memberships, programs, tenants } from "@/db/schema";
 import { validCardToken } from "@/lib/card-lifecycle";
-import { formatCardLocator } from "@/lib/card-locator";
+import { formatCardLocator, parseCardLocator } from "@/lib/card-locator";
 import { requireSameOrigin, sessionUser } from "@/lib/http";
 import { selectedLocationFromRequest } from "@/lib/locations";
 import { awardInTransaction, DomainError } from "@/lib/loyalty";
@@ -540,21 +540,86 @@ export function pathId(id: string) {
   return id;
 }
 
-/**
- * Free starts on `date` for the owner's "Verschieben": the booked length, no lead time (as move()), for every live staff
- * member who offers the service (and the booked one), so the owner can hand the appointment to someone else.
- */
-export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
-  const row = await one(db, input.tenantId, input.appointmentId);
-  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+/** The live staff who can take `service` (or are already on the appointment), with their free starts on `date`: no lead time, as move(). */
+async function staffSlots(input: Scope, service: SlotService, date: string, now: Date, keep?: { staffId: string; excludeId: string }) {
   const scope = { ...input, timezone: await timezoneOf(db, input) };
   const staffRows = await db.select({ id: bookingStaff.id, name: bookingStaff.name }).from(bookingStaff)
     .where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort));
   const links = staffRows.length ? await db.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, input.tenantId), inArray(bookingStaffServices.staffId, staffRows.map(s => s.id)))) : [];
-  const staff = staffRows.filter(s => { const own = links.filter(l => l.staffId === s.id); return s.id === row.a.staffId || !own.length || own.some(l => l.serviceId === row.a.serviceId); });
-  const days = await Promise.all(staff.map(s => availability(db, scope, { service: bookedService(row), staffId: s.id, days: [input.date], excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now })));
+  const staff = staffRows.filter(s => { const own = links.filter(l => l.staffId === s.id); return s.id === keep?.staffId || !own.length || own.some(l => l.serviceId === service.id); });
+  const days = await Promise.all(staff.map(s => availability(db, scope, { service, staffId: s.id, days: [date], excludeId: keep?.excludeId, settings: OWNER_SLOT_RULES, now })));
   const slots = days.flatMap(([day]) => day.slots).sort((a, b) => a.start.getTime() - b.start.getTime());
-  return { date: input.date, staff, slots: slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
+  return { date, staff, slots: slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
+}
+const OWNER_SLOT_RULES = { leadTimeMin: 0, maxDaysAhead: 180 };
+
+/**
+ * Free starts on `date` for the owner's "Verschieben": the booked length, for every live staff member who offers the
+ * service (and the booked one), so the owner can hand the appointment to someone else.
+ */
+export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
+  const row = await one(db, input.tenantId, input.appointmentId);
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  return staffSlots(input, bookedService(row), input.date, now, { staffId: row.a.staffId, excludeId: row.a.id });
+}
+
+// ---- A caller's appointment, entered by the shop (ENG-372, founder Q-116 c) --------------------------------------------
+
+export const CALLER_CARD_MISSING = "Diese Kartennummer gibt es hier nicht. Termine trägst du nur für Kunden mit Karte ein.";
+
+/** Only an open card of this location's programme, found by its number: no booking from a name or phone number alone. */
+async function callerCard(reader: Reader, scope: Scope, cardNumber: string) {
+  const locator = parseCardLocator(cardNumber);
+  const [card] = locator ? await reader.select({ membershipId: memberships.id, cardLocator: memberships.cardLocator }).from(memberships)
+    .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+    .where(and(eq(memberships.tenantId, scope.tenantId), eq(memberships.cardLocator, locator), eq(programs.locationId, scope.locationId), isNull(memberships.closedAt), eq(programs.status, "active"))) : [];
+  if (!card) throw new DomainError("NOT_FOUND", CALLER_CARD_MISSING);
+  return card;
+}
+
+/** The card and the name its holder gave at their last booking here, if any, so the owner need not ask again. */
+export async function callerLookup(scope: Scope, cardNumber: string) {
+  const card = await callerCard(db, scope, cardNumber);
+  const [last] = await db.select({ name: bookingAppointments.customerName }).from(bookingAppointments)
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.membershipId, card.membershipId), sql`${bookingAppointments.customerName} NOT IN ('Name gelöscht', 'Karte geschlossen')`))
+    .orderBy(desc(bookingAppointments.createdAt)).limit(1);
+  return { cardLocator: formatCardLocator(card.cardLocator), name: last?.name ?? null };
+}
+
+export async function callerSlots(input: Scope & { serviceId: string; date: string }, now = new Date()) {
+  return staffSlots(input, await liveService(db, input, input.serviceId), input.date, now);
+}
+
+/** „Nächster freier Tag“ in one request (Design r2: 28 slot requests ran into the rate limit): the first of the next 28 days with a free start. */
+export async function callerNextFree(input: Scope & { serviceId: string; from: string; staffId?: string }, now = new Date()) {
+  const service = await liveService(db, input, input.serviceId);
+  const days = Array.from({ length: 28 }, (_, offset) => addDays(input.from, offset));
+  const found = await availability(db, { ...input, timezone: await timezoneOf(db, input) }, { service, staffId: input.staffId, days, settings: OWNER_SLOT_RULES, now });
+  return { date: found.find(day => day.slots.length > 0)?.date ?? null };
+}
+
+/** Confirmed at once (the shop agreed it on the phone). The card's online pause and open-booking cap are for online booking, so they don't apply. */
+export async function ownerBook(input: Scope & { cardNumber: string; serviceId: string; staffId: string; start: Date; customerName: string; idempotencyKey: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    await lockLocation(tx, input.locationId);
+    const card = await callerCard(tx, input, input.cardNumber);
+    const [existing] = await tx.select({ id: bookingAppointments.id, membershipId: bookingAppointments.membershipId }).from(bookingAppointments)
+      .where(and(eq(bookingAppointments.tenantId, input.tenantId), eq(bookingAppointments.idempotencyKey, input.idempotencyKey)));
+    if (existing) {
+      if (existing.membershipId !== card.membershipId) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      return { appointment: ownerView(await one(tx, input.tenantId, existing.id), now), duplicate: true };
+    }
+    await settingsOf(tx, input);
+    const service = await liveService(tx, input, input.serviceId);
+    const { slot, nextFree } = await findSlot(tx, { ...input, timezone: await timezoneOf(tx, input) }, { service, staffId: input.staffId, start: input.start, settings: OWNER_SLOT_RULES, now });
+    const [row] = await tx.insert(bookingAppointments).values({
+      tenantId: input.tenantId, locationId: input.locationId, membershipId: card.membershipId, serviceId: service.id, staffId: slot.staffId,
+      during: range(input.start, new Date(input.start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), durationMin: service.durationMin, priceMinor: service.priceMinor,
+      status: "confirmed", customerName: input.customerName, idempotencyKey: input.idempotencyKey,
+    }).returning({ id: bookingAppointments.id }).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.id, now);
+    return { appointment: ownerView(await one(tx, input.tenantId, row.id), now), duplicate: false };
+  });
 }
 
 /**

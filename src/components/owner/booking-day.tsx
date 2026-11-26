@@ -1,23 +1,23 @@
 "use client";
 
-import { Ban, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Ban, CalendarDays, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { Row, Rows } from "./owner-rows";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import { formatDay } from "@/components/booking/booking-format";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { instantToWall } from "@/lib/booking/time";
 import { apiJson, ClientApiError, newRequestId, postJson } from "@/components/client-api";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parsePurchaseAmountMinor } from "@/lib/points";
 import { actionError, actionsFor, awardLine, dayName, chipTone, dayRows, dayTotals, euroInput, longDate, patchDay, requestsLine, shiftDate, shortDate, STATUS_CHIP, statusWord, subLine, todayIn, wallTime, wallToIso, type DayBlock, type DayResponse, type OwnerAppointment } from "./booking-day-model";
+import { NewAppointmentDialog, NextFreeDay } from "./booking-new";
 import { missedPhrase } from "./booking-setup-helpers";
 import { useOwner } from "./owner-context";
 import { ErrorNotice, germanDate, LoadingBlock, Notice, OwnerDialog, OwnerIcon } from "./owner-ui";
 import { useLoad } from "./use-load";
 
-type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null };
-type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string } | null;
+type Setup = { settings: { goalText: string; enabled: boolean; noShowBlockAfter: number } | null; services: Array<{ id: string; name: string }> };
+type Flash = { date: string; tone: "ok" | "danger" | "info"; text: string; focus?: boolean } | null;
 type Blocked = { membershipId: string; name: string; cardLocator: string; blockedAt: string; reason: string };
 type Done = (text: string, tone?: "ok" | "danger" | "info", row?: OwnerAppointment) => void;
 const failure = (cause: unknown) => cause instanceof ClientApiError ? { code: cause.code, status: cause.status, message: cause.message } : {};
@@ -40,26 +40,49 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
   const [open, setOpen] = useState<OwnerAppointment | null>(null);
   const [blockOpen, setBlockOpen] = useState<DayBlock | "new" | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
   const [flash, setFlash] = useState<Flash>(null);
+  // After a booking jumps to its day, focus goes to the message there, not to the page body (Design r2).
+  const flashBox = useRef<HTMLDivElement>(null);
   const shown = day.state === "ok" ? (patch?.at === day.at ? patchDay(day.data, patch.rows) : day.data) : null;
   const timezone = shown?.timezone ?? zone ?? BROWSER_ZONE;
   const today = todayIn(timezone);
   const date = urlDate ?? shown?.date ?? today;
   const pick = (target: string) => { setFlash(null); setZone(timezone); router.push(`/merchant/termine?date=${target}`, { scroll: false }); };
   const ready = setup.state === "ok" && setup.data.settings !== null;
+  const totals = shown?.date === date ? dayTotals(shown.appointments) : null;
   const blockedCount = blocked.state === "ok" ? blocked.data.customers.length : 0;
 
   const done: Done = (text, tone = "ok", row) => {
-    setOpen(null); setBlockOpen(null); setBlockedOpen(false); setFlash({ date, tone, text });
+    setOpen(null); setBlockOpen(null); setBlockedOpen(false); setNewOpen(false); setFlash({ date, tone, text });
     if (row && day.state === "ok") { const at = day.at; setPatch(current => ({ at, rows: { ...(current?.at === at ? current.rows : {}), [row.id]: row } })); }
     reload(); reloadBlocked();
+  };
+
+  // Focusing a half-visible element doesn't scroll it, so its tab-bar margin would never apply: scroll it in as well (Design, 26 Nov).
+  useEffect(() => {
+    // Only once the target day's list has rendered: it loads after the jump and would push the message back down (Design, 26 Nov).
+    if (!flash?.focus || flash.date !== date || shown?.date !== date || !flashBox.current) return;
+    flashBox.current.focus({ preventScroll: true });
+    flashBox.current.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [flash, date, shown?.date]);
+  // Design (24 Nov): a booking for another day opens that day, so it doesn't seem to vanish; the flash names day, time and person.
+  const booked = (text: string, row: OwnerAppointment, target: string) => {
+    done(text, "ok", row);
+    if (target === date) return;
+    setFlash({ date: target, tone: "ok", text, focus: true });
+    setZone(timezone);
+    router.push(`/merchant/termine?date=${target}`, { scroll: false });
   };
 
   return (
     <div className="ow-page">
       <header className="ow-pagehead ow-prog">
-        <div><h1>{dayName(date, today)}</h1><p>{subLine(date, today)}</p></div>
-        {ready && !readOnly && <div className="ow-row"><button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button>{me?.role === "owner" && <Link className="ow-btn ow-btn--ghost" href="/merchant/termine/einrichten">Einrichtung</Link>}</div>}
+        {/* Design (24 Nov): „Einrichtung“ is a quiet gear link across from the day, so the two actions keep one line at 390. */}
+        <div className="ow-dayhead"><h1>{dayName(date, today)}</h1>
+          {ready && !readOnly && me?.role === "owner" && <Link className="ow-btn ow-btn--ghost ow-dayhead-link" href="/merchant/termine/einrichten" aria-label="Einrichtung"><Settings size={20} aria-hidden="true" /><span className="ow-dayhead-label">Einrichtung</span></Link>}
+          <p>{subLine(date, today)}</p></div>
+        {ready && !readOnly && <div className="ow-row ow-dayactions">{setup.data.settings?.enabled && <button type="button" className="ow-btn ow-btn--primary" disabled={!shown} onClick={() => { setFlash(null); setNewOpen(true); }}>Termin eintragen</button>}<button type="button" className="ow-btn ow-btn--secondary" disabled={!shown} onClick={() => { setFlash(null); setBlockOpen("new"); }}>Zeit blocken</button></div>}
       </header>
       {ready && setup.data.settings?.goalText && <p className="ow-muted">Dein Ziel: {setup.data.settings.goalText}</p>}
       {blockedCount > 0 && <div><button type="button" className="ow-link ow-link--block" style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: "var(--weight-strong)", cursor: "pointer" }} onClick={() => { setFlash(null); setBlockedOpen(true); }}>
@@ -79,8 +102,10 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
       {setup.state === "ok" && setup.data.settings && !setup.data.settings.enabled && (
         <Notice>Online-Termine sind aus. Gebuchte Termine bleiben hier, bis sie vorbei sind.</Notice>
       )}
-      {ready && shown && dayTotals(shown.appointments) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite">{dayTotals(shown.appointments)}</p>}
-      {flash?.date === date && <Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice>}
+      {/* While a booked message waits for its day, the totals line keeps its place, so arriving it pushes nothing under the
+          tab bar (Design r2, 26 Nov: WebKit painted it ~20 ms after the message was placed). */}
+      {ready && (totals || (flash?.focus && flash.date === date)) && <p className="ow-num" style={{ fontWeight: "var(--weight-strong)", margin: 0 }} aria-live="polite" aria-hidden={totals ? undefined : true}>{totals ?? "\u00a0"}</p>}
+      {flash?.date === date && <div ref={flashBox} className="ow-flash" tabIndex={-1}><Notice tone={flash.tone} role={flash.tone === "danger" ? "alert" : "status"}>{flash.text}</Notice></div>}
       {shown && shown.pendingRequests > 0 && <Notice tone="warn" actions={shown.nextRequestDate && shown.nextRequestDate !== date
         ? <button type="button" className="ow-btn ow-btn--sm ow-btn--secondary" onClick={() => pick(shown.nextRequestDate!)}>Anfrage zeigen</button> : undefined}>
         {requestsLine(shown.pendingRequests, shown.nextRequestDate, today)}</Notice>}
@@ -95,6 +120,7 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
       {blockOpen && shown && (blockOpen === "new"
         ? <BlockDialog day={shown} onClose={() => setBlockOpen(null)} onDone={done} />
         : <ReleaseDialog block={blockOpen} onClose={() => setBlockOpen(null)} onDone={done} />)}
+      {newOpen && shown && setup.state === "ok" && <NewAppointmentDialog day={shown} services={setup.data.services} onClose={() => setNewOpen(false)} onBooked={booked} />}
       {blockedOpen && blocked.state === "ok" && <BlockedDialog customers={blocked.data.customers} onClose={() => setBlockedOpen(false)} onDone={done} />}
     </div>
   );
@@ -256,15 +282,6 @@ function AppointmentSheet({ appointment, day, programType, purchase, noShowBlock
   return <OwnerDialog title={view.title} tone={view.tone} view={mode} scroll={mode === "move"} onClose={onClose} actions={view.actions}>{view.body}</OwnerDialog>;
 }
 
-/** D4: one tap to the next day with a free time when the picked one is full; it looks the day up once on mount. */
-function NextFreeDay({ find, onPick }: { find: () => Promise<string | null>; onPick: (date: string) => void }) {
-  const [date, setDate] = useState<string | null | undefined>(undefined);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { let live = true; void find().then(found => { if (live) setDate(found); }); return () => { live = false; }; }, []);
-  if (date === undefined) return <LoadingBlock rows={1} height={44} />;
-  if (date === null) return <p className="ow-muted">In den nächsten vier Wochen ist nichts frei.</p>;
-  return <div><button type="button" className="ow-btn ow-btn--secondary" onClick={() => onPick(date)} data-autofocus>Nächster freier Tag: {formatDay(date)}</button></div>;
-}
 
 /** "HH:MM" now in the shop's zone, rounded up to the next quarter hour (at most 23:45). */
 function nextQuarter(zone: string) {
