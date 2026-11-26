@@ -15,20 +15,20 @@ Execution layer for the first 60 Kassel walk-ins. Everything lives in [`field/`]
 - **Not invented:** no owner names, no private data, no emails collected. **Paper stamp cards cannot be seen online**, so every row says „Not evidenced online. Look at the counter on arrival.“ One shop (Kassler Pizza) publishes a **5 % pickup discount**: noted as a discount, not a stamp card.
 - **Quality notes you should know:** directory data is stale in places. „Raby's Barber Shop“ at Ständeplatz 15 shares Ali's phone number, and the Raby's website belongs to a Marburg business; one pizzeria was listed as permanently closed and one as „opening soon“ (both excluded); several shops show conflicting hours (marked). Re-check on the door.
 
-## B · Field collateral (German, print-ready PDF + HTML source)
+## B · Field collateral (German, HTML source)
 
 | # | Asset | File | Status |
 |---|---|---|---|
 | 1 | One-page merchant handout | none | **Retired** (23 Oct 2026: Sales confirmed the flyer (Marketing) is the only leave-behind) |
-| 2 | Founder demo cheat sheet (A4, 1 page) | [`demo-cheat-sheet.pdf`](field/collateral/print/demo-cheat-sheet.pdf) | **Use now** (internal; laminate) |
-| 3 | Objection cheat sheet (A4, 2 pages) | [`objection-sheet.pdf`](field/collateral/print/objection-sheet.pdf) | **Use now**. Recovery/correction answers are in the *before-RC* wording |
-| 4 | Pilot interest sheet (A4, internal) | [`pilot-interest-sheet.pdf`](field/collateral/print/pilot-interest-sheet.pdf) | **Use now**. „Kein Vertrag, keine Zahlungszusage, kein Startdatum“ |
-| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · [`.pdf`](field/collateral/print/after-demo-summary.pdf) · plain-text message: retired 23 Oct 2026, current templates are with Sales outside the repo | **Send only after a recorded permission** for that channel |
+| 2 | Founder demo cheat sheet (A4, 1 page) | [`demo-cheat-sheet.html`](field/collateral/templates/demo-cheat-sheet.html) | **Not printed** (no PDF kept; source only) |
+| 3 | Objection cheat sheet (A4, 2 pages) | [`objection-sheet.html`](field/collateral/templates/objection-sheet.html) | **Not printed** (no PDF kept; source only). Recovery/correction answers are in the *before-RC* wording |
+| 4 | Pilot interest sheet (A4, internal) | [`pilot-interest-sheet.html`](field/collateral/templates/pilot-interest-sheet.html) | **Not printed** (no PDF kept; source only). „Kein Vertrag, keine Zahlungszusage, kein Startdatum“ |
+| 5 | After-demo summary | [`after-demo-summary.html`](field/collateral/templates/after-demo-summary.html) (editable) · plain-text message: retired 23 Oct 2026, current templates are with Sales outside the repo | **Send only after a recorded permission** for that channel |
 | 6 | Learning sheet | [`learning-sheet.xlsx`](field/learning-sheet.xlsx) (dropdowns) · [`learning-sheet-template.csv`](field/learning-sheet-template.csv) | **Use now** |
 
-Release-gated lines (lost card, mistake correction, „Was, wenn NFC nicht geht?“, the NFC footer) are generated from one file, [`collateral/variants.py`](field/collateral/variants.py). After the gates: `python3 gtm/field/collateral/build_collateral.py --rc --nfc` writes **separate** `print-post/` PDFs and never overwrites the current set.
+Release-gated lines (lost card, mistake correction, „Was, wenn NFC nicht geht?“, the NFC footer) are generated from one file, [`collateral/variants.py`](field/collateral/variants.py). After the gates: `python3 gtm/field/collateral/build_collateral.py --rc --nfc` writes **separate** `print-post/` PDFs and never overwrites the current set. Built PDFs (`print/`, `print-post/`) stay local and are not committed.
 
-Print notes: the cheat sheets are for the founder only; the pilot sheet one per interested shop.
+Print notes: nothing from this set is printed. If that changes, build locally; the cheat sheets are for the founder only, the pilot sheet one per interested shop.
 
 ## C · Counter stand ([`field/stand/`](field/stand/), spec [`STAND-SPEC.md`](field/stand/STAND-SPEC.md))
 
@@ -66,6 +66,6 @@ One design: **Tresenaufsteller A6**, 122.4 × 92 × 149 mm, 20° tilt, matt-blac
 ## F · QA performed
 
 - 78 / 78 marketing + GTM tests, including `field-kit.test.ts` (60-row list integrity and hygiene; collateral claim safety in the current and the post-gate variants; stand artwork rules).
-- Collateral rendered to PDF and checked visually page by page (page counts: 1 / 1 / 2 / 1 / 1). German spelling and „39 €“ formatting reviewed by text search; no banned claim phrases in merchant-facing pages.
+- Collateral rendered to PDF and checked visually page by page (page counts: 1 / 1 / 2 / 1 / 1). German spelling and euro formatting reviewed by text search; no banned claim phrases in merchant-facing pages.
 - Stand: 28 automated geometry/fit/artwork checks, QR decode simulation (zxing), dimensioned drawings reviewed against the geometry, 3D preview and paper prototype reviewed at size.
 - **Not covered:** physical prototype, NFC read test, phone scans, print proof, fabricator fit, Excel/Numbers opening.

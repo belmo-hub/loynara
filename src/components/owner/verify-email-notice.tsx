@@ -46,7 +46,7 @@ export function VerifyEmailNotice({ email }: { email: string }) {
       <p role="status" className="ow-verify-status" data-tone={state === "limited" || state === "failed" ? "danger" : undefined}>{state in OUTCOME ? OUTCOME[state as keyof typeof OUTCOME] : null}</p>
     </>}>
       <div className="ow-verify-text">
-        <strong>Bestätige deine E-Mail-Adresse.</strong>
+        <strong>Bestätige deine E‑Mail-Adresse.</strong>
         {expired
           ? <p>{linkError(error ?? "")}</p>
           : <p>Wir haben dir einen Link an {address} geschickt.{full && " Erst nach der Bestätigung bekommst du E‑Mails zu deinem Geschäft, zum Beispiel den Wochenbericht."}</p>}

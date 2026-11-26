@@ -15,7 +15,7 @@ O13,Appendix A · Revenue / utilization,More value from existing customers,"Befo
 O14,Appendix A · Revenue / utilization,Repeat-purchase frequency,Move the next visit sooner.,missing,ECO-02,SELL NOW
 O15,Appendix A · Revenue / utilization,Lifetime value,One extra visit matters; repeated extra visits matter more.,missing,ECO-02,SELL NOW
 O16,Appendix A · Revenue / utilization,Revenue scenario / calculator,Let merchants model their own assumptions.,represented,CORE-09,SELL NOW
-O17,Appendix A · Revenue / utilization,€39 in context,Put one clear fee next to the merchant’s own economic scenario.,represented,CORE-09,SELL NOW
+O17,Appendix A · Revenue / utilization,€49 in context,Put one clear fee next to the merchant’s own economic scenario.,represented,CORE-09,SELL NOW
 O18,Appendix A · Acquisition / referrals,Referral acquisition,Keep the customer and let them help bring the next one.,represented,CORE-07,SELL NOW
 O19,Appendix A · Acquisition / referrals,Customer as advocate,Turn satisfied regulars into introducers.,partial,ACQ-01,SELL NOW
 O20,Appendix A · Acquisition / referrals,Reward for introduction,Reward not only repeat visits but qualified introductions.,represented,CORE-07,SELL NOW
@@ -133,7 +133,7 @@ P7,Priority 7,Simple staff workflow,„Kunde tippt. Team bestätigt. Fertig.“,
 P8,Priority 8,Physical + branded experience,PARTIAL / HARDWARE DEPENDENT,partial,TRU-08,QUALIFIED
 P9,Priority 9,Know who returns,NOW / PARTIAL ANALYTICS,represented,CORE-08,QUALIFIED
 P10,Priority 10,Insight → Action,FUTURE DIFFERENTIATOR,missing,FUT-12,FUTURE
-P11,Priority 11,€39 economics,Merchant inputs own numbers,represented,CORE-09,SELL NOW
+P11,Priority 11,€49 economics,Merchant inputs own numbers,represented,CORE-09,SELL NOW
 P12,Priority 12,Operational maturity / recovery,NOW AFTER HARDENING (original treats reissue as live),partial,OPS-01,QUALIFIED
 V-pizzeria,Vertical,Pizzeria / takeaway,Aus einer Bestellung wird der nächste Besuch.,represented,VER-02,SELL NOW
 V-barber,Vertical,Barber,Den Rhythmus nicht verlieren.,represented,VER-01,SELL NOW
@@ -160,7 +160,7 @@ OB-slow,Objection bank B,It will slow checkout,,represented,CORE-05,SELL NOW
 OB-spam,Objection bank B,I don’t want to spam customers,,partial,TRU-06,QUALIFIED
 OB-instagram,Objection bank B,I already use Instagram,,missing,OBJ-02,SELL NOW
 OB-works,Objection bank B,I don’t know if it works,,represented,OBJ-04,SELL NOW
-OB-39,Objection bank B,€39 is another subscription,,represented,CORE-09,SELL NOW
+OB-39,Objection bank B,€49 is another subscription,,represented,CORE-09,SELL NOW
 OB-wrong,Objection bank B,What if something goes wrong?,,missing,OPS-01,QUALIFIED
 OB-employees,Objection bank B,I have several employees,,partial,OPS-05,SELL NOW
 OB-stores,Objection bank B,I have several stores,,missing,OPS-06,SELL NOW

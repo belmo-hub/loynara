@@ -46,6 +46,7 @@ const EXCEPTIONS: Exception[] = [
   { file: "src/components/owner/owner.css", kind: "radius", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "weight", selectors: WALLET_MOCK, reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "font size", selectors: [".ow-tab"], reason: "the tab label's token size, capped at 20 px so „Programm“ never breaks to a lone „m“ under large text (Design r2, 23 Nov)" },
+  { file: "src/components/owner/owner.css", kind: "font size", selectors: [".ow-tab-label"], reason: "tab labels stop growing at the 150 % size (18 px), as tab bars do, so no label takes three lines (Design, #348)" },
   { file: "src/components/owner/owner.css", kind: "weight", selectors: [".ow-lock-time"], reason: "the lock-screen clock is drawn as the phone draws it, in a light 300" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: [...WALLET_MOCK, ".ow-pass-field", ".ow-pass-row--sec", ".ow-pass-issuer", ".ow-cardprev-ticket", ".ow-logo-thumb"], reason: "wallet-pass mock (see WALLET_MOCK)" },
   { file: "src/components/owner/owner.css", kind: "spacing", selectors: CONTROLS, reason: "form controls, ENG-139 (SF-8, SF-9)" },

@@ -19,10 +19,10 @@ for (const c of ['a', 'b', 'c']) {
     const t = `${c}@${w}`;
     check(`${t}: one h1, noindex`, (await p.locator('h1').count()) === 1 && (await p.locator('meta[name=robots]').getAttribute('content')) === 'noindex,nofollow');
     // calculator: same maths as the live site
-    check(`${t}: calculator example 910 / +871 / +10.452`, (await out(p, 'additional')) === '910 €' && (await out(p, 'difference')) === '+871 €' && (await out(p, 'annualised')) === '+10.452 €');
+    check(`${t}: calculator example 910 / +861 / +10.332`, (await out(p, 'additional')) === '910 €' && (await out(p, 'difference')) === '+861 €' && (await out(p, 'annualised')) === '+10.332 €');
     const gain = p.locator('[data-in="gain"]');
     await gain.fill('0'); await p.waitForTimeout(100);
-    check(`${t}: zero increase is honest (0 €, −39 €, −468 €)`, (await out(p, 'additional')) === '0 €' && (await out(p, 'difference')) === '−39 €' && (await out(p, 'annualised')) === '−468 €');
+    check(`${t}: zero increase is honest (0 €, −49 €, −588 €)`, (await out(p, 'additional')) === '0 €' && (await out(p, 'difference')) === '−49 €' && (await out(p, 'annualised')) === '−588 €');
     await gain.fill('abc'); await gain.blur(); await p.waitForTimeout(100);
     check(`${t}: invalid input is explained and blanks the result`, (await out(p, 'additional')) === '–' && (await gain.getAttribute('aria-invalid')) === 'true' && (await p.locator('[data-err="gain"]').textContent()).length > 5);
     await p.locator('[data-in="basket"]').fill('7,50'); await gain.fill('10'); await p.waitForTimeout(100);
@@ -81,7 +81,7 @@ for (const c of ['a', 'b', 'c']) {
   const nojs = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false }); const q = await nojs.newPage();
   await q.goto(`${base}/concept-${c}/`);
   const body = (await q.locator('body').innerText()).replace(/\s+/g, ' ');
-  check(`${c}: without JavaScript the story, example result, price and contact are present`, /Ein guter Besuch/.test(body) && /910 €/.test(body) && /39 €/.test(body) && /support@getloynara\.com/.test(body));
+  check(`${c}: without JavaScript the story, example result, price and contact are present`, /Ein guter Besuch/.test(body) && /910 €/.test(body) && /49 €/.test(body) && /support@getloynara\.com/.test(body));
   await nojs.close();
 }
 const idx = await (await browser.newContext()).newPage(); await idx.goto(`${base}/concepts/`);
