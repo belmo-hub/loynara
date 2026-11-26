@@ -23,4 +23,4 @@ export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPerio
   o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.`
     : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.`
     // Only a euro shop starts at go-live (startBilling refuses another currency).
-    : o.status === "manual_pending" && o.currency === "EUR" && !o.checkoutOpen ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;
+    : o.status === "manual_pending" && o.currency === "EUR" && !o.checkoutOpen ? "Die Abrechnung startet mit deinem Go‑live. Der erste Monat ist kostenlos." : undefined;
