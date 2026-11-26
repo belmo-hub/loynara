@@ -58,7 +58,12 @@ export function BookingDay({ readOnly = false }: { readOnly?: boolean } = {}) {
     reload(); reloadBlocked();
   };
 
-  useEffect(() => { if (flash?.focus && flash.date === date) flashBox.current?.focus(); }, [flash, date]);
+  // Focusing a half-visible element doesn't scroll it, so its tab-bar margin would never apply: scroll it in as well (Design, 26 Nov).
+  useEffect(() => {
+    if (!flash?.focus || flash.date !== date || !flashBox.current) return;
+    flashBox.current.focus({ preventScroll: true });
+    flashBox.current.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [flash, date]);
   // Design (24 Nov): a booking for another day opens that day, so it doesn't seem to vanish; the flash names day, time and person.
   const booked = (text: string, row: OwnerAppointment, target: string) => {
     done(text, "ok", row);

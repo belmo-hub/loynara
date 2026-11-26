@@ -20,7 +20,7 @@ test.beforeEach(async () => { await resetPeerLimits(); });
 test.afterAll(async () => { await resetPeerLimits(); await pool.end(); });
 const hours = [1, 2, 3, 4, 5, 6, 7].map(weekday => ({ weekday, start: "06:00", end: "22:00", breaks: [] }));
 
-for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) test(`${viewport.width}: „Termin eintragen“ finds the card by its number, offers free times and books the caller`, async ({ browser, baseURL }) => {
+for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) test(`${viewport.width}: „Termin eintragen“ finds the card by its number, offers free times and books the caller`, async ({ browser, baseURL }) => {
   const origin = { Origin: new URL(baseURL!).origin };
   const owner = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin }), guest = await apiRequest.newContext({ baseURL, extraHTTPHeaders: origin });
   const ownerEmail = `caller-owner-${randomUUID()}@example.test`;
@@ -76,7 +76,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   // The picked time uses the house pressed style (ink fill), which forced colours outline in Highlight (Design r3).
   await expect.poll(() => slot.evaluate(element => getComputedStyle(element).backgroundColor === getComputedStyle(element).borderColor && element.getAttribute("style") === null)).toBe(true);
   const shortDay = `${new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)).replace(".", "")} ${date.slice(8, 10)}.${date.slice(5, 7)}.`;
-  const primary = dialog.getByRole("button", { name: `${shortDay}, ${time} Uhr bei Lena eintragen` });
+  // Wide it names day, time and person; narrow (320) it says „Eintragen“ with the same words for a screen reader (Design r2/r3).
+  const when = `${shortDay}, ${time} Uhr bei Lena`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const primary = dialog.getByRole("button", { name: new RegExp(`^(${when} eintragen|Eintragen\\s*,\\s*${when})$`) });
   await expect(primary).toBeInViewport({ ratio: 1 });
   // Design r2: at 200 % text the button says „Eintragen“ and a summary line above it names when and with whom.
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
@@ -92,6 +94,8 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 
   await expect(flash).toBeVisible();
   // After the jump focus is on the message, not on the page body (Design r2).
   expect(await flash.evaluate(element => element.parentElement === document.activeElement)).toBe(true);
+  // Design (26 Nov): and it is scrolled clear of the phone's tab bar (320×640 is the tight case).
+  expect(await flash.evaluate(element => { const bar = document.querySelector(".ow-tabs"); const top = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().top : innerHeight; return element.getBoundingClientRect().bottom <= top; })).toBe(true);
   await expect(page).toHaveURL(new RegExp(`date=${date}$`));
   await expect(page.getByRole("button", { name: new RegExp(`${time}.*Haarschnitt`) })).toContainText("Jonas bei Lena");
   expect((await pool.query("SELECT status, customer_name, customer_phone FROM booking_appointments a JOIN memberships m ON m.id = a.membership_id WHERE m.card_token = $1", [cardToken])).rows)
