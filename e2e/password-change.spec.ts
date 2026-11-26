@@ -3,10 +3,14 @@ import { expect, request as apiRequest, test } from "@playwright/test";
 import { signUp } from "./support/sign-up";
 
 // ENG-379: Mehr → Konto → „Passwort ändern“ on a 390 px phone. A second signed-in API context stands in for another device.
+// One synthetic owner for the whole file (serial, as passkey.spec): the owner job's other specs already use most of the
+// sign-up budget of 15 per network per 15 minutes (ENG-369). Each test that changes the password records the new one.
+test.describe.configure({ mode: "serial" });
+const owner = { email: `password-${randomUUID()}@example.test`, password: `Local!${randomUUID()}Aa` };
 test("an owner changes the password under Konto; this phone stays signed in, the other device is signed out", async ({ page, baseURL }) => {
   const url = new URL(baseURL ?? "http://localhost:3000");
   if (!["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Requires the synthetic local app");
-  const email = `password-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`, next = `Neu!${randomUUID()}Bb`;
+  const { email, password } = owner, next = `Neu!${randomUUID()}Bb`;
   const other = await apiRequest.newContext({ baseURL: url.origin, extraHTTPHeaders: { Origin: url.origin } });
   expect((await signUp(other, { data: { name: "Synthetic password owner", email, password } })).status()).toBe(200);
   expect((await other.post("/api/merchant/onboard", { data: { businessName: "Synthetic Passwort Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Passwort card", programType: "stamp", rulesText: "Synthetic local test only.", rewardTitle: "Kaffee", rewardCost: 5 } })).status()).toBe(201);
@@ -53,6 +57,7 @@ test("an owner changes the password under Konto; this phone stays signed in, the
   await save.click();
   await expect(page).toHaveURL(/\/merchant\/more$/);
   await expect(page.locator(".ow-prog-outcome")).toHaveText("Dein Passwort ist geändert. Auf deinen anderen Geräten bist du abgemeldet.");
+  owner.password = next;
   // On a phone the outcome sits far down Mehr: it is brought into view above the tab bar, and the row has the focus.
   await expect(async () => {
     const note = (await page.locator(".ow-prog-outcome").boundingBox())!, tabs = (await page.locator(".ow-tabs").boundingBox())!;
@@ -72,20 +77,19 @@ test("an owner changes the password under Konto; this phone stays signed in, the
 test("scrolling away from the outcome while Mehr still loads stays where the owner scrolled", async ({ page, baseURL }) => {
   const url = new URL(baseURL ?? "http://localhost:3000");
   if (!["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Requires the synthetic local app");
-  const email = `password-hold-${randomUUID()}@example.test`, password = `Local!${randomUUID()}Aa`;
-  const request = page.context().request;
-  expect((await signUp(request, { headers: { Origin: url.origin }, data: { name: "Synthetic password owner", email, password } })).status()).toBe(200);
-  expect((await request.post("/api/merchant/onboard", { headers: { Origin: url.origin }, data: { businessName: "Synthetic Passwort Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Passwort card", programType: "stamp", rulesText: "Synthetic local test only.", rewardTitle: "Kaffee", rewardCost: 5 } })).status()).toBe(201);
+  const { email, password } = owner, next = `Neu!${randomUUID()}Bb`;
+  expect((await page.context().request.post("/api/auth/sign-in/email", { headers: { Origin: url.origin }, data: { email, password } })).ok()).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/merchant/more/passwort");
   await page.getByLabel("Aktuelles Passwort").fill(password);
-  await page.getByLabel("Neues Passwort").fill(`Neu!${randomUUID()}Bb`);
+  await page.getByLabel("Neues Passwort").fill(next);
   // A slow billing read keeps Mehr unsettled, so the hold is still on when the owner scrolls.
   await page.route("**/api/merchant/billing", async route => { await new Promise(resolve => setTimeout(resolve, 1_500)); await route.continue(); });
   await page.getByRole("button", { name: "Passwort speichern" }).click();
   await expect(page).toHaveURL(/\/merchant\/more$/);
   await expect(page.locator(".ow-prog-outcome")).toBeVisible();
+  owner.password = next;
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
   const placed = await page.evaluate(() => window.scrollY);
   await page.mouse.move(195, 400);
