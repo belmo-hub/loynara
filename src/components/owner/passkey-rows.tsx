@@ -29,7 +29,7 @@ export const passkeysFor = (role: string | undefined) => role === "owner" || rol
  * passkey and the add row, for the Konto Rows; the outcome goes in the Rows note; removing goes through the house Confirm,
  * which the page shows instead of the list while it is open. Cashiers get nothing: the Kasse is a shared device.
  */
-export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: ReactNode } {
+export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: ReactNode; /** The list has answered, so Konto has its height. */ ready: boolean } {
   const owner = useOwner();
   const router = useRouter();
   const zone = shopZone(owner);
@@ -104,7 +104,7 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
     } finally { setBusy(false); }
   }
 
-  if (!allowed || !supported) return { rows: [], note: null, confirm: null };
+  if (!allowed || !supported) return { rows: [], note: null, confirm: null, ready: true };
   const confirm = removing
     ? <Confirm title="Passkey entfernen?" back={<MoreLabel />} action="Entfernen" busyAction="Wird entfernt …" busy={busy} onConfirm={() => void remove(removing)} onCancel={() => { focusNext.current = `passkey-remove-${removing.id}`; setRemoving(null); }}>
       <div className="ow-qpanel ow-stack ow-stack--tight"><p><strong>{removing.name || "Passkey"}</strong></p><p>Du meldest dich dann wieder mit deinem Passwort an. Lösche ihn auch in den Einstellungen deines Geräts.</p></div>
@@ -116,7 +116,7 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
     <span className="ow-prog-main"><span className="ow-prog-text"><strong>Passkey hinzufügen</strong><small>{SUB}</small></span></span>
   </button>;
   // Until the list answers, the add row's twin holds its place, so Konto does not jump when it arrives.
-  if (keys === null) return { rows: [addRow(true)], note, confirm };
+  if (keys === null) return { rows: [addRow(true)], note, confirm, ready: false };
   const rows = keys.map(key => <div key={key.id} className="ow-rowfold" data-added={known?.has(key.id) ? undefined : ""} data-closing={closing === key.id || undefined}>
     <div><div className="ow-prog-row" data-ends="button">
       <span className="ow-prog-icon"><KeyRound size={22} aria-hidden="true" /></span>
@@ -125,5 +125,5 @@ export function usePasskeyRows(): { rows: ReactNode[]; note: Note; confirm: Reac
       <button type="button" id={`passkey-remove-${key.id}`} className="ow-btn ow-btn--secondary ow-btn--sm" aria-label={`Passkey „${key.name || "Passkey"}“ entfernen`} disabled={busy} onClick={() => { setNote(null); setKnown(new Set(keys.map(item => item.id))); setRemoving(key); }}>Entfernen</button></span>
     </div></div>
   </div>);
-  return { rows: [...rows, addRow(false)], note, confirm };
+  return { rows: [...rows, addRow(false)], note, confirm, ready: true };
 }
