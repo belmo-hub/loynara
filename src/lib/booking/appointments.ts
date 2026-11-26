@@ -556,3 +556,16 @@ export async function ownerSlots(input: Scope & { appointmentId: string; date: s
   const slots = days.flatMap(([day]) => day.slots).sort((a, b) => a.start.getTime() - b.start.getTime());
   return { date: input.date, staff, slots: slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
 }
+
+/**
+ * „Nächster freier Tag“ for „Verschieben“ in one request (Design r2: up to 28 slot requests ran into the rate limit): the first
+ * of the next 28 days where `staffId` has a free start other than the appointment's own place.
+ */
+export async function ownerNextFree(input: Scope & { appointmentId: string; from: string; staffId: string }, now = new Date()) {
+  const row = await one(db, input.tenantId, input.appointmentId);
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  const days = Array.from({ length: 28 }, (_, offset) => addDays(input.from, offset));
+  const found = await availability(db, { ...input, timezone: await timezoneOf(db, input) }, { service: bookedService(row), staffId: input.staffId, days, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
+  const own = (slot: { start: Date; staffId: string }) => slot.start.getTime() === row.start.getTime() && slot.staffId === row.a.staffId;
+  return { date: found.find(day => day.slots.some(slot => !own(slot)))?.date ?? null };
+}

@@ -124,6 +124,16 @@ test("the card's activity row keeps the longest bonus label beside its amount at
     for (const name of labels) {
       await text(label(), name);
       expect(await overlap(row().locator("> :first-child"), amount()), `„${name}“ and +120 apart at ${width}, 200 %`).toBe(false);
+      // Each word of the label on one line: the amount goes under, the label never breaks inside a word („Gesa / mmel / t“,
+      // Design's release check).
+      expect(await label().evaluate(element => {
+        const node = element.firstChild as Text, cut: string[] = []; let at = 0;
+        for (const piece of node.data.split(/(?<=[ -])/)) {
+          const word = piece.trimEnd(), range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + word.length); at += piece.length;
+          if (new Set([...range.getClientRects()].filter(box => box.width > 1).map(box => Math.round(box.top))).size > 1) cut.push(word);
+        }
+        return cut;
+      }), `„${name}“ keeps its words whole at ${width}, 200 %`).toEqual([]);
       // The row's parts stay inside the row. (The page itself still scrolls at 320/200 %: „Karte aktualisieren“ is a
       // nowrap house button, left to #348's 320/200 pass.)
       expect(await row().evaluate(body => { const edge = body.getBoundingClientRect().right; return [...body.children].every(part => part.getBoundingClientRect().right <= edge + 1); }), `„${name}“ inside its row at ${width}`).toBe(true);

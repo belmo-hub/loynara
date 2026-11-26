@@ -97,7 +97,7 @@ Visual note: the counter-stand illustration changes only its text. Re-adding a t
 
 | Item | Now | After the gate | How |
 |---|---|---|---|
-| Printed cheat sheets, pilot sheet | Current wording | After RC / after NFC acceptance | `python3 gtm/field/collateral/build_collateral.py --rc --nfc` (writes `print-post/`, never overwrites `print/`). Wording lives in `gtm/field/collateral/variants.py` |
+| Printed cheat sheets, pilot sheet | Current wording | After RC / after NFC acceptance | `python3 gtm/field/collateral/build_collateral.py --rc --nfc` (writes `print-post/` locally, never overwrites `print/`; neither is committed). Wording lives in `gtm/field/collateral/variants.py` |
 | Counter stand insert | `insert-pre-nfc`: „Für deine Kundenkarte QR-Code scannen“, no NFC wording | `HOLD_insert-post-nfc`: „Handy kurz antippen“ / „oder QR-Code scannen“, QR as fallback | Print the held file and drop it into the already-installed stands (tag position is identical). Nothing else changes physically |
 | Insert QR | Placeholder (`loynara.invalid`) | The approved demo/production join URL, error correction M | Edit `PLACEHOLDER_URL` in `gtm/field/stand/artwork.py`, rebuild, reprint (see `STAND-SPEC.md` §8) |
 

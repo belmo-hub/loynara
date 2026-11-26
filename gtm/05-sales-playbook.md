@@ -66,12 +66,12 @@ Let them talk. Write the answer down after you leave, not in front of them.
 > „Und das hier siehst du: wie viele Karten diesen Monat wiederkamen, und pro Karte Stand und letzten Besuch. Diese Karte war vor neun Wochen das letzte Mal da. Namen zeigt Loynara nicht – aber du siehst, dass sich da was tut oder eben nicht.“
 
 **Price, plainly (when they ask, or after the owner view):**
-> „Normal 49 €, für die ersten Betriebe in Kassel 39 €, und das bleibt so, solange du dabei bist. Pro Monat für den Laden, egal wie viele Stühle oder Kunden. Bei 25 € pro Haarschnitt sind 49 € zwei Haarschnitte im Monat. Ob die zusätzlich kommen, kann dir keiner versprechen – aber du siehst es schwarz auf weiß.“
+> „49 € im Monat für den Laden, für jeden Laden gleich, egal wie viele Stühle oder Kunden. Bei 25 € pro Haarschnitt sind 49 € zwei Haarschnitte im Monat. Ob die zusätzlich kommen, kann dir keiner versprechen – aber du siehst es schwarz auf weiß.“
 
 **Close: ask for the smallest real step:**
 - Strong fit (score ≥ 8, see [03-verticals.md](03-verticals.md)):
   - *Before the owner clears the commercial gates* (ask for pilot interest only):
-    > „Ich starte gerade mit den ersten Läden hier. Wenn die Bedingungen schriftlich stehen – willst du dabei sein? Dann melde ich mich bei dir, sobald ich dir alles geben kann. Zahlen oder ein festes Startdatum gibt's vorher nicht.“
+    > „Wenn die Bedingungen schriftlich stehen: Darf ich mich dann bei dir melden, und wie am besten? Zahlen oder ein festes Startdatum gibt's vorher nicht.“
   - *After the gates are cleared:*
     > „Wollen wir's ausprobieren? Ich komm diese Woche einmal vorbei, wir legen die Prämie fest, drucken das Schild, und ab dem nächsten Kunden läuft's. Bevor du irgendwas zahlst, bekommst du alles schriftlich.“
 - Medium fit:
@@ -119,7 +119,7 @@ Allowed only:
 - (b) after permission was given in person
 
 **I1: reply to a comment like „Was kostet das?“:**
-> 49 € pro Monat und Standort, ohne App für deine Kunden. Für die ersten Läden in Kassel gibt's im persönlichen Gespräch einen Gründungspreis. Was für einen Laden hast du?
+> 49 € pro Monat und Standort, ohne App für deine Kunden. Was für einen Laden hast du?
 
 **I2: after in-person permission:**
 > Hey, [Name] hier – wir haben heute im Laden gesprochen 👋 Hier wie besprochen das Beispiel für Barber: [Link/Screenshot „Beispiel“]. Sag Bescheid, wann ich zum Einrichten vorbeikommen soll.
