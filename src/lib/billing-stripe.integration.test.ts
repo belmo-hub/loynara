@@ -291,6 +291,14 @@ describe("plans and checkout", () => {
     expect((await createStripeCheckout(s.ownerId)).url).toMatch(/^https:\/\/checkout\.stripe\.com\//); // a restart after a cancellation still checks out
   });
 
+  it.each(["active", "past_due"])("sells no second subscription to a running shop (%s): checkout refused, no Stripe call", async status => {
+    const s = await shop();
+    await pool.query("UPDATE subscriptions SET status = $1, provider = 'stripe', provider_subscription_id = 'sub_testrunning01' WHERE tenant_id = $2", [status, s.tenantId]);
+    expect(await getBillingOverview(s.ownerId)).toMatchObject({ status, checkoutOpen: false });
+    await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "BILLING_STATE" });
+    expect(stripe.calls).toEqual([]);
+  });
+
   it("lets a restart whose checkout expired check out again (incomplete_expired keeps the subscription ID); a new shop still cannot", async () => {
     const fresh = await shop();
     expect(await getBillingOverview(fresh.ownerId)).toMatchObject({ status: "manual_pending", checkoutOpen: false });
