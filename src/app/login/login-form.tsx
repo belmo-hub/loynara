@@ -22,8 +22,10 @@ export function LoginForm({ registrationOpen, next = null, verified = false }: {
   const fields = useFormCheck({ "login-password": "Bitte gib dein Passwort ein." });
   // Until the page is interactive, a tap on "Anmelden" would submit the bare form natively and just reload the page, wiping the fields.
   const ready = useSyncExternalStore(() => () => undefined, () => true, () => false);
-  // ENG-383: a passkey button for browsers that offer no passkey in the address field's autofill (Chrome on iOS).
-  const passkeys = useSyncExternalStore(() => () => undefined, () => "PublicKeyCredential" in window, () => false);
+  // ENG-383: a passkey button for browsers that offer no passkey in the address field's autofill (Chrome on iOS). Drawn
+  // from the first paint, so nothing under it moves at hydration (Design); disabled until then like „Anmelden“, and taken
+  // away only where the browser has no passkeys at all.
+  const passkeys = useSyncExternalStore(() => () => undefined, () => "PublicKeyCredential" in window, () => true);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const prompting = useRef(false); // the button's prompt is open: the autofill starts no request of its own meanwhile
 

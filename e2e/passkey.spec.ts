@@ -291,6 +291,31 @@ test("„Mit Passkey anmelden“ pressed before the autofill has started still s
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
+// ENG-383, Design: the button is there from the first paint, so the lines under it do not jump at hydration.
+test("the sign-in page does not move when it becomes interactive", async ({ browser, baseURL }) => {
+  const top = async (javaScriptEnabled: boolean) => {
+    // Reduced motion: the sheet's arrival (a few px of travel) would otherwise be measured mid-way.
+    const context = await browser.newContext({ baseURL, javaScriptEnabled, reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.goto("/login");
+    if (javaScriptEnabled) await expect(page.getByRole("button", { name: "Mit Passkey anmelden" })).toBeEnabled();
+    const box = await page.getByText(/Noch kein (Konto|Zugang)\?/).boundingBox();
+    await context.close();
+    return box!.y;
+  };
+  expect(Math.abs(await top(false) - await top(true))).toBeLessThanOrEqual(2);
+});
+
+// ENG-383: a server fault behind the button gets the form's existing line; the autofill's own failed request stays quiet.
+test("a server fault behind „Mit Passkey anmelden“ says so", async ({ page }) => {
+  await page.route("**/api/auth/passkey/generate-authenticate-options*", route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Internal error" }) }));
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
+  await expect(page.getByText("Die Anmeldung ist vorübergehend nicht möglich. Deine Angaben bleiben erhalten. Versuche es später erneut.")).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // ENG-383: closing the prompt is the person's choice: nothing is said, and the page stays as it was.
 test("a closed passkey prompt from the button says nothing", async ({ page }) => {
   await page.addInitScript(() => {
