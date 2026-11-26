@@ -18,7 +18,7 @@ test("a cashier's quantity picker stops at the server limit of 10", async ({ bro
     await cashier.goto("/login");
     await cashier.getByLabel("E-Mail-Adresse").fill(demo.cashierEmail);
     await cashier.getByLabel("Passwort").fill(demo.cashierPassword);
-    await cashier.getByRole("button", { name: "Anmelden" }).click();
+    await cashier.getByRole("button", { name: "Anmelden", exact: true }).click();
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/cashier");
     await cashier.getByLabel("Kartennummer oder Kartencode").fill(scanCode);
     await cashier.getByRole("button", { name: "Prüfen", exact: true }).click();

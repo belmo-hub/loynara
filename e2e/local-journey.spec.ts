@@ -39,7 +39,7 @@ test("a guest joins, earns a reward, redeems it, and sees persisted activity", a
     await cashier.goto("/login");
     await cashier.getByLabel("E-Mail-Adresse").fill(demo.cashierEmail);
     await cashier.getByLabel("Passwort").fill(demo.cashierPassword);
-    await cashier.getByRole("button", { name: "Anmelden" }).click();
+    await cashier.getByRole("button", { name: "Anmelden", exact: true }).click();
     await expect.poll(() => new URL(cashier.url()).pathname).toBe("/cashier");
     await expect(cashier.getByRole("heading", { name: "Karte scannen. Dann entscheiden." })).toBeVisible();
     const cameraButton = await cashier.getByRole("button", { name: "Kamera öffnen" }).boundingBox();
