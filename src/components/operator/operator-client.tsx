@@ -208,9 +208,9 @@ export function OperatorClient({ numbers, rows, plates, awaiting, billing, guara
       ["Zahlung fehlgeschlagen", nf.format(numbers.failed)],
       ["offen", nf.format(numbers.open)],
       ["beendet", nf.format(numbers.ended)],
-      ["Monatsumsatz", money(numbers.monthlyMinor, "EUR")],
+      ["Monatsumsatz (erwartet)", money(numbers.monthlyMinor, "EUR")],
       ["neu in den letzten 7 Tagen", nf.format(numbers.newThisWeek)],
-    ]} />
+    ]}><p className="ow-numcard-note">Monatsumsatz: Listenpreis × Standorte der zahlenden Geschäfte, kein Zahlungseingang.</p></NumberCard>
     {error && !label ? <p role="alert">{error}</p> : null}
     {demo ? <DemoMode running={demo.running} /> : null}
 

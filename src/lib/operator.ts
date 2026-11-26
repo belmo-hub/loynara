@@ -24,8 +24,9 @@ type NumberState = "freeMonth" | "paying" | "failed" | "open" | "ended";
 async function operatorNumbers(tx: Reader) {
   const { rows } = await tx.execute<{ state: NumberState; currency: string | null; locationCount: number | null; shops: number; live: number; fresh: number }>(sql`
     SELECT CASE WHEN s.status IS NULL OR s.status IN ('manual_pending', 'pending_checkout') THEN 'open'
-        WHEN s.status IN ('cancelled', 'suspended', 'suspended_fixture') THEN 'ended'
-        WHEN s.status IN ('past_due', 'grace_fixture') THEN 'failed'
+        WHEN s.status = 'cancelled' THEN 'ended'
+        -- Billing keeps a suspended shop running: for the founder it is money owed, like a failed payment (CTO, #376).
+        WHEN s.status IN ('past_due', 'grace_fixture', 'suspended', 'suspended_fixture') THEN 'failed'
         WHEN s.free_until > now() THEN 'freeMonth' ELSE 'paying' END AS state,
       s.currency, s.active_location_count AS "locationCount", count(*)::int AS shops,
       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = t.id AND p.status = 'active'))::int AS live,
