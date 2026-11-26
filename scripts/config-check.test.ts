@@ -214,12 +214,12 @@ describe("production configuration gate", () => {
 
   describe("live billing (Stripe)", () => {
     // Synthetic placeholders shaped like Stripe identifiers; none is a real credential.
-    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
+    const stripe: NodeJS.ProcessEnv = { ...safe, LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_live_${"x".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"y".repeat(32)}`, STRIPE_PRICE_LIST: "price_list00000001", BILLING_PRODUCTION_APPROVED: "true", BILLING_VAT_MODE: "kleinunternehmer" };
     it("is accepted off (absent or false) and on with the whole group", () => {
       expect(productionConfigIssues({ ...safe, LIVE_BILLING_ENABLED: "false" })).toEqual([]);
       expect(productionConfigIssues(stripe)).toEqual([]);
     });
-    it.each(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_FOUNDING", "STRIPE_PRICE_LIST"])("refuses live billing without %s, naming the setting and never its value", name => {
+    it.each(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_LIST"])("refuses live billing without %s, naming the setting and never its value", name => {
       expect(productionConfigIssues({ ...stripe, [name]: undefined })).toEqual(expect.arrayContaining([`Live billing requires a valid ${name}`]));
     });
     it("needs the founder's separate production approval, exactly true", () => {
@@ -227,9 +227,8 @@ describe("production configuration gate", () => {
       expect(productionConfigIssues({ ...stripe, BILLING_PRODUCTION_APPROVED: "yes" })).toEqual(expect.arrayContaining(["BILLING_PRODUCTION_APPROVED must be exactly true or false", "Live billing requires a separate production approval (BILLING_PRODUCTION_APPROVED=true)"]));
       expect(productionConfigIssues({ ...safe, BILLING_PRODUCTION_APPROVED: "true" })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
     });
-    it("refuses a test-mode key, equal price IDs, a half-set group with billing off, and an ambiguous switch", () => {
+    it("refuses a test-mode key, a half-set group with billing off, and an ambiguous switch", () => {
       expect(productionConfigIssues({ ...stripe, STRIPE_SECRET_KEY: `sk_test_${"x".repeat(24)}` })).toEqual(["Production billing requires a live-mode STRIPE_SECRET_KEY"]);
-      expect(productionConfigIssues({ ...stripe, STRIPE_PRICE_LIST: stripe.STRIPE_PRICE_FOUNDING })).toEqual(["STRIPE_PRICE_FOUNDING and STRIPE_PRICE_LIST must differ"]);
       expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: undefined })).toEqual(["Stripe, VAT or start-guarantee settings are present while live billing is not enabled"]);
       expect(productionConfigIssues({ ...stripe, LIVE_BILLING_ENABLED: "yes" })).toEqual(expect.arrayContaining(["LIVE_BILLING_ENABLED must be exactly true or false"]));
       expect(productionConfigIssues(stripe).join(" ")).not.toContain("x".repeat(24));

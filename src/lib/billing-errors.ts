@@ -11,7 +11,7 @@ const OWNER_TEXT: Record<string, string> = {
   FORBIDDEN: "Nur Inhaber:innen können Abrechnungsdaten sehen.",
   NOT_FOUND: "Dieser Eintrag ist nicht mehr da. Bitte lade die Seite neu.",
   BILLING_STATE: "Der Stand hat sich gerade geändert. Bitte lade die Seite neu.",
-  PLAN_UNAVAILABLE: "Dein Tarif wird noch festgelegt. Danach kannst du das Abo hier abschließen.",
+  PLAN_UNAVAILABLE: "Für dein Geschäft gibt es keine Online-Zahlung. Bitte melde dich bei uns, wir kümmern uns darum.",
   BILLING_DISABLED: "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal.",
   // A Stripe price or tax rate that does not match the plan: only we can fix it, so no "try again".
   PLAN_MISCONFIGURED: "Bei der Online-Zahlung stimmt auf unserer Seite etwas nicht. Bitte melde dich bei uns, wir kümmern uns darum.",
