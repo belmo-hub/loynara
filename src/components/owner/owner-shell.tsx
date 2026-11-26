@@ -112,7 +112,14 @@ export function OwnerShell({ children, notice }: { children: ReactNode; notice?:
     return () => { window.removeEventListener("popstate", back); document.removeEventListener("click", press, true); };
   }, []);
   useLayoutEffect(() => {
-    if (opened.current && !restoring.current && !location.hash) window.scrollTo({ top: 0, behavior: "instant" });
+    if (opened.current && !restoring.current && !location.hash) {
+      const top = () => window.scrollTo({ top: 0, behavior: "instant" });
+      top();
+      // ENG-381: one frame into the view transition WebKit puts back an offset of the list that was tapped, so a short screen
+      // sat past its own end, half empty, its button out of reach. Only a place past the end is undone: a page that placed
+      // itself since (Programm's return) is always within it.
+      requestAnimationFrame(() => { if (window.scrollY > document.documentElement.scrollHeight - window.innerHeight + 1) top(); });
+    }
     opened.current = true;
     restoring.current = false;
   }, [pathname]);

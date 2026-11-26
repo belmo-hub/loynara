@@ -1,4 +1,6 @@
 # regenerable build output
+collateral/print/
+collateral/print-post/
 collateral/build/
 collateral/build-post/
 collateral/preview/
