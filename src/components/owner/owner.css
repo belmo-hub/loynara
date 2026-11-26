@@ -1166,6 +1166,8 @@ button.ow-prog-row:disabled { cursor: progress; }
 .ow-chip--state { margin-top: var(--space-1); border-radius: var(--radius-sm); }
 /* The white card above the rows, as wide as they are; its unit is a step smaller than the Übersicht board's. */
 .ow-numcard { max-width: 40rem; }
+/* /operator's numbers (ENG-384) take the column like the sections under them (Design, #376). */
+.ow-numcard.ow-numcard--wide { max-width: none; }
 .ow-numcard .ow-board-big small { font-size: var(--text-22); letter-spacing: -.01em; }
 .ow-numcard-facts { display: grid; gap: var(--space-1); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
 .ow-numcard-facts div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }

@@ -21,7 +21,8 @@ import { PLANS } from "@/lib/stripe-config";
 import { money } from "@/components/owner/billing-copy";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
-import { OwnerIcon } from "@/components/owner/owner-ui";
+import { OwnerIcon, nf } from "@/components/owner/owner-ui";
+import { NumberCard } from "@/components/owner/owner-rows";
 import { handTypedPoint, pickedPoint, pointRequest, ShopSearch, type ShopPlace } from "@/components/owner/shop-search";
 import fieldStyles from "@/components/ui/field.module.css";
 import { DemoMode, type DemoRunning } from "./demo-mode";
@@ -38,6 +39,7 @@ const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, E
 type Billing = { tenantId: string; tenant: string; status: string; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Contract = { tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] };
+type Numbers = { shops: number; live: number; freeMonth: number; paying: number; failed: number; open: number; ended: number; newThisWeek: number; monthlyMinor: number };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
 
 const shopText = (shop: Shop) => shop ? `${shop.merchant} · ${shop.location} · ${shop.programme}` : "frei";
@@ -60,7 +62,7 @@ const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? 
   : g.outcome === "reached" ? "Startgarantie erreicht" : g.outcome === "late" ? "Startgarantie zu spät entschieden, keine Gutschrift" : "Startgarantie entfällt (gekündigt, nicht bezahlt oder Vertrag nach Stichtag)";
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
-export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
+export function OperatorClient({ numbers, rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; numbers: Numbers; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -198,6 +200,20 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
 
   return <main className="ow-page" id="ow-main">
     <PageHeader title="Operator" description="Platten und Geschäfte. Nur für dich sichtbar." />
+    {/* ENG-384: at a glance, how many shops there are and whether they pay. Demo shops and erased shops do not count. */}
+    {/* The five states add up to the total; the figures after them are not parts of it (Design, #376). */}
+    <NumberCard label="Zahlen" className="ow-numcard--wide" value={nf.format(numbers.shops)} unit={numbers.shops === 1 ? "Geschäft" : "Geschäfte"} facts={[
+      ["noch kein Abo", nf.format(numbers.open)],
+      ["im Gratismonat", nf.format(numbers.freeMonth)],
+      ["zahlend", nf.format(numbers.paying)],
+      ["Zahlung fehlgeschlagen oder ausgesetzt", nf.format(numbers.failed)],
+      ["beendet", nf.format(numbers.ended)],
+    ]}>
+      <dl className="ow-numcard-facts">
+        {([["mit laufendem Programm", nf.format(numbers.live)], ["neu in den letzten 7\u00a0Tagen", nf.format(numbers.newThisWeek)], ["pro Monat von zahlenden Geschäften", money(numbers.monthlyMinor, "EUR")]] as const)
+          .map(([term, detail]) => <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>)}
+      </dl>
+    </NumberCard>
     {error && !label ? <p role="alert">{error}</p> : null}
     {demo ? <DemoMode running={demo.running} /> : null}
 
