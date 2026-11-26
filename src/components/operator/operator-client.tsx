@@ -17,6 +17,8 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
+import { PLANS } from "@/lib/stripe-config";
+import { money } from "@/components/owner/billing-copy";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
@@ -33,7 +35,7 @@ type TemplatePreview = { result: string; from: string | null; to: string; ready:
 type Awaiting = { tenantId: string; tenant: string; location: string; city: string; inviteId: string; email: string; expiresAt: Date | string; status: "pending" | "accepted" | "revoked" | "expired" };
 type Invitation = { tenant: string; email: string; link: string; qr: string; expiresAt: string };
 const INVITE_STATUS = { pending: "Einladung offen", accepted: "Konto angelegt, Einrichtung offen", revoked: "Einladung widerrufen", expired: "Einladung abgelaufen" } as const;
-type Billing = { tenantId: string; tenant: string; status: string; planCode: string | null; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
+type Billing = { tenantId: string; tenant: string; status: string; currency: string; started: boolean; cancelling: boolean; lastFreeDay: string | null; ownerName: string | null; ownerEmail: string | null; city: string | null };
 type FreeMonth = { tenantId: string; shop: string; locations: string[]; lastFreeDay: string; sent: boolean };
 type Contract = { tenantId: string; tenant: string; ownerEmail: string | null; acceptedAt: string; endDate: string | null; addresses: string[] };
 type Guarantee = { locationId: string; tenant: string; location: string; customers: number | null; outcome: string | null; credited: boolean; decidedAt: Date | string | null };
@@ -56,7 +58,6 @@ const CODE = { none: "kein Code", open: "Code offen", locked: "Code offen, ein K
 // „erreicht“: the location reached the start target, no credit. „nicht erreicht“: the month-2 credit is owed or issued.
 const GUARANTEE_TEXT = (g: Guarantee) => g.outcome === "credit" ? (g.credited ? "Startgarantie nicht erreicht: Monat 2 kostenlos, Gutschrift erteilt" : "Startgarantie nicht erreicht: Gutschrift noch offen")
   : g.outcome === "reached" ? "Startgarantie erreicht" : g.outcome === "late" ? "Startgarantie zu spät entschieden, keine Gutschrift" : "Startgarantie entfällt (gekündigt, nicht bezahlt oder Vertrag nach Stichtag)";
-const PLAN_TEXT: Record<string, string> = { founding: "Gründungspreis 39 €", list: "Listenpreis 49 €" };
 const BILLING_STATUS: Record<string, string> = { manual_pending: "kein Abo", pending_checkout: "Checkout offen", active: "Abo aktiv", past_due: "Zahlung offen", suspended: "Abo ausgesetzt", cancelled: "Abo beendet" };
 
 export function OperatorClient({ rows, plates, awaiting, billing, guarantees, freeMonths, contracts, demo, placeSearch = false }: { placeSearch?: boolean; rows: Row[]; plates: Plate[]; awaiting: Awaiting[]; billing: Billing[]; guarantees: Guarantee[]; freeMonths: FreeMonth[]; contracts: Contract[]; demo?: { running: DemoRunning | null } }) {
@@ -161,12 +162,6 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
     finally { setBusy(false); }
   }
-  async function setPlan(tenantId: string, planCode: string) {
-    setBusy(true); setError("");
-    try { await postJson("/api/operator/billing-plan", { tenantId, planCode }); router.refresh(); }
-    catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
-    finally { setBusy(false); }
-  }
 
   // Codes are shown once, for printing the box cards: the server keeps only their hashes.
   async function sendCodes(body: Record<string, unknown>) {
@@ -246,14 +241,10 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-billing">
-      <CardHeader id="op-billing" title="Tarife" description="Ohne Wahl gilt der Listenpreis. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos, danach bleibt der Tarif fest." />
+      <CardHeader id="op-billing" title="Abrechnung" description={`Jedes Geschäft zahlt ${money(PLANS.list.priceMinor, "EUR")} je Standort und Monat. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos.`} />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
-          <Select label={`Tarif für ${b.tenant}`} value={b.planCode ?? ""} disabled={busy} onChange={event => { if (event.target.value) void setPlan(b.tenantId, event.target.value); }}>
-            <option value="">Noch nicht gewählt</option>
-            {Object.entries(PLAN_TEXT).map(([code, text]) => <option key={code} value={code}>{text}</option>)}
-          </Select>
           {b.lastFreeDay ? <div style={{ display: "grid", gap: 4 }}><span className="ow-muted">Kostenlos bis {b.lastFreeDay}{b.cancelling ? " · gekündigt, keine Rechnung" : ""}</span>
             {b.status === "active" && !b.cancelling ? (endFor === b.tenantId
               ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="danger" loading={busy} onClick={() => void endFreeMonth(b.tenantId)}>Vertrag zum {b.lastFreeDay} beenden, ohne Rechnung</Button><Button variant="quiet" onClick={() => setEndFor(null)}>Zurück</Button></div>

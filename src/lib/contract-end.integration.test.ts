@@ -14,7 +14,7 @@ import type { TransactionalEmailProvider, TransactionalMessage } from "./transac
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Dedicated synthetic database required");
 
 // Synthetic Stripe settings (no request leaves the process: the fake below answers the one call, GET /account).
-const STRIPE_ENV = { LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_test_${"k".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"s".repeat(32)}`, STRIPE_PRICE_FOUNDING: "price_founding0001", STRIPE_PRICE_LIST: "price_list00000001",
+const STRIPE_ENV = { LIVE_BILLING_ENABLED: "true", STRIPE_SECRET_KEY: `sk_test_${"k".repeat(24)}`, STRIPE_WEBHOOK_SECRET: `whsec_${"s".repeat(32)}`,  STRIPE_PRICE_LIST: "price_list00000001",
   SMTP_HOST: "localhost", PUBLIC_BASE_URL: "http://localhost:3000", EXTERNAL_EMAIL_ENABLED: "false", BILLING_VAT_MODE: undefined, SHOP_ERASURE_DELAY_DAYS: undefined, PRODUCTION_ENVIRONMENT: undefined,
   OPERATOR_NAME: "Synthetische Betreiberin", OPERATOR_ADDRESS: "Musterstraße 1\n12345 Musterstadt" };
 const saved: Record<string, string | undefined> = {};
@@ -145,7 +145,7 @@ describe("the owner's emails (M1–M3, Marketing FINAL with Legal's conditions)"
     process.env.OPERATOR_ADDRESS = "Musterstraße 1\n12345 Musterstadt";
     // The confirmation never waits on live billing (CTO): Stripe is off and isn't asked.
     process.env.LIVE_BILLING_ENABLED = "false";
-    for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_FOUNDING", "STRIPE_PRICE_LIST"]) delete process.env[name];
+    for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_LIST"]) delete process.env[name];
     setStripeClient(async () => { throw new Error("Stripe must not be called for an owner email"); });
     expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:16:00Z"))).toEqual({ status: "complete" });
     expect(await deliverContractEndEmail(job, provider, at("2026-11-01T09:17:00Z"))).toMatchObject({ status: "blocked" });

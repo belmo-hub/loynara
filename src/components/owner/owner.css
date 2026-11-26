@@ -825,7 +825,7 @@ a.ow-band, button.ow-band { cursor: pointer; }
 a.ow-band:active, button.ow-band:active { transform: scale(.985); }
 @media (hover: hover) { a.ow-band:hover, button.ow-band:hover { background: var(--color-action-hover); } }
 .ow-band-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius-md); background: color-mix(in oklab, var(--color-on-action), transparent 84%); }
-.ow-band-text { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.ow-band-text { flex: 1; min-width: 0; overflow-wrap: break-word; hyphens: auto; hyphenate-limit-chars: 12 5 5; -webkit-hyphenate-limit-before: 6; -webkit-hyphenate-limit-after: 6; }
 .ow-band b { display: block; font-size: var(--text-18); font-weight: var(--weight-strong); line-height: 1.3; text-wrap: balance; }
 .ow-band small { display: block; margin-top: var(--space-1); font-size: var(--text-14); line-height: 1.4; color: color-mix(in oklab, var(--color-on-action) 82%, var(--color-action)); }
 .ow-band-go { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); font-weight: var(--weight-strong); }
