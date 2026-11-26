@@ -80,29 +80,30 @@ test('public home and industry FAQs explain live lookup, correction and secure m
 
 test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', () => {
   const r = render('nfcAccepted,rcDeployed'), t = visible(r.home);
+  assert.match(r.home, /<p class="amt">49 €<\/p><p class="per">pro Monat und Standort<\/p>/);
   assert.doesNotMatch(t, /Termin \+ Treue|69 €|Für Salons|Keine Provision, nie/); assert.ok(!r.home.includes('price-pair') && !r.home.includes('/fuer-salons/'));
   assert.equal(r.pages.length, 3); assert.ok(r.pages.every(p => !p.includes('/fuer-salons/')));
 });
 
-test('booking gate on: the Termin + Treue plan without a price or a money-back promise, the Salons link and the salon page', () => {
+test('booking gate on: the Termin + Treue plan at 69 € without a money-back promise, the Salons link and the salon page', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
-  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
+  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.match(r.home, /<p class="amt">69 €<\/p><p class="per">Termin \+ Treue, pro Monat und Standort<\/p>/); assert.match(r.home, /<p class="amt">49 €<\/p><p class="per">Treue, pro Monat und Standort<\/p>/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
   assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Termine auf der Kundenkarte\. Erinnert per Push\./);
-  // Design r2: no outcome promise, no founding price, no amount next to the unpriced plan, and the card names its plan.
-  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><span>Termin \+ Treue<\/span><\/p>/);
+  // Design r2: no outcome promise and no founding price; founder Q-115: the card shows 69 € and names its plan.
+  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><b>69 €<\/b><span>pro Monat und Standort<\/span><\/p><p class="price-note">Termin \+ Treue: Alles aus dem 49‑€‑Paket, dazu Online-Termine\.<\/p>/);
   assert.match(r.pages[1], /<title>Online-Termine ohne Provision für Salons – Loynara<\/title>/); assert.match(r.pages[1], /<meta name="description" content="Termine auf der Kundenkarte, erinnert per Push: keine Provision, kein WhatsApp-Chaos, deine Kunden bleiben deine\.">/);
   assert.match(visible(r.home), /Zwei Pakete pro Standort\./); assert.doesNotMatch(visible(r.pages[1]), /pausiert/);
 });
 
 test('booking gate on: the home Termin plan uses the home page\'s own plan classes, which home.css styles', () => {
   const r = render('nfcAccepted,rcDeployed,bookingLive');
-  const plan = r.home.slice(r.home.indexOf('<p class="per">Termin + Treue</p>') - 200);
-  assert.match(plan, /<div class="pcard"><p class="per">Termin \+ Treue<\/p>/);
+  const plan = r.home.slice(r.home.indexOf('<p class="per">Termin + Treue, pro Monat und Standort</p>') - 200);
+  assert.match(plan, /<div class="pcard"><p class="amt">69 €<\/p><p class="per">Termin \+ Treue, pro Monat und Standort<\/p>/);
   assert.match(plan, /<a class="btn btn-pri" href="#rq" data-want="demo">Demo anfragen<\/a>/);
   assert.match(plan, /<ul class="incl" aria-label="In Termin \+ Treue enthalten">/);
   assert.ok(!r.home.includes('price-pair') && !r.home.includes('class="price-card"'));
   const css = readFileSync(resolve(here, '../design/home.css'), 'utf8');
-  assert.match(css, /\.pcard,\.incl\{[^}]*background:var\(--surface\)/); assert.match(css, /\.btn-pri\{background:var\(--action\)/);
+  assert.match(css, /\.pcard,\.incl\{[^}]*background:var\(--surface\)/); assert.match(css, /\.btn-pri\{background:var\(--action\)/); assert.match(css, /\.pcard \.amt\{|\.amt\{/);
 });
 
 test('the built site carries nothing of Termin while bookingLive is off (Design minor, 22 Nov)', () => {

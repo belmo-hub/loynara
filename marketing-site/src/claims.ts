@@ -8,6 +8,8 @@
  *              verification passed (card locator, owner/manager reissue keeping membership/balance/history/locator, corrections).
  * bookingLive: flip to true only after Loynara Termin (online booking, reminders, no-show handling) is deployed to production.
  *              While false, the Termin + Treue plan, the "Für Salons" link and the /fuer-salons/ page do not exist in the build.
+ *              Also only once the Vertragsbedingungen Fassung with Termin + Treue (§ 1 (6), § 3 (1) at 69 €, ENG-339) is live:
+ *              /vertragsbedingungen and /register must name 69 € before the site sells it (Design and Legal, 24 Nov).
  */
 export interface Gates { nfcAccepted: boolean; rcDeployed: boolean; bookingLive: boolean }
 export const RELEASED_GATES: Gates = { nfcAccepted: true, rcDeployed: true, bookingLive: false };
@@ -81,7 +83,8 @@ export const RECOVERY_COPY = GATES.rcDeployed ? RECOVERY.rc : RECOVERY.live;
 
 /** Termin + Treue claims (docs/booking-design.md). Only what the booking slice does; out-of-scope items are listed as not included. */
 export const TERMIN_COPY = {
-  // No amount: the Termin + Treue price is the founder's decision and stays out of the repository until then (CTO, 22 Nov).
+  // Founder Q-115 (23 Nov): 69 € per month and location; loyalty alone stays 49 €.
+  amount: 69,
   planNote: 'Alles aus dem 49‑€‑Paket, dazu Online-Termine.',
   included: ['Online-Termine direkt von der Kundenkarte', 'Erinnerung einen Tag und zwei Stunden vorher', 'Umgang mit Nichterscheinen', 'Erinnerung zum nächsten Termin, je Leistung', 'Deine Kundenliste gehört dir: CSV-Export'],
   fine: 'Push-Erinnerungen kommen an, wenn deine Kundschaft Mitteilungen erlaubt; auf dem iPhone nur, wenn die Karte auf dem Home-Bildschirm liegt. Zahlung oder Anzahlung online gehören nicht dazu.',
