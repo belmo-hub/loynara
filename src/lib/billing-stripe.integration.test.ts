@@ -99,6 +99,12 @@ async function shop() {
   const merchant = await createMerchant({ userId: ownerId, businessName: "Synthetic Stripe Café", city: "Kassel", country: "DE", timezone: "Europe/Berlin", locale: "de", currency: "EUR", programName: "Synthetic Card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Coffee", rewardCost: 5 });
   return { ...merchant, ownerId, operatorId };
 }
+/** A shop whose first checkout is open: checkout is only for that and for a restart; a new shop starts at go-live (ENG-375 FIX a). */
+async function checkoutShop() {
+  const s = await shop();
+  await pool.query("UPDATE subscriptions SET status = 'pending_checkout' WHERE tenant_id = $1", [s.tenantId]);
+  return s;
+}
 const sub = async (tenantId: string) => (await db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenantId)))[0];
 const programme = async (programId: string) => (await db.select().from(programs).where(eq(programs.id, programId)))[0];
 const sign = (raw: string, at: Date, secret = WEBHOOK_SECRET) => { const t = Math.floor(at.getTime() / 1000); return `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${raw}`).digest("hex")}`; };
@@ -111,7 +117,7 @@ const seconds = (at: Date) => Math.floor(at.getTime() / 1000);
 
 /** The owner checks out at the list price, Stripe creates the subscription and sends `created`. */
 async function subscribed(state: Partial<FakeSub> = {}) {
-  const s = await shop();
+  const s = await checkoutShop();
   await createStripeCheckout(s.ownerId);
   const customer = (await sub(s.tenantId)).providerCustomerId!;
   const subscriptionId = `sub_test${randomUUID().replaceAll("-", "").slice(0, 12)}`;
@@ -207,7 +213,7 @@ describe("Stripe subscription state", () => {
 
 describe("plans and checkout", () => {
   it("shows the list price for every shop, exactly what checkout charges (one source, L10), and records the plan at checkout", async () => {
-    const s = await shop();
+    const s = await checkoutShop();
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
     const page = await getBillingOverview(s.ownerId);
     expect(page).toMatchObject({ liveBilling: true, planCode: null });
@@ -223,7 +229,7 @@ describe("plans and checkout", () => {
   });
 
   it("bills a shop still holding the retired plan code at the list price, never at its old amount", async () => {
-    const s = await shop();
+    const s = await checkoutShop();
     await pool.query("UPDATE subscriptions SET plan_code = 'founding', price_minor = 3900 WHERE tenant_id = $1", [s.tenantId]);
     await pool.query("UPDATE billing_location_plans SET price_minor = 3900 WHERE tenant_id = $1", [s.tenantId]);
     expect((await getBillingOverview(s.ownerId)).charge).toEqual({ planCode: "list", unitMinor: 4900, quantity: 1, totalMinor: 4900 });
@@ -243,7 +249,7 @@ describe("plans and checkout", () => {
   });
 
   it("puts no VAT wording and no tax rate on the Stripe customer or subscription while the mode is unset", async () => {
-    const s = await shop();
+    const s = await checkoutShop();
     await createStripeCheckout(s.ownerId);
     expect(stripe.calls.find(call => call.path === "/customers")!.params["invoice_settings[footer]"]).toBeUndefined();
     expect(stripe.calls.find(call => call.method === "POST" && call.path === "/checkout/sessions")!.params["subscription_data[default_tax_rates][0]"]).toBeUndefined();
@@ -252,7 +258,7 @@ describe("plans and checkout", () => {
 
   it("charges the list price per location with the § 19 note on the customer, and reuses the open session", async () => {
     setEnv({ BILLING_VAT_MODE: "kleinunternehmer" });
-    const s = await shop();
+    const s = await checkoutShop();
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
     const checkout = await createStripeCheckout(s.ownerId);
     expect(checkout.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
@@ -267,7 +273,7 @@ describe("plans and checkout", () => {
   });
 
   it("closes an open checkout when the total changes (a location was added), so it can never complete at the old amount", async () => {
-    const s = await shop();
+    const s = await checkoutShop();
     const first = await createStripeCheckout(s.ownerId);
     await createAdditionalLocation(s.ownerId, { name: "Second counter", city: "Berlin", country: "DE", timezone: "Europe/Berlin", programName: "Second card", programType: "stamp", rulesText: "One stamp per confirmed checkout.", rewardTitle: "Tea", rewardCost: 5 });
     const second = await createStripeCheckout(s.ownerId);
@@ -276,8 +282,17 @@ describe("plans and checkout", () => {
     expect(stripe.calls.filter(call => call.method === "POST" && call.path === "/checkout/sessions").map(call => call.params["line_items[0][quantity]"])).toEqual(["1", "2"]);
   });
 
-  it("charges a non-euro shop nothing: no price on the page, checkout refused before Stripe", async () => {
+  it("offers a new shop no checkout before go-live: the free month starts with the operator's billing start", async () => {
     const s = await shop();
+    expect((await sub(s.tenantId)).status).toBe("manual_pending");
+    await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "BILLING_STATE" });
+    expect(stripe.calls).toEqual([]);
+    await pool.query("UPDATE subscriptions SET status = 'cancelled' WHERE tenant_id = $1", [s.tenantId]);
+    expect((await createStripeCheckout(s.ownerId)).url).toMatch(/^https:\/\/checkout\.stripe\.com\//); // a restart after a cancellation still checks out
+  });
+
+  it("charges a non-euro shop nothing: no price on the page, checkout refused before Stripe", async () => {
+    const s = await checkoutShop();
     await pool.query("UPDATE subscriptions SET currency = 'MAD' WHERE tenant_id = $1", [s.tenantId]);
     expect((await getBillingOverview(s.ownerId)).charge).toBeNull();
     await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_UNAVAILABLE" });
@@ -285,7 +300,7 @@ describe("plans and checkout", () => {
   });
 
   it("refuses a Stripe price that does not match the plan (a wrong price ID never charges)", async () => {
-    const s = await shop();
+    const s = await checkoutShop();
     setEnv({ STRIPE_PRICE_LIST: "price_wrong000001" });
     await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_MISCONFIGURED" });
     expect(stripe.calls.some(call => call.path === "/checkout/sessions")).toBe(false);
@@ -293,7 +308,7 @@ describe("plans and checkout", () => {
 
   it("standard VAT mode: no § 19 footer, the exclusive 19 % rate on the subscription, and the owner sees it; an inclusive rate is refused", async () => {
     setEnv({ BILLING_VAT_MODE: "standard", STRIPE_TAX_RATE_ID: "txr_test00000001" });
-    const s = await shop();
+    const s = await checkoutShop();
     stripe.taxRate.inclusive = true;
     await expect(createStripeCheckout(s.ownerId)).rejects.toMatchObject({ code: "PLAN_MISCONFIGURED" });
     stripe.taxRate.inclusive = false;

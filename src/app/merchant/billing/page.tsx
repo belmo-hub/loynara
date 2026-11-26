@@ -102,7 +102,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       window.location.assign(url);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt."); setBusy(false); }
   }
-  const canCheckout = o.charge !== null && ["manual_pending", "pending_checkout", "cancelled"].includes(o.status);
+  const canCheckout = o.charge !== null && ["pending_checkout", "cancelled"].includes(o.status);
   const checkout = () => { if (!busy) void go("/api/merchant/billing/handoff", "https://checkout.stripe.com"); };
   return (
     <div className="ow-page">
@@ -121,7 +121,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
           <Row key="status" icon={Euro} title={billingStatus(o)} sub={liveStatusSub(o, date)} />
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
-        <Rows title="Standorte" help={<p>{o.countingRule}</p>}>
+        <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.charge ? undefined : "Die Abrechnung für dein Geschäft klären wir direkt mit dir."}>
           {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
         </Rows>
       </div>

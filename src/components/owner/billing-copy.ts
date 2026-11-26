@@ -21,4 +21,5 @@ export const billingStatus =(o: Pick<BillingOverview, "liveBilling" | "status">)
 /** The live status row's sub: the end once cancelled, a next charge only while the subscription runs and charges (fault 1). */
 export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd">, date: (value: string) => string) =>
   o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.`
-    : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.` : undefined;
+    : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.`
+    : o.status === "manual_pending" ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;

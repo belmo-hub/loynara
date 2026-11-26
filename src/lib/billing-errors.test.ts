@@ -48,7 +48,7 @@ describe("owner billing errors are German; the detail stays in the log (ENG-072)
 
   it.each([
     ["BILLING_STATE", "A fixture checkout is unavailable in this state", 409, "Der Stand hat sich gerade geändert. Bitte lade die Seite neu."],
-    ["PLAN_UNAVAILABLE", "No location plan available", 400, "Für dein Geschäft ist kein Tarif hinterlegt. Bitte wende dich an den Support."],
+    ["PLAN_UNAVAILABLE", "No location plan available", 400, "Für dein Geschäft gibt es keine Online-Zahlung. Bitte melde dich bei uns, wir kümmern uns darum."],
     ["BILLING_DISABLED", "Live billing is unavailable", 400, "Die Online-Zahlung ist gerade nicht verfügbar. Bitte versuch es später noch einmal."],
     ["PLAN_MISCONFIGURED", "The Stripe price does not match the plan", 400, "Bei der Online-Zahlung stimmt auf unserer Seite etwas nicht. Bitte melde dich bei uns, wir kümmern uns darum."],
   ])("%s keeps its status and says it in German", async (code, internal, status, text) => {

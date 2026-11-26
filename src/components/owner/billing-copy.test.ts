@@ -25,7 +25,9 @@ describe("live status sub (ENG-179, fault 1)", () => {
   it("names a next charge only while the subscription runs and charges", () => {
     expect(sub("active")).toBe("Nächste Abrechnung am 2026-12-01.");
     expect(sub("past_due")).toBe("Nächste Abrechnung am 2026-12-01.");
-    for (const status of ["suspended", "cancelled", "pending_checkout", "manual_pending"]) expect(sub(status)).toBeUndefined();
+    for (const status of ["suspended", "cancelled", "pending_checkout"]) expect(sub(status)).toBeUndefined();
+    // A new shop gets no checkout: billing starts at go-live, with the free month (ENG-375).
+    expect(sub("manual_pending")).toBe("Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos.");
     expect(sub("active", true)).toBe("Gekündigt zum 2026-12-01.");
   });
 });

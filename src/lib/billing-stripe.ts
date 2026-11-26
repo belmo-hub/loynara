@@ -22,7 +22,8 @@ export const STRIPE_API_VERSION = "2025-03-31.basil";
 const SIGNATURE_WINDOW_MS = 5 * 60_000;
 export const STRIPE_EVENT_MAX_BYTES = 256 * 1024;
 // A suspended (unpaid) subscription still exists in Stripe: the owner fixes the card in the portal, never a second checkout.
-const CHECKOUT_OPEN = ["manual_pending", "pending_checkout", "cancelled"];
+// A new shop (manual_pending) starts at go-live with the free month (startBilling); checkout has no trial, so it is only an open first checkout or a restart.
+const CHECKOUT_OPEN = ["pending_checkout", "cancelled"];
 const RUNNING = ["active", "past_due", "suspended"];
 
 export type StripeClient = (method: "GET" | "POST" | "DELETE", path: string, params?: Record<string, string>, idempotencyKey?: string) => Promise<unknown>;

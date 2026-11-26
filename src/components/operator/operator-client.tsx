@@ -17,6 +17,8 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { earliestEndDate, END_DATE_TOO_EARLY } from "@/lib/operator-date";
 import { germanDate } from "@/lib/programme-end-date";
+import { PLANS } from "@/lib/stripe-config";
+import { money } from "@/components/owner/billing-copy";
 import { plateLabelFromScan } from "./plate-scan";
 import { copyText } from "@/components/copy-text";
 import { OwnerIcon } from "@/components/owner/owner-ui";
@@ -239,7 +241,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-billing">
-      <CardHeader id="op-billing" title="Abrechnung" description="Jedes Geschäft zahlt 49 € je Standort und Monat. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos." />
+      <CardHeader id="op-billing" title="Abrechnung" description={`Jedes Geschäft zahlt ${money(PLANS.list.priceMinor, "EUR")} je Standort und Monat. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos.`} />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>
