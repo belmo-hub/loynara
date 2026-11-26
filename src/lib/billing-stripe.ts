@@ -8,7 +8,7 @@ import { DomainError } from "./loyalty";
 import { assertPlateOperator } from "./plates";
 import { isBillingMonthEnd, nextBillingMonthEnd } from "./contract-end";
 import { addDays, MIN_NOTICE_DAYS } from "./programme-end-date";
-import { expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
+import { checkoutOpen, expectedFreeUntil, GUARANTEE_LINE, guaranteeSettings, isPlanCode, planCharge, PLANS, stripeEnabled, VAT_NOTE, vatMode, type PlanCode } from "./stripe-config";
 
 /**
  * Real billing through Stripe (ENG-055): hosted Checkout for the monthly subscription, the hosted customer portal for card
@@ -22,8 +22,6 @@ export const STRIPE_API_VERSION = "2025-03-31.basil";
 const SIGNATURE_WINDOW_MS = 5 * 60_000;
 export const STRIPE_EVENT_MAX_BYTES = 256 * 1024;
 // A suspended (unpaid) subscription still exists in Stripe: the owner fixes the card in the portal, never a second checkout.
-// A new shop (manual_pending) starts at go-live with the free month (startBilling); checkout has no trial, so it is only an open first checkout or a restart.
-const CHECKOUT_OPEN = ["pending_checkout", "cancelled"];
 const RUNNING = ["active", "past_due", "suspended"];
 
 export type StripeClient = (method: "GET" | "POST" | "DELETE", path: string, params?: Record<string, string>, idempotencyKey?: string) => Promise<unknown>;
@@ -201,7 +199,7 @@ export async function createStripeCheckout(actorUserId: string, at = new Date())
   return db.transaction(async tx => {
     const tenantId = await ownerTenant(actorUserId, tx);
     let sub = await lockedSubscription(tx, tenantId);
-    if (!CHECKOUT_OPEN.includes(sub.status)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo.");
+    if (!checkoutOpen(sub)) throw new DomainError("BILLING_STATE", "Für dieses Geschäft läuft bereits ein Abo oder die Abrechnung startet mit dem Go-live.");
     const charge = planCharge(sub);
     if (!charge) throw new DomainError("PLAN_UNAVAILABLE", "Tarife gibt es nur in Euro. Bitte wende dich an den Support.");
     if (!isPlanCode(sub.planCode)) sub = await applyPlan(tx, sub.tenantId, "list");

@@ -21,7 +21,7 @@ describe("Abrechnung wording (ENG-122c, R17 FINAL, D-021)", () => {
 });
 
 describe("live status sub (ENG-179, fault 1)", () => {
-  const sub = (status: string, cancelAtPeriodEnd = false, currency: "EUR" | "MAD" = "EUR") => liveStatusSub({ status, cancelAtPeriodEnd, currentPeriodEnd: "2026-12-01", currency }, day => day);
+  const sub = (status: string, cancelAtPeriodEnd = false, currency: "EUR" | "MAD" = "EUR", checkoutOpen = false) => liveStatusSub({ status, cancelAtPeriodEnd, currentPeriodEnd: "2026-12-01", currency, checkoutOpen }, day => day);
   it("names a next charge only while the subscription runs and charges", () => {
     expect(sub("active")).toBe("Nächste Abrechnung am 2026-12-01.");
     expect(sub("past_due")).toBe("Nächste Abrechnung am 2026-12-01.");
@@ -30,6 +30,8 @@ describe("live status sub (ENG-179, fault 1)", () => {
     expect(sub("manual_pending")).toBe("Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos.");
     // A non-euro shop never starts at go-live, so it gets no such promise.
     expect(sub("manual_pending", false, "MAD")).toBeUndefined();
+    // A restart whose checkout expired checks out again: no go-live promise either.
+    expect(sub("manual_pending", false, "EUR", true)).toBeUndefined();
     expect(sub("active", true)).toBe("Gekündigt zum 2026-12-01.");
   });
 });

@@ -291,6 +291,17 @@ describe("plans and checkout", () => {
     expect((await createStripeCheckout(s.ownerId)).url).toMatch(/^https:\/\/checkout\.stripe\.com\//); // a restart after a cancellation still checks out
   });
 
+  it("lets a restart whose checkout expired check out again (incomplete_expired keeps the subscription ID); a new shop still cannot", async () => {
+    const fresh = await shop();
+    expect(await getBillingOverview(fresh.ownerId)).toMatchObject({ status: "manual_pending", checkoutOpen: false });
+    await expect(createStripeCheckout(fresh.ownerId)).rejects.toMatchObject({ code: "BILLING_STATE" });
+    const s = await shop();
+    await pool.query("UPDATE subscriptions SET status = 'manual_pending', provider = 'stripe', provider_subscription_id = 'sub_testexpired01' WHERE tenant_id = $1", [s.tenantId]);
+    expect(await getBillingOverview(s.ownerId)).toMatchObject({ status: "manual_pending", checkoutOpen: true });
+    expect((await createStripeCheckout(s.ownerId)).url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+    expect(stripe.calls.filter(call => call.method === "POST" && call.path === "/checkout/sessions")).toHaveLength(1);
+  });
+
   it("charges a non-euro shop nothing: no price on the page, checkout refused before Stripe", async () => {
     const s = await checkoutShop();
     await pool.query("UPDATE subscriptions SET currency = 'MAD' WHERE tenant_id = $1", [s.tenantId]);

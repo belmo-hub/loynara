@@ -28,6 +28,14 @@ export function planCharge(sub: { activeLocationCount: number; currency: string 
   return { planCode: "list" as const, unitMinor, quantity: sub.activeLocationCount, totalMinor: unitMinor * sub.activeLocationCount };
 }
 
+/**
+ * Whether the owner may open a Stripe checkout: a first checkout still open, a restart after a cancellation, or a restart
+ * whose checkout expired (Stripe's incomplete_expired puts it back to manual_pending but keeps the subscription ID). A new
+ * shop has no subscription ID: it starts at go-live with the free month (startBilling), because checkout has no trial.
+ */
+export const checkoutOpen = (sub: { status: string; providerSubscriptionId: string | null }) =>
+  sub.status === "pending_checkout" || sub.status === "cancelled" || (sub.status === "manual_pending" && sub.providerSubscriptionId !== null);
+
 type Env = Record<string, string | undefined>;
 const price = /^price_[A-Za-z0-9]{8,}$/;
 const formats: Record<string, RegExp> = {

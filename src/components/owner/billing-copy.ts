@@ -2,7 +2,7 @@
 export type BillingOverview = {
   status: string; currency: "EUR" | "MAD"; locationCount: number; monthlySubtotalMinor: number;
   currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; graceUntil: string | null;
-  liveBilling: boolean; charge: { planCode: "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "list" | null; paymentAccount: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
+  liveBilling: boolean; charge: { planCode: "list"; unitMinor: number; quantity: number; totalMinor: number } | null; taxNote: string; planCode: "list" | null; paymentAccount: boolean; checkoutOpen: boolean; guaranteeApplied: boolean; fixtureAvailable: boolean; countingRule: string;
   locations: Array<{ locationId: string; locationName: string; planCode: string; priceMinor: number; memberLimit: number; activeMembers: number }>;
   invoices: Array<{ id: string; providerInvoiceId: string; status: string; amountMinor: number; currency: "EUR" | "MAD"; taxMinor: null; periodEnd: string; createdAt: string }>;
 };
@@ -19,8 +19,8 @@ export const perMonth = (locations: number, totalMinor: number, currency: string
 export const billingStatus =(o: Pick<BillingOverview, "liveBilling" | "status">) => (o.liveBilling ? LIVE_STATUS : STATUS)[o.status] ?? o.status;
 
 /** The live status row's sub: the end once cancelled, a next charge only while the subscription runs and charges (fault 1). */
-export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd" | "currency">, date: (value: string) => string) =>
+export const liveStatusSub = (o: Pick<BillingOverview, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd" | "currency" | "checkoutOpen">, date: (value: string) => string) =>
   o.cancelAtPeriodEnd && o.currentPeriodEnd ? `Gekündigt zum ${date(o.currentPeriodEnd)}.`
     : o.currentPeriodEnd && ["active", "past_due"].includes(o.status) ? `Nächste Abrechnung am ${date(o.currentPeriodEnd)}.`
     // Only a euro shop starts at go-live (startBilling refuses another currency).
-    : o.status === "manual_pending" && o.currency === "EUR" ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;
+    : o.status === "manual_pending" && o.currency === "EUR" && !o.checkoutOpen ? "Die Abrechnung startet mit deinem Go-live. Der erste Monat ist kostenlos." : undefined;

@@ -102,7 +102,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       window.location.assign(url);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Das hat nicht geklappt."); setBusy(false); }
   }
-  const canCheckout = o.charge !== null && ["pending_checkout", "cancelled"].includes(o.status);
+  const canCheckout = o.charge !== null && o.checkoutOpen;
   const checkout = () => { if (!busy) void go("/api/merchant/billing/handoff", "https://checkout.stripe.com"); };
   return (
     <div className="ow-page">
