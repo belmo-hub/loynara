@@ -10,7 +10,7 @@ import { Notice, OwnerIcon } from "./owner-ui";
 import { markSaved } from "./program-list";
 
 /** The list a question belongs to: Programm by default; Geschäft's sender screens (ENG-164) go back there. */
-export type QuestionHome = { href: string; label: string; list?: string };
+export type QuestionHome = { href: string; label: ReactNode; list?: string };
 export const PROGRAM_HOME: QuestionHome = { href: "/merchant/program", label: "Programm" };
 /** Happy Hour opened from the Aktionen row goes back there (Design decision 5): both rows open the same page. */
 export const ACTIONS_HOME: QuestionHome = { href: "/merchant/actions", label: "Aktionen", list: "owner-aktionen-return" };
