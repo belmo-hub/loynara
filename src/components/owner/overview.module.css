@@ -47,7 +47,7 @@
   .line.line > [data-go] > svg { flex: none; }
 }
 /* Below 360 the button spans the row under the lead tile, so it keeps two lines. */
-@media (max-width: 359px) { .next > [data-lead="tile"] .line.line > [data-go] { max-width: none; width: calc(100% + var(--mix-tile) + var(--space-3)); margin-left: calc(-1 * (var(--mix-tile) + var(--space-3))); } }
+@media (max-width: 359px) { .page .next > [data-lead="tile"] .line.line > [data-go] { max-width: none; width: calc(100% + var(--mix-tile) + var(--space-3)); margin-left: calc(-1 * (var(--mix-tile) + var(--space-3))); } }
 /* Forced colours drop the muted tiles' fill: a transparent edge (size unchanged) shows as CanvasText there. */
 .page .next [data-lead="tile"] > :first-child { border: 1px solid transparent; }
 /* „Tresenschild laden“: the mix link (44 tall, the 20 line kept by its margins), its ring around the text (above). */
@@ -129,7 +129,7 @@
 /* The whole panel is the link: it presses like a row and underlines its title under a fine pointer. */
 .page .sug { transition: transform var(--dur-press) var(--ease-out); }
 .page .sug:active { transform: scale(.985); }
-@media (hover: hover) { .sug:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+@media (hover: hover) { .page .sug:hover b { text-decoration: underline; text-underline-offset: 3px; } }
 
 /* The section head's „?“: a 44 target that does not make the head taller. */
 .help { display: grid; place-items: center; width: var(--target); height: var(--target); margin: calc(-1 * var(--space-2) - 1px) calc(-1 * var(--space-3)) calc(-1 * var(--space-2) - 1px) 0; padding: 0; border: 0; background: none; color: var(--color-ink-muted); cursor: pointer; transition: transform var(--dur-press) var(--ease-out); }
@@ -189,13 +189,13 @@
 .sm.sm { padding-inline: var(--space-4); font-size: var(--text-14); line-height: 1.25rem; }
 @media (min-width: 1024px) {
   .page .steps { align-self: start; } /* beside the board, as the figure rows stand; it ends at its last step */
-  .off { padding-top: var(--space-5); }
+  .page .off { padding-top: var(--space-5); }
 }
 
 /* The first-weeks note: over the figure rows below 1024, in the section title from 1024 (Design, 18 Nov). */
-.titleNote { display: none; }
+.page .titleNote { display: none; }
 /* In the flex title a space would collapse: the gap less 4 stands for it. */
-@media (min-width: 1024px) { .titleNote { display: inline; margin-left: calc(var(--space-1) - var(--space-2)); } .factsNote { display: none; } }
+@media (min-width: 1024px) { .page .titleNote { display: inline; margin-left: calc(var(--space-1) - var(--space-2)); } .page .factsNote { display: none; } }
 @media (prefers-reduced-motion: reduce) {
   .page .sug, .help, .line.line > button[data-link] { transition: none; }
   .page .sug:active, .help:active, .line.line > button[data-link]:active { transform: none; }
