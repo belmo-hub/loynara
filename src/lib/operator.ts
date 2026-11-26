@@ -2,14 +2,45 @@ import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
 import { freeMonthsEndingSoon } from "./free-month-reminder";
+import { DEMO_SLUG_SQL } from "./demo-environment";
 import { DomainError } from "./loyalty";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
+import { planCharge } from "./stripe-config";
 import { walletMessageStats } from "./wallet-messages";
 import { enqueueWalletProgramRefresh } from "./wallet/enqueue";
 import { googleClassOverview } from "./wallet/google-classes";
 import { walletTemplateOverview } from "./wallet/template-bindings";
+
+type Reader = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type NumberState = "freeMonth" | "paying" | "failed" | "open" | "ended";
+
+/**
+ * ENG-384: the founder's numbers, counts and euros only. One aggregate over every shop, demo shops and erased ones left out,
+ * grouped the way billing reads a subscription. The revenue is the billing code's own price per paying shop (planCharge),
+ * never a second price table; a non-euro shop has none and adds nothing.
+ */
+async function operatorNumbers(tx: Reader) {
+  const { rows } = await tx.execute<{ state: NumberState; currency: string | null; locationCount: number | null; shops: number; live: number; fresh: number }>(sql`
+    SELECT CASE WHEN s.status IS NULL OR s.status IN ('manual_pending', 'pending_checkout') THEN 'open'
+        WHEN s.status IN ('cancelled', 'suspended', 'suspended_fixture') THEN 'ended'
+        WHEN s.status IN ('past_due', 'grace_fixture') THEN 'failed'
+        WHEN s.free_until > now() THEN 'freeMonth' ELSE 'paying' END AS state,
+      s.currency, s.active_location_count AS "locationCount", count(*)::int AS shops,
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM programs p WHERE p.tenant_id = t.id AND p.status = 'active'))::int AS live,
+      count(*) FILTER (WHERE t.created_at > now() - interval '7 days')::int AS fresh
+    FROM tenants t LEFT JOIN subscriptions s ON s.tenant_id = t.id
+    WHERE t.slug !~ ${DEMO_SLUG_SQL} AND NOT EXISTS (SELECT 1 FROM shop_erasures e WHERE e.erased_tenant_id = t.id)
+    GROUP BY 1, 2, 3`);
+  const numbers = { shops: 0, live: 0, freeMonth: 0, paying: 0, failed: 0, open: 0, ended: 0, newThisWeek: 0, monthlyMinor: 0 };
+  for (const group of rows) {
+    numbers.shops += group.shops; numbers.live += group.live; numbers.newThisWeek += group.fresh; numbers[group.state] += group.shops;
+    const charge = group.state === "paying" && group.currency && group.locationCount ? planCharge({ activeLocationCount: group.locationCount, currency: group.currency }) : null;
+    numbers.monthlyMinor += (charge?.totalMinor ?? 0) * group.shops;
+  }
+  return numbers;
+}
 
 /**
  * The operator's read model: shops and plates, counts and dates only. No customer, card or contact data is selected,
@@ -18,6 +49,7 @@ import { walletTemplateOverview } from "./wallet/template-bindings";
 export async function operatorOverview(actorUserId: string, env: Record<string, string | undefined> = process.env) {
   return db.transaction(async tx => {
     await assertPlateOperator(tx, actorUserId, env);
+    const numbers = await operatorNumbers(tx);
     const cards = tx.select({ programId: memberships.programId, cards: sql<number>`count(*)::int`.as("cards") }).from(memberships).groupBy(memberships.programId).as("c");
     // shortcut: aggregates the whole ledger per programme on every page load, fine at pilot size; add a cached or indexed last-award column when shops exceed a few hundred.
     const awards = tx.select({ programId: memberships.programId, last: max(ledgerEntries.createdAt).as("last") }).from(ledgerEntries)
@@ -84,7 +116,7 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       ORDER BY t.name, t.id`);
     // ENG-123: free months ending within 7 days, and whether the reminder went out (the fallback while the email lane is off).
     const freeMonths = await freeMonthsEndingSoon();
-    return { awaiting, billing, guarantees, freeMonths, contracts, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
+    return { numbers, awaiting, billing, guarantees, freeMonths, contracts, rows: rows.map(({ requestedAt, confirmedAt, ...row }) => ({ ...row, walletMessages: messages.get(row.programId) ?? null, walletTemplate: templates.get(`${row.tenantId}/${row.locationId}`) ?? null, googleClass: googleClasses.get(row.programId) ?? null, cancellationHistory: history.get(row.programId) ?? [], confirmed: confirmedAt !== null, requestedDays: requestedAt ? Math.floor((now - requestedAt.getTime()) / 86_400_000) : null })), plates };
   });
 }
 
