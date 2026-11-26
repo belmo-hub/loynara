@@ -54,6 +54,12 @@ test("„Verschieben“ at 390x812: a free day, focus on the slots, the primary 
     const figures = element.nextElementSibling!.getBoundingClientRect(), chart = element.getBoundingClientRect();
     return Math.abs(figures.top - chart.top) <= 1 && chart.right <= figures.left;
   })).toBe(true);
+  // From 1024 the first-weeks note stands in the section title only: the figures card shows none (Design r2, 26 Nov).
+  expect(await board.evaluate(element => {
+    const leaves = [...element.nextElementSibling!.querySelectorAll<HTMLElement>("*")].filter(node => node.children.length === 0 && /Woche/.test(node.textContent ?? ""));
+    return { inDom: leaves.length > 0, shown: leaves.some(node => node.offsetParent !== null) };
+  })).toEqual({ inDom: true, shown: false });
+  await expect(page.getByRole("heading", { name: /Letzte 30 Tage an diesem Standort · erste Woche/ })).toBeVisible();
   await page.goto(`/merchant/termine?date=${date}`);
   // Design (26 Nov): at 320 the day's quick switch keeps whole words, one line per button, and nothing scrolls sideways.
   await page.keyboard.press("Escape");
