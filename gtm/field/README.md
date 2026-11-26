@@ -5,7 +5,7 @@ Start with [../17-field-kit.md](../17-field-kit.md).
 | Folder / file | Content |
 |---|---|
 | `PROSPECTS.md` | Pointer: the prospect list and routes are with Sales, outside the repo |
-| `collateral/` | Demo and objection cheat sheets, pilot interest sheet, after-demo summary: `templates/` (source), `print/` (PDF), `variants.py` (release-gated wording) |
+| `collateral/` | Demo and objection cheat sheets, pilot interest sheet, after-demo summary: `templates/` (source; built PDFs stay local), `variants.py` (release-gated wording) |
 | `learning-sheet.xlsx` / `learning-sheet-template.csv` | One row per conversation |
 | `stand/` | Counter stand: spec, artwork, laser files, fabrication sheet, previews, QA |
 

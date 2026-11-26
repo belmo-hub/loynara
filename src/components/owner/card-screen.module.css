@@ -37,6 +37,14 @@
 .stmt[data-hang] > .stmtBody { padding-top: 11px; padding-bottom: var(--space-3); }
 .stmt[data-hang] .sub { grid-column: 1 / -1; }
 .end { grid-area: 1 / 2 / span 2; align-self: stretch; display: grid; justify-items: end; align-content: space-between; }
+/* Under large text only (the row narrower than 15 of its own em; at 100 % even a 320 phone is wider): the amount and
+   „Korrigieren“ go under the words instead of over them (#356's activity-row pattern; Design, #348). */
+.stmt { container: stmt / inline-size; }
+@container stmt (max-width: 15em) {
+  .stmtBody.stmtBody { grid-template-columns: minmax(0, 1fr); }
+  .end { grid-area: auto; grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); }
+  .title { overflow-wrap: break-word; hyphens: auto; }
+}
 .amount { font-size: var(--text-18); line-height: 1.5rem; font-weight: var(--weight-heavy); white-space: nowrap; text-align: right; font-feature-settings: "tnum" 1; }
 .amount[data-tone="plus"] { color: var(--color-success); }
 .amount[data-tone="off"] { color: var(--color-ink-muted); text-decoration: line-through; }

@@ -4,12 +4,13 @@ import { pool } from "@/db";
 import { POST as bookRoute } from "@/app/api/card/[token]/booking/appointments/route";
 import { GET as dayRoute } from "@/app/api/merchant/booking/day/route";
 import { GET as slotsRoute } from "@/app/api/merchant/booking/appointments/[id]/slots/route";
+import { GET as nextFreeRoute } from "@/app/api/merchant/booking/appointments/[id]/next-free/route";
 import { GET as blockedRoute } from "@/app/api/merchant/booking/customers/blocked/route";
 import { acceptStaffInvite, createStaffInvite } from "@/lib/staff";
 import { blockCustomer, book, move, transition, unblockCustomer } from "./appointments";
 import { saveSetup } from "./setup";
 import { allWeek, bookingShop, dayOf, futureStart, identity, origin, request, withBookingDatabase } from "./test-fixture";
-import { instantToWall } from "./time";
+import { addDays, instantToWall, wallToInstant } from "./time";
 
 withBookingDatabase();
 
@@ -86,4 +87,18 @@ it("the blocked list names paused cards of this location; the day carries the ne
 
   await unblockCustomer({ ...shop.scope, membershipId: shop.card.id });
   expect((await (await list(shop.ownerCookie)).json()).customers).toEqual([]);
+});
+
+it("„Verschieben“ finds the next free day in one request, and the appointment's own place does not count as free", async () => {
+  // Lena works one half hour on one weekday (three days from today in Berlin), and the appointment fills it.
+  const today = instantToWall(new Date(), "Europe/Berlin").date;
+  const target = addDays(today, 3);
+  const weekday = ((new Date(`${target}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  const shop = await bookingShop({ workingHours: allWeek("10:00", "10:30").filter(day => day.weekday === weekday) });
+  const start = wallToInstant(target, "10:00", "Europe/Berlin")!;
+  const { appointment } = await book({ token: shop.card.cardToken, serviceId: shop.serviceId, start, customerName: "Mia", idempotencyKey: randomUUID() });
+  const nextFree = async (from: string, staffId = shop.staffId) => nextFreeRoute(request(`/api/merchant/booking/appointments/${appointment.id}/next-free?from=${from}&staffId=${staffId}`, { cookie: shop.ownerCookie }), { params: Promise.resolve({ id: appointment.id }) });
+  expect(await (await nextFree(today)).json()).toEqual({ date: addDays(target, 7) });
+  expect(await (await nextFree(addDays(target, 8))).json()).toEqual({ date: addDays(target, 14) });
+  expect((await nextFree(today, "00000000-0000-4000-8000-000000000000")).status).toBe(404);
 });
