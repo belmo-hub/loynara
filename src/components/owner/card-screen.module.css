@@ -111,7 +111,7 @@
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)
    all three figures step down to 22/28 together (Head of Design, 20 Nov). */
-@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .facts .figure.figure { font-size: var(--text-22); line-height: 1.75rem; letter-spacing: normal; } }
+@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .layout .facts .figure.figure { font-size: var(--text-22); line-height: 1.75rem; letter-spacing: normal; } }
 @media (min-width: 600px) and (max-width: 1199px) {
   .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
   /* Beside the card the figures' rows share the card's height. */
