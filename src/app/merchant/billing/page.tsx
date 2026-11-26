@@ -109,7 +109,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
       {head}
       {error && <ErrorNotice message={error} />}
       {o.status === "past_due" && <Notice tone="warn" role="alert">Die letzte Zahlung ist fehlgeschlagen. Bitte prüfe deine Zahlungsdaten.</Notice>}
-      {/* One price for every shop, 49 € je Standort (pilot agreement § 3 (1)); no charge only for a non-euro shop. */}
+      {/* 49 € je Standort, 69 € mit Termin + Treue (Vertragsbedingungen § 3 (1)); no charge only for a non-euro shop. */}
       {o.charge &&
         <NumberCard label="Monatlich" value={money(o.charge.totalMinor, o.currency)}>
           <p className="ow-board-sub">{perMonth(o.charge.quantity, o.charge.totalMinor, o.currency)}</p>
@@ -122,7 +122,7 @@ function LiveBilling({ o, head }: { o: Overview; head: ReactNode }) {
           {o.paymentAccount && <Row key="portal" icon={CreditCard} title="Zahlungsdaten, Rechnungen und Kündigung" onClick={() => { if (!busy) void go("/api/merchant/billing/portal", "https://billing.stripe.com"); }} />}
         </Rows>
         <Rows title="Standorte" help={<p>{o.countingRule}</p>} note={o.charge ? undefined : "Die Abrechnung für dein Geschäft klären wir direkt mit dir."}>
-          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten${location.bookingEnabled ? " · Online-Buchung freigeschaltet" : ""}`} value={o.charge ? <Price minor={o.charge.unitMinor} currency={o.currency} /> : undefined} big />)}
+          {o.locations.map(location => <Row key={location.locationId} icon={MapPin} title={location.locationName} sub={`${count(location.activeMembers)} von ${count(location.memberLimit)} aktiven Karten${location.bookingEnabled ? " · Online-Buchung freigeschaltet" : ""}`} value={o.charge ? <Price minor={location.priceMinor} currency={o.currency} /> : undefined} big />)}
         </Rows>
       </div>
     </div>

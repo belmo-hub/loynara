@@ -4,7 +4,7 @@ import { pool } from "@/db";
 import { operatorFooter } from "./operator-footer";
 import { operatorIdentity } from "./operator-identity";
 import { surfaceHidden } from "./pilot-surfaces";
-import { vatMode } from "./stripe-config";
+import { PLANS, vatMode } from "./stripe-config";
 import { emailTransportMode, sendTransactional, type TransactionalEmailProvider } from "./transactional-email";
 
 /**
@@ -55,12 +55,14 @@ export async function deliverFreeMonthReminder(job: { id: string; tenantId: stri
   if (!row.current) return { status: "suppressed" as const, reason: "Free month no longer ends then" };
   // ENG-278: never to an unconfirmed address. Blocked, not suppressed, so the operator sees the reminder was not sent.
   if (!row.confirmed) return { status: "blocked" as const, reason: "Owner email not confirmed" };
-  // Each location's stored price, the one the invoice charges (applyPlan writes it); never a literal amount.
+  // Each location's price as the invoice charges it: the stored price (applyPlan writes it), or the termin price with
+  // „Termin + Treue“ switched on (ENG-382); never a literal amount.
   const { rows: locations } = await pool.query<{ name: string; priceMinor: number }>(`
-    SELECT l.name, p.price_minor AS "priceMinor" FROM subscriptions s ${FREE_LOCATIONS}
+    SELECT l.name, CASE WHEN b.enabled THEN $2::int ELSE p.price_minor END AS "priceMinor" FROM subscriptions s ${FREE_LOCATIONS}
     JOIN locations l ON l.tenant_id = p.tenant_id AND l.id = p.location_id
+    LEFT JOIN booking_settings b ON b.tenant_id = p.tenant_id AND b.location_id = p.location_id
     WHERE s.tenant_id = $1 ORDER BY l.name, l.id
-  `, [job.tenantId]);
+  `, [job.tenantId, PLANS.termin.priceMinor]);
   if (!locations.length) return { status: "suppressed" as const, reason: "No free-month location" };
   // The footer names the operator as the Impressum does, from the operator's own settings, never Stripe's (CTO).
   const operator = operatorIdentity();

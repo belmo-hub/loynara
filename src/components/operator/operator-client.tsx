@@ -253,7 +253,7 @@ export function OperatorClient({ rows, plates, awaiting, billing, guarantees, fr
     </Card> : null}
 
     <Card as="section" aria-labelledby="op-billing">
-      <CardHeader id="op-billing" title="Abrechnung" description={`Jedes Geschäft zahlt ${money(PLANS.list.priceMinor, "EUR")} je Standort und Monat. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos.`} />
+      <CardHeader id="op-billing" title="Abrechnung" description={`Jedes Geschäft zahlt ${money(PLANS.list.priceMinor, "EUR")} je Standort und Monat, mit Termin + Treue ${money(PLANS.termin.priceMinor, "EUR")}. Am Go-live-Tag die Abrechnung starten: Der erste Monat ist kostenlos.`} />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {billing.filter(b => b.currency === "EUR").map(b => <li key={b.tenantId} style={{ display: "grid", gap: 4 }}>
           <span><strong>{b.tenant}</strong> · <Badge tone={b.status === "active" ? "success" : "neutral"}>{BILLING_STATUS[b.status] ?? b.status}</Badge></span>

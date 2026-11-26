@@ -136,6 +136,16 @@ describe("free-month reminder (ENG-123)", () => {
     expect(plain(sent[0].body)).toContain("Ab dem 10. Dezember kostet Loynara 49 € zzgl. USt im Monat für Am Markt.");
   });
 
+  it("quotes 69 € for a location with Termin + Treue and the total with it (ENG-382)", async () => {
+    const s = await shop();
+    await pool.query("INSERT INTO booking_settings (tenant_id, location_id, enabled) VALUES ($1, $2, true)", [s.tenantId, s.locationId]);
+    await queueFreeMonthReminders(pool, new Date(FREE_UNTIL.getTime() - 7 * DAY));
+    const [job] = await jobs(s.tenantId);
+    const { sent, provider } = fakeProvider();
+    await deliverFreeMonthReminder(job, provider);
+    expect(plain(sent[0].body)).toContain(["Ab dem 10. Dezember kostet Loynara 118 € im Monat für deine 2 Standorte:", "Am Markt: 69 €", "Bahnhof: 49 €"].join("\n"));
+  });
+
   it("holds the reminder for the operator while the owner's address is not confirmed (ENG-278)", async () => {
     const s = await shop();
     await pool.query('UPDATE "user" SET "emailVerified" = false WHERE id = $1', [s.owner]);
