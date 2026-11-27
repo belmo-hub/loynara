@@ -40,6 +40,12 @@ describe("operator identity: target guard", () => {
   ])("refuses: %s", (_name, target, override, code) => {
     expect(refusalCode(() => assertOperatorTarget(target, { ...productionEnv, ...override } as Record<string, string | undefined>))).toBe(code);
   });
+  it("lets the tag registration through with shop sign-up open, and nothing else", () => {
+    const open = { ...productionEnv, PUBLIC_REGISTRATION_ENABLED: "true" };
+    expect(assertOperatorTarget("loynara-production", open, { allowOpenRegistration: true })).toBe("loynara-production");
+    expect(refusalCode(() => assertOperatorTarget("loynara-production", open))).toBe("PUBLIC_REGISTRATION_NOT_DISABLED");
+    expect(refusalCode(() => assertOperatorTarget("loynara-production", { ...open, DATABASE_URL: "postgresql://u:p@localhost:5432/x" }, { allowOpenRegistration: true }))).toBe("DATABASE_NOT_PRIVATE_RAILWAY");
+  });
   it("accepts the local target only for the loopback looplocal database", () => {
     const local = { NODE_ENV: "development", DATABASE_URL: "postgresql://looplocal:x@localhost:54329/looplocal", BETTER_AUTH_URL: "http://localhost:3000", PUBLIC_BASE_URL: "http://localhost:3000" };
     expect(assertOperatorTarget("local", local)).toBe("local");

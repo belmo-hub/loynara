@@ -20,7 +20,7 @@ async function main() {
   const audit = await registerTag({
     bundleText: process.env.NFC_TAG_BUNDLE, actorUserId, execute: values.execute === true, env: process.env, provider: defaultTapKeyProvider(),
     guard: () => {
-      assertOperatorTarget(values.target, process.env);
+      assertOperatorTarget(values.target, process.env, { allowOpenRegistration: true });
       if (!nfcCapability().available) throw new RegistrationRefusal("NFC_NOT_ENABLED_ON_THIS_DEPLOYMENT");
     },
   });
