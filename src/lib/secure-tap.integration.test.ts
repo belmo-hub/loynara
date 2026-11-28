@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
-import { ledgerEntries, locations, memberships, programRuleVersions, programs, rewardVersions, rewards, staffRoles, tenants } from "@/db/schema";
-import { activateSecureTag, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag, setTapPolicy, replaceSecureTag, revokeSecureTag, type TapKeyProvider } from "./secure-tap";
+import { ledgerEntries, locations, memberships, programRuleVersions, programs, rewardVersions, rewards, secureTags, staffRoles, tenants } from "@/db/schema";
+import { activateSecureTag, confirmTapRequest, pendingTapRequests, processSecureTap, provisionSecureTag, setTapPolicy, replaceSecureTag, retireSecureTag, revokeSecureTag, type TapKeyProvider } from "./secure-tap";
 import { verifySdm } from "./secure-tap-crypto";
 import { GET as tapGet, POST as tapPost } from "@/app/api/tap/[ref]/route";
 import { tapCookieHeader } from "./secure-tap";
@@ -155,6 +155,32 @@ describe("secure tap ledger boundary", () => {
     expect((await db.select().from(ledgerEntries).where(eq(ledgerEntries.membershipId, f.member.id))).map(row => row.delta)).toEqual([1]);
     await revokeSecureTag({ actorUserId: f.userId, tagId: tag.id });
     await expect(processSecureTap({ ...input, fields: syntheticSdm("04de5f1eacc040", 62) })).rejects.toBeTruthy();
+  });
+});
+
+describe("console retirement of a live tag (operator-plate revoke-tag)", () => {
+  const code = async (fn: () => Promise<unknown>) => { try { await fn(); } catch (error) { return (error as { code?: string }).code ?? "OTHER"; } return "NONE"; };
+  const status = async (id: string) => (await db.select().from(secureTags).where(eq(secureTags.id, id)))[0].status;
+  it("is owner-only, a dry run unless execute, and then final", async () => {
+    const f = await configured(), other = await fixture();
+    const retire = (actorUserId: string, execute: boolean, tagId = f.tag.id) => retireSecureTag({ actorUserId, tagId, execute });
+    expect(await code(() => retire(other.userId, true))).toBe("FORBIDDEN");
+    expect(await code(() => retire(f.userId, true, randomUUID()))).toBe("NOT_FOUND");
+    expect(await code(() => retire(f.userId, true, "not-a-uuid"))).toBe("NOT_FOUND");
+    expect(await retire(f.userId, false)).toMatchObject({ result: "would_revoke", tagId: f.tag.id, was: "active", tenantId: f.tenant.id });
+    expect(await status(f.tag.id)).toBe("active");
+    expect(await retire(f.userId, true)).toMatchObject({ result: "revoke", was: "active" });
+    expect(await status(f.tag.id)).toBe("revoked");
+    expect(await code(() => retire(f.userId, false))).toBe("TAG_NOT_LIVE");
+    await expect(processSecureTap({ tagRef: f.tag.publicRef, fields: vector, cardToken: f.member.cardToken, keyProvider: keys })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+  it("retires a provisioned tag and refuses a plate", async () => {
+    const f = await configured();
+    const fresh = await provisionSecureTag({ actorUserId: f.userId, programId: f.program.id, uid: "04de5f1eacc041", keyRef: "synthetic-vector", configVersion: 1 });
+    expect(await retireSecureTag({ actorUserId: f.userId, tagId: fresh.id, execute: true })).toMatchObject({ result: "revoke", was: "provisioned" });
+    await db.update(secureTags).set({ plateLabel: "P-900" }).where(eq(secureTags.id, f.tag.id));
+    expect(await code(() => retireSecureTag({ actorUserId: f.userId, tagId: f.tag.id, execute: true }))).toBe("TAG_IS_PLATE");
+    expect(await status(f.tag.id)).toBe("active");
   });
 });
 

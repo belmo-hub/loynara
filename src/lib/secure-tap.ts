@@ -140,6 +140,25 @@ export async function revokeSecureTag(input: { actorUserId: string; tagId: strin
   });
 }
 
+/**
+ * Console retirement of a shop's live tag (operator-plate revoke-tag): the owner rule of revokeSecureTag, but a dry run
+ * unless `execute`, and only a provisioned or active tag that is not a plate (plates retire through unlink + revoke).
+ */
+export async function retireSecureTag(input: { actorUserId: string; tagId: string; execute: boolean }) {
+  if (!/^[0-9a-f-]{36}$/i.test(input.tagId)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
+  return db.transaction(async tx => {
+    const [tag] = await tx.select().from(secureTags).where(eq(secureTags.id, input.tagId)).for("update");
+    if (!tag || !isBound(tag)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");
+    await owner(tx, input.actorUserId, tag.tenantId);
+    if (tag.plateLabel) throw new DomainError("TAG_IS_PLATE", "Use the plate commands for a plate");
+    if (tag.status !== "active" && tag.status !== "provisioned") throw new DomainError("TAG_NOT_LIVE", "This tag was revoked or replaced");
+    const summary = { tagId: tag.id, publicRef: tag.publicRef, was: tag.status, tenantId: tag.tenantId, programId: tag.programId, everTapped: tag.lastCounter > 0 };
+    if (!input.execute) return { result: "would_revoke" as const, ...summary };
+    await tx.update(secureTags).set({ status: "revoked", revokedAt: new Date() }).where(eq(secureTags.id, tag.id));
+    return { result: "revoke" as const, ...summary };
+  });
+}
+
 export async function replaceSecureTag(input: { actorUserId: string; tagId: string; uid: string; keyRef: string; configVersion: number }) {
   const [old] = await db.select().from(secureTags).where(eq(secureTags.id, input.tagId));
   if (!old || !isBound(old)) throw new DomainError("NOT_FOUND", "Dieses Schild haben wir nicht gefunden.");

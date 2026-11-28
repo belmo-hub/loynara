@@ -26,7 +26,7 @@ async function main() {
   if ((command === "request") !== Boolean(values["received-at"])) throw new OperatorRefusal(command === "request" ? "RECEIVED_AT_REQUIRED" : "RECEIVED_AT_ONLY_FOR_REQUEST");
   if (values.consent && command !== "schedule") throw new OperatorRefusal("CONSENT_ONLY_FOR_SCHEDULE");
   if (values["accept-late-entry"] && command !== "request") throw new OperatorRefusal("ACCEPT_LATE_ENTRY_ONLY_FOR_REQUEST");
-  assertOperatorTarget(values.target, process.env);
+  assertOperatorTarget(values.target, process.env, { allowOpenRegistration: true });
   const actorUserId = values["actor-user-id"] ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(actorUserId)) throw new OperatorRefusal("ACTOR_REQUIRED");
   const { operatorProgramme } = await import("../src/lib/programme-end");

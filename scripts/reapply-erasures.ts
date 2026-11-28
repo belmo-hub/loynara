@@ -16,7 +16,7 @@ async function main() {
   const [command, ...rest] = positionals;
   if (rest.length || !["export", "apply"].includes(command ?? "")) throw new OperatorRefusal("COMMAND_MUST_BE_EXPORT_OR_APPLY");
   if (command === "export" && values.file) throw new OperatorRefusal("FILE_ONLY_FOR_APPLY");
-  assertOperatorTarget(values.target, process.env);
+  assertOperatorTarget(values.target, process.env, { allowOpenRegistration: true });
   const { db } = await import("../src/db");
   const { shopErasures } = await import("../src/db/schema");
   if (command === "export") {
