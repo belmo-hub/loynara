@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPairSync, privateDecrypt, constants } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { runWithTransaction } from "@better-auth/core/context";
 import { auth } from "../src/lib/auth";
 import { pool } from "../src/db";
@@ -45,11 +46,26 @@ describe("operator identity: target guard", () => {
   it.each(refusals.filter(([, , , code]) => code !== "PUBLIC_REGISTRATION_NOT_DISABLED"))("still refuses with allowOpenRegistration: %s", (_name, target, override, code) => {
     expect(refusalCode(() => assertOperatorTarget(target, { ...productionEnv, PUBLIC_REGISTRATION_ENABLED: "true", ...override } as Record<string, string | undefined>, { allowOpenRegistration: true }))).toBe(code);
   });
-  it("lets the tag registration through with shop sign-up open, and nothing else", () => {
+  it("lets a tool that opts in through with shop sign-up open, and nothing else", () => {
     const open = { ...productionEnv, PUBLIC_REGISTRATION_ENABLED: "true" };
     expect(assertOperatorTarget("loynara-production", open, { allowOpenRegistration: true })).toBe("loynara-production");
     expect(refusalCode(() => assertOperatorTarget("loynara-production", open))).toBe("PUBLIC_REGISTRATION_NOT_DISABLED");
     expect(refusalCode(() => assertOperatorTarget("loynara-production", { ...open, DATABASE_URL: "postgresql://u:p@localhost:5432/x" }, { allowOpenRegistration: true }))).toBe("DATABASE_NOT_PRIVATE_RAILWAY");
+  });
+  // Every console tool runs on production with shop sign-up open, except the two that create or reset a login.
+  const consoleTools: Record<string, boolean> = {
+    "operator-provision-identity.ts": false, "operator-reset-credential.ts": false,
+    "operator-register-tag.ts": true, "operator-plate.ts": true, "operator-programme.ts": true, "operator-wallet-templates.ts": true,
+    "operator-shop-erasure.ts": true, "reapply-erasures.ts": true,
+  };
+  it("pins every console tool's choice of allowOpenRegistration", () => {
+    const callers = readdirSync(__dirname).filter(file => file.endsWith(".ts") && !file.endsWith(".test.ts") && file !== "operator-identity.ts" && readFileSync(`${__dirname}/${file}`, "utf8").includes("assertOperatorTarget("));
+    expect(callers.sort()).toEqual(Object.keys(consoleTools).sort());
+    for (const file of callers) {
+      const calls = readFileSync(`${__dirname}/${file}`, "utf8").match(/assertOperatorTarget\([^)]*\)/g) ?? [];
+      expect(calls.length, file).toBe(1);
+      expect(calls[0]?.includes("allowOpenRegistration: true"), file).toBe(consoleTools[file]);
+    }
   });
   it("accepts the local target only for the loopback looplocal database", () => {
     const local = { NODE_ENV: "development", DATABASE_URL: "postgresql://looplocal:x@localhost:54329/looplocal", BETTER_AUTH_URL: "http://localhost:3000", PUBLIC_BASE_URL: "http://localhost:3000" };

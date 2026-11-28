@@ -30,7 +30,7 @@ const refuse = (code: string): never => { throw new OperatorRefusal(code); };
 
 /**
  * Refuses anything that is not exactly the intended deployment. Pure: takes the environment as input.
- * allowOpenRegistration: only for tools that create no login (tag registration), which stay usable once shop sign-up is open.
+ * allowOpenRegistration: only for tools that create or reset no login (every console tool but operator-provision-identity and operator-reset-credential), which stay usable once shop sign-up is open.
  */
 export function assertOperatorTarget(target: string | undefined, env: OperatorEnv, options: { allowOpenRegistration?: boolean } = {}): OperatorTarget {
   if (target === PRODUCTION_TARGET) {

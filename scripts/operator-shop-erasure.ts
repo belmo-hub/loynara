@@ -20,7 +20,7 @@ async function main() {
   if (rest.length || !["due", "erase", "confirmed"].includes(command ?? "")) throw new OperatorRefusal("COMMAND_MUST_BE_DUE_ERASE_OR_CONFIRMED");
   if ((command !== "due") !== Boolean(values["tenant-id"])) throw new OperatorRefusal(command === "due" ? "TENANT_ID_NOT_FOR_DUE" : "TENANT_ID_REQUIRED");
   if (command !== "erase" && values.execute) throw new OperatorRefusal("EXECUTE_ONLY_FOR_ERASE");
-  assertOperatorTarget(values.target, process.env);
+  assertOperatorTarget(values.target, process.env, { allowOpenRegistration: true });
   const actorUserId = values["actor-user-id"] ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(actorUserId)) throw new OperatorRefusal("ACTOR_REQUIRED");
   const { dueShopErasures, recordErasureConfirmation, shopErasure } = await import("../src/lib/shop-erasure");

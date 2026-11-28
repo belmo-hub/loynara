@@ -13,7 +13,7 @@ import { DomainError } from "../src/lib/loyalty";
 async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, strict: true, options: { target: { type: "string" }, "actor-user-id": { type: "string" }, execute: { type: "boolean" } } });
   if (positionals.join(" ") !== "import") throw new OperatorRefusal("COMMAND_MUST_BE_IMPORT");
-  assertOperatorTarget(values.target, process.env);
+  assertOperatorTarget(values.target, process.env, { allowOpenRegistration: true });
   const actorUserId = values["actor-user-id"] ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(actorUserId)) throw new OperatorRefusal("ACTOR_REQUIRED");
   const { importEnvWalletTemplates } = await import("../src/lib/wallet/template-bindings");
