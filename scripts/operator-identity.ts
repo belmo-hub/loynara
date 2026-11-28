@@ -28,17 +28,20 @@ export class OperatorRefusal extends Error {
 
 const refuse = (code: string): never => { throw new OperatorRefusal(code); };
 
-/** Refuses anything that is not exactly the intended deployment. Pure: takes the environment as input. */
-export function assertOperatorTarget(target: string | undefined, env: OperatorEnv): OperatorTarget {
+/**
+ * Refuses anything that is not exactly the intended deployment. Pure: takes the environment as input.
+ * allowOpenRegistration: only for tools that create no login (tag registration), which stay usable once shop sign-up is open.
+ */
+export function assertOperatorTarget(target: string | undefined, env: OperatorEnv, options: { allowOpenRegistration?: boolean } = {}): OperatorTarget {
   if (target === PRODUCTION_TARGET) {
     if (env.PRODUCTION_ENVIRONMENT !== PRODUCTION_TARGET) refuse("WRONG_ENVIRONMENT_MARKER");
-    assertDeployed(env);
+    assertDeployed(env, options);
     return PRODUCTION_TARGET;
   }
   if (target === DEMO_TARGET) {
     if (env.PRODUCTION_ENVIRONMENT === PRODUCTION_TARGET) refuse("DEMO_TARGET_ON_PRODUCTION");
     if (env.DEMO_ENVIRONMENT !== "true") refuse("NOT_DEMO_ENVIRONMENT");
-    const database = assertDeployed(env);
+    const database = assertDeployed(env, options);
     // Same rule as the demo startup check: the demo database names itself, so production's can never be the target.
     if (!/demo/i.test(`${database.hostname}/${database.pathname}/${database.username}`)) refuse("DATABASE_NOT_DEMO");
     return DEMO_TARGET;
@@ -52,7 +55,7 @@ export function assertOperatorTarget(target: string | undefined, env: OperatorEn
 }
 
 /** The checks every deployed target shares: production mode, private Railway database, one HTTPS origin, registration off. */
-function assertDeployed(env: OperatorEnv): URL {
+function assertDeployed(env: OperatorEnv, options: { allowOpenRegistration?: boolean }): URL {
   if (env.NODE_ENV !== "production") refuse("NODE_ENV_NOT_PRODUCTION");
   let database: URL;
   try { database = new URL(env.DATABASE_URL ?? ""); } catch { return refuse("DATABASE_URL_INVALID"); }
@@ -61,7 +64,7 @@ function assertDeployed(env: OperatorEnv): URL {
   let auth: URL; let base: URL;
   try { auth = new URL(env.BETTER_AUTH_URL ?? ""); base = new URL(env.PUBLIC_BASE_URL ?? ""); } catch { return refuse("APP_URL_INVALID"); }
   if (auth.protocol !== "https:" || base.protocol !== "https:" || auth.origin !== base.origin || ["localhost", "127.0.0.1", "[::1]"].includes(auth.hostname)) refuse("APP_ORIGIN_NOT_PRODUCTION");
-  if (env.PUBLIC_REGISTRATION_ENABLED !== "false") refuse("PUBLIC_REGISTRATION_NOT_DISABLED");
+  if (!options.allowOpenRegistration && env.PUBLIC_REGISTRATION_ENABLED !== "false") refuse("PUBLIC_REGISTRATION_NOT_DISABLED");
   return database;
 }
 

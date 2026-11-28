@@ -17,28 +17,39 @@ const productionEnv = {
 };
 const refusalCode = (fn: () => unknown) => { try { fn(); } catch (error) { return error instanceof OperatorRefusal ? error.code : "OTHER"; } return "NONE"; };
 
+const refusals: [string, string | undefined, Record<string, string | undefined>, string][] = [
+  ["no target", undefined, {}, "TARGET_REQUIRED"],
+  ["unknown target", "production", {}, "TARGET_REQUIRED"],
+  ["missing production marker", "loynara-production", { PRODUCTION_ENVIRONMENT: undefined }, "WRONG_ENVIRONMENT_MARKER"],
+  ["device-test marker", "loynara-production", { PRODUCTION_ENVIRONMENT: "device-test" }, "WRONG_ENVIRONMENT_MARKER"],
+  ["NODE_ENV development", "loynara-production", { NODE_ENV: "development" }, "NODE_ENV_NOT_PRODUCTION"],
+  ["public Railway TCP proxy", "loynara-production", { DATABASE_URL: "postgresql://u:p@roundhouse.proxy.rlwy.net:12345/railway" }, "DATABASE_NOT_PRIVATE_RAILWAY"],
+  ["localhost database", "loynara-production", { DATABASE_URL: "postgresql://u:p@localhost:5432/looplocal" }, "DATABASE_NOT_PRIVATE_RAILWAY"],
+  ["unparseable database url", "loynara-production", { DATABASE_URL: "nonsense" }, "DATABASE_URL_INVALID"],
+  ["http origin", "loynara-production", { BETTER_AUTH_URL: "http://app.example-pilot.test", PUBLIC_BASE_URL: "http://app.example-pilot.test" }, "APP_ORIGIN_NOT_PRODUCTION"],
+  ["localhost origin", "loynara-production", { BETTER_AUTH_URL: "https://localhost", PUBLIC_BASE_URL: "https://localhost" }, "APP_ORIGIN_NOT_PRODUCTION"],
+  ["origin mismatch", "loynara-production", { PUBLIC_BASE_URL: "https://other.example-pilot.test" }, "APP_ORIGIN_NOT_PRODUCTION"],
+  ["registration enabled", "loynara-production", { PUBLIC_REGISTRATION_ENABLED: "true" }, "PUBLIC_REGISTRATION_NOT_DISABLED"],
+  ["registration unset", "loynara-production", { PUBLIC_REGISTRATION_ENABLED: undefined }, "PUBLIC_REGISTRATION_NOT_DISABLED"],
+  ["local target on production", "local", { PRODUCTION_ENVIRONMENT: "loynara-production" }, "LOCAL_TARGET_ON_PRODUCTION"],
+  ["local target on a Railway database", "local", { PRODUCTION_ENVIRONMENT: undefined, NODE_ENV: "development" }, "NOT_A_LOCAL_TARGET"],
+];
+
 describe("operator identity: target guard", () => {
   it("accepts exactly the production deployment", () => {
     expect(assertOperatorTarget("loynara-production", productionEnv)).toBe("loynara-production");
   });
-  it.each([
-    ["no target", undefined, {}, "TARGET_REQUIRED"],
-    ["unknown target", "production", {}, "TARGET_REQUIRED"],
-    ["missing production marker", "loynara-production", { PRODUCTION_ENVIRONMENT: undefined }, "WRONG_ENVIRONMENT_MARKER"],
-    ["device-test marker", "loynara-production", { PRODUCTION_ENVIRONMENT: "device-test" }, "WRONG_ENVIRONMENT_MARKER"],
-    ["NODE_ENV development", "loynara-production", { NODE_ENV: "development" }, "NODE_ENV_NOT_PRODUCTION"],
-    ["public Railway TCP proxy", "loynara-production", { DATABASE_URL: "postgresql://u:p@roundhouse.proxy.rlwy.net:12345/railway" }, "DATABASE_NOT_PRIVATE_RAILWAY"],
-    ["localhost database", "loynara-production", { DATABASE_URL: "postgresql://u:p@localhost:5432/looplocal" }, "DATABASE_NOT_PRIVATE_RAILWAY"],
-    ["unparseable database url", "loynara-production", { DATABASE_URL: "nonsense" }, "DATABASE_URL_INVALID"],
-    ["http origin", "loynara-production", { BETTER_AUTH_URL: "http://app.example-pilot.test", PUBLIC_BASE_URL: "http://app.example-pilot.test" }, "APP_ORIGIN_NOT_PRODUCTION"],
-    ["localhost origin", "loynara-production", { BETTER_AUTH_URL: "https://localhost", PUBLIC_BASE_URL: "https://localhost" }, "APP_ORIGIN_NOT_PRODUCTION"],
-    ["origin mismatch", "loynara-production", { PUBLIC_BASE_URL: "https://other.example-pilot.test" }, "APP_ORIGIN_NOT_PRODUCTION"],
-    ["registration enabled", "loynara-production", { PUBLIC_REGISTRATION_ENABLED: "true" }, "PUBLIC_REGISTRATION_NOT_DISABLED"],
-    ["registration unset", "loynara-production", { PUBLIC_REGISTRATION_ENABLED: undefined }, "PUBLIC_REGISTRATION_NOT_DISABLED"],
-    ["local target on production", "local", { PRODUCTION_ENVIRONMENT: "loynara-production" }, "LOCAL_TARGET_ON_PRODUCTION"],
-    ["local target on a Railway database", "local", { PRODUCTION_ENVIRONMENT: undefined, NODE_ENV: "development" }, "NOT_A_LOCAL_TARGET"],
-  ])("refuses: %s", (_name, target, override, code) => {
+  it.each(refusals)("refuses: %s", (_name, target, override, code) => {
     expect(refusalCode(() => assertOperatorTarget(target, { ...productionEnv, ...override } as Record<string, string | undefined>))).toBe(code);
+  });
+  it.each(refusals.filter(([, , , code]) => code !== "PUBLIC_REGISTRATION_NOT_DISABLED"))("still refuses with allowOpenRegistration: %s", (_name, target, override, code) => {
+    expect(refusalCode(() => assertOperatorTarget(target, { ...productionEnv, PUBLIC_REGISTRATION_ENABLED: "true", ...override } as Record<string, string | undefined>, { allowOpenRegistration: true }))).toBe(code);
+  });
+  it("lets the tag registration through with shop sign-up open, and nothing else", () => {
+    const open = { ...productionEnv, PUBLIC_REGISTRATION_ENABLED: "true" };
+    expect(assertOperatorTarget("loynara-production", open, { allowOpenRegistration: true })).toBe("loynara-production");
+    expect(refusalCode(() => assertOperatorTarget("loynara-production", open))).toBe("PUBLIC_REGISTRATION_NOT_DISABLED");
+    expect(refusalCode(() => assertOperatorTarget("loynara-production", { ...open, DATABASE_URL: "postgresql://u:p@localhost:5432/x" }, { allowOpenRegistration: true }))).toBe("DATABASE_NOT_PRIVATE_RAILWAY");
   });
   it("accepts the local target only for the loopback looplocal database", () => {
     const local = { NODE_ENV: "development", DATABASE_URL: "postgresql://looplocal:x@localhost:54329/looplocal", BETTER_AUTH_URL: "http://localhost:3000", PUBLIC_BASE_URL: "http://localhost:3000" };
