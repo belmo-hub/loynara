@@ -1,10 +1,13 @@
 /*
  * Loynara cashier service worker (scope: /cashier).
- * Shows a generic "new NFC request" notification. Push payloads and notifications never carry customer data.
+ * Shows a generic "new NFC request" notification, or a booking-request reminder with the time and service only.
+ * Push payloads and notifications never carry customer data.
  * Deliberately has no fetch handler and no cache: authenticated responses are never stored or served here.
  */
 
 const TAP_TAG = "loynara-tap";
+const BOOKING_TAG = "loynara-booking";
+const BOOKING_PATH = "/merchant/termine";
 const CASHIER_PATH = "/cashier";
 const REFRESH_MESSAGE = "loynara:tap-refresh";
 const CLEAR_MESSAGE = "loynara:clear-tap-notifications";
@@ -22,22 +25,29 @@ function textForPayload(event) {
   } catch (_error) {
     payload = null;
   }
-  const valid = payload !== null
-    && typeof payload === "object"
-    && payload.v === 1
-    && payload.kind === "tap_pending"
-    && Object.prototype.hasOwnProperty.call(TEXT, payload.locale);
+  if (payload === null || typeof payload !== "object" || payload.v !== 1) return TEXT.de;
+  if (payload.kind === "booking_request" && typeof payload.title === "string" && typeof payload.body === "string"
+    && typeof payload.url === "string" && isSameOriginPath(payload.url, BOOKING_PATH)) {
+    // One notification per appointment, so a second request's warning does not replace the first.
+    const tag = typeof payload.tag === "string" && payload.tag ? BOOKING_TAG + ":" + payload.tag.slice(0, 64) : BOOKING_TAG;
+    return { title: payload.title.slice(0, 80), body: payload.body.slice(0, 160), tag, url: payload.url };
+  }
+  const valid = payload.kind === "tap_pending" && Object.prototype.hasOwnProperty.call(TEXT, payload.locale);
   return valid ? TEXT[payload.locale] : TEXT.de;
 }
 
-function isSameOriginCashierPath(url) {
+function isSameOriginPath(url, path) {
   try {
     const parsed = new URL(url, self.location.origin);
     if (parsed.origin !== self.location.origin) return false;
-    return parsed.pathname === CASHIER_PATH || parsed.pathname.startsWith(CASHIER_PATH + "/");
+    return parsed.pathname === path || parsed.pathname.startsWith(path + "/");
   } catch (_error) {
     return false;
   }
+}
+
+function isSameOriginCashierPath(url) {
+  return isSameOriginPath(url, CASHIER_PATH);
 }
 
 self.addEventListener("install", () => {
@@ -53,9 +63,10 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     await self.registration.showNotification(text.title, {
       body: text.body,
-      tag: TAP_TAG,
+      tag: text.tag || TAP_TAG,
       renotify: true,
       icon: ICON_URL,
+      data: text.url ? { url: text.url } : undefined,
     });
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
@@ -66,7 +77,10 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const bookingUrl = event.notification.data && typeof event.notification.data.url === "string"
+    && isSameOriginPath(event.notification.data.url, BOOKING_PATH) ? event.notification.data.url : null;
   event.waitUntil((async () => {
+    if (bookingUrl) return self.clients.openWindow(new URL(bookingUrl, self.location.origin).href);
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
       if (isSameOriginCashierPath(client.url) && "focus" in client) {

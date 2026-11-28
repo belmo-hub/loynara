@@ -25,6 +25,7 @@
     "production:restore-check": "bash scripts/production-restore-check.sh",
     "production:local-dry-run": "bash scripts/production-local-dry-run.sh",
     "db:seed": "tsx scripts/seed.ts",
+    "seed:booking-demo": "tsx scripts/seed-booking-demo.ts",
     "diagnose": "tsx scripts/diagnose.ts",
     "worker": "tsx scripts/worker.ts",
     "rate-limits:prune": "tsx scripts/prune-rate-limits.ts",

@@ -113,7 +113,7 @@ test("card export download describes its narrow scope, isolates records and retr
     const event = page.waitForEvent("download"); await link.click(); const download = await event;
     expect(download.suggestedFilename()).toBe("loynara-card-export.json");
     const exported = JSON.parse(await readFile((await download.path())!, "utf8"));
-    expect(exported).toMatchObject({ formatVersion: 1, scope: "pseudonymous-card-activity-without-contact-records", membership: { id: cards[0].id, balance: 2 }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
+    expect(exported).toMatchObject({ formatVersion: 1, scope: "card-activity-with-booking-contact-details", membership: { id: cards[0].id, balance: 2 }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
     const serialized = JSON.stringify(exported);
     for (const excluded of [cards[1].id, cards[0].cardToken, cards[0].scanCode, cards[1].cardToken, ownerEmail]) expect(serialized).not.toContain(excluded);
     expect(downloads).toEqual(["loynara-card-export.json"]);

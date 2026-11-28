@@ -2,7 +2,7 @@
 
 import { weekLine } from "./week-line";
 import Link from "next/link";
-import { CalendarDays, ChartColumn, Check, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
+import { CalendarDays, ChartColumn, Check, ChevronRight, CircleCheck, CircleHelp, CreditCard, Gift, ListChecks, Undo2, UserPlus, Users } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore, type CSSProperties } from "react";
 import type { MeResponse } from "@/components/client-api";
 import { MixCard } from "@/components/customer/mix-card";
@@ -79,6 +79,24 @@ export function Overview() {
 export function quietOf(a: Pick<LocationAnalytics, "lastBookingOn" | "programStartedOn" | "today">): number | "over90" | null {
   if (a.lastBookingOn) return quietDays(a.lastBookingOn, a.today);
   return a.programStartedOn && daysBetween(a.programStartedOn, a.today) > 90 ? "over90" : null;
+}
+
+/** One line on today's appointments, only where online booking is set up (the day read says so); links to the day view. */
+/** D5 (Design, 22 Nov): today's appointments as one row in a panel, the daily way into Termine; gone at 0 and 0. */
+function TodayAppointments() {
+  const booking = useOwner().me?.bookingShown === true;
+  const [day] = useLoad<{ appointments: { status: string }[]; pendingRequests: number; bookingEnabled: boolean | null }>(booking ? "/api/merchant/booking/day" : null);
+  if (!booking || day.state !== "ok" || day.data.bookingEnabled === null) return null;
+  const n = day.data.appointments.filter(a => !a.status.startsWith("cancelled")).length, m = day.data.pendingRequests;
+  if (!n && !m) return null;
+  return <section className={cx(mix.panel, "ow-arrive")} aria-label="Termine">
+    <Link className={mix.row} data-lead="tile" href="/merchant/termine">
+      <MixTile><CalendarDays size={20} aria-hidden="true" /></MixTile>
+      <span className={mix.body}><span className={mix.text}><b>{n ? `Heute: ${n === 1 ? "1 Termin" : `${n} Termine`}` : "Heute: keine Termine"}</b>
+        {m > 0 && <MixChip warm>{m === 1 ? "1 Anfrage wartet auf dich" : `${m} Anfragen warten auf dich`}</MixChip>}</span>
+        <ChevronRight className={mix.chev} size={20} aria-hidden="true" /></span>
+    </Link>
+  </section>;
 }
 
 /* ───────────── Active business ───────────── */
@@ -177,6 +195,7 @@ function ActiveBusiness({ me }: { me: MeResponse }) {
         {/* The Tresenschild's error sits under the panel that started the download. */}
         {signFailed}
         <p className={cx("ow-muted", s.signError)} role="status">{signed === "opened" || signed === "downloaded" ? SIGN_NOTE[signed] : null}</p>
+        <TodayAppointments />
         <section className={cx(mix.sec, s.sec)} aria-labelledby="ow-days-title" aria-busy={!board && !failed} data-single={board && !brought ? "" : undefined}>
           <div className={cx(mix.secHead, s.head)}><h2 id="ow-days-title" className={mix.h}>Letzte 30 Tage an diesem Standort{a && firstWeeks(a) && <span className={s.titleNote}>{` · ${firstWeeks(a)}`}</span>}</h2>{!failed && tiles.length > 0 && <FactsHelp title="Letzte 30 Tage an diesem Standort" tiles={tiles} />}</div>
           {failed && !board ? <ErrorCard reload={reload} />
@@ -395,6 +414,7 @@ function EmptyShop({ me }: { me: MeResponse }) {
               : readiness.state !== "ok" && <BoardPlaceholder />}
             <EmptyStrip today={today} caption="Hier siehst du bald jeden Tag am Tresen." />
           </section>
+          <TodayAppointments />
           <section className={cx(mix.panel, s.steps)} data-ow="diary" aria-labelledby="ow-steps-title">
             <div className={mix.ph}><h2 id="ow-steps-title" className={mix.h}>Deine ersten Schritte</h2></div>
             {steps.map(step => {

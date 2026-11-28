@@ -4,13 +4,14 @@ import { readFile, stat } from "node:fs/promises";
 import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ledgerEntries, locations, memberships, programs, secureTags, staffRoles, tapRequests, tenants } from "@/db/schema";
-import { DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeForBooking, type AwardInput } from "./loyalty";
+import { APPOINTMENT_ALREADY_CREDITED, DomainError, awardTapInTransaction, awardInTransaction, lockProgrammeForBooking, type AwardInput } from "./loyalty";
 import { verifySdm } from "./secure-tap-crypto";
 import { AUTOMATIC_TAP_REFUSAL, automaticTapAllowed, isProductionDeployment } from "./pilot-policy";
 import { formatCardLocator } from "./card-locator";
 import { ownerTenant } from "./billing";
 import { programInForce } from "./rule-versions";
 import { enqueueTapPush } from "./staff-push";
+import { completeInAwardTransaction } from "./booking/cashier";
 import { derivedProviderFromEnv, type TapKeyContext, type TapKeyProvider, type TapKeys } from "./nfc-keys";
 
 export type { TapKeyProvider, TapKeys };
@@ -251,7 +252,18 @@ export async function processSecureTap(input: TapInput): Promise<TapResult> {
       return { ...base, state: status, balance: member.balance, requestId: request.id, expiresAt: request.expiresAt, cardLocator, statusRef: tag.publicRef, pushJobId,
         customerActivityAt: qualifying ? Math.floor(now.getTime()/1000) : undefined };
     }
-    const booked = await awardTapInTransaction(tx, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter });
+    // In a savepoint: when the owner already finished and credited this card's appointment (F-1), the tap is that same
+    // visit. It is recorded as a cooldown, so the counter is used up and the link never books later; the guest sees
+    // „Gerade erst gestempelt“, not an error.
+    let booked: Awaited<ReturnType<typeof awardTapInTransaction>>;
+    try { booked = await tx.transaction(inner => awardTapInTransaction(inner, { locationId: tag.locationId, membershipId: member.id, tagId: tag.id, counter })); }
+    catch (error) {
+      if (!(error instanceof DomainError && error.code === "STALE" && error.message === APPOINTMENT_ALREADY_CREDITED)) throw error;
+      await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "cooldown", expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
+      await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
+      return { ...base, state: "cooldown", balance: member.balance };
+    }
+    if (!booked.duplicate) await completeInAwardTransaction(tx, booked.entryId);
     await tx.insert(tapRequests).values({ tagId: tag.id, counter, tenantId: tag.tenantId, locationId: tag.locationId, programId: tag.programId, membershipId: member.id, status: "awarded", ledgerEntryId: booked.entryId, expiresAt: new Date(now.getTime() + 5 * 60_000), createdAt: now });
     await tx.update(secureTags).set({ lastCounter: counter }).where(eq(secureTags.id, tag.id));
     return { ...base, state: "awarded", balance: booked.balance, cardLocator };

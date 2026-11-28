@@ -17,7 +17,9 @@ export type TapPanelLocale = "de" | "fr";
 /** One open NFC request. The server never sends a scan code; only the card number (cardLocator) is shown. */
 export type PendingTapRequest = { id: string; createdAt: string; expiresAt: string; balance: number; cardLocator: string; expiresInMs?: number; ageMs?: number;
   /** What a points request needs for the cashier's entry, as a counter lookup returns it. */
-  programType?: "stamp" | "points"; earningMode?: "manual" | "purchase"; pointsPerCurrencyUnit?: number; currency?: "EUR" | "MAD"; ruleVersionId?: string };
+  programType?: "stamp" | "points"; earningMode?: "manual" | "purchase"; pointsPerCurrencyUnit?: number; currency?: "EUR" | "MAD"; ruleVersionId?: string;
+  /** The card's booked appointment around now, when the shop takes bookings. */
+  appointment?: { start: string; startLabel: string; serviceName: string; done?: boolean } | null };
 type TapAward = { quantity: number } | { purchaseAmountMinor: number; ruleVersionId: string };
 
 /** The cashier's entry for a points request, read the way the counter reads it; null until it books at least one point. */
@@ -437,6 +439,7 @@ export function CashierTapPanel({ locale = "de", role, onPendingCountChange }: {
                 <span className={styles.cardLabel}>{t.cardLabel}</span>
                 <strong className={styles.locator} translate="no">{item.cardLocator || "–"}</strong>
               </div>
+              {item.appointment && <p className={styles.meta}><strong>Termin {item.appointment.startLabel} · {item.appointment.serviceName}</strong>{item.appointment.done ? " · schon erledigt und gutgeschrieben" : ""}</p>}
               <div className={styles.meta}>
                 <span>{t.balanceLabel}: <strong>{typeof item.balance === "number" ? item.balance : "–"}</strong></span>
                 <span>{t.ago(secondsSince(item.createdAt, now))}</span>

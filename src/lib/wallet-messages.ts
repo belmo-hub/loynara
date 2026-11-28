@@ -114,7 +114,15 @@ export const eligible = (tenantId: string, programId: string, now: Date, consent
     AND (${!consent}::boolean OR EXISTS (SELECT 1 FROM wallet_message_consents c WHERE c.tenant_id = m.tenant_id AND c.membership_id = m.id AND c.withdrawn_at IS NULL))
     AND (SELECT count(DISTINCT r.message_id) FROM wallet_message_recipients r WHERE r.tenant_id = m.tenant_id AND r.membership_id = m.id
       AND (r.status IN ('queued','sending','sent') OR (r.status = 'failed' AND r.reason = 'uncertain'))
-      AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) < ${CUSTOMER_WEEKLY_CAP}`;
+      AND coalesce(r.sent_at, r.created_at) > ${now}::timestamptz - make_interval(days => ${CAP_WINDOW_DAYS})) + ${rebookPushesWithin(now, CAP_WINDOW_DAYS)} < ${CUSTOMER_WEEKLY_CAP}
+    AND ${rebookPushesWithin(now, 1)} = 0`;
+
+/**
+ * Booking rebook pushes of card `m` queued within `days` (rebook_sent_at is set when queued, as recipients count from the
+ * queue), so a Wallet message and a rebook push share one cap. Reminders and shop changes are service messages: not counted.
+ */
+export const rebookPushesWithin = (now: Date, days: number) => sql`(SELECT count(*)::int FROM booking_appointments ba
+  WHERE ba.tenant_id = m.tenant_id AND ba.membership_id = m.id AND ba.rebook_sent_at > ${now}::timestamptz - make_interval(days => ${days}))`;
 
 /** The two newest owner messages of the window that count against the shop cap (a message stopped before any send does not count). */
 async function shopWindow(tx: Tx, tenantId: string, programId: string, now: Date) {

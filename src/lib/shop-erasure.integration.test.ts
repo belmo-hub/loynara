@@ -132,6 +132,17 @@ async function seedEveryTable(ids: { tenantId: string; programId: string; locati
   await q("INSERT INTO wallet_message_recipients (message_id, pass_id, tenant_id, membership_id) VALUES ($1, $2, $3, $4)", [message, ids.passId, ids.tenantId, ids.cardId]);
   await q("INSERT INTO wallet_template_bindings (tenant_id, location_id, template_id, created_by_user_id, changed_by_user_id) VALUES ($1, $2, $3, $4, $4)", [ids.tenantId, ids.locationId, randomUUID(), ids.ownerId]);
   await q("INSERT INTO weekly_owner_reports (tenant_id, week_start) VALUES ($1, '2026-11-02')", [ids.tenantId]);
+  // Loynara Termin: one row in every booking table (an appointment cancelled by the shop, so no overlap rule applies).
+  await q("INSERT INTO booking_settings (tenant_id, location_id) VALUES ($1, $2)", [ids.tenantId, ids.locationId]);
+  const service = (await q("INSERT INTO booking_services (tenant_id, location_id, name, duration_min, price_minor) VALUES ($1, $2, 'Synthetische Leistung', 30, 2500) RETURNING id", [ids.tenantId, ids.locationId])).rows[0].id;
+  const staff = (await q("INSERT INTO booking_staff (tenant_id, location_id, name) VALUES ($1, $2, 'Synthetische Person') RETURNING id", [ids.tenantId, ids.locationId])).rows[0].id;
+  await q("INSERT INTO booking_staff_services (tenant_id, staff_id, service_id) VALUES ($1, $2, $3)", [ids.tenantId, staff, service]);
+  await q("INSERT INTO booking_blocks (tenant_id, location_id, staff_id, during) VALUES ($1, $2, $3, tstzrange('2026-11-20T09:00:00Z', '2026-11-20T10:00:00Z', '[)'))", [ids.tenantId, ids.locationId, staff]);
+  const appointment = (await q(`INSERT INTO booking_appointments (tenant_id, location_id, membership_id, service_id, staff_id, during, duration_min, price_minor, status, customer_name, idempotency_key, cancelled_at)
+    VALUES ($1, $2, $3, $4, $5, tstzrange('2026-11-21T09:00:00Z', '2026-11-21T09:30:00Z', '[)'), 30, 2500, 'cancelled_by_shop', 'Synthetisch', $6, now()) RETURNING id`, [ids.tenantId, ids.locationId, ids.cardId, service, staff, `synthetic-${randomUUID()}`])).rows[0].id;
+  await q("INSERT INTO booking_blocked_customers (tenant_id, membership_id) VALUES ($1, $2)", [ids.tenantId, ids.cardId]);
+  await q("INSERT INTO booking_push_subscriptions (tenant_id, membership_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, 'synthetic-p256dh', 'synthetic-auth')", [ids.tenantId, ids.cardId, `https://push.example.test/${randomUUID()}`]);
+  await q("INSERT INTO booking_push_log (tenant_id, membership_id, appointment_id, kind) VALUES ($1, $2, $3, 'shop_cancel')", [ids.tenantId, ids.cardId, appointment]);
 }
 
 /** Ends every programme of the shop now (operator `end`); the export window then counts from today (Berlin). */

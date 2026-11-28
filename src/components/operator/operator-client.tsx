@@ -10,6 +10,7 @@ import { ClientApiError, postJson } from "@/components/client-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useFormCheck } from "@/components/ui/form-check";
 import { TextField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,7 +28,7 @@ import { handTypedPoint, pickedPoint, pointRequest, ShopSearch, type ShopPlace }
 import fieldStyles from "@/components/ui/field.module.css";
 import { DemoMode, type DemoRunning } from "./demo-mode";
 
-type Row = { latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
+type Row = { bookingEnabled: boolean; latitude: number | null; longitude: number | null; walletTemplate: { templateId: string; source: "table" | "env" } | null; googleClass: { status: string; lastError: string | null } | null; walletMessages: { messages: number; sent: number; removed: number; warn: boolean } | null; tenantId: string; tenant: string; weeklyReport: boolean; locationId: string; location: string; city: string; programId: string; programme: string; status: string; tapMode: string; cards: number; lastAward: Date | string | null; endDate: string | null; confirmed: boolean; requestedDays: number | null; cancellationHistory: { action: string; by: string; at: Date | string; oldEndDate: string | null; newEndDate: string | null }[] };
 type Plate = { plateLabel: string | null; status: string; everTapped: boolean; code: "none" | "open" | "locked" | "used"; alertedAt: Date | string | null; programId: string | null; merchant: string | null; location: string | null; programme: string | null };
 type Shop = { merchant: string; location: string; programme: string } | null;
 type EndPreview = { result: string; end: string | null; endDate?: string };
@@ -162,6 +163,17 @@ export function OperatorClient({ numbers, rows, plates, awaiting, billing, guara
     setBusy(true); setError("");
     try { await postJson("/api/operator/billing-free-month-end", { tenantId }); setEndFor(null); router.refresh(); }
     catch (cause) { setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt."); }
+    finally { setBusy(false); }
+  }
+  const [bookingError, setBookingError] = useState<{ locationId: string; text: string } | null>(null);
+  async function setBooking(row: Row, enabled: boolean) {
+    setBusy(true); setError(""); setBookingError(null);
+    try { await postJson("/api/operator/booking", { tenantId: row.tenantId, locationId: row.locationId, enabled }); router.refresh(); }
+    catch (cause) {
+      // Design r2: the AVV refusal belongs on this shop's row, in words, not as „lade die Seite neu“ at the page top.
+      if (cause instanceof ClientApiError && cause.code === "AVV_NOT_ACCEPTED") setBookingError({ locationId: row.locationId, text: "Dieses Geschäft hat die Auftragsverarbeitung mit Terminbuchung noch nicht angenommen. Online-Termine bleiben aus." });
+      else setError(cause instanceof ClientApiError ? cause.message : "Das hat nicht geklappt.");
+    }
     finally { setBusy(false); }
   }
 
@@ -337,6 +349,8 @@ export function OperatorClient({ numbers, rows, plates, awaiting, billing, guara
           {r.cancellationHistory.length ? <details><summary className="ow-muted">Kündigungsverlauf ({r.cancellationHistory.length})</summary>
             <ol className="ow-muted">{r.cancellationHistory.map((e, i) => <li key={i}>{when(e.at)} · {e.by}: {STEP[e.action] ?? e.action} · {e.oldEndDate ? germanDate(e.oldEndDate) : "kein Datum"} → {e.newEndDate ? germanDate(e.newEndDate) : "kein Datum"}</li>)}</ol>
           </details> : null}
+          <Checkbox checked={r.bookingEnabled} disabled={busy} onChange={event => void setBooking(r, event.target.checked)}>Termin + Treue (Online-Buchung für {r.location})</Checkbox>
+          {bookingError?.locationId === r.locationId && <p role="alert">{bookingError.text}</p>}
           {r.status === "active" ? <div><Button variant="quiet" onClick={() => openEnd(r)}>{r.endDate ? "Enddatum ändern" : "Enddatum setzen"}</Button></div> : null}
           {/* Rows are per programme, the point per location: only its first row carries it. */}
           {rows.findIndex(other => other.locationId === r.locationId) === index ? <div>

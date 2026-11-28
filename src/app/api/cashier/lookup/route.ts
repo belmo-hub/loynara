@@ -5,6 +5,7 @@ import { getMerchantContext } from "@/lib/product";
 import { DomainError } from "@/lib/loyalty";
 import { enforcePeerLimit, enforceRateLimit } from "@/lib/rate-limit";
 import { selectedLocationFromRequest } from "@/lib/locations";
+import { appointmentForCard } from "@/lib/booking/cashier";
 
 export async function GET(request: Request) {
   try {
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
     // A scanned QR code opens the card directly. A typed locator first shows only a minimal preview; the cashier opens
     // the card with confirm=1 once it is the card in front of them.
     const result = isScanCodeInput(code) || params.get("confirm") === "1" ? await lookupCard(input) : await previewCardLocator(input);
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+    const body = result.stage === "open" ? { ...result, appointment: await appointmentForCard(context.locationId, result.membershipId) } : result;
+    return Response.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

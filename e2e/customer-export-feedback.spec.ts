@@ -68,7 +68,7 @@ for (const width of [375, 1280]) for (const failure of ["server", "incomplete", 
         const download = await downloaded;
         expect(download.suggestedFilename()).toBe("loynara-card-export.json");
         const result = JSON.parse(await readFile((await download.path())!, "utf8"));
-        expect(result).toMatchObject({ formatVersion: 1, scope: "pseudonymous-card-activity-without-contact-records", membership: { id: own.member.id, balance: 2 }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
+        expect(result).toMatchObject({ formatVersion: 1, scope: "card-activity-with-booking-contact-details", membership: { id: own.member.id, balance: 2 }, ledger: [{ delta: 2 }], redemptions: [], consentEvents: [] });
         const serialized = JSON.stringify(result);
         for (const excluded of [foreign.member.id, own.member.cardToken, own.member.scanCode, foreign.member.cardToken]) expect(serialized).not.toContain(excluded);
         await expect(feedback).toHaveCount(0);

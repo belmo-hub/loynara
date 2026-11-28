@@ -94,7 +94,10 @@ export async function queueWinbackMessages(now = new Date()) {
         FROM (SELECT p.id AS pass_id, p.tenant_id, p.membership_id, ${lastConfirmedStamp(now)} AS last ${eligible(p.tenantId, p.programId, now)}) d
         WHERE (${now}::timestamptz AT TIME ZONE ${p.timezone})::date - (d.last AT TIME ZONE ${p.timezone})::date BETWEEN ${p.days}::int AND ${p.days + WINBACK_WINDOW_DAYS}::int
           AND NOT EXISTS (SELECT 1 FROM wallet_message_recipients r JOIN wallet_messages w ON w.id = r.message_id AND w.tenant_id = r.tenant_id AND w.kind = 'winback'
-            WHERE r.tenant_id = d.tenant_id AND r.membership_id = d.membership_id AND r.created_at > d.last)`;
+            WHERE r.tenant_id = d.tenant_id AND r.membership_id = d.membership_id AND r.created_at > d.last)
+          -- A booking rebook push that went out stands in for the generic win-back for 14 days.
+          AND NOT EXISTS (SELECT 1 FROM booking_push_log l WHERE l.tenant_id = d.tenant_id AND l.membership_id = d.membership_id
+            AND l.kind = 'rebook' AND l.sent_at > ${now}::timestamptz - interval '14 days')`;
       return queueBatch(tx, p, "winback", now, due, deadline => winbackText(p.type, p.bonus, germanDay(deadline)));
     });
   }

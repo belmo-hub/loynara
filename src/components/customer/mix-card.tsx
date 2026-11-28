@@ -34,6 +34,8 @@ type Props = {
   voice?: "guest" | "owner";
   /** In place of the shop's name and location (the Kasse: the card number and its note). */
   title?: string; sub?: string;
+  /** A full-width line under the head row, above the stamps: at the till, a finished visit's warning (Design r4). */
+  note?: ReactNode;
   /** A label under the balance (the Kasse); „von 8“ then stands beside the figure. */
   label?: string;
   /** The page's own foot, in place of the voice's (the Kasse's pill and state). */
@@ -50,7 +52,7 @@ type Props = {
  * balance right, the stamps in rows (earned coral with a check, open a dim disc), a hairline, then the foot. Colours come
  * from the merchant palette on an ancestor. Stamps are a share of their slot rounded to a whole pixel.
  */
-export function MixCard({ businessName, locationName, programType, balance, reward, rewards, size = "full", voice = "guest", title, sub, label, foot, lineReward, landedFrom, grow, locale = "de", className }: Props) {
+export function MixCard({ businessName, locationName, programType, balance, reward, rewards, size = "full", voice = "guest", title, sub, note, label, foot, lineReward, landedFrom, grow, locale = "de", className }: Props) {
   const goal = reward.cost, have = Math.max(0, Math.min(balance, goal)), left = goal - have;
   const points = programType === "points", stamps = !points && goal <= STAMP_GRID_MAX;
   // Above the goal the card never clamps its count (Design, 18 Nov: one screen, one number): the grid shows all stamps
@@ -76,6 +78,7 @@ export function MixCard({ businessName, locationName, programType, balance, rewa
       <div className={styles.id}><b>{title ?? businessName}</b><span>{sub ?? locationName}</span></div>
       <div className={styles.n}>{label ? <><b data-figure="">{figure}<small>{"\u00a0"}{of}</small></b><span>{label}</span></> : <><b data-figure="">{figure}</b><span>{of}</span></>}</div>
     </div>
+    {note}
     {points ? <PointsLadder balance={balance} rewards={rewards ?? [reward]} landedFrom={landedFrom} grow={grow} tone="mix" locale={locale} titles keepUnits={size === "kasse"} />
       : !stamps ? <StampGrid earned={balance} total={goal} locale={locale} keepUnits={size === "kasse"} />
       : <div className={styles.stamps} style={cols} data-rows={Math.ceil(goal / kasseCols)} role="img" aria-label={aria}>

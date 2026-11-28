@@ -305,3 +305,9 @@ button.book { min-height: 64px; padding-block: var(--space-2); border-radius: va
 .figure { color: var(--color-ink); }
 .nowrap { white-space: nowrap; }
 dialog .note { padding: 0; background: none; }
+
+/* Design r3: a finished visit in the card head reads as a warning, not as the muted verified line. */
+/* One line at 390 and up; it wraps at 320 and under large text rather than widen the card (Design r5). */
+.doneLine { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--color-warning); font-weight: var(--weight-strong); }
+/* The clock grows with the text and sits on the first line when the text wraps. */
+.doneLine svg { flex: none; width: 1.125em; height: 1.125em; margin-top: calc((1lh - 1.125em) / 2); }

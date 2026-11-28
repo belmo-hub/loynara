@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { groupHref, visibleGroups, visibleItems } from "./nav";
+import { activeGroup, groupHref, visibleGroups, visibleItems } from "./nav";
 
 const ALL = ["billing", "campaigns", "automations", "walletPreviews", "cardLogo", "nfc"] as const;
 const FULL = ["billing", "campaigns", "automations", "audiences", "walletPreviews", "cardLogo", "nfc"] as const;
@@ -50,5 +50,16 @@ describe("navigation with pilot-withheld surfaces", () => {
     const hrefs = visibleGroups("owner").flatMap(group => visibleItems(group, "owner").map(item => item.href));
     // Billing, campaigns and automations live on the „Mehr“ page and the Aktionen list, so the navigation is the same either way.
     expect(hrefs).toEqual(["/merchant", "/merchant/program", "/merchant/customers", "/merchant/audiences", "/merchant/actions", "/merchant/more"]);
+  });
+});
+
+describe("Termine in the navigation (Design D2, 22 Nov)", () => {
+  it("is a desktop item only with booking on, never one of the phone's tabs, and never lights Einstellungen", () => {
+    expect(visibleGroups("owner", [], false).map(group => group.id)).not.toContain("termine");
+    expect(visibleGroups("owner", [], true).map(group => group.id)).toEqual(["overview", "program", "customers", "termine", "actions", "settings"]);
+    expect(visibleGroups("manager", [], true).map(group => group.id)).toContain("termine");
+    expect(visibleGroups("owner", [], true).filter(group => !group.desktopOnly).slice(0, 4).map(group => group.id)).toEqual(["overview", "program", "customers", "actions"]);
+    expect(activeGroup("/merchant/termine/einrichten", "owner", [], true)?.id).toBe("termine");
+    expect(activeGroup("/merchant/termine", "owner", [], false)?.id).toBeUndefined();
   });
 });

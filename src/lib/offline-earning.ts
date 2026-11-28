@@ -6,6 +6,7 @@ import { db, pool } from "@/db";
 import * as schema from "@/db/schema";
 import { ledgerEntries, memberships, offlineAwardEvents, offlineAwardLeases, programs, purchaseAwards, staffRoles } from "@/db/schema";
 import { awardInTransaction, DomainError } from "./loyalty";
+import { completeInAwardTransaction } from "./booking/cashier";
 import { enforceRateLimit, RateLimitError } from "./rate-limit";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -115,6 +116,8 @@ export async function syncOfflineAward(raw: z.input<typeof eventSchema>): Promis
     // A validation error after ledger work must roll back that work while the
     // outer transaction can still record a reviewed rejection.
     const booked = await tx.transaction(inner => awardInTransaction(inner, { userId: input.userId, locationId: lease.locationId, membershipId: lease.membershipId, ...input.award, idempotencyKey, requestId: input.eventId, deviceAt: input.eventAt, source: "staff_offline" }));
+    // ENG-201 F-1: the synced visit completes the card's booked appointment in the window, as a counter award does.
+    if (!booked.duplicate) await completeInAwardTransaction(tx, booked.entryId);
     await saveEvent(tx, lease, input, "accepted", null, booked.entryId, now);
     return { status: "accepted", balance: booked.balance, entryId: booked.entryId, duplicate: booked.duplicate };
   } catch (error) {

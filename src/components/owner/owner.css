@@ -446,6 +446,11 @@ form .ow-btn--primary[type="submit"]:not(.ow-btn--sm), .ow-savebar .ow-btn { min
 /* Dialog */
 .ow-dialog-scrim { position: fixed; inset: 0; z-index: var(--z-dialog); display: grid; place-items: center; padding: var(--space-4); background: var(--color-scrim); animation: ow-fade var(--dur-press) linear; }
 .ow-dialog { width: min(100%, 460px); max-height: calc(100dvh - 2 * var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--color-raised); border-radius: var(--radius-xl); padding: var(--space-5); box-shadow: var(--shadow-overlay); display: flex; flex-direction: column; gap: var(--space-3); animation: ow-in var(--dur-ui) var(--ease-out); }
+/* A sheet's next mode fades in where the last one was (Design, 22 Nov); a long body scrolls under pinned actions. */
+.ow-dialog-view { animation: ow-fade var(--dur-ui) var(--ease-out) both; }
+.ow-dialog--scroll { overflow-y: hidden; }
+.ow-dialog--scroll > .ow-stack { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (prefers-reduced-motion: reduce) { .ow-dialog-view { animation: none; } }
 .ow-dialog h2 { font-size: var(--text-22); letter-spacing: -.01em; }
 .ow-dialog p { color: var(--color-ink-muted); }
 .ow-dialog-actions { display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap-reverse; margin-top: var(--space-3); }
@@ -1469,3 +1474,12 @@ button.ow-back { border: 0; background: none; font: inherit; font-weight: var(--
 .ow-place-status:empty, .ow-place-status:has(> .ow-sr) { margin-top: calc(-1 * var(--space-2)); } /* always there for screen readers, no gap while silent */
 .ow-place-status > span { display: block; }
 .ow-place-status > [data-alert] { color: var(--color-ink); }
+
+/* The booking day's quick switch (Design, 26 Nov): „Gestern / Heute / Morgen“ stay whole words at 320 and 360, and stack one
+   per line when the shell is narrower than 19.5em (320 at 200 %). Only this row: other .ow-seg groups keep their layout. */
+.ow-dayseg { flex: 1 1 auto; min-width: 0; }
+.ow-dayseg > button { flex: 1 1 0; min-width: 0; padding-inline: var(--space-2); white-space: nowrap; hyphens: manual; }
+@container ow-shell (max-width: 19.5em) {
+  .ow-dayseg { flex-direction: column; }
+  .ow-dayseg > button { flex: none; white-space: normal; }
+}

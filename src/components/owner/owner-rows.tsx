@@ -27,7 +27,7 @@ export function PageTitle({ back, title, lead }: { back?: { label: ReactNode; hr
 
 /** A link with `href` (a file with `download`), a button with `onClick`, otherwise a plain row. */
 export type RowProps = { icon: LucideIcon; title: ReactNode; sub?: ReactNode; value?: ReactNode; big?: boolean; off?: boolean; href?: string; download?: boolean; onClick?: () => void;
-  /** A state on its own line under the text, 4 below it (the 55 chip rule): ok for a state, warn for a to-do. */ chip?: { label: string; warn?: boolean };
+  /** A state on its own line under the text, 4 below it (the 55 chip rule): ok for a state, warn for a to-do. */ chip?: { label: string; warn?: boolean; /** Overrides warn: neutral has no colour and no icon, danger the alert icon. */ tone?: "ok" | "warn" | "danger" | "neutral" };
   /** Outlined after its page saved (Design rule 10). */ saved?: boolean };
 
 export function Row({ icon: Icon, title, sub, value, big, off, href, download, onClick, chip, saved }: RowProps) {
@@ -35,7 +35,7 @@ export function Row({ icon: Icon, title, sub, value, big, off, href, download, o
   const body = <>
     <span className="ow-prog-icon"><Icon size={22} aria-hidden="true" /></span>
     <span className="ow-prog-main">
-      <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}{chip && <span className={`ow-chip ow-chip--${chip.warn ? "warn" : "ok"}`}><OwnerIcon name={chip.warn ? "alert" : "check"} size={16} />{chip.label}</span>}</span>
+      <span className="ow-prog-text"><strong>{title}</strong>{sub && <small>{sub}</small>}{chip && <Chip {...chip} />}</span>
       {value != null && value !== "" && <span className="ow-prog-value" data-big={big || undefined} data-off={off || undefined}>{value}</span>}
     </span>
     {opens && <ArrowRight className="ow-prog-arrow" size={22} aria-hidden="true" />}
@@ -117,4 +117,8 @@ export function Rows({ title, help, helpTitle = "So zählen wir", note, noteTone
       {help && <Sheet open={open} onClose={close} title={helpTitle} footer={<Button variant="secondary" block onClick={close}>Schließen</Button>}>{help}</Sheet>}
     </div>
   );
+}
+
+function Chip({ label, warn, tone = warn ? "warn" : "ok" }: { label: string; warn?: boolean; tone?: "ok" | "warn" | "danger" | "neutral" }) {
+  return <span className={tone === "neutral" ? "ow-chip" : `ow-chip ow-chip--${tone}`}>{tone !== "neutral" && <OwnerIcon name={tone === "ok" ? "check" : "alert"} size={16} />}{label}</span>;
 }

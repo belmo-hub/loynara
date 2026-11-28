@@ -20,7 +20,7 @@ describe("customer export database snapshot", () => {
     const canaries = [own, foreign].map(f => ({ tenantId: f.tenant.id, membershipId: f.member.id, email: `contact-canary-${randomUUID()}@example.test`, emailVerified: true, recoveryTokenHash: randomUUID().replaceAll("-", "").repeat(2) }));
     await db.insert(membershipContacts).values(canaries);
     const exported = await getCustomerExport(own.member.cardToken);
-    expect(Object.keys(exported).sort()).toEqual(["formatVersion", "exportedAt", "scope", "membership", "program", "ledger", "redemptions", "consentEvents", "walletMessageConsents", "consentTexts", "birthday"].sort());
+    expect(Object.keys(exported).sort()).toEqual(["formatVersion", "exportedAt", "scope", "membership", "program", "ledger", "redemptions", "consentEvents", "walletMessageConsents", "consentTexts", "birthday", "appointments"].sort());
     const text = JSON.stringify(exported);
     for (const secret of [...canaries.flatMap(canary => [canary.email, canary.recoveryTokenHash]), foreign.member.id, own.member.cardToken, own.member.scanCode, foreign.member.cardToken, foreign.member.scanCode]) expect(text).not.toContain(secret);
     expect(text).not.toMatch(/"(email|emailVerified|email_verified|recoveryTokenHash|recovery_token_hash|membershipContacts|membership_contacts)":/);

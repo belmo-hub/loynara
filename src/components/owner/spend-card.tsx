@@ -1,11 +1,11 @@
 "use client";
 
-import { Euro, MapPin, ReceiptText } from "lucide-react";
+import { CalendarDays, CalendarX, Euro, MapPin, ReceiptText, Repeat } from "lucide-react";
 import { ErrorNotice, LoadingBlock } from "./owner-ui";
 import { useLoad } from "./use-load";
 import { Rows, RowSection, type ValueRow } from "./value-rows";
-import type { MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
-import { formatMinor, SPEND_COPY as C } from "@/lib/spend-copy";
+import type { BookingFigures, MerchantSpend, SpendFigures } from "@/lib/merchant-analytics";
+import { BOOKING_COPY as B, formatMinor, SPEND_COPY as C } from "@/lib/spend-copy";
 
 /** The average-spend question; a programme that cannot have one sends the owner on to the Programm list. */
 const AVERAGE_HREF = "/merchant/program/average-spend";
@@ -15,12 +15,13 @@ const AVERAGE_HREF = "/merchant/program/average-spend";
  * period and how sure it is; the method sits behind the head's „?“ (L3). While no booking has an amount the section leads
  * with entering the average, never with a count under a revenue title (top-10 item 7).
  */
-export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
+export function SpendCard({ multiLocation, booking }: { multiLocation: boolean; booking?: BookingFigures | null }) {
   const [spend, reload] = useLoad<MerchantSpend>("/api/merchant/spend");
   const s = spend.state === "ok" ? spend.data : null;
   const money = (minor: number) => formatMinor(minor, s?.currency ?? "EUR");
   const enter: ValueRow = { key: "average", icon: ReceiptText, title: C.missingAverageLink, href: AVERAGE_HREF };
   return (
+    <>
     <RowSection title={C.title} helpTitle={C.howWeCountTitle} help={[{ text: C.howWeCount }]}>
       {spend.state === "error" && <ErrorNotice message={spend.message} onRetry={reload} />}
       {spend.state === "loading" && <LoadingBlock rows={1} height={64} />}
@@ -38,7 +39,23 @@ export function SpendCard({ multiLocation }: { multiLocation: boolean }) {
           {s.overall.total.unpricedVisits > 0 && <><p className="ow-rows-note">{C.missingAverage}</p><Rows rows={[enter]} /></>}
         </>)}
     </RowSection>
+    {booking && <BookingSection booking={booking} money={money} multiLocation={multiLocation} />}
+    </>
   );
+}
+
+/** Loynara Termin: hidden while booking is off at the selected location (booking null). Estimated list prices are named apart from cashier amounts. */
+function BookingSection({ booking: b, money, multiLocation }: { booking: BookingFigures; money: (minor: number) => string; multiLocation: boolean }) {
+  const n = (value: number) => value.toLocaleString("de-DE");
+  const rows: ValueRow[] = [{ key: "today", icon: CalendarDays, title: B.today, value: n(b.appointmentsToday) }, { key: "next7", icon: CalendarDays, title: B.next7, value: n(b.upcoming7) }];
+  if (b.done30 > 0) {
+    rows.push({ key: "noshow", icon: CalendarX, title: B.noShowTitle, value: B.noShowValue(b.noShow30, b.total30), sub: B.last30 },
+      { key: "list", icon: Euro, title: B.listPriceTitle, value: money(b.listPriceMinor30), sub: B.estimated });
+    if (b.confirmedMinor30 > 0) rows.push({ key: "confirmed", icon: Euro, title: B.confirmedTitle, value: money(b.confirmedMinor30), sub: B.last30 });
+  }
+  if (b.rebooked30 > 0) rows.push({ key: "rebooked", icon: Repeat, title: B.rebookedTitle, value: n(b.rebooked30), sub: B.last30 });
+  return <RowSection title={multiLocation ? `${B.title} · ${b.locationName}` : B.title} helpTitle="So zählen wir „Termine“" help={[{ text: B.howWeCount }]}><Rows rows={rows} />
+    {b.done30 === 0 && <p className="ow-rows-note">{B.empty}</p>}</RowSection>;
 }
 
 /** Money when any booking of the period is priced, else „ohne Betrag“ (no average entered yet); no booking at all is 0. */

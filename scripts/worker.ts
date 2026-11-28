@@ -27,6 +27,7 @@ let recoveryPrunedAt = 0;
 let weeklyReportsCheckedAt = 0;
 let programmesEndedAt = 0;
 let winbackCheckedAt = 0;
+let rebookCheckedAt = 0;
 let pointsExpiredAt = 0;
 let billingCheckedAt = 0;
 let suppressionsPrunedAt = 0;
@@ -237,6 +238,22 @@ async function processJob(job: Job, claimedAt: number) {
       return marked;
     }
   }
+  if (job.kind === "booking.reminder" || job.kind === "booking.change" || job.kind === "booking.request" || job.kind === "booking.rebook") {
+    // Customer Web Push for bookings (and the staff warning for an unconfirmed request); the push log makes a retry after a send a no-op.
+    try {
+      const { deliverBookingJob } = await import("../src/lib/booking/notify");
+      const outcome = await deliverBookingJob(job);
+      // Quiet hours are a wait, not a failed attempt.
+      if (outcome.status === "deferred") return await defer(job, outcome.reason, outcome.until);
+      const status = outcome.status === "retry" && job.attempts >= maxAttempts ? "failed" : outcome.status;
+      return await mark(job, status, outcome.reason, status === "retry" ? outcome.delaySeconds ?? 60 : 0);
+    } catch (error) {
+      const permanent = job.attempts >= maxAttempts;
+      const marked = await mark(job, permanent ? "failed" : "retry", "Booking push delivery failed", permanent ? 0 : 60);
+      console.error(`Booking push job ${job.id} ${permanent ? "failed" : "scheduled for retry"} (${error instanceof Error ? error.name : "error"})`);
+      return marked;
+    }
+  }
   if (job.kind === "wallet.program_refresh") {
     try {
       const { db } = await import("../src/db");
@@ -365,6 +382,18 @@ async function main() {
           if (shutdown.signal.aborted) return;
           throw error;
         }
+      }
+      if (Date.now() - rebookCheckedAt >= 5 * 60_000) {
+        try {
+          // Idempotent: each done appointment is claimed once (rebook_sent_at) under the Wallet-message tenant lock.
+          const { queueRebookPushes } = await import("../src/lib/booking/notify");
+          await queueRebookPushes();
+        } catch (error) {
+          if (shutdown.signal.aborted) return;
+          // Booking pushes are optional: a failing scan is logged and retried, it never stops stamping jobs.
+          console.error(`Rebook push scan failed (${error instanceof Error ? error.name : "error"}); retrying in five minutes`);
+        }
+        rebookCheckedAt = Date.now();
       }
       if (Date.now() - pointsExpiredAt >= 15 * 60_000) {
         try {

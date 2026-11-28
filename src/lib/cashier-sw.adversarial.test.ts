@@ -91,6 +91,30 @@ describe("cashier service worker", () => {
     expect(opened).toEqual([]);
   });
 
+  it("shows a booking request with its own text and opens only a same-origin day view on click", async () => {
+    const { listeners, shown, opened, focused, notificationsClosed } = loadWorker();
+    const url = "/merchant/termine?date=2026-11-03";
+    await dispatch(listeners.push, { data: { json: () => ({ v: 1, kind: "booking_request", title: "Salon", body: "Anfrage 10:00 · Haarschnitt ist noch nicht bestätigt.", url, tag: "a".repeat(80) }) } });
+    expect(shown[0]).toMatchObject({ title: "Salon", options: { body: "Anfrage 10:00 · Haarschnitt ist noch nicht bestätigt.", tag: `loynara-booking:${"a".repeat(64)}`, data: { url } } });
+    // Without a string tag the plain booking tag is used.
+    await dispatch(listeners.push, { data: { json: () => ({ v: 1, kind: "booking_request", title: "Salon", body: "x", url, tag: { evil: 1 } }) } });
+    expect(shown[1].options).toMatchObject({ tag: "loynara-booking" });
+    await dispatch(listeners.notificationclick, { notification: { close: notificationsClosed, data: { url } } });
+    expect(opened).toEqual([`${ORIGIN}${url}`]);
+    expect(focused).toEqual([]);
+  });
+
+  it("falls back to the generic text and the cashier for a booking request with a foreign or missing url", async () => {
+    for (const url of ["https://evil.example.test/merchant/termine", "/owner", undefined]) {
+      const { listeners, shown, opened, notificationsClosed } = loadWorker();
+      await dispatch(listeners.push, { data: { json: () => ({ v: 1, kind: "booking_request", title: "Salon", body: "x", url }) } });
+      expect(shown[0].title).toBe("Neue NFC-Anfrage");
+      expect(shown[0].options).toMatchObject({ tag: "loynara-tap" });
+      await dispatch(listeners.notificationclick, { notification: { close: notificationsClosed, data: { url } } });
+      expect(opened).toEqual([`${ORIGIN}/cashier`]);
+    }
+  });
+
   it("ignores clear requests from a foreign origin and only closes tap notifications otherwise (sound)", async () => {
     const { listeners, self, notificationsClosed } = loadWorker();
     await dispatch(listeners.message, { origin: "https://evil.example.test", data: { type: "loynara:clear-tap-notifications" } });

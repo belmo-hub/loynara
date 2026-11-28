@@ -1,0 +1,571 @@
+import { randomUUID } from "node:crypto";
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { db } from "@/db";
+import { bookingAppointments, bookingBlockedCustomers, bookingBlocks, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, ledgerEntries, locations, memberships, programs, tenants } from "@/db/schema";
+import { validCardToken } from "@/lib/card-lifecycle";
+import { formatCardLocator } from "@/lib/card-locator";
+import { requireSameOrigin, sessionUser } from "@/lib/http";
+import { selectedLocationFromRequest } from "@/lib/locations";
+import { awardInTransaction, DomainError } from "@/lib/loyalty";
+import { programInForce } from "@/lib/rule-versions";
+import { getMerchantContext } from "@/lib/product";
+import { enforcePeerLimit, enforceRateLimit, peerIdentity, RateLimitError, refundRateLimit } from "@/lib/rate-limit";
+import { GRID_MIN, slots } from "./availability";
+import { awardWindow, visitAt } from "./award-window";
+import { TOO_MANY_BOOKINGS } from "@/components/booking/booking-format";
+import { notifyShopChange, pushState, scheduleReminders } from "./notify";
+import { getSetup, outsideOpeningHours } from "./setup";
+import { addDays, instantToWall, wallToInstant } from "./time";
+
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Reader = typeof db | Tx;
+type Settings = typeof bookingSettings.$inferSelect;
+type Scope = { tenantId: string; locationId: string };
+type Status = "requested" | "confirmed" | "done" | "no_show" | "cancelled_by_customer" | "cancelled_by_shop";
+
+/** A DomainError whose details go into the response body (nextFree, staffId and count). */
+export class BookingError extends DomainError {
+  constructor(code: string, message: string, public details: Record<string, unknown>) { super(code, message); }
+}
+
+const OPEN: Status[] = ["requested", "confirmed"];
+const MINUTE = 60_000, HOUR = 3_600_000;
+
+/** Serialises every booking write of one location; the EXCLUDE constraints stay the backstop. */
+export const lockLocation = (tx: Tx, locationId: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${"booking:" + locationId}, 0))`);
+
+const range = (start: Date, end: Date) => sql`tstzrange(${start.toISOString()}::timestamptz, ${end.toISOString()}::timestamptz, '[)')`;
+const lower = (column: typeof bookingAppointments.during | typeof bookingBlocks.during) => sql<Date>`lower(${column})`.mapWith(value => new Date(value));
+const upper = (column: typeof bookingAppointments.during | typeof bookingBlocks.during) => sql<Date>`upper(${column})`.mapWith(value => new Date(value));
+const isOpen = (status: string) => (OPEN as string[]).includes(status);
+
+function databaseError(error: unknown): { code?: unknown; constraint?: unknown } {
+  const cause = error instanceof Error && error.cause ? error.cause : error;
+  return cause && typeof cause === "object" ? cause as { code?: unknown; constraint?: unknown } : {};
+}
+
+// ---- Rules (pure) -----------------------------------------------------------------------------------------------------
+
+const TRANSITIONS: Record<string, Status[]> = { requested: ["confirmed", "done", "no_show", "cancelled_by_shop"], confirmed: ["done", "no_show", "cancelled_by_shop"] };
+
+/** Owner transitions: `expected` must still be the status, done and no-show only from 10 minutes before the start. */
+export function assertTransition(current: string, expected: string, to: string, start: Date, now: Date) {
+  if (current !== expected) throw new DomainError("STALE", "The appointment has changed; reload");
+  if (!TRANSITIONS[current]?.includes(to as Status)) throw new DomainError("INVALID_TRANSITION", "Transition not allowed");
+  if ((to === "done" || to === "no_show") && start.getTime() > now.getTime() + 10 * MINUTE) throw new DomainError("TOO_EARLY", "The appointment has not started yet");
+}
+
+export const isLateCancel = (start: Date, deadlineHours: number, now: Date) => now.getTime() >= start.getTime() - deadlineHours * HOUR;
+export const rescheduleAllowed = (countThisMonth: number, max: number) => countThisMonth < max;
+export const blocksAfterNoShow = (noShowsIn12Months: number, threshold: number) => threshold > 0 && noShowsIn12Months >= threshold;
+
+/** On the 15-minute wall-clock grid, not before now + lead time, not after today + max days. */
+export function assertInWindow(start: Date, settings: Pick<Settings, "leadTimeMin" | "maxDaysAhead">, now: Date, timeZone: string) {
+  const wall = instantToWall(start, timeZone);
+  if (Number(wall.time.slice(3)) % GRID_MIN !== 0 || wall.second !== 0 || start.getUTCMilliseconds() !== 0
+    || start.getTime() < now.getTime() + settings.leadTimeMin * MINUTE || wall.date > addDays(instantToWall(now, timeZone).date, settings.maxDaysAhead)) {
+    throw new DomainError("OUT_OF_WINDOW", "This time cannot be booked");
+  }
+}
+
+// ---- Reads --------------------------------------------------------------------------------------------------------------
+
+export async function cardScope(reader: Reader, token: string) {
+  if (!validCardToken(token)) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
+  const [card] = await reader.select({ tenantId: memberships.tenantId, membershipId: memberships.id, locationId: programs.locationId, timezone: locations.timezone, shopName: tenants.name, brandColor: locations.brandColor, cardLocator: memberships.cardLocator })
+    .from(memberships)
+    .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+    .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+    .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+    .where(and(eq(memberships.cardToken, token), isNull(memberships.closedAt), eq(programs.status, "active")));
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
+  return card;
+}
+
+const isBlocked = async (reader: Reader, card: { tenantId: string; membershipId: string }) =>
+  (await reader.select({ id: bookingBlockedCustomers.membershipId }).from(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, card.tenantId), eq(bookingBlockedCustomers.membershipId, card.membershipId)))).length > 0;
+
+async function settingsOf(reader: Reader, scope: Scope, enabledOnly = true) {
+  const [settings] = await reader.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  if (!settings || (enabledOnly && !settings.enabled)) throw new DomainError("NOT_FOUND", "Hier kann man nicht online buchen.");
+  return settings;
+}
+
+async function timezoneOf(reader: Reader, scope: Scope) {
+  const [location] = await reader.select({ timezone: locations.timezone }).from(locations).where(and(eq(locations.tenantId, scope.tenantId), eq(locations.id, scope.locationId)));
+  if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
+  return location.timezone;
+}
+
+async function liveService(reader: Reader, scope: Scope, serviceId: string) {
+  const [service] = await reader.select().from(bookingServices)
+    .where(and(eq(bookingServices.tenantId, scope.tenantId), eq(bookingServices.locationId, scope.locationId), eq(bookingServices.id, serviceId), isNull(bookingServices.archivedAt)));
+  if (!service) throw new DomainError("NOT_FOUND", "Diese Leistung haben wir nicht gefunden.");
+  return service;
+}
+
+type SlotService = { id: string; durationMin: number; bufferMin: number };
+
+/** Free slots for whole days, read from the location's live staff, blocks and open appointments (minus `excludeId`). */
+async function availability(reader: Reader, scope: Scope & { timezone: string }, input: { service: SlotService; staffId?: string; days: string[]; excludeId?: string; settings: Pick<Settings, "leadTimeMin" | "maxDaysAhead">; now: Date }) {
+  const staffRows = await reader.select({ id: bookingStaff.id, sort: bookingStaff.sort, workingHours: bookingStaff.workingHours }).from(bookingStaff)
+    .where(and(eq(bookingStaff.tenantId, scope.tenantId), eq(bookingStaff.locationId, scope.locationId), isNull(bookingStaff.archivedAt), input.staffId ? eq(bookingStaff.id, input.staffId) : undefined));
+  if (input.staffId && !staffRows.length) throw new DomainError("NOT_FOUND", "Diese Person haben wir nicht gefunden.");
+  const links = staffRows.length ? await reader.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), inArray(bookingStaffServices.staffId, staffRows.map(s => s.id)))) : [];
+  // A day either side covers every timezone's local midnight.
+  const window = range(new Date(Date.parse(`${input.days[0]}T00:00:00Z`) - 86_400_000), new Date(`${addDays(input.days[input.days.length - 1], 2)}T00:00:00Z`));
+  const blocks = await reader.select({ staffId: bookingBlocks.staffId, start: lower(bookingBlocks.during), end: upper(bookingBlocks.during) }).from(bookingBlocks)
+    .where(and(eq(bookingBlocks.tenantId, scope.tenantId), eq(bookingBlocks.locationId, scope.locationId), sql`${bookingBlocks.during} && ${window}`));
+  const appointments = await reader.select({ staffId: bookingAppointments.staffId, start: lower(bookingAppointments.during), end: upper(bookingAppointments.during) }).from(bookingAppointments)
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, OPEN),
+      sql`${bookingAppointments.during} && ${window}`, input.excludeId ? ne(bookingAppointments.id, input.excludeId) : undefined));
+  return slots({
+    days: input.days, service: input.service, blocks, appointments, settings: input.settings, now: input.now, tz: scope.timezone,
+    staff: staffRows.map(s => ({ ...s, serviceIds: links.filter(l => l.staffId === s.id).map(l => l.serviceId) })),
+  });
+}
+
+/** The slot at `start`, or BLOCKED / SLOT_TAKEN (with the next free start that day). */
+async function findSlot(tx: Tx, scope: Scope & { timezone: string }, input: { service: SlotService; staffId?: string; start: Date; excludeId?: string; settings: Pick<Settings, "leadTimeMin" | "maxDaysAhead">; now: Date }) {
+  const [day] = await availability(tx, scope, { ...input, days: [instantToWall(input.start, scope.timezone).date] });
+  const nextFree = day.slots.find(s => s.start > input.start)?.start.toISOString();
+  const slot = day.slots.find(s => s.start.getTime() === input.start.getTime());
+  if (slot) return { slot, nextFree };
+  const end = new Date(input.start.getTime() + (input.service.durationMin + input.service.bufferMin) * MINUTE);
+  const [block] = await tx.select({ id: bookingBlocks.id }).from(bookingBlocks).where(and(eq(bookingBlocks.tenantId, scope.tenantId), eq(bookingBlocks.locationId, scope.locationId),
+    sql`${bookingBlocks.during} && ${range(input.start, end)}`, input.staffId ? or(isNull(bookingBlocks.staffId), eq(bookingBlocks.staffId, input.staffId)) : isNull(bookingBlocks.staffId))).limit(1);
+  if (block) throw new DomainError("BLOCKED", "The shop is closed at this time");
+  throw new BookingError("SLOT_TAKEN", "This time was just taken", { nextFree });
+}
+
+const slotTaken = (nextFree?: string) => (error: unknown): never => {
+  const { code, constraint } = databaseError(error);
+  if (code === "23P01" && constraint === "booking_member_no_overlap") throw new DomainError("OWN_OVERLAP", "This card already has an appointment at this time");
+  if (code === "23P01") throw new BookingError("SLOT_TAKEN", "This time was just taken", { nextFree });
+  throw error;
+};
+
+const noShowCount = sql<number>`(SELECT count(*)::int FROM booking_appointments n WHERE n.tenant_id = ${bookingAppointments.tenantId} AND n.membership_id = ${bookingAppointments.membershipId}
+  AND n.status = 'no_show' AND lower(n.during) > now() - interval '12 months')`;
+
+async function appointmentRows(reader: Reader, where: SQL | undefined, order: SQL = asc(sql`lower(${bookingAppointments.during})`), limit = 500) {
+  return reader.select({
+    a: bookingAppointments, start: lower(bookingAppointments.during), end: upper(bookingAppointments.during), serviceName: bookingServices.name, staffName: bookingStaff.name,
+    cardLocator: memberships.cardLocator, noShowCount, deadlineHours: bookingSettings.cancelDeadlineHours, maxReschedules: bookingSettings.maxReschedulesPerMonth,
+  }).from(bookingAppointments)
+    .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+    .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
+    .innerJoin(memberships, and(eq(memberships.tenantId, bookingAppointments.tenantId), eq(memberships.id, bookingAppointments.membershipId)))
+    .innerJoin(bookingSettings, and(eq(bookingSettings.tenantId, bookingAppointments.tenantId), eq(bookingSettings.locationId, bookingAppointments.locationId)))
+    .where(where).orderBy(order).limit(limit);
+}
+type Row = Awaited<ReturnType<typeof appointmentRows>>[number];
+// The booked length (duration + buffer) stays as booked; later service edits never change it.
+const bookedService = (row: Row): SlotService => ({ id: row.a.serviceId, durationMin: row.a.durationMin, bufferMin: (row.end.getTime() - row.start.getTime()) / MINUTE - row.a.durationMin });
+
+function customerView(row: Row, now: Date) {
+  const { a, start } = row, deadline = new Date(start.getTime() - row.deadlineHours * HOUR), open = isOpen(a.status);
+  return {
+    id: a.id, status: a.status, start: start.toISOString(), durationMin: a.durationMin, priceMinor: a.priceMinor,
+    service: { id: a.serviceId, name: row.serviceName }, staff: { id: a.staffId, name: row.staffName },
+    rescheduleCount: a.rescheduleCount, lateCancel: a.lateCancel, canCancel: open && start > now, canReschedule: open && now < deadline && row.maxReschedules > 0, cancelDeadline: deadline.toISOString(),
+  };
+}
+
+function ownerView(row: Row, now: Date) {
+  return { ...customerView(row, now), customerName: row.a.customerName, customerPhone: row.a.customerPhone, cardLocator: formatCardLocator(row.cardLocator), membershipId: row.a.membershipId, noShowCount: row.noShowCount,
+    // A request the shop turned down reads „abgelehnt“ (Design D7), not „abgesagt“.
+    rejected: row.a.status === "cancelled_by_shop" && row.a.cancelReason === REJECTED };
+}
+
+const REJECTED = "Anfrage abgelehnt";
+
+async function one(reader: Reader, tenantId: string, id: string) {
+  const [row] = await appointmentRows(reader, and(eq(bookingAppointments.tenantId, tenantId), eq(bookingAppointments.id, id)));
+  return row;
+}
+
+// ---- Customer (card token) --------------------------------------------------------------------------------------------
+
+/** Every reschedule of the card is logged on its appointment; the month is the shop's calendar month. */
+async function reschedulesThisMonth(reader: Reader, card: { tenantId: string; membershipId: string; timezone: string }, now: Date) {
+  const { rows: [month] } = await reader.execute<{ count: number }>(sql`SELECT count(*)::int AS count FROM booking_appointments a, unnest(a.rescheduled_at) AS t
+    WHERE a.tenant_id = ${card.tenantId}::uuid AND a.membership_id = ${card.membershipId}::uuid AND to_char(t AT TIME ZONE ${card.timezone}, 'YYYY-MM') = ${instantToWall(now, card.timezone).date.slice(0, 7)}`);
+  return month.count;
+}
+
+export async function cardView(token: string, now = new Date()) {
+  const card = await cardScope(db, token);
+  const [settings] = await db.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, card.tenantId), eq(bookingSettings.locationId, card.locationId)));
+  if (!settings?.enabled) return { enabled: false };
+  const setup = await getSetup(card);
+  const mine = and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId));
+  const upcoming = sql`${bookingAppointments.status} in ('requested','confirmed') and upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`;
+  return {
+    enabled: true, blocked: await isBlocked(db, card), cardLocator: formatCardLocator(card.cardLocator),
+    // Design (22 Nov): limits are known before the work, so the page can say so before step 1.
+    reschedulesLeft: Math.max(0, settings.maxReschedulesPerMonth - await reschedulesThisMonth(db, card, now)),
+    shop: { name: card.shopName, brandColor: card.brandColor, timezone: card.timezone, termsText: settings.termsText, cancelDeadlineHours: settings.cancelDeadlineHours, maxReschedulesPerMonth: settings.maxReschedulesPerMonth, autoConfirm: settings.autoConfirm,
+      noShowBlockAfter: settings.noShowBlockAfter, maxOpenPerCard: settings.maxOpenPerCard, maxDaysAhead: settings.maxDaysAhead },
+    services: setup.services.map(s => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceMinor: s.priceMinor, priceFrom: s.priceFrom })),
+    staff: setup.staff.map(s => ({ id: s.id, name: s.name, serviceIds: s.serviceIds })),
+    upcoming: (await appointmentRows(db, and(mine, upcoming))).map(row => customerView(row, now)),
+    past: (await appointmentRows(db, and(mine, sql`not (${upcoming})`), desc(sql`lower(${bookingAppointments.during})`), 5)).map(row => customerView(row, now)),
+    push: await pushState(db, card),
+  };
+}
+
+/** With `appointmentId` (a move): the booked length, and the appointment's own time counts as free. */
+export async function customerSlots(token: string, input: { serviceId: string; staffId?: string; from: string; days: number; appointmentId?: string }, now = new Date()) {
+  const card = await cardScope(db, token);
+  const settings = await settingsOf(db, card);
+  const moving = input.appointmentId ? await customerAppointment(db, card, input.appointmentId) : undefined;
+  const service = moving ? bookedService(moving) : await liveService(db, card, input.serviceId);
+  const days = Array.from({ length: input.days }, (_, i) => addDays(input.from, i));
+  return { days: (await availability(db, card, { service, staffId: input.staffId, days, excludeId: moving?.a.id, settings, now })).map(d => ({ date: d.date, slots: d.slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) })) };
+}
+
+export type BookInput = { token: string; serviceId: string; staffId?: string; start: Date; customerName: string; customerPhone?: string; idempotencyKey: string; rebookSourceId?: string };
+
+export async function book(input: BookInput, now = new Date()) {
+  return db.transaction(async tx => {
+    const card = await cardScope(tx, input.token);
+    await lockLocation(tx, card.locationId);
+    const [existing] = await tx.select({ id: bookingAppointments.id, membershipId: bookingAppointments.membershipId }).from(bookingAppointments)
+      .where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.idempotencyKey, input.idempotencyKey)));
+    if (existing) {
+      if (existing.membershipId !== card.membershipId) throw new DomainError("KEY_REUSED", "Idempotency key was used for another operation");
+      return { appointment: customerView(await one(tx, card.tenantId, existing.id), now), duplicate: true };
+    }
+    const settings = await settingsOf(tx, card);
+    if (await isBlocked(tx, card)) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
+    const [open] = await tx.select({ count: sql<number>`count(*)::int` }).from(bookingAppointments).where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId),
+      inArray(bookingAppointments.status, OPEN), sql`upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`));
+    if (open.count >= settings.maxOpenPerCard) throw new DomainError("TOO_MANY_OPEN", "Too many open appointments on this card");
+    assertInWindow(input.start, settings, now, card.timezone);
+    const service = await liveService(tx, card, input.serviceId);
+    const { slot, nextFree } = await findSlot(tx, card, { service, staffId: input.staffId, start: input.start, settings, now });
+    const [row] = await tx.insert(bookingAppointments).values({
+      tenantId: card.tenantId, locationId: card.locationId, membershipId: card.membershipId, serviceId: service.id, staffId: slot.staffId,
+      during: range(input.start, new Date(input.start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), durationMin: service.durationMin, priceMinor: service.priceMinor,
+      status: settings.autoConfirm ? "confirmed" : "requested", customerName: input.customerName, customerPhone: input.customerPhone, idempotencyKey: input.idempotencyKey,
+      // Only this card's own appointment of the same service with a rebook push sent (push log, not the queue) in the last 14
+      // days counts as the source, so a crafted, stale or never-sent link cannot inflate „über Erinnerung neu gebucht“.
+      rebookSourceId: input.rebookSourceId ? sql`(SELECT r.id FROM booking_appointments r WHERE r.tenant_id = ${card.tenantId}::uuid AND r.membership_id = ${card.membershipId}::uuid AND r.id = ${input.rebookSourceId}::uuid
+        AND r.service_id = ${service.id}::uuid AND EXISTS (SELECT 1 FROM booking_push_log l WHERE l.tenant_id = r.tenant_id AND l.appointment_id = r.id AND l.kind = 'rebook'
+          AND l.sent_at > ${now.toISOString()}::timestamptz - interval '14 days'))` : null,
+    }).returning({ id: bookingAppointments.id }).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.id, now);
+    return { appointment: customerView(await one(tx, card.tenantId, row.id), now), duplicate: false };
+  });
+}
+
+async function customerAppointment(reader: Reader, card: Awaited<ReturnType<typeof cardScope>>, appointmentId: string) {
+  const [row] = await appointmentRows(reader, and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.membershipId), eq(bookingAppointments.id, appointmentId)));
+  if (!row) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  return row;
+}
+
+/** Keeps the status; a retry that already landed on `start` returns the appointment unchanged. */
+export async function reschedule(input: { token: string; appointmentId: string; start: Date; staffId?: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    const card = await cardScope(tx, input.token);
+    await lockLocation(tx, card.locationId);
+    const settings = await settingsOf(tx, card);
+    const row = await customerAppointment(tx, card, input.appointmentId);
+    if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    // A paused card keeps its appointment but cannot move it: the same gate as book().
+    if (await isBlocked(tx, card)) throw new DomainError("BLOCKED_CUSTOMER", "Online booking is paused for this card; please call the shop");
+    if (row.start.getTime() === input.start.getTime() && (!input.staffId || input.staffId === row.a.staffId)) return customerView(row, now);
+    if (isLateCancel(row.start, settings.cancelDeadlineHours, now)) throw new DomainError("TOO_LATE", "Too late to reschedule online");
+    if (!rescheduleAllowed(await reschedulesThisMonth(tx, card, now), settings.maxReschedulesPerMonth)) throw new DomainError("RESCHEDULE_LIMIT", "Reschedule limit reached this month");
+    assertInWindow(input.start, settings, now, card.timezone);
+    const service = bookedService(row);
+    const { slot, nextFree } = await findSlot(tx, card, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings, now });
+    await moveRow(tx, row, slot.staffId, input.start, service, { rescheduleCount: row.a.rescheduleCount + 1, rescheduledAt: sql`array_append(${bookingAppointments.rescheduledAt}, ${now.toISOString()}::timestamptz)`, updatedAt: now }).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.a.id, now);
+    return customerView(await one(tx, card.tenantId, row.a.id), now);
+  });
+}
+
+async function moveRow(tx: Tx, row: Row, staffId: string, start: Date, service: SlotService, extra: { rescheduleCount?: number; rescheduledAt?: SQL; updatedAt?: Date } = {}) {
+  const moved = await tx.update(bookingAppointments).set({ staffId, during: range(start, new Date(start.getTime() + (service.durationMin + service.bufferMin) * MINUTE)), updatedAt: new Date(), ...extra })
+    .where(and(eq(bookingAppointments.tenantId, row.a.tenantId), eq(bookingAppointments.id, row.a.id), eq(bookingAppointments.status, row.a.status))).returning({ id: bookingAppointments.id });
+  if (!moved.length) throw new DomainError("STALE", "The appointment has changed; reload");
+}
+
+/** Allowed while open and not yet started (after the start only the shop decides: done or no-show); inside the deadline it is flagged as late. */
+export async function cancelByCustomer(input: { token: string; appointmentId: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    const card = await cardScope(tx, input.token);
+    await lockLocation(tx, card.locationId);
+    const row = await customerAppointment(tx, card, input.appointmentId);
+    if (row.a.status === "cancelled_by_customer") return customerView(row, now);
+    if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    if (row.start <= now) throw new DomainError("TOO_LATE", "The appointment has already started");
+    await setStatus(tx, row, "cancelled_by_customer", { cancelledAt: now, lateCancel: isLateCancel(row.start, row.deadlineHours, now) });
+    return customerView(await one(tx, card.tenantId, row.a.id), now);
+  });
+}
+
+async function setStatus(tx: Tx, row: Row, to: Status, extra: Partial<typeof bookingAppointments.$inferInsert> = {}) {
+  const updated = await tx.update(bookingAppointments).set({ status: to, updatedAt: new Date(), ...extra })
+    .where(and(eq(bookingAppointments.tenantId, row.a.tenantId), eq(bookingAppointments.id, row.a.id), eq(bookingAppointments.status, row.a.status))).returning({ id: bookingAppointments.id });
+  if (!updated.length) throw new DomainError("STALE", "The appointment has changed; reload");
+}
+
+// ---- Owner and manager (tenant + selected location) --------------------------------------------------------------------
+
+async function ownerAppointment(tx: Tx, scope: Scope, appointmentId: string) {
+  const [row] = await appointmentRows(tx, and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), eq(bookingAppointments.id, appointmentId)));
+  if (!row) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  return row;
+}
+
+export type TransitionInput = Scope & { userId: string; appointmentId: string; to: Status; expected: Status; purchaseAmountMinor?: number; reason?: string };
+
+/** "Fertig" awards once, in the same transaction, keyed "booking:" + id; every transition is UPDATE … WHERE status = expected. */
+export async function transition(input: TransitionInput, now = new Date()) {
+  return db.transaction(async tx => {
+    await lockLocation(tx, input.locationId);
+    const first = await ownerAppointment(tx, input, input.appointmentId);
+    // Card before appointment, the order an award (and the tap path's completeAppointmentForAward) takes them in.
+    await tx.execute(sql`SELECT 1 FROM memberships WHERE tenant_id = ${input.tenantId}::uuid AND id = ${first.a.membershipId}::uuid FOR UPDATE`);
+    await tx.execute(sql`SELECT 1 FROM booking_appointments WHERE tenant_id = ${input.tenantId}::uuid AND id = ${first.a.id}::uuid FOR UPDATE`);
+    const row = await ownerAppointment(tx, input, input.appointmentId);
+    assertTransition(row.a.status, input.expected, input.to, row.start, now);
+    let doneAward: { balance: number; creditedQuantity: number } | undefined;
+    if (input.to === "done") {
+      const [{ program, closedAt }] = await tx.select({ program: programs, closedAt: memberships.closedAt }).from(memberships)
+        .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+        .where(and(eq(memberships.tenantId, input.tenantId), eq(memberships.id, row.a.membershipId)));
+      // The rule in force now, as at the till (ENG-100): a change still waiting for its date neither switches a programme to points nor picks its version.
+      const inForce = await programInForce(tx, program, sql`clock_timestamp()`);
+      const purchase = inForce.type === "points" && inForce.earningMode === "purchase";
+      // A purchase programme credits only an amount the team typed: the list price is an estimate, never a confirmed purchase.
+      // No amount, one too small for a point, or a closed card (nothing left to credit) completes the appointment without a credit.
+      // F-1: the visit may already be on the card (a counter, offline or plate credit in the window that nothing completed):
+      // then „Fertig“ links that entry and credits nothing. The card lock above keeps a new credit from landing meanwhile.
+      const { rows: [credited] } = await tx.execute<{ id: string }>(sql`
+        SELECT e.id FROM ledger_entries e JOIN booking_appointments a ON a.tenant_id = e.tenant_id AND a.id = ${row.a.id}::uuid
+        WHERE e.tenant_id = ${input.tenantId}::uuid AND e.location_id = ${input.locationId}::uuid AND e.membership_id = ${row.a.membershipId}::uuid
+          AND e.kind = 'award' AND e.source IN ('staff_online','staff_offline','nfc_tap') AND ${awardWindow(visitAt("e"), "a")}
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries r WHERE r.tenant_id = e.tenant_id AND r.reversal_of_id = e.id)
+          AND NOT EXISTS (SELECT 1 FROM booking_appointments d WHERE d.tenant_id = e.tenant_id AND d.done_ledger_entry_id = e.id)
+        ORDER BY abs(extract(epoch FROM lower(a.during) - ${visitAt("e")})) LIMIT 1`);
+      let entryId: string | null = credited?.id ?? null;
+      if (!credited && !closedAt && (!purchase || (input.purchaseAmountMinor ?? 0) >= 1)) {
+        try {
+          const award = await awardInTransaction(tx, {
+            userId: input.userId, locationId: input.locationId, membershipId: row.a.membershipId, idempotencyKey: `booking:${row.a.id}`, requestId: randomUUID(),
+            ...(purchase ? { purchaseAmountMinor: input.purchaseAmountMinor, ruleVersionId: inForce.ruleVersionId } : { quantity: 1 }),
+          });
+          entryId = award.entryId;
+          doneAward = { balance: award.balance, creditedQuantity: award.creditedQuantity };
+        } catch (error) { if (!(purchase && error instanceof DomainError && error.code === "NO_POINTS")) throw error; }
+      }
+      await setStatus(tx, row, "done", { doneLedgerEntryId: entryId });
+    } else {
+      await setStatus(tx, row, input.to, input.to === "cancelled_by_shop" ? { cancelledAt: now, cancelReason: input.reason || (row.a.status === "requested" ? REJECTED : "Vom Geschäft abgesagt") } : {});
+      if (input.to === "confirmed") { await scheduleReminders(tx, row.a.id, now); await notifyShopChange(tx, row.a.id, "confirmed", now); }
+      if (input.to === "cancelled_by_shop") await notifyShopChange(tx, row.a.id, "shop_cancel", now);
+    }
+    if (input.to === "no_show") {
+      const [settings, after] = [await settingsOf(tx, input, false), await ownerAppointment(tx, input, row.a.id)];
+      if (blocksAfterNoShow(after.noShowCount, settings.noShowBlockAfter)) {
+        await tx.insert(bookingBlockedCustomers).values({ tenantId: input.tenantId, membershipId: row.a.membershipId, reason: "Nicht erschienen" }).onConflictDoNothing();
+      }
+    }
+    const view = ownerView(await ownerAppointment(tx, input, row.a.id), now);
+    return doneAward ? { ...view, doneAward } : view;
+  });
+}
+
+/** The owner moves an appointment to another start or staff member; lead time and the booking window do not apply. */
+export async function move(input: Scope & { appointmentId: string; start: Date; staffId: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    await lockLocation(tx, input.locationId);
+    const row = await ownerAppointment(tx, input, input.appointmentId);
+    if (!isOpen(row.a.status)) throw new DomainError("STALE", "The appointment has changed; reload");
+    // Confirming the offered current slot changes nothing and sends nothing.
+    if (row.start.getTime() === input.start.getTime() && row.a.staffId === input.staffId) return ownerView(row, now);
+    const scope = { ...input, timezone: await timezoneOf(tx, input) };
+    const service = bookedService(row);
+    const { slot, nextFree } = await findSlot(tx, scope, { service, staffId: input.staffId, start: input.start, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
+    await moveRow(tx, row, slot.staffId, input.start, service).catch(slotTaken(nextFree));
+    await scheduleReminders(tx, row.a.id, now);
+    await notifyShopChange(tx, row.a.id, "moved", now, row.start);
+    return ownerView(await ownerAppointment(tx, input, row.a.id), now);
+  });
+}
+
+const openInside = (scope: Scope, block: { staffId: string | null; start: Date; end: Date }) => and(
+  eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, OPEN),
+  sql`${bookingAppointments.during} && ${range(block.start, block.end)}`, block.staffId ? eq(bookingAppointments.staffId, block.staffId) : undefined);
+
+/** Blocks time and lists the open appointments inside it; nothing is cancelled without cancelAffected. */
+export async function createBlock(input: Scope & { staffId?: string; start: Date; end: Date; reason: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    await lockLocation(tx, input.locationId);
+    if (input.staffId) {
+      const [staff] = await tx.select({ id: bookingStaff.id }).from(bookingStaff).where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), eq(bookingStaff.id, input.staffId)));
+      if (!staff) throw new DomainError("NOT_FOUND", "Diese Person haben wir nicht gefunden.");
+    }
+    const [block] = await tx.insert(bookingBlocks).values({ tenantId: input.tenantId, locationId: input.locationId, staffId: input.staffId ?? null, during: range(input.start, input.end), reason: input.reason }).returning({ id: bookingBlocks.id });
+    const affected = await appointmentRows(tx, openInside(input, { staffId: input.staffId ?? null, start: input.start, end: input.end }));
+    return { block: { id: block.id, staffId: input.staffId ?? null, start: input.start.toISOString(), end: input.end.toISOString(), reason: input.reason }, affected: affected.map(row => ownerView(row, now)) };
+  });
+}
+
+export async function deleteBlock(input: Scope & { blockId: string }) {
+  const deleted = await db.delete(bookingBlocks).where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), eq(bookingBlocks.id, input.blockId))).returning({ id: bookingBlocks.id });
+  if (!deleted.length) throw new DomainError("NOT_FOUND", "Diese Sperrzeit haben wir nicht gefunden.");
+}
+
+export async function cancelAffected(input: Scope & { blockId: string }, now = new Date()) {
+  return db.transaction(async tx => {
+    await lockLocation(tx, input.locationId);
+    const [block] = await tx.select({ staffId: bookingBlocks.staffId, start: lower(bookingBlocks.during), end: upper(bookingBlocks.during) }).from(bookingBlocks)
+      .where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), eq(bookingBlocks.id, input.blockId)));
+    if (!block) throw new DomainError("NOT_FOUND", "Diese Sperrzeit haben wir nicht gefunden.");
+    const cancelled = await tx.update(bookingAppointments).set({ status: "cancelled_by_shop", cancelledAt: now, cancelReason: "Geschäft geschlossen", updatedAt: now })
+      .where(openInside(input, block)).returning({ id: bookingAppointments.id });
+    for (const { id } of cancelled) await notifyShopChange(tx, id, "shop_cancel", now);
+    return { cancelled: cancelled.length };
+  });
+}
+
+async function locationCard(scope: Scope, membershipId: string) {
+  const [card] = await db.select({ id: memberships.id }).from(memberships)
+    .innerJoin(programs, and(eq(programs.id, memberships.programId), eq(programs.tenantId, memberships.tenantId)))
+    .where(and(eq(memberships.tenantId, scope.tenantId), eq(memberships.id, membershipId), eq(programs.locationId, scope.locationId)));
+  if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
+}
+
+export async function blockCustomer(input: Scope & { membershipId: string; userId: string; reason?: string }) {
+  await locationCard(input, input.membershipId);
+  await db.insert(bookingBlockedCustomers).values({ tenantId: input.tenantId, membershipId: input.membershipId, blockedByUserId: input.userId, reason: input.reason ?? "" }).onConflictDoNothing();
+}
+
+export async function unblockCustomer(input: Scope & { membershipId: string }) {
+  await locationCard(input, input.membershipId);
+  await db.delete(bookingBlockedCustomers).where(and(eq(bookingBlockedCustomers.tenantId, input.tenantId), eq(bookingBlockedCustomers.membershipId, input.membershipId)));
+}
+
+/** Without `date`: the shop's today, so a client never guesses the day in its own time zone. */
+export async function dayView(input: Scope & { date?: string }, now = new Date()) {
+  const timezone = await timezoneOf(db, input);
+  const date = input.date ?? instantToWall(now, timezone).date;
+  const from = wallToInstant(date, "00:00", timezone), to = wallToInstant(addDays(date, 1), "00:00", timezone);
+  if (!from || !to) throw new DomainError("INVALID_DATE", "Invalid date");
+  const scope = and(eq(bookingAppointments.tenantId, input.tenantId), eq(bookingAppointments.locationId, input.locationId));
+  const appointments = await appointmentRows(db, and(scope, sql`${bookingAppointments.during} && ${range(from, to)}`));
+  const [opening] = await db.select({ hours: bookingSettings.openingHours }).from(bookingSettings).where(and(eq(bookingSettings.tenantId, input.tenantId), eq(bookingSettings.locationId, input.locationId)));
+  const blocks = await db.select({ id: bookingBlocks.id, staffId: bookingBlocks.staffId, start: lower(bookingBlocks.during), end: upper(bookingBlocks.during), reason: bookingBlocks.reason }).from(bookingBlocks)
+    .where(and(eq(bookingBlocks.tenantId, input.tenantId), eq(bookingBlocks.locationId, input.locationId), sql`${bookingBlocks.during} && ${range(from, to)}`)).orderBy(asc(sql`lower(${bookingBlocks.during})`));
+  const staff = await db.select({ id: bookingStaff.id, name: bookingStaff.name, sort: bookingStaff.sort }).from(bookingStaff)
+    .where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort));
+  const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(bookingAppointments)
+    .where(and(scope, eq(bookingAppointments.status, "requested"), sql`upper(${bookingAppointments.during}) > ${now.toISOString()}::timestamptz`));
+  return {
+    // Design (22 Nov): an open appointment the opening hours no longer cover is marked in the day list.
+    date, appointments: appointments.map(row => ({ ...ownerView(row, now), outsideHours: isOpen(row.a.status) && outsideOpeningHours(row.start, row.a.durationMin, timezone, opening?.hours as Parameters<typeof outsideOpeningHours>[3]) })),
+    blocks: blocks.map(b => ({ ...b, start: b.start.toISOString(), end: b.end.toISOString() })), staff, pendingRequests: pending.count,
+  };
+}
+
+// ---- Cashier fusion (wired into the cashier routes in slice 4) ----------------------------------------------------------
+
+export { awardWindow } from "./award-window";
+
+/**
+ * After a counter, offline or plate award: the card's open appointment at that location inside `awardWindow` becomes done, linked to that
+ * ledger entry, without a second award. Whichever runs first (this or the owner's "Fertig") wins. Returns the id or null.
+ */
+export async function completeAppointmentForAward(entryId: string, reader: Reader = db) {
+  const [entry] = await reader.select({ tenantId: ledgerEntries.tenantId, locationId: ledgerEntries.locationId, membershipId: ledgerEntries.membershipId, createdAt: ledgerEntries.createdAt, deviceAt: ledgerEntries.deviceAt, kind: ledgerEntries.kind, source: ledgerEntries.source })
+    .from(ledgerEntries).where(eq(ledgerEntries.id, entryId));
+  if (!entry || entry.kind !== "award" || !["staff_online", "staff_offline", "nfc_tap"].includes(entry.source)) return null;
+  // F-1b: only an offline award's till time is the visit; an online award's client clock is not trusted.
+  const at = (entry.source === "staff_offline" && entry.deviceAt ? entry.deviceAt : entry.createdAt).toISOString();
+  const { rows: [done] } = await reader.execute<{ id: string }>(sql`
+    UPDATE booking_appointments SET status = 'done', done_ledger_entry_id = ${entryId}::uuid, updated_at = now()
+    WHERE tenant_id = ${entry.tenantId}::uuid AND status IN ('requested','confirmed') AND id = (
+      SELECT a.id FROM booking_appointments a
+      WHERE a.tenant_id = ${entry.tenantId}::uuid AND a.location_id = ${entry.locationId}::uuid AND a.membership_id = ${entry.membershipId}::uuid AND a.status IN ('requested','confirmed')
+        AND ${awardWindow(at, "a")}
+        AND NOT EXISTS (SELECT 1 FROM booking_appointments d WHERE d.tenant_id = ${entry.tenantId}::uuid AND d.done_ledger_entry_id = ${entryId}::uuid)
+      ORDER BY abs(extract(epoch FROM lower(a.during) - ${at}::timestamptz)) LIMIT 1)
+    RETURNING id`);
+  return done?.id ?? null;
+}
+
+// ---- Route helpers ------------------------------------------------------------------------------------------------------
+
+export const NO_STORE = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
+
+/** Owner and manager at the selected location; cashiers and other shops get 403. `ownerOnly` for the set-up. Limits as the neighbouring merchant routes. */
+export async function bookingStaffScope(request: Request, ownerOnly = false) {
+  await enforcePeerLimit(request, "booking_staff_peer", 240, 15 * 60);
+  const user = await sessionUser(request);
+  await enforceRateLimit({ scope: "booking_staff_user", identity: user.id, max: 240, windowSeconds: 15 * 60 });
+  const context = await getMerchantContext(user.id, selectedLocationFromRequest(request, user.id));
+  if (!context || context.role === "cashier" || (ownerOnly && context.role !== "owner")) throw new DomainError("FORBIDDEN", "Du hast an diesem Standort keinen Zugang zu den Terminen.");
+  return { userId: user.id, tenantId: context.tenantId, locationId: context.locationId };
+}
+
+/** Card-token routes: their own buckets (browsing slots never uses up the card page's budget); writes also need the same origin and lower limits. */
+export async function cardBookingLimits(request: Request, token: string, write = false) {
+  if (write) requireSameOrigin(request);
+  await enforcePeerLimit(request, write ? "booking_write_peer" : "booking_read_peer", write ? 60 : 240, 15 * 60);
+  await enforceRateLimit({ scope: write ? "booking_write_token" : "booking_read_token", identity: token, max: write ? 20 : 90, windowSeconds: 15 * 60 });
+}
+
+/**
+ * F-4 (CTO): besides 2 open per card, one peer creates at most 10 bookings an hour at one shop, whichever cards it uses.
+ * Returns the give-back for an attempt that created nothing (a replay, a taken slot, any refusal), so only real bookings count.
+ */
+export async function bookingCreateLimit(request: Request, token: string) {
+  const card = await cardScope(db, token);
+  // The peer limit, per shop: a scope is a fixed name, so the shop goes into the identity beside the peer.
+  const limit = { scope: "booking_create_peer", identity: `${peerIdentity(request)}:${card.locationId}` };
+  try { await enforceRateLimit({ ...limit, max: 10, windowSeconds: 60 * 60 }); }
+  catch (error) { if (error instanceof RateLimitError) throw Object.assign(error, { code: "TOO_MANY_BOOKINGS", message: TOO_MANY_BOOKINGS }); throw error; }
+  return () => refundRateLimit(limit);
+}
+
+/** Path ids that are not uuids are simply not found. */
+export function pathId(id: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new DomainError("NOT_FOUND", "Das haben wir nicht gefunden.");
+  return id;
+}
+
+/**
+ * Free starts on `date` for the owner's "Verschieben": the booked length, no lead time (as move()), for every live staff
+ * member who offers the service (and the booked one), so the owner can hand the appointment to someone else.
+ */
+export async function ownerSlots(input: Scope & { appointmentId: string; date: string }, now = new Date()) {
+  const row = await one(db, input.tenantId, input.appointmentId);
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  const scope = { ...input, timezone: await timezoneOf(db, input) };
+  const staffRows = await db.select({ id: bookingStaff.id, name: bookingStaff.name }).from(bookingStaff)
+    .where(and(eq(bookingStaff.tenantId, input.tenantId), eq(bookingStaff.locationId, input.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort));
+  const links = staffRows.length ? await db.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, input.tenantId), inArray(bookingStaffServices.staffId, staffRows.map(s => s.id)))) : [];
+  const staff = staffRows.filter(s => { const own = links.filter(l => l.staffId === s.id); return s.id === row.a.staffId || !own.length || own.some(l => l.serviceId === row.a.serviceId); });
+  const days = await Promise.all(staff.map(s => availability(db, scope, { service: bookedService(row), staffId: s.id, days: [input.date], excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now })));
+  const slots = days.flatMap(([day]) => day.slots).sort((a, b) => a.start.getTime() - b.start.getTime());
+  return { date: input.date, staff, slots: slots.map(s => ({ start: s.start.toISOString(), staffId: s.staffId })) };
+}
+
+/**
+ * „Nächster freier Tag“ for „Verschieben“ in one request (Design r2: up to 28 slot requests ran into the rate limit): the first
+ * of the next 28 days where `staffId` has a free start other than the appointment's own place.
+ */
+export async function ownerNextFree(input: Scope & { appointmentId: string; from: string; staffId: string }, now = new Date()) {
+  const row = await one(db, input.tenantId, input.appointmentId);
+  if (!row || row.a.locationId !== input.locationId) throw new DomainError("NOT_FOUND", "Diesen Termin haben wir nicht gefunden.");
+  const days = Array.from({ length: 28 }, (_, offset) => addDays(input.from, offset));
+  const found = await availability(db, { ...input, timezone: await timezoneOf(db, input) }, { service: bookedService(row), staffId: input.staffId, days, excludeId: row.a.id, settings: { leadTimeMin: 0, maxDaysAhead: 180 }, now });
+  const own = (slot: { start: Date; staffId: string }) => slot.start.getTime() === row.start.getTime() && slot.staffId === row.a.staffId;
+  return { date: found.find(day => day.slots.some(slot => !own(slot)))?.date ?? null };
+}

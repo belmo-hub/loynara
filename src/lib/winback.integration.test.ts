@@ -9,6 +9,7 @@ import { deliverWalletMessage, setWalletConsent, type WalletMessageSend } from "
 import { winbackRule } from "./wallet-message-rules";
 import { EXCLUDED_GOODS, signUpRules } from "./card-extras";
 import { getWinback, queueWinbackMessages, updateWinback } from "./winback";
+import { saveSetup } from "./booking/setup";
 
 if (!process.env.DATABASE_URL?.endsWith("/looplocal_test")) throw new Error("Integration tests require looplocal_test");
 
@@ -280,6 +281,24 @@ describe("win-back reminder (Wallet)", () => {
     await stampAt(s, c, T("2026-11-01T10:00:00Z"));
     expect(await queueWinbackMessages(T("2026-11-30T10:00:00Z"))).toBe(0);
     expect(await queueWinbackMessages(T("2026-12-01T10:00:00Z"))).toBe(1);
+  });
+
+  it("a booking rebook push in the last 14 days stands in for the win-back reminder", async () => {
+    const s = await shop(); const c = await card(s);
+    await stampAt(s, c, T("2026-09-20T10:00:00Z"));
+    const setup = await saveSetup(s, { settings: { shopType: "barber", leadTimeMin: 120, maxDaysAhead: 42, cancelDeadlineHours: 24, maxReschedulesPerMonth: 2, autoConfirm: true, noShowBlockAfter: 3, maxOpenPerCard: 2 },
+      services: [{ name: "Haarschnitt", durationMin: 30, priceMinor: 2500 }], staff: [{ name: "Lena", workingHours: [] }] });
+    const { rows: [a] } = await pool.query(`INSERT INTO booking_appointments (tenant_id, location_id, membership_id, service_id, staff_id, during, duration_min, price_minor, status, customer_name, idempotency_key, rebook_sent_at)
+      VALUES ($1, $2, $3, $4, $5, tstzrange('2026-08-20T09:00:00Z', '2026-08-20T09:30:00Z'), 30, 2500, 'done', 'Mia', $6, $7) RETURNING id`,
+      [s.tenantId, s.locationId, c.id, setup.services[0].id, setup.staff[0].id, randomUUID(), T("2026-10-13T09:00:00Z")]);
+    // Queued 13 days ago but never sent (suppressed or no device): the win-back still goes out.
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(1);
+    await pool.query("DELETE FROM wallet_message_recipients WHERE membership_id = $1", [c.id]);
+    // Sent 13 days ago, logged the way deliverRebook logs it: it stands in for the win-back.
+    await pool.query("INSERT INTO booking_push_log (tenant_id, membership_id, appointment_id, kind, sent_at) VALUES ($1, $2, $3, 'rebook', $4)", [s.tenantId, c.id, a.id, T("2026-10-13T09:00:00Z")]);
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(0);
+    await pool.query("UPDATE booking_push_log SET sent_at = $1 WHERE appointment_id = $2", [T("2026-10-11T09:00:00Z"), a.id]);
+    expect(await queueWinbackMessages(MONDAY_10)).toBe(1); // 15 days ago
   });
 
   it("a withdrawn consent gets no reminder, but the bonus at the counter stays", async () => {

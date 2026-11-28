@@ -103,7 +103,7 @@ export default function MerchantAnalyticsPage() {
         </RowSection>}
       </>}
       {/* Withheld in the demo environment (pilot-surfaces „revenue“). */}
-      {!me.hiddenSurfaces?.includes("revenue") && <SpendCard multiLocation={locations.length > 1} />}
+      {!me.hiddenSurfaces?.includes("revenue") && <SpendCard multiLocation={locations.length > 1} booking={r?.booking} />}
     </div>
   );
 }

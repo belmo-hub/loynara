@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { billingInvoices, billingLocationPlans, cardBirthdays, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programRuleVersions, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
+import { billingInvoices, bookingAppointments, bookingServices, bookingStaff, billingLocationPlans, cardBirthdays, cardSecurityEvents, consentEvents, ledgerEntries, locations, memberships, programRuleVersions, programs, redemptions, rewardVersions, rewards, staffAuditEvents, staffRoles, subscriptions, tenants, walletMessageConsents } from "@/db/schema";
 import { DomainError } from "./loyalty";
 import { validCardToken } from "./card-lifecycle";
 import { formatCardLocator } from "./card-locator";
 import { assertExportOpen } from "./programme-end";
+import { uuidPattern } from "./retention";
 import { programInForce } from "./rule-versions";
 import { CONSENT_TEXTS } from "./wallet-message-rules";
 
@@ -98,7 +99,7 @@ export async function getMerchantExport(actorUserId: string) {
 }
 
 // ENG-004: Excel-ready CSV for German shop owners (UTF-8 with BOM, semicolons, German dates in Europe/Berlin).
-export type MerchantCsvKind = "karten" | "buchungen";
+export type MerchantCsvKind = "karten" | "buchungen" | "appointments";
 const berlinDate = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 const berlinTime = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const berlinIsoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" });
@@ -131,12 +132,39 @@ export function ledgerVorgang(kind: string, source: string, programType: string)
   return "Sonstige Buchung";
 }
 
-/** Owner-only CSV of the owner's own tenant: card numbers (locators) only, never card tokens, scan codes or contact data. */
-export async function getMerchantCsv(actorUserId: string, kind: MerchantCsvKind) {
+const APPOINTMENT_STATUS: Record<string, string> = { requested: "Angefragt", confirmed: "Bestätigt", done: "Erledigt", no_show: "Nicht erschienen", cancelled_by_customer: "Vom Kunden abgesagt", cancelled_by_shop: "Vom Geschäft abgesagt" };
+const euros = (minor: number) => (minor / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+
+/**
+ * Owner-only CSV of the owner's own tenant: card numbers (locators) only, never card tokens or scan codes. Karten and
+ * Buchungen carry no contact data; Termine carry the name and phone the customer gave the shop for the appointment.
+ * `locationId` (the selected location, else the oldest) only scopes the appointments.
+ */
+export async function getMerchantCsv(actorUserId: string, kind: MerchantCsvKind, locationId: string | null = null) {
   return db.transaction(async (tx) => {
     const tenantId = await ownerTenantId(tx, actorUserId);
     await assertExportOpen(tx, tenantId);
     const filename = `loynara-${kind}-${berlinIsoDate.format(new Date())}.csv`;
+    if (kind === "appointments") {
+      const [location] = await tx.select({ id: locations.id, timezone: locations.timezone }).from(locations)
+        .where(and(eq(locations.tenantId, tenantId), locationId && uuidPattern.test(locationId) ? eq(locations.id, locationId) : undefined))
+        .orderBy(asc(locations.createdAt), asc(locations.id)).limit(1);
+      if (!location) throw new DomainError("NOT_FOUND", "Diesen Standort haben wir nicht gefunden.");
+      const rows = checked(await tx.select({ start: sql<Date>`lower(${bookingAppointments.during})`.mapWith(value => new Date(value)), service: bookingServices.name, staff: bookingStaff.name, customerName: bookingAppointments.customerName, customerPhone: bookingAppointments.customerPhone, cardLocator: memberships.cardLocator, status: bookingAppointments.status, lateCancel: bookingAppointments.lateCancel, priceMinor: bookingAppointments.priceMinor, durationMin: bookingAppointments.durationMin, createdAt: bookingAppointments.createdAt, cancelledAt: bookingAppointments.cancelledAt })
+        .from(bookingAppointments)
+        .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+        .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
+        .innerJoin(memberships, and(eq(memberships.tenantId, bookingAppointments.tenantId), eq(memberships.id, bookingAppointments.membershipId)))
+        .where(and(eq(bookingAppointments.tenantId, tenantId), eq(bookingAppointments.locationId, location.id)))
+        .orderBy(desc(sql`lower(${bookingAppointments.during})`), desc(bookingAppointments.id)).limit(MAX_ROWS + 1), "Appointments");
+      const localDate = new Intl.DateTimeFormat("de-DE", { timeZone: location.timezone, day: "2-digit", month: "2-digit", year: "numeric" });
+      const localTime = new Intl.DateTimeFormat("de-DE", { timeZone: location.timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+      const localDay = (at: Date | null) => at ? localDate.format(at) : "";
+      return { filename, body: csv(["Datum", "Uhrzeit", "Leistung", "Team", "Kunde", "Telefon", "Kartennummer", "Status", "Preis (Listenpreis, €)", "Dauer (Minuten)", "Erstellt am", "Abgesagt am"], rows.map(row => [
+        localDay(row.start), localTime.format(row.start), csvText(row.service), csvText(row.staff), csvText(row.customerName), csvText(row.customerPhone), csvText(formatCardLocator(row.cardLocator)),
+        `${APPOINTMENT_STATUS[row.status] ?? row.status}${row.lateCancel ? " (kurzfristig)" : ""}`, euros(row.priceMinor), String(row.durationMin), localDay(row.createdAt), localDay(row.cancelledAt),
+      ])) };
+    }
     if (kind === "karten") {
       const rows = checked(await tx.select({ cardLocator: memberships.cardLocator, program: programs.name, balance: memberships.balance, createdAt: memberships.createdAt, closedAt: memberships.closedAt })
         .from(memberships).innerJoin(programs, and(eq(programs.tenantId, memberships.tenantId), eq(programs.id, memberships.programId)))
@@ -168,7 +196,7 @@ export async function getCustomerExport(cardToken: string) {
   return db.transaction(async (tx) => {
     const [card] = await tx.select({ id: memberships.id, cardLocator: memberships.cardLocator, tenantId: memberships.tenantId, programId: memberships.programId, balance: memberships.balance, createdAt: memberships.createdAt }).from(memberships).where(and(eq(memberships.cardToken, cardToken), isNull(memberships.closedAt)));
     if (!card) throw new DomainError("NOT_FOUND", "Diese Karte haben wir nicht gefunden.");
-    const [[program], entries, redemptionRows, consentRows, walletConsentRows, [birthday], [names]] = await Promise.all([
+    const [[program], entries, redemptionRows, consentRows, walletConsentRows, [birthday], [names], appointmentRows] = await Promise.all([
       tx.select().from(programs).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
       tx.select({ id: ledgerEntries.id, delta: ledgerEntries.delta, kind: ledgerEntries.kind, reason: ledgerEntries.reason, reversalOfId: ledgerEntries.reversalOfId, createdAt: ledgerEntries.createdAt }).from(ledgerEntries).where(and(eq(ledgerEntries.tenantId, card.tenantId), eq(ledgerEntries.membershipId, card.id))).limit(MAX_ROWS + 1),
       tx.select({ rewardTitle: redemptions.rewardTitle, cost: redemptions.cost, createdAt: redemptions.createdAt }).from(redemptions).where(and(eq(redemptions.tenantId, card.tenantId), eq(redemptions.membershipId, card.id))).limit(MAX_ROWS + 1),
@@ -177,9 +205,14 @@ export async function getCustomerExport(cardToken: string) {
       // The customer's own stored birthday (ENG-049, Art. 15/20); never in the shop's exports.
       tx.select({ day: cardBirthdays.day, month: cardBirthdays.month }).from(cardBirthdays).where(and(eq(cardBirthdays.tenantId, card.tenantId), eq(cardBirthdays.membershipId, card.id))),
       tx.select({ shop: tenants.name, location: locations.name }).from(programs).innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId))).innerJoin(tenants, eq(tenants.id, programs.tenantId)).where(and(eq(programs.id, card.programId), eq(programs.tenantId, card.tenantId))),
+      tx.select({ start: sql<Date>`lower(${bookingAppointments.during})`.mapWith(value => new Date(value)), service: bookingServices.name, staff: bookingStaff.name, status: bookingAppointments.status, priceMinor: bookingAppointments.priceMinor, customerName: bookingAppointments.customerName, customerPhone: bookingAppointments.customerPhone })
+        .from(bookingAppointments)
+        .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+        .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
+        .where(and(eq(bookingAppointments.tenantId, card.tenantId), eq(bookingAppointments.membershipId, card.id))).orderBy(asc(sql`lower(${bookingAppointments.during})`)).limit(MAX_ROWS + 1),
     ]);
     // The rule in force (ENG-100), not a change still waiting for its date.
     const { name, type, rulesText } = await programInForce(tx, program);
-    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "pseudonymous-card-activity-without-contact-records", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program: { name, type, rulesText }, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), walletMessageConsents: checked(walletConsentRows, "Card Wallet message consents"), consentTexts: [...new Set(walletConsentRows.map(row => row.textVersion))].map(version => ({ version, text: consentWording(version, names.shop, names.location) })), birthday: birthday ?? null };
+    return { formatVersion: 1, exportedAt: new Date().toISOString(), scope: "card-activity-with-booking-contact-details", membership: { id: card.id, cardLocator: formatCardLocator(card.cardLocator), balance: card.balance, createdAt: card.createdAt }, program: { name, type, rulesText }, ledger: checked(entries, "Card ledger"), redemptions: checked(redemptionRows, "Card redemptions"), consentEvents: checked(consentRows, "Card consent events"), walletMessageConsents: checked(walletConsentRows, "Card Wallet message consents"), consentTexts: [...new Set(walletConsentRows.map(row => row.textVersion))].map(version => ({ version, text: consentWording(version, names.shop, names.location) })), birthday: birthday ?? null, appointments: checked(appointmentRows, "Card appointments") };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }

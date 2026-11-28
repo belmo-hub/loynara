@@ -1,7 +1,7 @@
 import type { HappyHourWindow } from "@/lib/happy-hour";
 
 export class ClientApiError extends Error {
-  constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number) { super(message); }
+  constructor(public readonly status: number, message: string, public readonly code?: string, public readonly retryAfterMs?: number, public readonly body?: Record<string, unknown>) { super(message); }
 }
 
 // Server codes whose `error` text is German copy written for the page; every other server text is a diagnostic (often
@@ -60,7 +60,7 @@ export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
     const retry = response.headers.get("retry-after");
     const delay = retry ? (/^\d+$/.test(retry.trim()) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()) : NaN;
     const retryAfterMs = Number.isFinite(delay) && delay > 0 ? delay : undefined;
-    throw new ClientApiError(response.status, text, result?.code, retryAfterMs);
+    throw new ClientApiError(response.status, text, result?.code, retryAfterMs, result ?? undefined);
   }
   if (!result) throw new ClientApiError(response.status, "Die Antwort des Servers war leer.");
   return result;
@@ -108,6 +108,10 @@ export type MeResponse = {
   publicBaseUrl: string;
   locale?: "de" | "fr";
   programSlug: string;
+  /** Online booking switched on at this location by the operator (ENG-201); every booking surface hides without it. */
+  bookingEnabled?: boolean;
+  /** Booking on, or off with open appointments still ahead: the day view and its export stay (read-only when off). */
+  bookingShown?: boolean;
   programId?: string;
   programType: "stamp" | "points";
   earningMode?: "manual" | "purchase";

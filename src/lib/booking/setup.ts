@@ -1,0 +1,165 @@
+import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@/db";
+import { bookingAppointments, bookingServices, bookingSettings, bookingStaff, bookingStaffServices, locations, staffRoles } from "@/db/schema";
+import { DomainError } from "@/lib/loyalty";
+import { BookingError, lockLocation, type Reader, type Tx } from "./appointments";
+import { PRESETS } from "./presets";
+import { instantToWall } from "./time";
+
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$|^24:00$/);
+const span = z.object({ start: time, end: time }).refine(s => s.end > s.start, "End must be after start");
+const workingDay = z.object({ weekday: z.number().int().min(1).max(7), start: time, end: time, breaks: z.array(span).max(4) }).refine(d => d.end > d.start, "End must be after start");
+
+export const setupInput = z.object({
+  settings: z.object({
+    shopType: z.enum(["nagelstudio", "barber", "kosmetik"]),
+    goalText: z.string().trim().max(140).default(""),
+    leadTimeMin: z.number().int().min(0).max(1440),
+    maxDaysAhead: z.number().int().min(1).max(180),
+    cancelDeadlineHours: z.number().int().min(0).max(168),
+    maxReschedulesPerMonth: z.number().int().min(0).max(10),
+    autoConfirm: z.boolean(),
+    noShowBlockAfter: z.number().int().min(0).max(10),
+    maxOpenPerCard: z.number().int().min(1).max(2),
+    termsText: z.string().trim().max(600).default(""),
+    // The shop's hours, stored for the wizard (staff who follow them get a copy); availability reads staff hours only.
+    openingHours: z.array(workingDay).max(14).nullable().optional(),
+  }),
+  services: z.array(z.object({
+    id: z.uuid().optional(),
+    name: z.string().trim().min(1).max(80),
+    durationMin: z.number().int().min(5).max(480).multipleOf(5),
+    bufferMin: z.number().int().min(0).max(60).default(0),
+    priceMinor: z.number().int().min(0).max(100000),
+    priceFrom: z.boolean().default(false),
+    rebookAfterDays: z.number().int().min(0).max(365).default(0),
+  })).max(50),
+  staff: z.array(z.object({
+    id: z.uuid().optional(),
+    name: z.string().trim().min(1).max(60),
+    userId: z.string().max(100).nullable().default(null),
+    workingHours: z.array(workingDay).max(14),
+    // Existing service ids only; empty = offers every service.
+    serviceIds: z.array(z.uuid()).max(50).default([]),
+  })).max(30),
+});
+
+type Scope = { tenantId: string; locationId: string };
+
+/** Whether the operator switched online booking on at this location (Design, 22 Nov): shops without it see none of it. */
+export async function bookingEnabledAt(scope: Scope, reader: Reader = db) {
+  const [row] = await reader.select({ enabled: bookingSettings.enabled }).from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  return row?.enabled ?? false;
+}
+
+/** Design r2: switched off with appointments still ahead, the owner keeps the day view (read-only) until they are past. */
+export async function bookingStateAt(scope: Scope, reader: Reader = db) {
+  const enabled = await bookingEnabledAt(scope, reader);
+  if (enabled) return { bookingEnabled: true, bookingShown: true };
+  const [ahead] = await reader.select({ id: bookingAppointments.id }).from(bookingAppointments)
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`)).limit(1);
+  return { bookingEnabled: false, bookingShown: Boolean(ahead) };
+}
+
+type OpeningDay = z.infer<typeof workingDay>;
+
+/** Whether an appointment from `start` for `minutes` lies outside the shop's opening hours on its day; no hours stored: never. */
+export function outsideOpeningHours(start: Date, minutes: number, timeZone: string, hours: OpeningDay[] | null | undefined) {
+  if (!hours) return false;
+  const from = instantToWall(start, timeZone), until = instantToWall(new Date(start.getTime() + minutes * 60_000), timeZone);
+  const end = until.date !== from.date ? (until.time === "00:00" ? "24:00" : "99:99") : until.time;
+  return !hours.some(day => day.weekday === from.weekday && day.start <= from.time && end <= day.end);
+}
+
+/** Design (22 Nov): the location's open future appointments that its opening hours no longer cover, after a save. */
+export async function appointmentsOutsideHours(scope: Scope, reader: Reader = db) {
+  const [row] = await reader.select({ hours: bookingSettings.openingHours, timezone: locations.timezone }).from(bookingSettings)
+    .innerJoin(locations, and(eq(locations.tenantId, bookingSettings.tenantId), eq(locations.id, bookingSettings.locationId)))
+    .where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  if (!row?.hours) return [];
+  const open = await reader.select({ id: bookingAppointments.id, status: bookingAppointments.status, start: sql<Date>`lower(${bookingAppointments.during})`.mapWith(value => new Date(value)), durationMin: bookingAppointments.durationMin, customerName: bookingAppointments.customerName, serviceName: bookingServices.name })
+    .from(bookingAppointments).innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+    .where(and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId), inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`lower(${bookingAppointments.during}) > now()`))
+    .orderBy(asc(sql`lower(${bookingAppointments.during})`));
+  return open.filter(a => outsideOpeningHours(a.start, a.durationMin, row.timezone, row.hours as OpeningDay[])).map(a => ({ ...a, start: a.start.toISOString(), timezone: row.timezone }));
+}
+
+export async function getSetup(scope: Scope, reader: Reader = db) {
+  const [settings] = await reader.select().from(bookingSettings).where(and(eq(bookingSettings.tenantId, scope.tenantId), eq(bookingSettings.locationId, scope.locationId)));
+  const services = await reader.select().from(bookingServices)
+    .where(and(eq(bookingServices.tenantId, scope.tenantId), eq(bookingServices.locationId, scope.locationId), isNull(bookingServices.archivedAt))).orderBy(asc(bookingServices.sort), asc(bookingServices.createdAt));
+  const staff = await reader.select().from(bookingStaff)
+    .where(and(eq(bookingStaff.tenantId, scope.tenantId), eq(bookingStaff.locationId, scope.locationId), isNull(bookingStaff.archivedAt))).orderBy(asc(bookingStaff.sort), asc(bookingStaff.createdAt));
+  const links = staff.length ? await reader.select().from(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), inArray(bookingStaffServices.staffId, staff.map(s => s.id)))) : [];
+  return {
+    // Set up means saved once (setup_done_at), not that a row exists: the operator's switch creates one with defaults.
+    settings: settings?.setupDoneAt ? settings : null,
+    services,
+    staff: staff.map(s => ({ ...s, serviceIds: links.filter(l => l.staffId === s.id).map(l => l.serviceId) })),
+    presets: PRESETS,
+  };
+}
+
+/** Upserts by id and archives what the owner removed; `enabled` is left to the plan gate. Archiving staff or a service with open appointments is refused. */
+export async function saveSetup(scope: Scope, raw: z.input<typeof setupInput>) {
+  const input = setupInput.parse(raw);
+  return db.transaction(async tx => {
+    await lockLocation(tx, scope.locationId);
+    const now = new Date();
+    await tx.insert(bookingSettings).values({ ...scope, ...input.settings, setupDoneAt: now })
+      // The first save completes the set-up, also over a row the operator's switch created (Design, 22 Nov).
+      .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { ...input.settings, setupDoneAt: sql`coalesce(${bookingSettings.setupDoneAt}, ${now})`, updatedAt: now } });
+
+    const open = and(eq(bookingAppointments.tenantId, scope.tenantId), eq(bookingAppointments.locationId, scope.locationId),
+      inArray(bookingAppointments.status, ["requested", "confirmed"]), sql`upper(${bookingAppointments.during}) > now()`);
+    // Before the upsert archives them: a live service left out of the payload that still has open appointments.
+    const keptServices = input.services.flatMap(s => s.id ? [s.id] : []);
+    const [dropped] = await tx.select({ serviceId: bookingAppointments.serviceId, count: sql<number>`count(*)::int` }).from(bookingAppointments)
+      .innerJoin(bookingServices, and(eq(bookingServices.tenantId, bookingAppointments.tenantId), eq(bookingServices.id, bookingAppointments.serviceId)))
+      .where(and(open, isNull(bookingServices.archivedAt), keptServices.length ? notInArray(bookingAppointments.serviceId, keptServices) : sql`true`))
+      .groupBy(bookingAppointments.serviceId).limit(1);
+    if (dropped) throw new BookingError("SERVICE_HAS_APPOINTMENTS", "Service still has open appointments", { serviceId: dropped.serviceId, count: dropped.count });
+    const services = await upsert(tx, scope, bookingServices, input.services, "Diese Leistung");
+    const staffIds = input.staff.flatMap(s => s.id ? [s.id] : []);
+    const leaving = await tx.select({ staffId: bookingAppointments.staffId, count: sql<number>`count(*)::int` }).from(bookingAppointments)
+      .innerJoin(bookingStaff, and(eq(bookingStaff.tenantId, bookingAppointments.tenantId), eq(bookingStaff.id, bookingAppointments.staffId)))
+      .where(and(open, isNull(bookingStaff.archivedAt), staffIds.length ? notInArray(bookingAppointments.staffId, staffIds) : sql`true`))
+      .groupBy(bookingAppointments.staffId).orderBy(asc(bookingAppointments.staffId));
+    // staffId and count name the first for the existing client; `all` lists everyone who still has appointments.
+    if (leaving[0]) throw new BookingError("STAFF_HAS_APPOINTMENTS", "Staff member still has open appointments", { staffId: leaving[0].staffId, count: leaving[0].count, all: leaving });
+    // A staff row links only to a login of this shop: the owner, or a team member at this location (a deactivated login keeps
+    // its row, so an old link never blocks a save).
+    const userIds = [...new Set(input.staff.flatMap(s => s.userId ? [s.userId] : []))];
+    if (userIds.length) {
+      const known = await tx.select({ userId: staffRoles.userId }).from(staffRoles).where(and(eq(staffRoles.tenantId, scope.tenantId), inArray(staffRoles.userId, userIds),
+        or(eq(staffRoles.role, "owner"), eq(staffRoles.locationId, scope.locationId))));
+      if (known.length !== userIds.length) throw new DomainError("INVALID_STAFF_USER", "Unknown team member for this location");
+    }
+    const staff = await upsert(tx, scope, bookingStaff, input.staff.map(s => ({ id: s.id, name: s.name, userId: s.userId, workingHours: s.workingHours })), "Diese Person");
+
+    const serviceIds = new Set(services);
+    for (const [index, member] of input.staff.entries()) {
+      if (member.serviceIds.some(id => !serviceIds.has(id))) throw new DomainError("INVALID_SERVICE", "Unknown service for this location");
+      await tx.delete(bookingStaffServices).where(and(eq(bookingStaffServices.tenantId, scope.tenantId), eq(bookingStaffServices.staffId, staff[index])));
+      if (member.serviceIds.length) await tx.insert(bookingStaffServices).values(member.serviceIds.map(serviceId => ({ tenantId: scope.tenantId, staffId: staff[index], serviceId })));
+    }
+    return { ...await getSetup(scope, tx), outsideHours: await appointmentsOutsideHours(scope, tx) };
+  });
+}
+
+// Updates rows by id inside this location, inserts the rest, archives the location's other live rows; returns ids in input order.
+async function upsert(tx: Tx, scope: Scope, table: typeof bookingServices | typeof bookingStaff, rows: { id?: string }[], label: string) {
+  const ids: string[] = [];
+  for (const [sort, { id, ...values }] of rows.entries()) {
+    const set = { ...values, sort };
+    const [row] = id
+      ? await tx.update(table).set(set).where(and(eq(table.tenantId, scope.tenantId), eq(table.locationId, scope.locationId), eq(table.id, id), isNull(table.archivedAt))).returning({ id: table.id })
+      : await tx.insert(table).values({ ...scope, ...set } as never).returning({ id: table.id }); // rows were validated by setupInput for this table
+    if (!row) throw new DomainError("NOT_FOUND", `${label} haben wir nicht gefunden.`);
+    ids.push(row.id);
+  }
+  await tx.update(table).set({ archivedAt: new Date() })
+    .where(and(eq(table.tenantId, scope.tenantId), eq(table.locationId, scope.locationId), isNull(table.archivedAt), ids.length ? notInArray(table.id, ids) : sql`true`));
+  return ids;
+}

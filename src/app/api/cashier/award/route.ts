@@ -5,6 +5,7 @@ import { jsonBody, requireSameOrigin, respondError, sessionUser } from "@/lib/ht
 import { DomainError } from "@/lib/loyalty";
 import { MAX_PURCHASE_AMOUNT_MINOR } from "@/lib/points";
 import { selectedLocationFromRequest } from "@/lib/locations";
+import { completeAfterAward } from "@/lib/booking/cashier";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 const common = { membershipId: z.uuid(), idempotencyKey: z.string().min(8).max(100), requestId: z.uuid(), deviceAt: z.iso.datetime().optional() };
@@ -23,6 +24,8 @@ export async function POST(request: Request) {
     const { deviceAt, ...input } = body.parse(await jsonBody(request, 2000));
     // Per card, shared with redemptions and keyed with the location so another shop cannot use up the card's allowance.
     await enforceRateLimit({ scope: "cashier_booking_card", identity: `${context.locationId}:${input.membershipId}`, max: 20, windowSeconds: 15 * 60 });
-    return Response.json(await award({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined }), { headers: { "Cache-Control": "no-store" } });
+    const result = await award({ ...input, userId: user.id, locationId: context.locationId, deviceAt: deviceAt ? new Date(deviceAt) : undefined });
+    await completeAfterAward(result.entryId);
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return respondError(error); }
 }

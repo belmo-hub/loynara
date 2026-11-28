@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, max, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
-import { billingLocationPlans, ledgerEntries, locations, memberships, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
+import { billingLocationPlans, bookingSettings, ledgerEntries, locations, memberships, ownerAcceptances, plateActivationCodes, plateActivationFailures, programmeCancellationEvents, programs, secureTags, subscriptions, tenants } from "@/db/schema";
 import { freeMonthsEndingSoon } from "./free-month-reminder";
 import { DEMO_SLUG_SQL } from "./demo-environment";
 import { DomainError } from "./loyalty";
+import { BOOKING_AVV_VERSION } from "./owner-contract";
 import { shopsAwaitingOwner } from "./owner-invites";
 import { assertPlateOperator } from "./plates";
 import { PROGRAMME_END_ACTOR } from "./programme-end";
@@ -62,10 +64,11 @@ export async function operatorOverview(actorUserId: string, env: Record<string, 
       locationId: locations.id, location: locations.name, city: locations.city, latitude: locations.latitude, longitude: locations.longitude,
       programId: programs.id, programme: programs.name, status: programs.status, tapMode: programs.tapMode,
       endDate: programs.cancellationEndDate, requestedAt: programs.cancellationRequestedAt, confirmedAt: programs.cancellationConfirmedAt,
-      cards: sql<number>`coalesce(${cards.cards}, 0)`, lastAward: awards.last,
+      cards: sql<number>`coalesce(${cards.cards}, 0)`, lastAward: awards.last, bookingEnabled: sql<boolean>`coalesce(${bookingSettings.enabled}, false)`,
     }).from(programs)
       .innerJoin(tenants, eq(tenants.id, programs.tenantId))
       .innerJoin(locations, and(eq(locations.id, programs.locationId), eq(locations.tenantId, programs.tenantId)))
+      .leftJoin(bookingSettings, and(eq(bookingSettings.tenantId, programs.tenantId), eq(bookingSettings.locationId, programs.locationId)))
       .leftJoin(cards, eq(cards.programId, programs.id)).leftJoin(awards, eq(awards.programId, programs.id))
       .orderBy(asc(tenants.name), asc(locations.name), asc(programs.name));
     const plates = await tx.select({
@@ -150,5 +153,23 @@ export async function setLocationCoordinates(input: { actorUserId: string; env: 
       for (const program of held) await enqueueWalletProgramRefresh(tx, input.tenantId, program.id);
     }
     return { ...point, changed };
+  });
+}
+
+export const BOOKING_AVV_MISSING = "Dieses Geschäft hat die aktuelle Auftragsverarbeitung mit Terminbuchung noch nicht angenommen.";
+
+/** The plan gate: turns online booking on or off for one location. Writes only `enabled`; a missing row starts with the defaults. */
+export async function setBookingEnabled(input: { actorUserId: string; env: Record<string, string | undefined>; tenantId: string; locationId: string; enabled: boolean }) {
+  if (!z.uuid().safeParse(input.tenantId).success || !z.uuid().safeParse(input.locationId).success) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+  return db.transaction(async tx => {
+    await assertPlateOperator(tx, input.actorUserId, input.env);
+    const [shop] = await tx.select({ id: locations.id }).from(locations).where(and(eq(locations.id, input.locationId), eq(locations.tenantId, input.tenantId)));
+    if (!shop) throw new DomainError("NOT_FOUND", "Standort nicht gefunden");
+    // Legal, 22 Nov (B-1): booking puts names and phone numbers into the AVV, so the shop must have accepted that Fassung or a later one.
+    if (input.enabled && !(await tx.select({ id: ownerAcceptances.id }).from(ownerAcceptances)
+      .where(and(eq(ownerAcceptances.tenantId, input.tenantId), gte(ownerAcceptances.avvVersion, BOOKING_AVV_VERSION))).limit(1)).length) throw new DomainError("AVV_NOT_ACCEPTED", BOOKING_AVV_MISSING);
+    await tx.insert(bookingSettings).values({ tenantId: input.tenantId, locationId: input.locationId, enabled: input.enabled })
+      .onConflictDoUpdate({ target: [bookingSettings.tenantId, bookingSettings.locationId], set: { enabled: input.enabled, updatedAt: new Date() } });
+    return { tenantId: input.tenantId, locationId: input.locationId, enabled: input.enabled };
   });
 }

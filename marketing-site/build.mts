@@ -40,7 +40,7 @@ await writeFile(resolve(root, '_headers'), `/*
   Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 `);
 const { brandCss: finalBrandCss } = await import('./src/final-parts.js');
-await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n');
+await writeFile(resolve(root, 'styles.css'), (await readFile(resolve(here, 'design/d.css'), 'utf8')) + '\n' + finalBrandCss() + '\n' + (RELEASED_GATES.bookingLive ? await readFile(resolve(here, 'design/booking.css'), 'utf8') : ''));
 const homeCss = await readFile(resolve(here, 'design/home.css'), 'utf8');
 await writeFile(resolve(root, 'home.css'), homeCss);
 // Without script the scroll scene cannot advance and the shop chips cannot switch: <noscript> loads the reduced-motion

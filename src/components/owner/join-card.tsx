@@ -115,9 +115,10 @@ export function JoinCard({ me, exportUrl }: { me: MeResponse; exportUrl?: string
       <div role="status" aria-live="polite" className="ow-sr">{copied && "Link kopiert."}</div>
       {error && <p className="ow-error ow-qerror" role="alert"><OwnerIcon name="alert" size={20} />{error}</p>}
       {exportUrl && <div className="ow-hint">
-        <p>Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten.</p>
+        <p>{me.bookingShown ? "Lade deine Karten und Buchungen für Excel herunter. Karten und Buchungen enthalten keine Kontaktdaten; der Termin-Export enthält Name und Telefon, so wie Kundinnen und Kunden sie beim Buchen angegeben haben." : "Lade deine Karten und Buchungen für Excel herunter. Kontaktdaten deiner Kundinnen und Kunden sind nicht enthalten."}</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=karten`} download>Karten für Excel</a>: Eine Zeile pro Karte mit aktuellem Stand.</p>
         <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=buchungen`} download>Buchungen für Excel</a>: Jeder Stempel, jede Einlösung und jede Korrektur mit Datum und Standort.</p>
+        {me.bookingShown && <p><a className="ow-link ow-link--block" href={`${exportUrl}?format=appointments`} download>Termine für Excel</a>: Jeder Termin von {me.locationName} mit Kunde, Telefon und Status.</p>}
         <p><a className="ow-link ow-link--block" href={exportUrl} download>Vollständiger Export (JSON)</a></p>
       </div>}
     </section>

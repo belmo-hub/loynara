@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RELEASED_GATES, GATES, COPY_VARIANTS } from '../src/claims.js';
 import { SITE } from '../src/site.js';
@@ -17,7 +18,7 @@ process.stdout.write(JSON.stringify({ home: homePage(), pages: SUB_PAGES.map(p =
 const all = (r: { home: string; pages: string[] }) => [r.home, ...r.pages].map(visible).join(' ');
 
 test('released gates: the NFC tap is primary with QR as the fallback, and the verified production RC capabilities are live', () => {
-  assert.deepEqual(RELEASED_GATES, { nfcAccepted: true, rcDeployed: true });
+  assert.deepEqual(RELEASED_GATES, { nfcAccepted: true, rcDeployed: true, bookingLive: false });
   assert.deepEqual(GATES, RELEASED_GATES, 'tests run without a gate override');
 });
 
@@ -75,4 +76,39 @@ test('public home and industry FAQs explain live lookup, correction and secure m
     assert.doesNotMatch(text, /kommt mit dem nächsten Update|mit dem nächsten Update|comes with the next update/i);
     assert.doesNotMatch(html.replaceAll(`href="${SITE.registerUrl}"`, ''), /href="[^"\s]*\.invalid[^"\s]*"|href="[^"\s]*(?:sign-up|signup|register|checkout)[^"\s]*"/i, 'the only sign-up link is the app\'s own');
   }
+});
+
+test('booking gate off: no Termin + Treue plan, no Salons link, no salon page', () => {
+  const r = render('nfcAccepted,rcDeployed'), t = visible(r.home);
+  assert.doesNotMatch(t, /Termin \+ Treue|69 €|Für Salons|Keine Provision, nie/); assert.ok(!r.home.includes('price-pair') && !r.home.includes('/fuer-salons/'));
+  assert.equal(r.pages.length, 3); assert.ok(r.pages.every(p => !p.includes('/fuer-salons/')));
+});
+
+test('booking gate on: the Termin + Treue plan without a price or a money-back promise, the Salons link and the salon page', () => {
+  const r = render('nfcAccepted,rcDeployed,bookingLive'), t = visible(r.home);
+  assert.match(t, /Termin \+ Treue/); assert.match(t, /Alles aus dem 49‑€‑Paket/); assert.doesNotMatch(t, /\b69\s*€/); assert.doesNotMatch(t, /Geld zurück|weniger als 70 €/);
+  assert.ok(r.home.includes('href="/fuer-salons/"')); assert.equal(r.pages.length, 4); assert.match(visible(r.pages[1]), /Termine auf der Kundenkarte\. Erinnert per Push\./);
+  // Design r2: no outcome promise, no founding price, no amount next to the unpriced plan, and the card names its plan.
+  assert.doesNotMatch(visible(r.pages[1]), /Weniger Nichterscheinen|Gründungspreis|Ein Preis pro Standort|49 € \/ Monat \/ Standort/); assert.match(r.pages[1], /<p class="price"><span>Termin \+ Treue<\/span><\/p>/);
+  assert.match(r.pages[1], /<title>Online-Termine ohne Provision für Salons – Loynara<\/title>/); assert.match(r.pages[1], /<meta name="description" content="Termine auf der Kundenkarte, erinnert per Push: keine Provision, kein WhatsApp-Chaos, deine Kunden bleiben deine\.">/);
+  assert.match(visible(r.home), /Zwei Pakete pro Standort\./); assert.doesNotMatch(visible(r.pages[1]), /pausiert/);
+});
+
+test('booking gate on: the home Termin plan uses the home page\'s own plan classes, which home.css styles', () => {
+  const r = render('nfcAccepted,rcDeployed,bookingLive');
+  const plan = r.home.slice(r.home.indexOf('<p class="per">Termin + Treue</p>') - 200);
+  assert.match(plan, /<div class="pcard"><p class="per">Termin \+ Treue<\/p>/);
+  assert.match(plan, /<a class="btn btn-pri" href="#rq" data-want="demo">Demo anfragen<\/a>/);
+  assert.match(plan, /<ul class="incl" aria-label="In Termin \+ Treue enthalten">/);
+  assert.ok(!r.home.includes('price-pair') && !r.home.includes('class="price-card"'));
+  const css = readFileSync(resolve(here, '../design/home.css'), 'utf8');
+  assert.match(css, /\.pcard,\.incl\{[^}]*background:var\(--surface\)/); assert.match(css, /\.btn-pri\{background:var\(--action\)/);
+});
+
+test('the built site carries nothing of Termin while bookingLive is off (Design minor, 22 Nov)', () => {
+  if (RELEASED_GATES.bookingLive) return;
+  const files: string[] = [];
+  const walk = (dir: string) => { for (const name of readdirSync(dir)) { const path = resolve(dir, name); if (statSync(path).isDirectory()) walk(path); else if (/\.(html|js|css|xml|txt)$/.test(name)) files.push(path); } };
+  walk(resolve(here, '../site'));
+  for (const file of files) assert.doesNotMatch(readFileSync(file, 'utf8'), /69\s*€|Geld zurück|fuer-salons|price-pair|Termin \+ Treue/, file);
 });

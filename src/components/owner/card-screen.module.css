@@ -1,47 +1,49 @@
 /* The owner's Kartenseite in the founder's mix (ENG-258), from the approved mock's karte.html and mix.css (D's statement).
    Phone: card, Verlauf, figures, Details, action. 600 to 1199: card beside the figures (rows as tall as the card), the
    rest full width, Details in two columns. From 1200: D's rail (400) beside the statement, 40 apart. */
+/* Rules on elements that also carry a shared mix class sit under .layout, so they never depend on which module loads last
+   (the booking batch moved ui/mix.module.css later in the build and the Übersicht fell to one column; Design, 26 Nov). */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); grid-template-areas: "card" "feed" "facts" "details" "action"; }
 .card { grid-area: card; display: grid; --grow-after: var(--dur-reward); } /* a fill grows once the card has landed */
-.facts { grid-area: facts; container-type: inline-size; }
-.feed { grid-area: feed; }
-.details { grid-area: details; container-type: inline-size; }
-.action { grid-area: action; }
+.layout .facts { grid-area: facts; container-type: inline-size; }
+.layout .feed { grid-area: feed; }
+.layout .details { grid-area: details; container-type: inline-size; }
+.layout .action { grid-area: action; }
 
 /* From 1200, in the rail: the three figures, a figure over its label, spread from inset to inset. */
-.facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
-.facts > div { display: grid; gap: var(--space-1); }
+.layout .facts.facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--space-4); }
+.layout .facts > div { display: grid; gap: var(--space-1); }
 .figure { font-size: var(--text-22); line-height: 1.75rem; font-weight: var(--weight-heavy); white-space: nowrap; }
 .label { font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
 
 /* „Verlauf“: the day, then its lines. */
 /* A headed panel ends 8 under its last line when no „Ältere Vorgänge laden“ closes it. */
-.feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
+.layout .feed > [role="group"]:last-child { padding-bottom: var(--space-2); }
 .day { margin: 0; padding: var(--space-3) calc(var(--space-5) - 1px) var(--space-1); font-size: var(--text-14); line-height: 1.25rem; font-weight: var(--weight-strong); }
 .empty.empty { padding: var(--space-1) calc(var(--space-5) - 1px) calc(var(--space-5) - 1px); animation: none; }
 .empty.empty p { max-width: none; font-size: var(--text-14); line-height: 1.25rem; }
 .olderError { padding: var(--space-2) calc(var(--space-5) - 1px); }
-.more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
-.more:disabled { color: var(--color-ink-muted); cursor: default; }
+.layout .more { width: 100%; border-width: 1px 0 0; border-style: solid; border-color: var(--color-line); background: none; font: inherit; font-weight: var(--weight-strong); cursor: pointer; }
+.layout .more:disabled { color: var(--color-ink-muted); cursor: default; }
 /* Inset rings: the panel clips anything outside. Tripled to beat `.owner-app :is(…):focus-visible` (0,3,0). „Korrigieren“'s
    44 px box reaches 12 past its text, so its ring sits 10 inside, round the word, clear of the amount above. */
-.more.more.more:focus-visible, .rowButton.rowButton.rowButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.layout .more.more.more:focus-visible, .layout .rowButton.rowButton.rowButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .correct.correct.correct:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -10px; }
 
 /* A statement line: title and sub lines left, the amount right with „Korrigieren“ on the line's last line. */
-.stmtBody.stmtBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-content: center; align-items: start; }
+.layout .stmtBody.stmtBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-content: center; align-items: start; }
 .title { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); font-weight: var(--weight-strong); }
 .sub { grid-column: 1; font-size: var(--text-14); line-height: 1.25rem; color: var(--color-ink-muted); }
-.stmt[data-hang] { align-items: flex-start; }
-.stmt[data-hang] > :first-child { margin-top: var(--space-3); }
-.stmt[data-hang] > .stmtBody { padding-top: 11px; padding-bottom: var(--space-3); }
-.stmt[data-hang] .sub { grid-column: 1 / -1; }
+.layout .stmt[data-hang] { align-items: flex-start; }
+.layout .stmt[data-hang] > :first-child { margin-top: var(--space-3); }
+.layout .stmt[data-hang] > .stmtBody { padding-top: 11px; padding-bottom: var(--space-3); }
+.layout .stmt[data-hang] .sub { grid-column: 1 / -1; }
 .end { grid-area: 1 / 2 / span 2; align-self: stretch; display: grid; justify-items: end; align-content: space-between; }
 /* Under large text only (the row narrower than 15 of its own em; at 100 % even a 320 phone is wider): the amount and
    „Korrigieren“ go under the words instead of over them (#356's activity-row pattern; Design, #348). */
-.stmt { container: stmt / inline-size; }
+.layout .stmt { container: stmt / inline-size; }
 @container stmt (max-width: 15em) {
-  .stmtBody.stmtBody { grid-template-columns: minmax(0, 1fr); }
+  .layout .stmtBody.stmtBody { grid-template-columns: minmax(0, 1fr); }
   .end { grid-area: auto; grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); }
   .title { overflow-wrap: break-word; hyphens: auto; }
 }
@@ -53,7 +55,7 @@
 
 /* „Details“: a label and its value. */
 .key { flex: none; color: var(--color-ink-muted); }
-.pair { flex-wrap: wrap; }
+.layout .pair { flex-wrap: wrap; }
 .value { flex: 1; min-width: 0; font-weight: var(--weight-strong); text-align: right; }
 /* Under large text only: the value goes under its label instead of out of the panel. */
 @container (max-width: 17em) {
@@ -62,7 +64,7 @@
 }
 
 /* „Karte neu ausstellen“ as one tappable row. */
-.rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.layout .rowButton { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .wideBreak { display: none; }
 
 /* A failed read: the danger notice with the panel's inset and radius, 16/24 (mix .m-alert); from 1024 as wide as its text. */
@@ -89,36 +91,36 @@
   .amountBar { margin-right: calc(96px + var(--space-3)); } /* the loaded amount stands left of the „Korrigieren“ column */
   /* D's wide statement: amount and „Korrigieren“ side by side on the title's line, amounts in one column. */
   .end { grid-template-columns: auto 96px; column-gap: var(--space-3); align-content: center; align-items: center; }
-  .stmt[data-hang] .end { align-content: start; }
+  .layout .stmt[data-hang] .end { align-content: start; }
   .correct { justify-self: end; }
 }
 /* Up to 1199 the figures are rows, label left, figure right at 28/32, hairlines between, at least a row's 52 (Head of
    Design; under 600 since 19 Nov, ENG-290: real dates do not fit three figure columns in a phone, and never break). */
 @media (max-width: 1199px) {
-  .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .facts > div { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); padding-block: var(--space-2); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
-  .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
-  .facts .label { order: -1; font-weight: var(--weight-strong); }
-  .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
+  .layout .facts.facts { padding: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .layout .facts > div { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--mix-row); padding-block: var(--space-2); margin-left: calc(var(--space-5) - 1px); padding-right: calc(var(--space-5) - 1px); border-top: 1px solid var(--color-line); }
+  .layout .facts > div:first-child { border-top: 0; } /* not transparent: forced colours paints it in CanvasText, a double top edge */
+  .layout .facts .label { order: -1; font-weight: var(--weight-strong); }
+  .layout .facts .figure { flex: none; font-size: var(--text-28); line-height: 2rem; letter-spacing: -.015em; } /* the label gives way, never the figure */
   /* Under large text only: the figure goes under its label, and breaks only when it is wider than the whole row. 15em,
      not 17: beside the card at 600 the panel is 272 px wide at 100 %. */
   @container (max-width: 15em) {
-    .facts > div { flex-wrap: wrap; }
-    .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; text-align: end; } /* a figure on two lines ends on the inset */
+    .layout .facts > div { flex-wrap: wrap; }
+    .layout .facts .figure { max-width: 100%; margin-left: auto; white-space: normal; text-align: end; } /* a figure on two lines ends on the inset */
   }
 }
 /* Where the longest date („27. Sept. 2026“) at 28 does not fit beside its label (under 360, and 600–699 beside the card)
    all three figures step down to 22/28 together (Head of Design, 20 Nov). */
-@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .facts .figure.figure { font-size: var(--text-22); line-height: 1.75rem; letter-spacing: normal; } }
+@media (max-width: 359px), (min-width: 600px) and (max-width: 699px) { .layout .facts .figure.figure { font-size: var(--text-22); line-height: 1.75rem; letter-spacing: normal; } }
 @media (min-width: 600px) and (max-width: 1199px) {
   .layout { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); grid-template-areas: "card facts" "feed feed" "details details" "action action"; }
   /* Beside the card the figures' rows share the card's height. */
-  .facts.facts { grid-auto-rows: 1fr; }
+  .layout .facts.facts { grid-auto-rows: 1fr; }
   /* „Details“ in two columns, read across; the two first rows have no line over them. */
-  .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .details > :first-child { grid-column: 1 / -1; }
-  .details.details > :nth-child(3) > :first-child { border-top: 0; padding-top: var(--space-2); }
-  .details > :nth-last-child(2) { margin-bottom: var(--space-2); } /* the last two rows share one grid line: both end 8 above the edge */
+  .layout .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .layout .details > :first-child { grid-column: 1 / -1; }
+  .layout .details.details > :nth-child(3) > :first-child { border-top: 0; padding-top: var(--space-2); }
+  .layout .details > :nth-last-child(2) { margin-bottom: var(--space-2); } /* the last two rows share one grid line: both end 8 above the edge */
 }
 @media (min-width: 1200px) {
   .layout { grid-template-columns: 400px minmax(0, 1fr); column-gap: var(--space-10); align-items: start;

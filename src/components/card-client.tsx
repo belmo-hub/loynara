@@ -13,6 +13,7 @@ import { EmailOffer, EmailSheet, emailRow, useEmailStatus } from "./card-email";
 import { CardReferral } from "./card-referral";
 import { CardBirthday } from "./card-birthday";
 import { CardWalletMessages } from "./card-wallet-messages";
+import { CardBooking } from "./booking/card-booking";
 import { Reveal } from "./customer/reveal";
 import { Button, buttonClassName } from "./ui/button";
 import noticeStyles from "./customer/customer-notice.module.css";
@@ -308,6 +309,7 @@ export function CardClient({ token }: { token: string }) {
     <Reveal open={authenticationRequired} gap="var(--space-4)"><section role="status" className={noticeClass}><p>Bestätige deinen Browserzugang mit diesem privaten Kartenlink.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ authenticate: true })}>Mit meinem privaten Kartenlink anmelden</Button></section></Reveal>
     <Reveal open={switchRequired} gap="var(--space-4)"><section role="alert" className={noticeClass}><p>Auf diesem Gerät ist eine andere Karte gespeichert. Soll künftig diese Karte für NFC verwendet werden? Auf einem geteilten Gerät bestätigen wir die Karte bei jeder Berührung.</p><Button variant="secondary" size="sm" onClick={() => void bindBrowser({ switchAccount: true })}>Diese Karte für NFC verwenden</Button></section></Reveal>
     <Reveal open={bindingError.shown} gap="var(--space-4)"><p role="alert" className={noticeClass}>{bindingError.text}</p></Reveal>
+    <CardBooking token={token} />
     {savedView && <CardWalletMessages token={token} expiry={expiry} timeZone={shop.timeZone} onShown={setConsentUp} />}
     <Reveal open={!french && offerShown && !savedView} gap="var(--space-4)"><EmailOffer token={token} shop={shop} reload={email.reload} onSent={() => setOfferKept(true)} onClose={() => setOfferClosed(true)} /></Reveal>
     <Reveal open={wallet?.apple === "available" && wallet.appleReAdd === true && platform !== "android"} gap="var(--space-4)"><section role="status" className={noticeClass}><p>{french ? "Votre carte Apple Wallet change de version. Ajoutez-la une nouvelle fois pour que votre solde y reste à jour. L’ancienne carte ne sera ensuite plus mise à jour : vous pouvez la supprimer." : "Deine Karte in Apple Wallet bekommt eine neue Version. Füge sie bitte einmal neu hinzu, damit dein Stand dort aktuell bleibt. Die alte Karte wird danach nicht mehr aktualisiert. Du kannst sie aus Wallet löschen."}</p><Button variant="secondary" size="sm" disabled={walletBusy !== null} onClick={() => void addToAppleWallet()}>{french ? "Ajouter de nouveau à Apple Wallet" : "Neu zu Apple Wallet hinzufügen"}</Button></section></Reveal>

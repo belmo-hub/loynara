@@ -1,5 +1,5 @@
 /** Page shells: metadata, the home page (body in src/home.ts) and the supporting and legal pages with their shared header and footer. Static HTML, German only. */
-import { ENTRY_COPY as E } from './src/claims.js';
+import { ENTRY_COPY as E, GATES } from './src/claims.js';
 import { SITE } from './src/site.js';
 import { homeBody } from './src/home.js';
 import { subPageBody, type SubPage } from './src/pages.js';
@@ -17,7 +17,7 @@ export const header = (home: boolean) => {
   const base = home ? '' : '/';
   return `<a class="skip" href="#inhalt">Zum Inhalt springen</a><header class="top"><div class="wrap bar"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><nav class="mainnav" aria-label="Hauptnavigation"><a href="${base}#ablauf">So funktioniert’s</a><a href="${base}#geschaefte">Für dein Geschäft</a><a href="${base}#preis">Preis</a><a href="${base}#fragen">Fragen</a></nav><div class="bar-actions"><a class="login" href="${SITE.loginUrl}">Anmelden</a><a class="btn btn-small" href="${base}#anfrage">Demo anfragen</a></div></div></header>`;
 };
-export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a><a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
+export const footer = `<footer class="foot"><div class="wrap"><div class="foot-top"><a class="logo" href="/" aria-label="Loynara Startseite">${mark}</a><p>Wiederkommen belohnen. Weiterempfehlen leicht machen.</p></div><nav class="foot-links" aria-label="Branchen und Themen"><a href="/fuer-barber/">Für Barber</a><a href="/fuer-pizzerien/">Für Pizzerien</a>${GATES.bookingLive ? '<a href="/fuer-salons/">Für Salons</a>' : ''}<a href="/empfehlungen/">Kunden werben Kunden</a></nav><nav class="foot-links" aria-label="Rechtliches und Kontakt"><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="${SITE.loginUrl}">Anmelden</a><a href="mailto:${SITE.supportEmail}">${SITE.supportEmail}</a></nav><p class="foot-note">© Loynara</p></div></footer>`;
 
 export function homePage(): string {
   return `${head({ title: TITLE, description: DESCRIPTION, path: '/', robots: 'index,follow', social: true, styles: '/home.css' })}<script type="module" src="/assets/home.js"></script><noscript><link rel="stylesheet" href="/home-static.css"></noscript></head>

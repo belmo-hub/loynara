@@ -3,6 +3,7 @@ import type { HappyHourWindow } from "@/lib/happy-hour";
 import {
   boolean,
   check,
+  customType,
   date,
   doublePrecision,
   foreignKey,
@@ -1166,6 +1167,176 @@ export const walletTemplateBindingEvents = pgTable("wallet_template_binding_even
   check("wallet_template_binding_action_valid", sql`(${t.action} in ('set','import') and ${t.oldTemplateId} is null) or (${t.action} = 'change' and ${t.oldTemplateId} is not null)`),
 ]);
 
+// ---- Loynara Termin (booking, docs/booking-schema-api.md) ----------------------------------------------------------------
+// Drizzle has no range type; values are written with tstzrange(...) and read through lower()/upper().
+const tstzrange = customType<{ data: string }>({ dataType: () => "tstzrange" });
+export type WorkingDay = { weekday: number; start: string; end: string; breaks: { start: string; end: string }[] };
+
+export const bookingSettings = pgTable("booking_settings", {
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  shopType: varchar("shop_type", { length: 12 }).notNull().default("barber"),
+  goalText: varchar("goal_text", { length: 140 }).notNull().default(""),
+  leadTimeMin: integer("lead_time_min").notNull().default(120),
+  maxDaysAhead: integer("max_days_ahead").notNull().default(42),
+  cancelDeadlineHours: integer("cancel_deadline_hours").notNull().default(24),
+  maxReschedulesPerMonth: integer("max_reschedules_per_month").notNull().default(2),
+  autoConfirm: boolean("auto_confirm").notNull().default(true),
+  noShowBlockAfter: integer("no_show_block_after").notNull().default(3),
+  maxOpenPerCard: integer("max_open_per_card").notNull().default(2),
+  termsText: varchar("terms_text", { length: 600 }).notNull().default(""),
+  // The shop's own opening hours (the wizard's default for staff who follow them); null until set. Availability reads staff hours.
+  openingHours: jsonb("opening_hours").$type<WorkingDay[]>(),
+  setupDoneAt: timestamp("setup_done_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.locationId] }),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  check("booking_settings_valid", sql`${t.shopType} in ('nagelstudio','barber','kosmetik') and ${t.leadTimeMin} between 0 and 1440 and ${t.maxDaysAhead} between 1 and 180 and ${t.cancelDeadlineHours} between 0 and 168 and ${t.maxReschedulesPerMonth} between 0 and 10 and ${t.noShowBlockAfter} between 0 and 10 and ${t.maxOpenPerCard} between 1 and 2`),
+]);
+
+export const bookingServices = pgTable("booking_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  durationMin: integer("duration_min").notNull(),
+  bufferMin: integer("buffer_min").notNull().default(0),
+  priceMinor: integer("price_minor").notNull(),
+  priceFrom: boolean("price_from").notNull().default(false),
+  rebookAfterDays: integer("rebook_after_days").notNull().default(0),
+  sort: integer("sort").notNull().default(0),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("booking_services_tenant_id_id_uq").on(t.tenantId, t.id),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  check("booking_service_valid", sql`${t.durationMin} between 5 and 480 and ${t.durationMin} % 5 = 0 and ${t.bufferMin} between 0 and 60 and ${t.priceMinor} between 0 and 100000 and ${t.rebookAfterDays} between 0 and 365`),
+]);
+
+export const bookingStaff = pgTable("booking_staff", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  name: varchar("name", { length: 60 }).notNull(),
+  userId: text("user_id"),
+  workingHours: jsonb("working_hours").$type<WorkingDay[]>().notNull().default(sql`'[]'::jsonb`),
+  sort: integer("sort").notNull().default(0),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("booking_staff_tenant_id_id_uq").on(t.tenantId, t.id),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+]);
+
+export const bookingStaffServices = pgTable("booking_staff_services", {
+  tenantId: uuid("tenant_id").notNull(),
+  staffId: uuid("staff_id").notNull(),
+  serviceId: uuid("service_id").notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.staffId, t.serviceId] }),
+  foreignKey({ columns: [t.tenantId, t.staffId], foreignColumns: [bookingStaff.tenantId, bookingStaff.id] }),
+  foreignKey({ columns: [t.tenantId, t.serviceId], foreignColumns: [bookingServices.tenantId, bookingServices.id] }),
+]);
+
+export const bookingBlocks = pgTable("booking_blocks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  staffId: uuid("staff_id"),
+  during: tstzrange("during").notNull(),
+  reason: varchar("reason", { length: 80 }).notNull().default(""),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.staffId], foreignColumns: [bookingStaff.tenantId, bookingStaff.id] }),
+  check("booking_block_bounded", sql`lower_inc(${t.during}) and not upper_inc(${t.during}) and not lower_inf(${t.during}) and not upper_inf(${t.during})`),
+]);
+
+/** Two EXCLUDE constraints (no overlap per staff member and per card) and the gist indexes live in 0042 only: Drizzle cannot express them. */
+export const bookingAppointments = pgTable("booking_appointments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  locationId: uuid("location_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  serviceId: uuid("service_id").notNull(),
+  staffId: uuid("staff_id").notNull(),
+  during: tstzrange("during").notNull(),
+  durationMin: integer("duration_min").notNull(),
+  priceMinor: integer("price_minor").notNull(),
+  status: varchar("status", { length: 24 }).notNull().default("requested"),
+  customerName: varchar("customer_name", { length: 60 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 30 }),
+  idempotencyKey: varchar("idempotency_key", { length: 100 }).notNull(),
+  rescheduleCount: integer("reschedule_count").notNull().default(0),
+  // One instant per customer reschedule: the monthly limit counts these, in the shop's calendar month.
+  rescheduledAt: timestamp("rescheduled_at", { withTimezone: true }).array().notNull().default(sql`'{}'`),
+  lateCancel: boolean("late_cancel").notNull().default(false),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancelReason: varchar("cancel_reason", { length: 80 }),
+  doneLedgerEntryId: uuid("done_ledger_entry_id"),
+  rebookSentAt: timestamp("rebook_sent_at", { withTimezone: true }),
+  rebookSourceId: uuid("rebook_source_id"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("booking_appointments_tenant_id_id_uq").on(t.tenantId, t.id),
+  unique("booking_appointments_idempotency_uq").on(t.tenantId, t.idempotencyKey),
+  foreignKey({ columns: [t.tenantId, t.locationId], foreignColumns: [locations.tenantId, locations.id] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  foreignKey({ columns: [t.tenantId, t.serviceId], foreignColumns: [bookingServices.tenantId, bookingServices.id] }),
+  foreignKey({ columns: [t.tenantId, t.staffId], foreignColumns: [bookingStaff.tenantId, bookingStaff.id] }),
+  foreignKey({ columns: [t.tenantId, t.doneLedgerEntryId], foreignColumns: [ledgerEntries.tenantId, ledgerEntries.id] }),
+  index("booking_appointments_member_idx").on(t.tenantId, t.membershipId, t.createdAt),
+  uniqueIndex("booking_appointments_done_entry_uq").on(t.tenantId, t.doneLedgerEntryId).where(sql`${t.doneLedgerEntryId} is not null`),
+  check("booking_appointment_status_valid", sql`${t.status} in ('requested','confirmed','done','no_show','cancelled_by_customer','cancelled_by_shop')`),
+  check("booking_appointment_bounded", sql`lower_inc(${t.during}) and not upper_inc(${t.during}) and not lower_inf(${t.during}) and not upper_inf(${t.during})`),
+  check("booking_appointment_done_entry", sql`(${t.status} = 'done') or ${t.doneLedgerEntryId} is null`),
+  check("booking_appointment_cancel_valid", sql`(${t.status} like 'cancelled_%') = (${t.cancelledAt} is not null)`),
+]);
+
+export const bookingBlockedCustomers = pgTable("booking_blocked_customers", {
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  blockedAt: timestamp("blocked_at", { withTimezone: true }).notNull().defaultNow(),
+  blockedByUserId: text("blocked_by_user_id"),
+  reason: varchar("reason", { length: 80 }).notNull().default(""),
+}, (t) => [
+  primaryKey({ columns: [t.tenantId, t.membershipId] }),
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+]);
+
+export const bookingPushSubscriptions = pgTable("booking_push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: varchar("p256dh", { length: 100 }).notNull(),
+  auth: varchar("auth", { length: 40 }).notNull(),
+  failureCount: integer("failure_count").notNull().default(0),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  index("booking_push_member_idx").on(t.tenantId, t.membershipId),
+  check("booking_push_endpoint_https", sql`${t.endpoint} like 'https://%'`),
+]);
+
+export const bookingPushLog = pgTable("booking_push_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  membershipId: uuid("membership_id").notNull(),
+  appointmentId: uuid("appointment_id"),
+  kind: varchar("kind", { length: 16 }).notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.membershipId], foreignColumns: [memberships.tenantId, memberships.id] }),
+  unique("booking_push_log_appointment_kind_uq").on(t.appointmentId, t.kind),
+  index("booking_push_log_member_idx").on(t.tenantId, t.membershipId, t.sentAt),
+  check("booking_push_kind_valid", sql`${t.kind} in ('reminder_24h','reminder_2h','rebook','shop_cancel','moved','confirmed')`),
+]);
 /**
  * ENG-166 (DS-05): the erasure record, one row per erased shop, kept 6 years with the contract (Legal, 1 Nov). It is
  * Loynara's own record, not the shop's data: legal name, end date, export end, the contract facts copied in before the

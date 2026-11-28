@@ -379,6 +379,13 @@
       "when": 1795381251762,
       "tag": "0053_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795430756998,
+      "tag": "0054_booking",
+      "breakpoints": true
     }
   ]
 }
